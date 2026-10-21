@@ -869,14 +869,14 @@
   "climbables": {
     "ladders": [
       {
-        "x": 2320,
-        "top": 1640,
-        "bottom": 2020,
+        "x": 2455,
+        "top": 1630,
+        "bottom": 1870,
         "platform": -1,
         "side": 1
       },
       {
-        "x": 2560,
+        "x": 2745,
         "top": 1760,
         "bottom": 1900,
         "platform": -1,

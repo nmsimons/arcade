@@ -1,6 +1,6 @@
 import type { Player } from './model.ts'
 import { climbGait } from './climbables.ts'
-import { climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME } from './ledge.ts'
+import { climbFrame, ladderMantleProgress, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME } from './ledge.ts'
 
 /** The equipped right arm is the rear arm when facing left. Contact slots use
  * the same front/rear order as the rig, wall brace and climbing choreography. */
@@ -10,6 +10,7 @@ export function rightArmSupporting(p: Player): boolean {
   if (p.mantle) {
     const m = p.mantle
     let progress = m.descending ? 1 - Math.max(0, (m.time - LEDGE_CATCH_TIME) / LEDGE_CLIMB_TIME) : m.time / LEDGE_CLIMB_TIME
+    if (m.ladder) progress = ladderMantleProgress(m.time, m.ladder.entry)
     if (m.step) {
       const step = m.step, t = Math.min(1, m.time / step.duration)
       if (step.rise > 40.01 && !step.climbing) {

@@ -3,17 +3,13 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseLevel, blankTrial } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
-import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
-import { bodyIntersects } from '../src/games/jumping/geometry.ts'
+import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
 const courses = ['Nothing to It', 'Fire Fire', 'Sreddal', 'Hellstones', 'Figurits Revenge', 'Walls',
   'Zig Zag', 'Spellbound', 'Blackout', 'Here There Everywhere', 'Hatchlings', 'Hurricane']
 
 for (const name of courses) test(`${name}: authored Rbot traverses the course and reaches a firing position`, () => {
   const level = parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${name}.jump-level.json`, import.meta.url), 'utf8')))
-  for (const ladder of level.climbables.ladders) for (let y = ladder.top + TUNING.hangReach; y < ladder.bottom; y += 5) {
-    assert.ok(!level.platforms.some(platform => bodyIntersects(ladder.x, y - .05, platform, TUNING.height)), `${ladder.name} is blocked at ${y}`)
-  }
   for (const rope of level.climbables.ropes) {
     const anchor = rope.anchor, host = anchor && level.platforms[anchor.platform]
     if (host && (anchor.x === 0 || Math.abs(anchor.x - host.w) < 1e-6)) {

@@ -160,6 +160,7 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     const m = p.mantle
     m.edgeY = -m.edgeY; m.toY = -m.toY
     if (m.slope !== undefined) m.slope = -m.slope
+    if (m.ladder) { m.ladder.y = -m.ladder.y; climb(m.ladder.climb) }
     if (m.step) {
       if (m.step.returnPreparation) hands(m.step.returnPreparation.hands)
       caught(m.step.caught)

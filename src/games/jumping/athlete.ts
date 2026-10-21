@@ -4,7 +4,7 @@ import type { JumpInput, Platform, Player } from './model.ts'
 import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
 import { bodyPolygon, lineBlocked, moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
-import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
+import { BACK_GRIP, BACK_WRIST, climbFrame, ladderMantleProgress, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { ropeArmReach, ropeHangOffset } from './ropeBodyMotion.ts'
 import { keepRopeGrip } from './ropeGravity.ts'
@@ -572,6 +572,7 @@ function stepUpPose(p: Player): AthletePose {
 
 /** All supports are authored relative to the corner, independent of the camera and player root. */
 function ledgePose(p: Player): AthletePose {
+  if (p.mantle?.ladder) return rearLedgePose(p)
   if (p.hang && p.hang.time < LEDGE_CATCH_TIME && !p.hang.caught.climbing) {
     const h = p.hang, source = presentedAthletePose({ ...p, ...h.caught, hang: null, mantle: null, climbing: null, landing: 0 })
     const target = ledgePose({ ...p, hang: { ...h, time: LEDGE_CATCH_TIME } })
@@ -674,8 +675,42 @@ function ledgePose(p: Player): AthletePose {
   }
   return { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
 }
+
+/** The existing pull/knee/trailing-foot choreography, looking toward the wall.
+ * Its forward reach becomes depth; anatomical shoulder/hip width stays visible. */
+function rearLedgePose(p: Player): AthletePose {
+  const m = p.mantle!, entry = m.ladder!, t = ladderMantleProgress(m.time, entry.entry), frame = climbFrame(t)
+  const source = ledgePose({ ...p, x: m.edgeX + frame.root[0] * p.facing, terrain: undefined,
+    mantle: { ...m, ladder: undefined, time: t * LEDGE_CLIMB_TIME } })
+  const rear = 1 - smooth((t - .84) / .16), angle = rear * Math.PI / 2, cos = Math.cos(angle), sin = Math.sin(angle)
+  const point = ([x, y]: Point): Point => [x * cos, y]
+  const limb = (part: Limb, side: number, upper: number, lower: number, rootSpread: number, endSpread: number): Limb => {
+    const root: Point = [part.root[0] * cos + side * rootSpread * rear, part.root[1]]
+    const end: Point = [part.end[0] * cos - (part.endDepth ?? 0) * sin + side * endSpread * rear, part.end[1]]
+    const depth = (part.end[0] - part.root[0]) * sin + (part.endDepth ?? 0) * cos
+    const reach = limbReach(root, end, upper, lower, depth)
+    const joint = [part.joint[0] * cos - (part.jointDepth ?? 0) * sin + side * (rootSpread + endSpread) / 2 * rear,
+      part.joint[1], (part.joint[0] - part.root[0]) * sin + (part.jointDepth ?? 0) * cos]
+    const bend = [joint[0] - root[0] - reach.center[0], joint[1] - root[1] - reach.center[1], joint[2] - reach.center[2]]
+    const solved = limbOnBend(reach, bend, [side * rear, -reach.axis[0], 1 - rear])
+    const hand = part.hand && add(solved.end, [(part.hand[0] - part.end[0]) * cos, part.hand[1] - part.end[1]])
+    return { ...part, ...solved, hand }
+  }
+  const leg = (part: Leg, side: number): Leg => ({ ...part, ...limb(part, side, 15, 14.5, 2.7, 3.5),
+    rear, footAngle: part.footAngle * (1 - rear), toeAngle: part.toeAngle * (1 - rear) })
+  const pose: AthletePose = { hip: point(source.hip), waist: point(source.waist), shoulder: point(source.shoulder), head: point(source.head),
+    frontArm: limb(source.frontArm, -1, UPPER_ARM, FOREARM, 3.9, 5.5), backArm: limb(source.backArm, 1, UPPER_ARM, FOREARM, 3.9, 5.5),
+    frontLeg: leg(source.frontLeg, -1), backLeg: leg(source.backLeg, 1), sideView: 1 - rear, backView: rear }
+  if (m.time < 0) {
+    const caught = presentedAthletePose({ ...p, x: entry.x, y: entry.y, climbing: entry.climb, mantle: null, hang: null })
+    return transferPose(caught, pose, [(entry.x - p.x) * p.facing, entry.y - p.y], smooth((m.time + LEDGE_CATCH_TIME) / LEDGE_CATCH_TIME),
+      [0, 0], 0, false, 0, { depth: 3, kneeOpening: 0, stableReach: true })
+  }
+  return pose
+}
 function climbingPose(p: Player, turnAngle = 0): AthletePose {
-  const c = p.climbing!, d = c.distance, blend = smooth(c.time / .16)
+  const c = p.climbing!, blend = smooth(c.time / .16)
+  const d = c.distance
   if (c.turn) {
     const base = { ...c, turn: undefined, time: .16, hangBlend: 1, wall: undefined, wallBlend: 0 }
     keepRopeGrip(base, c.turn.grip)

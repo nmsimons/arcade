@@ -32,7 +32,7 @@
   "climbables": {
     "ladders": [
       {
-        "x": 80,
+        "x": 390,
         "top": 800,
         "bottom": 1200,
         "platform": -1,

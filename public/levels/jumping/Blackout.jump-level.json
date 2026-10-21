@@ -146,18 +146,10 @@
       "material": "earth"
     },
     {
-      "name": "Left crown · 1",
+      "name": "Left crown",
       "x": 150,
       "y": 425,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left crown · 2",
-      "x": 275,
-      "y": 425,
-      "w": 125,
+      "w": 250,
       "h": 25,
       "material": "earth"
     },
@@ -279,12 +271,12 @@
         "length": 425,
         "segments": 54,
         "anchor": {
-          "platform": 10,
-          "x": 25,
+          "platform": 9,
+          "x": 150,
           "y": 25
         },
         "rest": {
-          "key": "7:61a88c6c29d0225e",
+          "key": "7:ab27846fd5e396af",
           "points": [
             [
               300,
@@ -1018,7 +1010,7 @@
         "length": 925,
         "segments": 116,
         "rest": {
-          "key": "7:2c2343ca66f73820",
+          "key": "7:b7ad08bb56d4b371",
           "points": [
             [
               1175,
@@ -1735,7 +1727,7 @@
         "length": 600,
         "segments": 75,
         "anchor": {
-          "platform": 13,
+          "platform": 12,
           "x": 200,
           "y": 0
         },

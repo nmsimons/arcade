@@ -14,42 +14,26 @@
       "material": "earth"
     },
     {
-      "name": "Lower bridge · 1",
+      "name": "Lower bridge",
       "x": 450,
       "y": 1175,
-      "w": 325,
+      "w": 750,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Lower bridge · 2",
-      "x": 825,
-      "y": 1175,
-      "w": 375,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left low shelf · 1",
+      "name": "Left low shelf",
       "x": 300,
       "y": 1025,
-      "w": 175,
+      "w": 300,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Left low shelf · 2",
-      "x": 525,
-      "y": 1025,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right low ramp · 1",
+      "name": "Right low ramp",
       "x": 750,
       "y": 975,
-      "w": 375,
+      "w": 550,
       "h": 100,
       "material": "earth",
       "polygon": [
@@ -66,11 +50,11 @@
           75
         ],
         [
-          375,
+          550,
           75
         ],
         [
-          375,
+          550,
           100
         ],
         [
@@ -86,14 +70,6 @@
           25
         ]
       ]
-    },
-    {
-      "name": "Right low ramp · 2",
-      "x": 1175,
-      "y": 1050,
-      "w": 125,
-      "h": 25,
-      "material": "earth"
     },
     {
       "name": "Left middle deck",
@@ -113,9 +89,9 @@
     },
     {
       "name": "Left upper deck",
-      "x": 325,
+      "x": 275,
       "y": 625,
-      "w": 275,
+      "w": 325,
       "h": 25,
       "material": "earth"
     },
@@ -123,23 +99,15 @@
       "name": "Right upper deck",
       "x": 750,
       "y": 625,
-      "w": 525,
+      "w": 575,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Crown · 1",
+      "name": "Crown",
       "x": 600,
       "y": 425,
-      "w": 175,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Crown · 2",
-      "x": 825,
-      "y": 425,
-      "w": 175,
+      "w": 400,
       "h": 25,
       "material": "earth"
     }
@@ -214,7 +182,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:fd87ac7bbafab3c7",
+          "key": "7:18470f2ef8f9c440",
           "points": [
             [
               150,
@@ -693,7 +661,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:d820e1c5f14f724b",
+          "key": "7:2a8bbcb5293d03e5",
           "points": [
             [
               1450,

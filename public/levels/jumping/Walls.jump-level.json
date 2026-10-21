@@ -86,50 +86,26 @@
       "material": "earth"
     },
     {
-      "name": "Left inner crown · 1",
+      "name": "Left inner crown",
       "x": 500,
       "y": 625,
-      "w": 25,
+      "w": 150,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Left inner crown · 2",
-      "x": 575,
-      "y": 625,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right inner crown · 1",
+      "name": "Right inner crown",
       "x": 950,
       "y": 625,
-      "w": 75,
+      "w": 150,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Right inner crown · 2",
-      "x": 1075,
-      "y": 625,
-      "w": 25,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left crown · 1",
+      "name": "Left crown",
       "x": 150,
       "y": 425,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left crown · 2",
-      "x": 275,
-      "y": 425,
-      "w": 25,
+      "w": 150,
       "h": 25,
       "material": "earth"
     },
@@ -158,18 +134,10 @@
       "material": "earth"
     },
     {
-      "name": "Right crown · 1",
+      "name": "Right crown",
       "x": 1300,
       "y": 425,
-      "w": 25,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right crown · 2",
-      "x": 1375,
-      "y": 425,
-      "w": 75,
+      "w": 150,
       "h": 25,
       "material": "earth"
     }

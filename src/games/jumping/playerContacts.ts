@@ -9,7 +9,7 @@ import { boxPushFace, propBounds, propPushHands, PROP_APPROACH_GAP } from './pro
 import type { PushHands } from './propGeometry.ts'
 import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
-import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
+import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless, playerWaterCenterOffset } from './gravity.ts'
@@ -79,9 +79,11 @@ export function playerContactBody(p: Player, swimmingOutline = false): { x: numb
   const m = p.mantle?.step ? null : p.mantle, h = p.hang, grip = m ?? h
   if (!grip) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
   const progress = m ? Math.max(0, Math.min(1, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME)) : 0
-  const t = m?.descending ? 1 - progress : progress, crouched = !!m?.crouched
+  const t = m?.ladder ? ladderMantleProgress(m.time, m.ladder.entry) : m?.descending ? 1 - progress : progress, crouched = !!m?.crouched
   const pose = climbFrame(t, grip.braced, grip.slope, crouched, m?.inset)
   const root = climbContactRoot(t, grip.braced, grip.slope, crouched, m?.inset)
+  if (m?.ladder) return { x: p.x, y: p.y + (root[1] - pose.root[1]) * ledgeEase((m.time + LEDGE_CATCH_TIME) / LEDGE_CATCH_TIME),
+    height: climbBodyHeight(t) }
   const blend = h ? ledgeEase(h.time / (h.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME))
     : m?.descending ? ledgeEase(m.time / LEDGE_CATCH_TIME) : 1
   return { x: p.x + (root[0] - pose.root[0]) * grip.side * blend,

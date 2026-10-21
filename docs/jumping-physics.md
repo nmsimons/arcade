@@ -186,7 +186,8 @@ floor releases a low grip through the normal detach control.
 Planned lowering keeps Down through the ladder or rope handoff. Walk routes
 follow the actual surface around shallow crests without unnecessary jumps;
 their final clear approach reaches the target beyond the graph's coarse sample.
-Hunters step down through clear ladder openings instead of jumping across them.
+Hunters board foreground ladders through solid floors, use intermediate floor
+crossings, and step down through existing openings instead of jumping across them.
 On a descending route, an unrelated thin beam does not start a repeated pull-up.
 A blocked rope descent can release at the shelf end and replan from the normal
 falling body. A hunter standing on the player keeps its chosen step-off direction
@@ -398,7 +399,7 @@ component below 0.01 can come from a resting box's slight solver tilt, and does
 not provide a sliding foot placement. The solid body sweep still resolves those
 faces normally.
 
-Ledge grabs, ladder exits, rope transfers and lowering over an edge share the
+Ledge grabs, side-mounted ladder exits, rope transfers and lowering over an edge share the
 terrain's actual exposed top corners. Inset towers and shelves within a single
 polygon work like separate terrain pieces. Climbing exempts only the supporting
 corner from the standing-body hull; ceilings and other parts of the same polygon
@@ -406,6 +407,25 @@ still obstruct the climb. A flush wall beneath a separate cap continues the same
 supporting face, so its internal seam cannot block a rope transfer, pull-up or
 lowering motion. Follow only touching face intervals; real gaps retain separate
 collision geometry.
+
+Ladders are foreground passages through static terrain while attached, shared
+by the player and Rbot. Ordinary walking still treats the crossing floor as
+solid. Up boards from below; Down over the ladder boards directly from a deck,
+before ordinary edge lowering. Climbing may cross multiple solid platforms.
+Sideways, jump and drop release require a clear standing body. Feet up to 18
+units into a walkable terrain lip can settle onto its top when releasing, provided
+the complete body fits there; walls and low ceilings still prevent departure.
+An obstructed end keeps the grip and permits retreat. Gates, props, other actors
+and each actor's blocking forcefields still stop the climb without releasing
+the rider inside terrain. Ladder geometry remains exactly as authored. At the
+upper deck, the hands transfer to its lip and start the existing ledge mantle
+viewed from behind: pull, knee support, trailing foot, then stand. Forward reach
+projects into depth rather than shifting sideways. The shared mantle timing
+also determines when the equipped arm becomes free. Down reverses the pull-up
+onto the ladder; moving mechanisms and forcefields can stop it without dropping
+the rider inside terrain.
+Intermediate floors support sideways departure. The bot graph includes these
+boarding/exit points and checks active mechanism/field barriers on ladder legs.
 
 The outside face below a lip may lean outward by up to ten degrees from vertical,
 including a pool bank with a sloping top. This only admits the corner for a
@@ -497,14 +517,25 @@ Keyboard S/Down and controller Down set descend, crouch and drop together;
 the touch down-drag produces the same combination. They are contextual actions,
 not independently selectable dive and upright-floor-hold commands. W/Up requests
 climbing. X, controller B/○ and the released downward touch flick explicitly
-detach. A held Jump suppresses vertical acquisition; in a hang, explicit detach
+detach. A held Jump takes priority over grounded vertical acquisition. In flight,
+Up can catch a ladder while Jump is held; catching consumes that press until it
+is released and pressed again. Catch alignment checks the whole body against
+terrain and mechanisms, so a platform lip cannot be crossed sideways. Holding
+Up/Down keeps the ladder grip despite slight sideways steering; release vertical
+input to step off sideways. In a hang, explicit detach
 or an unlocked Down drop takes precedence over Jump.
+
+Down ignores a ladder whose lower end is buried in the floor already supporting
+the player. A rider arriving from above keeps its grip at a buried end and can
+retreat. At a clear lower end, Down can finish crouched when a low ceiling leaves
+room for crouching but not standing.
 
 | Current situation | Action and priority |
 | --- | --- |
-| Supported, near an exposed eligible lip | Down first lowers along a clear pull-up path, before a nearby ladder/rope acquisition or crouch. The motor and contextual cue share `loweringOption`. |
+| Supported, over an eligible ladder | Down boards directly through the floor. Up boards from below; at the upper end it keeps standing. At the bottom, Down does not reacquire. |
+| Supported, near an exposed eligible lip without direct ladder boarding | Down first lowers along a clear pull-up path, before a nearby rope acquisition or crouch. The motor and contextual cue share `loweringOption`. |
 | Supported, lip path blocked or outside its 32-unit reach | Try eligible vertical climbable acquisition, then crouch. A low ceiling never authorizes standing through a solid. |
-| Supported at the middle of a ladder | Vertical input acquires it before ordinary crouch. At its bottom, Down does not acquire it; at its top, use the eligible lowering path. |
+| Supported at the middle of a ladder | Vertical input acquires it before ordinary crouch. A clear intermediate floor also permits sideways departure from the ladder. |
 | Supported beside a rope | Gravity-facing downward input does not directly acquire the rope. Up can acquire it; airborne acquisition remains automatic. A deliberate lowering can transfer onto a rope or ladder at its lip. |
 | Free in water | Up/Down steer ascent/dive; combine with horizontal movement for diagonals. Once swimming below the surface, release glides to a stop and floats upright at the reached depth. On the submerged floor, stand or walk with relaxed arms; Down crouches, release stands, and Up swims away. Swim to push loose props. Only stable supported crates offer a grip: use Up, with a surface jump first if needed. Terrain banks can catch automatically. |
 | Hanging after deliberate lowering | Held Down stops in a safe hang. Release and a separate Down press drops once; explicit detach is immediate. Without horizontal input, letting go preserves facing toward the ledge despite its small outward clearance impulse. A fresh Jump leaps outward at 260 units/second and turns the figure outward; Up requests a clear pull-up. |

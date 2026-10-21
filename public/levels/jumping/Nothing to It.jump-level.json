@@ -17,9 +17,27 @@
       "name": "Left lower shelf · 1",
       "x": 150,
       "y": 1150,
-      "w": 75,
+      "w": 125,
       "h": 25,
-      "material": "earth"
+      "material": "earth",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          125,
+          0
+        ],
+        [
+          125,
+          25
+        ],
+        [
+          0,
+          25
+        ]
+      ]
     },
     {
       "name": "Left lower shelf · 2",
@@ -39,17 +57,35 @@
     },
     {
       "name": "Right lower shelf · 2",
-      "x": 1375,
+      "x": 1325,
       "y": 1150,
-      "w": 75,
+      "w": 125,
       "h": 25,
-      "material": "earth"
+      "material": "earth",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          125,
+          0
+        ],
+        [
+          125,
+          25
+        ],
+        [
+          0,
+          25
+        ]
+      ]
     },
     {
       "name": "Lower V · 1",
       "x": 350,
       "y": 1075,
-      "w": 425,
+      "w": 475,
       "h": 125,
       "material": "earth",
       "polygon": [
@@ -62,11 +98,11 @@
           100
         ],
         [
-          425,
+          475,
           100
         ],
         [
-          425,
+          475,
           125
         ],
         [
@@ -117,9 +153,27 @@
       "name": "Middle bridge · 1",
       "x": 400,
       "y": 775,
-      "w": 375,
+      "w": 425,
       "h": 25,
-      "material": "earth"
+      "material": "earth",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          425,
+          0
+        ],
+        [
+          425,
+          25
+        ],
+        [
+          0,
+          25
+        ]
+      ]
     },
     {
       "name": "Middle bridge · 2",
@@ -149,7 +203,7 @@
       "name": "Crown · 1",
       "x": 550,
       "y": 425,
-      "w": 225,
+      "w": 275,
       "h": 76.35231383473644,
       "material": "earth",
       "polygon": [
@@ -162,11 +216,11 @@
           0
         ],
         [
-          225,
+          275,
           0
         ],
         [
-          225,
+          275,
           25
         ],
         [
@@ -276,7 +330,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:5bbac87d17d255cd",
+          "key": "7:6281a43f644bc7df",
           "points": [
             [
               150,
@@ -1054,7 +1108,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:4aa419686315fb8a",
+          "key": "7:d63d44a121f7e78b",
           "points": [
             [
               350,
@@ -1257,7 +1311,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:ccbb7ee1436bb067",
+          "key": "7:ef3ec504e8f082a6",
           "points": [
             [
               1250,
@@ -1460,7 +1514,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:de8bb90a5fbd3da4",
+          "key": "7:52e0eff7f1ce1157",
           "points": [
             [
               150,
@@ -1939,7 +1993,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:1c215b1a3521fc6e",
+          "key": "7:93379a4e598b3c78",
           "points": [
             [
               1450,
@@ -2442,11 +2496,11 @@
   "robots": [
     {
       "name": "Course Rbot",
-      "kind": "repulsor",
       "x": 1400,
       "y": 575,
       "left": 1120,
-      "right": 1430
+      "right": 1430,
+      "kind": "repulsor"
     }
   ],
   "timers": [

@@ -76,22 +76,22 @@
   "climbables": {
     "ladders": [
       {
-        "x": 480,
+        "x": 390,
         "top": 500,
         "bottom": 1300,
         "platform": -1,
         "side": 1
       },
       {
-        "x": 980,
+        "x": 1070,
         "top": 500,
         "bottom": 760,
         "platform": -1,
         "side": 1
       },
       {
-        "x": 980,
-        "top": 940,
+        "x": 1070,
+        "top": 1000,
         "bottom": 1300,
         "platform": -1,
         "side": 1

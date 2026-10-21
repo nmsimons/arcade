@@ -3,6 +3,7 @@ type LedgeFrame = { time: number; root: Point; hip: Point; waist: Point; shoulde
 export const LEDGE_CATCH_TIME = .14
 export const ROPE_LEDGE_CATCH_TIME = .24
 export const LEDGE_CLIMB_TIME = .82
+export const ladderMantleProgress = (time: number, entry = 0) => entry + (1 - entry) * Math.max(0, Math.min(1, time / LEDGE_CLIMB_TIME))
 // The loaded palm's 1.6-unit half-height rests on the top face.
 export const FRONT_GRIP: Point = [2, -1.6]
 export const BACK_GRIP: Point = [-.5, -1.6]

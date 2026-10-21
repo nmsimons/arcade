@@ -14,50 +14,26 @@
       "material": "earth"
     },
     {
-      "name": "Left lower deck · 1",
+      "name": "Left lower deck",
       "x": 150,
       "y": 1175,
-      "w": 375,
+      "w": 450,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Left lower deck · 2",
-      "x": 575,
-      "y": 1175,
-      "w": 25,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right lower deck · 1",
+      "name": "Right lower deck",
       "x": 1000,
       "y": 1175,
-      "w": 25,
+      "w": 450,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Right lower deck · 2",
-      "x": 1075,
-      "y": 1175,
-      "w": 375,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left shoulder · 1",
+      "name": "Left shoulder",
       "x": 150,
-      "y": 825,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left shoulder · 2",
-      "x": 275,
       "y": 775,
-      "w": 275,
+      "w": 400,
       "h": 75,
       "material": "earth",
       "polygon": [
@@ -66,27 +42,27 @@
           50
         ],
         [
-          75,
+          200,
           50
         ],
         [
-          175,
+          300,
           0
         ],
         [
-          275,
+          400,
           0
         ],
         [
-          275,
+          400,
           25
         ],
         [
-          180.9016994374947,
+          305.9016994374947,
           25
         ],
         [
-          80.9016994374947,
+          205.9016994374947,
           75
         ],
         [
@@ -96,10 +72,10 @@
       ]
     },
     {
-      "name": "Right shoulder · 1",
+      "name": "Right shoulder",
       "x": 1050,
       "y": 775,
-      "w": 275,
+      "w": 400,
       "h": 75,
       "material": "earth",
       "polygon": [
@@ -116,11 +92,11 @@
           50
         ],
         [
-          275,
+          400,
           50
         ],
         [
-          275,
+          400,
           75
         ],
         [
@@ -136,14 +112,6 @@
           25
         ]
       ]
-    },
-    {
-      "name": "Right shoulder · 2",
-      "x": 1375,
-      "y": 825,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
     },
     {
       "name": "Left high ramp",
@@ -287,12 +255,12 @@
         "length": 700,
         "segments": 88,
         "anchor": {
-          "platform": 13,
+          "platform": 9,
           "x": 0,
           "y": 0
         },
         "rest": {
-          "key": "7:5745bae41a372c2c",
+          "key": "7:9814a321fcc9ed27",
           "points": [
             [
               650,
@@ -844,12 +812,12 @@
         "length": 700,
         "segments": 88,
         "anchor": {
-          "platform": 13,
+          "platform": 9,
           "x": 300,
           "y": 0
         },
         "rest": {
-          "key": "7:07995c5815e46308",
+          "key": "7:22b1b7eb31412c63",
           "points": [
             [
               950,
@@ -1401,7 +1369,7 @@
         "length": 225,
         "segments": 29,
         "anchor": {
-          "platform": 11,
+          "platform": 7,
           "x": 50,
           "y": 25
         },
@@ -1601,7 +1569,7 @@
         "length": 225,
         "segments": 29,
         "anchor": {
-          "platform": 12,
+          "platform": 8,
           "x": 50,
           "y": 25
         },
@@ -1806,7 +1774,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:0c858f1086a387ba",
+          "key": "7:6a888a9d12469615",
           "points": [
             [
               150,
@@ -2285,7 +2253,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:fef8aae8f40ae256",
+          "key": "7:d4c102d5f09d9a7d",
           "points": [
             [
               1450,

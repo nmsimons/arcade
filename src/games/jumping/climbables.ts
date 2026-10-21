@@ -3,6 +3,7 @@ import type { GravityField } from './gravity.ts'
 import type { NamedObject } from './objectNames.ts'
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
+import { TUNING } from './movementTuning.ts'
 import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend, polygonIntersects } from './geometry.ts'
 import { initRopeSleep, ropeCanSleep, settleRopeSleep } from './ropeSleep.ts'
 import { ropeHangOffset, ropePump } from './ropeBodyMotion.ts'
@@ -552,13 +553,25 @@ function caughtPose(p: Player): Climbing['caught'] {
     ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
 }
 
+/** Invert the rung gait so catching a ladder preserves the feet's height. */
+export function ladderDistance(ladder: Ladder, feetY: number) {
+  let low = feetY - ladder.top - 100, high = feetY - ladder.top
+  for (let i = 0; i < 28; i++) {
+    const mid = (low + high) / 2
+    if (climbGait(mid).root < feetY - ladder.top) low = mid; else high = mid
+  }
+  return (low + high) / 2
+}
+
 export function findClimbable(p: Player, world: ClimbableWorld, terrain: readonly Platform[] = []): Climbing | null {
   for (const [index, ladder] of world.ladders.entries()) {
     const center = ladder.x
-    const atTop = p.grounded && Math.abs(p.y - ladder.top) < 1 && Math.abs(p.x - ladder.x) < 46
-    if (((Math.abs(p.x - center) < 25 && p.y >= ladder.top + 50 && p.y <= ladder.bottom + 5) || atTop)
-      && !lineBlocked([p.x, p.y - 44], [center, p.y - 44], terrain)) {
-      return { kind: 'ladder', index, distance: clamp(p.y - ladder.top - 56, 18, ladder.bottom - ladder.top - 56),
+    if (Math.abs(p.x - center) >= 25 || p.y < ladder.top || p.y > ladder.bottom + 5) continue
+    // Joining a foreground passage does not permit a sideways catch through
+    // a platform lip. Check the whole body, including head and feet.
+    const safe = moveBody([p.x, p.y], [center, p.y], terrain, p.crouching ? TUNING.crouchHeight : TUNING.height)
+    if (Math.hypot(safe.x - center, safe.y - p.y) < .01) {
+      return { kind: 'ladder', index, distance: ladderDistance(ladder, clamp(p.y, ladder.top, ladder.bottom)),
         time: 0, direction: 0, swing: 0, lean: 0, hangBlend: 0, swingVelocity: 0, ladder, rope: null, caught: caughtPose(p) }
     }
   }

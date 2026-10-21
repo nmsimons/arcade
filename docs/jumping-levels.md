@@ -28,8 +28,8 @@ Creation, dragging, resizing, display conversion and saving use the same bounds.
 Shovebots retain clearance for their 26-unit half-width and a minimum 50-unit
 patrol span; support and collision checks still apply on slopes. Other wall
 objects, pickups and fields already use their own footprint bounds. Attached
-ladders still need room outside their host platform, and exits need a clear,
-continuously supported doorway.
+ladders may cross their host terrain in the foreground. Ladder landings need
+clear standing space; exits need a clear, continuously supported doorway.
 
 ## Built-in levels
 
@@ -783,6 +783,17 @@ The editor assigns compact depths when reordering, without rearranging the
 
 Ladders contain `x`, `top`, `bottom`, `platform: -1`, and `side: 1` for independent
 placement. Legacy attached ladders retain a supporting terrain index and side.
+Ladders draw in front of terrain and carry attached players and Rbots through
+it, including intermediate decks. Up boards from below; Down boards through a
+floor from above. Walking across a ladder leaves the floor solid. Sideways or
+jump/drop release requires a clear whole body. Feet slightly inside a terrain
+lip (up to 18 units) can settle onto its walkable top if the body fits above it;
+deeper overlaps keep the rider attached. Ladder geometry is used exactly as authored; place the upper end at or
+above the intended landing in the editor.
+The rider transfers to the upper deck's lip and performs the normal ledge mantle
+viewed from behind; Down can reverse that pull-up. Intermediate floors permit
+sideways exits. Gates, props and forcefields retain their ordinary blocking
+rules. Side-mounted ladders still transfer onto nearby exposed ledges.
 Ropes contain anchor `x, y`, `length`, and `segments`. Optional
 `anchor: { platform, x, y }` binds the rope to a terrain index with local edge
 coordinates. The coordinates must lie on the terrain boundary. Editing terrain

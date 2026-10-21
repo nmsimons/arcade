@@ -267,10 +267,14 @@ offsets make slopes thinner than horizontal members. Walking surfaces can stay
 on the authoring grid while calculated underside vertices fall between grid lines.
 
 Attach a rope at a platform end to its top corner, rather than its underside.
-Keep the free end deliberately placed when changing the anchor. Check the
-standing body along every ladder, including where it meets an end or a sloping
-beam. The ladder artwork does not cut terrain: leave a real opening or offset
-the edge enough for the body and the ordinary hand-to-ledge transfer.
+Keep the free end deliberately placed when changing the anchor. Ladders are
+foreground passages: an attached player or Rbot can climb through terrain, so
+platform crossings need no gap. Put the authored upper end at or above the
+intended landing and leave clear standing space there and at intermediate exits.
+The hands transfer to the deck's lip for a rear-facing ledge mantle. Down deliberately
+boards a ladder through a floor; ordinary walking keeps that floor solid.
+Gates, movable objects and the actor's blocking forcefields still obstruct the
+ladder route. Side-mounted ladders can retain their hand-to-ledge transfer.
 
 The entrance is a doorway, with a 40-unit flat sill and 80 units of clear
 headroom. Work that landing into the architecture instead of placing the player

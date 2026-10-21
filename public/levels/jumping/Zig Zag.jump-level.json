@@ -46,50 +46,26 @@
       "material": "earth"
     },
     {
-      "name": "Left shoulder · 1",
+      "name": "Left shoulder",
       "x": 150,
       "y": 625,
-      "w": 75,
+      "w": 450,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Left shoulder · 2",
-      "x": 275,
-      "y": 625,
-      "w": 325,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right shoulder · 1",
+      "name": "Right shoulder",
       "x": 1000,
       "y": 625,
-      "w": 325,
+      "w": 450,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Right shoulder · 2",
-      "x": 1375,
-      "y": 625,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Zigzag roof · 1",
+      "name": "Zigzag roof",
       "x": 150,
-      "y": 475,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Zigzag roof · 2",
-      "x": 275,
       "y": 400,
-      "w": 500,
+      "w": 1300,
       "h": 100,
       "material": "earth",
       "polygon": [
@@ -98,27 +74,43 @@
           75
         ],
         [
-          175,
+          300,
           75
         ],
         [
-          325,
+          450,
           0
         ],
         [
-          500,
+          850,
           0
         ],
         [
-          500,
+          1000,
+          75
+        ],
+        [
+          1300,
+          75
+        ],
+        [
+          1300,
+          100
+        ],
+        [
+          994.0983005625053,
+          100
+        ],
+        [
+          844.0983005625053,
           25
         ],
         [
-          330.9016994374947,
+          455.9016994374947,
           25
         ],
         [
-          180.9016994374947,
+          305.9016994374947,
           100
         ],
         [
@@ -126,56 +118,6 @@
           100
         ]
       ]
-    },
-    {
-      "name": "Zigzag roof · 3",
-      "x": 825,
-      "y": 400,
-      "w": 500,
-      "h": 100,
-      "material": "earth",
-      "polygon": [
-        [
-          0,
-          0
-        ],
-        [
-          175,
-          0
-        ],
-        [
-          325,
-          75
-        ],
-        [
-          500,
-          75
-        ],
-        [
-          500,
-          100
-        ],
-        [
-          319.0983005625053,
-          100
-        ],
-        [
-          169.0983005625053,
-          25
-        ],
-        [
-          0,
-          25
-        ]
-      ]
-    },
-    {
-      "name": "Zigzag roof · 4",
-      "x": 1375,
-      "y": 475,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
     }
   ],
   "entrance": {
@@ -219,12 +161,12 @@
         "length": 650,
         "segments": 82,
         "anchor": {
-          "platform": 6,
-          "x": 125,
+          "platform": 5,
+          "x": 250,
           "y": 25
         },
         "rest": {
-          "key": "7:6df8ed3b078b425b",
+          "key": "7:9415a78865139c86",
           "points": [
             [
               400,
@@ -737,12 +679,12 @@
         "length": 650,
         "segments": 82,
         "anchor": {
-          "platform": 7,
+          "platform": 6,
           "x": 200,
           "y": 25
         },
         "rest": {
-          "key": "7:e67a4e84aedb597a",
+          "key": "7:fc95f0ca964309fa",
           "points": [
             [
               1200,
@@ -1255,12 +1197,12 @@
         "length": 150,
         "segments": 19,
         "anchor": {
-          "platform": 6,
-          "x": 275,
+          "platform": 5,
+          "x": 400,
           "y": 25
         },
         "rest": {
-          "key": "7:84aa8849a21a8b43",
+          "key": "7:e78142dfa0029daf",
           "points": [
             [
               550,
@@ -1395,12 +1337,12 @@
         "length": 150,
         "segments": 19,
         "anchor": {
-          "platform": 7,
+          "platform": 6,
           "x": 50,
           "y": 25
         },
         "rest": {
-          "key": "7:461ded94dceb563c",
+          "key": "7:9bc5344dac429c95",
           "points": [
             [
               1050,

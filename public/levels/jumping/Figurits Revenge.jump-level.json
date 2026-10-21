@@ -14,118 +14,92 @@
       "material": "earth"
     },
     {
-      "name": "Lower zigzag · 1",
+      "name": "Lower zigzag",
       "x": 150,
       "y": 1175,
-      "w": 75,
-      "h": 68.33333333333326,
-      "material": "earth",
-      "polygon": [
-        [
-          0,
-          0
-        ],
-        [
-          75,
-          40
-        ],
-        [
-          75,
-          68.33333333333326
-        ],
-        [
-          0,
-          28.333333333333258
-        ]
-      ]
-    },
-    {
-      "name": "Lower zigzag · 2",
-      "x": 275,
-      "y": 1175,
-      "w": 1075,
+      "w": 1200,
       "h": 102.95084971874735,
       "material": "earth",
       "polygon": [
         [
           0,
-          65
-        ],
-        [
-          25,
-          75
-        ],
-        [
-          175,
           0
         ],
         [
-          325,
+          150,
           75
         ],
         [
-          475,
+          300,
           0
         ],
         [
-          625,
+          450,
           75
         ],
         [
-          775,
+          600,
           0
         ],
         [
-          925,
+          750,
           75
         ],
         [
-          1025,
+          900,
+          0
+        ],
+        [
+          1050,
+          75
+        ],
+        [
+          1150,
           25
         ],
         [
-          1075,
+          1200,
           25
         ],
         [
-          1075,
+          1200,
           50
         ],
         [
-          1030.9016994374947,
+          1155.9016994374947,
           50
         ],
         [
-          925,
+          1050,
           102.95084971874735
         ],
         [
-          775,
+          900,
           27.95084971874735
         ],
         [
-          625,
+          750,
           102.95084971874735
         ],
         [
-          475,
+          600,
           27.95084971874735
         ],
         [
-          325,
+          450,
           102.95084971874735
         ],
         [
-          175,
+          300,
           27.95084971874735
         ],
         [
-          26.138917425638624,
-          102.38139100592798
+          150,
+          102.95084971874735
         ],
         [
           0,
-          91.92582403567258
+          27.95084971874735
         ]
       ]
     },
@@ -154,34 +128,18 @@
       "material": "earth"
     },
     {
-      "name": "Right return shelf · 1",
+      "name": "Right return shelf",
       "x": 1200,
       "y": 975,
-      "w": 25,
+      "w": 250,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Right return shelf · 2",
-      "x": 1275,
-      "y": 975,
-      "w": 175,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Main bridge · 1",
+      "name": "Main bridge",
       "x": 150,
       "y": 775,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Main bridge · 2",
-      "x": 275,
-      "y": 775,
-      "w": 1175,
+      "w": 1300,
       "h": 25,
       "material": "earth"
     },
@@ -194,18 +152,10 @@
       "material": "earth"
     },
     {
-      "name": "Upper workbench · 1",
+      "name": "Upper workbench",
       "x": 350,
       "y": 425,
-      "w": 125,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Upper workbench · 2",
-      "x": 525,
-      "y": 425,
-      "w": 175,
+      "w": 350,
       "h": 25,
       "material": "earth"
     },
@@ -267,12 +217,12 @@
         "length": 200,
         "segments": 25,
         "anchor": {
-          "platform": 12,
-          "x": 125,
+          "platform": 8,
+          "x": 300,
           "y": 25
         },
         "rest": {
-          "key": "7:488b18d42bf0cb18",
+          "key": "7:319dfe16159be7e6",
           "points": [
             [
               650,
@@ -443,12 +393,12 @@
         "length": 150,
         "segments": 19,
         "anchor": {
-          "platform": 9,
-          "x": 325,
+          "platform": 6,
+          "x": 450,
           "y": 25
         },
         "rest": {
-          "key": "7:9f18a571b44357a3",
+          "key": "7:46993ae041a4c202",
           "points": [
             [
               600,
@@ -583,12 +533,12 @@
         "length": 150,
         "segments": 19,
         "anchor": {
-          "platform": 9,
-          "x": 625,
+          "platform": 6,
+          "x": 750,
           "y": 25
         },
         "rest": {
-          "key": "7:da0e371a92f8638c",
+          "key": "7:e266846b0145712d",
           "points": [
             [
               900,
@@ -723,12 +673,12 @@
         "length": 400,
         "segments": 50,
         "anchor": {
-          "platform": 7,
-          "x": 175,
+          "platform": 5,
+          "x": 250,
           "y": 0
         },
         "rest": {
-          "key": "7:e6fac6c0e520a5dc",
+          "key": "7:610d13b69583587e",
           "points": [
             [
               1450,
@@ -1060,7 +1010,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:ecba31ae1b4fd830",
+          "key": "7:bc6108402f58b048",
           "points": [
             [
               150,
@@ -1539,7 +1489,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:ce641db62f6471e2",
+          "key": "7:03f4e5b011a48e40",
           "points": [
             [
               1450,
@@ -2008,8 +1958,8 @@
       }
     ]
   },
-  "floor": 2050,
   "floorMaterial": "steel",
+  "floor": 2050,
   "goal": {
     "name": "Coin exit",
     "x": 1490,
@@ -2025,29 +1975,29 @@
     "d": 240
   },
   "props": [],
-  "robots": [
-    {
-      "name": "Course Rbot",
-      "kind": "repulsor",
-      "x": 1000,
-      "y": 425,
-      "left": 820,
-      "right": 1030
-    }
-  ],
   "mechanisms": [],
   "triggers": [
     {
       "name": "Exit coin meter",
-      "mode": "coins",
-      "display": "digital",
       "x": 1200,
       "y": 1460,
       "w": 120,
-      "threshold": 10,
       "targets": [
         "cefbbdaf-e0ad-4328-85e7-637fc3b82b98"
-      ]
+      ],
+      "mode": "coins",
+      "threshold": 10,
+      "display": "digital"
+    }
+  ],
+  "robots": [
+    {
+      "name": "Course Rbot",
+      "x": 1000,
+      "y": 425,
+      "left": 820,
+      "right": 1030,
+      "kind": "repulsor"
     }
   ],
   "timers": [
@@ -2059,79 +2009,79 @@
   ],
   "pickups": [
     {
-      "kind": "coin",
       "x": 200,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 450,
-      "y": 1140
+      "y": 1140,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 750,
-      "y": 1140
+      "y": 1140,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1050,
-      "y": 1140
+      "y": 1140,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 400,
-      "y": 990
+      "y": 990,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 700,
-      "y": 990
+      "y": 990,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1050,
-      "y": 990
+      "y": 990,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 940
+      "y": 940,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 750,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 400,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 900,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     }
   ],
   "texts": [

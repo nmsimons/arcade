@@ -110,34 +110,18 @@
       "material": "earth"
     },
     {
-      "name": "Left crown · 1",
+      "name": "Left crown",
       "x": 150,
       "y": 425,
-      "w": 75,
+      "w": 250,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Left crown · 2",
-      "x": 275,
-      "y": 425,
-      "w": 125,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right crown · 1",
+      "name": "Right crown",
       "x": 1200,
       "y": 425,
-      "w": 125,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right crown · 2",
-      "x": 1375,
-      "y": 425,
-      "w": 75,
+      "w": 250,
       "h": 25,
       "material": "earth"
     }
@@ -180,7 +164,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:5730aa41e4a56323",
+          "key": "7:8a87973c04a379a8",
           "points": [
             [
               150,
@@ -1383,12 +1367,12 @@
         "length": 1550,
         "segments": 194,
         "anchor": {
-          "platform": 16,
-          "x": 75,
+          "platform": 14,
+          "x": 250,
           "y": 0
         },
         "rest": {
-          "key": "7:bb633cf3db8ccd77",
+          "key": "7:4147301279e6427c",
           "points": [
             [
               1450,

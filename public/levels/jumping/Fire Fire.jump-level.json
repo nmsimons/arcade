@@ -198,50 +198,26 @@
       "material": "earth"
     },
     {
-      "name": "Left crown · 1",
+      "name": "Left crown",
       "x": 150,
       "y": 425,
-      "w": 175,
+      "w": 300,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Left crown · 2",
-      "x": 375,
-      "y": 425,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Middle crown · 1",
+      "name": "Middle crown",
       "x": 600,
       "y": 425,
-      "w": 175,
+      "w": 400,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Middle crown · 2",
-      "x": 825,
-      "y": 425,
-      "w": 175,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right crown · 1",
+      "name": "Right crown",
       "x": 1150,
       "y": 425,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right crown · 2",
-      "x": 1275,
-      "y": 425,
-      "w": 175,
+      "w": 300,
       "h": 25,
       "material": "earth"
     }

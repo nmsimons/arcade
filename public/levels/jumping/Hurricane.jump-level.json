@@ -14,66 +14,26 @@
       "material": "earth"
     },
     {
-      "name": "Lower bridge · 1",
+      "name": "Lower bridge",
       "x": 150,
       "y": 1075,
-      "w": 75,
+      "w": 1300,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Lower bridge · 2",
-      "x": 275,
-      "y": 1075,
-      "w": 1050,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Lower bridge · 3",
-      "x": 1375,
-      "y": 1075,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Upper bridge · 1",
+      "name": "Upper bridge",
       "x": 150,
       "y": 775,
-      "w": 375,
+      "w": 1300,
       "h": 25,
       "material": "earth"
     },
     {
-      "name": "Upper bridge · 2",
-      "x": 575,
-      "y": 775,
-      "w": 450,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Upper bridge · 3",
-      "x": 1075,
-      "y": 775,
-      "w": 375,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left crown · 1",
+      "name": "Left crown",
       "x": 150,
       "y": 425,
-      "w": 75,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Left crown · 2",
-      "x": 275,
-      "y": 425,
-      "w": 125,
+      "w": 250,
       "h": 25,
       "material": "earth"
     },
@@ -86,18 +46,10 @@
       "material": "earth"
     },
     {
-      "name": "Right crown · 1",
+      "name": "Right crown",
       "x": 1200,
       "y": 425,
-      "w": 125,
-      "h": 25,
-      "material": "earth"
-    },
-    {
-      "name": "Right crown · 2",
-      "x": 1375,
-      "y": 425,
-      "w": 75,
+      "w": 250,
       "h": 25,
       "material": "earth"
     }
@@ -188,7 +140,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:11d39bd9e2118547",
+          "key": "7:a414ef5d08fa9cd1",
           "points": [
             [
               150,
@@ -667,7 +619,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:340fee3bae4223bb",
+          "key": "7:25a611dc760be84e",
           "points": [
             [
               1450,
@@ -1136,8 +1088,8 @@
       }
     ]
   },
-  "floor": 2050,
   "floorMaterial": "steel",
+  "floor": 2050,
   "goal": {
     "name": "Coin exit",
     "x": 700,
@@ -1152,29 +1104,29 @@
     "d": 240
   },
   "props": [],
-  "robots": [
-    {
-      "name": "Course Rbot",
-      "kind": "repulsor",
-      "x": 800,
-      "y": 425,
-      "left": 670,
-      "right": 930
-    }
-  ],
   "mechanisms": [],
   "triggers": [
     {
       "name": "Exit coin meter",
-      "mode": "coins",
-      "display": "digital",
       "x": 740,
       "y": 1460,
       "w": 120,
-      "threshold": 11,
       "targets": [
         "6165df9a-fd9f-4bbf-88f9-1e46e8b13969"
-      ]
+      ],
+      "mode": "coins",
+      "threshold": 11,
+      "display": "digital"
+    }
+  ],
+  "robots": [
+    {
+      "name": "Course Rbot",
+      "x": 800,
+      "y": 425,
+      "left": 670,
+      "right": 930,
+      "kind": "repulsor"
     }
   ],
   "timers": [
@@ -1186,84 +1138,84 @@
   ],
   "pickups": [
     {
-      "kind": "coin",
       "x": 200,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 650,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 1040
+      "y": 1040,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 650,
-      "y": 1040
+      "y": 1040,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 500,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 700,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 950,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 1040
+      "y": 1040,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 950,
-      "y": 1040
+      "y": 1040,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1100,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 900,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     }
   ],
   "texts": [

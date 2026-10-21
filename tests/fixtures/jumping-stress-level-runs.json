@@ -555,8 +555,8 @@
       "route": "service",
       "file": "Load Test.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 15.09166666666645,
-      "activeTime": 15.949999999999735,
+      "elapsed": 15.099999999999783,
+      "activeTime": 15.958333333333067,
       "coins": 0,
       "trace": [
         {
@@ -596,7 +596,7 @@
           }
         },
         {
-          "frames": 136,
+          "frames": 137,
           "input": {
             "move": 1
           }
@@ -607,8 +607,8 @@
       "route": "service",
       "file": "Load Test Max.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 15.09166666666645,
-      "activeTime": 15.949999999999735,
+      "elapsed": 15.099999999999783,
+      "activeTime": 15.958333333333067,
       "coins": 0,
       "trace": [
         {
@@ -648,7 +648,7 @@
           }
         },
         {
-          "frames": 136,
+          "frames": 137,
           "input": {
             "move": 1
           }

@@ -10,6 +10,7 @@ import { robotPlatforms } from './robotPhysics.ts'
 import { ledgeExposed, platformLedges } from './terrainLedges.ts'
 import { botRopeApproach } from './botRopeApproach.ts'
 import { BOT_AIR_SPEED, BOT_AIR_SPEED_SCALE, botJumpReach, botJumpTakeoffSpeed } from './botMovementTuning.ts'
+import { ladderLanding } from './ladderGeometry.ts'
 
 type Node = { x: number; y: number; climb?: string }
 type Edge = { to: number; jump: boolean; climb: boolean; cost: number; strength?: number; takeoff?: Node }
@@ -24,6 +25,7 @@ interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: 
   descendingJump?: boolean;
   departureY?: number;
   ropeDescent?: { index: number; distance: number; blocked: number };
+  ladderBlocked?: { index: number; distance: number; blocked: number };
   flight?: { to: Node; catchX?: number; reach?: number; side: number };
   transition?: { key: string; x: number; y: number; progress: number; blocked: number; releasing: boolean } }
 const graphs = new WeakMap<Run, Graph>(), navigation = new WeakMap<RobotState, Navigation>()
@@ -102,8 +104,17 @@ export function botNavigationGraph(run: Run): Graph {
     }
   }
   for (const [i, ladder] of run.level.climbables.ladders.entries()) {
+    const landing = ladderLanding(ladder, solids)
     add({ x: ladder.x, y: ladder.bottom, climb: `ladder:${i}` })
-    add({ x: ladder.x, y: ladder.top + 35, climb: `ladder:${i}` })
+    add({ x: ladder.x, y: (landing?.y ?? ladder.top) + 35, climb: `ladder:${i}` })
+    // Each clear floor crossing is a boarding/exit point. The vertical leg
+    // belongs to the ladder and may pass through any intervening terrain.
+    for (const solid of solids) for (const surface of platformSurfaces(solid, ladder.x)) {
+      if (ladder.x < solid.x || ladder.x > solid.x + solid.w || surface.y < (landing?.y ?? ladder.top)
+        || surface.y > ladder.bottom || !canGrip(surface.angle) || !clear(ladder.x, surface.y)) continue
+      add({ x: ladder.x, y: surface.y })
+      add({ x: ladder.x, y: surface.y, climb: `ladder:${i}` })
+    }
   }
   for (const [i, rope] of run.level.climbables.ropes.entries()) {
     // Nodes describe feet, while a rope is caught at the hands. A dangling end
@@ -119,6 +130,10 @@ export function botNavigationGraph(run: Run): Graph {
     if (i === j) continue
     const dx = Math.abs(b.x - a.x), dy = b.y - a.y
     if (a.climb && a.climb === b.climb) { edges[i].push({ to: j, climb: true, jump: false, cost: Math.abs(dy) * 2 }); continue }
+    if ((a.climb?.startsWith('ladder:') && !b.climb || b.climb?.startsWith('ladder:') && !a.climb)
+      && Math.abs(dy) < 1 && walkClear(a, b, solids)) {
+      edges[i].push({ to: j, climb: true, jump: false, cost: distance(a, b) + 15 }); continue
+    }
     // A climb ends with a hand-to-ledge transfer, not a standing-body jump
     // through the underside of its supporting platform. Match an exposed lip;
     // the ordinary controller still performs and checks the actual pull-up.
@@ -177,7 +192,8 @@ function routeTree(graph: Graph, actor: Player, left: number, right: number, avo
   // nearest-node reset used to pull the bot backward each time it replanned.
   const climb = actor.climbing && `${actor.climbing.kind}:${actor.climbing.index}`
   const solids = barriers.length ? [...graph.solids, ...barriers] : graph.solids
-  for (const [i, node] of graph.nodes.entries()) if (!avoided.has(i) && (climb ? node.climb === climb : walkClear(actor, node, solids))) costs[i] = distance(actor, node)
+  for (const [i, node] of graph.nodes.entries()) if (!avoided.has(i) && (climb ? node.climb === climb
+    && edgeClear(actor, node, { to: i, jump: false, climb: true, cost: 0 }, barriers) : walkClear(actor, node, solids))) costs[i] = distance(actor, node)
   if (graph.nodes.length && !costs.some(Number.isFinite)) costs[closestNode(graph, actor, left, right)] = 0
   for (let pass = 0; pass < graph.nodes.length; pass++) {
     let next = -1
@@ -228,6 +244,10 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   if (actor.grounded || actor.climbing || actor.hang || actor.mantle) { state.runningJump = false; state.flight = undefined }
   const transfer = actor.mantle ?? actor.hang
   if (transfer) {
+    if (actor.mantle?.ladder) {
+      const descending = !!target && target.y > actor.mantle.edgeY + 110
+      return { ...NEUTRAL_INPUT, climb: !descending, descend: descending }
+    }
     const key = `${transfer.edgeX}:${transfer.edgeY}:${transfer.side}`, progress = actor.mantle?.time ?? 0
     const old = state.transition
     const blocked = old?.key === key && Math.hypot(actor.x - old.x, actor.y - old.y) < .05 && Math.abs(progress - old.progress) < .001 ? old.blocked + dt : 0
@@ -277,7 +297,12 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   if (state.stuck > 1.5 && state.path.length) {
     state.avoided.set(state.path[0], 5); state.path = []; state.age = 1; state.stuck = 0
   }
-  if (!target && (distance(actor, state.goal) < 45 || state.path.length === 1 && distance(actor, graph.nodes[state.path[0]]) < 45 || !state.path.length && state.age > 2)) {
+  // Checking the entrance must finish on its floor, facing the actual doorway.
+  // Otherwise a final ladder node can count as arrival before the rider gets off.
+  const checkingEntrance = state.goal.x === run.level.entrance.x && state.goal.y === run.level.entrance.y
+  const patrolArrived = checkingEntrance ? actor.grounded && distance(actor, state.goal) < 12
+    : distance(actor, state.goal) < 45 || state.path.length === 1 && distance(actor, graph.nodes[state.path[0]]) < 45
+  if (!target && (patrolArrived || !state.path.length && state.age > 2)) {
     // The entrance is known map information, independent of any player sighting.
     // Check it before a general patrol; sight acquisition can interrupt this trip.
     // A closed door can temporarily block the destination. Still approach the
@@ -338,7 +363,8 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   let routeNode = graph.nodes[state.path[0]] ?? target ?? state.goal
   // Graph samples lead onto the destination surface. Finish the remaining
   // clear walk to the actual target instead of stopping at a coarse sample.
-  if (target && state.path.length <= 1 && !routeNode.climb && walkClear(actor, target, walkingSolids)) routeNode = target
+  const destination = target ?? state.goal
+  if (state.path.length <= 1 && (!routeNode.climb || actor.grounded) && walkClear(actor, destination, walkingSolids)) routeNode = destination
   const departure = state.path.length > 1 && graph.edges[state.path[0]].find(edge => edge.to === state!.path[1])
   const waypoint = departure && departure.takeoff ? { ...routeNode, ...departure.takeoff } : routeNode
   const ropeApproach = botRopeApproach(run, actor, waypoint, barriers)
@@ -362,12 +388,26 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   else if (actor.grounded && Math.abs(dy) < 30) input.move *= Math.min(1, Math.abs(dx) / 85)
   state.trying = Math.abs(input.move) > .1
   if (actor.climbing || node.climb && Math.abs(dx) < 30) {
-    input.climb = dy < 10; input.descend = dy > 20
-    if (actor.climbing) input.move = actor.climbing.rope ? Math.sign(dx) * .5 : 0
+    const ladder = actor.climbing?.ladder || node.climb?.startsWith('ladder:')
+    input.climb = dy < (ladder ? 0 : 10); input.descend = dy > (ladder ? 0 : 20)
+    if (actor.climbing) input.move = actor.climbing.rope ? Math.sign(dx) * .5
+      : !node.climb && Math.abs(dy) < 5 ? Math.sign(dx) * .6 : 0
+    if (actor.climbing?.ladder && (input.climb || input.descend)) {
+      const grip = actor.climbing, old = state.ladderBlocked
+      const blocked = old?.index === grip.index && Math.abs(grip.distance - old.distance) < .05 ? old.blocked + dt : 0
+      state.ladderBlocked = { index: grip.index, distance: grip.distance, blocked }
+      // A person or prop can occupy the landing. Step off into clear air and
+      // approach beside it, using the ordinary release and falling contacts.
+      if (blocked > .6 && !walkingSolids.some(s => bodyIntersects(actor.x, actor.y, s, TUNING.height))) {
+        state.ladderBlocked = undefined; state.path = []; state.leg = undefined; state.age = 1
+        return { ...NEUTRAL_INPUT, move: Math.sign(dx) || actor.facing, detach: true }
+      }
+    } else state.ladderBlocked = undefined
     // Rope grip distance and the actor's feet use different origins. Near the
     // floor the next walking node can sit inside the vertical deadband: let go
     // through the ordinary controller instead of holding the last handhold.
-    if (actor.climbing && !node.climb && dy >= -10 && groundAt(run.terrain, actor.x, actor.y, 90)) {
+    if (actor.climbing && !node.climb && dy >= -10 && groundAt(run.terrain, actor.x, actor.y, actor.climbing.ladder ? 5 : 90)
+      && (!actor.climbing.ladder || !walkingSolids.some(s => bodyIntersects(actor.x, actor.y, s, TUNING.height)))) {
       input.climb = false; input.descend = true; input.detach = true
     }
     if (actor.climbing?.rope && node.climb && dy > 20 && input.descend && Math.abs(dx) < 60) {
@@ -388,7 +428,7 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     }
     else state.ropeDescent = undefined
   }
-  else state.ropeDescent = undefined
+  else { state.ropeDescent = undefined; state.ladderBlocked = undefined }
   const next = state.path.length > 1 ? graph.nodes[state.path[1]] : node
   const obstacles = [...run.props.filter(prop => !prop.gadget).map(prop => prop.kind === 'ball' ? ballShape(prop) : boxShape(prop)),
     ...run.robots.filter(other => other !== robot).flatMap(robotPlatforms)]
@@ -408,7 +448,7 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
       .every(y => !walkingSolids.some(s => bodyIntersects(node.x, y - .05, s, TUNING.height)))
   const needJump = (state.leg?.jump || dy < -30 && !followingWalk || obstacle || state.stuck > .28 || !(departure && departure.takeoff)
     && dy < 30 && Math.abs(dx) > 20 && !groundAt(run.terrain, actor.x + Math.sign(dx) * 35, actor.y, 35))
-    && !actor.climbing && !droppingThrough
+    && !actor.climbing && !droppingThrough && !(node.climb?.startsWith('ladder:') && Math.abs(dx) < 25 && !state.leg?.jump)
   if (droppingThrough && !actor.climbing) {
     input.move = Math.abs(dx) < 6 ? 0 : Math.max(-.45, Math.min(.45, dx / 85))
     input.descend = true; input.climb = false; state.runningJump = false; state.descendingJump = true
@@ -443,7 +483,15 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     else input.climb = true
     if (!actor.grounded) input.move = Math.max(-1, Math.min(1, dx / Math.max(.12, ropeApproach.time) / BOT_AIR_SPEED))
   }
-  if (!actor.grounded && !actor.climbing && next.climb) input.climb = true
+  if (!actor.grounded && !actor.climbing) {
+    const wanted = node.climb ?? next.climb
+    const nearby = run.level.climbables.ladders.findIndex(ladder => Math.abs(actor.x - ladder.x) < 25
+      && actor.y >= ladder.top && actor.y <= ladder.bottom + 5)
+    // Up now catches ladders even during a held jump. Request that grip only
+    // at the planned ladder, rather than catching an incidental one en route.
+    // Ropes retain their automatic airborne catches without this Up request.
+    if (nearby >= 0) input.climb = wanted === `ladder:${nearby}`
+  }
   return input
 }
 

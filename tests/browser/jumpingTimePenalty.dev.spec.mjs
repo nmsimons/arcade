@@ -52,7 +52,7 @@ async function open(page, editor = false) {
 const state = page => page.getByRole('img', { name: 'Bad timing: reach the exit' }).evaluate((c, red) => ({
   ...c.penaltyFrame, times: c.digitalClocks.map(clock => clock.value), fast: c.digitalClocks.some(clock => clock.color === red),
 }), DIGITAL_RED)
-const seconds = frame => { const [m, s] = frame.times[0].split(':').map(Number); return m * 60 + s }
+const remainingSeconds = frame => { const [m, s] = frame.times[0].split(':').map(Number); return m * 60 + s }
 
 test('red pickups penalize the clock, animate, pause, expire and reset in production gameplay', async ({ page }, info) => {
   // Pause and effect expiry still render every daylight frame on CI.
@@ -63,7 +63,7 @@ test('red pickups penalize the clock, animate, pause, expire and reset in produc
   await page.screenshot({ path: info.outputPath('harmful-pickups-ready.png') })
   await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d'); await page.clock.runFor(100)
   const first = await state(page)
-  expect(first.numbers).toEqual([]); expect(seconds(first)).toBe(5)
+  expect(first.numbers).toEqual([]); expect(remainingSeconds(first)).toBe(55)
   expect(await page.getByTestId('level-time').innerText()).toMatch(/^0:05\./)
   expect(first.labels[0].value).toBe('+5')
   expect(first.labels[0].right).toBeCloseTo(before.numbers[0].right, 6)
@@ -77,7 +77,7 @@ test('red pickups penalize the clock, animate, pause, expire and reset in produc
   expect(fast.labels).toEqual([]); expect(fast.fast).toBe(true)
   await page.screenshot({ path: info.outputPath('double-speed-timer.png') })
   await page.clock.runFor(1000)
-  expect(seconds(await state(page)) - seconds(fast)).toBeCloseTo(2, 1)
+  expect(remainingSeconds(fast) - remainingSeconds(await state(page))).toBeCloseTo(2, 1)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   const paused = await state(page)
@@ -87,15 +87,15 @@ test('red pickups penalize the clock, animate, pause, expire and reset in produc
   await page.clock.runFor(1000)
   const resumed = await state(page)
   expect(resumed.fast).toBe(true)
-  expect(seconds(resumed) - seconds(paused)).toBeCloseTo(2, 1)
+  expect(remainingSeconds(paused) - remainingSeconds(resumed)).toBeCloseTo(2, 1)
   await page.clock.runFor(4000)
   const expired = await state(page)
   expect(expired.fast).toBe(false)
   await page.clock.runFor(1000)
-  expect(seconds(await state(page)) - seconds(expired)).toBeCloseTo(1, 1)
+  expect(remainingSeconds(expired) - remainingSeconds(await state(page))).toBeCloseTo(1, 1)
   await restartFromPause(page); await page.clock.runFor(64)
   const reset = await state(page)
-  expect(reset.times).toEqual(['00:00']); expect(reset.fast).toBe(false)
+  expect(reset.times).toEqual(['01:00']); expect(reset.fast).toBe(false)
   expect(reset.numbers.map(n => n.value)).toEqual(['5']); expect(reset.labels).toEqual([])
 })
 

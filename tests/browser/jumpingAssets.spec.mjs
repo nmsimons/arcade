@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFile } from 'node:fs/promises'
 import { FIRST_LEVEL as first } from '../helpers/jumping-fixtures.mjs'
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
@@ -42,6 +43,7 @@ test('a missing index reports the failure and page reload recovers without a com
   const manifest = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
   const files = manifest.order === 'listed' ? manifest.levels : [...manifest.levels].sort()
   const builtIns = await Promise.all(files.map(async name => JSON.parse(await readFile(new URL(name, root), 'utf8'))))
+  await unlockJumpingLevels(page, builtIns)
   let failing = true
   await page.route('**/levels/jumping/index.json', route => failing ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue())
   await open(page)

@@ -37,12 +37,12 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
   await expect(complete).toBeVisible()
   await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
-  // Rendered input phases vary. Check the authored Gold deadline here; the
+  // Rendered input phases vary. Check the authored A deadline here; the
   // fixed-step simulation recording separately checks the exact recorded time.
   const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
   const elapsed = minutes * 60 + seconds
   expect(elapsed).toBeGreaterThan(0)
   expect(elapsed).toBeLessThanOrEqual(10)
-  await expect(complete.locator('.jumping-result-targets')).toHaveText('A0:10B0:15C0:30D0:55')
+  await expect(complete.locator('.jumping-result-targets')).toHaveText('A0:10B0:15C0:30D1:15')
   await page.screenshot({ path: info.outputPath('level-five-complete.png') })
 })

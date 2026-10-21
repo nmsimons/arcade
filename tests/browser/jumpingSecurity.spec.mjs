@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { unlockJumpingLevels, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 
@@ -28,6 +28,7 @@ async function trackWorkers(page) {
 
 test('complex imported geometry cannot block the picker and preparation can be cancelled', async ({ page }) => {
   await useLevelFixtures(page, [slow, FIRST_LEVEL]); await trackWorkers(page)
+  await unlockJumpingLevels(page, [slow, FIRST_LEVEL])
   await page.goto('/lab')
   const card = page.getByRole('button', { name: 'Level 1: Complex rope', exact: true })
   await expect(card).toBeVisible()
@@ -47,6 +48,7 @@ test('complex imported geometry cannot block the picker and preparation can be c
 
 test('a stalled level times out cleanly and leaves other levels playable', async ({ page }) => {
   await useLevelFixtures(page, [slow, FIRST_LEVEL]); await trackWorkers(page)
+  await unlockJumpingLevels(page, [slow, FIRST_LEVEL])
   await page.goto('/lab')
   await page.getByRole('button', { name: 'Level 1: Complex rope', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Preparing level' })).toBeVisible()
@@ -57,7 +59,9 @@ test('a stalled level times out cleanly and leaves other levels playable', async
 })
 
 test('offscreen thumbnails allocate pixels only when scrolled into view', async ({ page }) => {
-  await useLevelFixtures(page, Array.from({ length: 40 }, (_, i) => ({ ...FIRST_LEVEL, id: `level-${i}`, name: `Level ${i}` })))
+  const levels = Array.from({ length: 40 }, (_, i) => ({ ...FIRST_LEVEL, id: `level-${i}`, name: `Level ${i}` }))
+  await useLevelFixtures(page, levels)
+  await unlockJumpingLevels(page, levels)
   await page.goto('/lab')
   const first = page.locator('.jumping-level-card .level-thumbnail').first(), last = page.locator('.jumping-level-card .level-thumbnail').last()
   await expect.poll(() => first.evaluate(canvas => canvas.width)).toBeGreaterThan(1)

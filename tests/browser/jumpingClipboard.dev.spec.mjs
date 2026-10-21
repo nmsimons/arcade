@@ -27,20 +27,21 @@ async function copyGroup(page) {
   await board(page).focus(); await page.keyboard.press('Control+a'); await page.keyboard.press('Control+c')
   await expect(status(page)).toContainText('Copied 6 objects.')
 }
-async function openTargetFromMenu(page) {
-  await page.getByRole('button', { name: 'Back to game', exact: true }).click()
-  await page.getByRole('button', { name: 'Edit Clipboard target', exact: true }).click()
+async function openTargetFromLibrary(page) {
+  // Authoring remains available through the library even for locked courses.
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Open target.json', exact: true }).click()
   await expect(board(page)).toBeVisible(); await waitForBuilderPreview(page)
 }
 
-test('native copy and paste transfer a complete group through the level menu with one undo step', async ({ page, context }) => {
+test('native copy and paste transfer a complete group through the library with one undo step', async ({ page, context }) => {
   test.setTimeout(90_000)
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   const { source, target } = await setup(page)
   await copyGroup(page)
   const text = await page.evaluate(() => navigator.clipboard.readText())
   expect(JSON.parse(text).format).toBe('lab-editor-objects')
-  await openTargetFromMenu(page)
+  await openTargetFromLibrary(page)
   await board(page).focus(); await page.keyboard.press('Control+v')
   await expect(status(page)).toContainText('Pasted 6 objects.')
   let saved = await saveTestLevel(page)
@@ -80,7 +81,7 @@ test('toolbar copies survive switching levels and reloading when clipboard acces
   await selectBuilderObject(page, 'platform:0')
   await page.getByRole('button', { name: 'Copy', exact: true }).click()
   await expect(status(page)).toContainText('Copied within Level studio.')
-  await openTargetFromMenu(page); await page.reload(); await waitForBuilderPreview(page)
+  await openTargetFromLibrary(page); await page.reload(); await waitForBuilderPreview(page)
   await page.getByRole('button', { name: 'Paste', exact: true }).click()
   await expect(status(page)).toContainText('Pasted 1 object.')
   const saved = await saveTestLevel(page)
@@ -137,7 +138,7 @@ test('a delayed clipboard read cannot overwrite a level opened while paste was p
   })
   await page.getByRole('button', { name: 'Paste', exact: true }).click()
   await page.waitForFunction(() => !!window.resolveClipboardRead)
-  await openTargetFromMenu(page)
+  await openTargetFromLibrary(page)
   await page.evaluate(text => window.resolveClipboardRead(text), text)
   expect((await saveTestLevel(page)).level.platforms).toHaveLength(0)
 })

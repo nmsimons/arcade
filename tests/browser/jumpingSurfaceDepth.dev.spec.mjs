@@ -2,6 +2,10 @@ import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 
 const lab2 = JSON.parse(readFileSync(new URL('../../public/levels/jumping/LAB2.jump-level.json', import.meta.url), 'utf8'))
+// This regression exercises night rendering regardless of the course's authored lighting.
+lab2.lighting = { nightMode: true, ambient: 0, lights: [
+  [520, 60, 90, 50], [120, 60, 90, 20], [1480, 60, 90, 70], [3960, 80, 120, 100], [2080, 60, 90, 40],
+].map(([x, y, direction, spread], i) => ({ id: `cache-lamp-${i}`, x, y, direction, spread, intensity: 100, power: 'always' })) }
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: night terrain artwork reuses scratch storage without changing lit pixels or losing camera updates`, async ({ page }) => {
   test.setTimeout(90_000)

@@ -2,12 +2,16 @@
 
 **Canon and approved design direction — October 18, 2026.**
 
+Progression revised October 20, 2026: letter grades, a D passing deadline,
+and undisclosed locked courses replace completion-only progression.
+
 This is the story and progression authority for L.A.B. Experiments (Leaps and
 Bounds). Read it with [Making a fun jumping level](jumping-level-design.md),
 [level files](jumping-levels.md), and [the outdoor finale brief](jumping-outdoors.md).
 The canon and rules below are adopted. The built-in untimed opening, Wake,
-implements the charging-bay awakening. Campaign locks, certification gates,
-and the outdoor ending still need implementation and playtesting.
+implements the charging-bay awakening. The ordered picker now uses D-or-better
+progression; optional certification gates and the outdoor ending still need
+implementation and playtesting.
 
 ## Canon
 
@@ -98,8 +102,9 @@ their own purposes; campaign locks must not obstruct editing or playtesting.
 ## Required progression
 
 1. The opening is available on a new save. Completing it opens the first course.
-2. A valid completion of a required level unlocks the next required level.
-   Completion without a medal qualifies. Grade, coin surplus, optional-area
+2. Finishing a timed required level at D or better unlocks the next required
+   level. D is a realistic first-run deadline, not a free pass. An untimed
+   introduction unlocks its successor on completion. Coin surplus, optional-area
    completion, and total campaign average cannot add a requirement.
 3. Completion is recorded at the level's actual finish, after its completion
    presentation. Merely powering an exit or reaching a nearby switch is not a
@@ -108,18 +113,26 @@ their own purposes; campaign locks must not obstruct editing or playtesting.
    remove completion, or relock areas. Optional diversions never delay the next
    required unlock. Continue follows the next unfinished required level.
 5. The final level opens after all preceding required levels are completed.
-   Escaping completes the campaign; no medal is required to see its full ending.
+   Escaping completes the campaign; no grade above D is required for the ending.
 
-Show the required sequence and explain a lock with its specific predecessor.
-Use stable level IDs for progress. Preserve existing completed runs when
-campaign support is introduced: an existing recorded finish counts even when
-it earned no medal. Save completion separately from best time and certification
-so the untimed opening and ending can also have durable progress.
+Show every slot in the required sequence. A locked slot reveals its number and
+lock status only, without the name, preview, description or play/edit actions.
+The authoring library and playtests remain unrestricted. Direct play links also
+respect progression. Use stable level IDs for progress. Older saved times count
+when they meet the current D deadline; an older completion flag alone cannot
+prove a timed pass. Untimed completion remains saved independently of best time.
+
+The wall clock counts down to the D deadline while showing the current A/B/C/D
+grade. Passing D permanently makes that run F: the timer dims at zero and time
+pickups turn grey and cannot be collected. The player may continue exploring,
+operate mechanisms, collect coins and use gadgets, but must restart to progress.
+Reaching the exit on F records the time and grade without awarding a passing
+completion or unlocking the next course.
 
 ## Optional advanced areas
 
 An advanced area opens when its named source group is complete with an average
-of at least silver. Source groups are fixed, nonempty sets of timed required
+of at least B. Source groups are fixed, nonempty sets of timed required
 levels, normally the preceding chapter. Identify the group and its members
 before the player attempts to qualify. Untimed story sequences, the outdoor
 coda, and optional levels are excluded. No area can depend on its own grades.
@@ -128,24 +141,23 @@ Use each source level's highest earned grade, counting the level once:
 
 | Best grade | Points |
 | --- | ---: |
-| Completed without a medal | 0 |
-| Bronze | 1 |
-| Silver | 2 |
-| Gold | 3 |
+| D | 0 |
+| C | 1 |
+| B | 2 |
+| A | 3 |
 
 For a source group of `N` levels, the gate opens when **all N are completed**
 and **the sum of best-grade points is at least `2 * N`**. Compare integer totals;
-do not round an average or average completion times. Gold compensates for
-bronze, and sufficiently many golds can compensate for a completion without
-a medal. Repeating one level cannot farm points.
+do not round an average or average completion times. A compensates for
+C, and sufficiently many A grades can compensate for a D. Repeating one level cannot farm points.
 
-For example, gold + silver + bronze gives `3 + 2 + 1 = 6` across three completed
-levels and opens the area. Silver + silver + bronze gives 5 and needs one more
+For example, A + B + C gives `3 + 2 + 1 = 6` across three completed
+levels and opens the area. B + B + C gives 5 and needs one more
 point. An incomplete level always prevents certification, regardless of points.
 
 Show the source chapter, completion count, best grades, and point shortfall:
 “Complete all 3 courses. Certification: 5 / 6 points.” Explain that improving
-bronze to silver or silver to gold adds one point. The requirement must be
+C to B or B to A adds one point. The requirement must be
 understandable without calculating a hidden campaign-wide average.
 
 Once earned, access is permanent. Later runs, threshold retuning, and catalog
@@ -155,9 +167,9 @@ Advanced areas offer extra challenges and optional discoveries. They contain
 no required escape switch, unique traversal ability, or indispensable story
 explanation. The full outdoor payoff belongs to every campaign finisher.
 
-Before enabling a certification group, calibrate its medals against completed
+Before enabling a certification group, calibrate its grades against completed
 normal-control routes with the current movement rules. Historical timings do
-not establish that an average silver requirement is fair after control changes.
+not establish that an average B requirement is fair after control changes.
 
 ## Opening: Wake
 
@@ -200,8 +212,8 @@ this small room at normal speed.
 
 Charging-bay entrances and untimed levels are reusable studio choices with
 pause, restart, automatic input handoff, and saved completion. Ordinary levels
-retain their doorway entrance and scoring. The broader campaign locks remain
-separate work; the current Next level action leads from Wake into the collection.
+retain their doorway entrance and scoring. Completing Wake opens the first
+course; timed courses then require D or better to advance through the collection.
 
 ![The robot enclosed behind the pod glass on its raised plinth as local power returns.](images/lab-wake-pod.png)
 
@@ -257,7 +269,7 @@ authored files and IDs. Specify campaign metadata and persistence separately
 from runtime level geometry; no new schema keys are established by this brief.
 
 Acceptance requires fresh-save progression through the full required route,
-including no-medal completions; below-threshold and exactly-threshold optional
+including D passes and F exploration runs; below-threshold and exactly-threshold optional
 gate checks; permanent unlocks across replay and reload; existing-save migration;
 and confirmation that skipping every advanced area still delivers the complete
 escape. Verify direct navigation and all supported control paths obey campaign

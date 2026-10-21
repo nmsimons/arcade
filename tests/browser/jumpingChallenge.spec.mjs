@@ -2,7 +2,7 @@ import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold } from './helpers/controller.mjs'
-import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures, unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { installDigitalClockSpy, wallTimeFromHud } from './helpers/digitalClock.mjs'
@@ -12,6 +12,7 @@ import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 
 async function setup(page, lesson = 0, levels = CAMPAIGN) {
   await useLevelFixtures(page, levels)
+  if (lesson) await unlockJumpingLevels(page, levels.slice(0, lesson))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installDigitalClockSpy(page)
   await installAthleteHeadObserver(page)
@@ -66,9 +67,8 @@ async function finishFirst(page) {
 test('the new level menu presents a readable progression', async ({ page }, info) => {
   await setup(page); await page.screenshot({ path: info.outputPath('campaign-menu.png') })
   await expect(page.getByRole('button', { name: 'Level 1: First Leap' })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'Level 3: Hand Over Hand' }).focus()
-  await expect(page.getByRole('button', { name: 'Level 3: Hand Over Hand' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('button', { name: 'Level 3: Hand Over Hand' })).toHaveAccessibleDescription('Best — No medal yet')
+  await expect(page.getByRole('img', { name: 'Level 3: Locked' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Level 3: Hand Over Hand' })).toHaveCount(0)
   await expect(page.locator('.jumping-medal-times')).toHaveCount(0)
 })
 test('the trial activates, pauses, restarts, completes, saves a best and advances to the next lesson', async ({ page }, info) => {
@@ -97,7 +97,7 @@ test('the trial activates, pauses, restarts, completes, saves a best and advance
   expect((await position(page)).x).toBeCloseTo(170)
   expect(Number((await page.getByTestId('level-time').innerText()).slice(2))).toBeLessThan(.3)
   await page.screenshot({ path: info.outputPath('first-leap.png') })
-  await finishFirst(page); await expect(page.getByText('Gold medal')).toBeVisible()
+  await finishFirst(page); await expect(page.getByText('Grade A')).toBeVisible()
   await page.screenshot({ path: info.outputPath('first-leap-medal.png') })
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['first-leap'])
   expect(record).toBeGreaterThan(2); expect(record).toBeLessThan(3.5)
@@ -160,7 +160,7 @@ for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${
   }
   await advanceJumpingSimulation(page, 5000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
-  expect(await page.getByText(/^(Gold|Silver|Bronze) medal$/).count()).toBe(1)
+  expect(await page.getByText(/^Grade [ABCD]$/).count()).toBe(1)
 })
 test('jumping again during a rope catch does not launch at catch-animation speed', async ({ page }) => {
   await setup(page, 1); await enter(page); await launch(page)
@@ -356,8 +356,8 @@ test('a separate Switch plate opens a hidden black door; entering stops the time
   await expect(page.getByTestId('level-time')).not.toHaveText(time)
   const runningTime = await page.getByTestId('level-time').innerText()
   const wallTimes = await page.getByRole('img', { name: 'Untitled level: reach the exit' }).evaluate(c => c.digitalClocks.map(clock => clock.value))
-  expect(wallTimes).toEqual([wallTimeFromHud(runningTime), wallTimeFromHud(runningTime)])
-  expect(wallTimes[0]).not.toBe(wallTimeFromHud(time))
+  expect(wallTimes).toEqual([wallTimeFromHud(runningTime, level.times.d), wallTimeFromHud(runningTime, level.times.d)])
+  expect(wallTimes[0]).not.toBe(wallTimeFromHud(time, level.times.d))
   expect(await page.evaluate(() => localStorage.getItem('arcade.jumping.times.v1'))).toBeNull()
   await page.screenshot({ path: info.outputPath('hidden-door-open.png') })
   await page.keyboard.down('d')
@@ -366,12 +366,14 @@ test('a separate Switch plate opens a hidden black door; entering stops the time
   const finishTime = await page.getByTestId('level-time').innerText()
   expect(finishTime).not.toBe(runningTime)
   expect(await page.getByRole('img', { name: 'Untitled level: reach the exit' }).evaluate(c => c.digitalClocks.map(clock => clock.value)))
-    .toEqual([wallTimeFromHud(finishTime), wallTimeFromHud(finishTime)])
+    .toEqual([wallTimeFromHud(finishTime, level.times.d), wallTimeFromHud(finishTime, level.times.d)])
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('entering-hidden-door.png') })
   await page.keyboard.press('Escape')
   const paused = await position(page)
-  await page.clock.runFor(3000)
+  // No animation is expected while paused; skip redundant software-rendered
+  // frames while still proving that the player and locked score stay frozen.
+  await page.clock.fastForward(3000)
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   expect(await position(page)).toEqual(paused)
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(1000)

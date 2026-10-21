@@ -131,11 +131,11 @@
   font-size: var(--jumping-type-small); line-height: 1.5;
 }
 .jumping-ui .jumping-level-best { font-variant-numeric: tabular-nums; }
-.jumping-ui .jumping-level-medal { display: inline-flex; align-items: center; gap: 6px; }
-.jumping-ui .jumping-level-medal svg { flex: none; width: 12px; height: 16px; }
-.jumping-ui .jumping-level-medal .gold { color: var(--jumping-color-gold); }
-.jumping-ui .jumping-level-medal .silver { color: var(--jumping-color-steel); }
-.jumping-ui .jumping-level-medal .bronze { color: var(--jumping-color-bronze); }
+.jumping-ui .jumping-level-grade { font-weight: 600; }
+.jumping-ui .jumping-level-grade.failed { color: var(--jumping-danger); }
+.jumping-ui .jumping-locked-preview { height: 150px; display: grid; place-items: center; background: var(--jumping-section); color: var(--jumping-muted); }
+.jumping-locked-preview svg { width: 28px; height: 35px; opacity: .65; }
+.jumping-ui .jumping-locked-tile .jumping-level-card { height: 100%; min-height: 310px; color: var(--jumping-muted); }
 .jumping-ui .jumping-level-tile .jumping-level-card::after { content: none; }
 .jumping-ui .jumping-level-tile-actions {
   position: static; gap: 8px; justify-content: flex-end;

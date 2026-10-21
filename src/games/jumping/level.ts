@@ -1,4 +1,6 @@
 import { parseObjectName } from './objectNames.ts'
+import { gradeTimes } from './grading.ts'
+import type { TimeTargets } from './grading.ts'
 import { objectReference } from './objectLabels.ts'
 import type { NamedObject } from './objectNames.ts'
 import { createPlayer } from './model.ts'
@@ -63,7 +65,7 @@ export interface JumpLevel {
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
   floorMaterial?: TerrainMaterial
-  times?: { gold: number; silver: number; bronze: number }
+  times?: TimeTargets
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
   timers?: WallTimer[]
   wallLights?: WallLight[]
@@ -75,7 +77,7 @@ export interface JumpLevel {
   pickups?: Pickup[]
 }
 export interface PuzzleLevel extends JumpLevel {
-  height: number; floor: number; goal: Goal; times: { gold: number; silver: number; bronze: number }
+  height: number; floor: number; goal: Goal; times: TimeTargets
   props: PropDefinition[]; mechanisms: Mechanism[]; triggers: Trigger[]; robots: Pusher[]
 }
 export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.goal !== undefined && level.floor !== undefined && level.times !== undefined
@@ -184,7 +186,8 @@ export function levelProblems(level: JumpLevel): string[] {
     if (!supported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
       issues.push(`Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
     }
-    if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
+    const times = gradeTimes(level)
+    if (!(times.a > 0 && times.a < times.b && times.b < times.c && times.c < times.d)) issues.push('Grade times must increase from A to B to C to D.')
     const coins = level.pickups?.filter(p => p.kind === 'coin').length ?? 0
     for (const [i, t] of level.triggers.entries()) {
       if (t.mode !== 'coins') continue
@@ -318,8 +321,12 @@ export function parseLevel(value: unknown): JumpLevel {
     if (g.power === 'switched' && g.id === undefined) fail()
     level.goal = { ...objectName(g), ...parseSwitchSettings(g, fail), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }),
       ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }) }; if (level.goal.x > width) fail()
-    const times = object(v.times); level.times = { gold: num(times.gold, .1, 3600), silver: num(times.silver, .1, 3600), bronze: num(times.bronze, .1, 3600) }
-    if (!(level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) fail()
+    const times = object(v.times), legacy = times.a === undefined && times.gold !== undefined
+    const a = num(legacy ? times.gold : times.a, .1, 3600), b = num(legacy ? times.silver : times.b, .1, 3600)
+    const c = num(legacy ? times.bronze : times.c, .1, 3600)
+    const d = num(times.d ?? (legacy ? Math.ceil(c * 1.5) : undefined), .1, 7200)
+    level.times = { a, b, c, d }
+    if (!(a < b && b < c && c < d)) fail()
     level.props = list(v.props, 80).map(item => {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
       if (b.weight !== undefined && b.weight !== 'light' && b.weight !== 'normal' && b.weight !== 'heavy') fail()
@@ -519,5 +526,5 @@ export function parseLevel(value: unknown): JumpLevel {
 export function blankTrial(): PuzzleLevel {
   return { version: 1, id: newLevelId(), name: 'Untitled level', width: 1800, height: 920, floor: 920,
     entrance: { x: 160, y: 920 }, goal: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
-    climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], timers: [], texts: [], pickups: [], times: { gold: 10, silver: 20, bronze: 40 } }
+    climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], timers: [], texts: [], pickups: [], times: { a: 10, b: 20, c: 40, d: 60 } }
 }

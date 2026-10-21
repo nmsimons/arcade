@@ -42,15 +42,21 @@
     "flipX": true
   },
   "times": {
-    "gold": 3.5,
-    "silver": 6,
-    "bronze": 15
+    "a": 3.5,
+    "b": 6,
+    "c": 15,
+    "d": 30
   },
   "props": [],
   "mechanisms": [],
   "triggers": [],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 1135,
+      "y": 435
+    }
+  ],
   "texts": [
     {
       "x": 355,

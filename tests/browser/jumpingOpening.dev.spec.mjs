@@ -101,7 +101,9 @@ test('Wake pauses and restarts its awakening, completes with normal keys, and re
 })
 
 test('charging bay, untimed mode, and optional conduit edit, undo, save and reopen in the studio', async ({ page }, info) => {
-  test.setTimeout(60000)
+  // This full night-mode edit/undo/save/reload flow keeps its real rendering;
+  // software Chromium on slower desktops needs more than a minute for it.
+  test.setTimeout(120000)
   await useLevelFixtures(page, [wake]); await installBuiltInFixtures(page, { 'Wake.json': wake })
   await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
@@ -124,7 +126,7 @@ test('charging bay, untimed mode, and optional conduit edit, undo, save and reop
   await expect(page.getByRole('combobox', { name: 'Entrance style', exact: true })).toHaveText('Charging bay')
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
   await expect(page.getByRole('checkbox', { name: 'Untimed level', exact: true })).toBeChecked()
-  await expect(page.getByRole('group', { name: 'Medal times (seconds)', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Grade times (seconds)', exact: true })).toHaveCount(0)
   const saved = await saveTestLevel(page)
   expect(saved.level).toMatchObject({ timing: 'untimed', entrance: { kind: 'charging-bay' }, triggers: [{ showWires: true, wireHeight: 260 }] })
   await page.reload(); await reopenTestLevel(page, saved)

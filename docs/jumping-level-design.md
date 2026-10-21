@@ -1,6 +1,6 @@
 # Making a fun jumping level
 
-**Updated October 19, 2026.** This is the design brief for creating and
+**Updated October 20, 2026.** This is the design brief for creating and
 reviewing levels in L.A.B. Experiments (Leaps and Bounds). It draws on the built-in maps, the
 authored Tower maps, and the local Night Shift collection. Existing levels are
 references, not evidence that every placement in them is ideal.
@@ -26,11 +26,11 @@ A good level feels like a small place worth figuring out. Its ordinary use is
 legible. A gap, lock, awkward machine, or interruption creates a problem. The
 player discovers more than one way through it.
 
-First completion rewards understanding. Gold rewards a plan and fluent movement.
+First completion rewards understanding. A rewards a plan and fluent movement.
 A missed jump creates another decision, a recovery, or a restart. There is no
 death. The satisfying thought is “I see what I could do better.”
 
-Most levels should take less than a minute, with gold under 30 seconds. Large
+Most levels should take less than a minute, with A under 30 seconds. Large
 levels such as Tower are welcome when their size creates a richer journey.
 Length alone does not make a level substantial.
 
@@ -54,7 +54,7 @@ training area, ending in an escape into the outside world.
 
 The [campaign canon and progression rules](jumping-campaign.md) are authoritative
 for story levels. Completing a required level unlocks the next, including a
-completion without a medal. Silver averages open optional advanced areas only;
+completion at D or better. B averages open optional advanced areas only;
 they never gate the escape. The campaign has an authored order, an awakening,
 and a definite ending. Experimental collections do not automatically become
 required campaign areas.
@@ -508,19 +508,29 @@ Avoid handing out enough clock suppression to make a level's timing meaningless,
 unless that is the level's explicit, satisfying discovery. Record both clock time
 and real play duration when tuning a level with time effects.
 
-Set medals from completed runs, including the approach into the exit doorway.
+Set grade deadlines from completed runs, including the approach into the exit doorway.
 Activating a switched exit opens it; scoring locks when the player enters
 the doorway. An object can activate a connected plate, but it cannot complete that final
 journey for the player.
 
-- **Gold:** an attainable, demonstrated run with a good plan and confident
+- **A:** an attainable, demonstrated run with a good plan and confident
   execution. Do not require unexplained physics tricks or perfect luck.
-- **Silver:** a sound route with some hesitation, extra travel, or a modest
+- **B:** a sound route with some hesitation, extra travel, or a modest
   recovery.
-- **Bronze:** a reasonable learning run that still has momentum.
-- **No medal:** a valid completion. Do not treat exploration as failure.
+- **C:** a reasonable learning run that still has momentum.
+- **D:** a realistic first completion, including time to read the room and make
+  a considered recovery. It must still require purposeful play, rather than
+  making the deadline irrelevant. Tune this separately for each level.
+- **F:** the D deadline has expired. Keep the world playable for exploration,
+  but this run cannot unlock the next level, even after a time refund. Grey
+  time bonuses, penalties and both stopwatches remain visible and uncollected.
+  Coins, gadgets and mechanisms continue working.
 
-Campaign progression uses completion, independently of these grades. For the
+Campaign progression requires D or better, except untimed story sequences.
+Clocks show the current grade and time remaining until F; at F they dim at zero.
+Locked picker slots reveal only their number and locked status, never a name,
+thumbnail or action that exposes the level. The authoring library remains available.
+For the
 fixed source groups, point values, and permanent unlocks used by optional
 advanced areas, follow the [certification rules](jumping-campaign.md#optional-advanced-areas).
 
@@ -529,10 +539,20 @@ cycles, refunds, or alternate routes. Clever solutions within the game's rules
 are welcome; they are a reason to evaluate the level, not automatically patch
 the shortcut away.
 
+For D, budget time to understand the level's new decision and recover from a
+couple of ordinary mistakes. Count the actual return journey after a fall,
+another lift cycle, correcting a load, or reversing a mistaken switch choice;
+do not just add a few seconds to the expert route. Later courses can rely on
+skills already taught, while allowing time to understand their new combination.
+Check a route without perfectly timed refunds or stopwatches when those rewards
+are optional. Do not make the next unlock depend on knowing the fastest line.
+The [D-time review through World I](jumping-d-time-review.md) records the current
+deadlines, reasons, route evidence and remaining playtest limits.
+
 Keep normal-control recordings of measured routes against the current level
 files, and replay them from a fresh start after movement or puzzle changes.
 Include required cargo deliveries and continuing plate loads in the evidence.
-Give gold some execution margin beyond a reproducible input recording; it is
+Give A some execution margin beyond a reproducible input recording; it is
 a demonstration of attainability, not a substitute for playing at normal speed
 or reviewing readability and enjoyment.
 
@@ -594,7 +614,7 @@ still deserve review when reusing a pattern.
 - Is it enjoyable to replay? Is any frustration caused by a decision or a
   demanding move, rather than unclear collision, prolonged waiting, or clutter?
 - For a campaign level, does its place and condition fit the canon? Does a valid
-  completion advance the required route without a medal gate? Are optional
+  D-or-better completion advance the required route? Are optional
   certification requirements visible and separate from that route?
 - For the opening and finale, have their story beats, input, scoring boundaries,
   and presentation been reviewed against the campaign and outdoor briefs?

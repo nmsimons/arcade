@@ -53,7 +53,7 @@ for(const [file,kind,turn,direction,expected] of cases) test(`${file}: ${kind}, 
   if(kind==='wall jump')assert.ok(wallJump,'normal fresh presses must actually launch from the wall')
   assert.equal(caught,expected,expected?'reachable hands establish a stable grip':'farther attempts remain genuine misses')
   if(!expected)return
-  assert.equal(p.hang.edgeY,file==='spire2.jump-level.json'?1100:1760,'the recorded encounter catches its receiving ledge')
+  assert.equal(p.hang.edgeY,level.floor-(file==='spire2.jump-level.json'?300:240),'the recorded encounter catches its receiving ledge')
   assert.ok(stable,'the acquired grip settles at rest')
   for(let i=0;i<140;i++)stepRun(run,{...NEUTRAL_INPUT,climb:true})
   assert.ok(p.grounded&&!p.hang&&!p.mantle,'Up pulls onto the actual receiving ledge')

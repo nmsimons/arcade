@@ -30,7 +30,7 @@
       "finished": true,
       "elapsed": 2.6083333333333267,
       "activeTime": 3.466666666666657,
-      "medal": "Gold",
+      "grade": "A",
       "x": 1204,
       "y": 1200
     },
@@ -96,7 +96,7 @@
       "finished": true,
       "elapsed": 9.025000000000128,
       "activeTime": 9.883333333333413,
-      "medal": "Bronze",
+      "grade": "C",
       "x": 1204,
       "y": 1200
     },
@@ -190,7 +190,7 @@
       "finished": true,
       "elapsed": 6.266666666666768,
       "activeTime": 7.125000000000144,
-      "medal": "Gold",
+      "grade": "A",
       "x": 1460,
       "y": 1200
     },
@@ -305,7 +305,7 @@
       "finished": true,
       "elapsed": 12.508333333333264,
       "activeTime": 13.366666666666548,
-      "medal": "Bronze",
+      "grade": "C",
       "x": 1460,
       "y": 1200
     }

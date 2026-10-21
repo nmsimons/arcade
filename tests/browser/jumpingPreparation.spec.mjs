@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { FIRST_LEVEL, CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 
 test('slow worker loading does not consume the level geometry budget', async ({ page, context }) => {
@@ -27,6 +27,7 @@ test('different prepared levels can be opened repeatedly through the menu', asyn
   const escapade = JSON.parse(await readFile(new URL('../../public/levels/jumping/escapade.jump-level.json', import.meta.url), 'utf8'))
   const levels = [FIRST_LEVEL, CAMPAIGN[1], escapade]
   await useLevelFixtures(page, levels)
+  await unlockJumpingLevels(page, levels)
   await page.goto('/lab')
   for (let repeat = 0; repeat < 2; repeat++) for (const level of levels) {
     await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()

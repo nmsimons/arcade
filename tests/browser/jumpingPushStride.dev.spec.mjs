@@ -1,6 +1,10 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { pushScenario } from '../helpers/jumpingPushScenarios.mjs'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 for (const kind of ['box', 'ball']) test(`keyboard ${kind} pushing takes steady steps without a rapid shuffle`, async ({ page }, info) => {
   const level = pushScenario({ kind, size: 80 }, 1).level

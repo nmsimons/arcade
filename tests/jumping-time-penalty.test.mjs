@@ -109,7 +109,7 @@ test('penalties affect the medal and saved result before exit, but cannot alter 
   run.started = true; run.elapsed = 5; Object.assign(run.player, level.goal)
   step(run, 1); assert.ok(run.goalLit); assert.ok(run.elapsed > 14)
   run.goalElapsed = 1; run.player.x = goalDoor(level.goal).x + goalDoor(level.goal).w / 2
-  step(run, 1); assert.ok(run.exit); assert.equal(run.medal, 'Silver')
+  step(run, 1); assert.ok(run.exit); assert.equal(run.grade, 'B')
   const score = run.elapsed
   const storage = { value: null, getItem() { return this.value }, setItem(key, value) { this.value = value } }
   assert.equal(saveBest(storage, score, level.id), score)

@@ -1112,9 +1112,10 @@
     "power": "switched"
   },
   "times": {
-    "gold": 13,
-    "silver": 20,
-    "bronze": 30
+    "a": 13,
+    "b": 20,
+    "c": 30,
+    "d": 75
   },
   "props": [
     {
@@ -1175,8 +1176,8 @@
       "rotation": -10
     },
     {
-      "x": 2060,
-      "y": 180,
+      "x": 2095,
+      "y": 155,
       "w": 80,
       "h": 100,
       "text": "Do not move crate.",
@@ -1236,54 +1237,8 @@
     }
   ],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
-    "lights": [
-      {
-        "id": "5301ebab-dc8f-4a4b-a2cc-23e24d9cf618",
-        "x": 520,
-        "y": 60,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 50,
-        "power": "always"
-      },
-      {
-        "id": "b9546c5d-ab43-41e7-8943-71b2467228d0",
-        "x": 120,
-        "y": 60,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 20,
-        "power": "always"
-      },
-      {
-        "id": "f18dbbd3-481d-4738-b722-eca0186396f6",
-        "x": 1480,
-        "y": 60,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "2953b8c3-adc3-4204-93fe-05b39130a62b",
-        "x": 3960,
-        "y": 80,
-        "intensity": 100,
-        "direction": 120,
-        "spread": 100,
-        "power": "always"
-      },
-      {
-        "id": "b3f6db35-5490-4be4-b1ab-2a3dbdbe1345",
-        "x": 2080,
-        "y": 60,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 40,
-        "power": "always"
-      }
-    ]
+    "lights": []
   }
 }

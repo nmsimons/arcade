@@ -73,7 +73,7 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
   }
   assert.ok(entryTime !== undefined, 'the player must enter the powered doorway')
   assert.equal(run.finished, true)
-  assert.equal(run.medal, 'Gold', `clock ${run.elapsed.toFixed(2)} exceeds gold ${level.times.gold}`)
+  assert.equal(run.grade, 'A', `clock ${run.elapsed.toFixed(2)} exceeds gold ${level.times.a}`)
   assert.ok(Math.abs(run.elapsed - recording.elapsed) < STEP, 'recorded clock time changed')
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP, 'recorded real duration changed')
   assert.equal(run.coinsCollected, recording.coins)

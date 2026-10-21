@@ -903,9 +903,10 @@
     "power": "switched"
   },
   "times": {
-    "gold": 30,
-    "silver": 45,
-    "bronze": 60
+    "a": 30,
+    "b": 45,
+    "c": 60,
+    "d": 150
   },
   "props": [],
   "mechanisms": [],
@@ -948,7 +949,12 @@
     }
   ],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 545,
+      "y": 20
+    }
+  ],
   "pickups": [],
   "texts": [
     {

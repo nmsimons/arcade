@@ -1,6 +1,10 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { advanceJumpingSimulation } from './helpers/simulation.mjs'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill shortcut with held-jump keyboard controls (frame offset ${frameOffset} ms)`, async ({ page }, info) => {
   // Run the full prop reaction and doorway entry with software-rendered frames.
@@ -32,13 +36,13 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   await page.keyboard.up('d')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
   await expect(complete).toBeVisible()
-  await expect(complete.getByText('Gold medal', { exact: true })).toBeVisible()
+  await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
   // Rendered input phases vary. Check the authored Gold deadline here; the
   // fixed-step simulation recording separately checks the exact recorded time.
   const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
   const elapsed = minutes * 60 + seconds
   expect(elapsed).toBeGreaterThan(0)
   expect(elapsed).toBeLessThanOrEqual(10)
-  await expect(complete.locator('.jumping-result-targets')).toHaveText('Gold0:10Silver0:15Bronze0:30')
+  await expect(complete.locator('.jumping-result-targets')).toHaveText('A0:10B0:15C0:30D0:55')
   await page.screenshot({ path: info.outputPath('level-five-complete.png') })
 })

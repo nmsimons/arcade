@@ -1,7 +1,7 @@
 import { CAMPAIGN, FIRST_LEVEL, YARD_LEVEL, createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from './helpers/jumping-active-run.mjs'
+import { createRun, formatTime, gradeFor, readBest, saveBest, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { levelProblems, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
@@ -15,7 +15,7 @@ const weightPlate = (level, target = 'lift') => {
   level.props.push({ kind: 'box', x: 340, y: 920, size: 30 })
 }
 for (const [index, level] of CAMPAIGN.entries()) test(`${level.name} can be finished from spawn using its taught mechanic`, () => {
-  const run = playLesson(index); assert.ok(run.elapsed < level.times.silver)
+  const run = playLesson(index); assert.ok(run.elapsed < level.times.b)
   const time = run.elapsed, p = structuredClone(run.player); advance(run, 600, { move: -1, jump: true })
   assert.equal(run.elapsed, time); assert.deepEqual(run.player, p)
 })
@@ -222,13 +222,13 @@ test('a lift landing is a passable seam in either direction', () => {
     assert.ok(move === 1 ? p.x > 230 : p.x < 170)
   }
 })
-test('medals use each level’s thresholds and an unmedalled finish is still successful', () => {
-  assert.equal(medalFor(3.5, FIRST_LEVEL), 'Gold'); assert.equal(medalFor(3.51, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(6, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(15, FIRST_LEVEL), 'Bronze'); assert.equal(medalFor(15.01, FIRST_LEVEL), 'No medal')
+test('grades use each level’s thresholds and an F run can still reach the exit', () => {
+  assert.equal(gradeFor(3.5, FIRST_LEVEL), 'A'); assert.equal(gradeFor(3.51, FIRST_LEVEL), 'B'); assert.equal(gradeFor(6, FIRST_LEVEL), 'B'); assert.equal(gradeFor(15, FIRST_LEVEL), 'C'); assert.equal(gradeFor(15.01, FIRST_LEVEL), 'D'); assert.equal(gradeFor(24, FIRST_LEVEL), 'F')
   const run = createRun(FIRST_LEVEL); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.goal); advance(run, 1)
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.grade, null)
   const door = goalDoor(run.level.goal); Object.assign(run.player, { x: door.x + door.w / 2 })
   advance(run, 180)
-  assert.equal(run.finished, true); assert.equal(run.medal, 'No medal'); assert.equal(formatTime(100.019), '1:40.01')
+  assert.equal(run.finished, true); assert.equal(run.grade, 'F'); assert.equal(formatTime(100.019), '1:40.01')
 })
 test('personal bests are isolated by level and survive slower runs and corrupt storage', () => {
   let raw = null; const storage = { getItem: () => raw, setItem: (_, value) => { raw = value } }
@@ -259,14 +259,14 @@ for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} switche
   advance(run, 20); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
   const time = run.elapsed
   advance(run, 600); assert.equal(run.finished, false); assert.equal(run.exit, null); assert.ok(Math.abs(run.elapsed - time - 5) < 1e-9)
-  assert.equal(run.medal, null, 'opening the door does not award a medal')
+  assert.equal(run.grade, null, 'opening the door does not award a medal')
   Object.assign(p, { x: door.x + door.w / 2, y: 800, vy: 0, grounded: false, footwork: null })
   advance(run, 1); assert.equal(run.exit, null, 'airborne passage does not enter the doorway')
   Object.assign(p, { x: 800, y: 920, vx: 0, vy: 0, grounded: true, footwork: null })
   for (let i = 0; i < 120 && !run.exit; i++) advance(run, 1, { move: direction })
   assert.ok(run.exit); assert.equal(run.finished, false)
   const captured = run.exit.fromX, finishTime = run.elapsed
-  assert.ok(finishTime > time + 5); assert.equal(run.medal, medalFor(finishTime, level))
+  assert.ok(finishTime > time + 5); assert.equal(run.grade, gradeFor(finishTime, level))
   advance(run, Math.floor(GOAL_EXIT_SECONDS / STEP) - 2, { move: -direction, jump: true })
   assert.equal(run.finished, false, 'the full exit animation plays before results')
   assert.ok(Math.abs(p.x - (door.x + door.w / 2)) < .01); assert.notEqual(p.x, captured)
@@ -284,7 +284,7 @@ for (const kind of ['box', 'ball']) test(`a ${kind} can switch an exit remotely 
   const run = createRun(level)
   advance(run, 100); assert.equal(run.goalLit, true, 'the cargo activates the exit without player input')
   advance(run, 20, { move: -1 })
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null); assert.ok(run.player.x < 200)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.grade, null); assert.ok(run.player.x < 200)
   const time = run.elapsed, player = structuredClone(run.player)
   advance(run, 240, { move: 1, jump: true })
   assert.equal(run.goalElapsed, GOAL_OPEN_SECONDS); assert.equal(run.finished, false); assert.equal(run.exit, null)
@@ -329,6 +329,6 @@ test('walking away unloads a Switch plate while it stays depressed, the exit sta
   advance(run, 100, { move: -1 })
   assert.ok(run.player.x < 600); assert.equal(run.triggers[0].pressed, false)
   assert.equal(run.triggers[0].depression, 1)
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.grade, null)
   assert.ok(Math.abs(run.elapsed - time - 100 * STEP) < 1e-9)
 })

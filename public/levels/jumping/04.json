@@ -1066,9 +1066,10 @@
     "y": 460
   },
   "times": {
-    "gold": 12,
-    "silver": 20,
-    "bronze": 40
+    "a": 12,
+    "b": 20,
+    "c": 40,
+    "d": 70
   },
   "props": [],
   "mechanisms": [],

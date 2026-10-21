@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { resizeLevelHeight } from '../src/games/jumping/editor.ts'
 import { copyLevel, levelHeight, levelPlayer, levelProblems, levelTerrain, newLevel, parseLevel, prepareLevelRopes } from '../src/games/jumping/level.ts'
 import { groundAt } from '../src/games/jumping/terrain.ts'
+import { gradeTimes } from '../src/games/jumping/grading.ts'
 
 function fixture() {
   return prepareLevelRopes({
@@ -38,7 +39,7 @@ test('adding height preserves every object above the floor, including attachment
   assert.equal(rope.y, old.y + 600); assert.equal(rope.length, old.length)
   assert.notEqual(rope.rest.key, old.rest.key, 'the prepared geometry belongs to the resized room')
   rope.rest.points.forEach((p, i) => assert.ok(Math.hypot(p[0] - old.rest.points[i][0], p[1] - old.rest.points[i][1] - 600) < .05))
-  assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(next))), next)
+  assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(next))), { ...next, times: gradeTimes(next) })
   assert.deepEqual(levelProblems(next), [])
   assert.equal(levelPlayer(next).y, 1600)
   assert.equal(groundAt(levelTerrain(next), 400, 1000).y, 1000)
@@ -55,7 +56,7 @@ test('shrinking removes the ceiling space, stops before cropping contents, and c
   assert.equal(smaller.checkpoints[0].y, 62)
   assert.equal(smaller.entrance.y, 662)
   assert.deepEqual(levelProblems(smaller), [])
-  assert.deepEqual(parseLevel(smaller), smaller)
+  assert.deepEqual(parseLevel(smaller), { ...smaller, times: gradeTimes(smaller) })
 })
 
 test('height changes support playground files, arbitrary heights, and bounded input', () => {

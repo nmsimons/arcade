@@ -1,9 +1,13 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 const spelunk = JSON.parse(readFileSync(new URL('../../public/levels/jumping/spelunk1.jump-level.json', import.meta.url)))
 for (const mode of ['run', 'walk', 'crouch']) test(`Spelunk downhill ${mode} keeps its feet with the body`, async ({ page }, info) => {

@@ -925,9 +925,10 @@
     "power": "switched"
   },
   "times": {
-    "gold": 110,
-    "silver": 150,
-    "bronze": 210
+    "a": 110,
+    "b": 150,
+    "c": 210,
+    "d": 360
   },
   "props": [
     {

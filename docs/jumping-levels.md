@@ -7,11 +7,12 @@ empty documents, and the engine receives the selected level as data.
 For route design, teaching, wall guidance, puzzles, and playtesting, see
 [Making a fun jumping level](jumping-level-design.md).
 The [campaign canon](jumping-campaign.md) defines the approved required-level
-sequence rules and optional silver-average certification. The
+sequence rules and optional B-average certification. The
 [outdoor finale brief](jumping-outdoors.md) specifies the escape environment.
-Campaign locks, exterior backgrounds, and the outdoor ending remain design
-requirements pending implementation. The untimed opening, charging-bay entrance,
-and optional wall wiring described below are supported authoring features.
+D-or-better campaign progression and locked picker slots are implemented.
+Exterior backgrounds and the outdoor ending remain design requirements pending
+implementation. The untimed opening, charging-bay entrance, and optional wall
+wiring described below are supported authoring features.
 
 Version 1 remains supported unchanged. Version 2 adds authored lighting, described
 below and in the [flat-lighting specification](jumping-lighting.md). The studio
@@ -255,11 +256,16 @@ becomes one ordinary terrain piece with editable nodes,
 dimensions, material, duplication, transforms, and undo/redo.
 
 The level menu loads the built-in JSON collection. Click a tile, press Enter,
-or press controller A to play. Timed tiles show personal bests and earned medals;
+or press controller A to play. Timed tiles show personal bests and letter grades;
 untimed tiles show completion. Finishing updates those records. In local dev,
 unready maps show repair messages and remain editable. Each tile has **Play**;
 local dev adds **Edit** and deletion. Controller or keyboard Y edits the selected
 level only in local dev.
+
+The first course is unlocked. A timed finish at D or better unlocks the next
+course in catalog order; untimed levels require completion. Locked slots show
+only their number and a lock, with no thumbnail, name or play/edit actions.
+The studio library and playtests remain unrestricted by campaign progress.
 
 Level studio supports standard controllers. **Y / △** switches between editor
 controls and the canvas cursor. Returning to the controls restores the last
@@ -363,13 +369,16 @@ duplicate, or delete it. Inspector Y measures its top
 above the floor, and increasing level height preserves that height. Terrain edits
 do not move these wall objects.
 
-Every display shows the same elapsed time as glowing seven-segment `00:00`
+Every display shows time remaining before F as glowing seven-segment `00:00`
 minutes and seconds, with no hours or fractions. The face saturates at `59:59`;
-the underlying run time, medals, and best times retain their full precision and
+the underlying run time, grades, and best times retain their full precision and
 range. Earlier, larger clocks keep their saved top-left positions. Digits are
-green normally and on completion; the left LED bay shows effect/status icons.
-The time is zero before the first movement, paused with the game, latched when
-the player enters the exit, and zero again on restart.
+green normally and on completion; the left LED bay shows the current A/B/C/D/F
+grade. Freeze/fast effects keep their amber/red digit colors. The face starts
+at the D deadline, pauses with the game and latches on exit entry. At F it stays
+zero and dim, and time pickups turn grey and cannot be collected. Restart
+restores the deadline and pickups. Time bonuses can improve the current grade
+and remaining time before F, but cannot revive a failed run.
 Displays are drawn behind terrain and actors and have no collision. Their size
 and position follow the world camera. There is no visible HUD clock; levels
 without `timers` simply have no wall display. Older files may omit the array.
@@ -810,7 +819,17 @@ around its hands if terrain permits. Jump pushes against gravity; letting go
 retains momentum without a downward kick. Ropes can transfer onto ceilings and
 ceiling slopes using the same support and clearance rules as ordinary exits.
 
-Medal `times` are increasing positive seconds: `gold < silver < bronze`.
+Grade `times` use increasing positive seconds: `a < b < c < d`.
+A/B/C retain the old Gold/Silver/Bronze cutoffs. D is independently authored for
+a realistic, purposeful first run. A/B/C are bounded at 3600 seconds; D at 7200.
+Older files with `gold`, `silver`, `bronze` remain readable, using an explicit
+`d` when present or a compatibility default of `ceil(bronze * 1.5)`. New saves
+use letter keys. This fallback is for old collections, not a calibration rule.
+The built-in D thresholds through World I have an individual
+[discovery and recovery review](jumping-d-time-review.md). Full first-run
+calibration with new players remains unverified; later experimental levels
+retain initial values. Validate deadlines with normal-control learning and
+recovery runs.
 The builder's **Objects** tools place balls, boxes, shovebots, and repulsorbots at the cursor,
 with their feet at its height. Snap catches nearby surfaces; **Place on surface**
 moves an existing object to a surface farther below.

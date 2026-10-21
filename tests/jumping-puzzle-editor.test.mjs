@@ -182,7 +182,7 @@ test('sizing props and moving robots keeps their definitions bounded', () => {
 })
 test('imports reject unsafe object sizes, impossible counts, duplicate IDs, and invalid medal ordering', () => {
   const base = addItem(blankTrial(), 'lift', { x: 700, y: 890 }, { x: 700, y: 600 }).level
-  for (const change of [l => { l.times.gold = l.times.silver + 1 }, l => { l.floor = Infinity }, l => { l.mechanisms[0].travel = 1e9 },
+  for (const change of [l => { l.times.a = l.times.b + 1 }, l => { l.floor = Infinity }, l => { l.mechanisms[0].travel = 1e9 },
     l => { l.mechanisms.push({ ...l.mechanisms[0] }) }, l => { l.props = [{ kind: 'ball', x: 200, y: 920, size: -10 }] }]) {
     const bad = structuredClone(base); change(bad); assert.throws(() => parseLevel(bad))
   }

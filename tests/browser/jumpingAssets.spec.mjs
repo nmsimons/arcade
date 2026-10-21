@@ -21,16 +21,16 @@ test('built-in JSON changes and newly indexed files load without changing the ap
   await page.route('**/levels/jumping/*-*.json', route => {
     const name = route.request().url().split('/').at(-1)
     const level = custom(name, name === '00-first.json' ? revision ? 'Changed on disk' : 'First asset' : name === '02-added.json' ? 'New asset' : 'Last asset')
-    if (revision && name === '00-first.json') { level.width = 2200; level.times.gold = 4 }
+    if (revision && name === '00-first.json') { level.width = 2200; level.times.a = 4 }
     return route.fulfill({ json: level })
   })
   await open(page)
-  expect(await names(page)).toEqual(['First asset', 'Last asset'])
+  expect(await names(page)).toEqual(['First asset', 'Level 2'])
   const scripts = await page.locator('script[src]').evaluateAll(nodes => nodes.map(n => n.src))
   revision = true
   await page.reload()
   await expect(page.getByRole('button', { name: 'Level 1: Changed on disk' })).toBeVisible()
-  expect(await names(page)).toEqual(['Changed on disk', 'New asset', 'Last asset'])
+  expect(await names(page)).toEqual(['Changed on disk', 'Level 2', 'Level 3'])
   expect(await page.locator('script[src]').evaluateAll(nodes => nodes.map(n => n.src))).toEqual(scripts)
   await page.screenshot({ path: info.outputPath('runtime-level-assets.png') })
   await expect(page.locator('.jumping-level-edit')).toHaveCount(0)

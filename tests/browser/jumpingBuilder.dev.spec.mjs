@@ -67,14 +67,20 @@ async function open(page, level) {
     await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false', { timeout: 15000 })
   } else await page.getByRole('button', { name: 'Close library', exact: true }).click()
 }
+async function worldPoints(page, points) {
+  // A render can update the camera between browser calls. Project the whole
+  // gesture with one transform so its two ends cannot use different views.
+  return page.getByRole('application', { name: 'Level canvas' }).evaluate((canvas, points) => {
+    const rect = canvas.getBoundingClientRect(), camera = canvas.jumpCamera
+    return points.map(point => ({ x: rect.x + (point.x * camera.a + camera.e) / devicePixelRatio,
+      y: rect.y + (point.y * camera.d + camera.f) / devicePixelRatio }))
+  }, points)
+}
 async function worldPoint(page, point) {
-  const canvas = await page.getByRole('application', { name: 'Level canvas' }).boundingBox()
-  const camera = await page.getByRole('application', { name: 'Level canvas' }).evaluate(canvas => { const c = canvas.jumpCamera; return { a: c.a, d: c.d, e: c.e, f: c.f, ratio: devicePixelRatio } })
-  const x = v => canvas.x + (v * camera.a + camera.e) / camera.ratio, y = v => canvas.y + (v * camera.d + camera.f) / camera.ratio
-  return { x: x(point.x), y: y(point.y) }
+  return (await worldPoints(page, [point]))[0]
 }
 async function dragWorld(page, start, end) {
-  const a = await worldPoint(page, start), b = await worldPoint(page, end)
+  const [a, b] = await worldPoints(page, [start, end])
   await page.mouse.move(a.x, a.y); await page.mouse.down()
   await page.mouse.move(b.x, b.y, { steps: 8 }); await page.mouse.up()
 }
@@ -885,7 +891,14 @@ test('terrain nodes and all four resize handles edit independently, with undo an
   let bounds = { x: 300, y: 160, w: 200, h: 160 }
   for (const [corner, dx, dy] of [['top-left', -40, -20], ['top-right', 40, -20], ['bottom-left', -20, 40], ['bottom-right', 20, 20]]) {
     const left = corner.endsWith('left'), top = corner.startsWith('top')
-    if (corner === 'bottom-left') await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+    if (corner === 'bottom-left') {
+      const renderedZoom = () => page.getByRole('application', { name: 'Level canvas' }).evaluate(c => c.jumpCamera.a / devicePixelRatio)
+      const before = await renderedZoom()
+      await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+      // The button's React state can commit before the canvas redraws. Wait
+      // for that rendered view before locating its outward resize handles.
+      await expect.poll(renderedZoom).toBeGreaterThan(before)
+    }
     const zoom = await page.getByRole('application', { name: 'Level canvas' }).evaluate(c => c.jumpCamera.a / devicePixelRatio)
     const start = { x: bounds.x + (left ? -16 / zoom : bounds.w + 16 / zoom), y: bounds.y + (top ? -16 / zoom : bounds.h + 16 / zoom) }
     await dragWorld(page, start, { x: start.x + dx, y: start.y + dy })

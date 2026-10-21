@@ -209,6 +209,8 @@ test('spotlight names identify the inspector, errors and connections and survive
 })
 
 test('every switchable object shares a bidirectional Switched by list with undo and saved connections', async ({ page }, info) => {
+  // Exercise all five targets, undo/redo, two save/reopen cycles and playtest.
+  test.setTimeout(60_000)
   const level = blankTrial()
   level.version = 2
   level.mechanisms = [
@@ -227,6 +229,8 @@ test('every switchable object shares a bidirectional Switched by list with undo 
   ]
   level.pickups = [{ kind: 'coin', x: 240, y: 800 }]
   await open(page, level)
+  // Static wiring checks do not need a continuously animated editor preview.
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 1000)))
   const switches = ['Entry plate · Pressure plate 1', 'Pressure plate 2', 'Toll · Coin switch 3']
   const objects = [
     ['mechanism:0', 'Main door · Gate 1'], ['mechanism:1', 'Ceiling hatch · Horizontal gate 2'],
@@ -269,6 +273,7 @@ test('every switchable object shares a bidirectional Switched by list with undo 
   }
   await select(page, 'mechanism:0')
   await incoming.scrollIntoViewIfNeeded()
+  await page.clock.runFor(32)
   await page.screenshot({ path: info.outputPath('mechanism-switched-by.png') })
   for (let i = 0; i < switches.length; i++) {
     await select(page, `trigger:${i}`)

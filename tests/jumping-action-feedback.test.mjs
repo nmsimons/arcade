@@ -76,7 +76,8 @@ test('touch Down uses the safe hang and a lifted, separate gesture drops',()=>{
 
 test('supported ladder acquisition precedes crouch while supported rope Down retains crouch',()=>{
   const floor=[{x:0,y:500,w:1000,h:100}],p=createPlayer({x:500,y:500})
-  const ladders={ladders:[{x:500,top:200,bottom:600,platform:0,side:1}],ropes:[]}
+  // The ladder must lead below the supporting slab to offer downward boarding.
+  const ladders={ladders:[{x:500,top:200,bottom:700,platform:0,side:1}],ropes:[]}
   stepPlayer(p,NEUTRAL_INPUT,STEP,floor,ladders)
   assert.equal(playerActionFeedback(p,ladders).kind,'climb')
   stepPlayer(p,down,STEP,floor,ladders);assert.equal(p.climbing.kind,'ladder')
@@ -86,6 +87,19 @@ test('supported ladder acquisition precedes crouch while supported rope Down ret
   stepPlayer(q,NEUTRAL_INPUT,STEP,floor,ropes)
   assert.equal(playerActionFeedback(q,ropes).kind,'crouch')
   stepPlayer(q,down,STEP,floor,ropes);assert.equal(q.climbing,null);assert.ok(q.crouching)
+})
+
+test('feedback offers crouch when a ladder ends inside the supporting floor',()=>{
+  const floor=[{x:0,y:500,w:1000,h:100}],p=createPlayer({x:500,y:500})
+  const ladders={ladders:[{x:500,top:200,bottom:600,platform:0,side:1}],ropes:[]}
+  stepPlayer(p,NEUTRAL_INPUT,STEP,floor,ladders)
+  const before=structuredClone(p)
+  assert.equal(playerActionFeedback(p,ladders).kind,'crouch')
+  assert.deepEqual(p,before,'feedback does not change the player')
+  stepPlayer(p,down,STEP,floor,ladders)
+  assert.equal(p.climbing,null)
+  assert.equal(p.crouching,true)
+  assert.equal(p.y,500)
 })
 
 test('normal controller Down crouches on the pool floor, release stands and Up swims away',()=>{

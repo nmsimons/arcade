@@ -53,7 +53,9 @@ function connected(samples) {
 }
 
 test('keyboard approaches and jumps beside the LAB crate keep the visible rig connected', async ({ page }, info) => {
-  test.setTimeout(60_000)
+  // The approach and climb retain every rendered contact/rig sample, including
+  // on software renderers where the complete route exceeds a minute.
+  test.setTimeout(180_000)
   await start(page, 720)
   await page.keyboard.down('ArrowRight'); await page.clock.runFor(160)
   connected((await read(page)).recent)

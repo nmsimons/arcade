@@ -58,7 +58,9 @@ function drawEmpEffects(ctx: CanvasRenderingContext2D, run: Run) {
 }
 export function drawGadgets(ctx: CanvasRenderingContext2D, run: Run, paint: WorldPaint = paintNormally, playerExposure: Exposure = 0) {
   // Emissive strokes use the existing compositing path, never a new light source.
-  paint(ctx, 1, () => drawEmpEffects(ctx, run))
+  // An empty, unbounded paint still claims the whole viewport during emission
+  // coverage. Leave the cropped buffer alone until there is electricity to draw.
+  if (run.gadgets.bolts.length || run.gadgets.disabled.size) paint(ctx, 1, () => drawEmpEffects(ctx, run))
   if (run.gadgets.nearby && !run.gadgets.held) {
     const prop = run.gadgets.nearby
     ctx.strokeStyle = '#9a8654'; ctx.lineWidth = 1.5

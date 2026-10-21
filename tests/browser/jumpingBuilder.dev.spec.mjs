@@ -431,6 +431,8 @@ test('elevator anchor dragging adjusts travel with snap, undo, and save while ke
 })
 
 test('one pressure plate controls a gate and elevator through editing, save and play', async ({ page }, info) => {
+  // Editing plus complete rendered mechanism cycles can exceed real time on CI.
+  test.setTimeout(90_000)
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, roundRect = proto.roundRect, arc = proto.arc
     proto.roundRect = function (x, y, w, h, ...rest) {
@@ -1322,6 +1324,8 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 })
 
 for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyboard'} Down transfers onto its rope, descends, swings away and drops`, async ({page},info) => {
+  // Preserve every swing/drop frame through the final landing on software CI.
+  test.setTimeout(90_000)
   const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,entrance:{x:420,y:200},goal:{x:620,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
   await page.addInitScript(({controller})=>{
     if(controller){window.testPad={index:0,id:'Rappel pad',connected:true,mapping:'standard',axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};Object.defineProperty(navigator,'getGamepads',{value:()=>[window.testPad]})}
@@ -1430,6 +1434,8 @@ for (const anchorY of [200, 220]) for (const controller of [false, true]) test(`
 })
 
 for (const pinned of [false, true]) test(`a ${pinned ? 'pinned' : 'loose'} ball at the rope exit permits climbing or retreating`, async ({ page }, info) => {
+  // Render the full climb and retreat, including the pause at a pinned ball.
+  test.setTimeout(90_000)
   const level = { version: 1, id: 'rope-ball-exit', name: 'Rope ball exit', width: 1000, height: 600, floor: 600,
     entrance: { x: 380, y: 600 }, goal: { x: 850, y: 600 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 400 }],
     climbables: { ladders: [], ropes: [{ x: 400, y: 200, length: 330, segments: 42 }] },

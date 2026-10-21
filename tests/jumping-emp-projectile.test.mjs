@@ -123,6 +123,20 @@ test('a locally disabled red field waits for a body to clear before returning', 
   assert.equal(field.active, true)
 })
 
+test('an idle EMP does not claim emissive coverage before firing or after its effects expire', () => {
+  const run = equipped(), exposures = []
+  const paint = (_ctx, exposure) => exposures.push(exposure)
+  drawGadgets({}, run, paint)
+  assert.deepEqual(exposures, [], 'carrying the EMP does not expand the emission mask')
+  tick(run, 1, { use: true })
+  drawGadgets({}, run, paint)
+  assert.ok(exposures.includes(1), 'a traveling bolt requests the emission pass')
+  tick(run, Math.ceil(EMP_DISABLE_SECONDS / STEP) + 180)
+  exposures.length = 0
+  drawGadgets({}, run, paint)
+  assert.deepEqual(exposures, [], 'expired effects release their emission coverage')
+})
+
 test('EMP crackle changes in discrete flickers, has bounded work, and draws no countdown', () => {
   const capture = (w, h, age) => {
     const calls = []

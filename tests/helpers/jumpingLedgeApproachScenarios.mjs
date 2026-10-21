@@ -4,8 +4,10 @@ import {NEUTRAL_INPUT} from '../../src/games/jumping/model.ts'
 export function ledgeApproachLevel(authored,kind,direction=1) {
   const level=structuredClone(authored)
   const spire=level.name==='Spire II'
-  level.entrance=kind==='wall jump' ? {x:direction>0?650:830,y:1400}
-    : {x:spire?(direction>0?440:1020):(direction>0?720:920),y:spire?600:1760}
+  // Room-height edits translate this encounter with the floor, preserving its
+  // approach and receiving ledges instead of leaving the spawn in the old room.
+  level.entrance=kind==='wall jump' ? {x:direction>0?650:830,y:level.floor}
+    : {x:spire?(direction>0?440:1020):(direction>0?720:920),y:level.floor-(spire?800:240)}
   return level
 }
 

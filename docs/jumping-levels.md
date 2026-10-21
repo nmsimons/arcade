@@ -9,9 +9,10 @@ For route design, teaching, wall guidance, puzzles, and playtesting, see
 The [campaign canon](jumping-campaign.md) defines the approved required-level
 sequence rules and optional B-average certification. The
 [outdoor finale brief](jumping-outdoors.md) specifies the escape environment.
-Campaign locks, exterior backgrounds, and the outdoor ending remain design
-requirements pending implementation. The untimed opening, charging-bay entrance,
-and optional wall wiring described below are supported authoring features.
+D-or-better campaign progression and locked picker slots are implemented.
+Exterior backgrounds and the outdoor ending remain design requirements pending
+implementation. The untimed opening, charging-bay entrance, and optional wall
+wiring described below are supported authoring features.
 
 Version 1 remains supported unchanged. Version 2 adds authored lighting, described
 below and in the [flat-lighting specification](jumping-lighting.md). The studio

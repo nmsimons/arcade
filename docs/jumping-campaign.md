@@ -212,8 +212,8 @@ this small room at normal speed.
 
 Charging-bay entrances and untimed levels are reusable studio choices with
 pause, restart, automatic input handoff, and saved completion. Ordinary levels
-retain their doorway entrance and scoring. The broader campaign locks remain
-separate work; the current Next level action leads from Wake into the collection.
+retain their doorway entrance and scoring. Completing Wake opens the first
+course; timed courses then require D or better to advance through the collection.
 
 ![The robot enclosed behind the pod glass on its raised plinth as local power returns.](images/lab-wake-pod.png)
 

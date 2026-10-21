@@ -82,9 +82,10 @@
     "flipX": true
   },
   "times": {
-    "gold": 10,
-    "silver": 15,
-    "bronze": 30
+    "a": 10,
+    "b": 15,
+    "c": 30,
+    "d": 75
   },
   "props": [
     {
@@ -154,17 +155,6 @@
       "text": "5",
       "fontSize": 96,
       "align": "center"
-    },
-    {
-      "x": 1605,
-      "y": 480,
-      "w": 120,
-      "h": 80,
-      "text": "But why?",
-      "fontSize": 16,
-      "align": "left",
-      "style": "graffiti",
-      "rotation": -10
     },
     {
       "x": 1460,

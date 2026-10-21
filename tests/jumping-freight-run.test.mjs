@@ -99,7 +99,7 @@ for (const [name, recording, releaseAdjustment] of [['flow', flow, 0], ['early r
   }
   assert.equal(run.coinsCollected, recording.coins)
   if (fast) {
-    assert.equal(run.medal, 'Gold')
+    assert.equal(run.grade, 'A')
     assert.equal(run.triggers[0].active, false, 'the upper route bypasses the gantry')
     assert.deepEqual([...ropes], [0, 1, 2], 'link the two gantry swings and the reservoir swing')
     assert.equal(releases.length, 3)

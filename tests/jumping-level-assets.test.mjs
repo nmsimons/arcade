@@ -136,7 +136,7 @@ const malformed = {
   ropeBends: l => { l.climbables.ropes[0].rest.bends[0] = [NaN, 0] }, ropeMaterial: l => { l.climbables.ropes[0].rest.distances[1] = 0 },
   prop: l => { l.props[0].size = 300 }, mechanism: l => { l.mechanisms[0].travel = -10 },
   duplicateMechanism: l => { l.mechanisms[1].id = l.mechanisms[0].id }, trigger: l => { l.triggers[0].mode = 'invalid' },
-  pusher: l => { l.robots[0].left = l.robots[0].right }, medals: l => { l.times.gold = l.times.bronze }, goal: l => { l.goal.y = NaN },
+  pusher: l => { l.robots[0].left = l.robots[0].right }, medals: l => { l.times.a = l.times.c }, goal: l => { l.goal.y = NaN },
   wallTimer: l => { l.timers[0].x = l.width },
 }
 

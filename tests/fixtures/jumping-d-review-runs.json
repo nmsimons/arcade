@@ -1,0 +1,1049 @@
+{
+  "version": 1,
+  "jumpModel": "tap-hold",
+  "note": "Fresh-start recovery routes for the D deadline review; these are not untrained first-run measurements or A-grade audits.",
+  "runs": [
+    {
+      "name": "crate-correction-and-swim-recovery",
+      "file": "LAB2.jump-level.json",
+      "jumpModel": "tap-hold",
+      "trace": [
+        {
+          "frames": 78,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 234,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 383,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 180,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 277,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 517,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 226,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 43,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 168,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 600,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 497,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 148,
+          "input": {
+            "move": 1
+          }
+        }
+      ],
+      "elapsed": 28.849999999999003,
+      "activeTime": 29.708333333332288,
+      "coins": 0,
+      "finished": true
+    },
+    {
+      "name": "lower-route-ten-coins-and-final-rope",
+      "file": "world1.jump-level.json",
+      "jumpModel": "tap-hold",
+      "trace": [
+        {
+          "frames": 240,
+          "input": {}
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 202,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 54,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 69,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 195,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 164,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 700,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1127,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 193,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 294,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 64,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 64,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 762,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 160,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 56,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 189,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 180,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 410,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 900,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 189,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 102,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 110,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 131,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 112,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 124,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 413,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 334,
+          "input": {
+            "move": 1
+          }
+        }
+      ],
+      "elapsed": 70.59166666666891,
+      "activeTime": 71.45000000000293,
+      "coins": 10,
+      "finished": true
+    },
+    {
+      "name": "reading-pause-changed-traffic-and-extra-cargo-recovery",
+      "file": "world1.jump-level.json",
+      "jumpModel": "tap-hold",
+      "trace": [
+        {
+          "frames": 2040,
+          "input": {}
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 202,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 54,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 69,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 195,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 164,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 700,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1127,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 193,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 294,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 64,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 64,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 762,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 160,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 56,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 189,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 180,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 410,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 900,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 189,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 102,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 110,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 131,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 112,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 124,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 413,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 334,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 88,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 75,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 140,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 112,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 14,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 300,
+          "input": {
+            "move": 1
+          }
+        }
+      ],
+      "elapsed": 95.29166666668857,
+      "activeTime": 96.15000000002259,
+      "coins": 14,
+      "finished": true
+    }
+  ]
+}

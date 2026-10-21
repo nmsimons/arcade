@@ -40,9 +40,10 @@
     "power": "switched"
   },
   "times": {
-    "gold": 10,
-    "silver": 20,
-    "bronze": 40
+    "a": 10,
+    "b": 20,
+    "c": 40,
+    "d": 60
   },
   "props": [],
   "mechanisms": [],

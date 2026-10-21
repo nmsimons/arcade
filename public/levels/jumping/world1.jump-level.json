@@ -3264,9 +3264,10 @@
     "power": "switched"
   },
   "times": {
-    "gold": 10,
-    "silver": 20,
-    "bronze": 40
+    "a": 10,
+    "b": 20,
+    "c": 40,
+    "d": 360
   },
   "props": [
     {
@@ -3524,7 +3525,12 @@
       "right": 1930
     }
   ],
-  "timers": [],
+  "timers": [
+    {
+      "x": 9855,
+      "y": 930
+    }
+  ],
   "pickups": [
     {
       "x": 3794,

@@ -12,6 +12,7 @@ import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
+import { GRADE_TARGETS, gradeTimes } from './grading'
 import type { LevelFile } from './levelAssets'
 import { levelFileName } from './levelFiles'
 import type { BuiltInLevels } from './builtInLevels'
@@ -1250,10 +1251,11 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           if (e.target.checked) next.timing = 'untimed'; else delete next.timing
           commit(next)
         }} />Untimed level</label>}
-        {isPuzzleLevel(level) && level.timing !== 'untimed' && <fieldset className="builder-medals"><legend>Medal times (seconds)</legend><div className="builder-medal-inputs">{(['gold', 'silver', 'bronze'] as const).map(medal => {
-          const min = medal === 'gold' ? 1 : Math.floor(level.times[medal === 'silver' ? 'gold' : 'silver']) + 1
-          const max = medal === 'bronze' ? 3600 : Math.ceil(level.times[medal === 'gold' ? 'silver' : 'bronze']) - 1
-          return <label key={medal}>{medal[0].toUpperCase() + medal.slice(1)}<NumberField label={`${medal} time`} min={min} max={max} step={1} value={level.times[medal]} {...numberEdit((base, value) => ({ ...base, times: { ...base.times!, [medal]: value } }))} /></label>
+        {isPuzzleLevel(level) && level.timing !== 'untimed' && <fieldset className="builder-grades"><legend>Grade times (seconds)</legend><div className="builder-grade-inputs">{GRADE_TARGETS.map((grade, index) => {
+          const times = gradeTimes(level)
+          const min = index === 0 ? 1 : Math.floor(times[GRADE_TARGETS[index - 1]]) + 1
+          const max = index === 3 ? 7200 : Math.min(3600, Math.ceil(times[GRADE_TARGETS[index + 1]]) - 1)
+          return <label key={grade}>{grade.toUpperCase()}<NumberField label={`${grade.toUpperCase()} time`} min={min} max={max} step={1} value={times[grade]} {...numberEdit((base, value) => ({ ...base, times: { ...gradeTimes({ times: base.times! }), [grade]: value } }))} /></label>
         })}</div></fieldset>}
       </div>
       </div>

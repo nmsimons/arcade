@@ -10,6 +10,7 @@ import type { Goal } from './goal.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
 import { drawWallTimer } from './wallTimer.ts'
+import { gradeClock } from './grading.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
 import { drawCoinSwitch } from './coins.ts'
 import { gameCamera } from './camera.ts'
@@ -162,11 +163,13 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
     const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
     const clockStatus = clockFinished ? 'finished' : clockStopped ? 'pause' : clockFast ? 'fast' : undefined
-    for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, run.elapsed, clockStatus, paint)
+    const clock = gradeClock(level, run.elapsed, run.failed)
+    for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, level.timing === 'untimed' ? 0 : clock.remaining, clockStatus, paint,
+      level.timing === 'untimed' ? undefined : clock.grade)
     for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active, paint)
     // Collectibles receive the light field without casting shadows. Keep their
     // artwork and collection effects behind terrain and movable objects.
-    paint(ctx, 0, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime) })
+    paint(ctx, 0, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime, run.failed) })
   }
   if (layer === 'wall') return
   paint(ctx, 0, () => {

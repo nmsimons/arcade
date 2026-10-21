@@ -1,3 +1,4 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance, installBuiltInFixtures } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
@@ -9,6 +10,7 @@ import { androidMaterials } from '../../src/games/jumping/androidArtwork.ts'
 const levels = () => ['First room', 'Second room', 'Third room'].map((name, i) => ({ ...blankTrial(), id: `menu-${i}`, name }))
 async function open(page, _legacy = false, maps = levels()) {
   await useLevelFixtures(page, maps)
+  await unlockJumpingLevels(page, maps.slice(0, -1))
   await installBuiltInFixtures(page, Object.fromEntries(maps.map((level, i) => [`${String(i).padStart(2, '0')}-fixture.json`, level])))
   await page.addInitScript(() => {
     window.testPad = { index: 0, id: 'Menu controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
@@ -30,7 +32,7 @@ test('level tiles launch immediately by click, Enter or controller A, with focus
   const second = page.getByRole('button', { name: 'Level 2: Second room', exact: true })
   await second.hover()
   await expect(second).toBeFocused(); await expect(second).toHaveAttribute('aria-pressed', 'true')
-  await expect(second).toHaveAccessibleDescription('Best — No medal yet')
+  await expect(second).toHaveAccessibleDescription('Best 0:00.00 Grade A')
   await tap(page, 3)
   await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('direct-level-menu.png') })

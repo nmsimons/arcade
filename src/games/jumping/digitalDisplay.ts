@@ -1,5 +1,6 @@
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
+import type { Grade } from './grading.ts'
 
 /** Shared six-by-two-tile alarm-clock housing. Digits emit readability, not light. */
 export const DIGITAL_DISPLAY_WIDTH = 120
@@ -8,6 +9,7 @@ export const DIGITAL_GREEN = '#a9ef82'
 export const DIGITAL_AMBER = '#e6b96f'
 export const DIGITAL_RED = '#e98678'
 export const DIGITAL_INACTIVE = '#18271e'
+export const DIGITAL_DIM = '#56645a'
 export type DigitalIcon = 'pause' | 'fast' | 'finished' | 'coin'
 
 /** Local artwork shared by numeric faces and slim progress meters. */
@@ -30,6 +32,13 @@ const segments = [
 ]
 const digitSegments = ['1111110', '0110000', '1101101', '1111001', '0110011', '1011011', '1011111', '1110000', '1111111', '1111011']
 const digitXs = [27, 46, 74, 93]
+const gradePixels: Record<Grade, string[]> = {
+  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
+  C: ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
+  D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
+  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
+}
 
 function drawSegments(ctx: CanvasRenderingContext2D, value: string, lit: boolean) {
   ctx.beginPath()
@@ -48,7 +57,7 @@ function drawSegments(ctx: CanvasRenderingContext2D, value: string, lit: boolean
 
 /** Values are exactly two digits, a separator, and two digits (00:00 or 00/00). */
 export function drawDigitalDisplay(ctx: CanvasRenderingContext2D, x: number, y: number, value: string,
-  color = DIGITAL_GREEN, icon?: DigitalIcon, paint: WorldPaint = paintNormally) {
+  color = DIGITAL_GREEN, icon?: DigitalIcon, paint: WorldPaint = paintNormally, options: { grade?: Grade; dimmed?: boolean } = {}) {
   ctx.save(); ctx.translate(x, y)
   paint(ctx, 0, () => {
     drawDigitalHousing(ctx, DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT)
@@ -56,15 +65,19 @@ export function drawDigitalDisplay(ctx: CanvasRenderingContext2D, x: number, y: 
     // A separate, quiet LED bay to the left of the numbers.
     ctx.fillStyle = '#15221b'; ctx.fillRect(22, 9, 1, 22)
   })
-  paint(ctx, .65, () => {
-    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 3
+  paint(ctx, options.dimmed ? 0 : .65, () => {
+    ctx.fillStyle = options.dimmed ? DIGITAL_DIM : color; ctx.shadowColor = color; ctx.shadowBlur = options.dimmed ? 0 : 3
     drawSegments(ctx, value, true)
     if (value[2] === ':') {
       ctx.fillRect(66, 12, 3, 3); ctx.fillRect(66, 25, 3, 3)
     } else {
       ctx.beginPath(); ctx.moveTo(70, 8); ctx.lineTo(72, 9); ctx.lineTo(65, 32); ctx.lineTo(63, 31); ctx.closePath(); ctx.fill()
     }
-    if (icon === 'pause') {
+    if (options.grade) {
+      for (const [row, pixels] of gradePixels[options.grade].entries()) for (let column = 0; column < pixels.length; column++) {
+        if (pixels[column] === '1') ctx.fillRect(7 + column * 2, 9 + row * 3, 2, 3)
+      }
+    } else if (icon === 'pause') {
       ctx.fillRect(9, 15, 3, 10); ctx.fillRect(15, 15, 3, 10)
     } else if (icon === 'fast') {
       ctx.beginPath()

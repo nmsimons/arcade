@@ -13,6 +13,9 @@ import { canGrip } from './friction.ts'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { EntranceAnimation, GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
+import { gradeFor, gradeTimes } from './grading.ts'
+import type { Grade } from './grading.ts'
+export { gradeFor } from './grading.ts'
 import type { PickupState } from './pickups.ts'
 import { planMechanismMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
@@ -45,7 +48,6 @@ import { recordPlayerNoise, resetPlayerNoise } from './botHearing.ts'
 import { createFloatSwitch, updateFloatSwitch } from './floatSwitch.ts'
 import type { FloatSwitch, FloatSwitchState } from './floatSwitch.ts'
 
-export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop extends PropDefinition {
   gadgetCooldown?: number
   floatSwitch?: FloatSwitch
@@ -67,12 +69,9 @@ export interface Run {
   water: WaterLevels; waterSpaces: Map<GravityPlate, ReturnType<typeof waterSpace>>; waterEffectsEnabled: boolean
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
   elapsed: number; started: boolean; entrance: EntranceAnimation | null; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
-  finished: boolean; medal: Medal | null
+  finished: boolean; grade: Grade | null; failed: boolean
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
-export function medalFor(seconds: number, level: PuzzleLevel): Medal {
-  return seconds <= level.times.gold ? 'Gold' : seconds <= level.times.silver ? 'Silver' : seconds <= level.times.bronze ? 'Bronze' : 'No medal'
-}
 export function formatTime(seconds: number) {
   const centiseconds = Math.floor((Math.abs(seconds) + 1e-7) * 100)
   return `${seconds < 0 && centiseconds ? '-' : ''}${Math.floor(centiseconds / 6000)}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`
@@ -113,7 +112,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
       ...(definition.kind === 'repulsor' ? { actor: createRepulsorActor(definition.x, definition.y) } : {}) })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
     water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
-    forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, entrance: null, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+    forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, entrance: null, goalLit: false, goalElapsed: 0, exit: null, finished: false, grade: null, failed: false }
   run.props.push(...floats.map(f => f.prop))
   for (const pool of run.water.pools) run.waterSpaces.set(pool.region, waterSpace({ ...pool.definition, y: pool.definition.y - 6, h: pool.definition.h + 6 }, run.terrain))
   updateSwitchTargets(run)
@@ -371,7 +370,7 @@ function stepRobots(run: Run, dt: number, world: ContactWorld) {
   else if (pushed < 0) p.vx = Math.min(p.vx, pushed)
 }
 function collectPickups(run: Run, dt: number) {
-  const collected = stepPickups(run.pickups, run.player, dt, true)
+  const collected = stepPickups(run.pickups, run.player, dt, true, !run.failed)
   run.timeStopRemaining += collected.seconds
   run.timeFastRemaining += collected.fastSeconds
   run.empRemaining += collected.empSeconds
@@ -400,6 +399,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     run.timeStopRemaining = Math.max(0, run.timeStopRemaining - stopped)
     run.timeFastRemaining = Math.max(0, run.timeFastRemaining - dt)
     if (run.level.timing !== 'untimed') run.elapsed += dt - stopped + Math.max(0, fast - stopped)
+    run.failed ||= run.level.timing !== 'untimed' && run.elapsed > gradeTimes(run.level).d + 1e-7
   }
   if (run.exit) {
     const p = run.player, from: [number, number] = [p.x, p.y]
@@ -459,6 +459,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   advanceGadgetDisables(run, dt)
   // Pickups remain available until entry, including one touched on the entry step.
   collectPickups(run, dt)
+  run.failed ||= run.level.timing !== 'untimed' && run.elapsed > gradeTimes(run.level).d + 1e-7
   stepTriggers(run, 0)
   const p = run.player, door = goalDoor(run.level.goal)
   const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
@@ -470,7 +471,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
     run.gadgets.held = null; run.gadgets.aiming = false; delete p.heldTool
-    run.medal = run.level.timing === 'untimed' ? null : medalFor(run.elapsed, run.level)
+    run.grade = run.level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, run.level)
     p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null; p.freeFall = null
     cancelJumpInput(p)
   }

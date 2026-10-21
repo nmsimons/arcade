@@ -106,7 +106,7 @@ test('the opening completes with ordinary running and a held jump; time and meda
     assert.equal(run.finished, true)
     assert.equal(run.triggers[0].active, true, 'crossing the switch latches access without stopping')
     assert.equal(run.switchStates.get('access-light'), true); assert.equal(run.goalLit, true)
-    assert.equal(run.elapsed, 0); assert.equal(run.medal, null)
+    assert.equal(run.elapsed, 0); assert.equal(run.grade, null)
   }
 })
 

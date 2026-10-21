@@ -1,3 +1,21 @@
+import { readFileSync } from 'node:fs'
+
+/** Route/authoring tests explicitly seed prior passing runs. Progression tests
+ * keep a fresh save and exercise the real locks instead. */
+export async function unlockJumpingLevels(page, levels) {
+  if (!levels) {
+    const assets = new URL('../../../public/levels/jumping/', import.meta.url)
+    const index = JSON.parse(readFileSync(new URL('index.json', assets), 'utf8'))
+    levels = index.levels.map(name => JSON.parse(readFileSync(new URL(name, assets), 'utf8')))
+  }
+  await page.addInitScript(ids => {
+    const key = 'arcade.jumping.times.v1', completedKey = 'arcade.jumping.completed.v1'
+    const times = JSON.parse(localStorage.getItem(key) ?? '{}'), completed = JSON.parse(localStorage.getItem(completedKey) ?? '{}')
+    for (const id of ids) { times[id] ??= 0; completed[id] = true }
+    localStorage.setItem(key, JSON.stringify(times)); localStorage.setItem(completedKey, JSON.stringify(completed))
+  }, levels.map(level => level.id))
+}
+
 /** Gameplay regression maps are test fixtures, never deployed built-in levels. */
 export async function useLevelFixtures(page, levels) {
   const files = levels.map((level, i) => ({ fileName: `${String(i).padStart(2, '0')}-fixture.json`, level }))

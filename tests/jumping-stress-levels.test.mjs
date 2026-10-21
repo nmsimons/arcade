@@ -45,5 +45,5 @@ for (const recording of recordings.runs) test(`development stress ${recording.ro
   assert.ok(Math.abs(run.elapsed - recording.elapsed) < STEP)
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP)
   assert.equal(run.coinsCollected, recording.coins)
-  if (recording.route === 'upper') assert.equal(run.medal, 'Gold')
+  if (recording.route === 'upper') assert.equal(run.grade, 'A')
 })

@@ -1,6 +1,10 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 const level = JSON.parse(readFileSync(new URL('../../public/levels/jumping/buoyancy.jump-level.json', import.meta.url)))
 
@@ -66,8 +70,8 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
   const elapsed = minutes * 60 + seconds
   await info.attach('route-checkpoints', { body: JSON.stringify({ elapsed, checkpoints }, null, 2), contentType: 'application/json' })
-  await expect(complete.getByText('Gold medal', { exact: true })).toBeVisible()
-  expect(elapsed).toBeLessThanOrEqual(level.times.gold)
+  await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
+  expect(elapsed).toBeLessThanOrEqual(level.times.a)
   expect(errors).toEqual([])
   await page.screenshot({ path: info.outputPath('completed.png') })
 })

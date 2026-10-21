@@ -73,7 +73,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   expect((await state(page)).times).toEqual(['00:00', '00:00'])
   await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
-  await expect(page.getByText('Gold medal', { exact: true })).toBeVisible()
+  await expect(page.getByText('Grade A', { exact: true })).toBeVisible()
   await expect(page.locator('.jumping-result-time')).toHaveText(/^0:00\./)
   expect((await state(page)).scales).toEqual([])
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['stopwatch-browser-test'])

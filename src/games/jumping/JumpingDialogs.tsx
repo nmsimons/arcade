@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { KeyboardDialog } from '../hardVacuum/KeyboardDialog'
 import { formatTime } from './challenge'
+import { GRADE_TARGETS, gradeTimes } from './grading'
 import type { PuzzleLevel } from './level'
 
 function RestartIcon() {
@@ -72,8 +73,8 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
   </KeyboardDialog>
 }
 
-export function JumpingResultDialog({ level, elapsed, medal, best, testing, saveError, canEdit, onNext, onRetry, onBuilder, onLevels, onExit }: {
-  level: PuzzleLevel; elapsed: number; medal: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
+export function JumpingResultDialog({ level, elapsed, grade, best, testing, saveError, canEdit, onNext, onRetry, onBuilder, onLevels, onExit }: {
+  level: PuzzleLevel; elapsed: number; grade: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
   onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
   const primary = testing && canEdit ? onBuilder : onNext ?? onRetry
@@ -83,19 +84,19 @@ export function JumpingResultDialog({ level, elapsed, medal, best, testing, save
     <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
       <header className="jumping-dialog-heading">
         <p className="jumping-eyebrow">{level.name}</p>
-        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : 'Level complete.'}</h2>
+        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : grade === 'F' ? 'Run finished.' : 'Level complete.'}</h2>
         {level.timing !== 'untimed' && <p className="jumping-result-time" aria-label={`Finish time ${time}`}>{wholeTime}<wbr /><span className="jumping-result-fraction">.{fraction}</span></p>}
         {level.timing !== 'untimed' && <div className="jumping-result-summary">
           <p className="jumping-result-award">
-            {medal === 'No medal' ? 'No medal' : `${medal} medal`}
-            {medal !== 'No medal' && <svg className={`jumping-result-medal ${medal.toLowerCase()}`} viewBox="0 0 24 32" fill="currentColor" aria-hidden="true"><path d="M5 17 2 32l10-5 10 5-3-15Z" /><circle cx="12" cy="11" r="11" /></svg>}
+            Grade {grade}
           </p>
-          {!testing && best !== null && <p className="jumping-result-best">{elapsed <= best ? 'Personal best' : <>Best <span>{formatTime(best)}</span></>}</p>}
+          {!testing && grade !== 'F' && best !== null && <p className="jumping-result-best">{elapsed <= best ? 'Personal best' : <>Best <span>{formatTime(best)}</span></>}</p>}
         </div>}
       </header>
-      {level.timing !== 'untimed' && <dl className="jumping-result-targets" aria-label="Medal target times">
-        {(['gold', 'silver', 'bronze'] as const).map(target => <div key={target}>
-          <dt>{target[0].toUpperCase() + target.slice(1)}</dt><dd>{formatTime(level.times[target]).replace(/\.00$/, '')}</dd>
+      {grade === 'F' && <p className="jumping-result-failure">Finish with a D or better to unlock the next level.</p>}
+      {level.timing !== 'untimed' && <dl className="jumping-result-targets" aria-label="Grade target times">
+        {GRADE_TARGETS.map(target => <div key={target}>
+          <dt>{target.toUpperCase()}</dt><dd>{formatTime(gradeTimes(level)[target]).replace(/\.00$/, '')}</dd>
         </div>)}
       </dl>}
       <nav className="jumping-dialog-actions jumping-result-actions" aria-label="Completion actions">

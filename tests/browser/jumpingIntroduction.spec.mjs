@@ -1,5 +1,9 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 async function open(page, file, name) {
@@ -21,7 +25,7 @@ test('First Gap shows its approach hint and accepts a normal held running jump i
   await page.keyboard.up('d')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
   await expect(complete).toBeVisible()
-  await expect(complete.getByText('Gold medal', { exact: true })).toBeVisible()
+  await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('first-leap-complete.png') })
 })
 
@@ -95,6 +99,6 @@ test('A Little Swing teaches an automatic catch, held-press consumption, and a d
   await page.keyboard.up('d'); await page.keyboard.up('w')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
   await expect(complete).toBeVisible()
-  await expect(complete.getByText('Gold medal', { exact: true })).toBeVisible()
+  await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('rope-route-complete.png') })
 })

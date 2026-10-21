@@ -1,5 +1,10 @@
 # Built-in jumping medal audit
 
+The former Gold/Silver/Bronze targets now read A/B/C. The separate
+[D-deadline review through World I](jumping-d-time-review.md) records the current
+first-completion allowances and additional recovery recordings; it does not
+reclassify the historical evidence below as novice or current-control testing.
+
 October 20 catalog upkeep: Freight Run was removed from the built-in collection.
 Its map is retained in `tests/fixtures/jumping/freight-run.json`, with its express
 and alternative recordings in `tests/fixtures/jumping-freight-routes.json`, solely

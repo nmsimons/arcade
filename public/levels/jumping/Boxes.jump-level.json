@@ -86,9 +86,10 @@
     "flipX": true
   },
   "times": {
-    "gold": 30,
-    "silver": 50,
-    "bronze": 90
+    "a": 30,
+    "b": 50,
+    "c": 90,
+    "d": 150
   },
   "props": [
     {

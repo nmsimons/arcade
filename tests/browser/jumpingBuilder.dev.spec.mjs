@@ -1717,14 +1717,17 @@ test('seconds accept only whole numbers, preview live, and respect pickup and me
   await added.fill('100'); await expect.poll(() => canvas.evaluate(c => c.builderLabels.includes('9'))).toBe(true)
   await added.press('Enter'); await expect(added).toHaveValue('9')
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
-  const gold = page.getByRole('spinbutton', { name: 'gold time', exact: true }), silver = page.getByRole('spinbutton', { name: 'silver time', exact: true }), bronze = page.getByRole('spinbutton', { name: 'bronze time', exact: true })
+  const gold = page.getByRole('spinbutton', { name: 'A time', exact: true }), silver = page.getByRole('spinbutton', { name: 'B time', exact: true }), bronze = page.getByRole('spinbutton', { name: 'C time', exact: true })
+  const d = page.getByRole('spinbutton', { name: 'D time', exact: true })
   await gold.fill('10.5'); await expect(gold).toHaveValue('10')
   await gold.fill('1e2'); await expect(gold).toHaveValue('10')
   await gold.fill('9999'); await gold.press('Enter'); await expect(gold).toHaveValue('19')
   await silver.fill('0'); await silver.press('Enter'); await expect(silver).toHaveValue('20')
-  await bronze.fill('9999'); await bronze.press('Enter'); await expect(bronze).toHaveValue('3600')
+  await bronze.fill('9999'); await bronze.press('Enter'); await expect(bronze).toHaveValue('59')
+  await d.fill('0'); await d.press('Enter'); await expect(d).toHaveValue('60')
+  await d.fill('9999'); await d.press('Enter'); await expect(d).toHaveValue('7200')
   const saved = (await saveTestLevel(page)).level
-  expect(saved.pickups.map(p => p.seconds)).toEqual([1, 9]); expect(saved.times).toEqual({ gold: 19, silver: 20, bronze: 3600 })
+  expect(saved.pickups.map(p => p.seconds)).toEqual([1, 9]); expect(saved.times).toEqual({ a: 19, b: 20, c: 59, d: 7200 })
 })
 
 test('numeric inspector edits commit once, accept complete values, cancel cleanly, and keep boxes on the floor', async ({ page }) => {

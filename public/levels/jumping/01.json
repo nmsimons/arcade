@@ -48,9 +48,10 @@
     "power": "switched"
   },
   "times": {
-    "gold": 7,
-    "silver": 10,
-    "bronze": 15
+    "a": 7,
+    "b": 10,
+    "c": 15,
+    "d": 45
   },
   "props": [
     {
@@ -75,7 +76,12 @@
     }
   ],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 1110,
+      "y": 170
+    }
+  ],
   "texts": [
     {
       "x": 280,

@@ -85,7 +85,7 @@ test('stopwatches still work after the light opens; entry locks the score and en
   const run = createRun(level); run.started = true; run.elapsed = 45
   Object.assign(run.player, level.goal)
   step(run, 1)
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.grade, null)
   assert.ok(Math.abs(run.elapsed - (45 + STEP)) < 1e-9); assert.equal(run.timeStopRemaining, 10)
   const score = run.elapsed
   run.player.x = 1675; step(run, 60)
@@ -94,7 +94,7 @@ test('stopwatches still work after the light opens; entry locks the score and en
   assert.equal(run.pickups[0].collectedAge, PICKUP_ANIMATION_SECONDS)
   assert.ok(Math.abs(run.timeStopRemaining - 19.5) < 1e-9)
   const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2; step(run, 1)
-  assert.ok(run.exit); assert.equal(run.medal, 'No medal')
+  assert.ok(run.exit); assert.equal(run.grade, 'D')
   const remaining = run.timeStopRemaining
   run.pickups.push({ definition: stopwatch(run.player.x, 888), collectedAge: null })
   step(run, 240)

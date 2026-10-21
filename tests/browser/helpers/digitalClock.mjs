@@ -14,7 +14,7 @@ export async function installDigitalClockSpy(page) {
       return move.call(this, x, y)
     }
     proto.fill = function (...args) {
-      if (this.shadowBlur === 3 && this.clockSegments) {
+      if ((this.shadowBlur === 3 || this.fillStyle === '#56645a') && this.clockSegments) {
         const digits = [27, 46, 74, 93].map(x => {
           const mask = starts.map(([dx, y]) => this.clockSegments.some(p => p[0] === x + dx && p[1] === y) ? '1' : '0').join('')
           return masks.indexOf(mask)
@@ -34,4 +34,8 @@ export async function installDigitalClockSpy(page) {
 }
 
 /** HUD/result timing retains hundredths; the wall face shows whole seconds. */
-export const wallTimeFromHud = value => value.split('.')[0].padStart(5, '0')
+export const wallTimeFromHud = (value, deadline) => {
+  const [minutes, seconds] = value.split(':').map(Number)
+  const remaining = Math.ceil(Math.max(0, deadline - minutes * 60 - seconds) - 1e-7)
+  return `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
+}

@@ -19,6 +19,9 @@ export const PICKUP_ANIMATION_SECONDS = .34
 export const TIME_BONUS_LABEL_SECONDS = .8
 export const STOPWATCH_COLOR = '#ba8542'
 export const TIME_PENALTY_COLOR = '#94433f'
+export const INACTIVE_TIME_COLOR = '#858b86'
+export const isTimePickup = (pickup: Pickup) => pickup.kind === 'time-bonus' || pickup.kind === 'time-penalty'
+  || pickup.kind === 'stopwatch' || pickup.kind === 'fast-stopwatch'
 export const TIME_BONUS_DEFAULT_SECONDS = 5
 export const TIME_BONUS_ARROW_PATH = 'M-14.78-12.41A19.3 19.3 0 1 0 0-19.3L-8-20.3 M-1-27.3L-8-20.3L-1-13.3'
 export const TIME_BONUS_ARROW_WIDTH = 5.4
@@ -61,13 +64,13 @@ function touchesPlayer(p: Player, pickup: Pickup) {
 }
 
 /** Collection effects use simulation time, even while the level clock is stopped. */
-export function stepPickups(pickups: PickupState[], player: Player, dt: number, canCollect: boolean) {
+export function stepPickups(pickups: PickupState[], player: Player, dt: number, canCollect: boolean, canCollectTime = true) {
   let seconds = 0, coins = 0, timeOff = 0, timeAdded = 0, fastSeconds = 0, empSeconds = 0
   for (const pickup of pickups) {
     if (pickup.collectedAge !== null) pickup.collectedAge = Math.min(
       pickup.definition.kind === 'time-bonus' || pickup.definition.kind === 'time-penalty' ? TIME_BONUS_LABEL_SECONDS
         : pickup.definition.kind === 'emp' ? EMP_ANIMATION_SECONDS : PICKUP_ANIMATION_SECONDS, pickup.collectedAge + dt)
-    else if (canCollect && touchesPlayer(player, pickup.definition)) {
+    else if (canCollect && (canCollectTime || !isTimePickup(pickup.definition)) && touchesPlayer(player, pickup.definition)) {
       pickup.collectedAge = 0
       if (pickup.definition.kind === 'coin') coins++
       else if (pickup.definition.kind === 'time-bonus') timeOff += pickup.definition.seconds
@@ -109,14 +112,14 @@ function drawEmp(ctx: CanvasRenderingContext2D, time: number, age: number | null
   }
   ctx.restore()
 }
-export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, time = 0) {
+export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, time = 0, inactive = false) {
   const { definition, collectedAge: age } = pickup
   if (definition.kind === 'emp') {
     ctx.save(); ctx.translate(definition.x, definition.y); drawEmp(ctx, time, age, definition.x * .013 + definition.y * .007); ctx.restore()
     return
   }
   const penalty = definition.kind === 'time-penalty' || definition.kind === 'fast-stopwatch'
-  const color = definition.kind === 'coin' ? COIN_COLOR : penalty ? TIME_PENALTY_COLOR : STOPWATCH_COLOR
+  const color = inactive && isTimePickup(definition) ? INACTIVE_TIME_COLOR : definition.kind === 'coin' ? COIN_COLOR : penalty ? TIME_PENALTY_COLOR : STOPWATCH_COLOR
   const numbered = definition.kind === 'time-bonus' || definition.kind === 'time-penalty'
   if (age !== null && age >= (numbered ? TIME_BONUS_LABEL_SECONDS : PICKUP_ANIMATION_SECONDS)) return
   ctx.save(); ctx.translate(definition.x, definition.y)

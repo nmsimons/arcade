@@ -83,7 +83,7 @@ test('inspector tabs stay reachable while scrolling on a narrow screen', async (
   const objectTab = page.getByRole('tab', { name: 'Object', exact: true })
   await inspector.evaluate(el => { el.scrollTop = el.scrollHeight })
   for (const tab of [levelTab, objectTab]) await expect(tab).toBeInViewport()
-  await expect(page.getByRole('spinbutton', { name: 'bronze time', exact: true })).toBeInViewport()
+  await expect(page.getByRole('spinbutton', { name: 'C time', exact: true })).toBeInViewport()
   await objectTab.click()
   await expect(page.getByRole('combobox', { name: 'Selected object' })).toBeInViewport()
   await selectBuilderObject(page, 'entrance:0')

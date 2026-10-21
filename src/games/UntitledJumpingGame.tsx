@@ -22,6 +22,8 @@ import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffec
 import type { Run } from './jumping/challenge'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration } from './jumping/goal'
 import { COMPLETION_KEY, readCompleted, saveCompleted } from './jumping/completion'
+import { gradeClock } from './jumping/grading'
+import { passedLevel, unlockedLevels } from './jumping/progression'
 import type { EntranceAnimation } from './jumping/goal'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile, LocalLevelEntry } from './jumping/levelAssets'
@@ -148,7 +150,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     try { localStorage.setItem('jumping:performance-monitor', String(value)) } catch { /* Keep the choice for this visit. */ }
   }
   const [audioState] = useState(() => new JumpingAudioState())
-  const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
+  const [result, setResult] = useState({ elapsed: 0, grade: 'A' })
   const [challenge, setChallenge] = useState(true)
   const [trial, setTrial] = useState<PuzzleLevel>(initialRun.level)
   const savedTimes = useSyncExternalStore(subscribeGameStorage, () => {
@@ -162,6 +164,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const [bestTimes, setBestTimes] = useState<Record<string, number | null>>({})
   function bestTime(id: string) { return bestTimes[id] ?? readBest({ getItem: () => savedTimes }, id) }
   const best = bestTime(recordKey)
+  const unlocked = unlockedLevels(catalog.files, file => passedLevel(file.level, bestTime(file.level.id), completed(file.level.id)))
   const [saveError, setSaveError] = useState(false)
   const terrain = useRef(levelTerrain(initialRun.level))
   const activeLevel = useRef<JumpLevel>(initialRun.level), rules = useRef(levelRules(initialRun.level))
@@ -179,7 +182,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
-  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
+  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0, grade: 'A', remaining: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
@@ -277,6 +280,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     } else returnTo(JUMPING_MENU)
   }
   function playFile(file: LevelFile) {
+    if (!unlocked.has(file.fileName)) return
     setSelectedName(file.fileName)
     if (!levelProblems(file.level).length) visit(levelPath('built-in', file.fileName))
   }
@@ -342,6 +346,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         }
       }
       if (route.screen === 'level' && file) {
+        if (!unlocked.has(file.fileName)) {
+          changeScreen('menu'); setTesting(false); setSelectedName(catalog.files[0]?.fileName ?? '')
+          setRouteNotice('That level is locked. Finish the preceding levels with a D or better.'); return
+        }
         if (levelProblems(file.level).length) { changeScreen('menu'); setRouteNotice('This level needs repair before it can be played.'); return }
         if (activePlayKey.current === location.key) { setTesting(false); changeScreen('playing') }
         else startFile(file)
@@ -372,12 +380,13 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   useEffect(() => { followRoute() }, [location.key, location.pathname, catalog.files, builtIn.restoring, builtIn.busy])
   const finishRun = useEffectEvent(() => {
     if (!run.current?.finished || screenRef.current !== 'playing') return
-    setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
+    setResult({ elapsed: run.current.elapsed, grade: run.current.grade ?? 'A' })
+    setSaveError(false)
     if (!testing) {
       const { elapsed } = run.current
-      setCompletedLevels(previous => ({ ...previous, [recordKey]: true }))
+      if (!run.current.failed) setCompletedLevels(previous => ({ ...previous, [recordKey]: true }))
       try {
-        saveCompleted(playerStorage, recordKey)
+        if (!run.current.failed) saveCompleted(playerStorage, recordKey)
         if (run.current.level.timing !== 'untimed') {
           saveBest(playerStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: null }))
         }
@@ -401,7 +410,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     }
     if (devOpenRef.current) return
     if (screenRef.current === 'menu' && event.code === 'KeyY' && !event.altKey && !event.ctrlKey && !event.metaKey) {
-      if (!event.repeat && devEditing && selected) { event.preventDefault(); editFile(selected) }
+      if (!event.repeat && devEditing && selected && unlocked.has(selected.fileName)) { event.preventDefault(); editFile(selected) }
       return
     }
     if (screenRef.current !== 'playing' || event.altKey || event.ctrlKey || event.metaKey || !PLAY_KEYS.has(event.code)) return
@@ -577,7 +586,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         const p = player.current
         const entering = run.current?.entrance || playgroundEntrance.current
         setMetrics({ state: entering ? entering.kind === 'charging-bay' ? 'Waking up' : 'Entering the level' : run.current?.exit ? 'Entering the exit' : playerState(p),
-          elapsed: run.current?.elapsed ?? 0 })
+          elapsed: run.current?.elapsed ?? 0,
+          ...(run.current ? gradeClock(run.current.level, run.current.elapsed, run.current.failed) : { grade: 'A', remaining: 0 }) })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -604,6 +614,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
+        {challenge && trial.timing !== 'untimed' && <span className="jumping-grade-status">Grade {metrics.grade}{metrics.grade === 'F' ? ' · Exploration run; restart to progress.' : ` · ${Math.ceil(metrics.remaining)} seconds remaining`}</span>}
         {challenge && trial.timing !== 'untimed' && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}
       </aside>
     </>}
@@ -614,8 +625,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         <div className="jumping-notice-actions"><button onClick={cancelPreparation}>Cancel</button></div>
       </div>
     </KeyboardDialog>}
-    {screen === 'complete' && <JumpingResultDialog level={trial} elapsed={result.elapsed} medal={result.medal} best={best}
-      testing={testing} saveError={saveError} onNext={!testing && campaignIndex >= 0 && nextFile ? () => playFile(nextFile) : undefined}
+    {screen === 'complete' && <JumpingResultDialog level={trial} elapsed={result.elapsed} grade={result.grade} best={best}
+      testing={testing} saveError={saveError} onNext={!testing && result.grade !== 'F' && campaignIndex >= 0 && nextFile && unlocked.has(nextFile.fileName) ? () => playFile(nextFile) : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
@@ -660,6 +671,12 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
               {devEditing && <div className="jumping-level-tile-actions"><DeleteLevelButton fileName={file.fileName} primary disabled={builtIn.busy || !builtIn.canWrite} onClick={() => void deleteFile(file)} /></div>}
             </div>
             const level = file.level
+            if (!unlocked.has(file.fileName)) return <div key={file.fileName} className="jumping-level-tile jumping-locked-tile">
+              <div className="jumping-level-card" role="img" aria-label={`Level ${index + 1}: Locked`}>
+                <div className="jumping-locked-preview" aria-hidden="true"><svg viewBox="0 0 32 40" fill="none" stroke="currentColor" strokeWidth="3"><path d="M8 17v-6a8 8 0 0 1 16 0v6" /><rect x="3" y="17" width="26" height="20" rx="2" /><path d="M16 24v6" /></svg></div>
+                <strong>Level {index + 1}</strong><span className="jumping-level-progress">Locked</span>
+              </div>
+            </div>
             const problems = levelProblems(level), needsRepair = problems.length > 0
             const progressId = `jumping-level-progress-${index}`
             const issuesId = `jumping-level-issues-${index}`

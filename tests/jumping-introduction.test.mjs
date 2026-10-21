@@ -33,7 +33,7 @@ for (const recording of evidence.runs) test(`${recording.file}: current held-jum
     }
   }
   assert.ok(run.finished, 'reach and enter the actual powered doorway')
-  assert.equal(run.medal, recording.medal)
+  assert.equal(run.grade, recording.grade)
   assert.ok(Math.abs(run.elapsed - recording.elapsed) < STEP)
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP)
   if (recording.recovery) assert.ok(reachedFloor && ladder && recovered, 'fall to the floor and climb back to the starting bank')

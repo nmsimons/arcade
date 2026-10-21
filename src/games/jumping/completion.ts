@@ -2,7 +2,8 @@ import { readBest } from './challenge.ts'
 
 export const COMPLETION_KEY = 'arcade.jumping.completed.v1'
 type Reader = Pick<Storage, 'getItem'>
-/** Older timed finishes already prove completion, including runs with no medal. */
+/** Retain completion history for untimed levels and older saves. Timed
+ * progression additionally checks the saved best against the D deadline. */
 export function readCompleted(storage: Reader, id: string): boolean {
   try { if (JSON.parse(storage.getItem(COMPLETION_KEY) ?? '{}')?.[id] === true) return true } catch { /* Retain valid older times. */ }
   return readBest(storage, id) !== null

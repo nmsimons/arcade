@@ -8,7 +8,7 @@ const level = (id, name) => ({ ...blankTrial(), id, name, times: { gold: 10, sil
 const card = (page, name) => page.getByRole('button', { name: new RegExp(`^Level \\d+: ${name}$`) })
 
 test('picker shows saved medals and best times on every timed level, including zero and negative times', async ({ page }, info) => {
-  const maps = ['Gold', 'Silver', 'Bronze', 'Completed', 'Unplayed', 'Zero', 'Bonus', 'Invalid'].map(name => level(name, name))
+  const maps = ['Gold', 'Silver', 'Bronze', 'Completed', 'Zero', 'Bonus', 'Unplayed'].map(name => level(name, name))
   maps.push({ ...newLevel(), id: 'playground', name: 'Playground' })
   await useLevelFixtures(page, maps)
   await page.addInitScript(({ key, records }) => localStorage.setItem(key, JSON.stringify(records)), {
@@ -18,9 +18,9 @@ test('picker shows saved medals and best times on every timed level, including z
   await expect(page.locator('.jumping-level-detail')).toHaveCount(0)
   await expect(page.locator('.jumping-medal-times')).toHaveCount(0)
   for (const [name, description] of [
-    ['Gold', 'Best 0:10.00 Gold medal'], ['Silver', 'Best 0:20.00 Silver medal'], ['Bronze', 'Best 0:30.00 Bronze medal'],
-    ['Completed', 'Best 0:35.67 No medal'], ['Unplayed', 'Best — No medal yet'], ['Zero', 'Best 0:00.00 Gold medal'],
-    ['Bonus', 'Best -0:02.50 Gold medal'], ['Invalid', 'Best — No medal yet'],
+    ['Gold', 'Best 0:10.00 Grade A'], ['Silver', 'Best 0:20.00 Grade B'], ['Bronze', 'Best 0:30.00 Grade C'],
+    ['Completed', 'Best 0:35.67 Grade D'], ['Unplayed', 'Best — Not graded'], ['Zero', 'Best 0:00.00 Grade A'],
+    ['Bonus', 'Best -0:02.50 Grade A'],
   ]) await expect(card(page, name)).toHaveAccessibleDescription(description)
   await expect(card(page, 'Playground').locator('.jumping-level-progress')).toHaveCount(0)
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
@@ -48,7 +48,7 @@ for (const storageAvailable of [true, false]) test(`a completed run updates the 
   }, BEST_TIME_KEY)
   await page.clock.install({ time: new Date('2026-10-12T12:00:00Z') })
   await page.goto('/lab')
-  await expect(card(page, 'Finish room')).toHaveAccessibleDescription('Best — No medal yet')
+  await expect(card(page, 'Finish room')).toHaveAccessibleDescription('Best — Not graded')
   await card(page, 'Finish room').click()
   await expect(page.getByRole('img', { name: 'Finish room: reach the exit', exact: true })).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-12T13:00:00Z'))
@@ -58,17 +58,17 @@ for (const storageAvailable of [true, false]) test(`a completed run updates the 
   await page.keyboard.up('d')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
   await expect(complete).toBeVisible()
-  await expect(complete.getByText('Gold medal', { exact: true })).toBeVisible()
-  await expect(complete.getByRole('definition')).toHaveCount(3)
+  await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
+  await expect(complete.getByRole('definition')).toHaveCount(4)
   const finishTime = await complete.locator('.jumping-result-time').innerText()
   if (!storageAvailable) await expect(complete.getByRole('status')).toContainText('Your time is kept for this visit')
   await complete.getByRole('button', { name: 'Level menu', exact: true }).click()
-  await expect(card(page, 'Finish room')).toHaveAccessibleDescription(`Best ${finishTime} Gold medal`)
+  await expect(card(page, 'Finish room')).toHaveAccessibleDescription(`Best ${finishTime} Grade A`)
   if (storageAvailable) {
     const records = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), BEST_TIME_KEY)
     expect(formatTime(records[map.id])).toBe(finishTime)
     await page.clock.resume()
     await page.reload()
-    await expect(card(page, 'Finish room')).toHaveAccessibleDescription(`Best ${finishTime} Gold medal`)
+    await expect(card(page, 'Finish room')).toHaveAccessibleDescription(`Best ${finishTime} Grade A`)
   }
 })

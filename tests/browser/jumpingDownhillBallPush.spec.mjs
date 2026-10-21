@@ -1,3 +1,4 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { writeFile } from 'node:fs/promises'
@@ -5,6 +6,9 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { downhillBallLevel } from '../helpers/jumpingDownhillBallScenarios.mjs'
 import { TUNING } from '../../src/games/jumping/model.ts'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 for (const direction of [-1, 1]) for (const mode of ['run', 'walk', 'crouch', 'gentle walk']) {
   test(`a downhill ball releases its working hands during ${mode}, direction ${direction}`, async ({ page }, info) => {

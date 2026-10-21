@@ -86,9 +86,7 @@
 .jumping-result-fraction { font-size: var(--jumping-type-normal); letter-spacing: normal; }
 .jumping-result-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin-top: 20px; }
 .jumping-result-award { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--jumping-type-normal); font-weight: 600; }
-.jumping-result-medal { flex: none; width: 24px; height: 32px; color: var(--jumping-color-gold); }
-.jumping-result-medal.silver { color: var(--jumping-color-steel); }
-.jumping-result-medal.bronze { color: var(--jumping-color-bronze); }
+.jumping-result-failure { margin: 0; padding: 16px var(--dialog-text-inset); color: var(--jumping-muted); line-height: 1.5; }
 .jumping-result-best { margin: 0; font-size: var(--jumping-type-small); line-height: 1.5; color: var(--jumping-muted); }
 .jumping-result-best span { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .jumping-result-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4em), 1fr)); gap: 16px; margin: 0; padding: 20px var(--dialog-text-inset); background: var(--jumping-section); }

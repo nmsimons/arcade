@@ -21,9 +21,10 @@
     "flipX": true
   },
   "times": {
-    "gold": 5,
-    "silver": 8,
-    "bronze": 15
+    "a": 5,
+    "b": 8,
+    "c": 15,
+    "d": 30
   },
   "props": [
     {
@@ -36,7 +37,12 @@
   "mechanisms": [],
   "triggers": [],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 1645,
+      "y": 515
+    }
+  ],
   "pickups": [],
   "texts": [
     {

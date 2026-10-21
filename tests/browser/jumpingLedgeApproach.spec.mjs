@@ -1,8 +1,12 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import {readFile,writeFile} from 'node:fs/promises'
 import {test,expect} from './helpers/test.mjs'
 import {useLevelFixtures} from './helpers/jumpingLevels.mjs'
 import {ledgeApproachLevel} from '../helpers/jumpingLedgeApproachScenarios.mjs'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 for (const direction of [-1, 1]) {
   test(`the first level box catches and pulls up with normal keyboard controls, direction ${direction}`, async ({page}, info) => {

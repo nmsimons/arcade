@@ -1,7 +1,11 @@
+import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { towerWallCatchLevel } from '../helpers/jumpingTowerWallCatch.mjs'
+
+// These route regressions start from an already unlocked campaign.
+test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 test('Tower II wall return catches the upper lip and pulls up with normal keys', async ({ page }, info) => {
   // Polling the full Tower scene renders hundreds of software-lit frames in CI.

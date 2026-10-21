@@ -357,9 +357,10 @@
     "flipX": true
   },
   "times": {
-    "gold": 7,
-    "silver": 12,
-    "bronze": 24
+    "a": 7,
+    "b": 12,
+    "c": 24,
+    "d": 50
   },
   "props": [],
   "mechanisms": [],

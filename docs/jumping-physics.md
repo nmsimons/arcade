@@ -183,6 +183,14 @@ without standing footing backs out using ordinary jump/climb controls before
 replanning; it receives no extra jump or direct positional correction.
 Rope descent never sends opposing Up/Down inputs; a walking route near the
 floor releases a low grip through the normal detach control.
+Planned lowering keeps Down through the ladder or rope handoff. Walk routes
+follow the actual surface around shallow crests without unnecessary jumps;
+their final clear approach reaches the target beyond the graph's coarse sample.
+Hunters step down through clear ladder openings instead of jumping across them.
+On a descending route, an unrelated thin beam does not start a repeated pull-up.
+A blocked rope descent can release at the shelf end and replan from the normal
+falling body. A hunter standing on the player keeps its chosen step-off direction
+until it reaches separate footing, including at the room center.
 Ground approaches ease off the motor before a waypoint, avoiding an overshoot
 off a thin or irregular platform. Jumping past a setup waypoint advances the
 route instead of steering back toward a spot beneath the bot. Player collision

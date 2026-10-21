@@ -96,6 +96,8 @@ function hasFiringLine(run: Run, robot: RobotState, target: Vec, prop?: Run['pro
   return !lineBlocked([robot.x, robot.y - 42], from, solids) && !lineBlocked(from, target, solids)
 }
 
+const stepOffSides = new WeakMap<RobotState, number>()
+
 export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: ContactWorld) {
   const actor = robot.actor ??= createRepulsorActor(robot.x, robot.y)
   actor.facing = robot.facing
@@ -154,10 +156,15 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   if (standingOnPlayer) {
     // A person is temporary support, not a firing perch. Step to the clear side
     // through the ordinary motor instead of charging forever on their head.
-    const preferred = actor.x < run.level.width / 2 ? 1 : -1
+    // Keep that choice until stepping off; crossing the room's center must
+    // not reverse it on every frame.
+    const preferred = stepOffSides.get(robot) ?? (actor.x < run.level.width / 2 ? 1 : -1)
     const clear = (side: number) => !world.platforms.some(platform => bodyIntersects(actor.x + side * 45, actor.y, platform, TUNING.height))
-    movement = { ...NEUTRAL_INPUT, move: (clear(preferred) ? preferred : -preferred) * .6 }
+    const side = clear(preferred) ? preferred : -preferred
+    stepOffSides.set(robot, side)
+    movement = { ...NEUTRAL_INPUT, move: side * .6 }
   }
+  if (!standingOnPlayer) stepOffSides.delete(robot)
   const aiming = robot.phase === 'windup' && free
   actor.armAim = { angle: Math.atan2(Math.sin(robot.aim ?? 0), Math.cos(robot.aim ?? 0) / REPULSOR_BOT_WIDTH_SCALE), aiming }
   run.player.ropes ??= run.level.climbables.ropes.map(createRope)

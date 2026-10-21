@@ -24,6 +24,58 @@
     {
       "file": "Aloft.jump-level.json",
       "reason": "New authored level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
+    },
+    {
+      "file": "Triple Scaffold.jump-level.json",
+      "reason": "The original direct-to-exit course completed with keyboard controls in 12.95 seconds. Later user edits added a 14-coin exit lock, recovery ropes and a repulsorbot. Current collection routes, recovery and medal calibration require fresh runs; the shared Rbot navigation has separate regression coverage."
+    },
+    {
+      "file": "Nothing to It.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (65.00 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Fire Fire.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (101.37 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Sreddal.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (45.46 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Hellstones.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (51.35 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Figurits Revenge.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (107.55 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Walls.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (67.14 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Zig Zag.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (100.28 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Spellbound.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (46.71 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Blackout.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (87.73 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Here There Everywhere.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (95.04 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Hatchlings.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (66.37 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+    },
+    {
+      "file": "Hurricane.jump-level.json",
+      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (64.70 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
     }
   ],
   "runs": [

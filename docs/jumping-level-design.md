@@ -261,6 +261,17 @@ surfaces. Preserve flat areas where a crate must rest, a plate must be loaded, o
 the exit needs support. A slightly tilted platform can introduce a useful choice;
 a field of arbitrary angles makes movement harder to read.
 
+When beams should have a uniform thickness, measure it perpendicular to each
+surface segment and join the offset undersides with miters. Equal vertical
+offsets make slopes thinner than horizontal members. Walking surfaces can stay
+on the authoring grid while calculated underside vertices fall between grid lines.
+
+Attach a rope at a platform end to its top corner, rather than its underside.
+Keep the free end deliberately placed when changing the anchor. Check the
+standing body along every ladder, including where it meets an end or a sloping
+beam. The ladder artwork does not cut terrain: leave a real opening or offset
+the edge enough for the body and the ordinary hand-to-ledge transfer.
+
 The entrance is a doorway, with a 40-unit flat sill and 80 units of clear
 headroom. Work that landing into the architecture instead of placing the player
 directly on a slope or balancing the door on a narrow ledge. Review the opening

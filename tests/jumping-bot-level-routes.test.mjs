@@ -22,7 +22,9 @@ test('Uninvited Company investigates the known entrance before touring the upper
   assert.ok(bot.shots, `stopped at ${bot.x}, ${bot.y}`)
   assert.ok(bot.x < 400, 'the hunter descends toward the entrance')
   assert.ok(bot.actor.grounded && bot.actor.contacts?.support?.collider.id !== 'player', 'it fires from real terrain rather than standing on the player')
-  assert.ok(bot.y >= 1140 && bot.y <= 1160, 'it reaches the entrance floor or adjoining ramp')
+  // An end-rope descent can now stop on the clear part of the adjoining
+  // entrance ramp and fire from there instead of walking to its lowest point.
+  assert.ok(bot.y >= run.level.entrance.y - 100 && bot.y <= run.level.entrance.y + 20, 'it reaches the entrance floor or adjoining ramp')
 })
 
 test('Uninvited Company hunts from the wall-facing upper shelf using a clear perch or descent', () => {

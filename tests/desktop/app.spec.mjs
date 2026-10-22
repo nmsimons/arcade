@@ -1,6 +1,7 @@
 import { _electron as electron, test, expect } from '@playwright/test'
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { desktopTarget } from '../../desktop/packaging.mjs'
 
@@ -8,7 +9,10 @@ const root = resolve(import.meta.dirname, '../..')
 const packaged = process.env.ARCADE_TEST_PACKAGED === '1'
 const product = JSON.parse(readFileSync(join(root, 'release/products/arcade.json'), 'utf8'))
 const target = desktopTarget(product)
-const executablePath = process.env.ARCADE_TEST_EXECUTABLE || (packaged ? join(root, 'desktop/out', target.directory, target.executable) : join(root, 'desktop/node_modules/electron/dist', process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : process.platform === 'win32' ? 'electron.exe' : 'electron'))
+// Electron installs its development binary on demand; packaged runs use the
+// tested executable directly and never download a separate runtime.
+const executablePath = process.env.ARCADE_TEST_EXECUTABLE || (packaged ? join(root, 'desktop/out', target.directory, target.executable)
+  : createRequire(join(root, 'desktop/package.json'))('electron'))
 const launch = directory => electron.launch({
   executablePath,
   chromiumSandbox: true,

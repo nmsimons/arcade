@@ -89,9 +89,12 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
       for (const state of [foot.release, foot.settle]) if (state) { state.y = -state.y; state.angle = -state.angle }
     }
   }
-  const caught = (value: { y: number; vy: number; footwork?: Footwork | null; pushing?: Player['pushing']; ledgeReach?: Player['ledgeReach']; climbing?: Climbing | null; waterMotion?: Player['waterMotion'] }) => {
+  const caught = (value: { y: number; vy: number; footwork?: Footwork | null; pushing?: Player['pushing']; ledgeReach?: Player['ledgeReach']; climbing?: Climbing | null; waterMotion?: Player['waterMotion']; releaseTurn?: Player['releaseTurn'] }) => {
     if (seen.has(value)) return
     seen.add(value); value.y = -value.y; value.vy = -value.vy
+    if (value.releaseTurn && !seen.has(value.releaseTurn)) {
+      seen.add(value.releaseTurn); value.releaseTurn.angle = -value.releaseTurn.angle; value.releaseTurn.target = -value.releaseTurn.target
+    }
     if (value.waterMotion && !seen.has(value.waterMotion)) {
       seen.add(value.waterMotion); value.waterMotion.dive = -value.waterMotion.dive
       if (value.waterMotion.bend !== undefined) value.waterMotion.bend = -value.waterMotion.bend

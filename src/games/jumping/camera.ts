@@ -85,7 +85,8 @@ export class GameCamera {
     // changing facing or input never flips the camera in a single frame.
     const elapsed = Math.max(0, dt), change = (target - this.lookAhead) * (1 - Math.exp(-elapsed / .12))
     this.lookAhead += Math.max(-800 * elapsed, Math.min(800 * elapsed, change))
-    const verticalTarget = (p.crouch - p.look) * Math.min(80, height / base.zoom * .08)
+    const verticalTarget = (p.crouch - p.look) * (p.inverted ? -1 : 1) * Math.cos(playerTurnAngle(p))
+      * Math.min(80, height / base.zoom * .08)
     this.verticalLook += (verticalTarget - this.verticalLook) * (1 - Math.exp(-elapsed / .16))
     return gameCamera(width, height, p, level, challenge, this.lookAhead, this.verticalLook)
   }

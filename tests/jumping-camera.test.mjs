@@ -154,3 +154,24 @@ test('vertical looking keeps the body in view at enclosing contacts and does not
   const short = room(600), neutral = gameCamera(1280, 800, p, short, true)
   assert.deepEqual(gameCamera(1280, 800, p, short, true, 0, -80), neutral)
 })
+
+test('inverted crouch reveals above and inverted look reveals below with a gentle return', () => {
+  for (const dt of [STEP, 1 / 30]) for (const size of sizes) {
+    const level = room(3000), p = createPlayer({ x: 1500, y: 1500 }), camera = new GameCamera()
+    p.inverted = true
+    const neutral = camera.view(size.width, size.height, p, level, true)
+    p.crouching = true; p.crouch = 1
+    const first = camera.view(size.width, size.height, p, level, true, dt)
+    assert.ok(first.y < neutral.y && first.y > neutral.y - 20, 'crouching eases toward the top of the map')
+    for (let i = 0; i < 2 / dt; i++) camera.view(size.width, size.height, p, level, true, dt)
+    assert.ok(camera.view(size.width, size.height, p, level, true).y < neutral.y - 30)
+    p.crouching = false; p.crouch = 0; p.look = 1
+    const snapshot = structuredClone(p)
+    for (let i = 0; i < 2 / dt; i++) camera.view(size.width, size.height, p, level, true, dt)
+    assert.ok(camera.view(size.width, size.height, p, level, true).y > neutral.y + 30, 'looking away from ceiling footing reveals below')
+    assert.deepEqual(p, snapshot, 'camera sampling remains read-only')
+    p.look = 0
+    for (let i = 0; i < 3 / dt; i++) camera.view(size.width, size.height, p, level, true, dt)
+    assert.ok(Math.abs(camera.view(size.width, size.height, p, level, true).y - neutral.y) < .001)
+  }
+})

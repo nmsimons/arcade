@@ -55,8 +55,8 @@ test('controller lowering holds safely in both gravity frames, then a separate p
     for(let i=0;i<60;i++)step([inverted?12:13])
     assert.deepEqual([p.x,p.y],position)
     step([])
-    step([action==='detach'?1:action==='pull'?12:13])
-    if(action==='pull')assert.ok(p.mantle&&!p.hang,'fresh Up starts the pull-up')
+    step([action==='detach'?1:action==='pull'?(inverted?13:12):(inverted?12:13)])
+    if(action==='pull')assert.ok(p.mantle&&!p.hang,'a fresh screen direction toward the footing starts the pull-up')
     else {assert.equal(p.hang,null);assert.equal(p.vx,-side*60);assert.equal(p.grabCooldown,.35)}
   }
 })

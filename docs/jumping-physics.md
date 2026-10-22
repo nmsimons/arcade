@@ -1294,16 +1294,43 @@ matched upright and reverse-gravity player loads:
 `node scripts/benchmark-jumping-ropes.mjs`.
 
 Gravity that pulls away from the current footing releases ground and slide support
-immediately. On reaching a solid surface in the gravity direction, the player
-turns to plant their feet there, preserving the occupied body space and lateral
-momentum. Under negative gravity, ceilings and the undersides of solid objects
+immediately. An unsupported player or R-bot facing against gravity starts turning
+in the air, including an inverted fall outside a gravity field. The body rolls
+around its center over 0.35 seconds, easing into and out of the turn while gathering
+the arms and knees, then unfolding into the new gravity frame's falling pose.
+Steering and velocity continue through the turn; rotation adds no momentum.
+The rotated collision hull is checked along the arc. A blocked turn waits for
+clearance instead of snapping upright on contact or ejecting the body from a
+narrow passage. Reversing gravity unwinds a partial roll; the existing five-percent
+deadband holds it near zero. Water retains its swimming posture controller.
+Ropes remain catchable during the roll using the visible hands and the ordinary
+reach and obstruction checks. A catch retains the outgoing rotated rig and angle,
+then blends into the hand-pivot hold without first snapping upright.
+An ordinary ledge hold cannot take ownership while that roll is active. A held
+ledge releases into the same turn if gravity reverses at the body, including
+when the body moves outside an adjacent field; the old grip cannot pin an
+inverted pose against ordinary gravity.
+Under negative gravity, ceilings and the undersides of solid objects
 support walking, running, crouching and downward jumps where grip permits;
 steeper undersides slide under the same friction rules. The movement controller
 uses reflected geometry, retaining ordinary friction, slopes and swept collisions.
 Leaving a dry field restores ordinary acceleration without resetting velocity;
-the player returns upright on landing on a normal floor. Player vertical
-speed is bounded to ±1100; props use the solver's ±1000 integration bound. There
+the player prepares upright footing while still airborne before a normal floor.
+Player vertical speed is bounded to ±1100; props use the solver's ±1000 integration bound. There
 are no special field collision exceptions.
+Airborne turn continuity, bone lengths, center trajectory, blocked clearance,
+reversals, and both characters are covered at 120/30 Hz in
+`tests/jumping-airborne-gravity-turn.test.mjs`. Fresh keyboard entry and exit from
+reverse gravity and a rendered pose gallery are covered in
+`tests/browser/jumpingAirborneGravityTurn.dev.spec.mjs`.
+
+Vertical stick, D-pad, keyboard and touch directions stay relative to the screen.
+This includes inverted ladders and ledge transfers. On a ceiling, Up crouches
+toward the footing and Down stands and looks away from it. Camera inspection
+follows that same body direction: inverted crouch reveals more above, and the
+away-facing look reveals more below. The offset eases through gravity turns.
+Coverage is in `tests/jumping-screen-directions.test.mjs`,
+`tests/jumping-action-feedback.test.mjs`, and `tests/jumping-camera.test.mjs`.
 
 Pressure and gravity plates support ceiling-facing artwork via optional
 `ceiling: true`. Gravity flipping selects the rectangle's emitter edge without

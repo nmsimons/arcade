@@ -7,7 +7,7 @@ import type { Player, Platform } from './model.ts'
 import { bodyIntersects, bodyPolygon, lineBlocked } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { pulseHit } from './gadgets.ts'
-import { athletePose } from './athlete.ts'
+import { advanceDryTurn, athletePose, captureDryTurn } from './athlete.ts'
 import { repulseProp } from './propPhysics.ts'
 import { ballShape, boxShape, propHeight } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
@@ -210,6 +210,7 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
 function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: ContactWorld, movement: JumpInput) {
   const actor = robot.actor!
   const airborneFacing = airborneFacings.get(actor) ?? actor.facing
+  const turning = !!actor.releaseTurn
   run.player.ropes ??= run.level.climbables.ropes.map(createRope)
   actor.ropes = run.player.ropes
   const colliders = [...world.colliders.filter(c => c.robot !== robot && !c.playerOnly),
@@ -221,9 +222,14 @@ function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: Conta
     undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE })
   // Air braking and a fresh sighting can point in opposite directions. Turn
   // with real travel, retaining the heading through small landing corrections.
-  if (!actor.grounded && !actor.climbing && !actor.hang && !actor.mantle
+  if (!turning && !actor.releaseTurn && !actor.grounded && !actor.climbing && !actor.hang && !actor.mantle
     && !actor.wallBrace?.active && !actor.wallJump && !actor.shove) {
-    actor.facing = Math.abs(actor.vx) > 60 ? Math.sign(actor.vx) : airborneFacing
+    const facing = Math.abs(actor.vx) > 60 ? Math.sign(actor.vx) : airborneFacing
+    if (actor.facing !== facing) {
+      const intent = { ...movement, move: facing }, before = captureDryTurn(actor, intent)
+      actor.facing = facing
+      advanceDryTurn(actor, intent, dt, before)
+    }
   }
   airborneFacings.set(actor, actor.facing)
   // A blocked shove must not freeze an EMP-disabled body in its incoming run pose.

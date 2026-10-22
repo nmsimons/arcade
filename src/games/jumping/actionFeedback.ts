@@ -6,9 +6,10 @@ import type { ClimbableWorld } from './climbables.ts'
 import { platformLedges } from './terrainLedges.ts'
 
 export type ActionFeedback = { kind: 'lower'; inverted: boolean }
-  | { kind: 'hang'; jumpHeld: boolean; downLocked: boolean; upLocked: boolean; pullUp: boolean }
+  | { kind: 'hang'; jumpHeld: boolean; downLocked: boolean; upLocked: boolean; pullUp: boolean; inverted?: boolean }
   | { kind: 'climb'; jumpHeld: boolean }
-  | { kind: 'crouch' | 'lowering' | 'water' | 'water-bottom' }
+  | { kind: 'crouch'; inverted?: boolean }
+  | { kind: 'lowering' | 'water' | 'water-bottom' }
   | { kind: 'water-prop'; grippable: boolean }
 
 /** Describe the solved physical state without advancing input, pose or time. */
@@ -18,8 +19,9 @@ export function playerActionFeedback(player: Player, climbables: ClimbableWorld 
       bends:rope.bends.map(point=>point? [point[0],-point[1]] as [number,number]:null)}))??null,
     hang:player.hang && {...player.hang,edgeY:-player.hang.edgeY,slope:-(player.hang.slope??0)} } : player
   if (p.mantle?.descending) return {kind:'lowering'}
-  if (p.hang) return {kind:'hang',jumpHeld:p.jumpHeld,downLocked:!!p.hang.dropLocked,
-    upLocked:!!p.hang.upLocked,pullUp:!!ledgeLanding(p.terrain??[],p.hang,p.hang.braced)}
+  if (p.hang) return {kind:'hang',jumpHeld:p.jumpHeld,downLocked:!!(player.inverted?p.hang.upLocked:p.hang.dropLocked),
+    upLocked:!!(player.inverted?p.hang.dropLocked:p.hang.upLocked),pullUp:!!ledgeLanding(p.terrain??[],p.hang,p.hang.braced),
+    ...(player.inverted?{inverted:true}:{})}
   if (p.climbing) return {kind:'climb',jumpHeld:p.jumpHeld}
   if (p.mantle) return null
   if (p.grounded && !p.jumpHeld) {
@@ -37,7 +39,7 @@ export function playerActionFeedback(player: Player, climbables: ClimbableWorld 
     return {kind:'water'}
   }
   if (!p.grounded) return null
-  return {kind:'crouch'}
+  return {kind:'crouch',...(player.inverted?{inverted:true}:{})}
 }
 
 export function actionFeedbackText(feedback: ActionFeedback | null, device: 'keyboard' | 'controller' | 'touch') {
@@ -49,7 +51,7 @@ export function actionFeedbackText(feedback: ActionFeedback | null, device: 'key
   const detach = touch ? 'Flick down and lift' : device === 'controller' ? 'B / ○' : 'X'
   switch (feedback.kind) {
     case 'lower': return `${feedback.inverted?up:down} to lower to a safe hang`
-    case 'crouch': return `${down} to crouch`
+    case 'crouch': return `${feedback.inverted?up:down} to crouch`
     case 'lowering': return 'Lowering to a safe hang'
     case 'water': return `${up} to swim up · ${down} to dive · Release to glide`
     case 'water-bottom': return `Move to walk · ${down} to crouch · ${up} to swim up`
@@ -58,11 +60,14 @@ export function actionFeedbackText(feedback: ActionFeedback | null, device: 'key
     case 'climb': return feedback.jumpHeld ? touch ? 'Lift, then tap again to jump off' : `Release ${jump}, then press again to jump off`
       : `${up} / ${down} to climb · ${jump} to jump off`
     case 'hang': {
+      const pullDirection = feedback.inverted ? down : up, dropDirection = feedback.inverted ? up : down
+      const pullLocked = feedback.inverted ? feedback.downLocked : feedback.upLocked
+      const dropLocked = feedback.inverted ? feedback.upLocked : feedback.downLocked
       const departure = feedback.jumpHeld ? touch ? 'Lift, then tap again to jump away' : `Release ${jump}, then press again to jump away`
         : `${jump} to jump away`
-      const drop = feedback.downLocked ? touch ? 'Lift, then drag down again to drop' : `Release Down, then ${down} again to drop`
+      const drop = dropLocked ? touch ? `Lift, then ${dropDirection.toLowerCase()} again to drop` : `Release ${feedback.inverted?'Up':'Down'}, then ${dropDirection} again to drop`
         : `${detach} to let go`
-      const pull = feedback.upLocked ? touch ? 'Lift, then drag up again to pull up' : `Release Up, then ${up} again to pull up` : `${up} to pull up`
+      const pull = pullLocked ? touch ? `Lift, then ${pullDirection.toLowerCase()} again to pull up` : `Release ${feedback.inverted?'Down':'Up'}, then ${pullDirection} again to pull up` : `${pullDirection} to pull up`
       return [feedback.pullUp?pull:'',departure,drop].filter(Boolean).join(' · ')
     }
   }

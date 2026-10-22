@@ -39,7 +39,7 @@ export interface Climbing {
   screenDirection?: number
   turn?: { angle: number; target: number; grip: number }
   bodyMotion?: RopeBodyMotion
-  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number; freeFall?: Player['freeFall']; dryTurn?: Player['dryTurn']; heldTool?: Player['heldTool'] }
+  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number; freeFall?: Player['freeFall']; dryTurn?: Player['dryTurn']; releaseTurn?: Player['releaseTurn']; heldTool?: Player['heldTool'] }
 }
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v))
 export const ease = (v: number) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t) }
@@ -550,6 +550,7 @@ export function ropeImpulse(rope: RopeState, distance: number, vx: number, vy: n
 
 function caughtPose(p: Player): Climbing['caught'] {
   return { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, freeFall: p.freeFall, dryTurn: p.dryTurn,
+    ...(p.releaseTurn ? { releaseTurn: structuredClone(p.releaseTurn) } : {}),
     ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
 }
 
@@ -579,22 +580,23 @@ export function findClimbable(p: Player, world: ClimbableWorld, terrain: readonl
 }
 
 /** Ropes can be caught in flight independently of ladder input. */
-export function findRope(p: Player, terrain: readonly Platform[] = []): Climbing | null {
+export function findRope(p: Player, terrain: readonly Platform[] = [], reach?: { hands: Point[]; shoulder: Point }): Climbing | null {
   let nearest: { rope: RopeState; index: number; distance: number; gap: number } | null = null
   for (const [index, rope] of (p.ropes ?? []).entries()) for (let j = 0; j < rope.nodes.length - 1; j++) {
     const start = rope.nodes[j], end = rope.nodes[j + 1], bend = rope.bends[j]
     const path: Point[] = [[start.x, start.y], ...(bend ? [bend] : []), [end.x, end.y]]
     const lengths = path.slice(1).map((p, i) => Math.hypot(p[0] - path[i][0], p[1] - path[i][1]))
     const length = lengths.reduce((sum, part) => sum + part, 0) || 1
-    const handX = p.x + p.facing * 10, handY = p.y - 56
-    let travel = 0
-    for (let k = 1; k < path.length; k++) {
-      const a = path[k - 1], b = path[k], dx = b[0] - a[0], dy = b[1] - a[1]
-      const t = clamp(((handX - a[0]) * dx + (handY - a[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1)
-      const gap = Math.hypot(handX - a[0] - dx * t, handY - a[1] - dy * t)
-      const fraction = (travel + lengths[k - 1] * t) / length
-      if (gap < 25 && (!nearest || gap < nearest.gap) && !lineBlocked([p.x, p.y - 44], [a[0] + dx * t, a[1] + dy * t], terrain)) nearest = { rope, index, distance: ropeDistance(rope, j) + fraction * (ropeDistance(rope, j + 1) - ropeDistance(rope, j)), gap }
-      travel += lengths[k - 1]
+    for (const [handX, handY] of reach?.hands ?? [[p.x + p.facing * 10, p.y - 56]]) {
+      let travel = 0
+      for (let k = 1; k < path.length; k++) {
+        const a = path[k - 1], b = path[k], dx = b[0] - a[0], dy = b[1] - a[1]
+        const t = clamp(((handX - a[0]) * dx + (handY - a[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1)
+        const gap = Math.hypot(handX - a[0] - dx * t, handY - a[1] - dy * t)
+        const fraction = (travel + lengths[k - 1] * t) / length
+        if (gap < 25 && (!nearest || gap < nearest.gap) && !lineBlocked(reach?.shoulder ?? [p.x, p.y - 44], [a[0] + dx * t, a[1] + dy * t], terrain)) nearest = { rope, index, distance: ropeDistance(rope, j) + fraction * (ropeDistance(rope, j + 1) - ropeDistance(rope, j)), gap }
+        travel += lengths[k - 1]
+      }
     }
   }
   return nearest ? { kind: 'rope', index: nearest.index, distance: clamp(nearest.distance, 12, nearest.rope.definition.length - 8),

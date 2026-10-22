@@ -237,7 +237,7 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
   const contacts: TerrainContact[] = []
   const extent = typeof outline === 'function' ? height + 13 : outline ? Math.max(...outline.map(p => Math.hypot(...p))) : angle ? height + 13 : 13
   const nearby = terrain.filter(b => Math.max(x, to[0]) + extent >= b.x && Math.min(x, to[0]) - extent <= b.x + b.w
-    && Math.max(y, to[1]) + (outline ? extent : angle || orientation < 0 ? height : 0) >= b.y && Math.min(y, to[1]) - (outline ? extent : angle || orientation > 0 ? height : 0) <= b.y + b.h)
+    && Math.max(y, to[1]) + (outline || angle ? extent : orientation < 0 ? height : 0) >= b.y && Math.min(y, to[1]) - (outline || angle ? extent : orientation > 0 ? height : 0) <= b.y + b.h)
   const hullsAt = (x: number, y: number) => {
     if (typeof outline !== 'function') {
       const points = bodyPolygon(x, y, height, orientation, angle, outline), hull = { points, bounds: bounds(points) }

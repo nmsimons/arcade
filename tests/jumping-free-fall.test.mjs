@@ -127,7 +127,7 @@ test('prone flight and recovery preserve ordinary steering and jump buffering', 
   assert.equal(recovering.freeFall, null)
 })
 
-test('sustained upward grav lifts become prone without changing steering or ceiling support', () => {
+test('sustained upward grav lifts turn in flight and retain long-fall recovery on the ceiling', () => {
   const field = createGravityField(), plate = { id: 'lift', x: -2000, y: -2000, w: 4000, h: 4000, gravity: -1, power: 'always' }
   updateGravityField(field, [plate], new Map(), true)
   const ceiling = [{ x: -2000, y: -100, w: 4000, h: 100 }]
@@ -136,8 +136,12 @@ test('sustained upward grav lifts become prone without changing steering or ceil
   let floating = false
   for (let i = 0; i < 300; i++) {
     stepPlayer(p, { ...NEUTRAL_INPUT, move: i < 160 ? 1 : -1 }, STEP, ceiling, undefined, undefined, undefined, field)
-    if (i === 100) assert.equal(proneActive(p), false, 'the lift retains the later transition')
-    if (p.freeFall?.amount === 1) {
+    if (i === 100) {
+      assert.equal(proneActive(p), false, 'the turn finishes before the later long-fall pose')
+      assert.equal(p.inverted, true, 'feet prepare for the ceiling while still airborne')
+      assert.equal(p.grounded, false)
+    }
+    if (p.freeFall?.amount === 1 && !p.grounded) {
       floating = true
       assert.ok(p.vy < 0)
       const pose = athletePose(p)
@@ -149,6 +153,8 @@ test('sustained upward grav lifts become prone without changing steering or ceil
   assert.ok(floating)
   assert.equal(p.grounded, true)
   assert.equal(p.inverted, true)
+  assert.equal(p.freeFall?.recovery, 0)
+  for (let i = 0; i < 180; i++) stepPlayer(p, NEUTRAL_INPUT, STEP, ceiling, undefined, undefined, undefined, field)
   assert.equal(p.freeFall, null)
 })
 

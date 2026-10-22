@@ -8,6 +8,7 @@ import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
 
 const TURN_SPEED = Math.PI / .45, GRAVITY_DEADBAND = TUNING.gravity * .05
+const AIR_TURN_TIME = .35
 export const playerTurnAngle = (p: Player) => p.climbing?.turn?.angle ?? p.releaseTurn?.angle ?? 0
 
 /** Up/Down follow screen height, including ropes floating away from a floor anchor.
@@ -67,7 +68,11 @@ export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: nu
   if (Math.abs(gravity) <= GRAVITY_DEADBAND) return
   if (gravity > GRAVITY_DEADBAND) turn.target = 0
   else if (gravity < -GRAVITY_DEADBAND) turn.target = Math.sign(turn.target || turn.angle || p.facing) * Math.PI
-  const before = turn.angle, next = before + Math.max(-TURN_SPEED * dt, Math.min(TURN_SPEED * dt, turn.target - before))
+  const before = turn.angle
+  const progress = turn.progress === undefined ? undefined : Math.max(0, Math.min(1,
+    turn.progress + (turn.target ? 1 : -1) * dt / AIR_TURN_TIME))
+  const next = progress === undefined ? before + Math.max(-TURN_SPEED * dt, Math.min(TURN_SPEED * dt, turn.target - before))
+    : Math.sign(turn.target || before || p.facing) * Math.PI * progress * progress * (3 - 2 * progress)
   const center: Point = [p.x + Math.sin(before) * 31, p.y - Math.cos(before) * 31]
   let from: Point = [p.x, p.y]
   for (let i = 1; i <= 3; i++) {
@@ -82,6 +87,7 @@ export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: nu
     from = [safe.x, safe.y]
   }
   p.x = from[0]; p.y = from[1]; turn.angle = next
+  if (progress !== undefined) turn.progress = progress
 }
 
 /** A blocked hand-pivot turn may already be resting on a usable ceiling.
@@ -111,6 +117,7 @@ export function finishGravityTurn(p: Player) {
   const turn = p.climbing?.turn ?? p.releaseTurn
   if (!turn || Math.abs(turn.angle - turn.target) > 1e-6) return
   if (p.releaseTurn?.pose && (p.releaseTurn.time ?? 0) < .18) return
+  if (p.climbing?.caught.releaseTurn && p.climbing.time < .16) return
   if (Math.abs(turn.angle) > 3) {
     p.inverted = !p.inverted; p.facing = -p.facing
     const c = p.climbing

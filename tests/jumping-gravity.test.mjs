@@ -162,11 +162,11 @@ test('reverse gravity turns at the ceiling, supports running and crouching, and 
   assert.deepEqual(run.player, snapshot, 'pose reflection must leave gameplay state unchanged')
 })
 
-test('losing reverse power drops an inverted player and normal floor contact restores upright footing', () => {
+test('losing reverse power drops an inverted player and prepares upright footing before landing', () => {
   const run = createRun(fixture()); run.started = true
   step(run, 360); assert.equal(run.player.inverted, true)
   run.empRemaining = 5
-  step(run, 60); assert.equal(run.player.inverted, true); assert.equal(run.player.grounded, false); assert.ok(run.player.vy > 700)
+  step(run, 60); assert.equal(run.player.inverted, false); assert.equal(run.player.grounded, false); assert.ok(run.player.vy > 700)
   step(run, 120); close(run.player.y, 920, .01); assert.equal(run.player.grounded, true); assert.equal(run.player.inverted, false)
   run.player.inverted = true; respawn(run.player)
   assert.equal(run.player.inverted, false); assert.equal(run.player.gravity, TUNING.gravity)

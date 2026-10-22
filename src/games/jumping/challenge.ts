@@ -44,6 +44,7 @@ import { advanceGadgetDisables, createGadgetState, finishGadgetMotion, heldToolF
 import type { GadgetState } from './gadgets.ts'
 import { createRepulsorActor, stepRepulsorBot } from './repulsorBot.ts'
 import { recordPlayerNoise, resetPlayerNoise } from './botHearing.ts'
+import { preparePlayerShove } from './shove.ts'
 
 import { createFloatSwitch, updateFloatSwitch } from './floatSwitch.ts'
 import type { FloatSwitch, FloatSwitchState } from './floatSwitch.ts'
@@ -317,14 +318,20 @@ function faceContactedRobots(player: Player, contacts: PlayerContacts | null, ro
   for (const contact of contacts?.body ?? []) face(contact.collider)
   for (const robot of robots) if (robotTouchesPlayer(robot, player)) faceRobotToward(robot, player.x)
 }
-function stepRobots(run: Run, dt: number, world: ContactWorld) {
+function stepRobots(run: Run, dt: number, world: ContactWorld, powered = true) {
   if (!run.robots.length) return
   const p = run.player
   const oldX = p.x
   const playerFields = forceFieldPlatforms(run.forceFields), objectFields = forceFieldPlatforms(run.forceFields, 'objects')
   for (const r of run.robots) {
-    if (run.gadgets.disabled.has(r)) { r.vx = 0; continue }
-    if (r.definition.kind === 'repulsor') { stepRepulsorBot(run, r, dt, world); continue }
+    const active = powered && !run.gadgets.disabled.has(r)
+    if (r.definition.kind === 'repulsor') {
+      // EMP stops decisions; an external physical shove can still move the body.
+      if (active || r.actor?.shoveDrift) stepRepulsorBot(run, r, dt, world, active)
+      else { if (r.actor) r.actor.shove = undefined; r.vx = 0 }
+      continue
+    }
+    if (!active) { r.vx = 0; continue }
     settleRobot(run.platforms, r, dt, p, playerFields, objectFields)
     if (r.recoilVx || r.fallVelocity !== undefined) {
       const obstacles = [...run.props.filter(prop => !prop.gadget).map(b => b.kind === 'box' ? boxShape(b) : ballShape(b)),
@@ -412,7 +419,8 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   }
   // Collect intent, advance the contacted world, then solve player motion once.
   // Geometry is refreshed after moving bodies; the contact policy is shared.
-  input = prepareGadgets(run, input, dt)
+  const shoving = preparePlayerShove(run, input, dt, () => syncPlatforms(run))
+  input = prepareGadgets(run, shoving ? { ...input, use: false } : input, dt)
   const toolBefore = heldToolFrame(run.player)
   let world = syncPlatforms(run)
   const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
@@ -432,6 +440,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (powered && run.robots.length) faceContactedRobots(run.player, beforeContacts, run.robots)
   const robotStarts = run.robots.map(r => r.x)
   if (powered) stepRobots(run, poweredDt, world)
+  else if (run.robots.some(r => r.actor?.shoveDrift)) stepRobots(run, dt, world, false)
   stepProps(run, playerContacts(run.player, input, world, dt), dt, powered)
   run.robots.forEach((r, i) => { r.vx = (r.x - robotStarts[i]) / dt })
   world = syncPlatforms(run)

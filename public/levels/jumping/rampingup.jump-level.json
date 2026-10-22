@@ -524,8 +524,8 @@
   "mechanisms": [],
   "triggers": [
     {
-      "x": 740,
-      "y": 65,
+      "x": 1015,
+      "y": 0,
       "w": 120,
       "targets": [
         "be18f090-5a98-4f18-b09c-c2b2c64bffb2",
@@ -550,7 +550,12 @@
     }
   ],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 885,
+      "y": 0
+    }
+  ],
   "pickups": [
     {
       "x": 445,
@@ -607,16 +612,6 @@
     {
       "x": 660,
       "y": 1155,
-      "w": 275,
-      "h": 45,
-      "text": "Open",
-      "fontSize": 28,
-      "align": "left",
-      "style": "official"
-    },
-    {
-      "x": 930,
-      "y": 30,
       "w": 275,
       "h": 45,
       "text": "Open",

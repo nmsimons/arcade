@@ -1,7 +1,7 @@
 import type { RobotState, Run } from './challenge.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import { followPropGrip, playerContactBody } from './playerContacts.ts'
-import { createPlayer, cancelJumpInput, NEUTRAL_INPUT, stepPlayer, TUNING } from './model.ts'
+import { createPlayer, gaitPose, NEUTRAL_INPUT, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput } from './model.ts'
 import type { Player, Platform } from './model.ts'
 import { bodyIntersects, bodyPolygon, lineBlocked } from './geometry.ts'
@@ -22,12 +22,14 @@ import { botSeesProp, chooseBotTactic } from './botTactics.ts'
 import type { BotSighting, BotTactic } from './botTactics.ts'
 import { hearPlayer } from './botHearing.ts'
 import { BOT_AIR_SPEED_SCALE } from './botMovementTuning.ts'
+import { repulsePlayer } from './actorImpulse.ts'
+import { advanceShove, beginShove, BOT_SHOVE_WINDUP, canShove, SHOVE_RECOVERY, shoveReaches } from './shove.ts'
+export { repulsePlayer, REPULSOR_BOT_IMPULSE } from './actorImpulse.ts'
 export { botLastHeard } from './botHearing.ts'
 
 export const REPULSOR_BOT_WINDUP = .8
 export const REPULSOR_BOT_RECOVERY = 1.4
 export const REPULSOR_BOT_RANGE = 1000
-export const REPULSOR_BOT_IMPULSE = 1100
 const memories = new WeakMap<RobotState, BotSighting>(), plans = new WeakMap<RobotState, BotTactic>()
 const turnedToNoise = new WeakMap<RobotState, number>()
 export const botLastSighting = (robot: RobotState) => { const memory = memories.get(robot); return memory && { ...memory } }
@@ -36,19 +38,6 @@ export function createRepulsorActor(x: number, y: number) {
   const actor = createPlayer({ x, y }); actor.facing = -1
   actor.armAim = { angle: Math.PI, aiming: false }
   return actor
-}
-
-/** Velocity enters the normal swept controller. Grips release, but a hit never
- * changes position or bypasses a wall, ceiling, water, or support contact. */
-export function repulsePlayer(actor: Player, direction: Vec) {
-  const gripping = !!(actor.climbing || actor.hang || actor.mantle)
-  actor.climbing = null; actor.hang = null; actor.mantle = null; actor.releaseTurn = undefined
-  actor.wallJump = null; actor.wallBrace = null; actor.jumpLift = null; actor.pushing = null
-  actor.dryTurn = null; actor.freeFall = null; actor.stepIntent = null
-  actor.grabCooldown = .4; actor.coyote = 0; cancelJumpInput(actor)
-  if (gripping || direction[1] * (actor.inverted ? -1 : 1) < -.1) actor.grounded = false
-  actor.vx = Math.max(-1300, Math.min(1300, actor.vx + direction[0] * REPULSOR_BOT_IMPULSE))
-  actor.vy = Math.max(-1300, Math.min(1300, actor.vy + direction[1] * REPULSOR_BOT_IMPULSE))
 }
 
 /** The same horizontal proportion transform is used by artwork and the muzzle. */
@@ -93,15 +82,25 @@ function hasFiringLine(run: Run, robot: RobotState, target: Vec, prop?: Run['pro
   const solids = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, x: m.x, y: m.y })),
     ...forceFieldPlatforms(run.forceFields, 'objects'), ...run.props.filter(p => p !== prop && !p.gadget).map(p => p.kind === 'ball' ? ballShape(p) : boxShape(p)),
     ...run.robots.filter(r => r !== robot && r !== obstruction).flatMap(robotPlatforms)]
-  return !lineBlocked([robot.x, robot.y - 42], from, solids) && !lineBlocked(from, target, solids)
+  return Math.hypot(target[0] - from[0], target[1] - from[1]) <= REPULSOR_BOT_RANGE
+    && !lineBlocked([robot.x, robot.y - 42], from, solids) && !lineBlocked(from, target, solids)
 }
 
 const stepOffSides = new WeakMap<RobotState, number>()
+const airborneFacings = new WeakMap<Player, number>()
 
-export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: ContactWorld) {
+export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: ContactWorld, powered = true) {
   const actor = robot.actor ??= createRepulsorActor(robot.x, robot.y)
   actor.facing = robot.facing
   if (robot.recoilVx) { repulsePlayer(actor, [robot.recoilVx / 1100, 0]); robot.recoilVx = 0 }
+  if (!powered) actor.shove = undefined
+  advanceShove(run, actor, [run.player], dt, world)
+  if (!powered || (actor.stagger ?? 0) > 0) {
+    actor.shove = undefined; actor.armAim = { angle: robot.aim ?? 0, aiming: false }
+    robot.phase = 'recover'; robot.time = powered ? REPULSOR_BOT_RECOVERY : 0
+    moveRepulsorActor(run, robot, dt, world, NEUTRAL_INPUT)
+    return
+  }
   let memory = memories.get(robot)
   const noise = hearPlayer(run, robot)
   if (noise && noise.serial !== turnedToNoise.get(robot)) {
@@ -126,18 +125,28 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   // hidden velocity. Keep pursuing that clue through cover while making progress.
   const clue = noise && (!memory || noise.time > memory.time) ? { ...noise, vx: 0, vy: 0, inverted: false } : memory
   const hunting = !!clue
+  const standingOnPlayer = actor.contacts?.support?.collider.id === 'player'
+  const free = !standingOnPlayer && !rightArmSupporting(actor) && !actor.climbing && !actor.hang && !actor.mantle
+  if (seen && !actor.shove && canShove(actor)
+    && shoveReaches(run, actor, run.player, actor.facing, world)) {
+    beginShove(actor, BOT_SHOVE_WINDUP)
+    robot.phase = 'recover'; robot.time = REPULSOR_BOT_RECOVERY - BOT_SHOVE_WINDUP - SHOVE_RECOVERY
+  }
+  const playerTarget: Vec | undefined = seen ? [run.player.x, run.player.y - (run.player.inverted ? -1 : 1) * TUNING.height / 2] : undefined
+  // A rope leaves the player exposed: take an available shot before following
+  // the climb route or diverting to a control, cargo, or another bot.
+  const ropeShot = actor.grounded && free && run.player.climbing?.kind === 'rope' && !!playerTarget
+    && hasFiringLine(run, robot, playerTarget)
   const plan = robot.phase === 'windup' ? plans.get(robot) : clue ? chooseBotTactic(run, robot, clue, seen, dt) : undefined
   if (plan) plans.set(robot, plan)
-  const prop = plan?.kind === 'dislodge' && plan.prop && run.props.includes(plan.prop) && botSeesProp(run, robot, plan.prop) ? plan.prop : undefined
-  const obstruction = plan?.kind === 'clear' && plan.robot && run.robots.includes(plan.robot) ? plan.robot : undefined
-  const approachingControl = plan?.kind === 'operate' && Math.hypot(robot.x - plan.x, robot.y - plan.y) > 40
-  const standingOnPlayer = actor.contacts?.support?.collider.id === 'player'
-  const shotTarget: Vec | undefined = obstruction ? [obstruction.x, obstruction.y - 28] : prop ? [prop.x, prop.y - propHeight(prop) / 2] : seen ? [run.player.x, run.player.y - (run.player.inverted ? -1 : 1) * TUNING.height / 2] : undefined
+  const prop = !ropeShot && plan?.kind === 'dislodge' && plan.prop && run.props.includes(plan.prop) && botSeesProp(run, robot, plan.prop) ? plan.prop : undefined
+  const obstruction = !ropeShot && plan?.kind === 'clear' && plan.robot && run.robots.includes(plan.robot) ? plan.robot : undefined
+  const approachingControl = !ropeShot && plan?.kind === 'operate' && Math.hypot(robot.x - plan.x, robot.y - plan.y) > 40
+  const shotTarget: Vec | undefined = obstruction ? [obstruction.x, obstruction.y - 28] : prop ? [prop.x, prop.y - propHeight(prop) / 2] : playerTarget
   robot.time += dt
-  const free = !standingOnPlayer && !rightArmSupporting(actor) && !actor.climbing && !actor.hang && !actor.mantle
   if ((robot.phase === 'patrol' || robot.phase === 'chase') && actor.grounded && free && !approachingControl
-    && (obstruction || prop || seen && Math.abs(run.player.x - robot.x) <= 600 && Math.abs(run.player.y - robot.y) < 240)
-    && shotTarget && hasFiringLine(run, robot, shotTarget, prop, obstruction)) {
+    && (ropeShot || obstruction || prop || seen && Math.abs(run.player.x - robot.x) <= 600 && Math.abs(run.player.y - robot.y) < 240)
+    && shotTarget && (ropeShot || hasFiringLine(run, robot, shotTarget, prop, obstruction))) {
     robot.phase = 'windup'; robot.time = 0
   }
   let movement: JumpInput = { ...NEUTRAL_INPUT }
@@ -167,6 +176,12 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   if (!standingOnPlayer) stepOffSides.delete(robot)
   const aiming = robot.phase === 'windup' && free
   actor.armAim = { angle: Math.atan2(Math.sin(robot.aim ?? 0), Math.cos(robot.aim ?? 0) / REPULSOR_BOT_WIDTH_SCALE), aiming }
+  moveRepulsorActor(run, robot, dt, world, movement)
+}
+
+function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: ContactWorld, movement: JumpInput) {
+  const actor = robot.actor!
+  const airborneFacing = airborneFacings.get(actor) ?? actor.facing
   run.player.ropes ??= run.level.climbables.ropes.map(createRope)
   actor.ropes = run.player.ropes
   const colliders = [...world.colliders.filter(c => c.robot !== robot && !c.playerOnly),
@@ -176,7 +191,17 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   followPropGrip(actor, botWorld)
   stepPlayer(actor, movement, dt, botWorld.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, botWorld, run.gravityField,
     undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE })
+  // Air braking and a fresh sighting can point in opposite directions. Turn
+  // with real travel, retaining the heading through small landing corrections.
+  if (!actor.grounded && !actor.climbing && !actor.hang && !actor.mantle
+    && !actor.wallBrace?.active && !actor.wallJump && !actor.shove) {
+    actor.facing = Math.abs(actor.vx) > 60 ? Math.sign(actor.vx) : airborneFacing
+  }
+  airborneFacings.set(actor, actor.facing)
+  // A blocked shove must not freeze an EMP-disabled body in its incoming run pose.
+  if (actor.grounded && (actor.contacts?.motion.speed ?? Math.abs(actor.vx)) < .01) actor.gait = gaitPose(0)
   robot.x = actor.x; robot.y = actor.y; robot.vx = actor.vx; robot.facing = actor.facing; robot.angle = actor.groundAngle
+  if (actor.grounded && Math.abs(actor.vx) < 1 && Math.abs(actor.vy) < 1) actor.shoveDrift = false
 }
 
 function playerShapeForNavigation(player: Player): Platform {

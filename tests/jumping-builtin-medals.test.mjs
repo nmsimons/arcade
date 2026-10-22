@@ -26,12 +26,16 @@ test('every built-in level has one medal recording, an explicit pending audit, o
   const accounted = [...recordings.runs.map(run => run.file), ...pending.map(audit => audit.file), ...untimed]
   assert.equal(new Set(accounted).size, accounted.length, 'each level has exactly one audit status')
   assert.deepEqual(accounted.sort(), [...catalog.levels].sort())
+  for (const completion of recordings.completionRuns ?? []) {
+    assert.ok(pending.some(audit => audit.file === completion.file), 'completion-only evidence must retain an explicit pending A audit')
+    assert.ok(['B', 'C', 'D'].includes(completion.grade), 'completion-only evidence records its actual passing grade')
+  }
 })
 
 // Historical routes preserve their jump impulses for contact/mechanism coverage.
 // Re-audited routes explicitly opt into current tap/hold controls. Neither moves
 // actors directly, bypasses switches, or substitutes legacy fixture maps.
-for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ?? recordings.jumpModel} route: ${recording.file}`, async () => {
+for (const recording of [...recordings.runs, ...recordings.completionRuns ?? []]) test(`built-in ${recording.jumpModel ?? recordings.jumpModel} route: ${recording.file}`, async () => {
   assert.ok(catalog.levels.includes(recording.file))
   const level = parseLevel(JSON.parse(await readFile(new URL(recording.file, root), 'utf8')))
   const run = createRun(level)
@@ -73,7 +77,7 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
   }
   assert.ok(entryTime !== undefined, 'the player must enter the powered doorway')
   assert.equal(run.finished, true)
-  assert.equal(run.grade, 'A', `clock ${run.elapsed.toFixed(2)} exceeds gold ${level.times.a}`)
+  assert.equal(run.grade, recording.grade ?? 'A', `clock ${run.elapsed.toFixed(2)} must retain its recorded grade`)
   assert.ok(Math.abs(run.elapsed - recording.elapsed) < STEP, 'recorded clock time changed')
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP, 'recorded real duration changed')
   assert.equal(run.coinsCollected, recording.coins)

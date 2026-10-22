@@ -1357,7 +1357,7 @@
   "floor": 2020,
   "goal": {
     "switchLogic": "and",
-    "x": 1600,
+    "x": 1610,
     "y": 2020,
     "flipX": true,
     "id": "7c314bf7-c34b-4898-8c6a-6b9b02cabecd",
@@ -1397,8 +1397,8 @@
   ],
   "triggers": [
     {
-      "x": 1615,
-      "y": 1775,
+      "x": 1585,
+      "y": 1880,
       "w": 120,
       "targets": [
         "7c314bf7-c34b-4898-8c6a-6b9b02cabecd"
@@ -1460,14 +1460,18 @@
       "y": 2020,
       "w": 100,
       "targets": [
-        "7c314bf7-c34b-4898-8c6a-6b9b02cabecd",
-        "9cab39a3-c5a3-40f7-bff4-dadf23c88080"
+        "7c314bf7-c34b-4898-8c6a-6b9b02cabecd"
       ],
       "mode": "touch"
     }
   ],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 1445,
+      "y": 1880
+    }
+  ],
   "pickups": [
     {
       "x": 1680,
@@ -1516,11 +1520,6 @@
       "id": "0e80c53f-ab38-47db-9429-4e58e256a132",
       "x": 1265,
       "y": 1955
-    },
-    {
-      "id": "9cab39a3-c5a3-40f7-bff4-dadf23c88080",
-      "x": 1580,
-      "y": 1795
     }
   ],
   "logicRelays": [
@@ -1558,8 +1557,8 @@
       },
       {
         "id": "95fc91ba-6395-4077-91ee-373f519d65cf",
-        "x": 1525,
-        "y": 1835,
+        "x": 1510,
+        "y": 1850,
         "intensity": 100,
         "direction": 90,
         "spread": 70,

@@ -332,6 +332,15 @@ bot can be an expert opportunity; its acceleration makes it an unreliable lift.
 Give a first encounter space to retreat or get above it. Increasing aggression
 inside a cramped physics pile is rarely a good difficulty progression.
 
+Rbots can operate controls, so include their access when designing a trap.
+A control in the hunter's approach can change state before the player reaches
+it. Place the control deliberately and test which side of the barrier contains
+the hunter when it activates. Consider a reversible control when an early seal
+can trap the hunter on the exit side; test reopening it, luring the hunter
+through, and sealing it again with normal movement. Verify the resulting trap
+against pursuit and firing, rather than assuming that reaching the switch ends
+the encounter.
+
 Receiving plates can meet the level boundary. Put the plate under the ball's
 actual resting center; do not add a stop solely to work around an editor inset.
 Use a separate stop when it serves the layout, rather than requiring one for a
@@ -580,7 +589,7 @@ does not establish a fluent gold route.
 | Reference | Pattern worth carrying forward |
 | --- | --- |
 | [First Leap](../public/levels/jumping/00.json) | A direct challenge and a recovery ladder that preserves the original problem. |
-| [Cross Purposes](../public/levels/jumping/06.json) | One action helps access and complicates the crossing. |
+| Cross Purposes (retired reference) | One action helps access and complicates the crossing. |
 | [Turnaround](../public/levels/jumping/07.json) | Travel outward to change the route back toward the goal. |
 | [Tower I](../public/levels/jumping/Tower.jump-level.json), [Tower II](../public/levels/jumping/Tower%20II.jump-level.json) | Repeated architecture with different local connections, props, and access problems. |
 | [Coins](../public/levels/jumping/Coins.jump-level.json) | Shared coin progress unlocks different stages of the same place. |

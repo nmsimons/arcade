@@ -134,6 +134,15 @@ before pulling onto the surface. Takeoff waits for sufficient ground speed when
 there is still footing; near-apex grips use the controller's existing hand-reach
 window. Planned rope exits issue the ordinary jump
 control instead of continuing to hold the rope.
+Ground launches check the rising body from its actual position and momentum,
+including terrain, red fields, mechanisms and loose obstacles. A blocked arc
+settles at its planned takeoff once, then chooses another approach if needed;
+it does not repeatedly jump into the ceiling. High ledge catches retain their
+airborne destination and brake using the remaining flight time. An unsupported
+bot faces its actual horizontal travel, retaining that heading through small
+corrections instead of flipping with each braking command or sighting.
+Descending ladder exits keep Down until the body clears the floor, then detach
+and fall through ordinary contacts rather than jumping into the underside.
 Before grabbing, local steering samples visible segments of the simulated rope
 and leads their motion briefly. It aims the hands at an attainable segment and
 keeps Up available; the player controller still enforces the usual catch radius
@@ -202,6 +211,26 @@ and adds a bounded player velocity impulse. Normal walls, props, supports and
 water resolve that motion. EMP and repulsor hits interrupt the weapon; no hit
 directly changes position. See the [authoring contract](jumping-levels.md) and
 `tests/jumping-repulsor-bot.test.mjs` for tuning and traversal coverage.
+With empty hands, F / RT-R2 starts a shove even if nothing is within reach.
+Carried tools keep their ordinary fire action. Both player and Rbot gather for
+0.18 seconds and return over 0.22 seconds, with no additional cooldown. A fresh
+press after the motion finishes starts another player shove. The first physical surface
+within a 38-unit hand reach receives the hit; cover and reach are checked at
+impact, so retreat can dodge it. Low boxes and balls use their existing palm
+contacts. Normal pushing can transition into a shove, while hands supporting
+an airborne brace, climb or hang cannot leave that support.
+The player's shove adds 340 units/second horizontally to a humanoid, without
+lifting it. Props and shovebots receive 20% of the rifle's normal impulse;
+the same mass calculation makes heavy cargo harder to move. Rbot retains a
+900-unit/second shove with 150 units/second of lift against the target's gravity.
+A hit interrupts an attack briefly, but does not leave Rbot in a long weapon
+recovery or prevent a close counterattack. All displacement uses normal swept
+contacts, including walls, fields and ledge falls. EMP stops retaliation, while
+an externally shoved bot still moves and settles through its normal controller.
+Both rigs gather and drive the body through the stroke, retain planted ankles,
+and limit their palms and lean against real surfaces, including pinned targets.
+Successful contact makes a short impact sound. Coverage lives in
+`tests/jumping-shove.test.mjs`.
 `tests/jumping-bot-level-routes.test.mjs` also replays saved Aloft and Uninvited
 Company layouts through the real controller, including waiting at the entrance.
 

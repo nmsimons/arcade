@@ -3432,8 +3432,8 @@
   "mechanisms": [],
   "triggers": [
     {
-      "x": 940,
-      "y": 155,
+      "x": 930,
+      "y": 130,
       "w": 120,
       "targets": [
         "42174ae3-d4e3-4e16-8ca7-6bda462b9c7e"
@@ -3455,8 +3455,8 @@
   "timers": [
     {
       "name": "Crown clock",
-      "x": 940,
-      "y": 95
+      "x": 930,
+      "y": 180
     }
   ],
   "pickups": [

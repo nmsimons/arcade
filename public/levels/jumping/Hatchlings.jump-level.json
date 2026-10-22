@@ -1966,8 +1966,8 @@
       }
     ]
   },
-  "floor": 2050,
   "floorMaterial": "steel",
+  "floor": 2050,
   "goal": {
     "name": "Coin exit",
     "x": 1490,
@@ -1983,29 +1983,29 @@
     "d": 240
   },
   "props": [],
-  "robots": [
-    {
-      "name": "Course Rbot",
-      "kind": "repulsor",
-      "x": 200,
-      "y": 425,
-      "left": 170,
-      "right": 225
-    }
-  ],
   "mechanisms": [],
   "triggers": [
     {
       "name": "Exit coin meter",
-      "mode": "coins",
-      "display": "digital",
       "x": 1200,
       "y": 1460,
       "w": 120,
-      "threshold": 10,
       "targets": [
         "99d4e52a-4bd2-475b-9440-dd2c214c93dc"
-      ]
+      ],
+      "mode": "coins",
+      "threshold": 10,
+      "display": "digital"
+    }
+  ],
+  "robots": [
+    {
+      "name": "Course Rbot",
+      "x": 200,
+      "y": 425,
+      "left": 170,
+      "right": 225,
+      "kind": "repulsor"
     }
   ],
   "timers": [
@@ -2017,79 +2017,79 @@
   ],
   "pickups": [
     {
-      "kind": "coin",
       "x": 200,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 550,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 850,
-      "y": 1290
+      "y": 1290,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1350,
-      "y": 1240
+      "y": 1240,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 1140
+      "y": 1140,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 250,
-      "y": 990
+      "y": 990,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 650,
-      "y": 915
+      "y": 915,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 990
+      "y": 990,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 740
+      "y": 740,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 400,
-      "y": 590
+      "y": 590,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 800,
-      "y": 640
+      "y": 640,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1100,
-      "y": 640
+      "y": 640,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 850,
-      "y": 465
+      "y": 465,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     }
   ],
   "texts": [

@@ -5,7 +5,7 @@ import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerSwimStrength, propWaterStrength } from './gravity.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster'
-export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'emp-shot' | 'repulsor'
+export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'emp-shot' | 'repulsor' | 'shove'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -29,6 +29,7 @@ function snapshot(p: Player, run: Run | null) {
     coins: run?.coinsCollected ?? 0,
     outage: run?.empRemaining ?? 0, shots: run?.gadgets.shots ?? 0,
     robotShots: run?.robots.map(robot => robot.shots ?? 0) ?? [],
+    shoves: p.shoves ?? 0, robotShoves: run?.robots.map(robot => robot.actor?.shoves ?? 0) ?? [],
     propIdentities: run?.props.slice() ?? [],
     timeBonuses: run?.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length ?? 0,
     penalties: run?.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length ?? 0,
@@ -104,6 +105,8 @@ export class JumpingAudioState {
       this.loops.push({ id: 'player:booster', kind: 'booster', volume: boost, pan: 0, pace: boost, size: 0 })
     }
     if (run) {
+      if ((p.shoves ?? 0) > before.shoves) cue('shove', p.x, p.y - 30)
+      for (const [i, robot] of run.robots.entries()) if ((robot.actor?.shoves ?? 0) > (before.robotShoves[i] ?? 0)) cue('shove', robot.x, robot.y - 30)
       for (const [i, robot] of run.robots.entries()) if ((robot.shots ?? 0) > (before.robotShots[i] ?? 0)) cue('repulsor', robot.x, robot.y)
       for (let i = 0; i < run.props.length; i++) {
         const b = run.props[i], old = before.props[i]
@@ -158,7 +161,12 @@ export class JumpingAudioState {
         const position = pressurePlatePosition(plate, run.mechanisms)
         if (t.active && before.triggers[i] === false || plate.mode !== 'coins' && (plate.behavior === 'switch' || plate.behavior === 'toggle') && !t.active && before.triggers[i] === true) cue('switch', position.x + plate.w / 2, position.y)
       })
-      if (run.goalLit && !before.goalLit) cue('switch', run.level.goal.x, run.level.goal.y, .8)
+      if (run.goalLit && !before.goalLit) {
+        // Exit activation announces progress throughout the level. Keep its
+        // bearing, but bypass falloff and give it a slot ahead of nearby impacts.
+        this.cues.unshift({ kind: 'switch', ...soundPosition(run.level.goal.x, run.level.goal.y, p), volume: 1, strength: 1 })
+        if (this.cues.length > 8) this.cues.pop()
+      }
       if (run.coinsCollected > before.coins) cue('coin', p.x, p.y - 30)
       if (run.empRemaining > before.outage + .01) cue('emp', p.x, p.y - 30)
       if (run.gadgets.shots > before.shots) cue(run.gadgets.lastShotKind === 'emp' ? 'emp-shot' : 'repulsor', p.x, p.y - 30)

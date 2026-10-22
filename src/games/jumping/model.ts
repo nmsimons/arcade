@@ -51,6 +51,8 @@ export function gaitPose(vx: number, airborne = false): GaitPose {
 export interface Player {
   heldTool?: import('./gadgets.ts').HeldTool
   armAim?: { angle: number; aiming: boolean }
+  shove?: { time: number; windup: number; direction: number; struck: boolean; contact?: NonNullable<PushHands['palms']> }
+  stagger?: number; shoves?: number; shoveDrift?: boolean
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
   sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number } | null
   coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
@@ -97,6 +99,7 @@ export interface Player {
 }
 export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
+    shove: undefined, stagger: 0, shoves: 0, shoveDrift: false,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: undefined, jumpHeld: false, jumpLift: null,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     freeFall: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0, waterPushOff: false,

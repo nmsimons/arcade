@@ -7,9 +7,21 @@ import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 
 const recordings = JSON.parse(readFileSync(new URL('./fixtures/jumping-course-playtests.json', import.meta.url), 'utf8'))
 assert.equal(recordings.jumpModel, 'tap-hold')
-assert.equal(recordings.runs.length, 12)
+const audited = [...recordings.runs, ...recordings.pendingAudit]
+assert.equal(audited.length, 7)
+assert.equal(new Set(audited.map(run => run.file)).size, 7)
 
-for (const recording of recordings.runs) test(`fresh player completion with Rbot: ${recording.file}`, () => {
+test('revised course layouts retain explicit pending audits and their superseded route evidence', () => {
+  const catalog = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url), 'utf8'))
+  for (const audit of audited) assert.ok(catalog.levels.includes(audit.file))
+  for (const audit of recordings.pendingAudit) assert.ok(audit.reason.trim().length > 0)
+  for (const old of recordings.supersededRuns) {
+    assert.ok(recordings.pendingAudit.some(audit => audit.file === old.file))
+    assert.ok(old.trace.length > 0, 'the old completion remains available for comparison, without certifying the edited layout')
+  }
+})
+
+for (const recording of [...recordings.runs, ...recordings.alternatives]) test(`fresh course completion: ${recording.file}${recording.label ? ` / ${recording.label}` : ''}`, () => {
   const level = parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${recording.file}`, import.meta.url), 'utf8')))
   const run = createRun(level)
   for (const { frames, input } of recording.trace) {
@@ -24,4 +36,37 @@ for (const recording of recordings.runs) test(`fresh player completion with Rbot
   assert.equal(run.coinsCollected, recording.coins)
   assert.ok(Math.abs(run.elapsed - recording.elapsed) < STEP, `completion time changed: ${run.elapsed}`)
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP, 'the whole run replays from a fresh start')
+})
+
+test('Hurricane holds the pursuing Rbot behind quarantine and lets the player reset its control', () => {
+  const recording = recordings.quarantine
+  const level = parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${recording.file}`, import.meta.url), 'utf8')))
+  const run = createRun(level), boundary = level.forceFields[0].x
+  let activatedAt
+  for (const { frames, input } of recording.trace) for (let frame = 0; frame < frames; frame++) {
+    stepRun(run, { ...NEUTRAL_INPUT, ...input })
+    if (run.forceFields[0].active) {
+      activatedAt ??= run.activeTime
+      assert.ok(run.robots[0].x < boundary, 'the hunter cannot cross the closed field')
+    }
+  }
+  assert.ok(activatedAt !== undefined && run.activeTime - activatedAt > 9)
+  assert.ok(run.robots[0].shots > 0, 'the trap follows a live pursuit')
+  assert.ok(run.player.x > boundary && run.player.grounded)
+  assert.ok(Math.abs(run.player.x - 1180) < 4, 'the player remains safe during the observation')
+  assert.equal(run.forceFields[0].active, true)
+
+  // Walk off and back onto the same toggle with ordinary analog steering.
+  const walk = target => {
+    for (let frame = 0; frame < 180; frame++) {
+      const dx = target - run.player.x
+      if (Math.abs(dx) < 3 && Math.abs(run.player.vx) < 25) break
+      stepRun(run, { ...NEUTRAL_INPUT, move: Math.max(-1, Math.min(1, dx / 70)) })
+    }
+    for (let frame = 0; frame < 30; frame++) stepRun(run, NEUTRAL_INPUT)
+  }
+  walk(1100); walk(1180)
+  assert.equal(run.forceFields[0].active, false, 'an early seal can be reopened')
+  walk(1100); walk(1180)
+  assert.equal(run.forceFields[0].active, true, 'quarantine can be closed again')
 })

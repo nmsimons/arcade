@@ -63,9 +63,9 @@ export function JumpingTouchControls({ canvasRef, reader, active, available, onT
   }, [active, canvasRef, reader])
   return active && <>
     {available && <button className="jumping-touch-pause" aria-label="Pause game" onClick={onPause}>Pause</button>}
-    {available && gadgets && <div className="jumping-gadget-buttons" aria-label="Gadget controls">
-      <button onClick={() => reader.gadgetAction('interact')}>Pick up / Drop</button>
-      <button onClick={() => reader.gadgetAction('use')}>Use / Fire</button>
+    {available && <div className="jumping-gadget-buttons" aria-label="Action controls">
+      {gadgets && <button onClick={() => reader.gadgetAction('interact')}>Pick up / Drop</button>}
+      <button onClick={() => reader.gadgetAction('use')}>Fire / Shove</button>
     </div>}
     <div className="jumping-touch-feedback" aria-hidden="true">
       {feedback.map(p => <div className="jumping-touch-contact" key={p.id} style={{ left: p.x, top: p.y }}><span>{p.label}</span></div>)}

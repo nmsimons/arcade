@@ -232,7 +232,7 @@
   ],
   "entrance": {
     "name": "Course entrance",
-    "x": 225,
+    "x": 300,
     "y": 1375
   },
   "checkpoints": [],
@@ -253,14 +253,6 @@
         "bottom": 1300,
         "platform": -1,
         "side": 1
-      },
-      {
-        "name": "Right low ladder",
-        "x": 1300,
-        "top": 975,
-        "bottom": 1275,
-        "platform": -1,
-        "side": -1
       }
     ],
     "ropes": [
@@ -3258,8 +3250,8 @@
   "triggers": [
     {
       "name": "Exit coin meter",
-      "x": 1200,
-      "y": 1460,
+      "x": 1275,
+      "y": 1085,
       "w": 120,
       "targets": [
         "f4877673-46a1-4c63-adc9-c34497eb0773"
@@ -3272,18 +3264,18 @@
   "robots": [
     {
       "name": "Course Rbot",
-      "kind": "repulsor",
       "x": 1350,
       "y": 425,
       "left": 1270,
-      "right": 1430
+      "right": 1430,
+      "kind": "repulsor"
     }
   ],
   "timers": [
     {
       "name": "Exit clock",
-      "x": 1360,
-      "y": 1460
+      "x": 1275,
+      "y": 1135
     }
   ],
   "pickups": [
@@ -3294,12 +3286,12 @@
     },
     {
       "x": 550,
-      "y": 1265,
+      "y": 1120,
       "kind": "coin"
     },
     {
-      "x": 1300,
-      "y": 1240,
+      "x": 1280,
+      "y": 1235,
       "kind": "coin"
     },
     {
@@ -3363,17 +3355,6 @@
       "kind": "coin"
     }
   ],
-  "texts": [
-    {
-      "x": 400,
-      "y": 180,
-      "w": 800,
-      "h": 50,
-      "text": "BLACKOUT",
-      "fontSize": 32,
-      "align": "center",
-      "style": "official"
-    }
-  ],
+  "texts": [],
   "gravityPlates": []
 }

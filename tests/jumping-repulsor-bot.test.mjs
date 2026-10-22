@@ -14,7 +14,7 @@ import { repulsorBotPose, REPULSOR_BOT_WIDTH_SCALE } from '../src/games/jumping/
 import { presentedAthletePose } from '../src/games/jumping/athlete.ts'
 import { botCanReach, botMovement, botNavigationGraph } from '../src/games/jumping/botNavigation.ts'
 import { chooseBotTactic } from '../src/games/jumping/botTactics.ts'
-import { createRope } from '../src/games/jumping/climbables.ts'
+import { climbRoot, createRope } from '../src/games/jumping/climbables.ts'
 import { translatePlayer } from '../src/games/jumping/playerContacts.ts'
 
 const tick = (run, count = 1, input = {}) => { for (let i = 0; i < count; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input }) }
@@ -63,6 +63,64 @@ test('the final windup locks aim, so jumping after the tell dodges the pulse', (
   assert.equal(bot.aim, aim)
   assert.equal(bot.shots, 1)
   assert.ok(Math.abs(run.player.x - x) < 1)
+})
+
+function ropeTargetRun(file = level()) {
+  file.climbables.ropes = [{ x: 160, y: 200, length: 600, segments: 75 }]
+  const run = createRun(file), player = run.player, rope = createRope(file.climbables.ropes[0])
+  const climbing = { kind: 'rope', index: 0, distance: 300, time: 1, direction: 0, swing: 0, lean: 0, hangBlend: 1,
+    swingVelocity: 0, ladder: null, rope, caught: { ...player } }
+  const [x, y] = climbRoot(climbing, player.facing)
+  Object.assign(player, { x, y, grounded: false, footwork: null, ropes: [rope], climbing })
+  return run
+}
+
+test('Rbot stops chasing and shoots a high rope target beyond its usual approach distance', () => {
+  const file = level(); file.robots[0].x = 900
+  const run = ropeTargetRun(file), bot = run.robots[0], x = bot.x
+  assert.ok(Math.abs(run.player.y - bot.y) > 240)
+  assert.ok(Math.abs(run.player.x - bot.x) > 600)
+  tick(run)
+  assert.ok(bot.seesPlayer)
+  assert.equal(bot.phase, 'windup')
+  for (let frame = 0; frame < 120 && !bot.shots; frame++) {
+    assert.equal(run.player.climbing?.kind, 'rope', 'the player stays attached until hit')
+    tick(run)
+    assert.ok(Math.abs(bot.x - x) < .01, 'a clear shot takes priority over following the rope route')
+  }
+  assert.equal(bot.shots, 1)
+  assert.equal(run.player.climbing, null, 'the actual palm shot knocks the player off the rope')
+  assert.ok(run.player.vx < -800)
+})
+
+for (const distraction of ['control', 'shovebot']) test(`a clear rope shot takes priority over a ${distraction} tactic`, () => {
+  const file = level()
+  if (distraction === 'control') {
+    file.mechanisms = [{ id: 'cutoff', kind: 'gate', x: 950, y: 600, w: 20, h: 320, travel: 320, power: 'switched', switchReversed: true }]
+    file.triggers = [{ x: 780, y: 920, w: 80, mode: 'touch', targets: ['cutoff'] }]
+  } else file.robots.push({ x: 500, y: 920, left: 480, right: 520 })
+  const run = ropeTargetRun(file), bot = run.robots[0], player = run.player
+  const plan = chooseBotTactic(run, bot, { x: player.x, y: player.y, vx: 0, vy: 0, inverted: false, time: run.activeTime }, true, STEP)
+  assert.equal(plan.kind, distraction === 'control' ? 'operate' : 'clear')
+  tick(run)
+  assert.equal(bot.phase, 'windup')
+  assert.ok(bot.aim < -2.5, 'the palm aims up at the player instead of at the floor obstacle')
+  for (let frame = 0; frame < 120 && !bot.shots; frame++) tick(run)
+  assert.equal(bot.shots, 1)
+  assert.equal(run.player.climbing, null)
+  if (distraction === 'control') assert.equal(run.triggers[0].active, false)
+  else assert.equal(run.robots[1].recoilVx ?? 0, 0)
+})
+
+for (const cover of ['terrain', 'red field']) test(`${cover} still prevents shooting a high rope target`, () => {
+  const run = ropeTargetRun(), bot = run.robots[0]
+  const barrier = { x: 400, y: 0, w: 20, h: 920 }
+  if (cover === 'terrain') run.terrain.push(barrier)
+  else run.forceFields.push(createForceField({ ...barrier, id: 'red', mode: 'objects', orientation: 'vertical' }))
+  tick(run)
+  assert.equal(bot.seesPlayer, cover === 'red field', 'red fields are transparent to sight')
+  assert.notEqual(bot.phase, 'windup')
+  assert.equal(bot.shots ?? 0, 0)
 })
 
 for (const kind of ['terrain', 'red field', 'prop']) test(`${kind} stops a locked shot and protects the player`, () => {
@@ -440,4 +498,36 @@ for (const offset of [-40, 40]) for (const direction of [-1, 1]) test(`a midair 
   }
   assert.ok(touched, 'the test includes an actual actor contact')
   assert.ok(landed, `the bot froze at ${bot.x}, ${bot.y}`)
+})
+
+for (const direction of [-1, 1]) test(`airborne Rbot keeps its travel heading while braking toward a waypoint (${direction})`, () => {
+  const run = createRun(level()), bot = run.robots[0]
+  tick(run)
+  Object.assign(bot.actor, { x: 700, y: 650, vx: direction * 260, vy: 0, grounded: false })
+  bot.x = 700; bot.y = 650
+  for (let frame = 0; frame < 24; frame++) {
+    tick(run)
+    assert.ok(!bot.actor.grounded && Math.abs(bot.actor.vx) > 100)
+    assert.equal(bot.facing, direction, 'a braking command or opposite sighting cannot spin the airborne body')
+  }
+})
+
+for (const mirror of [false, true]) test(`Rbot settles at a real takeoff instead of jumping into an overlapping deck (${mirror ? 'left' : 'right'})`, () => {
+  const file = level(), x = value => mirror ? 1800 - value : value
+  file.platforms = [{ x: 750, y: 625, w: 575, h: 25 }, { x: 600, y: 425, w: 400, h: 25 }]
+  if (mirror) file.platforms = file.platforms.map(p => ({ ...p, x: 1800 - p.x - p.w }))
+  file.entrance = { x: x(950), y: 425 }
+  file.robots[0] = { ...file.robots[0], x: x(1250), y: 625 }
+  const run = createRun(file), bot = run.robots[0]
+  let landed = false, launched = false
+  for (let frame = 0; frame < 900 && !landed; frame++) {
+    const before = bot.actor.vy
+    tick(run)
+    const actor = bot.actor
+    launched ||= !actor.grounded && actor.vy < -100
+    assert.ok(!(before < -50 && actor.vy >= 0 && !actor.grounded && !actor.hang && !actor.mantle && !actor.climbing),
+      `the ascending body hit a ceiling at ${actor.x}, ${actor.y}`)
+    landed = actor.grounded && Math.abs(actor.y - 425) < .1
+  }
+  assert.ok(launched && landed, `the safe alternative must still reach the upper deck: ${bot.x}, ${bot.y}`)
 })

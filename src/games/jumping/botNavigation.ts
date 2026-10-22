@@ -1,7 +1,7 @@
 import type { Run, RobotState } from './challenge.ts'
 import { NEUTRAL_INPUT, TUNING } from './model.ts'
 import type { JumpInput, Player, Platform } from './model.ts'
-import { bodyIntersects } from './geometry.ts'
+import { bodyIntersects, moveBody } from './geometry.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { ballShape, boxShape } from './propGeometry.ts'
@@ -21,6 +21,8 @@ interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: 
   runup?: Node & { side: number };
   progress: number; distances: Map<number, number>;
   leg?: Edge;
+  launchFrom?: Node;
+  launchSetup?: Node & { time: number };
   runningJump?: boolean;
   descendingJump?: boolean;
   departureY?: number;
@@ -78,6 +80,22 @@ function walkClear(a: Node, b: Node, solids: readonly Platform[]) {
     // Follow the actual surface around shallow corners. A chord between
     // samples can run inside a convex crest even though walking clears it.
     if (!support || !canGrip(support.angle) || solids.some(s => bodyIntersects(x, support.y - .05, s, TUNING.height))) return false
+  }
+  return true
+}
+
+/** Check the actual launch, including momentum, rather than only its graph sample. */
+function launchClear(actor: Player, strength: number, move: number, solids: readonly Platform[]) {
+  let x = actor.x, y = actor.y, vx = actor.vx
+  const orientation = actor.inverted ? -1 : 1
+  const speed = TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * strength
+  const target = move * BOT_AIR_SPEED, dt = 1 / 120
+  for (let frame = 1; frame * dt <= speed / TUNING.gravity; frame++) {
+    vx += Math.max(-TUNING.airAcceleration * dt, Math.min(TUNING.airAcceleration * dt, target - vx))
+    const nextY = actor.y + orientation * (-speed * frame * dt + TUNING.gravity * (frame * dt) ** 2 / 2)
+    const sweep = moveBody([x, y], [x + vx * dt, nextY], solids, TUNING.height, orientation)
+    if (sweep.contacts.some(contact => contact.normal[1] * orientation > .5)) return false
+    x = sweep.x; y = sweep.y
   }
   return true
 }
@@ -242,6 +260,18 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   if (actor.grounded || actor.climbing) state.descendingJump = false
   state.age += dt; state.jumpCooldown = Math.max(0, state.jumpCooldown - dt)
   if (actor.grounded || actor.climbing || actor.hang || actor.mantle) { state.runningJump = false; state.flight = undefined }
+  if (state.launchSetup) {
+    const point = state.launchSetup, dx = point.x - actor.x
+    point.time += dt
+    if (point.time > 1) {
+      if (state.path.length) state.avoided.set(state.path[0], 1.5)
+      state.launchSetup = undefined; state.path = []; state.leg = undefined; state.age = 1
+    }
+    else if (!actor.grounded || actor.climbing || target && distance(target, state.goal) > 60) state.launchSetup = undefined
+    else if (Math.abs(dx) > 2) return { ...NEUTRAL_INPUT, move: Math.max(-.45, Math.min(.45, dx / 35)) }
+    else if (Math.abs(actor.vx) > 15) return { ...NEUTRAL_INPUT }
+    else state.launchSetup = undefined
+  }
   const transfer = actor.mantle ?? actor.hang
   if (transfer) {
     if (actor.mantle?.ladder) {
@@ -324,7 +354,7 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     state.age = 1; state.path = []; state.distances.clear()
   }
   const changedGoal = !!target && distance(target, state.goal) > 60
-  if ((state.age >= .35 && (changedGoal || !state.path.length) || state.age >= 1.5) && (actor.grounded || actor.climbing || !state.path.length)) {
+  if ((state.age >= .35 && (changedGoal || !state.path.length) || state.age >= 1.5) && (actor.grounded || actor.climbing || !state.path.length && !state.flight)) {
     if (changedGoal) state.distances.clear()
     state.goal = target ?? state.goal; state.path = route(graph, actor, state.goal, left, right, state.avoided, barriers); state.leg = undefined; state.age = 0
   }
@@ -347,12 +377,15 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     else if ((actor.x - point.x) * point.side > 4) return { ...NEUTRAL_INPUT, move: -point.side }
     else { state.runup = undefined; return { ...NEUTRAL_INPUT, move: point.side } }
   }
-  while (state.path.length > 1) {
+  while (state.path.length > 1 && state.flight?.catchX === undefined) {
     const node = graph.nodes[state.path[0]]
     const next = graph.nodes[state.path[1]]
     const departure = graph.edges[state.path[0]].find(edge => edge.to === state!.path[1])
     const approach = departure?.takeoff ?? node
-    const advance = () => { const from = state.path.shift()!; state.leg = graph.edges[from].find(edge => edge.to === state!.path[0]) }
+    const advance = () => {
+      const from = state.path.shift()!; state.leg = graph.edges[from].find(edge => edge.to === state!.path[0])
+      state.launchFrom = state.leg?.jump ? state.leg.takeoff ?? graph.nodes[from] : undefined
+    }
     if (actor.climbing && node.climb === `${actor.climbing.kind}:${actor.climbing.index}` && next.climb === node.climb) { advance(); continue }
     const passing = !actor.grounded && !node.climb && actor.y < node.y - 30 && Math.abs(actor.x - node.x) < 45
       && (next.x - actor.x) * actor.vx > 0
@@ -437,6 +470,13 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     return gap >= -2 && gap < 75 && shape.y < actor.y - 15 && shape.y + shape.h > actor.y - TUNING.height
   })
   const leavingClimb = actor.climbing && state.leg?.jump && node.climb !== `${actor.climbing.kind}:${actor.climbing.index}`
+  if (leavingClimb && actor.climbing?.ladder && dy > 110) {
+    // Leave a descending ladder below the floor instead of jumping back into
+    // its underside. Stay attached until the ordinary body has room to fall.
+    input.climb = false; input.descend = true
+    input.detach = !walkingSolids.some(s => bodyIntersects(actor.x, actor.y, s, TUNING.height))
+    return input
+  }
   const followingWalk = state.leg && !state.leg.jump && !state.leg.climb
     || !state.leg && actor.grounded && !node.climb && dy < -30 && walkClear(actor, node, walkingSolids)
   // A clear narrow opening needs a controlled step down. A jump overshoots
@@ -462,6 +502,18 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   const canLaunch = actor.grounded || !!(state.leg?.takeoff && actor.coyote > 0)
   if ((canLaunch && needJump && !preparing || leavingClimb) && !state.jumpCooldown) {
     input.jump = true; input.jumpStrength = obstacle ? 1 : state.leg?.strength ?? 1
+    if (actor.grounded && !launchClear(actor, input.jumpStrength, input.move, [...walkingSolids, ...obstacles])) {
+      // The setup sample was clear, but this actual position or momentum is
+      // not. Settle at that takeoff before trying another route.
+      if (state.launchFrom && distance(actor, state.launchFrom) < 100 && walkClear(actor, state.launchFrom, walkingSolids)) {
+        state.launchSetup = { ...state.launchFrom, time: 0 }; state.launchFrom = undefined
+      } else {
+        if (state.path.length) state.avoided.set(state.path[0], 1.5)
+        state.path = []; state.leg = undefined; state.age = 1
+      }
+      input.jump = false
+      return input
+    }
     if (plannedFlight) state.flight = plannedFlight
     state.jumpCooldown = .55; state.leg = undefined
     input.climb = false; input.descend = false; input.detach = false
@@ -471,10 +523,15 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   }
   if (state.runningJump && !actor.climbing && Math.abs(dx) > 9) input.move = Math.sign(dx)
   if (state.flight?.catchX !== undefined && !actor.climbing) {
-    const flight = state.flight, catchX = flight.catchX!, speed = input.jump ? -(TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * input.jumpStrength!) : actor.vy
+    const flight = state.flight, catchX = flight.catchX!
+    const speed = input.jump ? -(TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * input.jumpStrength!) : actor.vy
     const discriminant = speed ** 2 + 2 * TUNING.gravity * (flight.to.y + (flight.reach ?? TUNING.hangReach) - actor.y)
     const time = discriminant >= 0 ? Math.max(.08, (-speed + Math.sqrt(discriminant)) / TUNING.gravity) : .08
-    const velocity = ((catchX - actor.x) * flight.side > 0 ? (catchX - actor.x) / time : flight.side * 5)
+    const acceleration = 2 * (catchX - actor.x - actor.vx * time) / (time * time)
+    let velocity = actor.vx + Math.max(-TUNING.airAcceleration, Math.min(TUNING.airAcceleration, acceleration)) * dt
+    // Brake while still facing the direction of travel. Tiny corrections near
+    // a handhold must not spin the body back and forth on successive frames.
+    if (velocity * flight.side < 5) velocity = flight.side * 5
     input.move = Math.max(-1, Math.min(1, velocity / BOT_AIR_SPEED))
   }
   if (ropeApproach) {

@@ -10,7 +10,8 @@ import {athleteOutlinePoints} from './helpers/jumpingAthleteOutline.mjs'
 import {ledgeApproachLevel,ledgeApproachInput} from './helpers/jumpingLedgeApproachScenarios.mjs'
 import {waterBindingLevel} from './helpers/jumpingWaterBindings.mjs'
 
-const read=file=>parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/'+file,import.meta.url),'utf8')))
+const read=file=>parseLevel(JSON.parse(readFileSync(new URL(file==='spire2.jump-level.json'
+  ? './fixtures/jumping/spire2-ledge-approach.json' : '../public/levels/jumping/'+file,import.meta.url),'utf8')))
 const cases=[
   ['spire2.jump-level.json','wall jump',84,1,true],
   ['spire2.jump-level.json','wall jump',88,1,false],

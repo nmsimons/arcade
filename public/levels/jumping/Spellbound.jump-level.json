@@ -2722,8 +2722,8 @@
       }
     ]
   },
-  "floor": 2050,
   "floorMaterial": "steel",
+  "floor": 2050,
   "goal": {
     "name": "Coin exit",
     "x": 700,
@@ -2738,116 +2738,105 @@
     "d": 240
   },
   "props": [],
-  "robots": [
-    {
-      "name": "Course Rbot",
-      "kind": "repulsor",
-      "x": 800,
-      "y": 425,
-      "left": 670,
-      "right": 930
-    }
-  ],
   "mechanisms": [],
   "triggers": [
     {
       "name": "Exit coin meter",
-      "mode": "coins",
-      "display": "digital",
-      "x": 740,
-      "y": 1460,
+      "x": 730,
+      "y": 1185,
       "w": 120,
-      "threshold": 9,
       "targets": [
         "e9784eb5-c1d6-4e03-b3dd-d04d3e5293d8"
-      ]
+      ],
+      "mode": "coins",
+      "threshold": 9,
+      "display": "digital"
+    }
+  ],
+  "robots": [
+    {
+      "name": "Course Rbot",
+      "x": 800,
+      "y": 425,
+      "left": 670,
+      "right": 930,
+      "kind": "repulsor"
     }
   ],
   "timers": [
     {
       "name": "Exit clock",
-      "x": 740,
-      "y": 1520
+      "x": 730,
+      "y": 1235
     }
   ],
   "pickups": [
     {
-      "kind": "coin",
       "x": 200,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 550,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 1140
+      "y": 1140,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
-      "x": 400,
-      "y": 790
+      "x": 390,
+      "y": 765,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 500,
-      "y": 440
+      "y": 440,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 200,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1050,
-      "y": 1340
+      "y": 1340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 1140
+      "y": 1140,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
-      "x": 1200,
-      "y": 790
+      "x": 1210,
+      "y": 770,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1100,
-      "y": 440
+      "y": 440,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1400,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 800,
-      "y": 390
+      "y": 390,
+      "kind": "coin"
     }
   ],
-  "texts": [
-    {
-      "x": 400,
-      "y": 180,
-      "w": 800,
-      "h": 50,
-      "text": "SPELLBOUND",
-      "fontSize": 32,
-      "align": "center",
-      "style": "official"
-    }
-  ],
+  "texts": [],
   "gravityPlates": []
 }

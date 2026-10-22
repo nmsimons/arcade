@@ -201,6 +201,54 @@ test('switch and goal activation are single cues; light alone does not play time
   assert.equal(audio.drain().cues.length, 1)
 })
 
+test('landed player and Rbot shoves make one physical impact cue each, without a repulsor blast', () => {
+  const { run, audio } = setup(l => { l.robots = [{ kind: 'repulsor', x: 450, y: 920, left: 26, right: 1774 }] })
+  run.player.shoves++
+  audio.step(run.player, run, STEP)
+  assert.deepEqual(audio.drain().cues.map(cue => cue.kind), ['shove'])
+  run.robots[0].actor.shoves++
+  audio.step(run.player, run, STEP)
+  assert.deepEqual(audio.drain().cues.map(cue => cue.kind), ['shove'])
+  audio.step(run.player, run, STEP); assert.deepEqual(audio.drain().cues, [])
+  audio.reset(run.player, run); audio.step(run.player, run, STEP); assert.deepEqual(audio.drain().cues, [])
+})
+
+test('exit opening stays equally audible across the level while retaining its direction', () => {
+  for (const [x, y] of [[6200, 7800], [200, 7800], [11800, 7800], [6000, 200]]) {
+    const { run, audio } = setup(l => {
+      l.width = 12000; l.height = 8000; l.floor = 7800; l.entrance = { x: 6000, y: 7800 }
+      l.goal = { x, y, power: 'switched', id: 'exit' }
+    })
+    run.goalLit = true; audio.step(run.player, run, STEP)
+    const cues = audio.drain().cues
+    assert.equal(cues.length, 1)
+    assert.equal(cues[0].kind, 'switch')
+    assert.equal(cues[0].volume, 1, `exit at ${x}, ${y} is not attenuated by distance`)
+    assert.equal(cues[0].strength, 1)
+    assert.equal(cues[0].pan, soundPosition(x, y, run.player).pan)
+    audio.step(run.player, run, STEP); assert.deepEqual(audio.drain().cues, [])
+    run.goalLit = false; audio.step(run.player, run, STEP); assert.deepEqual(audio.drain().cues, [])
+    run.goalLit = true; audio.step(run.player, run, STEP); assert.equal(audio.drain().cues.length, 1)
+    audio.reset(run.player, run); audio.step(run.player, run, STEP); assert.deepEqual(audio.drain().cues, [])
+  }
+})
+
+test('exit opening is heard even when nearby impacts fill the bounded cue queue', () => {
+  const { run, audio } = setup(l => {
+    l.width = 12000; l.goal = { x: 11800, y: 920, power: 'switched', id: 'exit' }
+    l.props = Array.from({ length: 12 }, (_, i) => ({ kind: 'box', x: 400 + i * 50, y: 920, size: 30 }))
+  })
+  for (const prop of run.props) { prop.grounded = false; prop.vy = 600 }
+  audio.reset(run.player, run)
+  for (const prop of run.props) { prop.grounded = true; prop.vy = 0 }
+  run.goalLit = true; audio.step(run.player, run, STEP)
+  const cues = audio.drain().cues
+  assert.equal(cues.length, 8)
+  assert.equal(cues[0].kind, 'switch', 'exit activation is ahead of ordinary positional sounds')
+  assert.equal(cues[0].volume, 1)
+  assert.equal(cues.filter(cue => cue.kind === 'switch').length, 1)
+})
+
 test('stopwatches, extensions and entering the exit each cue once; reset/resume never replay them', () => {
   const { run, audio, step } = setup(l => { l.pickups = [{ kind: 'stopwatch', x: 160, y: 888 }] })
   assert.deepEqual(step().cues.map(c => c.kind), ['timer-paused'])

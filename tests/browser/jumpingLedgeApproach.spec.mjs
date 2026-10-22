@@ -60,7 +60,9 @@ for(const [file,kind,turn] of [['spire2.jump-level.json','wall jump',80],['spire
   ['Tower.jump-level.json','fall',12],['Tower II.jump-level.json','fall',12]]) {
   test(`${file} catches a reachable ${kind} approach with normal controls`,async({page},info)=>{
     test.setTimeout(60000)
-    const authored=JSON.parse(await readFile(new URL('../../public/levels/jumping/'+file,import.meta.url),'utf8'))
+    // The reported Spire II encounter is fixed independently of Studio edits.
+    const authored=JSON.parse(await readFile(new URL(file==='spire2.jump-level.json'
+      ? '../fixtures/jumping/spire2-ledge-approach.json' : '../../public/levels/jumping/'+file,import.meta.url),'utf8'))
     const level=ledgeApproachLevel(authored,kind)
     await useLevelFixtures(page,[level])
     const errors=[];page.on('pageerror',error=>errors.push(error.message))

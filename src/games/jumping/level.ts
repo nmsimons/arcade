@@ -28,7 +28,7 @@ import type { CoinSwitchOrientation } from './coins.ts'
 import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 import { isTerrainMaterial } from './terrainMaterials.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
-import { lightingProblems, parseLighting } from './lightingDefinition.ts'
+import { lightingProblems, MAX_LIGHTS, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
 import type { PressurePlateMount } from './pressurePlateMount.ts'
@@ -365,7 +365,7 @@ export function parseLevel(value: unknown): JumpLevel {
       if (t.startsOn !== undefined && (t.behavior !== 'switch' && t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
-        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > MAX_SWITCH_TARGETS - (v.version === 1 ? 16 : 0)
+        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > MAX_SWITCH_TARGETS - (v.version === 1 ? MAX_LIGHTS : 0)
           || t.targets.some(id => !validSwitchTargetId(id)) || new Set(t.targets).size !== t.targets.length) fail()
         connection = { targets: [...t.targets as string[]] }
       } else {

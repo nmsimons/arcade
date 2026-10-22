@@ -631,7 +631,7 @@ and remain off during play.
 | --- | --- |
 | `nightMode` | Boolean. New saves include it; older files infer it from `ambient < 100`. |
 | `ambient` | Legacy finite integer 0–100, normalized to 0. Every night uses 35% baseline brightness. |
-| `lights` | Array, limited to 16 authored wall spotlights. The goal indicator is not a source and has no entry. |
+| `lights` | Array, limited to 20 authored wall spotlights. The goal indicator is not a source and has no entry. |
 | `id` | Nonempty stable string, at most 100 characters; unique across lights and mechanisms. Editor generates fresh IDs. |
 | `name` | Optional, using existing object-name rules. Never HTML. |
 | `x`, `y` | Finite world coordinates for the emission center in the authored start state; fixture inside playable room. |
@@ -745,7 +745,7 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
   Editor rebuilds retain the last coherent preview until its replacement is
   ready; any preparation status uses existing reserved space, not a new banner.
 
-The safety limit is 16 authored wall lights. Also limit static candidate contour
+The safety limit is 20 authored wall spotlights. Also limit static candidate contour
 edges to 4096 per light and 32768 summed across the authored lights. With unlimited reach, count the whole room's static contours unless they
 can be conservatively excluded by direction. Diagnose excess complexity before
 starting play; do not silently remove

@@ -11202,6 +11202,122 @@
           "style": "lab-stamp"
         }
       ]
+    },
+    "01.json": {
+      "version": 2,
+      "id": "first-leap",
+      "name": "Second Gap",
+      "width": 1304,
+      "height": 1000,
+      "platforms": [
+        {
+          "x": 0,
+          "y": 600,
+          "w": 540,
+          "h": 400
+        },
+        {
+          "x": 920,
+          "y": 600,
+          "w": 384,
+          "h": 400
+        }
+      ],
+      "entrance": {
+        "x": 40,
+        "y": 600
+      },
+      "checkpoints": [],
+      "climbables": {
+        "ladders": [
+          {
+            "x": 560,
+            "top": 600,
+            "bottom": 1000,
+            "platform": -1,
+            "side": -1
+          }
+        ],
+        "ropes": []
+      },
+      "floor": 1000,
+      "goal": {
+        "wireTerminal": {
+          "x": 1280,
+          "y": 540
+        },
+        "x": 1300,
+        "y": 600,
+        "flipX": true,
+        "id": "b7bb98a0-4ba2-431e-b30b-9dbf3cb4e788",
+        "power": "switched"
+      },
+      "times": {
+        "a": 7,
+        "b": 10,
+        "c": 15,
+        "d": 45
+      },
+      "props": [
+        {
+          "kind": "ball",
+          "x": 175,
+          "y": 600,
+          "size": 30
+        }
+      ],
+      "mechanisms": [],
+      "triggers": [
+        {
+          "showWires": true,
+          "wireHeight": 755,
+          "x": 200,
+          "y": 600,
+          "w": 40,
+          "targets": [
+            "b7bb98a0-4ba2-431e-b30b-9dbf3cb4e788"
+          ],
+          "mode": "touch"
+        }
+      ],
+      "robots": [],
+      "timers": [
+        {
+          "x": 1135,
+          "y": 460
+        }
+      ],
+      "texts": [
+        {
+          "x": 280,
+          "y": 295,
+          "w": 205,
+          "h": 225,
+          "text": "Run up, hold jump",
+          "fontSize": 40,
+          "align": "left",
+          "style": "official",
+          "rotation": 0
+        },
+        {
+          "x": 1040,
+          "y": 20,
+          "w": 240,
+          "h": 110,
+          "text": "L.A.B.\nexperiments",
+          "fontSize": 28,
+          "align": "center",
+          "style": "lab-stamp"
+        }
+      ],
+      "lighting": {
+        "nightMode": false,
+        "ambient": 0,
+        "lights": []
+      }
     }
+  },
+  "sourceCommits": {
+    "01.json": "36a309b159ae492a83980bac8c4cc30c323fd2db"
   }
 }

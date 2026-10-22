@@ -39,7 +39,7 @@ test('parser reconstructs lighting data and rejects duplicate targets, oversized
   const bad = modify => { const l = lit(); modify(l); assert.throws(() => parseLevel(l)) }
   bad(l => { l.lighting.lights[0].id = l.mechanisms[0].id })
   bad(l => { l.lighting.lights[1].id = l.lighting.lights[0].id })
-  bad(l => { l.lighting.lights = Array.from({ length: 17 }, (_, i) => ({ ...l.lighting.lights[0], id: `light${i}` })) })
+  bad(l => { l.lighting.lights = Array.from({ length: 21 }, (_, i) => ({ ...l.lighting.lights[0], id: `light${i}` })) })
   bad(l => { l.triggers[0].targets = ['missing'] })
   bad(l => { l.triggers[0].targets = [l.lighting.lights[0].id] })
 })
@@ -49,6 +49,25 @@ test('wall light footprints stay within the room', () => {
   }
   const level = lit(), light = level.lighting.lights[0]
   assert.deepEqual(lightBounds(light), { x: light.x - 10, y: light.y - 10, w: 20, h: 20 })
+})
+test('twenty spotlights round-trip and switch independently; authoring rejects a twenty-first', () => {
+  const level = lit(), lamp = level.lighting.lights[0]
+  level.lighting.lights = Array.from({ length: 19 }, (_, i) => ({ ...lamp, id: `lamp${i}`, power: 'switched' }))
+  level.triggers = [{ mode: 'touch', behavior: 'toggle', startsOn: true, x: 120, y: 620, w: 80, targets: ['lamp18'] }]
+  const added = addItem(level, 'light', { x: 400, y: 200 }, { x: 400, y: 300 }).level
+  const full = editLight(added, 19, { power: 'switched' })
+  full.triggers[0].targets = [full.lighting.lights[19].id]
+  const restored = parseLevel(JSON.parse(JSON.stringify(full)))
+  assert.deepEqual(restored, full)
+  assert.deepEqual(levelProblems(restored), [])
+  const sources = new LightingState().sources(restored.lighting, createRun(restored), 0)
+  assert.deepEqual(sources.map(source => source.fade), [...Array(19).fill(0), 1])
+  assert.equal(duplicateItem(level, selection).level.lighting.lights.length, 20)
+  assert.equal(duplicateItem(full, selection), null)
+  assert.throws(() => addItem(full, 'light', { x: 400, y: 200 }, { x: 400, y: 300 }), /already has 20 lights/)
+  const tooMany = { ...full, lighting: { ...full.lighting, lights: [...full.lighting.lights, { ...lamp, id: 'lamp21' }] } }
+  assert.throws(() => parseLevel(tooMany), /Invalid lighting/)
+  assert.ok(levelProblems(tooMany).includes('Use at most 20 lights per level.'))
 })
 test('legacy mounted lights become wall lights at their saved positions without retaining host references', () => {
   for (const mount of ['lift', 'gate', 'deleted-mechanism']) {
@@ -62,7 +81,7 @@ test('legacy mounted lights become wall lights at their saved positions without 
   }
 })
 test('geometry complexity limits reject expensive shared files', () => {
-  const heavy = lit(); heavy.lighting.lights = Array.from({ length: 16 }, (_, i) => ({ ...heavy.lighting.lights[0], id: `lamp${i}` }))
+  const heavy = lit(); heavy.lighting.lights = Array.from({ length: 20 }, (_, i) => ({ ...heavy.lighting.lights[0], id: `lamp${i}` }))
   // Valid individual shapes, but too many edge/light combinations.
   heavy.platforms = Array.from({ length: 120 }, () => ({ x: 200, y: 300, w: 100, h: 100,
     polygon: Array.from({ length: 24 }, (_, i) => [50 + 49 * Math.cos(i * Math.PI / 12), 50 + 49 * Math.sin(i * Math.PI / 12)]) }))

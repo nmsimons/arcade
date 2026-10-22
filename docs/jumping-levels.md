@@ -1493,7 +1493,7 @@ platforms. Editing either this list or a switch’s **Activates** list updates t
 same connections. Logic and Reversed combine the light's connected inputs. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light is valid and stays off during play unless Reversed is enabled. Version 2 allows up to
-209 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 40 logic relays,
+213 switch targets (40 mechanisms, 20 spotlights, 40 wall lights, 40 logic relays,
 up to 32 water pump inputs in the 16 gravity/water fields, 40 force fields, and one exit); version 1 allows 193
 (without spotlights).
 
@@ -1515,11 +1515,11 @@ preview** temporarily powers a selected switched lamp. Neither changes the file,
 undo history, thumbnails or playtest. Thumbnails show the authored initial state.
 Night brightness is fixed for gameplay, previews, and thumbnails. Former saved player brightness preferences are ignored.
 
-Files allow at most 16 wall lights. Shovebot headlights also count toward the
+Files allow at most 20 spotlights. Shovebot headlights also count toward the
 lighting complexity budget. Day and Night rooms with local lights
 are limited to 4,096 static contour edges per light and 32,768 summed across
 lights (counting the whole room conservatively). Excess complexity or malformed
 fields produce a validation error before play. Geometry preparation runs in a
 cancellable worker. Prefer one or two architecturally positioned beams per area;
-the count limit is a safety bound, not a promise that sixteen overlapping beams
+the count limit is a safety bound, not a promise that twenty overlapping beams
 will be inexpensive on every device.

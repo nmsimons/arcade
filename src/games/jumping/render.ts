@@ -10,6 +10,7 @@ import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
 import { terrainFill, terrainMaterial } from './terrainMaterials.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
+import { terrainUnderlaps } from './terrainJoins.ts'
 import { drawFootBoosters } from './airBoosters.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
@@ -64,12 +65,13 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
   const order = terrainDrawOrder(authored)
-  const transform = level && ctx.getTransform(), bottom = level ? levelHeight(level) : 0
+  const transform = ctx.getTransform?.(), bottom = level ? levelHeight(level) : 0
   const bleedX = transform ? 1 / Math.hypot(transform.a, transform.b) : 0
   const bleedY = transform ? 1 / Math.hypot(transform.c, transform.d) : 0
+  const underlaps = terrainUnderlaps(platforms, order, transform ? Math.min(Math.hypot(transform.a, transform.b), Math.hypot(transform.c, transform.d)) : 1)
   for (let i = 0; i < platforms.length; i++) {
     // Enclosing floor and walls stay above authored terrain, as before.
-    const b = platforms[i < order.length ? order[i] : i]
+    const index = i < order.length ? order[i] : i, b = platforms[index]
     const next = b.material ?? 'stone'
     if (!started || next !== material) {
       if (started) ctx.fill()
@@ -78,6 +80,9 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
     }
     const points = polygonPoints(b)
     points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath()
+    for (const patch of underlaps[index]) {
+      patch.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath()
+    }
     // Carry flush terrain edges one canvas pixel into the enclosing solid.
     // Different material batches cannot share antialias coverage, even when
     // their geometry meets exactly. The enclosing walls still paint on top.

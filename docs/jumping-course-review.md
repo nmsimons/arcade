@@ -1,5 +1,10 @@
 # Scaffold course review
 
+Studio renamed the retained courses on October 22, 2026: Triple Scaffold is
+Scaffold I, Hellstones is Scaffold II, Hatchlings is Scaffold III, Spellbound is
+Scaffold IV, and Blackout is Scaffold V. The review and recordings below retain
+their historical names and layouts; they do not certify later Studio edits.
+
 ## Selection and reworks — October 21, 2026
 
 Later Studio edits narrowed Walls' center landing, changed its coin requirement,

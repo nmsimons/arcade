@@ -86,6 +86,79 @@ const boundaryJoins = [
     gap: { x: 100, y: 400, w: 800, h: 198 }, sample: [500, 599] },
 ]
 
+const internalJoins = [
+  { name: 'vertical steel', material: 'steel', sample: [520, 400],
+    shapes: [{ x: 400, y: 200, w: 120, h: 300 }, { x: 520, y: 300, w: 160, h: 200 }],
+    whole: { x: 400, y: 200, w: 280, h: 300, polygon: [[0,0],[120,0],[120,100],[280,100],[280,300],[0,300]] } },
+  { name: 'horizontal stone', material: 'stone', sample: [600, 320],
+    shapes: [{ x: 400, y: 200, w: 280, h: 120 }, { x: 500, y: 320, w: 180, h: 180 }],
+    whole: { x: 400, y: 200, w: 280, h: 300, polygon: [[0,0],[280,0],[280,300],[100,300],[100,120],[0,120]] } },
+  { name: 'diagonal earth', material: 'earth', sample: [540, 350],
+    shapes: [{ x: 400, y: 200, w: 280, h: 300, polygon: [[0,0],[280,300],[0,300]] },
+      { x: 400, y: 200, w: 280, h: 300, polygon: [[0,0],[280,0],[280,300]] }],
+    whole: { x: 400, y: 200, w: 280, h: 300 } },
+]
+
+for (const join of internalJoins) test(`${join.name}: internal joins stay seamless across separate material batches`, async ({ page }, info) => {
+  test.setTimeout(60_000)
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const result = await page.evaluate(async c => {
+    const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { levelTerrain } = await import('/src/games/jumping/level.ts')
+    const h = await lightingHarness(), samples = []
+    h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []; h.run.pickups = []
+    h.run.level = { ...h.run.level, width: 1000, height: 600, floor: 600, texts: [], timers: [], wallLights: [], triggers: [],
+      climbables: { ropes: [], ladders: [] } }
+    const unrelated = { x: 900, y: 100, w: 30, h: 30, material: 'chalk' }
+    const scene = platforms => {
+      h.run.level = { ...h.run.level, platforms }
+      h.run.terrain = levelTerrain(h.run.level)
+    }
+    for (const zoom of [.63, 1, 1.37, 2]) for (const phase of [.15, .5, .85]) for (const mode of ['plain', 'day', 'night']) {
+      h.view.zoom = zoom; h.view.x = c.sample[0] - (640 + phase) / zoom; h.view.y = c.sample[1] - (450 + phase) / zoom
+      const render = () => mode === 'plain' ? h.fullBright() : h.render(mode === 'day' ? 100 : 0)
+      scene([{ ...c.shapes[0], material: c.material }, unrelated, { ...c.shapes[1], material: c.material }])
+      const joined = render()
+      scene([{ ...c.whole, material: c.material }, unrelated])
+      const continuous = render()
+      for (let y = 447; y <= 453; y++) for (let x = 637; x <= 643; x++) {
+        const i = (y * h.canvas.width + x) * 4
+        samples.push({ zoom, phase, mode, x, y, joined: [...joined.pixels.slice(i, i + 3)], continuous: [...continuous.pixels.slice(i, i + 3)] })
+      }
+    }
+    scene([{ ...c.shapes[0], material: c.material }, unrelated, { ...c.shapes[1], material: c.material }])
+    h.view.zoom = 2; h.view.x = 340; h.view.y = 140; h.fullBright()
+    const screenshot = h.canvas.toDataURL(); h.renderer.dispose()
+    return { samples, screenshot }
+  }, join)
+  await info.attach('internal-terrain-join', { body: Buffer.from(result.screenshot.split(',')[1], 'base64'), contentType: 'image/png' })
+  // A sloped edge can blend a texture channel twice and round it by one step.
+  // The separate transparent-canvas check below requires fully opaque joins.
+  for (const s of result.samples) s.joined.forEach((channel, i) =>
+    expect(Math.abs(channel - s.continuous[i]), JSON.stringify(s)).toBeLessThanOrEqual(1))
+})
+
+test('internal joins between different materials remain opaque without painting across gaps', async ({ page }) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const result = await page.evaluate(async scenes => {
+    const { drawTerrain } = await import('/src/games/jumping/render.ts')
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 100
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }), samples = []
+    for (const scene of scenes) for (const zoom of [.63, 1, 1.37, 2]) for (const phase of [.15, .5, .85]) for (const gap of scene.name === 'vertical steel' ? [0, 2] : [0]) {
+      ctx.resetTransform(); ctx.clearRect(0, 0, 100, 100)
+      ctx.setTransform(zoom, 0, 0, zoom, 50 + phase - scene.sample[0] * zoom, 50 + phase - scene.sample[1] * zoom)
+      drawTerrain(ctx, [{ ...scene.shapes[0], material: 'steel' },
+        { ...scene.shapes[1], x: scene.shapes[1].x + gap, material: 'earth' }])
+      samples.push({ name: scene.name, zoom, phase, gap, alpha: ctx.getImageData(50, 50, 1, 1).data[3] })
+    }
+    return samples
+  }, internalJoins)
+  for (const s of result) {
+    if (s.gap) expect(s.alpha, JSON.stringify(s)).toBeLessThan(255)
+    else expect(s.alpha, JSON.stringify(s)).toBe(255)
+  }
+})
+
 for (const join of boundaryJoins) test(`${join.edge}: different materials meet cleanly and real gaps remain visible`, async ({ page }, info) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   const result = await page.evaluate(async c => {

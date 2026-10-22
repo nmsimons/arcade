@@ -22,32 +22,32 @@
       "reason": "New authored level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
     },
     {
-      "file": "Triple Scaffold.jump-level.json",
-      "reason": "The current 14-coin layout completed from a fresh entrance with its authored Rbot and ordinary tap/hold controls in 225.38 seconds, including several recoveries (jumping-triple-scaffold-completion.json). Initial deadlines are A 120 / B 180 / C 240 / D 300 seconds. The completion earns C; a fluent A route and independent deadline balance remain unverified."
+      "file": "scaffold1.jump-level.json",
+      "reason": "Renamed from Triple Scaffold on October 22. The current 14-coin layout completed from a fresh entrance with its authored Rbot and ordinary tap/hold controls in 225.38 seconds, including several recoveries (jumping-triple-scaffold-completion.json). Initial deadlines are A 120 / B 180 / C 240 / D 300 seconds. The completion earns C; a fluent A route and independent deadline balance remain unverified."
     },
     {
-      "file": "Hellstones.jump-level.json",
-      "reason": "Studio revisions moved the entrance and exit, changed collectibles, and added a repulsor pickup. Its former fresh-start trace no longer completes; current Rbot pursuit is covered separately and a new player completion is pending."
+      "file": "scaffold2.jump-level.json",
+      "reason": "Renamed from Hellstones on October 22. Studio revisions moved the entrance and exit, changed collectibles, and added a repulsor pickup. Its former fresh-start trace no longer completes; current Rbot pursuit is covered separately and a new player completion is pending."
     },
     {
       "file": "Walls.jump-level.json",
       "reason": "Studio revisions narrowed the center landing and replaced the six optional coins with three required coins. The prior direct and recovery traces miss the revised route; both need fresh completion checks."
     },
     {
-      "file": "Spellbound.jump-level.json",
-      "reason": "The authored course and hunter encounter were revised after this trace was recorded. The former completion no longer reaches the exit; its trace is retained as superseded evidence pending a fresh player route."
+      "file": "scaffold4.jump-level.json",
+      "reason": "Renamed from Spellbound on October 22. The authored course and hunter encounter were revised after this trace was recorded. The former completion no longer reaches the exit; its trace is retained as superseded evidence pending a fresh player route."
     },
     {
-      "file": "Blackout.jump-level.json",
-      "reason": "Studio revisions changed the entrance, coin placements, and ladder access. Its former completion trace no longer reaches the exit; a fresh route and timing review are pending."
+      "file": "scaffold5.jump-level.json",
+      "reason": "Renamed from Blackout on October 22. Studio revisions changed the entrance, coin placements, and ladder access. Its former completion trace no longer reaches the exit; a fresh route and timing review are pending."
     },
     {
       "file": "Here There Everywhere.jump-level.json",
       "reason": "Reworked October 21. Fresh normal tap/hold A completion in 4.22 seconds, plus an alternate/recovery completion, are recorded in jumping-course-playtests.json. Deadlines A 6 / B 12 / C 22 / D 40 are grounded in those runs; independent human first-run balance remains pending."
     },
     {
-      "file": "Hatchlings.jump-level.json",
-      "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (66.37 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
+      "file": "scaffold3.jump-level.json",
+      "reason": "Renamed from Hatchlings on October 22. A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (66.37 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
     },
     {
       "file": "Quarantine.jump-level.json",
@@ -72,6 +72,10 @@
     {
       "file": "07.json",
       "reason": "Studio revisions added two shovebots. The previous A route is retained against its captured layout for regression coverage; a fresh completion and timing audit of the new encounter are pending."
+    },
+    {
+      "file": "01.json",
+      "reason": "Studio revisions removed timing pickups and moved the ball. The prior A recording is preserved against its captured layout for cargo and switch regression coverage; a fresh completion and timing audit of the revised level are pending."
     }
   ],
   "runs": [
@@ -160,132 +164,6 @@
           "frames": 298,
           "input": {
             "move": 1
-          }
-        }
-      ]
-    },
-    {
-      "file": "01.json",
-      "jumpModel": "tap-hold",
-      "elapsed": 6.000000000000088,
-      "activeTime": 6.858333333333464,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 145,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": true,
-            "crouch": true,
-            "reach": false,
-            "descend": true,
-            "detach": false
-          }
-        },
-        {
-          "frames": 70,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 23,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 79,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 21,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 47,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 22,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 415,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
           }
         }
       ]
@@ -4520,6 +4398,132 @@
           "input": {
             "move": -1,
             "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "01.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 6.000000000000088,
+      "activeTime": 6.858333333333464,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 145,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": true,
+            "crouch": true,
+            "reach": false,
+            "descend": true,
+            "detach": false
+          }
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 23,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 79,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 21,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 47,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 415,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         }
       ]

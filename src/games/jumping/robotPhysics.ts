@@ -2,7 +2,7 @@ import type { Platform, Player } from './model.ts'
 import type { RobotState } from './challenge.ts'
 import { bodyIntersects, bodyPolygon, lineBlocked, moveBody, platformOutline, polygonIntersects } from './geometry.ts'
 import { TUNING } from './model.ts'
-import type { Vec } from './geometry.ts'
+import type { TerrainContact, Vec } from './geometry.ts'
 import { groundAt } from './terrain.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
 import { playerContactBody, translatePlayer } from './playerContacts.ts'
@@ -49,7 +49,7 @@ export function stepRobotRecoil(platforms: readonly Platform[], robot: RobotStat
   const distance = velocity * time - direction * deceleration * time ** 2 / 2
   const destination = robot.x + distance
   const supported = robot.fallVelocity === undefined && moveRobot(platforms, robot, destination, props, player, undefined, playerBarriers, objectBarriers)
-  const clear = supported || translateRobot(platforms, robot, destination - robot.x, 0, props, player, playerBarriers, objectBarriers)
+  const clear = supported || translateRobot(platforms, robot, destination - robot.x, 0, props, player, playerBarriers, objectBarriers).clear
   const solids = [...platforms, ...objectBarriers]
   if (!robotSupport(solids, robot.x, robot.y, robot.angle, .2)) robot.fallVelocity ??= 0
   if (robot.x < robot.definition.left - .01 || robot.x > robot.definition.right + .01) robot.deactivated = true
@@ -60,16 +60,29 @@ export function stepRobotRecoil(platforms: readonly Platform[], robot: RobotStat
  * patrol's two-wheel footing rule and authored lane limits apply only to drive. */
 function translateRobot(platforms: readonly Platform[], robot: RobotState, dx: number, dy: number, props: readonly Platform[], player: Player,
   playerBarriers: readonly Platform[], objectBarriers: readonly Platform[]) {
-  const solids = [...platforms, ...props, ...objectBarriers], delta = dx || dy
-  if (!delta) return true
-  let fraction = 1
-  for (const hull of robotHulls(robot)) {
-    const outline: Vec[] = hull.map(([x, y]) => [x - robot.x, y - robot.y])
-    const safe = moveBody([robot.x, robot.y], [robot.x + dx, robot.y + dy], solids, 62, 1, 0, outline)
-    fraction = Math.min(fraction, Math.max(0, Math.min(1, (dx ? safe.x - robot.x : safe.y - robot.y) / delta)))
+  const solids = [...platforms, ...props, ...objectBarriers]
+  const from: Vec = [robot.x, robot.y], target: Vec = [robot.x + dx, robot.y + dy]
+  const contacts: TerrainContact[] = []
+  const outlines = robotHulls(robot).map(hull => hull.map(([x, y]): Vec => [x - from[0], y - from[1]]))
+  let x = target[0], y = target[1]
+  // All pieces share one resolved translation. Keep the sideways slide from a
+  // wheel striking a slope, then sweep the chassis and other wheel along it.
+  // Scaling only the requested axis discarded that slide and wedged a wheel
+  // into outward-facing shoulders beneath a wall.
+  for (let pass = 0; pass < 8; pass++) {
+    let corrected = false
+    for (const outline of outlines) {
+      const safe = moveBody(from, [x, y], solids, 62, 1, 0, outline)
+      contacts.push(...safe.contacts)
+      corrected ||= Math.abs(safe.x - x) > 1e-7 || Math.abs(safe.y - y) > 1e-7
+      x = safe.x; y = safe.y
+    }
+    if (!corrected) break
   }
-  if (!placeRobot(solids, robot, { x: robot.x + dx * fraction, y: robot.y + dy * fraction, angle: robot.angle }, player, playerBarriers)) return false
-  return fraction > 1 - 1e-6
+  const next = { ...robot, x, y }
+  if (robotHulls(next).some(hull => solids.some(solid => polygonIntersects(hull, solid, .001)))
+    || !placeRobot(solids, robot, next, player, playerBarriers)) return { clear: false, contacts: [] as TerrainContact[] }
+  return { clear: Math.abs(x - target[0]) < 1e-6 && Math.abs(y - target[1]) < 1e-6, contacts }
 }
 
 export function stepRobotFall(platforms: readonly Platform[], robot: RobotState, dt: number, props: readonly Platform[], player: Player,
@@ -81,7 +94,19 @@ export function stepRobotFall(platforms: readonly Platform[], robot: RobotState,
   const velocity = robot.fallVelocity
   robot.fallVelocity = Math.min(1400, velocity + TUNING.gravity * dt)
   const distance = (velocity + robot.fallVelocity) * dt / 2
-  if (!translateRobot(platforms, robot, 0, distance, props, player, playerBarriers, objectBarriers)) robot.fallVelocity = 0
+  const moved = translateRobot(platforms, robot, 0, distance, props, player, playerBarriers, objectBarriers)
+  if (!moved.clear) {
+    if (!moved.contacts.length) { robot.fallVelocity = 0; return }
+    let vx = robot.recoilVx ?? 0, vy = robot.fallVelocity
+    for (const { normal: [nx, ny] } of moved.contacts) {
+      const into = vx * nx + vy * ny
+      if (into < 0) { vx -= nx * into; vy -= ny * into }
+    }
+    // Preserve tangential momentum along the real contact. Resetting gravity
+    // on every slope hit made unsupported bots hang or creep at a frame-rate
+    // dependent speed instead of sliding off the shoulder.
+    robot.recoilVx = vx; robot.fallVelocity = vy
+  }
 }
 
 export const robotDrive = (r: Pick<RobotState, 'phase'> & Partial<Pick<RobotState, 'definition' | 'deactivated'>>) => r.deactivated || r.definition?.kind === 'repulsor' ? 0 : r.phase === 'charge' ? 540 : r.phase === 'chase' ? 235 : r.phase === 'patrol' ? 92 : 0

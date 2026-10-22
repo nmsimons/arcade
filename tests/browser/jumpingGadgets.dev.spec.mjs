@@ -255,3 +255,25 @@ test('a repulsor knocks a shovebot off a ledge, where it falls and deactivates o
   expect((await robot()).x).toBeCloseTo(landed.x, 5)
   await page.screenshot({ path: info.outputPath('shovebot-deactivated-below-shelf.png') })
 })
+
+test('a knocked-off shovebot slides past a flared wall and lands instead of hanging beside it', async ({ page }, info) => {
+  const level = fixture(); level.forceFields = []
+  level.entrance = { x: 350, y: 400 }
+  level.platforms = [
+    { x: 140, y: 400, w: 560, h: 20 },
+    { x: 775, y: 0, w: 150, h: 550, polygon: [[25, 0], [125, 0], [125, 500], [150, 525], [150, 550], [0, 550], [0, 525], [25, 500]] },
+  ]
+  level.props = [{ kind: 'box', gadget: 'repulsor', x: 380, y: 400, size: 40 }]
+  level.robots = [{ x: 650, y: 400, left: 166, right: 674 }]
+  await open(page, level); await key(page, 'e'); await key(page, 'f')
+  const robot = () => page.locator('canvas').evaluate(canvas => canvas.gadgetRobots[0])
+  await page.clock.runFor(650)
+  expect((await robot()).y).toBeGreaterThan(525)
+  await page.screenshot({ path: info.outputPath('shovebot-sliding-past-wall.png') })
+  await page.clock.runFor(1400)
+  const landed = await robot()
+  expect(landed.y).toBeCloseTo(600, 1)
+  await page.clock.runFor(1000)
+  expect((await robot()).x).toBeCloseTo(landed.x, 5)
+  await page.screenshot({ path: info.outputPath('shovebot-landed-below-flared-wall.png') })
+})

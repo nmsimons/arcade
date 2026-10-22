@@ -54,9 +54,10 @@ test('normal controls climb through decks, stop on the upper landing and deliber
   expect(errors).toEqual([])
 })
 
-test('Triple Scaffold lets a fresh player step off at a formerly slotted intermediate deck', async ({ page }, info) => {
+test('a captured scaffold lets a fresh player step off at a formerly slotted intermediate deck', async ({ page }, info) => {
   test.setTimeout(120000)
-  const file = JSON.parse(readFileSync(new URL('../../public/levels/jumping/Triple Scaffold.jump-level.json', import.meta.url), 'utf8'))
+  // Preserve the overlap reproduction from 36a309b as Studio renames or edits maps.
+  const file = JSON.parse(readFileSync(new URL('../fixtures/jumping/ladder-scaffold-exit.json', import.meta.url), 'utf8'))
   // Keep this exact overlap check independent of the hunter's shot timing.
   // Fresh-start course recordings separately retain each authored Rbot.
   file.robots = []

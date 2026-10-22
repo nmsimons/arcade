@@ -146,6 +146,36 @@ test('an airborne shovebot stops at walls and EMP pauses its fall', () => {
   for (const hull of robotHulls(bot)) for (const solid of run.terrain) assert.equal(polygonIntersects(hull, solid, .01), false)
 })
 
+for (const direction of [-1, 1]) for (const dt of [1 / 120, 1 / 60, 1 / 30])
+  test(`a knocked-off shovebot slides clear of a flared wall instead of hanging on one wheel: direction ${direction}, dt ${dt}`, () => {
+    const mirror = x => direction > 0 ? x : 1800 - x
+    const shoulder = [[25, 0], [125, 0], [125, 400], [150, 425], [150, 450], [0, 450], [0, 425], [25, 400]]
+    const level = blankTrial()
+    level.entrance = { x: mirror(1500), y: 920 }
+    level.platforms = [
+      { x: direction > 0 ? 140 : 1300, y: 400, w: 360, h: 20 },
+      { x: direction > 0 ? 575 : 1075, y: 0, w: 150, h: 450,
+        polygon: direction > 0 ? shoulder : shoulder.map(([x, y]) => [150 - x, y]).reverse() },
+    ]
+    level.robots = [{ x: mirror(450), y: 400, left: direction > 0 ? 166 : 1326, right: direction > 0 ? 474 : 1634 }]
+    const run = createRun(level), bot = run.robots[0]
+    repulseRobot(bot, direction)
+    let reachedWall = false
+    for (let time = 0; time < 3; time += dt) {
+      const from = { x: bot.x, y: bot.y }
+      stepRun(run, NEUTRAL_INPUT, dt)
+      reachedWall ||= (bot.x - mirror(570)) * direction > 0
+      assert.ok(Math.abs(bot.x - from.x) <= 900 * dt + .01, 'contact deflection stays continuous')
+      assert.ok(Math.abs(bot.y - from.y) <= 1400 * dt + .01, 'gravity stays bounded')
+      for (const hull of robotHulls(bot)) for (const solid of run.terrain)
+        assert.equal(polygonIntersects(hull, solid, .01), false, `the chassis and both wheels clear terrain at ${time}`)
+    }
+    assert.ok(reachedWall, 'the knockback must reach the wall above its outward shoulder')
+    assert.ok(Math.abs(bot.y - 920) < .01, `the bot must reach the floor, not hover at ${bot.x}, ${bot.y}`)
+    assert.equal(bot.fallVelocity, undefined)
+    assert.equal(bot.deactivated, true)
+  })
+
 test('losing wheel footing removes grounded recoil braking instead of parking the chassis over a lip', () => {
   const level = scene(); level.entrance = { x: 1500, y: 920 }; level.props = []
   level.platforms = [{ x: 300, y: 650, w: 400, h: 20 }]

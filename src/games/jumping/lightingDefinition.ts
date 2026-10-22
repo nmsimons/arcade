@@ -15,7 +15,7 @@ export interface LightingDefinition { nightMode?: boolean; ambient: number; ligh
 const DEFAULT_DAYLIGHT: LightingDefinition = { nightMode: false, ambient: 0, lights: [] }
 /** Existing files receive daylight without adding lighting settings to their saves. */
 export const lightingForLevel = (level: Pick<JumpLevel, 'lighting'>) => level.lighting ?? DEFAULT_DAYLIGHT
-export const MAX_LIGHTS = 16, LIGHT_RADIUS = 10
+export const MAX_LIGHTS = 20, LIGHT_RADIUS = 10
 export const levelLightCount = (level: JumpLevel) => (level.lighting?.lights.length ?? 0) + (level.robots?.filter(robot => robot.headlight).length ?? 0)
 export const lightBounds = (light: Pick<LevelLight, 'x' | 'y'>) => ({ x: light.x - LIGHT_RADIUS, y: light.y - LIGHT_RADIUS, w: LIGHT_RADIUS * 2, h: LIGHT_RADIUS * 2 })
 export function lightingProblems(level: JumpLevel): string[] {
@@ -41,7 +41,7 @@ export function lightingProblems(level: JumpLevel): string[] {
   const lighting = level.lighting
   if (!lighting) return level.version === 2 ? [...issues, 'Version 2 levels need lighting settings.'] : issues
   const height = level.floor ?? level.height ?? 1020
-  if (lighting.lights.length > MAX_LIGHTS) issues.push('Use at most 16 lights per level.')
+  if (lighting.lights.length > MAX_LIGHTS) issues.push(`Use at most ${MAX_LIGHTS} lights per level.`)
   for (const [i, light] of lighting.lights.entries()) {
     const name = objectReference(level, 'light', i), b = lightBounds(light)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > height) issues.push(`Keep ${name} inside the level.`)

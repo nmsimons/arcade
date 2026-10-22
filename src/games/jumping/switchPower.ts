@@ -6,7 +6,7 @@ export type PowerMode = 'always' | 'switched'
 export type PlateBehavior = 'pressure' | 'switch' | 'toggle'
 export type SwitchLogic = 'or' | 'and' | 'xor'
 /** Water shares the 16-field limit and supplies two pump inputs per reservoir. */
-export const MAX_SWITCH_TARGETS = 209
+export const MAX_SWITCH_TARGETS = 213
 export interface WallWiringSettings { showWires?: boolean; wireHeight?: number; wireTerminal?: { x: number; y: number } }
 export interface SwitchSettings extends WallWiringSettings { switchLogic?: SwitchLogic; switchReversed?: boolean; relay?: boolean; targets?: string[] }
 export function parseWallWiring(value: { showWires?: unknown; wireHeight?: unknown; wireTerminal?: unknown }, fail: () => never): WallWiringSettings {

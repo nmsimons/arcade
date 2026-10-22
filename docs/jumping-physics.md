@@ -241,6 +241,11 @@ to have footing. Once unsupported, it falls under gravity and lands through
 the same swept hulls. EMP pauses this motion. Leaving the authored patrol range
 deactivates the motor and headlight permanently for the run; its body remains
 solid and can still be repulsed. It never drives back toward an obsolete range.
+When a falling wheel meets a sloped face, the chassis and both wheels share its
+resolved slide and retain tangential momentum. A single wheel against a flared
+wall cannot anchor the bot in midair. Mirrored contacts at 30, 60 and 120 Hz are
+covered in `tests/jumping-repulsor-robots.test.mjs`; the normal-control browser
+case lives in `tests/browser/jumpingGadgets.dev.spec.mjs`.
 Repulsorbots can jump over shovebots or deliberately fire to clear one from a
 hunt route. Wheeled drive also respects other bots' bodies.
 

@@ -53,14 +53,7 @@
     "c": 15,
     "d": 45
   },
-  "props": [
-    {
-      "kind": "ball",
-      "x": 175,
-      "y": 600,
-      "size": 30
-    }
-  ],
+  "props": [],
   "mechanisms": [],
   "triggers": [
     {
@@ -72,7 +65,9 @@
       "targets": [
         "b7bb98a0-4ba2-431e-b30b-9dbf3cb4e788"
       ],
-      "mode": "touch"
+      "mode": "touch",
+      "behavior": "switch",
+      "startsOn": false
     }
   ],
   "robots": [],

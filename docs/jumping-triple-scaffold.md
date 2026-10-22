@@ -1,4 +1,8 @@
-# Triple Scaffold
+# Scaffold I (formerly Triple Scaffold)
+
+The built-in file is now `public/levels/jumping/scaffold1.jump-level.json`.
+The measurements and recordings below describe the previously reviewed layout;
+subsequent Studio edits have not received a fresh completion or timing audit.
 
 A scaffold course based on the supplied reference: three lower towers, two
 upper ladders, a shallow V walkway, and a raised crown exit. Its 16 beams and

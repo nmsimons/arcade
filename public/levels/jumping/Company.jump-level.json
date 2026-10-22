@@ -135,7 +135,22 @@
   },
   "checkpoints": [],
   "climbables": {
-    "ladders": [],
+    "ladders": [
+      {
+        "x": 1265,
+        "top": 150,
+        "bottom": 365,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 1265,
+        "top": 715,
+        "bottom": 900,
+        "platform": -1,
+        "side": 1
+      }
+    ],
     "ropes": [
       {
         "x": 1200,

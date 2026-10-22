@@ -770,7 +770,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   }
   if (tool === 'light') {
     next.version = 2; next.lighting ??= { nightMode: false, ambient: 0, lights: [] }
-    if (next.lighting.lights.length >= MAX_LIGHTS) throw new Error('This level already has 16 lights.')
+    if (next.lighting.lights.length >= MAX_LIGHTS) throw new Error(`This level already has ${MAX_LIGHTS} lights.`)
     const drag = Math.hypot(end.x - start.x, end.y - start.y) >= 10
     next.lighting.lights.push({ id: newLevelId(), x: clamp(start.x, 10, level.width - 10), y: clamp(start.y, 10, levelHeight(level) - 10),
       intensity: 100, direction: drag ? Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI : 90, spread: 70, power: 'always' })

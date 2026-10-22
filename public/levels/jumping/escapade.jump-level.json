@@ -444,7 +444,7 @@
       "y": 1740,
       "w": 700,
       "h": 80,
-      "zIndex": 11,
+      "zIndex": 10,
       "material": "steel",
       "polygon": [
         [
@@ -486,7 +486,7 @@
       "y": 2160,
       "w": 120,
       "h": 20,
-      "zIndex": 12,
+      "zIndex": 11,
       "material": "steel",
       "polygon": [
         [
@@ -512,7 +512,7 @@
       "y": 1940,
       "w": 700,
       "h": 100,
-      "zIndex": 13,
+      "zIndex": 12,
       "material": "steel",
       "polygon": [
         [
@@ -570,7 +570,7 @@
       "y": 2200,
       "w": 85,
       "h": 380,
-      "zIndex": 32,
+      "zIndex": 31,
       "polygon": [
         [
           5,
@@ -615,7 +615,7 @@
       "y": 900,
       "w": 700,
       "h": 100,
-      "zIndex": 14,
+      "zIndex": 13,
       "material": "steel",
       "polygon": [
         [
@@ -677,7 +677,7 @@
       "y": 1120,
       "w": 660,
       "h": 140,
-      "zIndex": 15,
+      "zIndex": 14,
       "material": "steel",
       "polygon": [
         [
@@ -729,9 +729,9 @@
     {
       "x": 1000,
       "y": 1120,
-      "w": 700,
+      "w": 405,
       "h": 140,
-      "zIndex": 16,
+      "zIndex": 15,
       "material": "steel",
       "polygon": [
         [
@@ -747,19 +747,15 @@
           20
         ],
         [
-          660,
+          395,
           20
         ],
         [
-          680,
-          0
+          395,
+          30
         ],
         [
-          700,
-          0
-        ],
-        [
-          700,
+          405,
           40
         ],
         [
@@ -793,7 +789,7 @@
       "y": 700,
       "w": 410,
       "h": 80,
-      "zIndex": 17,
+      "zIndex": 16,
       "material": "steel",
       "polygon": [
         [
@@ -831,7 +827,7 @@
       "y": 695,
       "w": 700,
       "h": 85,
-      "zIndex": 18,
+      "zIndex": 17,
       "material": "steel",
       "polygon": [
         [
@@ -905,7 +901,7 @@
       "y": 1120,
       "w": 120,
       "h": 20,
-      "zIndex": 19,
+      "zIndex": 18,
       "material": "steel",
       "polygon": [
         [
@@ -931,7 +927,7 @@
       "y": 900,
       "w": 700,
       "h": 100,
-      "zIndex": 20,
+      "zIndex": 19,
       "material": "steel",
       "polygon": [
         [
@@ -989,7 +985,7 @@
       "y": 1160,
       "w": 960,
       "h": 840,
-      "zIndex": 30,
+      "zIndex": 29,
       "polygon": [
         [
           885,
@@ -1058,7 +1054,7 @@
       "y": 2015,
       "w": 700,
       "h": 100,
-      "zIndex": 21,
+      "zIndex": 20,
       "material": "steel",
       "polygon": [
         [
@@ -1120,7 +1116,7 @@
       "y": 2235,
       "w": 700,
       "h": 140,
-      "zIndex": 22,
+      "zIndex": 21,
       "material": "steel",
       "polygon": [
         [
@@ -1182,7 +1178,7 @@
       "y": 2235,
       "w": 455,
       "h": 140,
-      "zIndex": 23,
+      "zIndex": 22,
       "material": "steel",
       "polygon": [
         [
@@ -1240,7 +1236,7 @@
       "y": 1815,
       "w": 700,
       "h": 80,
-      "zIndex": 24,
+      "zIndex": 23,
       "material": "steel",
       "polygon": [
         [
@@ -1286,7 +1282,7 @@
       "y": 1815,
       "w": 700,
       "h": 80,
-      "zIndex": 25,
+      "zIndex": 24,
       "material": "steel",
       "polygon": [
         [
@@ -1328,7 +1324,7 @@
       "y": 2235,
       "w": 120,
       "h": 20,
-      "zIndex": 26,
+      "zIndex": 25,
       "material": "steel",
       "polygon": [
         [
@@ -1354,7 +1350,7 @@
       "y": 2015,
       "w": 700,
       "h": 100,
-      "zIndex": 27,
+      "zIndex": 26,
       "material": "steel",
       "polygon": [
         [
@@ -1412,7 +1408,7 @@
       "y": 2275,
       "w": 360,
       "h": 545,
-      "zIndex": 34,
+      "zIndex": 33,
       "polygon": [
         [
           125,
@@ -1449,7 +1445,7 @@
       "y": 0,
       "w": 3560,
       "h": 2840,
-      "zIndex": 28,
+      "zIndex": 27,
       "material": "earth",
       "polygon": [
         [
@@ -1551,7 +1547,7 @@
       "y": 1300,
       "w": 100,
       "h": 1540,
-      "zIndex": 29,
+      "zIndex": 28,
       "material": "earth",
       "polygon": [
         [
@@ -1589,7 +1585,7 @@
       "y": 2520,
       "w": 150,
       "h": 220,
-      "zIndex": 31,
+      "zIndex": 30,
       "material": "earth",
       "polygon": [
         [
@@ -1639,7 +1635,7 @@
       "y": 2760,
       "w": 680,
       "h": 80,
-      "zIndex": 33,
+      "zIndex": 32,
       "material": "earth",
       "polygon": [
         [
@@ -1665,7 +1661,7 @@
       "y": 2380,
       "w": 300,
       "h": 160,
-      "zIndex": 35,
+      "zIndex": 34,
       "material": "earth",
       "polygon": [
         [
@@ -1707,7 +1703,7 @@
       "y": 690,
       "w": 1475,
       "h": 390,
-      "zIndex": 36,
+      "zIndex": 35,
       "material": "earth",
       "polygon": [
         [
@@ -1805,7 +1801,7 @@
       "y": 2800,
       "w": 270,
       "h": 40,
-      "zIndex": 37,
+      "zIndex": 36,
       "material": "earth",
       "polygon": [
         [
@@ -1827,7 +1823,7 @@
       "y": 240,
       "w": 240,
       "h": 365,
-      "zIndex": 38,
+      "zIndex": 37,
       "material": "steel",
       "polygon": [
         [
@@ -1889,7 +1885,7 @@
       "y": 125,
       "w": 120,
       "h": 145,
-      "zIndex": 39,
+      "zIndex": 38,
       "material": "chalk",
       "polygon": [
         [
@@ -1931,7 +1927,7 @@
       "y": 695,
       "w": 230,
       "h": 85,
-      "zIndex": 40,
+      "zIndex": 39,
       "material": "steel",
       "polygon": [
         [
@@ -1981,7 +1977,7 @@
       "y": 2235,
       "w": 150,
       "h": 40,
-      "zIndex": 42,
+      "zIndex": 40,
       "material": "steel",
       "polygon": [
         [
@@ -2080,7 +2076,7 @@
       "y": 1740,
       "w": 700,
       "h": 80,
-      "zIndex": 43,
+      "zIndex": 41,
       "material": "steel",
       "polygon": [
         [
@@ -2116,6 +2112,44 @@
           80
         ]
       ]
+    },
+    {
+      "x": 1550,
+      "y": 1120,
+      "w": 150,
+      "h": 40,
+      "zIndex": 42,
+      "material": "steel",
+      "polygon": [
+        [
+          5,
+          20
+        ],
+        [
+          110,
+          20
+        ],
+        [
+          130,
+          0
+        ],
+        [
+          150,
+          0
+        ],
+        [
+          150,
+          40
+        ],
+        [
+          5,
+          40
+        ],
+        [
+          0,
+          30
+        ]
+      ]
     }
   ],
   "entrance": {
@@ -2132,7 +2166,7 @@
         "length": 405,
         "segments": 51,
         "rest": {
-          "key": "7:66653457ee846fdd",
+          "key": "7:e41e027be24c829d",
           "points": [
             [
               260,
@@ -2878,8 +2912,8 @@
   "pickups": [],
   "texts": [
     {
-      "x": 1425,
-      "y": 955,
+      "x": 1340,
+      "y": 985,
       "w": 210,
       "h": 135,
       "text": "Nothing works in here but I'm sure this is the way out. Where are all the damn buttons? It's weird because it was working when I first got here.",
@@ -3124,8 +3158,178 @@
     }
   ],
   "lighting": {
-    "nightMode": false,
+    "nightMode": true,
     "ambient": 0,
-    "lights": []
+    "lights": [
+      {
+        "id": "88bb3d3e-c291-4642-96d0-5f0316328d78",
+        "x": 10,
+        "y": 10,
+        "intensity": 100,
+        "direction": 45,
+        "spread": 160,
+        "power": "always"
+      },
+      {
+        "id": "a6446b6e-8857-4c71-ae9a-3c4d5defaeaa",
+        "x": 735,
+        "y": 915,
+        "intensity": 100,
+        "direction": -155,
+        "spread": 70,
+        "power": "switched"
+      },
+      {
+        "id": "escapade-1-upper-left-overhead",
+        "x": 550,
+        "y": 2415,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 1 upper left overhead"
+      },
+      {
+        "id": "escapade-1-upper-right-overhead",
+        "x": 1330,
+        "y": 2415,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 1 upper right overhead"
+      },
+      {
+        "id": "escapade-1-lower-left-overhead",
+        "x": 550,
+        "y": 2635,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 1 lower left overhead"
+      },
+      {
+        "id": "escapade-1-lower-right-overhead",
+        "x": 1330,
+        "y": 2635,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always",
+        "name": "Structure 1 lower right overhead"
+      },
+      {
+        "id": "escapade-2-upper-left-overhead",
+        "x": 1415,
+        "y": 1775,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 2 upper left overhead"
+      },
+      {
+        "id": "escapade-2-upper-right-overhead",
+        "x": 2195,
+        "y": 1775,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 2 upper right overhead"
+      },
+      {
+        "id": "escapade-2-lower-left-overhead",
+        "x": 1415,
+        "y": 1995,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always",
+        "name": "Structure 2 lower left overhead"
+      },
+      {
+        "id": "escapade-2-lower-right-overhead",
+        "x": 2195,
+        "y": 1995,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 2 lower right overhead"
+      },
+      {
+        "id": "escapade-3-upper-left-overhead",
+        "x": 2995,
+        "y": 1850,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 3 upper left overhead"
+      },
+      {
+        "id": "escapade-3-upper-right-overhead",
+        "x": 3775,
+        "y": 1850,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 3 upper right overhead"
+      },
+      {
+        "id": "escapade-3-lower-left-overhead",
+        "x": 2995,
+        "y": 2070,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 3 lower left overhead"
+      },
+      {
+        "id": "escapade-3-lower-right-overhead",
+        "x": 3775,
+        "y": 2070,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always",
+        "name": "Structure 3 lower right overhead"
+      },
+      {
+        "id": "escapade-4-upper-right-overhead",
+        "x": 1350,
+        "y": 735,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 4 upper right overhead"
+      },
+      {
+        "id": "escapade-4-lower-left-overhead",
+        "x": 570,
+        "y": 955,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "Structure 4 lower left overhead"
+      },
+      {
+        "id": "escapade-4-lower-right-overhead",
+        "x": 1350,
+        "y": 955,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always",
+        "flicker": true,
+        "name": "Structure 4 lower right overhead"
+      }
+    ]
   }
 }

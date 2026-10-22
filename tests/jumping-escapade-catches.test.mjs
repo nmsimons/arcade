@@ -2,12 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
-import { escapadeTowerCatches, escapadeTowerLevel } from './helpers/jumpingEscapadeScenarios.mjs'
+import { escapadeTowerCatches, escapadeTowerFixture, escapadeTowerLevel } from './helpers/jumpingEscapadeScenarios.mjs'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
-const authored = JSON.parse(readFileSync(new URL('../public/levels/jumping/escapade.jump-level.json', import.meta.url), 'utf8'))
+const authored = JSON.parse(readFileSync(escapadeTowerFixture, 'utf8'))
 for (const config of escapadeTowerCatches) {
   test(`Escapade ${config.name} catches a walking departure without changing the visible rig's bone lengths`, () => {
     const level = parseLevel(escapadeTowerLevel(authored, config))

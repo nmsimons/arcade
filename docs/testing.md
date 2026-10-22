@@ -1,8 +1,11 @@
 # Reproducible acceptance checks
 
 Use Node from `.nvmrc`: `npm ci`, `npm test`, `npm run lint`, `npm run build`,
-`npx playwright install chromium webkit`, `npm run test:browser`. CI installs
-Chromium and WebKit with OS dependencies and runs the same commands before deployment.
+`npx playwright install chromium webkit`, `npm run test:browser`. CI runs browser
+checks in the official Playwright image, selected from the exact version in
+`package-lock.json`. Its bundled browsers and Linux libraries avoid repeating
+Ubuntu dependency downloads in every shard. The same acceptance checks still
+gate deployment.
 
 ## Regressions for reported bugs
 

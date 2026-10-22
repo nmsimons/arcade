@@ -16,6 +16,7 @@ jobs:
     name: Validate and build
     outputs:
       fast: ${{ steps.scope.outputs.fast }}
+      playwright-image: ${{ steps.browser-image.outputs.image }}
     # Full replay coverage can take fourteen minutes before lint and build.
     # Leave room for setup, artifact upload and runner cleanup as well.
     timeout-minutes: 20
@@ -34,6 +35,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Select matching Playwright image
+        id: browser-image
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs'
+          const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'))
+          const version = lock.packages['node_modules/@playwright/test'].version
+          if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Playwright requires an exact released image version.')
+          appendFileSync(process.env.GITHUB_OUTPUT, `image=mcr.microsoft.com/playwright:v${version}-noble\n`)
+          NODE
       - name: Choose deployment checks
         id: scope
         run: node scripts/deploy-scope.mjs
@@ -69,9 +80,13 @@ jobs:
   browser:
     needs: validate
     runs-on: ubuntu-latest
+    # Match the locked package so browser binaries and Linux libraries are
+    # preinstalled, without repeating slow Ubuntu mirror downloads per shard.
+    container:
+      image: ${{ needs.validate.outputs.playwright-image }}
+      options: --init --ipc=host
     name: ${{ needs.validate.outputs.fast == 'true' && 'Homepage smoke checks' || format('Browser checks ({0}/3)', matrix.shard) }}
-    # Cold browser/dependency installation can consume twelve minutes before
-    # tests begin. Keep individual test deadlines, with room for the full shard.
+    # Leave room for image startup and the full shard's existing test deadlines.
     timeout-minutes: 30
     permissions:
       contents: read
@@ -90,8 +105,6 @@ jobs:
         with:
           name: validated-site
           path: dist/web/
-      - name: Install browsers
-        run: npx playwright install --with-deps chromium webkit
       - name: Test homepage layout, navigation and sign-in controls
         if: needs.validate.outputs.fast == 'true'
         run: npm run test:homepage -- --reporter=line

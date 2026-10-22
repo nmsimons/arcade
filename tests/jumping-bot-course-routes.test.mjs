@@ -5,11 +5,13 @@ import { parseLevel, blankTrial } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
-// Walls and Here There Everywhere are now movement courses without a hunter.
+// Keep navigation regressions stable while the studio revises or retires courses.
+const fixtures = JSON.parse(readFileSync(new URL('./fixtures/jumping/course-regression-levels.json', import.meta.url), 'utf8'))
+// Walls and Here There Everywhere are movement courses without a hunter.
 const courses = ['Hellstones', 'Spellbound', 'Blackout', 'Hatchlings', 'Hurricane']
 
-for (const name of courses) test(`${name}: authored Rbot traverses the course and reaches a firing position`, () => {
-  const level = parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${name}.jump-level.json`, import.meta.url), 'utf8')))
+for (const name of courses) test(`${name}: captured Rbot course reaches a firing position`, () => {
+  const level = parseLevel(structuredClone(fixtures.levels[`${name}.jump-level.json`]))
   for (const rope of level.climbables.ropes) {
     const anchor = rope.anchor, host = anchor && level.platforms[anchor.platform]
     if (host && (anchor.x === 0 || Math.abs(anchor.x - host.w) < 1e-6)) {

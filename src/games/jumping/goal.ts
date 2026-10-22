@@ -23,6 +23,7 @@ export const ENTRANCE_WALK_SECONDS = .7
 export const ENTRANCE_HOLD_SECONDS = 1.05
 export const ENTRANCE_SECONDS = ENTRANCE_HOLD_SECONDS + GOAL_OPEN_SECONDS
 export const AWAKENING_SECONDS = 3.6
+export const ROBOT_BAY_WIDTH_SCALE = 1.25
 export interface EntranceAnimation { elapsed: number; player: Player; fromX: number; toX: number; kind?: 'charging-bay' }
 export const entranceDuration = (entrance: Pick<EntranceAnimation, 'kind'>) => entrance.kind === 'charging-bay' ? AWAKENING_SECONDS : ENTRANCE_SECONDS
 export const awakeningPower = (elapsed: number) => goalEase((elapsed - .45) / .7)
@@ -51,13 +52,13 @@ export const entranceDoor = (entrance: Entrance) => ({ x: entrance.x - GOAL_DOOR
 export const entranceOpening = (elapsed: number) => 1 - Math.max(0, (elapsed - ENTRANCE_HOLD_SECONDS) / GOAL_OPEN_SECONDS)
 
 /** Artwork extends around the clear 40-by-80 start; it adds no collision. */
-export const chargingBayBounds = ({ x, y }: Entrance) => ({ x: x - 51, y: y - 126, w: 102, h: 126 })
+export const chargingBayBounds = ({ x, y }: Pick<Entrance, 'x' | 'y'>, widthScale = 1) => ({ x: x - 51 * widthScale, y: y - 126, w: 102 * widthScale, h: 126 })
 export const entranceBounds = (entrance: Entrance) => entrance.kind === 'charging-bay' ? chargingBayBounds(entrance) : entranceDoor(entrance)
 
 /** A substantial capsule shell and dark, recessed charging cradle. */
-export function drawChargingBay(ctx: CanvasRenderingContext2D, entrance: Entrance) {
+export function drawChargingBay(ctx: CanvasRenderingContext2D, entrance: Pick<Entrance, 'x' | 'y'>, widthScale = 1) {
   const { x, y } = entrance
-  ctx.save(); ctx.translate(x, y)
+  ctx.save(); ctx.translate(x, y); ctx.scale(widthScale, 1)
   ctx.fillStyle = '#25372e30'; ctx.beginPath(); ctx.roundRect(-49, -124, 98, 124, [34, 34, 8, 8]); ctx.fill()
   ctx.fillStyle = '#718178'; ctx.beginPath(); ctx.roundRect(-47, -126, 94, 124, [32, 32, 7, 7]); ctx.fill()
   ctx.strokeStyle = '#a5b1a5'; ctx.lineWidth = 1
@@ -75,10 +76,10 @@ export function drawChargingBay(ctx: CanvasRenderingContext2D, entrance: Entranc
 }
 
 /** Closed glass sits over the waking actor; the released cover stays on the wall. */
-export function drawChargingBayCover(ctx: CanvasRenderingContext2D, entrance: Entrance, elapsed = AWAKENING_SECONDS, paint: WorldPaint = paintNormally, nightMode = false) {
+export function drawChargingBayCover(ctx: CanvasRenderingContext2D, entrance: Pick<Entrance, 'x' | 'y'>, elapsed = AWAKENING_SECONDS, paint: WorldPaint = paintNormally, nightMode = false, widthScale = 1) {
   const { x, y } = entrance, opening = chargingBayOpening(elapsed), power = awakeningPower(elapsed)
   ambientPaint(paint)(ctx, 0, () => {
-    ctx.save(); ctx.translate(x, y)
+    ctx.save(); ctx.translate(x, y); ctx.scale(widthScale, 1)
     ctx.beginPath(); ctx.roundRect(-36, -114, 72, 107, [25, 25, 3, 3]); ctx.clip()
     for (const side of [-1, 1]) {
       ctx.save(); ctx.translate(side * opening * 35, 0)
@@ -93,22 +94,22 @@ export function drawChargingBayCover(ctx: CanvasRenderingContext2D, entrance: En
     ctx.restore()
     // A front bezel and sill overlap the silhouette: the feet sit inside the
     // cradle instead of on the outside edge of a flat background panel.
-    ctx.save(); ctx.translate(x, y)
+    ctx.save(); ctx.translate(x, y); ctx.scale(widthScale, 1)
     ctx.fillStyle = '#718178'; ctx.beginPath()
     ctx.roundRect(-47, -126, 94, 124, [32, 32, 7, 7])
     ctx.roundRect(-36, -114, 72, 104, [25, 25, 3, 3]); ctx.fill('evenodd')
     ctx.fillStyle = '#87958b'; ctx.beginPath(); ctx.roundRect(-51, -10, 102, 12, [2, 2, 0, 0]); ctx.fill()
     ctx.fillStyle = '#9eac9c'; ctx.fillRect(-35, -10, 70, 1)
     ctx.restore()
-  }, false, chargingBayBounds(entrance))
+  }, false, chargingBayBounds(entrance, widthScale))
   paint(ctx, .65, () => {
-    ctx.save(); ctx.globalAlpha *= power
+    ctx.save(); ctx.translate(x, y); ctx.scale(widthScale, 1); ctx.globalAlpha *= power
     ctx.fillStyle = '#b9d69b'
     if (nightMode) { ctx.shadowColor = '#a9d56b'; ctx.shadowBlur = 4 }
-    ctx.fillRect(x - 5, y - 120, 10, 2)
-    for (const side of [-1, 1]) ctx.fillRect(x + side * 40 - .75, y - 81, 1.5, 42)
+    ctx.fillRect(-5, -120, 10, 2)
+    for (const side of [-1, 1]) ctx.fillRect(side * 40 - .75, -81, 1.5, 42)
     ctx.restore()
-  }, false, { x: x - 46, y: y - 125, w: 92, h: 93 })
+  }, false, { x: x - 46 * widthScale, y: y - 125, w: 92 * widthScale, h: 93 })
 }
 
 export const goalPoleX = (goal: Goal) => goal.x + (goal.flipX ? -1 : 1) * GOAL_POLE_OFFSET

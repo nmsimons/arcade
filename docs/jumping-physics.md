@@ -24,7 +24,7 @@ pulses stop at the first solid/red boundary and apply a finite mass-dependent
 impulse to a prop, or bounded shovebot recoil; they do not directly flip switches.
 The reusable carried EMP fires a swept electric bolt at 1,200 units/second,
 with a 900-unit range and one-second cooldown. Its first hit disables just that
-mechanism, shovebot, force field, or dry gravity emitter for ten seconds.
+mechanism, shovebot, force field, or dry gravity emitter for five seconds.
 Machinery and bots freeze in place and stay solid; fields lose their effect.
 Rehits refresh the duration. Terrain and props absorb bolts. Blue beams pass
 them, but either emitter is targetable; red beams absorb them and disable only
@@ -244,7 +244,48 @@ solid and can still be repulsed. It never drives back toward an obsolete range.
 Repulsorbots can jump over shovebots or deliberately fire to clear one from a
 hunt route. Wheeled drive also respects other bots' bodies.
 
-Shovebots start aligned with their supporting slope and use each surface's
+Shovebots and Rbots are enemies. Shovebots choose the nearest visible player or
+active Rbot within their existing sight and patrol limits; touch also reveals a
+rival. They retain a charge target through small distance ties. A charging
+chassis that actually meets Rbot interrupts its attack and adds knockback through
+the normal humanoid motor, with no positional jump. The heavy collision ends
+the charge and gives the wheeled drive time to reset, allowing retaliation.
+Rbot can shove a touching rival or fire at a nearby visible shovebot without a
+player sighting. Its player memory survives the fight, and an available rope
+shot still takes priority. There is no added health or destruction system;
+existing recoil, ledge falls, containment and deactivation decide the encounter.
+Blue shovebots also apply their two-second contact EMP to Rbot. A longer
+handheld EMP outage is preserved. Disabled or deactivated bots are not selected
+as active rivals, though their solid bodies can still block a route.
+Each humanoid step refreshes other bots' current hulls, including during rear
+ladder mantles. Wheeled drive finishes the clear fraction of a blocked movement
+step so its collision and contact attack agree. Regression coverage includes a
+shovebot crowding a ladder landing in `tests/jumping-bot-combat.test.mjs` and
+`tests/browser/jumpingRepulsorBot.dev.spec.mjs`.
+
+Robot movement produces positional audio with ordinary distance falloff. Rbot's
+heavy footfalls follow solved foot plants and landings; climbing and pull-ups
+have a quieter servo whirr. Grip distance distinguishes climbing from idle rope
+swing. Shovebot wheel motors follow resolved travel, with a faster pitch during
+a charge. Blocked wheels, passive transport, airborne wheels, and EMP-disabled
+or deactivated bots do not run movement sounds. Footfalls use one reusable
+synthesized buffer, and robot motors share the existing six-voice loop budget.
+Pausing silences them through the ordinary game audio session. Coverage lives in
+`tests/jumping-audio.test.mjs` and `tests/browser/jumpingAudio.dev.spec.mjs`.
+
+An optional `mode: "emp"` on a shovebot
+adds electrical contact to the same chassis and motor. Its swept body must
+actually touch the player; proximity, cover, and contact with props do not
+shock them. A powered contact starts or refreshes a two-second player-only
+disable. Player input (including tools and shoves) is suppressed, supporting
+hands release, and automatic catches wait until control returns. Physical
+motion, gravity, collision resolution, carried equipment, and other mechanisms
+continue normally. The blue crackle uses the existing three-arc effect, without
+particles or a new light source. Global EMP, a direct handheld EMP hit on the
+bot, and permanent deactivation suppress the shock. The duration uses gameplay
+time independently of stopwatch effects. See `tests/jumping-contact-emp.test.mjs`.
+
+Ordinary and EMP shovebots start aligned with their supporting slope and use each surface's
 normal to account for a round wheel's clearance. This lets valid steep slopes
 support both uphill and downhill driving without treating downhill travel as
 a cliff. Each wheel still needs terrain directly beneath its center, and the
@@ -353,6 +394,15 @@ apply as for the door. The installed bay is non-colliding back-wall artwork and
 uses the same clear 40-by-80 start footprint. `timing: "untimed"` keeps score at
 zero and awards no medal, while active simulation, mechanisms, and animation
 continue normally after waking. Completion is saved independently of best time.
+
+Repulsorbots may independently start in a `chargingBay`. They wait on their
+ordinary supported body rather than patrolling to the entrance. Actual sight,
+hearing or contact triggers the same 3.6-second planted awakening and glass
+release locally, without freezing the world or player. Real sensory memory is
+retained for the ensuing hunt. EMP pauses this progress; an external impulse
+still uses normal body physics. The wider installed shell remains at its
+authored position and adds no collision. Pod sounds reuse positional servo and
+gate buffers. Coverage is in `tests/jumping-robot-pod.test.mjs`.
 
 Optional wall conduit follows authored switch connections without changing
 contacts, switching, EMP, or power propagation. It has no physical shape, grip,

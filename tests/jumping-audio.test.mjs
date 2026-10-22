@@ -286,3 +286,98 @@ test('ball size lowers both the rolling texture and resonance while preserving t
     assert.ok(tone(200).cutoff < tone(68).cutoff * .65, 'the dominant texture has a substantial change at the largest size')
   }
 })
+
+test('Rbot footsteps follow its actual planted feet while it approaches the player', () => {
+  const { run, step } = setup(level => {
+    level.robots = [{ kind: 'repulsor', x: 1300, y: 920, left: 26, right: 1774 }]
+  })
+  const steps = []
+  for (let i = 0; i < 180; i++) steps.push(...step().cues.filter(cue => cue.kind === 'robot-footstep'))
+  assert.ok(steps.length >= 3, JSON.stringify(steps))
+  assert.ok(steps.length < 16, 'plants, rather than physics ticks, set the cadence')
+  assert.ok(run.robots[0].x < 1150, 'the real hunter motor advanced')
+  assert.ok(steps.every(cue => cue.pan > 0 && cue.volume > 0 && cue.volume < 1), 'footfalls come from the bot and fade with distance')
+})
+
+test('Rbot makes one heavier landing thump, with silent idle, airborne, carried and reset poses', () => {
+  const { run, audio } = setup(level => { level.robots = [{ kind: 'repulsor', x: 700, y: 920, left: 26, right: 1774 }] })
+  const robot = run.robots[0], actor = robot.actor
+  const observe = () => { robot.x = actor.x; robot.y = actor.y; audio.step(run.player, run, STEP); return audio.drain() }
+  actor.footwork = { feet: [{ planted: false }, { planted: true }] }
+  actor.contacts = { motion: { speed: 0 } }; audio.reset(run.player, run)
+  actor.footwork.feet[0].planted = true; actor.y -= 1
+  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0, 'transport and idle feet stay silent')
+  actor.grounded = false; actor.vy = 600; actor.footwork.feet[0].planted = false
+  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0)
+  actor.grounded = true; actor.vy = 0; actor.footwork.feet[0].planted = true
+  const landed = observe().cues.filter(c => c.kind === 'robot-footstep')
+  assert.equal(landed.length, 1); assert.ok(landed[0].strength >= .7)
+  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0)
+  actor.grounded = false; actor.vy = 600; audio.reset(run.player, run)
+  actor.y -= 400; actor.grounded = true
+  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0, 'teleporting does not make a landing sound')
+})
+
+for (const outage of ['global', 'direct']) test(`${outage} EMP suppresses Rbot steps and movement servos`, () => {
+  const { run, audio } = setup(level => { level.robots = [{ kind: 'repulsor', x: 700, y: 920, left: 26, right: 1774 }] })
+  const robot = run.robots[0], actor = robot.actor
+  actor.footwork = { feet: [{ planted: false }, { planted: true }] }
+  actor.contacts = { motion: { speed: 200 } }; audio.reset(run.player, run)
+  if (outage === 'global') run.empRemaining = 5
+  else run.gadgets.disabled.set(robot, 5)
+  actor.footwork.feet[0].planted = true; actor.x += 1; robot.x = actor.x
+  audio.step(run.player, run, STEP)
+  assert.equal(audio.drain().cues.filter(c => c.kind === 'robot-footstep').length, 0)
+  const ladder = {}, climb = { ladder, rope: null, distance: 100 }
+  actor.climbing = climb; actor.grounded = false; audio.reset(run.player, run)
+  actor.y -= 1; robot.y = actor.y; climb.distance += 1
+  audio.step(run.player, run, STEP)
+  assert.equal(audio.drain().loops.filter(loop => loop.kind === 'robot-servo').length, 0)
+})
+
+test('Rbot climbing servos follow grip travel and pull-ups, with silent idle rope swing', () => {
+  const { run, audio } = setup(level => { level.robots = [{ kind: 'repulsor', x: 700, y: 920, left: 26, right: 1774 }] })
+  const robot = run.robots[0], actor = robot.actor, rope = {}, climb = { rope, ladder: null, distance: 100 }
+  actor.climbing = climb; actor.grounded = false
+  const observe = () => { robot.x = actor.x; robot.y = actor.y; audio.step(run.player, run, STEP); return audio.drain() }
+  audio.reset(run.player, run)
+  actor.y -= 1; climb.distance += 1
+  assert.equal(observe().loops[0]?.kind, 'robot-servo')
+  actor.x += 1
+  assert.equal(observe().loops.length, 0, 'swinging without advancing the grip does not run a motor')
+  climb.distance += 1
+  assert.equal(observe().loops.length, 0, 'a blocked climb has no resolved movement')
+  actor.climbing = null; actor.mantle = { time: .1 }; audio.reset(run.player, run)
+  actor.y -= 1; actor.mantle.time += STEP
+  assert.equal(observe().loops[0]?.kind, 'robot-servo')
+  assert.equal(observe().loops.length, 0)
+})
+
+test('shovebot wheels sound during real patrol and charge, with speed and distance controlling the motor', () => {
+  const { run, step } = setup(level => { level.robots = [{ x: 900, y: 920, left: 600, right: 1200 }] })
+  const robot = run.robots[0]
+  const patrol = step().loops.find(loop => loop.kind === 'shovebot')
+  assert.ok(patrol && patrol.pace > 0 && patrol.volume > 0 && patrol.pan > 0)
+  Object.assign(robot, { phase: 'charge', time: 0, facing: -1 })
+  // Move the observer into sight without touching the chassis.
+  run.player.x = robot.x - 180
+  const charge = step().loops.find(loop => loop.kind === 'shovebot')
+  assert.ok(charge.pace > patrol.pace)
+  assert.ok(charge.volume > patrol.volume)
+  assert.ok(loopTone(charge).frequency > loopTone(patrol).frequency)
+})
+
+for (const condition of ['blocked', 'carried', 'airborne', 'deactivated', 'direct EMP', 'global EMP'])
+  test(`a ${condition} shovebot has no motor loop`, () => {
+    const { run, audio } = setup(level => { level.robots = [{ x: 700, y: 920, left: 300, right: 1000 }] })
+    const robot = run.robots[0]
+    robot.vx = 100
+    if (condition !== 'blocked') robot.x += 100 * STEP
+    if (condition === 'carried') robot.vx = 0
+    if (condition === 'airborne') robot.fallVelocity = 20
+    if (condition === 'deactivated') robot.deactivated = true
+    if (condition === 'direct EMP') run.gadgets.disabled.set(robot, 5)
+    if (condition === 'global EMP') run.empRemaining = 5
+    audio.step(run.player, run, STEP)
+    assert.equal(audio.drain().loops.filter(loop => loop.kind === 'shovebot').length, 0)
+  })

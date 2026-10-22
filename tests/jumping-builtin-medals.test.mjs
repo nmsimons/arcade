@@ -10,6 +10,7 @@ import { propLoadsPlate } from '../src/games/jumping/propGeometry.ts'
 const root = new URL('../public/levels/jumping/', import.meta.url)
 const catalog = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
 const recordings = JSON.parse(await readFile(new URL('fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
+const historicalLevels = JSON.parse(await readFile(new URL('fixtures/jumping/course-regression-levels.json', import.meta.url), 'utf8'))
 const untimed = []
 for (const file of catalog.levels) {
   const level = parseLevel(JSON.parse(await readFile(new URL(file, root), 'utf8')))
@@ -30,14 +31,25 @@ test('every built-in level has one medal recording, an explicit pending audit, o
     assert.ok(pending.some(audit => audit.file === completion.file), 'completion-only evidence must retain an explicit pending A audit')
     assert.ok(['B', 'C', 'D'].includes(completion.grade), 'completion-only evidence records its actual passing grade')
   }
+  for (const historical of recordings.historicalRuns ?? []) {
+    assert.ok(pending.some(audit => audit.file === historical.file), 'historical evidence cannot certify a revised live level')
+    assert.ok(historicalLevels.levels[historical.file], 'historical routes retain their captured layout')
+  }
 })
 
 // Historical routes preserve their jump impulses for contact/mechanism coverage.
-// Re-audited routes explicitly opt into current tap/hold controls. Neither moves
-// actors directly, bypasses switches, or substitutes legacy fixture maps.
-for (const recording of [...recordings.runs, ...recordings.completionRuns ?? []]) test(`built-in ${recording.jumpModel ?? recordings.jumpModel} route: ${recording.file}`, async () => {
+// Revised live levels retain an explicit pending audit; their captured routes
+// protect contact behavior without certifying the new layout or its grade times.
+// Re-audited routes explicitly opt into current tap/hold controls.
+const routes = [
+  ...[...recordings.runs, ...recordings.completionRuns ?? []].map(recording => ({ recording, historical: false })),
+  ...(recordings.historicalRuns ?? []).map(recording => ({ recording, historical: true })),
+]
+for (const { recording, historical } of routes) test(`${historical ? 'captured' : 'built-in'} ${recording.jumpModel ?? recordings.jumpModel} route: ${recording.file}`, async () => {
   assert.ok(catalog.levels.includes(recording.file))
-  const level = parseLevel(JSON.parse(await readFile(new URL(recording.file, root), 'utf8')))
+  const level = parseLevel(historical
+    ? structuredClone(historicalLevels.levels[recording.file])
+    : JSON.parse(await readFile(new URL(recording.file, root), 'utf8')))
   const run = createRun(level)
   let entryTime
   let jammedGate = false

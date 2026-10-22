@@ -18,7 +18,9 @@ const night: AndroidMaterials = {
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */
 export function androidMaterials(ink: string): AndroidMaterials {
-  if (ink === '#b66d65') return { shell: ink, rear: '#925f59', joint: '#56685f', grip: '#6a6559', mark: '#ccad72', cranial: '#9b625b', face: '#d0c6af' }
+  // The back wall remains at ambient exposure inside a spotlight. Mid-tone
+  // metal disappears against it when the robot receives full light.
+  if (ink === '#b66d65') return { shell: ink, rear: '#925f59', joint: '#26322c', grip: '#344237', mark: '#ccad72', cranial: '#9b625b', face: '#d0c6af' }
   if (ink === '#e5e7e6') return night
   if (ink === '#686b6e' || ink === '#303c36') return day
   return { shell: ink, rear: ink, joint: ink, grip: ink, mark: ink, cranial: ink, face: ink }

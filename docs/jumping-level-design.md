@@ -293,6 +293,12 @@ feet, so the occupant reads as inside the capsule rather than standing in front
 of a wall panel. Use an authored, flat steel plinth when the robot should
 step or hop down from the pod; keep that first descent small and recoverable.
 Ordinary entrances retain the doorway contract above.
+An Rbot's optional charging bay can echo that awakening in a later encounter.
+Keep the sleeping occupant visible from the approach and let ordinary sight or
+sound start its local wake-up while the player retains control. Leave a useful
+escape and readable space around its wider capsule; the pod artwork supplies
+no containment. Use a single installed unit when the story calls for one
+recurring hunter, rather than adding decorative copies of the adversary.
 The [final outdoor coda](jumping-campaign.md#finale-outside) still needs separate
 runtime support before authoring.
 
@@ -575,6 +581,10 @@ deadlines, reasons, route evidence and remaining playtest limits.
 
 Keep normal-control recordings of measured routes against the current level
 files, and replay them from a fresh start after movement or puzzle changes.
+Capture the reviewed layouts alongside long-lived regression recordings in
+`tests/fixtures/` so Studio edits and retired courses do not break old physics
+checks. Keep those checks distinct from fresh audits of the current catalog;
+passing a captured route does not certify a subsequently edited level.
 Include required cargo deliveries and continuing plate loads in the evidence.
 Give A some execution margin beyond a reproducible input recording; it is
 a demonstration of attainability, not a substitute for playing at normal speed

@@ -150,7 +150,14 @@
   "props": [],
   "mechanisms": [],
   "triggers": [],
-  "robots": [],
+  "robots": [
+    {
+      "x": 1865,
+      "y": 850,
+      "left": 130,
+      "right": 2020
+    }
+  ],
   "timers": [
     {
       "name": "Arrival clock",

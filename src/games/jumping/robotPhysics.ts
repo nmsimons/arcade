@@ -263,7 +263,28 @@ export function moveRobot(platforms: readonly Platform[], robot: RobotState, des
     const next = robotSupport(footing ? [...solids, footing] : solids, robot.x + dx, robot.y, robot.angle, Math.abs(dx) * 2 + 2, solids)
     if (!next) return false
     const pose = { ...robot, ...next }
-    if (robotTouchesProps(pose, props)) return false
+    if (robotTouchesProps(pose, props)) {
+      // Yielding to a prop already under a wheel belongs to the contact solver;
+      // do not partially drive farther onto that unresolved support.
+      if (footing) return false
+      // Finish the clear fraction of this small drive step. Stopping a whole
+      // substep early leaves a visible gap and prevents real contact attacks.
+      let low = 0, high = 1
+      let clear
+      for (let search = 0; search < 8; search++) {
+        const middle = (low + high) / 2
+        // Wheel support is nonlinear around a prop corner. Interpolating the
+        // two end poses can lower a wheel into cargo trapped against a floor.
+        const trial = robotSupport(footing ? [...solids, footing] : solids,
+          robot.x + dx * middle, robot.y, robot.angle, Math.abs(dx) * 2 + 2, solids)
+        // Keep a sub-pixel contact skin so a small rotating box cannot be
+        // wedged between the wheel and floor by the final separation pass.
+        if (!trial || robotTouchesProps({ ...robot, ...trial }, props, .1 * Math.sign(dx) * robot.facing)) high = middle
+        else { low = middle; clear = trial }
+      }
+      if (clear) placeRobot(platforms, robot, clear, player, playerBarriers)
+      return false
+    }
     if (!placeRobot(platforms, robot, next, player, playerBarriers)) return false
   }
   return true

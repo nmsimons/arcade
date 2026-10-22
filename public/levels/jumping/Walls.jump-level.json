@@ -137,7 +137,14 @@
       "display": "digital"
     }
   ],
-  "robots": [],
+  "robots": [
+    {
+      "x": 680,
+      "y": 650,
+      "left": 130,
+      "right": 1470
+    }
+  ],
   "timers": [
     {
       "name": "Exit clock",

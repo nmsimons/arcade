@@ -20,7 +20,7 @@ export const REPULSOR_IMPACT_SECONDS = .09
 export const EMP_RANGE = 900
 export const EMP_BOLT_SPEED = 1200
 export const EMP_COOLDOWN = 1
-export const EMP_DISABLE_SECONDS = 10
+export const EMP_DISABLE_SECONDS = 5
 export const gadgetLabel = (kind: GadgetKind) => kind === 'emp' ? 'Carried EMP' : 'Repulsor rifle'
 export interface HeldTool {
   kind: GadgetKind; size: number; angle: number; aiming: boolean; blocked: boolean

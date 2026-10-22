@@ -7,7 +7,7 @@ import { drawWallTexts } from './wallText.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX } from './goal.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { gradeClock } from './grading.ts'
@@ -30,6 +30,7 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { drawLabLogo, LAB_LOGO_HEIGHT, LAB_LOGO_WIDTH } from '../../branding/lab.ts'
 import { drawGadgets, drawLooseGadget } from './gadgetRender.ts'
 import { drawRepulsorBot } from './repulsorBotRender.ts'
+import { EMP_PALETTE, ROBOT_PALETTE } from './equipmentPalette.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -103,14 +104,21 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
   if (r.actor) { drawRepulsorBot(ctx, r, powered, paint, headlightFade); return }
   ctx.save(); ctx.translate(r.x, r.y - 9); ctx.rotate(r.angle); ctx.translate(0, 9); ctx.scale(r.facing, 1)
   const top = robotTop(r)
+  const colors = r.definition.mode === 'emp' ? EMP_PALETTE : ROBOT_PALETTE
+  angry ||= r.phase === 'chase' || r.phase === 'windup' || r.phase === 'charge'
   paint(ctx, 0, () => {
     for (const x of [-17, 17]) {
       ctx.fillStyle = '#68736e'; ctx.beginPath(); ctx.arc(x, -9, 9, 0, Math.PI * 2); ctx.fill()
       const angle = r.x / 9
       ctx.strokeStyle = '#a5afa8'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, -9); ctx.lineTo(x + Math.cos(angle) * 5, -9 + Math.sin(angle) * 5); ctx.stroke()
     }
-    ctx.fillStyle = '#b3a28d'; rounded(ctx, -26, top, 51, -12 - top, 4); ctx.fill()
-    ctx.fillStyle = '#687b71'; rounded(ctx, -2, top + 8, 21, 9, 2); ctx.fill()
+    ctx.fillStyle = colors.body; rounded(ctx, -26, top, 51, -12 - top, 4); ctx.fill()
+    ctx.fillStyle = colors.edge; rounded(ctx, -2, top + 8, 21, 9, 2); ctx.fill()
+    if (r.definition.mode === 'emp') {
+      ctx.fillStyle = colors.light; ctx.beginPath(); ctx.moveTo(-11, top + 6); ctx.lineTo(-17, top + 17)
+      ctx.lineTo(-12, top + 17); ctx.lineTo(-16, top + 27); ctx.lineTo(-6, top + 13)
+      ctx.lineTo(-12, top + 13); ctx.closePath(); ctx.fill()
+    }
   })
   if (powered) paint(ctx, 1, () => { ctx.fillStyle = angry ? TIME_PENALTY_COLOR : '#a5b3a7'; ctx.fillRect(11, top + 10, 5, 5) }, true,
     { x: 11, y: top + 10, w: 5, h: 5 })
@@ -128,7 +136,7 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
     }
   }
   paint(ctx, 0, () => {
-    for (let y = top + 13; y <= top + 23; y += 5) { ctx.fillStyle = '#938777'; ctx.fillRect(-19, y, 9, 1.5) }
+    if (r.definition.mode !== 'emp') for (let y = top + 13; y <= top + 23; y += 5) { ctx.fillStyle = colors.edge; ctx.fillRect(-19, y, 9, 1.5) }
     if (powered && r.phase === 'recover') { ctx.strokeStyle = '#859384'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -55, 10, elapsed * 9, elapsed * 9 + 2); ctx.stroke() }
   })
   ctx.restore()
@@ -195,6 +203,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawClimbables(ctx, p, level.climbables)
   })
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0 && !r.deactivated && !run.gadgets.disabled.has(r), paint, lights.find(light => light.robot === i)?.fade ?? 0)
+  for (const r of run.robots) if (r.definition.kind === 'repulsor' && r.definition.chargingBay)
+    drawChargingBayCover(ctx, r.definition, r.awakening?.elapsed ?? 0, paint, nightModeEnabled(level.lighting), ROBOT_BAY_WIDTH_SCALE)
   if (!run.started && run.entrance && !editor) {
     const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
     ctx.save(); ctx.globalAlpha *= waking ? .45 + .55 * chargingBayOpening(entrance.elapsed) : entranceVisibility(entrance.elapsed)

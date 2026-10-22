@@ -150,9 +150,9 @@ test('EMP disables the humanoid, cancels its windup, and preserves its solid bod
   for (let i = 0; i < 100 && !run.gadgets.disabled.has(bot); i++) tick(run)
   assert.ok(run.gadgets.disabled.has(bot)); assert.equal(bot.phase, 'recover')
   const x = bot.x, y = bot.y
-  tick(run, 9 / STEP)
+  tick(run, 4 / STEP)
   assert.equal(bot.x, x); assert.equal(bot.y, y); assert.equal(bot.shots ?? 0, 0)
-  assert.ok(run.gadgets.disabled.has(bot), 'the ten-second window remains active after nine seconds')
+  assert.ok(run.gadgets.disabled.has(bot), 'the five-second window remains active after four seconds')
   assert.equal(bot.actor.heldTool, undefined, 'repulsors are built into the palms, not carried tools')
   assert.ok(robotPlatforms(bot).length)
   assert.ok(run.gadgets.held)

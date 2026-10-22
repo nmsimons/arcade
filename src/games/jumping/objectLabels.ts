@@ -18,6 +18,7 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
 
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'robot' && level.robots?.[s.index].kind === 'repulsor') return `Repulsorbot ${s.index + 1}`
+  if (s.kind === 'robot' && level.robots?.[s.index].mode === 'emp') return `EMP shovebot ${s.index + 1}`
   if (s.kind === 'float-switch') return `Float switch ${s.index + 1}`
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
   if (s.kind === 'force-field' && level.forceFields?.[s.index].mode === 'objects') return `Red ${level.forceFields[s.index].orientation} force field ${s.index + 1}`

@@ -50,8 +50,8 @@
       "reason": "A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (66.37 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
     },
     {
-      "file": "Hurricane.jump-level.json",
-      "reason": "Reworked October 21. Fresh normal tap/hold A completion in 7.57 seconds, plus an alternate/recovery completion, are recorded in jumping-course-playtests.json. Deadlines A 12 / B 22 / C 35 / D 60 are grounded in those runs; independent human first-run balance remains pending."
+      "file": "Quarantine.jump-level.json",
+      "reason": "Renamed from Hurricane after its October 21 rework. The earlier normal tap/hold completion (7.57 seconds) and alternate/recovery route remain captured in jumping-course-playtests.json. Independent human first-run balance of A 12 / B 22 / C 35 / D 60 remains pending."
     },
     {
       "file": "spire2.jump-level.json",
@@ -59,7 +59,7 @@
     },
     {
       "file": "Company.jump-level.json",
-      "reason": "Newly authored level. A fresh completion and grade-time audit have not yet been recorded."
+      "reason": "The awakening-pod revision completed from a fresh entrance using normal controls in 15.63 seconds unarmed and 16.69 seconds with the optional EMP, with a 24.74-second missed-rope recovery. The browser regression also completes the captured layout. Initial deadlines A 18 / B 28 / C 42 / D 65 remain pending independent first-run balance."
     },
     {
       "file": "08.json",
@@ -68,6 +68,10 @@
     {
       "file": "spelunk1.jump-level.json",
       "reason": "Studio revisions moved the exit, rewired a control, removed a float switch, and moved a light. The former recording no longer powers the doorway; a fresh completion and timing audit are required."
+    },
+    {
+      "file": "07.json",
+      "reason": "Studio revisions added two shovebots. The previous A route is retained against its captured layout for regression coverage; a fresh completion and timing audit of the new encounter are pending."
     }
   ],
   "runs": [
@@ -1332,213 +1336,6 @@
         {
           "frames": 100,
           "input": {}
-        }
-      ]
-    },
-    {
-      "file": "07.json",
-      "elapsed": 25.04999999999922,
-      "activeTime": 25.908333333332504,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 90,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 85,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 524,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 63,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 61,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 71,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 91,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 68,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 39,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 83,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 46,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 84,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 52,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 70,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 120,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 90,
-          "input": {}
-        },
-        {
-          "frames": 322,
-          "input": {
-            "move": -1,
-            "crouch": true
-          }
-        },
-        {
-          "frames": 60,
-          "input": {}
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -0.3048780487804878,
-            "jump": true,
-            "jumpStrength": 0.47865853658536595
-          }
-        },
-        {
-          "frames": 72,
-          "input": {
-            "move": -0.3048780487804878
-          }
-        },
-        {
-          "frames": 18,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 45,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 573,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 97,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 278,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
         }
       ]
     },
@@ -4517,6 +4314,215 @@
         }
       ],
       "grade": "B"
+    }
+  ],
+  "historicalRuns": [
+    {
+      "file": "07.json",
+      "elapsed": 25.04999999999922,
+      "activeTime": 25.908333333332504,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 90,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 85,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 524,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 61,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 71,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 91,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 46,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 52,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 322,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "jump": true,
+            "jumpStrength": 0.47865853658536595
+          }
+        },
+        {
+          "frames": 72,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 573,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 97,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 278,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        }
+      ]
     }
   ]
 }

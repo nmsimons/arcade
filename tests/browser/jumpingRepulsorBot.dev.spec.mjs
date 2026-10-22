@@ -23,7 +23,7 @@ async function open(page, file, finishEntrance = true) {
       return fillRect.apply(this, args)
     }
     proto.fill = function (...args) {
-      if (this.fillStyle === '#b66d65' && this.canvas.botCamera && !this.canvas.repulsorBots.length) {
+      if (args[0] instanceof Path2D && this.fillStyle === '#b66d65' && this.canvas.botCamera && !this.canvas.repulsorBots.length) {
         const t = this.getTransform(), camera = this.canvas.botCamera
         this.canvas.repulsorBots.push({ x: (t.e - camera.e) / camera.a, y: (t.f - camera.f) / camera.d })
       }
@@ -40,6 +40,29 @@ async function open(page, file, finishEntrance = true) {
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await restartFromPause(page, finishEntrance)
 }
+
+test('Rbot climbs past a hostile shovebot crowding a ladder exit', async ({ page }, info) => {
+  test.setTimeout(90000)
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  const file = fixture()
+  file.entrance = { x: 700, y: 380 }
+  file.platforms = [{ x: 200, y: 380, w: 600, h: 30 }, { x: 500, y: 0, w: 30, h: 380 }]
+  file.climbables.ladders = [{ x: 300, top: 180, bottom: 700, platform: -1, side: 1 }]
+  file.robots = [{ x: 338, y: 380, left: 300, right: 440 }, { kind: 'repulsor', x: 300, y: 700, left: 26, right: 1374 }]
+  await open(page, file)
+  let exited = false
+  const positions = []
+  for (let frame = 0; frame < 20 && !exited; frame++) {
+    await page.clock.runFor(400)
+    const bot = await page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0])
+    positions.push(bot)
+    if ([5, 11].includes(frame)) await page.screenshot({ path: info.outputPath(`hostile-ladder-${frame}.png`) })
+    exited = !!bot && bot.y <= 381 && bot.y >= 370
+  }
+  expect(exited, JSON.stringify(positions)).toBe(true)
+  await page.screenshot({ path: info.outputPath('hostile-ladder-exit-clear.png') })
+  expect(errors).toEqual([])
+})
 
 test('the broader player rig charges and fires from its palm, pushing the player through normal motion', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))

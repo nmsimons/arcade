@@ -11,7 +11,8 @@ import { athletePose } from './athlete.ts'
 import { repulseProp } from './propPhysics.ts'
 import { ballShape, boxShape, propHeight } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
-import { faceRobotToward, repulseRobot, robotPlatforms, robotSensesPlayer, robotSightObstacles } from './robotPhysics.ts'
+import { faceRobotToward, repulseRobot, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer } from './robotPhysics.ts'
+import { botActive, visibleShovebotRival } from './botCombat.ts'
 import { botMovement } from './botNavigation.ts'
 import { rightArmSupporting } from './armSupport.ts'
 import { createRope } from './climbables.ts'
@@ -24,6 +25,7 @@ import { hearPlayer } from './botHearing.ts'
 import { BOT_AIR_SPEED_SCALE } from './botMovementTuning.ts'
 import { repulsePlayer } from './actorImpulse.ts'
 import { advanceShove, beginShove, BOT_SHOVE_WINDUP, canShove, SHOVE_RECOVERY, shoveReaches } from './shove.ts'
+import { AWAKENING_SECONDS } from './goal.ts'
 export { repulsePlayer, REPULSOR_BOT_IMPULSE } from './actorImpulse.ts'
 export { botLastHeard } from './botHearing.ts'
 
@@ -32,6 +34,7 @@ export const REPULSOR_BOT_RECOVERY = 1.4
 export const REPULSOR_BOT_RANGE = 1000
 const memories = new WeakMap<RobotState, BotSighting>(), plans = new WeakMap<RobotState, BotTactic>()
 const turnedToNoise = new WeakMap<RobotState, number>()
+const rivalTargets = new WeakMap<RobotState, RobotState>()
 export const botLastSighting = (robot: RobotState) => { const memory = memories.get(robot); return memory && { ...memory } }
 
 export function createRepulsorActor(x: number, y: number) {
@@ -90,8 +93,14 @@ const stepOffSides = new WeakMap<RobotState, number>()
 const airborneFacings = new WeakMap<Player, number>()
 
 export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: ContactWorld, powered = true) {
+  // Other bots may already have moved this step. A stale chassis at a ladder
+  // exit lets a growing mantle envelope enter its actual wheel/body position.
+  const colliders = [...world.colliders.filter(collider => !collider.robot),
+    ...run.robots.flatMap((other, index) => robotPlatforms(other).map((platform, piece) => ({ id: `robot:${index}:${piece}`, platform, robot: other })))]
+  world = { ...world, colliders, platforms: colliders.map(collider => collider.platform) }
   const actor = robot.actor ??= createRepulsorActor(robot.x, robot.y)
   actor.facing = robot.facing
+  if (robot.awakening && (robot.recoilVx || actor.stagger || actor.shoveDrift)) robot.awakening.triggered = true
   if (robot.recoilVx) { repulsePlayer(actor, [robot.recoilVx / 1100, 0]); robot.recoilVx = 0 }
   if (!powered) actor.shove = undefined
   advanceShove(run, actor, [run.player], dt, world)
@@ -125,10 +134,27 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   // hidden velocity. Keep pursuing that clue through cover while making progress.
   const clue = noise && (!memory || noise.time > memory.time) ? { ...noise, vx: 0, vy: 0, inverted: false } : memory
   const hunting = !!clue
+  // A nearby rival can demand a fight even before the player has been seen.
+  // Keep the player's last real sighting intact while dealing with that threat.
+  const lockedRival = robot.phase === 'windup' ? rivalTargets.get(robot) : undefined
+  const rival = lockedRival && run.robots.includes(lockedRival) && botActive(run, lockedRival) ? lockedRival
+    : robot.phase === 'windup' ? undefined : visibleShovebotRival(run, robot, world)
+  // A docked robot does not patrol toward the entrance before the encounter.
+  // Only normal senses or physical disturbance wake it; the player keeps control.
+  const awakening = robot.awakening
+  if (awakening && awakening.elapsed < AWAKENING_SECONDS) {
+    awakening.triggered ||= !!clue || !!rival || robotTouchesPlayer(robot, run.player)
+    if (awakening.triggered) awakening.elapsed = Math.min(AWAKENING_SECONDS, awakening.elapsed + dt)
+    robot.phase = 'patrol'; robot.time = 0; actor.armAim = { angle: Math.PI, aiming: false }
+    moveRepulsorActor(run, robot, dt, world, NEUTRAL_INPUT)
+    return
+  }
   const standingOnPlayer = actor.contacts?.support?.collider.id === 'player'
   const free = !standingOnPlayer && !rightArmSupporting(actor) && !actor.climbing && !actor.hang && !actor.mantle
-  if (seen && !actor.shove && canShove(actor)
-    && shoveReaches(run, actor, run.player, actor.facing, world)) {
+  const touchingRival = rival && Math.abs(rival.y - actor.y) < 30 && robotTouchesPlayer(rival, actor)
+  if (touchingRival && !actor.shove) faceRobotToward(robot, rival.x)
+  if (!actor.shove && canShove(actor) && (seen && shoveReaches(run, actor, run.player, actor.facing, world)
+    || touchingRival)) {
     beginShove(actor, BOT_SHOVE_WINDUP)
     robot.phase = 'recover'; robot.time = REPULSOR_BOT_RECOVERY - BOT_SHOVE_WINDUP - SHOVE_RECOVERY
   }
@@ -139,15 +165,17 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     && hasFiringLine(run, robot, playerTarget)
   const plan = robot.phase === 'windup' ? plans.get(robot) : clue ? chooseBotTactic(run, robot, clue, seen, dt) : undefined
   if (plan) plans.set(robot, plan)
-  const prop = !ropeShot && plan?.kind === 'dislodge' && plan.prop && run.props.includes(plan.prop) && botSeesProp(run, robot, plan.prop) ? plan.prop : undefined
-  const obstruction = !ropeShot && plan?.kind === 'clear' && plan.robot && run.robots.includes(plan.robot) ? plan.robot : undefined
-  const approachingControl = !ropeShot && plan?.kind === 'operate' && Math.hypot(robot.x - plan.x, robot.y - plan.y) > 40
+  const prop = !ropeShot && !rival && plan?.kind === 'dislodge' && plan.prop && run.props.includes(plan.prop) && botSeesProp(run, robot, plan.prop) ? plan.prop : undefined
+  const obstruction = !ropeShot ? rival ?? (plan?.kind === 'clear' && plan.robot && run.robots.includes(plan.robot) ? plan.robot : undefined) : undefined
+  const approachingControl = !ropeShot && !rival && plan?.kind === 'operate' && Math.hypot(robot.x - plan.x, robot.y - plan.y) > 40
   const shotTarget: Vec | undefined = obstruction ? [obstruction.x, obstruction.y - 28] : prop ? [prop.x, prop.y - propHeight(prop) / 2] : playerTarget
   robot.time += dt
   if ((robot.phase === 'patrol' || robot.phase === 'chase') && actor.grounded && free && !approachingControl
     && (ropeShot || obstruction || prop || seen && Math.abs(run.player.x - robot.x) <= 600 && Math.abs(run.player.y - robot.y) < 240)
     && shotTarget && (ropeShot || hasFiringLine(run, robot, shotTarget, prop, obstruction))) {
     robot.phase = 'windup'; robot.time = 0
+    if (rival && !ropeShot) rivalTargets.set(robot, rival)
+    else rivalTargets.delete(robot)
   }
   let movement: JumpInput = { ...NEUTRAL_INPUT }
   if (robot.phase === 'windup') {

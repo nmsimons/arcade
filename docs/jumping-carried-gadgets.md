@@ -242,7 +242,7 @@ Blue fields retain their existing player-clearance rule.
 **Reusable projectile weapon; no ammunition.** With the right arm free, each
 fresh Fire sends a visible electric bolt in the selected direction. Start with
 1,200 units/second bolt speed, 900 units of range, a one-second cooldown, and a
-ten-second disable. The sleeve stays equipped. A miss still spends cooldown.
+five-second disable. The sleeve stays equipped. A miss still spends cooldown.
 Bolts sweep the whole distance traveled each step, so thin obstacles stop them.
 
 The first hit consumes the bolt. A mechanism freezes at its current position,
@@ -257,7 +257,7 @@ ropes, water, collectibles, switches, relays, and lights are not bolt targets.
 
 The rest of the level keeps running: no global blackout, switch reset, remote
 pump interruption, or changed exit logic. Disabling a gate stops it rather than
-opening it. Repeated hits refresh ten seconds rather than adding durations.
+opening it. Repeated hits refresh five seconds rather than adding durations.
 When the effect ends, normal power and clearance rules apply; a force field
 waits for overlapping bodies to clear before returning. Dropping the weapon
 does not cancel an existing bolt or disable. Bolts work in the air and underwater.

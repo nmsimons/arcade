@@ -5,6 +5,8 @@ import { EMP_DISABLE_SECONDS, REPULSOR_BEAM_SECONDS, REPULSOR_IMPACT_SECONDS } f
 import { paintNormally } from './worldPaint.ts'
 import type { Exposure, WorldPaint } from './worldPaint.ts'
 import { robotTop } from './robotPhysics.ts'
+import { EMP_PALETTE } from './equipmentPalette.ts'
+import { playerContactBody } from './playerContacts.ts'
 
 /** Three short arcs, redrawn at 14 Hz: no particles, blur, or lighting pass. */
 export function drawEmpCrackle(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, age: number) {
@@ -16,7 +18,7 @@ export function drawEmpCrackle(ctx: CanvasRenderingContext2D, x: number, y: numb
     const span = Math.min(42, Math.max(12, (horizontal ? w : h) * .7))
     const along = noise(seed + 1), startX = x + (horizontal ? along * w : edge === 1 ? w : 0)
     const startY = y + (horizontal ? edge === 0 ? 0 : h : along * h)
-    ctx.strokeStyle = arc === frame % 3 ? '#e9ffff' : '#69aebd'; ctx.lineWidth = arc === frame % 3 ? 1.8 : 1.3
+    ctx.strokeStyle = arc === frame % 3 ? EMP_PALETTE.light : EMP_PALETTE.body; ctx.lineWidth = arc === frame % 3 ? 1.8 : 1.3
     ctx.beginPath()
     for (let point = 0; point <= 5; point++) {
       const offset = (point / 5 - .5) * span, jag = point === 0 || point === 5 ? 0 : (noise(seed + point + 2) - .5) * 15
@@ -35,7 +37,7 @@ export function drawLooseGadget(ctx: CanvasRenderingContext2D, prop: Prop) {
 function drawEmpEffects(ctx: CanvasRenderingContext2D, run: Run) {
   for (const bolt of run.gadgets.bolts) {
     const [x, y] = bolt.position, [dx, dy] = bolt.direction
-    ctx.save(); ctx.strokeStyle = '#82cbd1'; ctx.lineWidth = 2
+    ctx.save(); ctx.strokeStyle = EMP_PALETTE.body; ctx.lineWidth = 2
     ctx.beginPath(); ctx.moveTo(x - dx * 20, y - dy * 20)
     ctx.lineTo(x - dx * 10 - dy * 3, y - dy * 10 + dx * 3); ctx.lineTo(x, y); ctx.stroke()
     ctx.fillStyle = '#efffff'; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.restore()
@@ -47,6 +49,11 @@ function drawEmpEffects(ctx: CanvasRenderingContext2D, run: Run) {
   }
   for (const m of run.mechanisms) disabled(m, m.x, m.y, m.definition.w, m.definition.h)
   for (const r of run.robots) disabled(r, r.x - 26, r.y + robotTop(r), 52, -12 - robotTop(r))
+  const playerOutage = run.gadgets.disabled.get(run.player)
+  if (playerOutage) {
+    const body = playerContactBody(run.player), flip = run.player.inverted ? -1 : 1
+    drawEmpCrackle(ctx, body.x - 14, body.y - (flip > 0 ? body.height : 0), 28, body.height, run.activeTime)
+  }
   for (const f of run.forceFields) {
     const { x, y, w, h, orientation } = f.definition
     for (const end of [0, 1]) {
@@ -74,7 +81,7 @@ export function drawGadgets(ctx: CanvasRenderingContext2D, run: Run, paint: Worl
       ctx.beginPath(); ctx.moveTo(...pulse.from); ctx.lineTo(...pulse.to); ctx.stroke(); ctx.restore()
     }
     ctx.save(); ctx.globalAlpha *= Math.max(0, 1 - pulse.age / REPULSOR_IMPACT_SECONDS)
-    ctx.strokeStyle = pulse.kind === 'emp' ? '#82cbd1' : '#d6b86e'; ctx.lineWidth = 2
+    ctx.strokeStyle = pulse.kind === 'emp' ? EMP_PALETTE.body : '#d6b86e'; ctx.lineWidth = 2
     ctx.beginPath(); ctx.arc(pulse.to[0], pulse.to[1], 4 + pulse.age * 45, 0, Math.PI * 2); ctx.stroke(); ctx.restore()
   })
 }

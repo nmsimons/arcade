@@ -3,9 +3,11 @@ import type { Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerSwimStrength, propWaterStrength } from './gravity.ts'
+import { robotDrive } from './robotPhysics.ts'
+import { chargingBayOpening } from './goal.ts'
 
-export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster'
-export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'emp-shot' | 'repulsor' | 'shove'
+export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo'
+export type CueKind = 'footstep' | 'robot-footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'emp-shot' | 'repulsor' | 'shove'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -23,12 +25,17 @@ function snapshot(p: Player, run: Run | null) {
     water: run ? playerSwimStrength(run.gravityField, p) : 0,
     fieldRevision: run?.gravityField.revision ?? 0,
     feet: p.footwork?.feet.map(f => f.planted) ?? [],
+    robots: run?.robots.map(robot => ({ robot, x: robot.x, y: robot.y, grounded: robot.actor?.grounded ?? false,
+      vy: robot.actor?.vy ?? 0, feet: robot.actor?.footwork?.feet.map(f => f.planted) ?? [],
+      climbable: robot.actor?.climbing?.rope ?? robot.actor?.climbing?.ladder, climbDistance: robot.actor?.climbing?.distance,
+      mantle: robot.actor?.mantle, mantleTime: robot.actor?.mantle?.time, awakening: robot.awakening?.elapsed ?? 0 })) ?? [],
     props: run?.props.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, water: propWaterStrength(run.gravityField, b), grounded: b.grounded, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
     coins: run?.coinsCollected ?? 0,
-    outage: run?.empRemaining ?? 0, shots: run?.gadgets.shots ?? 0,
+    outage: run?.empRemaining ?? 0, playerOutage: run?.gadgets.disabled.get(p) ?? 0, shots: run?.gadgets.shots ?? 0,
     robotShots: run?.robots.map(robot => robot.shots ?? 0) ?? [],
+    robotRams: run?.robots.map(robot => robot.rams ?? 0) ?? [],
     shoves: p.shoves ?? 0, robotShoves: run?.robots.map(robot => robot.actor?.shoves ?? 0) ?? [],
     propIdentities: run?.props.slice() ?? [],
     timeBonuses: run?.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length ?? 0,
@@ -61,13 +68,14 @@ export class JumpingAudioState {
   private loops: SoundLoop[] = []
   private cues: SoundCue[] = []
   private stepCooldown = 0
+  private robotStepCooldowns: number[] = []
   private impacts: { angle: number; excursion: number; cooldown: number }[] = []
   private playerWater: WaterContact = waterContact(0)
   private propWater: WaterContact[] = []
 
   reset(p: Player, run: Run | null) {
     this.previous = snapshot(p, run)
-    this.loops = []; this.cues = []; this.stepCooldown = 0; this.impacts = []
+    this.loops = []; this.cues = []; this.stepCooldown = 0; this.robotStepCooldowns = []; this.impacts = []
     this.playerWater = waterContact(this.previous.water)
     this.propWater = this.previous.props.map(b => waterContact(b.water))
   }
@@ -105,9 +113,54 @@ export class JumpingAudioState {
       this.loops.push({ id: 'player:booster', kind: 'booster', volume: boost, pan: 0, pace: boost, size: 0 })
     }
     if (run) {
+      if (current.playerOutage > before.playerOutage + .1) cue('emp', p.x, p.y - 30)
       if ((p.shoves ?? 0) > before.shoves) cue('shove', p.x, p.y - 30)
       for (const [i, robot] of run.robots.entries()) if ((robot.actor?.shoves ?? 0) > (before.robotShoves[i] ?? 0)) cue('shove', robot.x, robot.y - 30)
       for (const [i, robot] of run.robots.entries()) if ((robot.shots ?? 0) > (before.robotShots[i] ?? 0)) cue('repulsor', robot.x, robot.y)
+      for (const [i, robot] of run.robots.entries()) if ((robot.rams ?? 0) > (before.robotRams[i] ?? 0)) cue('shove', robot.x, robot.y - 20)
+      for (const [i, robot] of run.robots.entries()) {
+        const old = before.robots[i], actor = robot.actor
+        this.robotStepCooldowns[i] = Math.max(0, (this.robotStepCooldowns[i] ?? 0) - dt)
+        if (!old || old.robot !== robot) { this.robotStepCooldowns[i] = 0; continue }
+        const distance = Math.hypot(robot.x - old.x, robot.y - old.y)
+        if (distance >= 80 || run.empRemaining > 0 || robot.deactivated || run.gadgets.disabled.has(robot)) continue
+        if (actor) {
+          const waking = robot.awakening?.elapsed ?? 0
+          if (waking > old.awakening && waking > 1 && waking < 3.3) {
+            const opening = chargingBayOpening(waking) > chargingBayOpening(old.awakening)
+            const mix = soundPosition(robot.definition.x, robot.definition.y - 45, p)
+            this.loops.push({ id: `robot:${i}:pod`, kind: opening ? 'gate-open' : 'robot-servo', ...mix,
+              volume: mix.volume * .6, pace: .3, size: 0 })
+          }
+          const speed = actor.contacts?.motion.speed ?? 0
+          const plant = actor.footwork?.feet.some((foot, footIndex) => foot.planted && old.feet[footIndex] === false)
+          const landing = !old.grounded && actor.grounded && old.vy * (actor.inverted ? -1 : 1) > 80
+          if (!actor.sliding?.active && !actor.hang && !actor.climbing && !actor.mantle && !this.robotStepCooldowns[i]
+            && (landing || actor.grounded && !(actor.freeFall?.amount && actor.freeFall.recovery !== null) && speed > 8 && plant)) {
+            cue('robot-footstep', robot.x, robot.y, landing ? .7 + clamp(Math.abs(old.vy) / 800) * .3 : .5 + clamp(speed / 350) * .4)
+            this.robotStepCooldowns[i] = .11
+          }
+          // Material grip travel excludes idle rope swing. Pull-ups publish root
+          // positions rather than velocities, so follow their advancing pose.
+          const climb = actor.climbing
+          const motor = climb && old.climbable === (climb.rope ?? climb.ladder) && old.climbDistance !== undefined
+            ? Math.abs(climb.distance - old.climbDistance) / dt
+            : actor.mantle && old.mantle === actor.mantle && old.mantleTime !== actor.mantle.time ? distance / dt : 0
+          const travel = Math.min(distance / dt, motor)
+          if (travel > 5) {
+            const mix = soundPosition(robot.x, robot.y - 30, p)
+            this.loops.push({ id: `robot:${i}:servo`, kind: 'robot-servo', ...mix,
+              volume: mix.volume * clamp(travel / 90), pace: clamp(travel / 240), size: 0 })
+          }
+        } else if (robot.fallVelocity === undefined && robotDrive(robot)) {
+          // Solved horizontal travel rejects blocked wheels and carried bodies.
+          const speed = Math.min(Math.abs(robot.x - old.x) / dt, Math.abs(robot.vx))
+          if (speed <= 5) continue
+          const mix = soundPosition(robot.x, robot.y - 20, p)
+          this.loops.push({ id: `robot:${i}:wheels`, kind: 'shovebot', ...mix,
+            volume: mix.volume * clamp(speed / 90), pace: clamp(speed / 540), size: 0 })
+        }
+      }
       for (let i = 0; i < run.props.length; i++) {
         const b = run.props[i], old = before.props[i]
         if (!old) { this.propWater[i] = waterContact(current.props[i].water); continue }

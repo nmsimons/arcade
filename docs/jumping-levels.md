@@ -601,7 +601,7 @@ props. The player passes through loose sleeves without tripping or pushing them;
 walking over one does not collect it. Normal weight floats; Heavy sinks.
 E / controller X picks up or drops;
 F / RT fires it. The EMP sends a traveling bolt that disables the hit device for
-ten seconds, with a one-second cooldown. It remains equipped after firing.
+five seconds, with a one-second cooldown. It remains equipped after firing.
 Movement directions also point either tool in eight directions;
 neutral input returns to horizontal hip fire. The arm shows direction without a
 reticle. Active red fields drop the sleeve on the approach side while the player
@@ -851,6 +851,17 @@ The saved `y` remains the surface height at the bot's center; wheel clearance
 and tilt are calculated from the terrain. Snap off and Alt retain floating
 placement at the cursor. Cliff edges and obstructed chassis still reject a snap.
 Select a ball or box to change its size and weight, or a shovebot to set its patrol limits.
+Shovebot **Mode** selects **Shove** (Rbot-red armor) or **EMP + shove**
+(lightning-blue armor and a lightning mark). The EMP variant is saved with
+`robots[].mode: "emp"`; omission retains an ordinary shovebot. Repulsorbots
+cannot use this mode. Physical contact with a powered EMP shovebot disables
+player movement and actions until two gameplay seconds after separation. It
+still pushes normally, and gravity and collisions continue. Contact does not
+disable the rest of the level or remove carried equipment. EMP-disabled and
+deactivated bots cannot shock the player. Pausing freezes the effect; restarting
+clears it. Crackling blue arcs and an electrical sound identify the shock.
+The handheld EMP uses the same lightning-blue palette; the repulsor sleeve
+shares Rbot's red armor.
 Drag either square handle on the shovebot's patrol line to move that endpoint;
 the inspector follows while dragging. Snap aligns endpoints to the grid, and
 Alt bypasses snapping. Limits include the bot's starting position, stay inside
@@ -875,12 +886,28 @@ remain unseen until the bot turns toward them. Terrain, boxes, balls, mechanisms
 and other bots can provide cover;
 wall decorations and collectibles do not. Losing sight restores ordinary patrol
 and the calm eye color. Crouching behind low cover can hide the player.
+Shovebots also treat Rbots as enemies, choosing a nearby visible or touching
+Rbot as a charge target. Rbot retaliates with a shove or palm repulsor; its hunt
+memory is retained. Their ordinary physical collisions and patrol limits still
+apply, and blue EMP shovebots can stun Rbot on contact. Luring the two kinds
+into one another can create a distraction or help clear a route.
 
 **Objects → Repulsorbot** adds a humanoid hunter, saved in `robots` with
 `kind: "repulsor"`. Omission keeps the legacy shovebot. The existing `x`, `y`,
 `left`, `right`, optional name and headlight fields round trip; patrol limits
 apply only to shovebots. Repulsorbots search the whole level.
 They know the authored entrance and investigate it before general patrol.
+An optional `chargingBay: true` starts a Repulsorbot asleep in an installed,
+wider version of Wake's charging pod. Enable **Charging bay** in its object
+inspector. Sight, ordinary hearing, contact, or an external shove starts the
+3.6-second local awakening; the player and world keep moving. The head rises
+before the split cover retracts, then normal hunting begins with its real
+sight/sound memory intact. EMP pauses the awakening. Restart closes and resets
+the pod; its empty shell remains at the authored position after departure.
+The pod is back-wall artwork, not a barrier or extra collision exception. Give
+its 127.5-by-126 silhouette clear space and a flat supported landing. Moving,
+duplicating, saving and reopening the bot preserve its bay; other bot kinds
+cannot use this option. Ordinary Repulsorbots retain their immediate patrol.
 They reuse the player controller, walking/foot rig, ledge grabs, jumping,
 ladder/rope climbing, gravity and water movement. Their red armor and wider
 shell, flared forearm/lower-leg armor and large feet distinguish them; their
@@ -906,7 +933,7 @@ also be intercepted by reaching a relevant pressure/switch plate or repulsing
 cargo off a pressure plate. These actions use ordinary contacts and wiring;
 stale knowledge sends the bot back to searching rather than guarding forever.
 Blue fields let the bot pass; red fields contain it. Trapping it or using the
-ten-second EMP window is intended encounter counterplay.
+five-second EMP window is intended encounter counterplay.
 Sight still gates acquisition and charging a shot at the player. They close to within 600 horizontal
 and 240 vertical units before planting their feet to fire. An arm charge lasts
 0.8 seconds, with aim locked for its final 45%; jumping or taking cover can
@@ -914,7 +941,7 @@ dodge it. The pulse reaches 1,000 units, stops at the first terrain, prop, bot,
 or red field, and imparts a strong finite impulse through normal player physics.
 It releases hand support without teleporting or bypassing collisions. A
 1.4-second recovery gives the player a response window. The player's repulsor
-interrupts the shot and recoils the bot; an EMP freezes it for ten seconds and
+interrupts the shot and recoils the bot; an EMP freezes it for five seconds and
 cancels its windup. Both bots remain physical while disabled.
 
 Navigation shares a bounded surface/climb graph per run and issues ordinary

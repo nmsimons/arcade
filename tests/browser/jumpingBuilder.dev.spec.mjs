@@ -1618,6 +1618,33 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('460')
 })
 
+test('EMP shovebot mode previews, undoes, saves and reopens alongside the equipment palettes', async ({ page }, info) => {
+  test.slow()
+  const level = { ...blankTrial(), width: 1200, height: 600, floor: 600,
+    entrance: { x: 120, y: 600 }, goal: { x: 1100, y: 600, flipX: true },
+    props: [{ kind: 'box', gadget: 'repulsor', x: 240, y: 600, size: 40 }, { kind: 'box', gadget: 'emp', x: 340, y: 600, size: 40 }],
+    robots: [{ x: 500, y: 600, left: 400, right: 600 }, { x: 700, y: 600, left: 650, right: 800 },
+      { kind: 'repulsor', x: 950, y: 600, left: 26, right: 1174 }] }
+  await open(page, level); await selectBuilderObject(page, 'robot:0')
+  const mode = page.getByRole('combobox', { name: 'Shovebot mode', exact: true })
+  await expect(mode).toHaveAttribute('data-value', 'shove')
+  await selectBuilderOption(page, 'Shovebot mode', 'emp')
+  await expect(mode).toHaveAttribute('data-value', 'emp')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await selectBuilderObject(page, 'robot:0')
+  await expect(mode).toHaveAttribute('data-value', 'shove')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); await selectBuilderObject(page, 'robot:0')
+  await expect(mode).toHaveAttribute('data-value', 'emp')
+  const saved = await saveTestLevel(page)
+  expect(saved.level.robots[0].mode).toBe('emp')
+  expect(saved.level.robots[1].mode).toBeUndefined()
+  await reopenTestLevel(page, saved); await selectBuilderObject(page, 'robot:0')
+  await expect(mode).toHaveAttribute('data-value', 'emp')
+  await page.clock.runFor(64)
+  await page.screenshot({ path: info.outputPath('equipment-and-emp-shovebot.png') })
+  await selectBuilderObject(page, 'robot:2')
+  await expect(mode).toHaveCount(0)
+})
+
 test('shovebot patrol endpoints drag and preview live with snap, cancellation, undo and saved limits', async ({ page }, info) => {
   const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
   await open(page, level); await selectBuilderObject(page, 'robot:0')

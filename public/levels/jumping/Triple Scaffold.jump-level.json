@@ -3428,7 +3428,15 @@
     "c": 240,
     "d": 300
   },
-  "props": [],
+  "props": [
+    {
+      "kind": "box",
+      "x": 1000,
+      "y": 560,
+      "size": 40,
+      "gadget": "repulsor"
+    }
+  ],
   "mechanisms": [],
   "triggers": [
     {

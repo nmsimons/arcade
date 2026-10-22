@@ -5,8 +5,12 @@
 Later Studio edits narrowed Walls' center landing, changed its coin requirement,
 and revised Hellstones, Spellbound, and Blackout. Their old completion
 traces are retained as superseded evidence, with explicit pending audits. Current
-completions remain verified for Hatchlings, Here There Everywhere, and Hurricane,
-including the latter two courses' recorded alternatives and the quarantine test.
+completion recordings for Hatchlings, Here There Everywhere, and Hurricane,
+including the latter two courses' alternatives and the quarantine test, now
+replay against captured layouts in `tests/fixtures/jumping/course-regression-levels.json`.
+These preserve movement and pursuit regressions when the live catalog changes;
+they do not certify subsequent Studio edits. Hurricane was later retired and
+Quarantine added. The retired map remains a test fixture, not a built-in level.
 The earlier times and route descriptions below describe the reviewed layouts;
 they do not certify those four edited layouts. The revised Spelunk exit wiring
 also awaits a new completion and timing audit.
@@ -18,7 +22,9 @@ route recordings, and audit inventory. The remaining prototypes were shortened
 around the useful sections identified below. Subsequent Studio edits removed
 Figurit's Revenge and Cross Purposes and added Company; the Figurit's Revenge
 account below records the earlier rework, not a currently available course.
-Company and the revised Spire II await fresh completion and timing audits.
+Company's awakening, escape, recovery and EMP routes have since been checked;
+see [Company's campaign review](jumping-campaign.md#company-the-other-awakening).
+The revised Spire II still awaits a fresh completion and timing audit.
 Uninvited Company's existing route now completes at B with the stronger Rbot;
 its completed route remains covered while the A audit is pending.
 

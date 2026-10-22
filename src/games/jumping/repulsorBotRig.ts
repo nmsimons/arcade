@@ -5,8 +5,8 @@ import { SHOVE_RECOVERY } from './shove.ts'
 export const REPULSOR_BOT_WIDTH_SCALE = 1.45
 
 /** Broaden the shell and upper limbs without sliding planted feet or palms. */
-export function repulsorBotPose(actor: Player) {
-  const pose = presentedAthletePose(actor), scale = REPULSOR_BOT_WIDTH_SCALE
+export function repulsorBotPose(actor: Player, pose = presentedAthletePose(actor)) {
+  const scale = REPULSOR_BOT_WIDTH_SCALE
   const point = ([x, y]: readonly [number, number]): [number, number] => [x / scale, y]
   const leg = (limb: typeof pose.frontLeg) => ({ ...limb, joint: point(limb.joint), end: point(limb.end) })
   const gripping = !!(actor.climbing || actor.hang || actor.mantle || actor.wallBrace?.active || actor.pushing?.amount)

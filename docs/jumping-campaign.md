@@ -234,6 +234,31 @@ and returning to soft gray-green during EMP.
 Physical-controller and actual-phone feel, and an
 independent review of the opening's mood and enjoyment, remain unverified.
 
+## Company: the other awakening
+
+Company echoes Wake with the facility's one recurring response robot. The
+player enters under the rock overhang and discovers a wider occupied capsule
+on a steel mounting plinth. A matching unanswered operator terminal links the
+two awakenings; brief human graffiti suggests someone else was left behind.
+The response unit wakes through real sight, noise or contact, then leaves its
+empty cradle and hunts normally. Control never leaves the player during this
+local awakening. The pod supplies no invisible containment.
+
+Night lighting separates the failing service approach, occupied bay and upper
+escape gantry. Preserve the authored cave, loose cargo and exposed rope climb.
+The optional carried EMP on the service approach offers a way to interrupt the
+hunter; cargo still absorbs its bolt, so a clear firing position matters.
+The intended encounter remains a short escape, without an added coin sweep or
+sequence of switches. Pod installation is a reusable Repulsorbot inspector
+option, not a Company-specific runtime script.
+
+Normal-control simulation replays completed the unarmed escape in 15.6 seconds,
+the EMP approach in 16.7, and a missed-rope recovery under pursuit in 24.7.
+Current A/B/C/D deadlines are 18/28/42/65 seconds. A fresh browser keyboard
+playthrough also completed the unarmed rope escape, with rendered checks of the
+sleeping capsule, awakening, pursuit and exit. These checks do not establish
+physical-controller or actual-phone feel.
+
 ## Finale: Outside
 
 Central idea: apply learned skills to restore the last service route, then

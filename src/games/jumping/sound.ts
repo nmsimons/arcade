@@ -31,6 +31,8 @@ export function loopTone(loop: SoundLoop) {
     }
     case 'box': return { frequency: 60, cutoff: 700 + pace * 900, playbackRate, body: 0, texture: 1, volume: .075 }
     case 'booster': return { frequency: 60, cutoff: 1400 + pace * 400, playbackRate: .9, body: 0, texture: 1, volume: .018 }
+    case 'shovebot': return { frequency: 65 + pace * 65, cutoff: 520 + pace * 200, playbackRate: .5 + pace * .6, body: .55, texture: .35, volume: .065 }
+    case 'robot-servo': return { frequency: 110 + pace * 50, cutoff: 700, playbackRate: .7 + pace * .4, body: .35, texture: .28, volume: .035 }
     case 'elevator': return { frequency: 68 + pace * 25, cutoff: 380, playbackRate, body: .65, texture: .28, volume: .045 }
     case 'gate-open': return { frequency: 110 + pace * 35, cutoff: 950, playbackRate, body: .16, texture: .85, volume: .075 }
     case 'gate-close': return { frequency: 76 + pace * 28, cutoff: 650, playbackRate, body: .2, texture: .85, volume: .075 }
@@ -62,7 +64,7 @@ export class JumpingSound {
     this.ctx = ctx
     this.output = ctx.createGain(); this.output.gain.value = .8; this.output.connect(ctx.destination)
     this.noise = makeBuffer(ctx, 2, (t, noise) => noise * (.8 + .2 * Math.sin(t * Math.PI * 13)))
-    let grain = 0, sole = 0, cushion = 0, wood = 0, ballSurface = 0, ballBody = 0, waterSurface = 0, waterBody = 0
+    let grain = 0, sole = 0, cushion = 0, robotSole = 0, wood = 0, ballSurface = 0, ballBody = 0, waterSurface = 0, waterBody = 0
     const softening = 1 - Math.exp(-2 * Math.PI * 500 / ctx.sampleRate)
     const cushioning = 1 - Math.exp(-2 * Math.PI * 130 / ctx.sampleRate)
     const woodSoftening = 1 - Math.exp(-2 * Math.PI * 850 / ctx.sampleRate)
@@ -79,6 +81,14 @@ export class JumpingSound {
         const attack = Math.sin(Math.min(1, t / .022) * Math.PI / 2) ** 2
         return attack * (cushion * 1.8 * Math.exp(-t * 26)
           + sole * .18 * Math.exp(-t * 38)) * Math.min(1, (.17 - t) / .035)
+      }),
+      'robot-footstep': makeBuffer(ctx, .23, (t, noise) => {
+        // A weighty heel strike with a short metal-shell knock, not a gunshot.
+        robotSole += (noise - robotSole) * softening
+        const attack = Math.sin(Math.min(1, t / .006) * Math.PI / 2) ** 2
+        return attack * (Math.sin(2 * Math.PI * (92 * t - 45 * t * t)) * .42 * Math.exp(-t * 28)
+          + robotSole * .45 * Math.exp(-t * 48)
+          + Math.sin(2 * Math.PI * 620 * t) * .07 * Math.exp(-t * 52)) * Math.min(1, (.23 - t) / .04)
       }),
       'box-impact': makeBuffer(ctx, .18, (t, noise) => {
         // A short, dry wooden knock with a rounded attack and no metallic ring.
@@ -179,10 +189,11 @@ export class JumpingSound {
     if (this.disposed || cue.volume <= .005 || this.shots.size >= 12) return
     const ctx = this.ctx, source = ctx.createBufferSource(), gain = ctx.createGain(), pan = ctx.createStereoPanner()
     source.buffer = this.cues[cue.kind]
-    const footstep = cue.kind === 'footstep', box = cue.kind === 'box-impact', ball = cue.kind === 'ball-impact', water = cue.kind === 'water-entry'
+    const robotStep = cue.kind === 'robot-footstep', footstep = cue.kind === 'footstep' || robotStep
+    const box = cue.kind === 'box-impact', ball = cue.kind === 'ball-impact', water = cue.kind === 'water-entry'
     const defaultSize = water ? 60 : ball ? 68 : 50
     source.playbackRate.value = footstep ? .94 + (++this.variation % 5) * .03 : box || ball || water ? clamp((defaultSize / (cue.size ?? defaultSize)) ** .25, .75, 1.2) : 1
-    gain.gain.value = clamp(cue.volume) * clamp(cue.strength) * (footstep ? .22 : box ? .28 : ball ? .32 : water ? .5 : .38)
+    gain.gain.value = clamp(cue.volume) * clamp(cue.strength) * (robotStep ? .34 : footstep ? .22 : box ? .28 : ball ? .32 : water ? .5 : .38)
     pan.pan.value = cue.pan; source.connect(gain); gain.connect(pan); pan.connect(this.output)
     const shot = { source, gain, pan }; this.shots.add(shot)
     source.onended = () => { source.disconnect(); gain.disconnect(); pan.disconnect(); this.shots.delete(shot) }

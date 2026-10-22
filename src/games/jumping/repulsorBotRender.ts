@@ -1,17 +1,20 @@
 import type { RobotState } from './challenge.ts'
-import { drawAthlete } from './athlete.ts'
+import { awakeningPose, drawAthlete } from './athlete.ts'
+import { AWAKENING_SECONDS, awakeningProgress } from './goal.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { REPULSOR_BOT_WIDTH_SCALE, REPULSOR_BOT_WINDUP, repulsorBotHand } from './repulsorBot.ts'
 import { repulsorBotPose } from './repulsorBotRig.ts'
 import { robotHeadlightPose } from './robotHeadlight.ts'
+import { ROBOT_PALETTE } from './equipmentPalette.ts'
 
 /** The player's solved walk, feet, grips and arm animation with stockier proportions. */
 export function drawRepulsorBot(ctx: CanvasRenderingContext2D, robot: RobotState, powered: boolean, paint: WorldPaint, headlightFade = 0) {
   const actor = robot.actor!
-  const pose = repulsorBotPose(actor)
+  const pose = repulsorBotPose(actor, robot.awakening && robot.awakening.elapsed < AWAKENING_SECONDS
+    ? awakeningPose(actor, awakeningProgress(robot.awakening.elapsed)) : undefined)
   paint(ctx, 0, () => {
     ctx.save(); ctx.translate(actor.x, actor.y); ctx.scale(REPULSOR_BOT_WIDTH_SCALE, 1)
-    drawAthlete(ctx, { ...actor, x: 0, y: 0 }, '#b66d65', pose)
+    drawAthlete(ctx, { ...actor, x: 0, y: 0 }, ROBOT_PALETTE.body, pose)
     ctx.restore()
   })
   if (headlightFade > 0) {

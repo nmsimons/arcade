@@ -12,7 +12,7 @@ import { groundAt, platformSurfaces } from './terrain.ts'
 import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
-import { entranceDoor, goalBounds, goalDoor, goalPoleX } from './goal.ts'
+import { chargingBayBounds, entranceDoor, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
@@ -56,7 +56,7 @@ export type Trigger = NamedObject & WallWiringSettings & { x: number; y: number;
   & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; mount?: PressurePlateMount; ceiling?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
-export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean; kind?: 'repulsor' }
+export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean; kind?: 'repulsor'; mode?: 'emp'; chargingBay?: boolean }
 export interface JumpLevel {
   version: 1 | 2; id: string; name: string; width: number; height?: number
   lighting?: LightingDefinition
@@ -196,6 +196,10 @@ export function levelProblems(level: JumpLevel): string[] {
       if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'trigger', i)} inside the level rectangle.`)
     }
     for (const [i, r] of level.robots.entries()) if (!groundAt(terrain, r.x, r.y, .2)) issues.push(`Place ${objectReference(level, 'robot', i)} on a terrain surface.`)
+    for (const [i, r] of level.robots.entries()) if (r.chargingBay) {
+      const b = chargingBayBounds(r, ROBOT_BAY_WIDTH_SCALE)
+      if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > level.floor) issues.push(`Keep the charging bay for ${objectReference(level, 'robot', i)} inside the level rectangle.`)
+    }
     for (const [i, t] of (level.timers ?? []).entries()) if (t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'timer', i)} inside the level rectangle.`)
     for (const [i, p] of (level.pickups ?? []).entries()) {
       const b = pickupBounds(p)
@@ -406,8 +410,12 @@ export function parseLevel(value: unknown): JumpLevel {
       const r = object(item), left = num(r.left, ROBOT_HALF_WIDTH, width - ROBOT_HALF_WIDTH - 50), right = num(r.right, left + 50, width - ROBOT_HALF_WIDTH)
       if (r.headlight !== undefined && typeof r.headlight !== 'boolean') fail()
       if (r.kind !== undefined && r.kind !== 'repulsor') fail()
+      if (r.mode !== undefined && (r.mode !== 'emp' || r.kind === 'repulsor')) fail()
+      if (r.chargingBay !== undefined && (typeof r.chargingBay !== 'boolean' || r.kind !== 'repulsor')) fail()
       return { ...objectName(r), x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right,
         ...(r.kind === 'repulsor' ? { kind: 'repulsor' as const } : {}),
+        ...(r.mode === 'emp' ? { mode: 'emp' as const } : {}),
+        ...(r.chargingBay === undefined ? {} : { chargingBay: r.chargingBay as boolean }),
         ...(r.headlight === undefined ? {} : { headlight: r.headlight as boolean }) }
     })
     if (v.timers !== undefined) level.timers = list(v.timers, 40).map(item => {

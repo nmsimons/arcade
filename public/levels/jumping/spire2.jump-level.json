@@ -426,7 +426,15 @@
     "c": 100,
     "d": 180
   },
-  "props": [],
+  "props": [
+    {
+      "kind": "box",
+      "x": 740,
+      "y": 600,
+      "size": 40,
+      "gadget": "repulsor"
+    }
+  ],
   "mechanisms": [],
   "triggers": [
     {
@@ -448,6 +456,18 @@
       "left": 26,
       "right": 1474,
       "kind": "repulsor"
+    },
+    {
+      "x": 135,
+      "y": 820,
+      "left": 130,
+      "right": 430
+    },
+    {
+      "x": 1300,
+      "y": 660,
+      "left": 1030,
+      "right": 1330
     }
   ],
   "timers": [

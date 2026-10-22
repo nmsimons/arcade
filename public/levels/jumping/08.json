@@ -1165,6 +1165,13 @@
       "y": 640,
       "size": 70,
       "weight": "heavy"
+    },
+    {
+      "kind": "box",
+      "x": 1015,
+      "y": 1300,
+      "size": 40,
+      "gadget": "repulsor"
     }
   ],
   "mechanisms": [],

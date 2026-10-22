@@ -12,7 +12,8 @@ import { resolveSwitchStates } from './switchPower.ts'
 import type { JumpLevel } from './level.ts'
 import { athleteCasters } from './athleteShadow.ts'
 import { REPULSOR_BOT_WIDTH_SCALE, repulsorBotPose } from './repulsorBotRig.ts'
-import { entranceVisibility, goalEase } from './goal.ts'
+import { awakeningPose } from './athlete.ts'
+import { AWAKENING_SECONDS, awakeningProgress, entranceVisibility, goalEase } from './goal.ts'
 import type { EntranceAnimation } from './goal.ts'
 import { terrainBoundary, terrainShadowsPoint } from './lightingBoundary.ts'
 import type { TerrainEdge } from './lightingBoundary.ts'
@@ -141,7 +142,8 @@ export function dynamicCasters(run: LightingWorld, objectShadows = true): Caster
   const opacity = entrance ? entrance.kind === 'charging-bay' ? 1 : entranceVisibility(entrance.elapsed) : run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
   return [...(objectShadows ? run.props.map(prop => [prop.kind === 'ball' ? ballShape(prop) : roundedCaster(boxShape(prop), 2)]) : []),
     ...run.mechanisms.map((m, i) => Object.assign([roundedCaster({ x: m.x, y: m.y, w: m.definition.w, h: m.definition.h }, corners[i])], { mechanism: true as const })),
-    ...(objectShadows ? run.robots.map(robot => robot.actor ? athleteCasters(robot.actor, repulsorBotPose(robot.actor)).map(shape => ({ ...shape,
+    ...(objectShadows ? run.robots.map(robot => robot.actor ? athleteCasters(robot.actor, repulsorBotPose(robot.actor,
+      robot.awakening && robot.awakening.elapsed < AWAKENING_SECONDS ? awakeningPose(robot.actor, awakeningProgress(robot.awakening.elapsed)) : undefined)).map(shape => ({ ...shape,
       x: robot.x + (shape.x - robot.x) * REPULSOR_BOT_WIDTH_SCALE, w: shape.w * REPULSOR_BOT_WIDTH_SCALE,
       polygon: shape.polygon?.map(([x, y]) => [x * REPULSOR_BOT_WIDTH_SCALE, y] as Vec) }))
       : robotPlatforms(robot).map((shape, i) => i === 0 ? roundedCaster(shape, 4) : shape)) : []),
@@ -170,7 +172,7 @@ export class LightingState {
     for (const light of lights) {
       const robot = light.robot === undefined ? undefined : run.robots[light.robot]
       const target = Number(run.empRemaining <= 0
-        && (!robot || !robot.deactivated && (!('gadgets' in run) || !run.gadgets.disabled.has(robot)))
+        && (!robot || !robot.deactivated && (!robot.awakening || robot.awakening.elapsed >= 1.15) && (!('gadgets' in run) || !run.gadgets.disabled.has(robot)))
         && (light.power === 'always' || states.get(light.id)))
       const previous = this.fades.get(light.id) ?? target
       const fade = previous + Math.max(-dt / .2, Math.min(dt / .2, target - previous))

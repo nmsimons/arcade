@@ -151,7 +151,11 @@ for (const startX of [400, 510]) for (const clue of ['sighting', 'known entrance
 })
 
 test('Aloft continues hunting up the next rope and onto the higher irregular shelf', () => {
-  const run = createRun(fixture('aloft')), bot = rbot(run)
+  const file = fixture('aloft')
+  // Exercise the saved ascent, independently of the newly hostile shovebot's
+  // charge. Mixed-bot combat and a contested ladder exit have their own tests.
+  file.robots = file.robots.filter(robot => robot.kind === 'repulsor')
+  const run = createRun(file), bot = rbot(run)
   bot.facing = 1; run.player = createPlayer({ x: 600, y: 2700 }); run.player.vy = -85
   tick(run); assert.ok(botLastSighting(bot))
   run.player = createPlayer({ x: 700, y: 1975 })
@@ -161,6 +165,20 @@ test('Aloft continues hunting up the next rope and onto the higher irregular she
     landed = bot.actor.grounded && bot.y === 1975
   }
   assert.ok(usedRope); assert.equal(fellToBottom, false); assert.ok(landed, `stopped at ${bot.x}, ${bot.y}`)
+})
+
+test('Aloft resumes the ascent after hostile shovebot charges interrupt its route', () => {
+  const run = createRun(fixture('aloft')), bot = rbot(run), rival = run.robots.find(robot => !robot.actor)
+  bot.facing = 1; run.player = createPlayer({ x: 600, y: 2700 }); run.player.vy = -85
+  tick(run); assert.ok(botLastSighting(bot))
+  run.player = createPlayer({ x: 700, y: 1975 })
+  let landed = false, usedRope = false
+  for (let frame = 0; frame < 5400 && !landed; frame++) {
+    tick(run); usedRope ||= bot.actor.climbing?.kind === 'rope'
+    landed = bot.actor.grounded && bot.y === 1975
+  }
+  assert.ok(rival.rams > 0, 'this route includes actual hostile contact')
+  assert.ok(usedRope); assert.ok(landed, `the hunter abandoned its route at ${bot.x}, ${bot.y}`)
 })
 
 test('Aloft plans and completes the near-apex handhold onto the 285-unit higher shelf', () => {

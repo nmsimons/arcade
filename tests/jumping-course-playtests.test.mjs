@@ -6,14 +6,17 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 
 const recordings = JSON.parse(readFileSync(new URL('./fixtures/jumping-course-playtests.json', import.meta.url), 'utf8'))
+const fixtures = JSON.parse(readFileSync(new URL('./fixtures/jumping/course-regression-levels.json', import.meta.url), 'utf8'))
+const recordedLevel = file => parseLevel(structuredClone(fixtures.levels[file]))
 assert.equal(recordings.jumpModel, 'tap-hold')
 const audited = [...recordings.runs, ...recordings.pendingAudit]
 assert.equal(audited.length, 7)
 assert.equal(new Set(audited.map(run => run.file)).size, 7)
 
-test('revised course layouts retain explicit pending audits and their superseded route evidence', () => {
-  const catalog = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url), 'utf8'))
-  for (const audit of audited) assert.ok(catalog.levels.includes(audit.file))
+test('captured course layouts retain pending audits and superseded evidence after catalog edits', () => {
+  assert.equal(fixtures.version, 1)
+  assert.match(fixtures.sourceCommit, /^[a-f0-9]{40}$/)
+  for (const audit of audited) assert.ok(recordedLevel(audit.file), 'each historical route retains its authored layout')
   for (const audit of recordings.pendingAudit) assert.ok(audit.reason.trim().length > 0)
   for (const old of recordings.supersededRuns) {
     assert.ok(recordings.pendingAudit.some(audit => audit.file === old.file))
@@ -21,8 +24,8 @@ test('revised course layouts retain explicit pending audits and their superseded
   }
 })
 
-for (const recording of [...recordings.runs, ...recordings.alternatives]) test(`fresh course completion: ${recording.file}${recording.label ? ` / ${recording.label}` : ''}`, () => {
-  const level = parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${recording.file}`, import.meta.url), 'utf8')))
+for (const recording of [...recordings.runs, ...recordings.alternatives]) test(`captured course completion: ${recording.file}${recording.label ? ` / ${recording.label}` : ''}`, () => {
+  const level = recordedLevel(recording.file)
   const run = createRun(level)
   for (const { frames, input } of recording.trace) {
     assert.ok(Number.isInteger(frames) && frames > 0)
@@ -38,9 +41,9 @@ for (const recording of [...recordings.runs, ...recordings.alternatives]) test(`
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP, 'the whole run replays from a fresh start')
 })
 
-test('Hurricane holds the pursuing Rbot behind quarantine and lets the player reset its control', () => {
+test('the captured Hurricane encounter contains Rbot and lets the player reset quarantine', () => {
   const recording = recordings.quarantine
-  const level = parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${recording.file}`, import.meta.url), 'utf8')))
+  const level = recordedLevel(recording.file)
   const run = createRun(level), boundary = level.forceFields[0].x
   let activatedAt
   for (const { frames, input } of recording.trace) for (let frame = 0; frame < frames; frame++) {

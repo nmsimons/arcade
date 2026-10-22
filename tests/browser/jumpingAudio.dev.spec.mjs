@@ -2,6 +2,43 @@ import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
+test('robot footsteps and movement motors render distinct, bounded sounds and stop cleanly', async ({ page }) => {
+  await page.goto('/lab')
+  const result = await page.evaluate(async () => {
+    const { JumpingSound } = await import('/src/games/jumping/sound.ts')
+    const rate = 24000, ctx = new OfflineAudioContext(2, rate * 2.5, rate), sound = new JumpingSound(ctx)
+    const cue = kind => sound.cue({ kind, volume: 1, pan: 0, strength: 1 })
+    const motor = (kind, pan) => sound.update({ loops: [{ id: 'robot', kind, volume: 1, pace: .7, pan, size: 0 }], cues: [] })
+    cue('footstep')
+    const stages = [
+      [.3, () => cue('robot-footstep')],
+      [.65, () => motor('shovebot', -.5)],
+      [1.25, () => sound.silence()],
+      [1.45, () => motor('robot-servo', .5)],
+      [2.05, () => sound.silence()],
+    ].map(([time, action]) => ({ ready: ctx.suspend(time), action }))
+    const rendering = ctx.startRendering()
+    for (const stage of stages) { await stage.ready; stage.action(); await ctx.resume() }
+    const buffer = await rendering
+    const measure = (start, end, channel = 0) => {
+      const values = buffer.getChannelData(channel).slice(start * rate, end * rate)
+      return { rms: Math.sqrt(values.reduce((sum, value) => sum + value * value, 0) / values.length),
+        peak: values.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0), finite: values.every(Number.isFinite) }
+    }
+    sound.dispose()
+    return { player: measure(0, .17), robot: measure(.3, .54), motor: measure(.8, 1.2), motorRight: measure(.8, 1.2, 1),
+      climb: measure(1.6, 2), climbRight: measure(1.6, 2, 1), stopped: measure(2.2, 2.49), full: measure(0, 2.5) }
+  })
+  expect(result.robot.rms).toBeGreaterThan(result.player.rms * 1.5)
+  expect(result.motor.rms).toBeGreaterThan(.003)
+  expect(result.climbRight.rms).toBeGreaterThan(.002)
+  expect(result.motor.rms).toBeGreaterThan(result.motorRight.rms * 1.5)
+  expect(result.climbRight.rms).toBeGreaterThan(result.climb.rms * 1.5)
+  expect(result.full.finite).toBe(true)
+  expect(result.full.peak).toBeLessThan(.2)
+  expect(result.stopped.peak).toBe(0)
+})
+
 test('all sound textures render quietly, loops reuse a bounded bank, and stopping leaves silence', async ({ page }) => {
   await page.goto('/lab')
   const result = await page.evaluate(async () => {

@@ -11,7 +11,7 @@ import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
-import { entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds } from './goal.ts'
+import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
@@ -100,6 +100,14 @@ export function setShovebotHeadlight(level: JumpLevel, index: number, enabled: b
   return next
 }
 
+export function setShovebotMode(level: JumpLevel, index: number, mode: 'shove' | 'emp'): JumpLevel {
+  if (!level.robots?.[index] || level.robots[index].kind === 'repulsor') return level
+  const next = copyLevel(level), robot = next.robots![index]
+  if (mode === 'emp') robot.mode = 'emp'
+  else delete robot.mode
+  return next
+}
+
 export function setCrateBranding(level: JumpLevel, index: number, enabled: boolean): JumpLevel {
   if (level.props?.[index]?.kind !== 'box') return level
   const next = copyLevel(level), crate = next.props![index]
@@ -171,7 +179,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'rope') { const r = level.climbables.ropes[i]; return r ? { x: r.x, y: r.y, w: 0, h: r.length } : null }
   if (selection.kind === 'ladder') { const l = level.climbables.ladders[i]; return l ? { x: l.x, y: l.top, w: 0, h: l.bottom - l.top } : null }
   if (selection.kind === 'prop') { const b = level.props?.[i]; return b ? { x: b.x - propWidth(b) / 2, y: b.y - propHeight(b), w: propWidth(b), h: propHeight(b) } : null }
-  if (selection.kind === 'robot') { const r = level.robots?.[i], h = r?.kind === 'repulsor' ? TUNING.height : 50; return r ? { x: r.x - 26, y: r.y - h, w: 52, h } : null }
+  if (selection.kind === 'robot') { const r = level.robots?.[i], h = r?.kind === 'repulsor' ? TUNING.height : 50; return r ? r.chargingBay ? chargingBayBounds(r, ROBOT_BAY_WIDTH_SCALE) : { x: r.x - 26, y: r.y - h, w: 52, h } : null }
   if (selection.kind === 'mechanism') return level.mechanisms?.[i] ?? null
   if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? t.mode === 'coins' ? coinSwitchBounds(t) : { x: t.x, y: t.y - (t.ceiling ? 0 : 8), w: t.w, h: 8 } : null }
   if (selection.kind === 'goal') return level.goal ? { ...level.goal, w: 0, h: 0 } : null

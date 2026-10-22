@@ -6,72 +6,30 @@
   "height": 900,
   "platforms": [
     {
+      "name": "Service gantry",
       "x": 1200,
       "y": 150,
       "w": 500,
       "h": 25,
       "zIndex": 1,
-      "material": "earth"
+      "material": "steel"
     },
     {
-      "x": 1675,
-      "y": 705,
-      "w": 125,
-      "h": 165,
+      "name": "Response bay plinth",
+      "x": 1585,
+      "y": 860,
+      "w": 215,
+      "h": 40,
       "zIndex": 2,
-      "material": "steel",
-      "polygon": [
-        [
-          10,
-          115
-        ],
-        [
-          110,
-          115
-        ],
-        [
-          110,
-          30
-        ],
-        [
-          10,
-          15
-        ],
-        [
-          20,
-          0
-        ],
-        [
-          125,
-          0
-        ],
-        [
-          125,
-          115
-        ],
-        [
-          125,
-          165
-        ],
-        [
-          0,
-          165
-        ],
-        [
-          0,
-          145
-        ],
-        [
-          15,
-          135
-        ]
-      ]
+      "material": "steel"
     },
     {
+      "name": "Settled cave floor",
       "x": 0,
       "y": 825,
       "w": 1800,
       "h": 75,
+      "material": "earth",
       "polygon": [
         [
           0,
@@ -124,6 +82,7 @@
       ]
     },
     {
+      "name": "Rock overhang",
       "x": 0,
       "y": 0,
       "w": 915,
@@ -170,6 +129,7 @@
     }
   ],
   "entrance": {
+    "name": "Lower service entrance",
     "x": 70,
     "y": 850
   },
@@ -188,7 +148,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:294e8ccd254388ab",
+          "key": "7:61549d78502e5142",
           "points": [
             [
               1200,
@@ -681,18 +641,19 @@
       }
     ]
   },
-  "floorMaterial": "stone",
+  "floorMaterial": "earth",
   "floor": 900,
   "goal": {
+    "name": "Service access",
     "x": 1564,
     "y": 150,
     "flipX": true
   },
   "times": {
-    "a": 10,
-    "b": 20,
-    "c": 40,
-    "d": 60
+    "a": 18,
+    "b": 28,
+    "c": 42,
+    "d": 65
   },
   "props": [
     {
@@ -703,9 +664,10 @@
       "branded": true
     },
     {
+      "name": "Abandoned service case",
       "kind": "box",
-      "x": 1782.5,
-      "y": 705,
+      "x": 1760,
+      "y": 860,
       "size": 35,
       "weight": "heavy"
     },
@@ -726,41 +688,152 @@
       "x": 865,
       "y": 871.6175398168972,
       "size": 30
+    },
+    {
+      "name": "Service isolation sleeve",
+      "kind": "box",
+      "x": 518,
+      "y": 856.6,
+      "size": 40,
+      "gadget": "emp"
     }
   ],
   "mechanisms": [],
   "triggers": [],
   "robots": [
     {
-      "x": 1746,
-      "y": 820,
-      "left": 1700,
+      "name": "Response unit",
+      "x": 1660,
+      "y": 860,
+      "left": 1580,
       "right": 1750,
-      "kind": "repulsor"
+      "kind": "repulsor",
+      "chargingBay": true
     }
   ],
   "timers": [
     {
-      "x": 1370,
-      "y": 10
+      "name": "Service route clock",
+      "x": 1400,
+      "y": 15
     }
   ],
   "pickups": [],
-  "texts": [],
-  "forceFields": [
+  "texts": [
     {
-      "id": "656e1dbc-18d7-4e19-bf4f-736728e775db",
-      "x": 1685,
-      "y": 720,
-      "w": 12,
-      "h": 100,
-      "orientation": "vertical",
-      "power": "always"
+      "name": "Response bay stencil",
+      "x": 1570,
+      "y": 670,
+      "w": 180,
+      "h": 34,
+      "text": "RESPONSE UNIT\nSTANDBY",
+      "fontSize": 13,
+      "align": "center",
+      "style": "official"
+    },
+    {
+      "name": "Unanswered operator terminal",
+      "x": 1575,
+      "y": 545,
+      "w": 185,
+      "h": 68,
+      "text": "OPERATOR CONNECTION\nNO RESPONSE",
+      "fontSize": 12,
+      "align": "left",
+      "style": "terminal"
+    },
+    {
+      "name": "Service access stencil",
+      "x": 1545,
+      "y": 85,
+      "w": 200,
+      "h": 34,
+      "text": "SERVICE ACCESS →",
+      "fontSize": 16,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "name": "Last shift graffiti",
+      "x": 920,
+      "y": 635,
+      "w": 230,
+      "h": 45,
+      "text": "not everyone left",
+      "fontSize": 20,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -5
+    },
+    {
+      "name": "Facility mark",
+      "x": 1410,
+      "y": 335,
+      "w": 220,
+      "h": 85,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    },
+    {
+      "name": "Isolation tool stencil",
+      "x": 445,
+      "y": 770,
+      "w": 165,
+      "h": 30,
+      "text": "LOCAL ISOLATION",
+      "fontSize": 13,
+      "align": "center",
+      "style": "official"
     }
   ],
+  "forceFields": [],
   "lighting": {
-    "nightMode": false,
+    "nightMode": true,
     "ambient": 0,
-    "lights": []
+    "lights": [
+      {
+        "id": "company-approach-light",
+        "x": 310,
+        "y": 715,
+        "intensity": 100,
+        "direction": 80,
+        "spread": 110,
+        "power": "always",
+        "flicker": true,
+        "name": "Failing service light"
+      },
+      {
+        "id": "company-bay-light",
+        "x": 1570,
+        "y": 655,
+        "intensity": 100,
+        "direction": 65,
+        "spread": 100,
+        "power": "always",
+        "name": "Response bay work light"
+      },
+      {
+        "id": "company-route-light",
+        "x": 1125,
+        "y": 35,
+        "intensity": 100,
+        "direction": 75,
+        "spread": 80,
+        "power": "always",
+        "name": "Rope service light"
+      },
+      {
+        "id": "company-exit-light",
+        "x": 1655,
+        "y": 35,
+        "intensity": 100,
+        "direction": 115,
+        "spread": 120,
+        "power": "always",
+        "name": "Gantry access light"
+      }
+    ]
   }
 }

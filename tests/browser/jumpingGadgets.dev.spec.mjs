@@ -138,6 +138,37 @@ test('carried EMP bolt disables the red barrier and stays equipped', async ({ pa
   expect(sleeve.x).toBeGreaterThan(520)
 })
 
+test('a lightning-blue shovebot shocks and pushes the player through normal controls', async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype, stroke = proto.stroke, fillRect = proto.fillRect
+    proto.fillRect = function (...args) {
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.contactEmpArcs = 0
+      return fillRect.apply(this, args)
+    }
+    proto.stroke = function (...args) {
+      if (this.strokeStyle === '#58bdf5') this.canvas.contactEmpArcs = (this.canvas.contactEmpArcs ?? 0) + 1
+      return stroke.apply(this, args)
+    }
+  })
+  const level = fixture(); level.props = []; level.forceFields = []
+  level.robots = [{ x: 430, y: 600, left: 100, right: 700, mode: 'emp' }]
+  await open(page, level)
+  await expect.poll(async () => {
+    await page.clock.runFor(100)
+    return page.locator('canvas').evaluate(canvas => canvas.contactEmpArcs ?? 0)
+  }).toBeGreaterThan(0)
+  const contact = await motion(page)
+  await page.keyboard.down('ArrowRight'); await page.keyboard.down('Space'); await page.keyboard.down('f')
+  await page.clock.runFor(250)
+  const pushed = await motion(page)
+  expect(pushed.y).toBeCloseTo(600, 1)
+  expect(pushed.x).toBeLessThan(contact.x - 10)
+  await page.screenshot({ path: info.outputPath('contact-emp-player-disabled.png') })
+  await page.keyboard.up('ArrowRight'); await page.keyboard.up('Space'); await page.keyboard.up('f')
+  expect(errors).toEqual([])
+})
+
 test('an EMP bolt stops one shovebot with visible crackle while the other keeps moving', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   const level = fixture(true)
@@ -156,7 +187,7 @@ test('an EMP bolt stops one shovebot with visible crackle while the other keeps 
   expect(Math.abs(after[1] - before[1])).toBeGreaterThan(5)
   await page.screenshot({ path: info.outputPath('emp-shovebot-crackle-next.png') })
   await expect(page.getByLabel('Available actions')).toHaveCount(0)
-  await page.clock.runFor(10500)
+  await page.clock.runFor(5500)
   expect(Math.abs((await positions())[0] - after[0])).toBeGreaterThan(5)
   expect(errors).toEqual([])
 })

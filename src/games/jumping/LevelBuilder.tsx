@@ -23,7 +23,7 @@ import { prepareLevelInWorker } from './levelPreparation'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
 import { BuilderSelect } from './BuilderSelect'
-import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight, setCrateBranding, setWallWiring, setWallTerminal } from './editor'
+import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight, setShovebotMode, setCrateBranding, setWallWiring, setWallTerminal } from './editor'
 import { DEFAULT_WIRE_HEIGHT, wallTerminals } from './wallWiring'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
@@ -104,7 +104,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click for a standard ball, or drag to choose its size. Corner handles resize it.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click for a standard box, or drag to choose its size. Corner handles resize it.' },
   { id: 'branded-box', group: 'Objects', label: 'L.A.B. crate', help: 'Place a crate with the L.A.B. Experiments stencil. It behaves like an ordinary box. Toggle L.A.B. branding in the inspector for either crate style.' },
-  { id: 'carried-emp', group: 'Gadgets', label: 'Carried EMP', help: 'E / X picks up or drops. F / RT fires an electric bolt: hit devices stop for ten seconds; one-second cooldown. Movement also aims. Red fields drop the tool.' },
+  { id: 'carried-emp', group: 'Gadgets', label: 'Carried EMP', help: 'E / X picks up or drops. F / RT fires an electric bolt: hit devices stop for five seconds; one-second cooldown. Movement also aims. Red fields drop the tool.' },
   { id: 'repulsor', group: 'Gadgets', label: 'Repulsor rifle', help: 'Pick up with E / X. F / RT fires. Movement also aims in eight directions. Red fields drop carried tools and block pulses.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click to place a shovebot at the cursor. Snap catches nearby surfaces. Drag either end of its patrol range, or set the limits in the inspector.' },
   { id: 'repulsorbot', group: 'Objects', label: 'Repulsorbot', help: 'Hunts across the whole level once it spots you. Runs, jumps, and climbs with the player rig. Its arm charges before firing a strong repulsor. Cover blocks shots; EMP disables it.' },
@@ -1227,7 +1227,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           {!outgoingTargets.length && <span>No switched items</span>}
         </fieldset>}
         {robot && robot.kind !== 'repulsor' && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={ROBOT_HALF_WIDTH} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? gridSize : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - ROBOT_HALF_WIDTH)} step={snap ? gridSize : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
+        {robot && robot.kind !== 'repulsor' && <BuilderSelect label="Mode" accessibleLabel="Shovebot mode" value={robot.mode ?? 'shove'} options={[{ value: 'shove', label: 'Shove' }, { value: 'emp', label: 'EMP + shove' }]} onChange={value => commit(setShovebotMode(history.present, selection.index, value as 'shove' | 'emp'))} />}
         {robot?.kind === 'repulsor' && <p>Hunts the player across the whole level once alerted. Large forearms charge and fire from the palms. Sight and cover govern its shots.</p>}
+        {robot?.kind === 'repulsor' && <label className="builder-headlight" title="Starts asleep in an installed pod. Sight, sound or contact wakes it before the hunt begins."><input type="checkbox" checked={!!robot.chargingBay} onChange={event => {
+          const next = copyLevel(history.present)
+          if (event.target.checked) next.robots![selection.index].chargingBay = true
+          else delete next.robots![selection.index].chargingBay
+          commit(next)
+        }} />Charging bay</label>}
         {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}

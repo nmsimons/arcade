@@ -6,6 +6,7 @@ import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { expectAccessibleSelection } from './helpers/jumpingAccessibility.mjs'
 import { androidMaterials } from '../../src/games/jumping/androidArtwork.ts'
+import { EMP_PALETTE, ROBOT_PALETTE } from '../../src/games/jumping/equipmentPalette.ts'
 
 const levels = () => ['First room', 'Second room', 'Third room'].map((name, i) => ({ ...blankTrial(), id: `menu-${i}`, name }))
 async function open(page, _legacy = false, maps = levels()) {
@@ -88,7 +89,7 @@ test('all object types appear in menu, library and overview previews through the
     entrance: { x: 60, y: 600 }, goal: { x: 650, y: 600 }, checkpoints: [{ x: 90, y: 600 }],
     platforms: [{ x: 50, y: 420, w: 100, h: 20 }],
     props: [{ kind: 'ball', x: 160, y: 600, size: 60 }, { kind: 'box', x: 240, y: 600, size: 60 }],
-    robots: [{ x: 340, y: 600, left: 300, right: 400 }],
+    robots: [{ x: 340, y: 600, left: 300, right: 400 }, { x: 400, y: 600, left: 380, right: 430, mode: 'emp' }],
     mechanisms: [{ id: 'g', kind: 'gate', x: 450, y: 480, w: 20, h: 120, travel: 120 },
       { id: 'h', kind: 'gate', orientation: 'horizontal', x: 180, y: 300, w: 140, h: 20, travel: 140 },
       { id: 'f', kind: 'gate', orientation: 'horizontal', flipX: true, x: 440, y: 300, w: 120, h: 20, travel: 120 },
@@ -112,7 +113,7 @@ test('all object types appear in menu, library and overview previews through the
     await expect.poll(() => canvas.evaluate(c => c.previewDraws?.some(call => call.method === 'fillText' && call.args[0] === 'Preview') ?? false)).toBe(true)
     const calls = await canvas.evaluate(c => c.previewDraws ?? [])
     const has = (method, match) => calls.some(call => call.method === method && match(call.args, call.color))
-    for (const [w, h, color] of [[60, 60, '#b3a28d'], [20, 120, '#8f9e98'], [140, 20, '#8f9e98'], [120, 20, '#8f9e98'], [80, 20, '#b3a28d'], [51, 34, '#b3a28d']])
+    for (const [w, h, color] of [[60, 60, '#b3a28d'], [20, 120, '#8f9e98'], [140, 20, '#8f9e98'], [120, 20, '#8f9e98'], [80, 20, '#b3a28d'], [51, 34, ROBOT_PALETTE.body], [51, 34, EMP_PALETTE.body]])
       expect(has('roundRect', (a, c) => a[2] === w && a[3] === h && c === color)).toBe(true)
     expect(has('arc', (a, c) => a[2] === 30 && c === '#8f9e98')).toBe(true)
     expect(has('arc', a => a[0] === 390 && a[1] === 100 && a[2] === 5)).toBe(true)

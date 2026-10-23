@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises'
 import { finishJumpingEntrance, useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { crouchedPushLevel } from '../helpers/jumpingCrouchedPushScenarios.mjs'
+import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 test('keyboard turns between blocked props retain the whole body and establish the incoming brace', async ({page},info) => {
   const root=474.5,size=80,offset=size/2+25.5
@@ -369,6 +370,9 @@ for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low d
 })
 
 for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`crouch working contact follows tilted crates and inverted ball passages: direction=${direction}, reversed=${reversed}`, async ({ page }, info) => {
+  // These cases include a complete gravity ascent, cargo settling and three
+  // contact-history checks. Allow software-rendered runs to finish the route.
+  if (reversed) test.setTimeout(60000)
   const level = crouchedPushLevel(reversed
     ? { name: 'ball passage', kind: 'ball', size: 100, blocked: true, ceiling: true }
     : { name: 'tilted crate', kind: 'box', size: 80, slope: .3 }, direction, reversed)
@@ -388,7 +392,7 @@ for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`cro
   await expect(page.locator('canvas')).toBeFocused()
   if (reversed) {
     await page.keyboard.down('ArrowUp'); await page.clock.runFor(16); await page.keyboard.up('ArrowUp')
-    await page.clock.runFor(6000)
+    await advanceJumpingPassiveWait(page, 6000)
     expect(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1).signals.inverted)).toBe(true)
   }
   const key = direction === 1 ? 'd' : 'a'

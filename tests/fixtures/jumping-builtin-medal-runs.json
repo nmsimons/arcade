@@ -3692,8 +3692,8 @@
     {
       "file": "buoyancy.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 30.766666666665323,
-      "activeTime": 50.62499999999777,
+      "elapsed": 30.75833333333199,
+      "activeTime": 50.616666666664436,
       "coins": 0,
       "trace": [
         {
@@ -3983,7 +3983,7 @@
           }
         },
         {
-          "frames": 18,
+          "frames": 17,
           "input": {
             "move": 0,
             "jump": false,

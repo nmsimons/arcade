@@ -99,7 +99,7 @@ for (const inverted of [false, true]) for (const dt of [STEP, 1 / 30]) test(`pla
   }
   assert.ok(exited && p.vy < -200, 'leaving the field retains upward momentum')
   assert.equal(p.grounded, false)
-  assert.equal(p.inverted, inverted, 'floating retains orientation without a ceiling/floor contact')
+  assert.equal(p.inverted, true, 'the body has turned toward the dry field gravity before leaving it')
 })
 
 test('uniform and sideways fields add no floating drag; an unstable lower edge does not catch bodies', () => {

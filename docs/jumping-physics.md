@@ -624,7 +624,7 @@ room for crouching but not standing.
 | Free in water | Up/Down steer ascent/dive; combine with horizontal movement for diagonals. Once swimming below the surface, release glides to a stop and floats upright at the reached depth. On the submerged floor, stand or walk with relaxed arms; Down crouches, release stands, and Up swims away. Swim to push loose props. Only stable supported crates offer a grip: use Up, with a surface jump first if needed. Terrain banks can catch automatically. |
 | Hanging after deliberate lowering | Held Down stops in a safe hang. Release and a separate Down press drops once; explicit detach is immediate. Without horizontal input, letting go preserves facing toward the ledge despite its small outward clearance impulse. A fresh Jump leaps outward at 260 units/second and turns the figure outward; Up requests a clear pull-up. |
 | Catching while Jump is held | The catch consumes that press. Release, then press again to depart; continued hold cannot launch or renew lift. |
-| Inverted support | Up is the gravity-facing lowering request. Holding that original Up stops in a safe hang rather than immediately starting a pull-up. Release and another Up press can pull up; Down or explicit detach can drop. |
+| Inverted support | Up is the gravity-facing lowering request. Holding that original Up stops in a safe hang. Release and another Up press drops; Down requests a pull-up, and explicit detach is immediate. |
 
 `verticalClimbOption` shares the motor's acquisition exclusions with feedback.
 `actionFeedback.ts` describes the solved state without advancing physics or input;
@@ -1302,7 +1302,12 @@ Steering and velocity continue through the turn; rotation adds no momentum.
 The rotated collision hull is checked along the arc. A blocked turn waits for
 clearance instead of snapping upright on contact or ejecting the body from a
 narrow passage. Reversing gravity unwinds a partial roll; the existing five-percent
-deadband holds it near zero. Water retains its swimming posture controller.
+deadband holds it near zero. Loaded wall palms retain their brace through field
+reversals; a free turn becomes available after leaving that contact. Water retains
+its swimming posture controller.
+A crouched roll uses the compact collision hull. If a standing roll is blocked,
+it can finish crouched when the entire compact arc is clear, retaining that stance
+until ordinary headroom permits standing.
 Ropes remain catchable during the roll using the visible hands and the ordinary
 reach and obstruction checks. A catch retains the outgoing rotated rig and angle,
 then blends into the hand-pivot hold without first snapping upright.

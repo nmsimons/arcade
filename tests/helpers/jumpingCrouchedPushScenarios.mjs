@@ -37,7 +37,12 @@ export function crouchedPushLevel(config, facing, inverted = false) {
 export function crouchedPushScenario(config, facing, inverted = false) {
   const run = createRun(crouchedPushLevel(config, facing, inverted))
   if (inverted) {
-    stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+    // Start the contact fixture at its receiving ceiling. An airborne roll
+    // beside the cargo can shove it before the pushing encounter even begins.
+    run.player.y = 1300 - 650; run.player.inverted = true
+    run.player.footwork = null; run.player.contacts = null
+    run.props[0].y = run.player.y + config.size
+    stepRun(run, { ...NEUTRAL_INPUT, reach: true })
     for (let tick = 0; tick < 720; tick++) stepRun(run, NEUTRAL_INPUT)
   }
   if (config.angle) run.props[0].angle = config.angle

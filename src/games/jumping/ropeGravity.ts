@@ -73,19 +73,30 @@ export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: nu
     turn.progress + (turn.target ? 1 : -1) * dt / AIR_TURN_TIME))
   const next = progress === undefined ? before + Math.max(-TURN_SPEED * dt, Math.min(TURN_SPEED * dt, turn.target - before))
     : Math.sign(turn.target || before || p.facing) * Math.PI * progress * progress * (3 - 2 * progress)
-  const center: Point = [p.x + Math.sin(before) * 31, p.y - Math.cos(before) * 31]
-  let from: Point = [p.x, p.y]
-  for (let i = 1; i <= 3; i++) {
-    const angle = before + (next - before) * i / 3, root: Point = [center[0] - Math.sin(angle) * 31, center[1] + Math.cos(angle) * 31]
-    const safe = moveBody(from, root, terrain, TUNING.height, 1, angle)
-    const dx = safe.x - root[0], dy = safe.y - root[1]
-    // Allow only the local clearance created by this small angular step.
-    // A narrow passage still blocks rotation; it cannot eject the whole body.
-    if (Math.hypot(dx, dy) > TUNING.height * Math.abs(next - before) / 3 + .05
-      || terrain.some(b => polygonIntersects(bodyPolygon(safe.x, safe.y, TUNING.height, 1, angle), b, .001))) return
-    center[0] += dx; center[1] += dy
-    from = [safe.x, safe.y]
+  const advance = (height: number): Point | null => {
+    const center: Point = [p.x + Math.sin(before) * 31, p.y - Math.cos(before) * 31]
+    let from: Point = [p.x, p.y]
+    for (let i = 1; i <= 3; i++) {
+      const angle = before + (next - before) * i / 3, root: Point = [center[0] - Math.sin(angle) * 31, center[1] + Math.cos(angle) * 31]
+      const safe = moveBody(from, root, terrain, height, 1, angle)
+      const dx = safe.x - root[0], dy = safe.y - root[1]
+      // Allow only the local clearance created by this small angular step.
+      // A narrow passage still blocks rotation; it cannot eject the whole body.
+      if (Math.hypot(dx, dy) > TUNING.height * Math.abs(next - before) / 3 + .05
+        || terrain.some(b => polygonIntersects(bodyPolygon(safe.x, safe.y, height, 1, angle), b, .001))) return null
+      center[0] += dx; center[1] += dy
+      from = [safe.x, safe.y]
+    }
+    return from
   }
+  let from = advance(p.crouching ? TUNING.crouchHeight : TUNING.height)
+  // A free roll can finish crouched beneath a low ceiling. Keep the actual
+  // compact hull through the turn instead of freezing a standing hull halfway.
+  if (!from && turn.progress !== undefined && !p.crouching) {
+    from = advance(TUNING.crouchHeight)
+    if (from) p.crouching = true
+  }
+  if (!from) return
   p.x = from[0]; p.y = from[1]; turn.angle = next
   if (progress !== undefined) turn.progress = progress
 }

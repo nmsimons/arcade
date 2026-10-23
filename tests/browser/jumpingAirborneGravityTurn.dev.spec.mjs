@@ -11,9 +11,14 @@ test('fresh controls turn in the air on entering and leaving reversed gravity', 
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible({ timeout: 20000 })
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect.poll(async () => {
+    await page.clock.runFor(16)
+    return page.locator('.jumping-game > canvas').evaluate(canvas => document.activeElement === canvas)
+  }, { timeout: 20000 }).toBe(true)
+  await finishJumpingEntrance(page)
   await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')
   await page.clock.runFor(700)
   let recent = await page.evaluate(() => window.jumpingMotion.read().recent)
@@ -111,4 +116,30 @@ test('player and R-bot roll through a gathered pose in both gravity directions',
   })
   for (const result of results) { expect(result.inverted).toBe(result.expected); expect(result.turning).toBe(false) }
   await page.locator('canvas').screenshot({ path: info.outputPath('airborne-gravity-rolls.png') })
+})
+
+test('a roll in a low chamber settles into a supported crouch instead of staying folded', async ({ page }, info) => {
+  await page.goto('/lab')
+  const result = await page.evaluate(async () => {
+    const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
+    const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
+    const { mirrorPlatform, mirrorPlayerState } = await import('/src/games/jumping/gravityFrame.ts')
+    const p = createPlayer({ x: 109, y: 570 })
+    Object.assign(p, { grounded: false, coyote: 0,
+      releaseTurn: { angle: Math.PI / 2, target: Math.PI, progress: .5, time: .18 } })
+    mirrorPlayerState(p); p.inverted = true
+    const terrain = [{ x: -100, y: 500, w: 500, h: 40 }, { x: -100, y: 600, w: 500, h: 100 }].map(mirrorPlatform)
+    for (let i = 0; i < 180; i++) stepPlayer(p, NEUTRAL_INPUT, STEP, terrain)
+    const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 300
+    document.body.replaceChildren(canvas)
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#f1f2ef'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.translate(400 - p.x * 3, 150 - (p.y - 20) * 3); ctx.scale(3, 3)
+    ctx.fillStyle = '#8c9491'
+    for (const b of terrain) ctx.fillRect(b.x, b.y, b.w, b.h)
+    drawAthlete(ctx, p, '#686b6e')
+    return { inverted: p.inverted, grounded: p.grounded, crouching: p.crouching, turning: !!p.releaseTurn }
+  })
+  expect(result).toEqual({ inverted: false, grounded: true, crouching: true, turning: false })
+  await page.locator('canvas').screenshot({ path: info.outputPath('settled-crouch-in-low-chamber.png') })
 })

@@ -4,7 +4,7 @@ import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, setPlateCeiling, itemBounds, hitItem, moveItem, resizeItem, duplicateItem } from '../src/games/jumping/editor.ts'
 import { placeOnSurface, surfacePlacement } from '../src/games/jumping/editorPlacement.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
-import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
+import { createPlayer, NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { createGravityField, updateGravityField, gravityAtPoint } from '../src/games/jumping/gravity.ts'
 import { propLoadsPlate } from '../src/games/jumping/propGeometry.ts'
 import { pressurePlatePosition } from '../src/games/jumping/pressurePlateMount.ts'
@@ -40,7 +40,8 @@ for (const behavior of ['switch', 'toggle']) test(`ceiling ${behavior} uses the 
   run.player.x = 800; step(run, 24); assert.equal(run.triggers[0].active, true)
   assert.equal(run.triggers[0].pressed, false)
   assert.equal(run.triggers[0].depression, behavior === 'switch' ? 1 : 0)
-  Object.assign(run.player, { x: 300, y: 0, inverted: true, grounded: true, vy: 0 })
+  // Teleport a fresh supported body; the excursion can now leave a live roll.
+  run.player = Object.assign(createPlayer({ x: 300, y: 0 }), { inverted: true })
   step(run, 25); assert.equal(run.triggers[0].active, behavior === 'switch')
 })
 

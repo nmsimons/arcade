@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, gaitPose } from '../src/games/jumping/model.ts'
+import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, TUNING, gaitPose } from '../src/games/jumping/model.ts'
 import { athletePose, dryLedgeReach, dryLedgeReachPose, reflectAthletePose } from '../src/games/jumping/athlete.ts'
 import { anticipatePush, playerContacts, updatePushingPose } from '../src/games/jumping/playerContacts.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
@@ -14,7 +14,7 @@ for (const inverted of [false, true]) {
     for (const values of [{ x: 460 }, { y: 500 }, { vx: -100 }]) {
       const p = falling(values)
       if (inverted) { mirrorPlayerState(p); p.inverted = true }
-      stepPlayer(p, NEUTRAL_INPUT, STEP, [inverted ? mirrorPlatform(lip) : lip])
+      stepPlayer(p, NEUTRAL_INPUT, STEP, [inverted ? mirrorPlatform(lip) : lip], undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
       assert.equal(p.hang, null)
       assert.equal(p.ledgeReach, null, 'a nearby root is not enough to justify a hand reach')
     }
@@ -23,7 +23,7 @@ for (const inverted of [false, true]) {
     const p = falling({ x: 460 })
     p.dryTurn = { pose: reflectAthletePose(athletePose(p)), facing: 1, target: 1, time: 0, departure: false }
     if (inverted) { mirrorPlayerState(p); p.inverted = true }
-    stepPlayer(p, NEUTRAL_INPUT, STEP, [inverted ? mirrorPlatform(lip) : lip])
+    stepPlayer(p, NEUTRAL_INPUT, STEP, [inverted ? mirrorPlatform(lip) : lip], undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
     assert.equal(p.ledgeReach, null)
   })
   test(`ledge preparation chooses the same usable lip regardless of platform order: inverted=${inverted}`, () => {
@@ -32,7 +32,7 @@ for (const inverted of [false, true]) {
     for (const platforms of [[lip, second], [second, lip]]) {
       const p = falling({ vx: 200 })
       if (inverted) { mirrorPlayerState(p); p.inverted = true }
-      stepPlayer(p, NEUTRAL_INPUT, STEP, inverted ? platforms.map(mirrorPlatform) : platforms)
+      stepPlayer(p, NEUTRAL_INPUT, STEP, inverted ? platforms.map(mirrorPlatform) : platforms, undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
       assert.equal(p.hang, null)
       assert.ok(p.ledgeReach?.amount > 0, 'a close forward lip still prepares the hands')
       selected.push(p.ledgeReach)

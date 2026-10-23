@@ -1026,11 +1026,13 @@ export function reflectAthletePose(pose: AthletePose): AthletePose {
 
 /** Capture requested turns and slides whose real wall brace can select facing.
  * Steering changes immediately; this snapshot belongs solely to the rig. */
-export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null {
+export function captureDryTurn(p: Player, input: JumpInput, frameDirection = 1): DryTurnFrame | null {
   if (p.waterMotion || p.releaseTurn) return null
   const grip = !!(p.hang || p.climbing)
-  const departing = grip && ((input.jump && !p.jumpHeld) || input.detach || input.drop || input.descend)
-  const ledgeDrop = !!p.hang && (input.detach || (input.drop || input.descend) && !p.hang.dropLocked)
+  const screenDown = !!(input.descend ?? (input.drop && !input.detach))
+  const dropping = (frameDirection > 0 ? screenDown : input.climb) || input.drop && !screenDown
+  const departing = grip && ((input.jump && !p.jumpHeld) || input.detach || dropping)
+  const ledgeDrop = !!p.hang && (input.detach || dropping && !p.hang.dropLocked)
   if (p.mantle) {
     if (!p.mantle.step || p.mantle.step.climbing) return null
     const step = p.mantle, source = snapshotDryPlayer(p)
@@ -2555,6 +2557,10 @@ function resolveAthletePose(p: Player): AthletePose {
       resolved[name] = clearLimb(p, bracing ? resolved[name] : clearSlidingArm(p, resolved[name]), UPPER_ARM, FOREARM, 1, true,
         bracing, bracing && p.wallBrace!.hands[i] === 1)
     }
+  }
+  // A running shoe can already reach down a slope before the root starts
+  // slipping. Clear its knee in both states so slide entry retains that bend.
+  if (p.sliding || p.grounded) {
     resolved.frontLeg = clearSlidingJoint(p, resolved.frontLeg, 15, 14.5, 2.2)
     resolved.backLeg = clearSlidingJoint(p, resolved.backLeg, 15, 14.5, 2.2)
   }

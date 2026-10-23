@@ -5,7 +5,8 @@ import { mirrorPlatform, mirrorPlayerState } from '../../src/games/jumping/gravi
 export function floatingWall(side, inverted) {
   const wall = { x: 0, y: 0, w: 20, h: 240, polygon: [[0, 0], [10, 0], [20, 240], [0, 240]] }
   const plate = { id: 'lift', x: 20, y: 170, w: 55, h: 150, gravity: -3, power: 'always' }
-  const p = createPlayer({ x: 30, y: 200 })
+  // Begin at the brace face, rather than rolling freely before reaching it.
+  const p = createPlayer({ x: 28, y: 200 })
   Object.assign(p, { grounded: false, coyote: 0, facing: -1 })
   if (side === 1) {
     wall.x = -20; wall.polygon = wall.polygon.map(([x, y]) => [20 - x, y])

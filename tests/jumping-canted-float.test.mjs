@@ -23,6 +23,7 @@ for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const inverted
         assert.ok(Math.abs(Math.hypot(arm.end[0] - arm.joint[0], arm.end[1] - arm.joint[1], (arm.endDepth ?? 0) - (arm.jointDepth ?? 0)) - 9) < 1e-6)
       }
       if (!p.wallBrace?.active || p.wallBrace.amount < 1 || p.wallBrace.hands.some(weight => weight < 1)) continue
+      assert.equal(p.releaseTurn, undefined, 'loaded palms retain their brace while the field reverses')
       contacts++
       // The pose is in the player's gravity frame, including the brace face.
       const brace = inverted ? { ...p.wallBrace, wallY: -p.wallBrace.wallY, normal: [p.wallBrace.normal[0], -p.wallBrace.normal[1]] } : p.wallBrace

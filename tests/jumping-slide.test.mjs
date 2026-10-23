@@ -18,7 +18,7 @@ function trace(level, entry, steer, observe, jumpAt) {
     const move = !started ? 0 : contact < 0 ? direction * (entry === 'walk' ? 125 / 350 : 1)
       : steer === 'uphill' ? -direction : steer === 'downhill' ? direction : 0
     const jump = typeof jumpAt === 'function' ? jumpAt(p, i) : jumpAt !== undefined && contact >= 0 && i >= contact + jumpAt && i < contact + jumpAt + 3
-    stepRun(run, { ...NEUTRAL_INPUT, move, climb: !started || i === 0, jump })
+    stepRun(run, { ...NEUTRAL_INPUT, move, climb: i === 0, jump })
     if (p.sliding?.active && contact < 0) contact = i
     if (p.sliding?.active) {
       seen++

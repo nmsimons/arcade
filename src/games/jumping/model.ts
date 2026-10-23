@@ -476,7 +476,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle, oldLadder = p.climbing?.ladder
   const beforeBody = playerContactBody(p)
   const previousFacing = p.facing
-  const turnFrame = captureDryTurn(p, input)
+  const turnFrame = captureDryTurn(p, input, frameDirection)
   const slideEntryFrame = captureSlideEntry(p)
   const previousWaterCenter = inWater ? playerWaterCenterOffset(p) : 0
   const previousWaterMotion = p.waterMotion ? { ...p.waterMotion } : undefined
@@ -703,7 +703,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
 /** Free bodies prepare gravity-facing feet in the air. The shared released-turn
  * solver checks the rotated arc and waits wherever solid geometry blocks it. */
 function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
-  if (Math.abs(gravity) <= TUNING.gravity * .05 || p.grounded || p.hang || p.mantle || p.climbing || p.releaseTurn || p.waterMotion
+  if (Math.abs(gravity) <= TUNING.gravity * .05 || p.grounded || p.hang || p.mantle || p.climbing || p.releaseTurn || p.waterMotion || p.wallBrace?.active
     || (gravity < 0) === !!p.inverted) return
   p.releaseTurn = { angle: 0, target: p.facing * Math.PI, pose: pose ?? athletePose(p), facing: p.facing, time: 0, progress: 0 }
   p.grounded = false; p.coyote = 0
@@ -1226,7 +1226,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     return
   }
   // Feet stay planted when ducking. Do not stand up through a low ceiling.
-  p.crouching = (bodyCrouch && p.grounded) || (p.crouching && platforms.some(b => overlaps(p.x, p.y, b)))
+  p.crouching = (bodyCrouch && p.grounded) || (p.crouching && (!!p.releaseTurn || platforms.some(b => overlaps(p.x, p.y, b))))
   p.crouch = approach(p.crouch, Number(p.crouching), dt * 10)
   p.reach = approach(p.reach, Number(input.reach && !p.crouching), dt * 10)
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
@@ -1369,7 +1369,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   }
   let reach: Player['ledgeReach'] = null
   let reachScore = -1, dryReachPose: AthletePose | null | undefined
-  if (!p.grounded && !p.crouching && !p.releaseTurn && p.grabCooldown === 0 && !bodyDrop && p.vy > -500) {
+  const suppressLedgeGrab = frameDirection > 0 ? input.drop : input.climb || input.drop && !screenDown
+  if (!p.grounded && !p.crouching && !p.releaseTurn && p.grabCooldown === 0 && !suppressLedgeGrab && p.vy > -500) {
     let catchPosition: ReturnType<typeof moveBody> | undefined
     ledges: for (let index = 0; index < platforms.length; index++) for (const ledge of platformLedges(platforms[index])) {
       // Sideways swimming pushes loose objects; Up deliberately reaches for

@@ -62,6 +62,9 @@ test('ten seconds of started idle retain real support, readable quiet arms and p
   for (const { name, level } of contexts) for (const facing of [-1, 1]) {
     const run = createRun(level), p = run.player, input = { ...NEUTRAL_INPUT, crouch: name.includes('crouched') }
     stepRun(run, NEUTRAL_INPUT, ENTRANCE_SECONDS)
+    // Establish support before choosing the idle heading; an airborne half-turn
+    // now changes the body's facing before it reaches the reversed ceiling.
+    for (let tick = 0; tick < 360; tick++) stepRun(run, input)
     for (let tick = 0; tick < 4; tick++) stepRun(run, { ...input, move: facing })
     for (let tick = 0; tick < 360; tick++) stepRun(run, input)
     assert.equal(run.started, true, `${name}: exercise the started world rather than the frozen ready frame`)

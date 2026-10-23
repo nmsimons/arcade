@@ -70,10 +70,29 @@ for (const dt of [1 / 120, 1 / 30]) test(`a blocked roll waits for room and fini
     assert.ok(!terrain.some(b => polygonIntersects(bodyPolygon(p.x, p.y, 62, p.inverted ? -1 : 1, playerTurnAngle(p)), b, .001)))
     assert.ok(Math.abs(p.x) < 1, 'rotation cannot eject the body from the shaft')
   }
-  assert.equal(p.inverted, false); assert.ok(p.releaseTurn)
+  assert.equal(p.inverted, false); assert.ok(p.releaseTurn || p.wallBrace?.active, 'the narrow passage retains a blocked turn or an actual brace')
   for (let i = 0; i < 2 / dt; i++) stepPlayer(p, { ...NEUTRAL_INPUT, move: 1 }, dt, [], undefined, undefined, undefined, g)
   assert.equal(p.inverted, true); assert.equal(p.releaseTurn, undefined); assert.ok(p.x > 100)
 })
+
+for (const dt of [1 / 120, 1 / 30]) for (const inverted of [false, true]) for (const crouching of [false, true]) for (const complete of [false, true]) {
+  test(`a low chamber allows a partial roll to ${complete ? 'finish' : 'unwind'} crouched (${inverted}, ${crouching}, ${1 / dt} Hz)`, () => {
+    const p = createPlayer({ x: 109, y: 570 })
+    Object.assign(p, { grounded: false, coyote: 0, crouching, crouch: Number(crouching),
+      releaseTurn: { angle: Math.PI / 2, target: Math.PI, progress: .5, time: .18 } })
+    let terrain = [{ x: -100, y: 500, w: 500, h: 40 }, { x: -100, y: 600, w: 500, h: 100 }]
+    if (inverted) { mirrorPlayerState(p); p.inverted = true; terrain = terrain.map(mirrorPlatform) }
+    const g = inverted === complete ? undefined : field(-1)
+    for (let tick = 0; tick < 1.5 / dt; tick++) {
+      stepPlayer(p, NEUTRAL_INPUT, dt, terrain, undefined, undefined, undefined, g)
+      const hull = bodyPolygon(p.x, p.y, p.crouching ? TUNING.crouchHeight : TUNING.height, p.inverted ? -1 : 1, playerTurnAngle(p))
+      assert.ok(!terrain.some(b => polygonIntersects(hull, b, .001)), 'the complete turn stays inside the 60-unit clearance')
+    }
+    assert.equal(p.inverted, complete ? !inverted : inverted); assert.equal(p.releaseTurn, undefined)
+    assert.equal(p.grounded, true); assert.equal(p.crouching, true)
+    assert.equal(p.crouch, 1, 'the completed pose retains the compact stance required by the ceiling')
+  })
+}
 
 test('a gravity reversal unwinds a partial roll, zero gravity holds it, and respawn clears it', () => {
   const p = createPlayer({ x: 0, y: 500 }); p.grounded = false

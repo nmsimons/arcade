@@ -104,7 +104,8 @@ test('a ledge jump transfers out of the real grip while retaining outward impuls
     const terrain = [{ x: side === 1 ? 400 : 200, y: 200, w: 200, h: 400 }]
     if (inverted) { mirrorPlayerState(p); p.inverted = true }
     const floor = inverted ? terrain.map(mirrorPlatform) : terrain
-    const step = jump => stepPlayer(p, { ...NEUTRAL_INPUT, move: heldDown ? 0 : side, jump, drop: heldDown, descend: heldDown }, STEP, floor, undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
+    const step = jump => stepPlayer(p, { ...NEUTRAL_INPUT, move: heldDown ? 0 : side, jump,
+      drop: heldDown && !inverted, descend: heldDown && !inverted, climb: heldDown && inverted }, STEP, floor, undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
     step(true); assert.ok(p.hang, 'the held catch press is consumed')
     step(false); const before = worldPoint(p, athletePose(p).head)
     step(true)
@@ -129,7 +130,7 @@ test('a ledge jump transfers out of the real grip while retaining outward impuls
 
 test('letting go of a ledge preserves visible facing through the release without changing clearance or steering', () => {
   for (const side of [-1, 1]) for (const inverted of [false, true]) for (const braced of [false, true]) {
-    for (const release of [{ drop: true }, { descend: true }, { detach: true }, { detach: true, jump: true }]) {
+    for (const release of [{ drop: true }, inverted ? { climb: true } : { descend: true }, { detach: true }, { detach: true, jump: true }]) {
       const p = createPlayer({ x: 400 - side * 14, y: 274 })
       Object.assign(p, { facing: side, grounded: false, coyote: 0,
         hang: { platform: 0, edgeX: 400, edgeY: 200, side, time: LEDGE_CATCH_TIME, braced,

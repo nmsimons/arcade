@@ -7,6 +7,7 @@ import { JSON_LAB } from '../helpers/jumping-fixtures.mjs'
 import { allSelections, itemDefinition } from '../../src/games/jumping/editor.ts'
 import { defaultObjectLabel } from '../../src/games/jumping/objectLabels.ts'
 import { expectDayAmbientPixel } from './helpers/jumpingLighting.mjs'
+import { cubicPoint, terrainCubic } from '../../src/games/jumping/terrainCurves.ts'
 
 async function open(page, level) {
   if (level) await useLevelFixtures(page, [level])
@@ -14,6 +15,11 @@ async function open(page, level) {
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
+    window.builderLightingWorkers = 0
+    window.Worker = new Proxy(window.Worker, { construct(target, args) {
+      if (String(args[0]).includes('lightingGeometry.worker')) window.builderLightingWorkers++
+      return Reflect.construct(target, args)
+    } })
     const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc, begin = proto.beginPath, move = proto.moveTo, fill = proto.fill
     proto.beginPath = function (...args) { this.jumpPath = []; return begin.apply(this, args) }
     proto.moveTo = function (x, y) { this.jumpPath?.push([x, y]); return move.call(this, x, y) }
@@ -22,7 +28,7 @@ async function open(page, level) {
       return fill.apply(this, args)
     }
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = []; this.canvas.builderHandles = []; this.canvas.builderLabels = [] }
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.builderWorldDraws = (this.canvas.builderWorldDraws ?? 0) + 1; this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = []; this.canvas.builderHandles = []; this.canvas.builderLabels = [] }
       if (args[0] === 66 && args[1] === 12 && args[2] === 3 && args[3] === 3) {
         const t = this.getTransform(), camera = this.canvas.jumpCamera
         if (camera) this.canvas.wallTimers?.push({ face: this.jumpDigitalFace, x: (t.e - camera.e) / camera.a, screenX: t.e })
@@ -88,6 +94,81 @@ async function expectHandle(page, point) {
   const canvas = page.getByRole('application', { name: 'Level canvas' })
   await expect.poll(() => canvas.evaluate((c, p) => c.builderHandles.some(h => Math.hypot(h.x - p.x, h.y - p.y) < .01), point)).toBe(true)
 }
+
+test('terrain defaults to straight nodes and Bézier handles drag, split, undo and round-trip', async ({ page }, info) => {
+  test.setTimeout(60000)
+  const level = { ...blankTrial(), width: 1100, height: 800, floor: 800, entrance: { x:100, y:800 }, goal: { x:950, y:800 },
+    platforms: [{ x:320, y:260, w:400, h:220, polygon:[[0,100],[200,0],[400,100],[400,220],[0,220]] }] }
+  await open(page, level)
+  await page.getByRole('checkbox', { name:'Snap', exact:true }).uncheck()
+  await page.getByRole('button', { name:'Node', exact:true }).click()
+  const node = await worldPoint(page, { x:520, y:260 })
+  await page.mouse.click(node.x, node.y)
+  const mode = page.getByRole('combobox', { name:'Bézier handles', exact:true })
+  await expect(mode).toHaveAttribute('data-value', 'straight')
+  expect((await saveTestLevel(page)).level.platforms[0].bezier).toBeUndefined()
+  await selectBuilderOption(page, 'Bézier handles', 'corner')
+  await expect(mode).toHaveAttribute('data-value', 'corner')
+  await waitForBuilderPreview(page)
+  const [start, end] = await worldPoints(page, [{ x:520 + 200 / 3, y:260 + 100 / 3 }, { x:630, y:230 }])
+  await page.mouse.move(start.x, start.y); await page.mouse.down()
+  const workers = await page.evaluate(() => window.builderLightingWorkers)
+  const canvas = page.getByRole('application', { name:'Level canvas' }), draws = await canvas.evaluate(c => c.builderWorldDraws)
+  await page.mouse.move(end.x, end.y, { steps:8 })
+  expect(await page.evaluate(() => window.builderLightingWorkers)).toBe(workers)
+  expect(await canvas.evaluate(c => c.builderWorldDraws)).toBeGreaterThan(draws)
+  await page.mouse.up()
+  await waitForBuilderPreview(page)
+  const saved = await saveTestLevel(page), changed = saved.level.platforms[0]
+  expect(changed.polygon).toHaveLength(5)
+  expect(changed.bezier[1].out).toEqual([110,-30])
+  await page.getByRole('button', { name:'Undo', exact:true }).click()
+  expect((await saveTestLevel(page)).level.platforms[0].bezier[1].out).toEqual([200 / 3, 100 / 3])
+  await page.getByRole('button', { name:'Redo', exact:true }).click()
+  expect((await saveTestLevel(page)).level.platforms[0]).toEqual(changed)
+  await page.screenshot({ path:info.outputPath('bezier-handles.png') })
+  await reopenTestLevel(page, saved)
+  await waitForBuilderPreview(page)
+  expect((await saveTestLevel(page)).level.platforms[0]).toEqual(changed)
+  await page.getByRole('button', { name:'Node', exact:true }).click()
+  const point = cubicPoint(terrainCubic(changed, 1), .5), projected = await worldPoint(page, { x:point[0], y:point[1] })
+  const beforeHover = await canvas.evaluate(c => c.builderWorldDraws)
+  await page.mouse.move(projected.x, projected.y, { steps:8 })
+  expect(await canvas.evaluate(c => c.builderWorldDraws)).toBe(beforeHover)
+  await page.mouse.click(projected.x, projected.y)
+  const split = (await saveTestLevel(page)).level.platforms[0]
+  expect(split.polygon).toHaveLength(6)
+  await selectBuilderOption(page, 'Bézier handles', 'straight')
+  expect((await saveTestLevel(page)).level.platforms[0].bezier[2]).toBeNull()
+})
+
+test('a fresh playtest crosses curved terrain using normal movement controls', async ({ page }, info) => {
+  test.setTimeout(90000)
+  const level = { ...blankTrial(), width:1200, height:800, floor:800, entrance:{ x:100, y:650 }, goal:{ x:1040, y:650 },
+    platforms:[{ x:0,y:650,w:200,h:150 }, { x:200,y:500,w:800,h:300,
+      polygon:[[0,150],[800,150],[800,300],[0,300]], bezier:[{ out:[260,-140] },{ in:[-260,-140] },null,null] },
+      { x:1000,y:650,w:200,h:150 }] }
+  await open(page, level)
+  await saveTestLevel(page, 'Save and Test')
+  await page.keyboard.down('d')
+  for (let i = 0; i < 30; i++) {
+    await page.clock.runFor(100)
+    const p = await page.evaluate(() => window.jumpPlayer)
+    if (p?.x > 520) break
+  }
+  await page.keyboard.up('d')
+  const crest = await page.evaluate(() => window.jumpPlayer)
+  expect(crest.x).toBeGreaterThan(520); expect(crest.y).toBeLessThan(555)
+  await page.screenshot({ path:info.outputPath('curved-terrain-playtest.png') })
+  await page.keyboard.down('d')
+  for (let i = 0; i < 30; i++) {
+    await page.clock.runFor(100)
+    const p = await page.evaluate(() => window.jumpPlayer)
+    if (p?.x > 1020) break
+  }
+  await page.keyboard.up('d')
+  expect((await page.evaluate(() => window.jumpPlayer)).x).toBeGreaterThan(1020)
+})
 
 test('Terrain step templates and toolbar transforms support undo, redo and folder round trips', async ({ page }, info) => {
   await open(page, { ...blankTrial(), width: 1200, height: 800, floor: 800, entrance: { x: 120, y: 800 }, goal: { x: 1040, y: 800 } })

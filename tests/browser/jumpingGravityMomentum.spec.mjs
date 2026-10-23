@@ -22,7 +22,9 @@ test('a button-powered dry lift launches the player beyond its field in a room w
   let onPlate
   for (let frame = 0; frame < 100; frame++) {
     await page.clock.runFor(16); onPlate = await sample()
-    if (onPlate.x >= 460) break
+    // Starting the challenge clears the ready-frame motion history before the
+    // first active frame is published.
+    if (onPlate?.x >= 460) break
   }
   expect(onPlate.x).toBeGreaterThanOrEqual(460)
   await page.keyboard.up('d'); await page.keyboard.up('Shift')

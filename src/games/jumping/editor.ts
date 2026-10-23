@@ -8,8 +8,10 @@ import { itemDefinition, objectReference } from './objectLabels.ts'
 export { itemDefinition } from './objectLabels.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { platformSurface } from './terrain.ts'
-import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
+import { nearestBoundary, pointInside, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
+import { MAX_CURVE_POINTS, cubicPoint, relativePoint, splitCubic, terrainCubic, terrainCurveOutline, terrainCurveSamples, terrainNodes } from './terrainCurves.ts'
+import type { TerrainBezier } from './terrainCurves.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
 import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
@@ -507,10 +509,15 @@ export function transformTerrain(level: JumpLevel, index: number, transform: Ter
   terrain.y = clamp(before.y + (before.h - h) / 2, 0, levelHeight(level) - h)
   terrain.w = w; terrain.h = h
   if (before.profile || before.polygon) {
-    const polygon = polygonPoints({ ...before, x: 0, y: 0 }).map(([x, y]) => point(x, y))
-    if (!validPolygon(polygon)) throw new Error(`${objectReference(level, 'platform', index)} cannot be transformed as an editable polygon. Simplify its outline first.`)
+    const polygon = terrainNodes({ ...before, x: 0, y: 0 }).map(([x, y]) => point(x, y))
+    if (!before.bezier && !validPolygon(polygon)) throw new Error(`${objectReference(level, 'platform', index)} cannot be transformed as an editable polygon. Simplify its outline first.`)
     delete terrain.profile
     terrain.polygon = polygon
+    if (before.bezier) {
+      const origin = point(0, 0), vector = (p: Vec) => relativePoint(point(p[0], p[1]), origin)
+      terrain.bezier = before.bezier.map(handle => handle && ({ ...handle,
+        ...(handle.in ? { in: vector(handle.in) } : {}), ...(handle.out ? { out: vector(handle.out) } : {}) }))
+    }
   }
   for (const rope of next.climbables.ropes) if (rope.anchor?.platform === index) {
     const [x, y] = point(rope.anchor.x, rope.anchor.y)
@@ -611,6 +618,9 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
     const x = left ? before.x + before.w - width : before.x, y = top ? before.y + before.h - height : before.y
     return replacePlatform(level, selection.index, { ...before, x, y, w: width, h: height,
       ...(before.polygon ? { polygon: before.polygon.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}),
+      ...(before.bezier ? { bezier: before.bezier.map(handle => handle && ({ ...handle,
+        ...(handle.in ? { in: [handle.in[0] / before.w * width, handle.in[1] / before.h * height] as Vec } : {}),
+        ...(handle.out ? { out: [handle.out[0] / before.w * width, handle.out[1] / before.h * height] as Vec } : {}) })) } : {}),
       ...(before.profile ? { profile: before.profile.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}) })
   }
   if (selection.kind === 'rope') next.climbables.ropes[selection.index].length = clamp(h, 80, Math.min(2000, levelHeight(level) - next.climbables.ropes[selection.index].y))
@@ -967,7 +977,7 @@ export function addPolygon(level: JumpLevel, points: readonly Vec[]) {
   const next = copyLevel(level); next.platforms.push(b)
   return { level: reorderTerrain(next, next.platforms.length - 1, 'front'), selection: { kind: 'platform' as const, index: next.platforms.length - 1 } }
 }
-export type TerrainNodeTarget = { index: number; edge: number; x: number; y: number }
+export type TerrainNodeTarget = { index: number; edge: number; x: number; y: number; t?: number }
 export type TerrainVertexTarget = { index: number; vertex: number; x: number; y: number }
 
 /** Pick the nearest existing node, preferring the topmost terrain on ties. */
@@ -976,7 +986,7 @@ export function terrainVertexTarget(level: JumpLevel, x: number, y: number, tole
   const order = terrainDrawOrder(level.platforms)
   for (let position = order.length - 1; position >= 0; position--) {
     const index = order[position]
-    for (const [vertex, [vx, vy]] of polygonPoints(level.platforms[index]).entries()) {
+    for (const [vertex, [vx, vy]] of terrainNodes(level.platforms[index]).entries()) {
       const d = Math.hypot(x - vx, y - vy)
       if (d <= tolerance && (!best || d < distance)) { best = { index, vertex, x: vx, y: vy }; distance = d }
     }
@@ -990,7 +1000,30 @@ export function terrainNodeTarget(level: JumpLevel, x: number, y: number, tolera
   const order = terrainDrawOrder(level.platforms)
   for (let position = order.length - 1; position >= 0; position--) {
     const index = order[position]
-    const points = polygonPoints(level.platforms[index])
+    const terrain = level.platforms[index]
+    if (terrain.bezier) {
+      const samples = terrainCurveSamples(terrain)
+      for (let i = 0; i < samples.length; i++) {
+        const sample = samples[i], following = samples[(i + 1) % samples.length], a = sample.point, b = following.point
+        const dx = b[0] - a[0], dy = b[1] - a[1], squared = dx * dx + dy * dy
+        if (!squared) continue
+        const t = clamp(((x - a[0]) * dx + (y - a[1]) * dy) / squared, 0, 1)
+        const distance = Math.hypot(x - a[0] - dx * t, y - a[1] - dy * t)
+        if (distance <= tolerance && (!best || distance < best.distance)) {
+          const cubic = terrainCubic(terrain, sample.edge)
+          let low = sample.t, high = following.edge === sample.edge ? following.t : 1
+          const distanceAt = (t: number) => { const p = cubicPoint(cubic, t); return (p[0] - x) ** 2 + (p[1] - y) ** 2 }
+          for (let pass = 0; pass < 28; pass++) {
+            const left = low + (high - low) / 3, right = high - (high - low) / 3
+            if (distanceAt(left) < distanceAt(right)) high = right; else low = left
+          }
+          const parameter = (low + high) / 2, p = cubicPoint(cubic, parameter)
+          best = { index, edge: sample.edge, t: parameter, x: p[0], y: p[1], distance }
+        }
+      }
+      continue
+    }
+    const points = terrainNodes(terrain)
     for (let edge = 0; edge < points.length; edge++) {
       const a = points[edge], b = points[(edge + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1]
       const t = clamp(((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy), 0, 1)
@@ -999,7 +1032,31 @@ export function terrainNodeTarget(level: JumpLevel, x: number, y: number, tolera
     }
   }
   if (!best) return null
-  const points = polygonPoints(level.platforms[best.index]), a = points[best.edge], b = points[(best.edge + 1) % points.length]
+  const points = terrainNodes(level.platforms[best.index]), a = points[best.edge], b = points[(best.edge + 1) % points.length]
+  if (best.t !== undefined) {
+    const terrain = level.platforms[best.index], cubic = terrainCubic(terrain, best.edge)
+    if (grid) {
+      const before = cubicPoint(cubic, Math.max(0, best.t - .001)), after = cubicPoint(cubic, Math.min(1, best.t + .001))
+      const axis = Math.abs(after[0] - before[0]) >= Math.abs(after[1] - before[1]) ? 0 : 1
+      const coordinate = axis === 0 ? Math.round(best.x / grid) * grid : levelHeight(level) - Math.round((levelHeight(level) - best.y) / grid) * grid
+      const samples = [...terrainCurveSamples(terrain).filter(s => s.edge === best!.edge), { point: b, edge: best.edge, t: 1 }]
+      let parameter: number | null = null
+      for (let i = 1; i < samples.length; i++) {
+        const from = samples[i - 1], to = samples[i]
+        if (coordinate < Math.min(from.point[axis], to.point[axis]) || coordinate > Math.max(from.point[axis], to.point[axis])) continue
+        let low = from.t, high = to.t
+        for (let pass = 0; pass < 32; pass++) {
+          const mid = (low + high) / 2
+          if ((cubicPoint(cubic, mid)[axis] < coordinate) === (to.point[axis] > from.point[axis])) low = mid; else high = mid
+        }
+        const t = (low + high) / 2
+        if (parameter === null || Math.abs(t - best.t) < Math.abs(parameter - best.t)) parameter = t
+      }
+      if (parameter !== null) { const p = cubicPoint(cubic, parameter); best = { ...best, t: parameter, x: p[0], y: p[1] } }
+    }
+    if (points.some(([vx, vy]) => Math.hypot(vx - best!.x, vy - best!.y) < .01)) return null
+    return { index: best.index, edge: best.edge, x: best.x, y: best.y, t: best.t }
+  }
   let px = best.x, py = best.y
   if (grid) {
     const dx = b[0] - a[0], dy = b[1] - a[1]
@@ -1012,8 +1069,21 @@ export function terrainNodeTarget(level: JumpLevel, x: number, y: number, tolera
 }
 
 export function insertTerrainNode(level: JumpLevel, target: TerrainNodeTarget): JumpLevel {
-  const points = polygonPoints(level.platforms[target.index])
+  const before = level.platforms[target.index], points = terrainNodes(before)
   if (points.length >= 64) throw new Error(`${objectReference(level, 'platform', target.index)} already has 64 nodes.`)
+  if (before.bezier) {
+    const handles = structuredClone(before.bezier) as (TerrainBezier | null)[], following = (target.edge + 1) % points.length
+    if (!handles[target.edge]?.out && !handles[following]?.in) {
+      points.splice(target.edge + 1, 0, [target.x, target.y]); handles.splice(target.edge + 1, 0, null)
+      return replaceEditedTerrain(level, target.index, points, handles)
+    }
+    const split = splitCubic(terrainCubic(before, target.edge), target.t ?? .5)
+    handles[target.edge] = { ...handles[target.edge], out: relativePoint(split.left[1], points[target.edge]), mode: 'corner' }
+    handles[following] = { ...handles[following], in: relativePoint(split.right[2], points[following]), mode: 'corner' }
+    handles.splice(target.edge + 1, 0, { in: relativePoint(split.left[2], split.point), out: relativePoint(split.right[1], split.point), mode: 'smooth' })
+    points.splice(target.edge + 1, 0, split.point)
+    return replaceEditedTerrain(level, target.index, points, handles)
+  }
   points.splice(target.edge + 1, 0, [target.x, target.y])
   if (!validPolygon(points)) throw new Error('Choose a point on the edge away from an existing node.')
   // Inserting on an edge leaves the surface and all supported objects in place.
@@ -1028,15 +1098,85 @@ export function insertTerrainNode(level: JumpLevel, target: TerrainNodeTarget): 
 export function deleteTerrainNode(level: JumpLevel, index: number, vertex: number): JumpLevel {
   const terrain = level.platforms[index]
   if (!terrain) return level
-  const points = polygonPoints(terrain)
+  const points = terrainNodes(terrain)
   if (!Number.isInteger(vertex) || vertex < 0 || vertex >= points.length) return level
   if (points.length <= 3) throw new Error(`${objectReference(level, 'platform', index)} needs at least three nodes.`)
   points.splice(vertex, 1)
+  if (terrain.bezier) {
+    const handles = [...terrain.bezier]; handles.splice(vertex, 1)
+    return replaceEditedTerrain(level, index, points, handles)
+  }
   return replacePlatform(level, index, polygonPlatform(points, terrain.material))
 }
 
 export function moveVertex(level: JumpLevel, index: number, vertex: number, dx: number, dy: number): JumpLevel {
-  const points = polygonPoints(level.platforms[index])
+  const terrain = level.platforms[index], points = terrainNodes(terrain)
   const p = points[vertex]; points[vertex] = [clamp(p[0] + dx, 0, level.width), clamp(p[1] + dy, 0, levelHeight(level))]
+  if (terrain.bezier) {
+    try { return replaceEditedTerrain(level, index, points, terrain.bezier) } catch { return level }
+  }
   try { return replacePlatform(level, index, polygonPlatform(points, level.platforms[index].material)) } catch { return level }
+}
+
+function replaceEditedTerrain(level: JumpLevel, index: number, points: readonly Vec[], handles: Platform['bezier']): JumpLevel {
+  const controls = points.flatMap((p, i) => [p, ...(['in', 'out'] as const).flatMap(side => {
+    const h = handles?.[i]?.[side]; return h ? [[p[0] + h[0], p[1] + h[1]] as Vec] : []
+  })])
+  if (controls.some(p => p[0] < 0 || p[0] > level.width || p[1] < 0 || p[1] > levelHeight(level))) throw new Error('Keep terrain nodes and handles inside the level.')
+  const x = Math.min(...controls.map(p => p[0])), y = Math.min(...controls.map(p => p[1]))
+  const w = Math.max(...controls.map(p => p[0])) - x, h = Math.max(...controls.map(p => p[1])) - y
+  if (w < 10 || h < 8) throw new Error('Terrain needs a little more width and height.')
+  const platform: Platform = { ...level.platforms[index], x, y, w, h, polygon: points.map(p => [p[0] - x, p[1] - y]) }
+  delete platform.profile
+  if (handles?.some(Boolean)) platform.bezier = structuredClone(handles); else delete platform.bezier
+  if (!validPolygon(terrainCurveOutline(platform), MAX_CURVE_POINTS)) throw new Error('Terrain curves need a clear outline on the 5-unit grid. Shorten or move the handles.')
+  const next = replacePlatform(level, index, platform)
+  // Handle extents change the bounding box without scaling or moving the solid.
+  // Keep attachments at their world positions, then project to the changed edge.
+  for (const [i, source] of level.climbables.ropes.entries()) if (source.anchor?.platform === index) {
+    const rope = next.climbables.ropes[i], edge = nearestBoundary(platform, source.x, source.y)
+    rope.x = edge.x; rope.y = edge.y; rope.anchor = { platform: index, x: edge.x - platform.x, y: edge.y - platform.y }
+    delete rope.rest
+  }
+  for (const [source, marker] of [[level.entrance, next.entrance], ...level.checkpoints.map((p, i) => [p, next.checkpoints[i]]),
+    ...(level.goal && next.goal ? [[level.goal, next.goal]] : [])]) {
+    const before = level.platforms[index], x = source === level.goal ? (() => { const b = goalBounds(level.goal); return b.x + b.w / 2 })() : source.x
+    if (x < before.x || x > before.x + before.w || Math.abs(source.y - platformSurface(before, x).y) >= .1) continue
+    marker.x = source.x; marker.y = source.y
+    const surface = platformSurface(platform, x, source.y)
+    if (x >= platform.x && x <= platform.x + platform.w && Number.isFinite(surface.y)) marker.y = surface.y
+  }
+  for (const ladder of next.climbables.ladders) if (ladder.platform === index) ladder.platform = -1
+  return next
+}
+
+/** Change a selected node's tangent behavior; Straight removes both handles. */
+export function setTerrainNodeMode(level: JumpLevel, index: number, vertex: number, mode: 'straight' | 'corner' | 'smooth' | 'symmetric'): JumpLevel {
+  const terrain = level.platforms[index], points = terrainNodes(terrain), p = points[vertex]
+  if (!p) return level
+  const handles = structuredClone(terrain.bezier ?? points.map(() => null)) as (TerrainBezier | null)[]
+  if (mode === 'straight') handles[vertex] = null
+  else {
+    const before = points[(vertex + points.length - 1) % points.length], after = points[(vertex + 1) % points.length], saved = handles[vertex]
+    const incoming: Vec = saved?.in ?? [(before[0] - p[0]) / 3, (before[1] - p[1]) / 3]
+    const outgoing: Vec = saved?.out ?? [(after[0] - p[0]) / 3, (after[1] - p[1]) / 3]
+    const length = Math.hypot(...outgoing), otherLength = mode === 'symmetric' ? length : Math.hypot(...incoming)
+    const aligned: Vec = length ? [-outgoing[0] / length * otherLength, -outgoing[1] / length * otherLength] : incoming
+    handles[vertex] = { in: mode === 'corner' ? incoming : aligned, out: outgoing, mode }
+  }
+  return replaceEditedTerrain(level, index, points, handles)
+}
+
+export function moveTerrainHandle(level: JumpLevel, index: number, vertex: number, side: 'in' | 'out', x: number, y: number): JumpLevel {
+  const terrain = level.platforms[index], points = terrainNodes(terrain), p = points[vertex]
+  if (!p) return level
+  const handles = structuredClone(terrain.bezier ?? points.map(() => null)) as (TerrainBezier | null)[]
+  const handle = { ...handles[vertex] }, other = side === 'in' ? 'out' : 'in'
+  const vector = relativePoint([clamp(x, 0, level.width), clamp(y, 0, levelHeight(level))], p), length = Math.hypot(...vector)
+  if (handle.mode && handle.mode !== 'corner' && length) {
+    const otherLength = handle.mode === 'symmetric' ? length : Math.hypot(...(handle[other] ?? [0, 0]))
+    handle[other] = [-vector[0] / length * otherLength, -vector[1] / length * otherLength]
+  }
+  handle[side] = vector; handles[vertex] = handle
+  return replaceEditedTerrain(level, index, points, handles)
 }

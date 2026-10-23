@@ -11,6 +11,20 @@ const snapshot = hits => hits.map(hit => ({
 const compare = (queries, body, others) => assert.deepEqual(snapshot(queries.collides(body, others)), snapshot(Matter.Query.collides(body, others)))
 const penetrationSnapshot = hits => hits.map(({ bodyA, bodyB, normal, depth }) => ({ a: bodyA.id, b: bodyB.id, normal: { ...normal }, depth }))
 
+test('correction neighborhoods skip unqueried terrain pairs and refresh lazily in scene order', t => {
+  const walls = Array.from({ length: 500 }, (_, i) => Matter.Bodies.rectangle(i * 10, 100, 12, 12, { isStatic: true }))
+  const prop = Matter.Bodies.rectangle(15, 100, 12, 12), bodies = [...walls, prop]
+  const overlaps = t.mock.method(Matter.Bounds, 'overlaps')
+  const queries = new CollisionQueries(true, bodies)
+  assert.equal(overlaps.mock.callCount(), 0, 'constructing the scene must not compare static pairs')
+  assert.deepEqual(snapshot(queries.collidesNearby(prop)), snapshot(Matter.Query.collides(prop, walls)))
+  assert.ok(overlaps.mock.callCount() < 1600, 'one queried prop should scan the scene linearly')
+  Matter.Body.translate(walls[0], { x: 18, y: 0 }); queries.invalidate(walls[0])
+  assert.deepEqual(snapshot(queries.collidesNearby(prop)), snapshot(Matter.Query.collides(prop, walls)))
+  Matter.Body.translate(prop, { x: 3000, y: 0 }); queries.invalidate(prop)
+  assert.deepEqual(snapshot(queries.collidesNearby(prop)), snapshot(Matter.Query.collides(prop, walls)))
+})
+
 test('correction neighborhoods preserve scene order as either hull enters, leaves, rotates and resizes', () => {
   const bodies = [Matter.Bodies.rectangle(0, 0, 30, 30), Matter.Bodies.rectangle(500, 0, 30, 30),
     Matter.Bodies.rectangle(1000, 0, 30, 30), Matter.Bodies.rectangle(0, 27, 30, 30)]
@@ -38,6 +52,7 @@ test('correction queries exclude remote candidates and defer manifolds until the
   const body = Matter.Bodies.rectangle(0, 0, 30, 30), near = Matter.Bodies.rectangle(28, 0, 30, 30)
   const scene = [body, ...Array.from({ length: 200 }, (_, i) => Matter.Bodies.rectangle(1000 + i * 100, 0, 30, 30)), near]
   const queries = new CollisionQueries(true, scene)
+  queries.penetrationsNearby(body) // Build this body's lazy neighborhood once.
   const overlaps = Matter.Bounds.overlaps, create = Matter.Collision.create
   let boundsTests = 0, manifolds = 0
   t.mock.method(Matter.Bounds, 'overlaps', (...args) => { boundsTests++; return overlaps(...args) })

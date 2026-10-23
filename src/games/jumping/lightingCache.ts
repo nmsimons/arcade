@@ -1,5 +1,6 @@
 import type { Vec } from './geometry.ts'
 import type { CasterGroup } from './lightingModel.ts'
+import { bezierKey } from './terrainCurves.ts'
 
 const samePoints = (a?: readonly Vec[], b?: readonly Vec[]) => a === b || !!a && !!b
   && a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1])
@@ -7,7 +8,7 @@ const sameCaster = (a: CasterGroup, b: CasterGroup) => a === b || a.opacity === 
   && a.length === b.length && a.every((s, i) => {
     const t = b[i]
     return s.x === t.x && s.y === t.y && s.w === t.w && s.h === t.h
-      && samePoints(s.polygon, t.polygon) && samePoints(s.profile, t.profile)
+      && samePoints(s.polygon, t.polygon) && samePoints(s.profile, t.profile) && bezierKey(s) === bezierKey(t)
   }) && (a.boundary === b.boundary || !!a.boundary && !!b.boundary
     && a.boundary.length === b.boundary.length && a.boundary.every((edge, i) => samePoints(edge, b.boundary![i])))
 

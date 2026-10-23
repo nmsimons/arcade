@@ -10,8 +10,8 @@
       "reason": "New authored level; its 13 / 20 / 30 medal targets have not yet been verified by a recorded fresh-start route."
     },
     {
-      "file": "Untitled level 2.jump-level.json",
-      "reason": "Updated pinball level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
+      "file": "pinball.jump-level.json",
+      "reason": "Revised curved pinball layout published October 23; its authored 10 / 20 / 40 targets still require completed fresh-start medal recordings."
     },
     {
       "file": "world1.jump-level.json",
@@ -76,6 +76,10 @@
     {
       "file": "01.json",
       "reason": "Studio revisions removed timing pickups and moved the ball. The prior A recording is preserved against its captured layout for cargo and switch regression coverage; a fresh completion and timing audit of the revised level are pending."
+    },
+    {
+      "file": "Waterline.jump-level.json",
+      "reason": "October 23 pump rates changed to 20 and the lower-left float moved. The prior A route is retained against the captured pre-change layout for water and circuit regression coverage; the revised live level needs a fresh completion and timing audit."
     }
   ],
   "runs": [
@@ -3996,89 +4000,6 @@
           }
         }
       ]
-    },
-    {
-      "file": "Waterline.jump-level.json",
-      "jumpModel": "tap-hold",
-      "elapsed": 29.4833333333323,
-      "activeTime": 30.341666666665585,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 2,
-          "input": {}
-        },
-        {
-          "frames": 74,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 35,
-          "input": {}
-        },
-        {
-          "frames": 324,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 35,
-          "input": {}
-        },
-        {
-          "frames": 18,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1160,
-          "input": {}
-        },
-        {
-          "frames": 78,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1102,
-          "input": {}
-        },
-        {
-          "frames": 73,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 379,
-          "input": {}
-        },
-        {
-          "frames": 17,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 155,
-          "input": {}
-        },
-        {
-          "frames": 29,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 160,
-          "input": {}
-        }
-      ]
     }
   ],
   "jumpModel": "recorded-impulses",
@@ -4525,6 +4446,89 @@
             "descend": false,
             "detach": false
           }
+        }
+      ]
+    },
+    {
+      "file": "Waterline.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 29.4833333333323,
+      "activeTime": 30.341666666665585,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 2,
+          "input": {}
+        },
+        {
+          "frames": 74,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 35,
+          "input": {}
+        },
+        {
+          "frames": 324,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {}
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1160,
+          "input": {}
+        },
+        {
+          "frames": 78,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1102,
+          "input": {}
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 379,
+          "input": {}
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 155,
+          "input": {}
+        },
+        {
+          "frames": 29,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 160,
+          "input": {}
         }
       ]
     }

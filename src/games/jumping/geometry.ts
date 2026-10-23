@@ -1,4 +1,5 @@
 import type { Platform } from './model.ts'
+import { bezierKey, terrainCurveOutline, terrainNodes } from './terrainCurves.ts'
 
 export type Vec = readonly [number, number]
 const EPS = 1e-7
@@ -7,8 +8,10 @@ export const polygonArea = (points: readonly Vec[]) => points.reduce((area, a, i
   const b = points[(i + 1) % points.length]; return area + a[0] * b[1] - a[1] * b[0]
 }, 0) / 2
 export function polygonPoints(b: Platform): Vec[] {
-  const local = b.polygon ?? (b.profile ? [...b.profile, [b.w, b.h] as Vec, [0, b.h] as Vec] : [[0, 0], [b.w, 0], [b.w, b.h], [0, b.h]])
-  const points = local.map(([x, y]) => [x + b.x, y + b.y] as Vec)
+  return platformOutline(b).map(p => [p[0], p[1]])
+}
+function outlinePoints(b: Platform): Vec[] {
+  const points = (b.bezier ? terrainCurveOutline(b) : terrainNodes(b))
     .filter((p, i, all) => Math.hypot(p[0] - all[(i + 1) % all.length][0], p[1] - all[(i + 1) % all.length][1]) > EPS)
   return polygonArea(points) < 0 ? points.reverse() : points
 }
@@ -18,7 +21,7 @@ interface CollisionHull { points: readonly Vec[]; bounds: Bounds; axes?: Vec[] }
 interface CollisionPiece extends CollisionHull { axes: Vec[]; projections: number[][] }
 interface BoundaryGeometry {
   x: number; y: number; w: number; h: number
-  polygon: number[]; profile: number[]; points: Vec[]; edges?: BoundaryEdge[]; nearest?: number
+  polygon: number[]; profile: number[]; bezier: string; points: Vec[]; edges?: BoundaryEdge[]; nearest?: number
   parts?: Vec[][]; collision?: CollisionPiece[]
 }
 const boundaries = new WeakMap<Platform, BoundaryGeometry>()
@@ -30,9 +33,9 @@ const sameOutline = (outline: Platform['polygon'], saved: number[]) => (outline?
 function boundaryGeometry(b: Platform): BoundaryGeometry {
   const saved = boundaries.get(b)
   if (saved && b.x === saved.x && b.y === saved.y && b.w === saved.w && b.h === saved.h
-    && sameOutline(b.polygon, saved.polygon) && sameOutline(b.profile, saved.profile)) return saved
+    && sameOutline(b.polygon, saved.polygon) && sameOutline(b.profile, saved.profile) && bezierKey(b) === saved.bezier) return saved
   const geometry = { x: b.x, y: b.y, w: b.w, h: b.h, polygon: b.polygon?.flatMap(p => [...p]) ?? [],
-    profile: b.profile?.flatMap(p => [...p]) ?? [], points: polygonPoints(b) }
+    profile: b.profile?.flatMap(p => [...p]) ?? [], bezier: bezierKey(b), points: outlinePoints(b) }
   boundaries.set(b, geometry)
   return geometry
 }
@@ -51,8 +54,8 @@ function onSegment(p: Vec, a: Vec, b: Vec) {
   return p[0] >= Math.min(a[0], b[0]) - EPS && p[0] <= Math.max(a[0], b[0]) + EPS
     && p[1] >= Math.min(a[1], b[1]) - EPS && p[1] <= Math.max(a[1], b[1]) + EPS && Math.abs(cross(a, b, p)) < EPS
 }
-export function validPolygon(points: readonly Vec[]) {
-  if (points.length < 3 || points.length > 64 || Math.abs(polygonArea(points)) < 1) return false
+export function validPolygon(points: readonly Vec[], maxPoints = 64) {
+  if (points.length < 3 || points.length > maxPoints || Math.abs(polygonArea(points)) < 1) return false
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = points[(i + 1) % points.length]
     if (Math.hypot(a[0] - b[0], a[1] - b[1]) < .01) return false

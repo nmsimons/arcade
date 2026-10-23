@@ -2,10 +2,12 @@ import type { Platform } from './model.ts'
 import { outsideCorner, pointInside, platformOutline } from './geometry.ts'
 import { canGrip } from './friction.ts'
 import { BOX_RESTING_ANGLE_TOLERANCE } from './propGeometry.ts'
+import { terrainNodes } from './terrainCurves.ts'
 
 /** Slope is the top's rise per unit inward from the corner. */
 export interface TerrainLedge { edgeX: number; edgeY: number; side: number; slope?: number; outwardSlope?: number }
 const ledges = new WeakMap<Platform, readonly TerrainLedge[]>()
+const ledgeOutlines = new WeakMap<Platform, readonly (readonly [number, number])[]>()
 const disabled = new WeakSet<Platform>()
 const OUTWARD_FACE_SLOPE = Math.tan(Math.PI / 18) // Ten degrees from vertical.
 
@@ -16,8 +18,12 @@ export const platformLedgesDisabled = (platform: Platform) => disabled.has(platf
 /** Find exposed top corners throughout an outline, including inset towers and shelves. */
 export function platformLedges(platform: Platform): readonly TerrainLedge[] {
   const cached = ledges.get(platform)
-  if (cached) return cached
+  if (cached && disabled.has(platform)) return cached
   const outline = platformOutline(platform)
+  if (cached && ledgeOutlines.get(platform) === outline) return cached
+  ledgeOutlines.set(platform, outline)
+  const nodes = platform.bezier ? terrainNodes(platform) : null
+  const authoredCorner = (point: readonly [number, number]) => !nodes || nodes.some(p => Math.hypot(p[0] - point[0], p[1] - point[1]) < 1e-7)
   // Extra editor nodes along a straight edge do not create or hide corners.
   const points = outline.filter((b, i) => {
     const a = outline[(i + outline.length - 1) % outline.length], c = outline[(i + 1) % outline.length]
@@ -39,11 +45,11 @@ export function platformLedges(platform: Platform): readonly TerrainLedge[] {
     // clearance still decide whether the player fits beneath that corner.
     const leftTurn = (a[0] - before[0]) * (b[1] - a[1]) - (a[1] - before[1]) * (b[0] - a[0])
     const rightTurn = (b[0] - a[0]) * (after[1] - b[1]) - (b[1] - a[1]) * (after[0] - b[0])
-    if (before[0] >= a[0] - sideTolerance - (before[1] - a[1]) * OUTWARD_FACE_SLOPE && before[1] > a[1] && leftTurn > 1e-7) {
+    if (authoredCorner(a) && before[0] >= a[0] - sideTolerance - (before[1] - a[1]) * OUTWARD_FACE_SLOPE && before[1] > a[1] && leftTurn > 1e-7) {
       const outwardSlope = Math.max(0, (a[0] - before[0]) / (before[1] - a[1]))
       found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}), ...(outwardSlope ? { outwardSlope } : {}) })
     }
-    if (after[0] <= b[0] + sideTolerance + (after[1] - b[1]) * OUTWARD_FACE_SLOPE && after[1] > b[1] && rightTurn > 1e-7) {
+    if (authoredCorner(b) && after[0] <= b[0] + sideTolerance + (after[1] - b[1]) * OUTWARD_FACE_SLOPE && after[1] > b[1] && rightTurn > 1e-7) {
       const outwardSlope = Math.max(0, (after[0] - b[0]) / (after[1] - b[1]))
       found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}), ...(outwardSlope ? { outwardSlope } : {}) })
     }

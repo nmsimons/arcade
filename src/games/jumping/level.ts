@@ -12,6 +12,7 @@ import { groundAt, platformSurfaces } from './terrain.ts'
 import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
+import { MAX_CURVE_POINTS, terrainCurveOutline } from './terrainCurves.ts'
 import { chargingBayBounds, entranceDoor, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
@@ -249,8 +250,28 @@ export function parseLevel(value: unknown): JumpLevel {
         if (!Array.isArray(p) || p.length !== 2) return fail()
         return [num(p[0], 0, platform.w), num(p[1], 0, platform.h)] as [number, number]
       })
-      if (!validPolygon(points)) fail()
+      if (points.length < 3 || b.bezier === undefined && !validPolygon(points)) fail()
       platform.polygon = points
+    }
+    if (b.bezier !== undefined) {
+      if (!platform.polygon || !Array.isArray(b.bezier) || b.bezier.length !== platform.polygon.length) fail()
+      platform.bezier = list(b.bezier, 64).map((value, i) => {
+        if (value === null) return null
+        const handle = object(value), result: import('./terrainCurves.ts').TerrainBezier = {}
+        for (const side of ['in', 'out'] as const) if (handle[side] !== undefined) {
+          const p = handle[side]
+          if (!Array.isArray(p) || p.length !== 2) return fail()
+          const x = num(p[0], -platform.w, platform.w), y = num(p[1], -platform.h, platform.h), anchor = platform.polygon![i]
+          if (anchor[0] + x < -1e-7 || anchor[0] + x > platform.w + 1e-7 || anchor[1] + y < -1e-7 || anchor[1] + y > platform.h + 1e-7) fail()
+          result[side] = [x, y]
+        }
+        if (handle.mode !== undefined) {
+          if (!['corner', 'smooth', 'symmetric'].includes(String(handle.mode))) fail()
+          result.mode = handle.mode as 'corner' | 'smooth' | 'symmetric'
+        }
+        return result
+      })
+      try { if (!validPolygon(terrainCurveOutline(platform), MAX_CURVE_POINTS)) fail() } catch { fail() }
     }
     return platform
   })

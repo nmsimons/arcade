@@ -75,6 +75,9 @@ test('an upward grav lift eases into a prone floating pose while steering remain
   await page.keyboard.down('d'); await page.clock.runFor(700)
   expect((await sample()).blends.fall).toBe(0)
   await page.clock.runFor(500)
+  // The airborne half-turn completes before the prone-fall blend begins.
+  expect((await sample()).blends.fall).toBeGreaterThan(0)
+  for (let i = 0; i < 60 && (await sample()).blends.fall < 1; i++) await page.clock.runFor(16)
   const floating = await sample()
   expect(floating.blends.fall).toBe(1)
   expect(floating.vy).toBeLessThan(0)

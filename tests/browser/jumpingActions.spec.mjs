@@ -35,7 +35,7 @@ test('keyboard lowering and separate Down drop work without onscreen control hin
   expect((await state(page)).vy).toBeGreaterThan(0)
 })
 
-test('keyboard Up under reverse gravity lowers to a held hang and needs a new press to pull up',async({page},info)=>{
+test('keyboard Up under reverse gravity lowers to a held hang and Down pulls back up',async({page},info)=>{
   const level={...blankTrial(),height:600,floor:500,entrance:{x:530,y:500},goal:{x:900,y:500},
     platforms:[{x:500,y:100,w:220,h:20}],gravityPlates:[{id:'reverse',x:300,y:0,w:500,h:500,gravity:-1,power:'always'}]}
   await start(page,level)
@@ -50,7 +50,7 @@ test('keyboard Up under reverse gravity lowers to a held hang and needs a new pr
   await expect(page.getByLabel('Available actions')).toHaveCount(0)
   await page.screenshot({path:info.outputPath('reverse-gravity-safe-hang-cue.png')})
   await page.keyboard.up('w');await page.clock.runFor(120)
-  await page.keyboard.down('w');await page.clock.runFor(120)
+  await page.keyboard.down('s');await page.clock.runFor(120)
   expect((await state(page)).signals.mode).toBe('mantle')
 })
 

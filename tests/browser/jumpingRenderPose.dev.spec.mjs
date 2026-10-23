@@ -25,7 +25,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: one render reuses the
           props: [{ kind: 'box', x: 650, y: 500, size }],
           platforms: [{ x: direction === 1 ? 650 + size / 2 : 530 - size / 2, y: 300, w: 120, h: 200 }] },
         input: i => ({ move: direction, crouch: i > 180 }) }))),
-      { name: 'inverted rope', level: rope, input: i => ({ move: i < 3 ? 1 : 0, descend: i > 300 }) },
+      { name: 'inverted rope', level: rope, input: i => ({ move: i < 3 || i >= 240 && i < 252 ? 1 : 0, detach: i < 240, descend: i > 300 }) },
       { name: 'water', level: water, input: i => ({ move: i < 90 ? 1 : 0, descend: i > 180 && i < 240, climb: i >= 240 }) },
       { name: 'flight and landing', level: { ...base(), entrance: { x: 650, y: 200 } }, input: i => ({ move: .6, jump: i >= 300 && i < 324 }) },
     ]

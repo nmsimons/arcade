@@ -1,19 +1,20 @@
 import type { RopeState } from './climbables.ts'
 import type { Platform } from './model.ts'
 import { lineBlocked } from './geometry.ts'
+import { bezierKey } from './terrainCurves.ts'
 
-interface ShapeSnapshot { x: number; y: number; w: number; h: number; polygon: number[]; profile: number[] }
+interface ShapeSnapshot { x: number; y: number; w: number; h: number; polygon: number[]; profile: number[]; bezier: string }
 interface SleepState { sleeping: boolean; quiet: number; positions: Float64Array; geometry: ShapeSnapshot[] | null }
 const states = new WeakMap<RopeState, SleepState>()
 const points = (value: Platform['polygon']) => value?.flatMap(p => [p[0], p[1]]) ?? []
-const snapshot = (terrain: readonly Platform[]) => terrain.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h, polygon: points(b.polygon), profile: points(b.profile) }))
+const snapshot = (terrain: readonly Platform[]) => terrain.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h, polygon: points(b.polygon), profile: points(b.profile), bezier: bezierKey(b) }))
 function samePoints(current: Platform['polygon'], before: number[]) {
   if ((current?.length ?? 0) * 2 !== before.length) return false
   return !current || current.every((p, i) => p[0] === before[i * 2] && p[1] === before[i * 2 + 1])
 }
 function sameGeometry(terrain: readonly Platform[], before: ShapeSnapshot[]) {
   return terrain.length === before.length && terrain.every((b, i) => b.x === before[i].x && b.y === before[i].y
-    && b.w === before[i].w && b.h === before[i].h && samePoints(b.polygon, before[i].polygon) && samePoints(b.profile, before[i].profile))
+    && b.w === before[i].w && b.h === before[i].h && samePoints(b.polygon, before[i].polygon) && samePoints(b.profile, before[i].profile) && bezierKey(b) === before[i].bezier)
 }
 
 export function initRopeSleep(rope: RopeState, prepared = false) {

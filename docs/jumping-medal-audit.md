@@ -5,6 +5,14 @@ The former Gold/Silver/Bronze targets now read A/B/C. The separate
 first-completion allowances and additional recovery recordings; it does not
 reclassify the historical evidence below as novice or current-control testing.
 
+October 23 catalog upkeep: the revised curved pinball file replaces Untitled
+level 2 and retains an explicit pending medal audit. Waterline's pump rates now
+use 20, and its lower-left float was repositioned. Its prior A recording is
+preserved against the layout captured from `56c2520` for water and circuit
+regressions. The revised live Waterline needs a new completion and timing audit;
+the October 11 times below describe the earlier layout. Neither revision has a
+new manual route or enjoyment review as part of this publication check.
+
 October 20 catalog upkeep: Freight Run was removed from the built-in collection.
 Its map is retained in `tests/fixtures/jumping/freight-run.json`, with its express
 and alternative recordings in `tests/fixtures/jumping-freight-routes.json`, solely

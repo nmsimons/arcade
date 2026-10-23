@@ -12,7 +12,7 @@ interface Geometry {
 interface CachedCollision { body: number; other: number; hit: Matter.Collision | null }
 interface CachedPenetration { body: number; other: number; hit: CollisionPenetration | null }
 
-interface Neighborhood { bounds: Matter.Bounds; neighbors: Matter.Body[]; index: number }
+interface Neighborhood { bounds: Matter.Bounds; neighbors?: Matter.Body[]; index: number }
 
 /** Conservative, ordered broad phase for a synchronous correction solve.
  * Small translations stay inside a padded envelope. Only leaving it rebuilds
@@ -21,11 +21,9 @@ interface Neighborhood { bounds: Matter.Bounds; neighbors: Matter.Body[]; index:
 class CorrectionNeighborhoods {
   private entries = new Map<Matter.Body, Neighborhood>()
   constructor(bodies: readonly Matter.Body[]) {
-    bodies.forEach((body, index) => this.entries.set(body, { bounds: this.envelope(body), neighbors: [], index }))
-    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
-      const a = this.entries.get(bodies[i])!, b = this.entries.get(bodies[j])!
-      if (Matter.Bounds.overlaps(a.bounds, b.bounds)) { a.neighbors.push(bodies[j]); b.neighbors.push(bodies[i]) }
-    }
+    // Only queried bodies need adjacency. Hundreds of static terrain pieces
+    // must not trigger an all-pairs terrain/terrain solve every physics tick.
+    bodies.forEach((body, index) => this.entries.set(body, { bounds: this.envelope(body), index }))
   }
   private envelope(body: Matter.Body): Matter.Bounds {
     return { min: { x: body.bounds.min.x - 1, y: body.bounds.min.y - 1 }, max: { x: body.bounds.max.x + 1, y: body.bounds.max.y + 1 } }
@@ -36,12 +34,11 @@ class CorrectionNeighborhoods {
     const bounds = body.bounds, old = entry.bounds
     if (bounds.min.x >= old.min.x && bounds.min.y >= old.min.y && bounds.max.x <= old.max.x && bounds.max.y <= old.max.y) return
     entry.bounds = this.envelope(body)
-    entry.neighbors = []
+    entry.neighbors = undefined
     for (const [other, candidate] of this.entries) {
-      if (other === body) continue
+      if (other === body || !candidate.neighbors) continue
       const index = candidate.neighbors.indexOf(body), nearby = Matter.Bounds.overlaps(entry.bounds, candidate.bounds)
       if (nearby) {
-        entry.neighbors.push(other)
         if (index < 0) {
           const at = candidate.neighbors.findIndex(neighbor => this.entries.get(neighbor)!.index > entry.index)
           candidate.neighbors.splice(at < 0 ? candidate.neighbors.length : at, 0, body)
@@ -49,7 +46,11 @@ class CorrectionNeighborhoods {
       } else if (index >= 0) candidate.neighbors.splice(index, 1)
     }
   }
-  forBody(body: Matter.Body) { return this.entries.get(body)!.neighbors }
+  forBody(body: Matter.Body) {
+    const entry = this.entries.get(body)!
+    return entry.neighbors ??= [...this.entries].flatMap(([other, candidate]) =>
+      other !== body && Matter.Bounds.overlaps(entry.bounds, candidate.bounds) ? [other] : [])
+  }
 }
 
 /** A cache for one synchronous correction step. Hulls often stop changing long

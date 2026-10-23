@@ -1,7 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
-import { reverseRopeWorkshop as fixture } from './helpers/jumpingRopeGravity.mjs'
-import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
+import { reachReverseRopeCeiling, reverseRopeWorkshop as fixture } from './helpers/jumpingRopeGravity.mjs'
 import { TUNING } from '../../src/games/jumping/model.ts'
 
 async function open(page, level) {
@@ -19,8 +18,7 @@ const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at
 for (const release of ['jump', 'let go']) test(`normal controls catch a floating rope from the ceiling, climb both ways and ${release}`, async ({ page }, info) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message))
   await open(page, fixture())
-  await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')
-  await advanceJumpingPassiveWait(page, 3500)
+  await reachReverseRopeCeiling(page)
   expect((await sample(page)).signals.inverted).toBe(true); expect((await sample(page)).signals.grounded).toBe(true)
   await page.keyboard.down('ArrowDown'); await page.clock.runFor(900); await page.keyboard.up('ArrowDown')
   const lower = await sample(page)

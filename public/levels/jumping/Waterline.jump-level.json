@@ -1040,6 +1040,7 @@
       "effect": "water",
       "waterLevel": 5,
       "waterMinLevel": 5,
+      "waterRate": 20,
       "fill": {
         "switchLogic": "or"
       },
@@ -1058,6 +1059,7 @@
       "effect": "water",
       "waterLevel": 5,
       "waterMinLevel": 5,
+      "waterRate": 20,
       "fill": {
         "switchLogic": "or"
       },
@@ -1076,6 +1078,7 @@
       "effect": "water",
       "waterLevel": 5,
       "waterMinLevel": 5,
+      "waterRate": 20,
       "fill": {
         "switchLogic": "or"
       },
@@ -1178,7 +1181,7 @@
       "name": "Left bottom",
       "id": "f6c19482-2e95-4b9e-96a2-b1d7973d1127",
       "x": 325,
-      "y": 820.9619407771256,
+      "y": 820,
       "armLength": 65,
       "size": 50,
       "targets": [

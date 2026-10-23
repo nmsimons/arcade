@@ -207,6 +207,21 @@ cross itself. Arrow keys nudge the selected node; Shift nudges one unit.
 Resizing keeps the opposite corner fixed and scales the existing nodes. Resizing
 and node edits follow Snap; new points snap along the edge without changing its slope.
 
+Terrain nodes default to **Straight**, with no Bézier handles. Select a node and
+use **Bézier handles** in the Object inspector to enable **Corner** (independent
+handles), **Smooth** (aligned handles with independent lengths), or **Symmetric**
+(aligned handles with equal lengths). Drag its blue handles to curve adjoining
+edges; Alt bypasses Snap. Choose **Straight** to remove both handles. Inserting
+a node on an existing curve splits the curve and preserves its shape, including
+the handles needed by the new node. Only authored nodes appear as white nodes.
+Moving a node carries its handles. Resize, rotate, flip, copy/paste, Undo and Redo
+preserve curves. Handles must stay inside the room, and curves cannot cross
+themselves. Handles are an authoring aid: rendering and collisions share a compact
+polygon fitted to the 5-unit grid. Explicitly placed anchors retain their positions;
+intermediate samples snap to the grid, with duplicates and collinear points removed.
+Node hover hints use a lightweight overlay. While dragging terrain or a handle,
+the live outline draws immediately; lighting and the minimap refresh on release.
+
 With terrain selected, the top toolbar enables **Rotate left/right**
 (90° per click) and **Flip horizontal/vertical**. Transforms preserve
 the bounding-box center, moving inward only when needed to stay inside the room;
@@ -764,6 +779,21 @@ An optional `polygon` contains 3–64 local `[x, y]` vertices in either winding 
 it must be a simple, nonintersecting polygon contained in its bounds. Concave shapes,
 undercuts, sloped sides and undersides are supported. Older monotonic `profile`
 terrain remains readable. Do not supply both `profile` and `polygon`.
+
+Polygon terrain may also contain a `bezier` array with one entry per polygon
+node, in the same authored order. An entry is `null` for a straight node, or an
+object with optional `in` and `out` control-point offsets `[dx, dy]` relative to
+that node. Optional `mode` is `"corner"` (default), `"smooth"`, or `"symmetric"`
+and controls how dragging one handle updates the other in the editor. For
+example, `bezier: [{ out: [80, -40] }, { in: [-80, -40] }, null, null]` curves
+the edge from node 0 to node 1. Missing handles lie at the node. Control points
+and nodes must fit within the terrain bounds; the editor expands those bounds
+when necessary. The complete curved outline must be simple and nonintersecting.
+Files without `bezier` retain their existing straight edges. There are still at
+most 64 authored nodes; generated collision samples do not count as nodes.
+The runtime outline fits intermediate curve samples to the 5-unit grid and removes
+duplicate and collinear points before collision decomposition. Editor curve picking
+retains the underlying Bézier shape. Subdivision has a 2048-point safety limit.
 
 Terrain can specify `material: "stone"`, `"earth"`, `"chalk"`, or `"steel"`. Stone is a cool
 gray with sparse flecks; Earth is a warm sand color with a fine grain; Chalk is a

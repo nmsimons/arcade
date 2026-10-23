@@ -1,6 +1,7 @@
 import type { Platform } from './model.ts'
 import { convexParts, platformOutline, polygonArea } from './geometry.ts'
 import type { Vec } from './geometry.ts'
+import { bezierKey } from './terrainCurves.ts'
 
 const EPS = 1e-7
 const side = (a: Vec, b: Vec, p: Vec) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
@@ -26,7 +27,7 @@ function clip(points: Vec[], solid: readonly Vec[]): Vec[] {
  * Separate material fills otherwise expose the backdrop at a shared AA edge.
  * Clip patches to the neighbor: acute corners and real gaps must stay exact. */
 export function terrainUnderlaps(platforms: readonly Platform[], order: readonly number[], scale: number): readonly Vec[][][] {
-  const key = `${scale}:${order}:` + platforms.map(b => `${b.x},${b.y},${b.w},${b.h}:${b.polygon ? 'p' : 'h'}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}`).join(';')
+  const key = `${scale}:${order}:` + platforms.map(b => `${b.x},${b.y},${b.w},${b.h}:${b.polygon ? 'p' : 'h'}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
   const cached = joins.get(platforms)
   if (cached?.key === key) return cached.patches
   const indices = [...order, ...platforms.slice(order.length).map((_, i) => i + order.length)]

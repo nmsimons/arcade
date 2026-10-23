@@ -10,6 +10,7 @@ import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawLevelBackdrop, 
 import { levelHeight, levelTerrain } from './level.ts'
 import { beamHazeStrength, drawLightFixtures, drawLightHaze } from './lightFixture.ts'
 import { polygonPoints } from './geometry.ts'
+import { bezierKey } from './terrainCurves.ts'
 import { terrainFill } from './terrainMaterials.ts'
 import type { Vec } from './geometry.ts'
 import { isExitEdge } from './lightingBoundary.ts'
@@ -447,7 +448,7 @@ export class LightingRenderer {
     if (nightMode && this.reuseTerrainArtwork && ctx.globalAlpha === 1 && ctx.globalCompositeOperation === 'source-over') {
       const terrain = 'terrain' in run ? run.terrain : levelTerrain(run.level)
       const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${run.level.width}:${levelHeight(run.level)}:`
-        + terrain.map(b => `${b.x},${b.y},${b.w},${b.h},${b.material},${b.zIndex}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}`).join(';')
+        + terrain.map(b => `${b.x},${b.y},${b.w},${b.h},${b.material},${b.zIndex}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
       if (this.terrainRaster?.key !== key || this.terrainRaster.buffer !== haze) {
         clear(haze, width, height); transform(haze.ctx, view)
         drawTerrain(haze.ctx, terrain, run.level.platforms, run.level)

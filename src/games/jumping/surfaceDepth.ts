@@ -1,6 +1,7 @@
 import type { JumpLevel } from './level.ts'
 import type { Platform } from './model.ts'
 import { polygonPoints } from './geometry.ts'
+import { bezierKey } from './terrainCurves.ts'
 import { terrainBoundary } from './lightingBoundary.ts'
 
 interface WallView { x: number; y: number; w: number; h: number }
@@ -40,7 +41,7 @@ const strip = (path: Path2D, ax: number, ay: number, bx: number, by: number, dx:
 function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
   // Editor geometry can be edited in place. Appearance caches never own or
   // change the platforms, and invalidate for local outline edits as well.
-  const key = platforms.map(b => `${b.x},${b.y},${b.w},${b.h}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}`).join(';')
+  const key = platforms.map(b => `${b.x},${b.y},${b.w},${b.h}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
   const cached = reliefs.get(level)
   if (cached?.key === key) return cached
   const clip = new Path2D(), light = new Path2D(), dark = new Path2D()

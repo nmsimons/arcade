@@ -392,7 +392,8 @@ for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`cro
     expect(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1).signals.inverted)).toBe(true)
   }
   const key = direction === 1 ? 'd' : 'a'
-  if (reversed) await page.keyboard.down('ArrowDown')
+  const crouchKey = reversed ? 'ArrowUp' : 'ArrowDown'
+  if (reversed) await page.keyboard.down(crouchKey)
   await page.keyboard.down(key); await page.clock.runFor(reversed ? 2600 : 800)
   const check = async () => {
     const samples = await page.evaluate(() => window.jumpingMotion.read().recent)
@@ -409,10 +410,10 @@ for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`cro
     }
   }
   await check()
-  if (!reversed) await page.keyboard.down('ArrowDown')
+  if (!reversed) await page.keyboard.down(crouchKey)
   await page.clock.runFor(1200); await check()
   await page.screenshot({ path: info.outputPath('crouch-working-contact.png') })
-  await page.keyboard.up('ArrowDown'); await page.clock.runFor(600); await check()
+  await page.keyboard.up(crouchKey); await page.clock.runFor(600); await check()
   await page.keyboard.up(key)
 })
 

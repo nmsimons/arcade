@@ -1,5 +1,37 @@
 # LAB performance notes
 
+## October 23, 2026: Curved pinball terrain
+
+Pinball's six curved terrain pieces expanded to 525 outline vertices and 487
+convex collision pieces. The prop correction stage rebuilt adjacency for every
+pair each 120 Hz tick, including static terrain/terrain pairs that were never
+queried. Fresh Node CPU profiles attributed most sampled work to that setup.
+The real game's catch-up loop can amplify an already over-budget tick.
+
+Correction neighborhoods now initialize lazily for queried bodies and retain
+scene order as either participant moves. On the same saved input, this alone
+reduced mean tick CPU from 17.85/18.94 ms (idle/moving probes) to 2.79/3.17 ms;
+all 1,440 recorded player/prop states retained identical trajectory hashes.
+
+Bézier handles remain editable authoring data. Runtime curves now compile to
+compact polygons fitted to the 5-unit grid, shared by drawing and collision.
+Duplicate, collinear and retraced zero-area tips are removed, including tips
+that grid fitting collapses against adjoining walls. This reduces the same
+scene to 155 vertices / 117 pieces. Node means become 1.37/1.95 ms, with p95
+2.29/3.69 ms over 720 ticks per probe. Grid fitting intentionally changes the
+physical outline; trajectory parity applies to the lazy-query change alone.
+
+A separate production GPU-rendering probe at 1280×800 / DPR 1 measured 60.4 FPS
+over 240 frames after 30 warmup frames: simulation p95 6.9 ms for two ticks,
+rendering p95 2.8 ms, frame-interval p95 16.9 ms, and no frames over 33.83 ms.
+This probe includes simulation and full rendering, excluding React, audio and
+the live game's catch-up loop. It is an opening probe, not a completed route.
+The input SHA-256 was
+`a807a8b69ae817b8c422b832779a752ad2db0c8b551f614887dd2299b613eac2`.
+Regression checks cover lazy neighborhoods, ordered contacts, grid curve
+collision parity, and loading valid curves with narrow tips. Level validation
+does not rewrite authored JSON or remove editable handles.
+
 ## October 16, 2026: Loaded-pile correction spikes
 
 Following the packed-bin changes below, profiling sustained player pressure

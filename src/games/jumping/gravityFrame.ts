@@ -16,13 +16,16 @@ export function mirrorPlatform(b: Platform): Platform {
   let polygon: Platform['polygon']
   if (b.polygon || b.profile) {
     const source = (b.polygon ?? b.profile)!
-    polygon = outlines.get(source)
+    polygon = b.bezier ? b.polygon!.map(([x, y]) => [x, b.h - y] as const) : outlines.get(source)
     if (!polygon) {
       polygon = polygonPoints({ ...b, x: 0, y: 0 }).map(([x, y]) => [x, b.h - y] as const).reverse()
       outlines.set(source, polygon)
     }
   }
   const reflected: Platform = { ...b, y: -b.y - b.h, ...(polygon ? { polygon } : {}) }
+  if (b.bezier) reflected.bezier = b.bezier.map(handle => handle && ({ ...handle,
+    ...(handle.in ? { in: [handle.in[0], -handle.in[1]] as const } : {}),
+    ...(handle.out ? { out: [handle.out[0], -handle.out[1]] as const } : {}) }))
   delete reflected.profile
   if (platformLedgesDisabled(b)) disablePlatformLedges(reflected)
   platforms.set(b, reflected); platforms.set(reflected, b)

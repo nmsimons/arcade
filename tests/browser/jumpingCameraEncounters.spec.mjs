@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
-import { reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
+import { reachReverseRopeCeiling, reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
 import { proneDropLevel } from '../helpers/jumpingProneScenarios.mjs'
@@ -159,8 +159,7 @@ for (const size of sizes) for (const night of [false, true]) for (const kind of 
       expect((await sample(page)).signals.grounded).toBe(true); expect((await sample(page)).y).toBeCloseTo(380, 1)
       await checkpoint('water-exit-dry-footing', [(await sample(page)).x, 380])
     } else {
-      await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')
-      await page.clock.runFor(3500)
+      await reachReverseRopeCeiling(page, false)
       expect((await sample(page)).signals.inverted).toBe(true); expect((await sample(page)).signals.grounded).toBe(true)
       await checkpoint('real-gravity-ceiling-contact', [(await sample(page)).x, 0])
       await page.keyboard.down('ArrowDown'); await page.clock.runFor(900); await page.keyboard.up('ArrowDown')

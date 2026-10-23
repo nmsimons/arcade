@@ -4,6 +4,19 @@ The player uses the custom movement controller for its existing acceleration,
 jumps on press, slope traction and climbing. Matter simulates loose props. Their
 boundary is the contact model in `src/games/jumping/playerContacts.ts`.
 
+Terrain can have cubic Bézier edges, authored as optional node handles. One
+cached polygon outline fitted to the 5-unit grid supplies player
+sweeps, slope support, loose-prop hulls, ropes, water masks and rendering. Editing
+handles invalidates the outline and dependent geometry. Generated subdivisions
+do not create grabbable ledges: only authored corners can offer grips. Reflected
+gravity uses the same curves with reflected nodes and control vectors. Existing
+friction, slope, clearance and wall-contact rules apply without curve-specific
+movement exceptions. Coverage lives in `tests/jumping-terrain-curves.test.mjs`.
+Explicit authored anchors retain their positions; intermediate samples are snapped
+and duplicate/collinear points removed. Handles aid authoring rather than requiring
+subpixel collision geometry. Prop correction neighborhoods are constructed only
+for queried bodies, avoiding quadratic terrain/terrain adjacency work each tick.
+
 The [carried-gadget prototype](jumping-carried-gadgets.md) equips a right-forearm
 sleeve from an explicit physical prop. Equipping permits normal traversal,
 including pushing, climbing, ledge catches, and wall jumps. Aim/use pause while

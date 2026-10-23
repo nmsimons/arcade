@@ -1,7 +1,7 @@
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
 import { nightModeEnabled } from './ambientLight'
 import { lightingForLevel } from './lightingDefinition'
-import { polygonPoints } from './geometry'
+import { terrainCubic, terrainNodes } from './terrainCurves'
 import { terrainDrawOrder } from './terrainOrder'
 import { copyableSelection, copySelections, deleteSelections, moveSelections, pasteSelections, sameSelection, selectionBounds, selectionsInRect, transformSelections, validSelections } from './editorSelection'
 import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, rememberEditorClipboard } from './editorClipboard'
@@ -9,6 +9,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
+import { moveTerrainHandle, setTerrainNodeMode } from './editor'
 import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
@@ -92,10 +93,10 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
   return selection.kind === 'text' ? handles.map(p => ({ ...p, ...wallTextPoint(level.texts![selection.index], p.x - bounds.x, p.y - bounds.y) })) : handles
 }
-type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'wire-terminal' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; terminal?: Point; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean }
+type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'bezier' | 'wire-terminal' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; tangent?: 'in' | 'out'; terminal?: Point; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
-  { id: 'node', group: 'Editing', label: 'Node', help: 'Drag an existing node to reshape terrain, or click an edge to add one. N activates this tool.' },
+  { id: 'node', group: 'Editing', label: 'Node', help: 'Drag a node to reshape terrain, or click an edge to add one. Select a node and choose Bézier handles in the inspector to curve its edges. N activates this tool.' },
   { id: 'platform', group: 'Terrain', label: 'Terrain', help: 'Drag to create terrain, then reshape it with the white nodes. Use the Node tool to add points along an edge.' },
   { id: 'steps-narrow', group: 'Terrain', label: 'Steps narrow', help: 'Click to place five steps with a stepped underside and a two-square top landing. Each rise and tread is one grid square. Resize, reshape, rotate, or flip after placing.' },
   { id: 'steps-wide', group: 'Terrain', label: 'Steps wide', help: 'Click to place five one-square-thick steps, each three squares wide and offset two squares across and one square up. They form one terrain shape with a stepped underside. Resize, reshape, rotate, or flip after placing.' },
@@ -159,7 +160,6 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   useEffect(() => { if (!active) lightingRenderer.release() }, [active, lightingRenderer])
   const [lightingPreview, setLightingPreview] = useState(true)
   const [previewLight, setPreviewLight] = useState<string | null>(null)
-  const lightingGeometry = useLightingGeometry(level, active && lightingPreview)
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false), savePending = useRef(false)
@@ -214,6 +214,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const builderRef = useRef<HTMLElement>(null)
   const [textEntry, setTextEntry] = useState<HTMLInputElement | HTMLTextAreaElement | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
+  const terrainDrag = drag?.selection?.kind === 'platform' && ['bezier', 'point', 'resize', 'move'].includes(drag.mode)
+  // Do not restart workers or shade a whole scene for every handle movement.
+  // Draw the live solid immediately; prepare lighting once the edit is released.
+  const lightingGeometry = useLightingGeometry(terrainDrag ? history.present : level, active && lightingPreview && !terrainDrag)
   const inspectorRef = useRef<HTMLElement>(null)
   const [inspectorTab, setInspectorTab] = useState<'level' | 'object'>('level')
   const latestPreview = useRef<JumpLevel | null>(null)
@@ -269,10 +273,19 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
   const quantize = useCallback((v: number, grid: number) => snap ? Math.round(v / grid) * grid : Math.round(v), [snap])
   const quantizeY = useCallback((y: number, grid: number) => roomHeight - quantize(roomHeight - y, grid), [roomHeight, quantize])
-  const hoveredNode = useMemo(() => tool === 'node' && pointer ? terrainVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom) : null,
-    [tool, pointer, level, view.zoom])
-  const nodeTarget = useMemo(() => tool === 'node' && pointer && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? gridSize : 0) : null,
-    [tool, pointer, hoveredNode, level, view.zoom, snap, gridSize])
+  const hoveredNode = useMemo(() => tool === 'node' && pointer && !drag ? terrainVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom) : null,
+    [tool, pointer, drag, level, view.zoom])
+  const curveHandles = useMemo(() => {
+    if (!chosen || selectedNode === null) return []
+    const node = terrainNodes(chosen)[selectedNode], handle = chosen.bezier?.[selectedNode]
+    return node ? (['in', 'out'] as const).flatMap(side => {
+      const vector = handle?.[side]
+      return vector ? [{ side, x: node[0] + vector[0], y: node[1] + vector[1], node }] : []
+    }) : []
+  }, [chosen, selectedNode])
+  const hoveredCurveHandle = pointer && curveHandles.find(h => Math.hypot(pointer.x - h.x, pointer.y - h.y) < 8 / view.zoom)
+  const nodeTarget = useMemo(() => tool === 'node' && pointer && !drag && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? gridSize : 0) : null,
+    [tool, pointer, drag, hoveredNode, level, view.zoom, snap, gridSize])
   const placement = useMemo(() => pointer && !drag && !preview && !helpOpen && !libraryOpen && !saveFailure && !textEntry
     ? placementPreview(level, tool, pointer, snap, view.zoom, gridSize) : null,
     [pointer, drag, preview, helpOpen, libraryOpen, saveFailure, textEntry, level, tool, snap, view.zoom, gridSize])
@@ -422,7 +435,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     if (selection?.kind !== 'platform' || selectedNode === null) return
     try {
       const next = deleteTerrainNode(history.present, selection.index, selectedNode)
-      commit(next); setSelectedNode(Math.min(selectedNode, polygonPoints(next.platforms[selection.index]).length - 1))
+      commit(next); setSelectedNode(Math.min(selectedNode, terrainNodes(next.platforms[selection.index]).length - 1))
     } catch (error) { setMessage((error as Error).message) }
   }
   function transformSelectedTerrain(transform: TerrainTransform) {
@@ -502,7 +515,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         const definition = { ...lighting, nightMode: lightingPreview && nightModeEnabled(lighting),
           lights: lighting.lights.map(l => l.id === previewLight && !helpOpen && !libraryOpen ? { ...l, power: 'always' as const } : l) }
         lightingRenderer.render(ctx, previewRun ? { ...previewRun, activeTime: previewTime.current } : playgroundLightingWorld(level, previewPlayer), definition,
-          { ...view, width: canvas.width, height: canvas.height, zoom: view.zoom * ratio }, dt, undefined, true, 'structural', !lightingPreview)
+          { ...view, width: canvas.width, height: canvas.height, zoom: view.zoom * ratio }, dt, undefined, true, 'structural', !lightingPreview || terrainDrag)
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
@@ -556,34 +569,27 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
           ctx.fillRect(point.x - handle / 2, point.y - handle / 2, handle, handle)
         }
-        if (chosen) for (const [i, [wx, wy]] of polygonPoints(chosen).entries()) {
+        for (const handle of curveHandles) {
+          ctx.strokeStyle = '#287c9b'; ctx.lineWidth = 1.5 / view.zoom
+          ctx.beginPath(); ctx.moveTo(handle.node[0], handle.node[1]); ctx.lineTo(handle.x, handle.y); ctx.stroke()
+          ctx.beginPath(); ctx.arc(handle.x, handle.y, 4.5 / view.zoom, 0, Math.PI * 2)
+          ctx.fillStyle = '#287c9b'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.stroke()
+        }
+        ctx.strokeStyle = '#c65231'
+        if (chosen) for (const [i, [wx, wy]] of terrainNodes(chosen).entries()) {
           ctx.beginPath(); ctx.arc(wx, wy, (i === selectedNode ? 6 : 4.5) / view.zoom, 0, Math.PI * 2)
           ctx.fillStyle = i === selectedNode ? '#c65231' : '#fffdf5'; ctx.fill(); ctx.stroke()
         }
-      }
-      if (hoveredNode) {
-        ctx.beginPath(); ctx.arc(hoveredNode.x, hoveredNode.y, 6 / view.zoom, 0, Math.PI * 2)
-        ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
       }
       for (const point of selectedTerminals) {
         ctx.beginPath(); ctx.arc(point.x, point.y, 7 / view.zoom, 0, Math.PI * 2)
         ctx.strokeStyle = '#c65231'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
       }
-      if (nodeTarget) {
-        const points = polygonPoints(level.platforms[nodeTarget.index]), a = points[nodeTarget.edge], b = points[(nodeTarget.edge + 1) % points.length]
-        ctx.strokeStyle = '#c65231'; ctx.lineWidth = 3 / view.zoom
-        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke()
-        ctx.beginPath(); ctx.arc(nodeTarget.x, nodeTarget.y, 6 / view.zoom, 0, Math.PI * 2)
-        ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
-        const cross = 3 / view.zoom
-        ctx.beginPath(); ctx.moveTo(nodeTarget.x - cross, nodeTarget.y); ctx.lineTo(nodeTarget.x + cross, nodeTarget.y)
-        ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
-      }
       ctx.restore()
     }
     draw(0)
-    const flickering = lightingPreview && level.lighting?.lights.some(l => l.flicker && (l.power === 'always' || l.id === previewLight))
-    const animatingFields = previewRun?.forceFields.some(f => f.active && f.definition.x < view.x + size.width / view.zoom
+    const flickering = !terrainDrag && lightingPreview && level.lighting?.lights.some(l => l.flicker && (l.power === 'always' || l.id === previewLight))
+    const animatingFields = !terrainDrag && previewRun?.forceFields.some(f => f.active && f.definition.x < view.x + size.width / view.zoom
       && f.definition.x + f.definition.w > view.x && f.definition.y < view.y + size.height / view.zoom && f.definition.y + f.definition.h > view.y)
     if (helpOpen || libraryOpen || !flickering && !animatingFields) return
     let frame = 0, previous = 0
@@ -597,7 +603,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, curveHandles, mechanism, robot, terrainDrag, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
   useEffect(() => {
     if (!active || size.width <= 0 || size.height <= 0) return
     // Cursor movement must not restart lighting or redraw the authored world.
@@ -614,7 +620,22 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       ctx.strokeRect(marquee.x, marquee.y, marquee.w, marquee.h)
     }
     if (placement) drawPlacementPreview(ctx, placement, view.zoom)
-  }, [active, size, view, placement, marquee, wallTextFontReady])
+    ctx.setLineDash([])
+    if (hoveredNode) {
+      ctx.beginPath(); ctx.arc(hoveredNode.x, hoveredNode.y, 6 / view.zoom, 0, Math.PI * 2)
+      ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
+    }
+    if (nodeTarget) {
+      const [a, b, c, d] = terrainCubic(level.platforms[nodeTarget.index], nodeTarget.edge)
+      ctx.strokeStyle = '#c65231'; ctx.lineWidth = 3 / view.zoom
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.bezierCurveTo(b[0], b[1], c[0], c[1], d[0], d[1]); ctx.stroke()
+      ctx.beginPath(); ctx.arc(nodeTarget.x, nodeTarget.y, 6 / view.zoom, 0, Math.PI * 2)
+      ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
+      const cross = 3 / view.zoom
+      ctx.beginPath(); ctx.moveTo(nodeTarget.x - cross, nodeTarget.y); ctx.lineTo(nodeTarget.x + cross, nodeTarget.y)
+      ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
+    }
+  }, [active, size, view, placement, marquee, wallTextFontReady, hoveredNode, nodeTarget, level])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -632,6 +653,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     hover(p, event.altKey)
     latestPreview.current = null
     if (panHeld.current || event.button === 1) { setDrag({ mode: 'pan', start: p, screen, base, view, selection: null }); return }
+    if ((tool === 'node' || tool === 'select') && selection && selectedNode !== null) {
+      const handle = curveHandles.find(h => Math.hypot(p.x - h.x, p.y - h.y) < 8 / view.zoom)
+      if (handle) {
+        setDrag({ mode: 'bezier', start: p, screen, base, view, selection, point: selectedNode, tangent: handle.side }); return
+      }
+    }
     if (tool === 'node') {
       const node = terrainVertexTarget(base, p.x, p.y, 10 / view.zoom)
       if (node) {
@@ -686,7 +713,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       setDrag({ mode: 'resize', start: p, screen, base, view, selection, corner: handle.corner }); return
     }
     if (selection && chosen) {
-      const point = polygonPoints(chosen).findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
+      const point = terrainNodes(chosen).findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
       if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); setDrag({ mode: 'point', start: p, screen, base, view, selection, point }); return }
     }
     const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
@@ -756,9 +783,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         next = resizeItem(d.base, d.selection, Math.max(snap && !event.altKey ? grid : 1, width), Math.max(snap && !event.altKey ? grid : 1, height), d.corner)
       }
       if (d.mode === 'point') {
-        const point = polygonPoints(d.base.platforms[d.selection.index])[d.point!]
+        const point = terrainNodes(d.base.platforms[d.selection.index])[d.point!]
         next = d.inserted && Math.hypot(dx, dy) * view.zoom < 3 ? d.base
           : moveVertex(d.base, d.selection.index, d.point!, qx(point[0] + dx) - point[0], qy(point[1] + dy) - point[1])
+      }
+      if (d.mode === 'bezier') {
+        const terrain = d.base.platforms[d.selection.index], point = terrainNodes(terrain)[d.point!], vector = terrain.bezier![d.point!]![d.tangent!]!
+        try {
+          next = moveTerrainHandle(d.base, d.selection.index, d.point!, d.tangent!, qx(point[0] + vector[0] + dx), qy(point[1] + vector[1] + dy))
+          setMessage('')
+        } catch (error) { setMessage((error as Error).message) }
       }
     }
     if (next) { latestPreview.current = next; setPreview(next) }
@@ -903,7 +937,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         event.preventDefault(); const grid = gridSize, step = event.shiftKey ? 1 : grid
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
-        const node = chosen && selectedNode !== null ? polygonPoints(chosen)[selectedNode] : null
+        const node = chosen && selectedNode !== null ? terrainNodes(chosen)[selectedNode] : null
         const origin = node ? { x: node[0], y: node[1] } : light ?? wallLight ?? logicRelay ?? bounds
         const shiftX = snap && !event.shiftKey && origin && dx ? quantize(origin.x + dx, grid) - origin.x : dx
         const shiftY = snap && !event.shiftKey && origin && dy ? quantizeY(origin.y + dy, grid) - origin.y : dy
@@ -961,10 +995,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     <div className="builder-stage" data-placement-at-cursor={placementAtCursor || undefined}>
       <div ref={controllerCursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
       <canvas ref={placementCanvasRef} className="builder-placement-preview" aria-hidden="true" />
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' || drag?.mode === 'wire-terminal' ? 'grabbing' : hoveredNode || hoveredTerminal ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' || drag?.mode === 'bezier' || drag?.mode === 'wire-terminal' ? 'grabbing' : hoveredNode || hoveredCurveHandle || hoveredTerminal ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setMarquee(null); setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
-      <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
+      <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={terrainDrag ? history.present : level} preview /><span>Overview</span></button>
     </div>
     <aside className="builder-inspector" aria-label="Inspector" ref={inspectorRef}>
       <div className="builder-inspector-tabs" role="tablist" aria-label="Inspector" onKeyDown={event => {
@@ -1056,7 +1090,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           if (next.goal) { if (next.goal.flipX) delete next.goal.flipX; else next.goal.flipX = true }
           commit(next)
         }}>Flip horizontally</button>}
-        {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || polygonPoints(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
+        {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || terrainNodes(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
+        {chosen && selectedNode !== null && <>
+          <BuilderSelect label="Bézier handles" accessibleLabel="Bézier handles" value={chosen.bezier?.[selectedNode] ? chosen.bezier[selectedNode]?.mode ?? 'corner' : 'straight'}
+            options={[{ value: 'straight', label: 'Straight · no handles' }, { value: 'corner', label: 'Corner · independent handles' }, { value: 'smooth', label: 'Smooth · aligned handles' }, { value: 'symmetric', label: 'Symmetric · equal handles' }]}
+            onChange={value => {
+              try { commit(setTerrainNodeMode(history.present, selection.index, selectedNode, value as 'straight' | 'corner' | 'smooth' | 'symmetric')) }
+              catch (error) { setMessage((error as Error).message) }
+            }} />
+          <p className="builder-hint">Drag the blue handles to curve adjoining edges. Alt bypasses Snap. Adding a node on a curve preserves its shape.</p>
+        </>}
         {forceField && <>
           <BuilderSelect label="Mode" accessibleLabel="Force field mode" value={forceField.mode ?? 'player'}
             options={[{ value: 'player', label: 'Blue · blocks player' }, { value: 'objects', label: 'Red · lets player through' }]}

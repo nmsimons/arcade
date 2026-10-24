@@ -215,14 +215,14 @@ function traceSegment(path: AthleteOutline, a: Point, b: Point, r0: number, r1: 
   path.quadraticCurveTo(...mid1, ...p3); path.quadraticCurveTo(a[0] - ux * r0, a[1] - uy * r0, ...p0)
   path.closePath()
 }
-function footAngle(limb: Limb, desired: number): number {
+function footAngle(limb: Limb, desired: number, ankleFlex = .35): number {
   const neutral = Math.atan2(limb.end[1] - limb.joint[1], limb.end[0] - limb.joint[0]) - Math.PI / 2
   const delta = Math.atan2(Math.sin(desired - neutral), Math.cos(desired - neutral))
   // Flex relative to the shin, keeping the toes clear of the calf during recovery.
-  return neutral + Math.max(-.35, Math.min(.7, delta))
+  return neutral + Math.max(-ankleFlex, Math.min(.7, delta))
 }
 function solveLeg(root: Point, target: Point, desired: number, grounded: boolean, planted = false, footFacing = 1, load = Number(grounded), kneeDirection = -1,
-  groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null, lowStep = 0): Leg {
+  groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null, lowStep = 0, ankleFlex = .35, toeCurl = 0): Leg {
   const ankle: Point = [...target]
   // Deep, supported crouches need more knee flexion than an airborne leg.
   // Forcing a nearby foot away from the hip can drive it through the floor;
@@ -231,9 +231,12 @@ function solveLeg(root: Point, target: Point, desired: number, grounded: boolean
   let limb = solve(root, ankle, 15, 14.5, kneeDirection, kneeOpening)
   // A crouch step skims the floor with a level sole. The airborne ankle curl
   // would otherwise rotate the foot upward against the deeply folded shin.
-  const swingAngle = () => lerp(desired, footAngle(limb, desired), grounded ? smooth((groundY - ankle[1] - 2.8) / 3) * (1 - lowStep) : 1)
+  const swingAngle = () => lerp(desired, footAngle(limb, desired, ankleFlex), grounded ? smooth((groundY - ankle[1] - 2.8) / 3) * (1 - lowStep) : 1)
   let angle = swingAngle()
-  const flex = () => toeBend((angle - surfaceAngle) * footFacing, load * smooth((limb.end[1] - groundY + 10) / 6)) * footFacing
+  const flex = () => {
+    const pressure = load * smooth((limb.end[1] - groundY + 10) / 6)
+    return (toeBend((angle - surfaceAngle) * footFacing, pressure) + toeCurl) * footFacing
+  }
   const clearKnee = () => {
     if (!grounded || !lowStep || !terrainHeight) return limb
     const surface = terrainHeight(limb.joint[0])
@@ -2288,6 +2291,7 @@ function resolveAthletePose(p: Player): AthletePose {
   // momentary slip must not replace the airborne gait before its blend begins.
   const pose = p.gait ?? gaitPose(p.vx, !p.grounded)
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
+  const walk = 1 - smooth(run / .2)
   const cycle = p.stride * p.facing
   const pushing = smooth(Math.max(p.pushing?.amount ?? 0, p.pushing?.ready ?? 0))
   // Gather the supported body with the hands before contact. Otherwise the
@@ -2300,10 +2304,14 @@ function resolveAthletePose(p: Player): AthletePose {
     ? Math.max(0, (p.pushing.wallX - p.x) * p.pushing.direction - 38) : 0
   const gait = moving * (1 - p.crouch) * (1 - air) * (1 - bodyPush)
   const squat = p.crouch
-  // Contact compresses the hips first, followed by the chest and then the head.
-  // The upper body unfolds on push-off; it curls forward into the next contact.
-  const bodyWave = (lag: number) => lerp(Math.cos(cycle * 2 - lag) * 1.7, Math.cos(cycle * 2 - .9 - lag) * 3.4, run) * gait
-  const hipBob = bodyWave(0), chestBob = bodyWave(.32) * .92, headBob = bodyWave(.55) * .72
+  // Walking loads the knee after heel contact, passes over the foot, then
+  // rises before the next contact. Carry the walking chest and head with
+  // that knee compression so the weight transfer reads at gameplay scale.
+  const bodyWave = (lag: number) => lerp(
+    lerp(Math.cos(cycle * 2 - lag) * 1.7, Math.cos(cycle * 2 - .9 - lag) * 3.4, run),
+    Math.sin(cycle * 2 - lag) * 1.8, walk) * gait
+  const hipBob = bodyWave(0), chestBob = bodyWave(lerp(.32, .08, walk)) * lerp(.92, 1, walk)
+  const headBob = bodyWave(lerp(.55, .12, walk)) * lerp(.72, 1, walk)
   // Contact sets motor vy to zero. Keep the descending balance while its air
   // amount fades; interpreting that zero as a new apex would curl on impact.
   const flightVy = p.grounded && p.landing > 0 ? Math.max(250, 150 + p.landingImpact * 850) : p.vy
@@ -2392,11 +2400,11 @@ function resolveAthletePose(p: Player): AthletePose {
   const armCarry = lerp(.03, .07, moving) + run * .13
   let frontAngle = lerp(-swing - armCarry + relaxed * .24, -.65, squat), backAngle = lerp(swing - armCarry - relaxed * .24, -.75, squat)
   // The backward arm opens; the forward arm folds up toward the chest.
-  let frontFlex = lerp(.1 + relaxed * .16 * (1 - pushing) + moving * lerp(.12, 1.2 - Math.cos(armCycle - .12) * .5, run), 2.1, squat)
+  let frontFlex = lerp(.1 + relaxed * .16 * (1 - pushing) + moving * lerp(.12 + (1 - Math.cos(armCycle)) * .14 * walk, 1.2 - Math.cos(armCycle - .12) * .5, run), 2.1, squat)
   // At quiet crouched rest, let the rear forearm fall beside the knee instead
   // of merging both hands into one. Travel and loaded palms keep their fold.
   const crouchRest = (1 - moving) * (1 - air) * (1 - pushing)
-  let backFlex = lerp(.1 + relaxed * .24 * (1 - pushing) + moving * lerp(.12, 1.2 + Math.cos(armCycle - .12) * .5, run), 2.2 - 1.55 * crouchRest, squat)
+  let backFlex = lerp(.1 + relaxed * .24 * (1 - pushing) + moving * lerp(.12 + (1 + Math.cos(armCycle)) * .14 * walk, 1.2 + Math.cos(armCycle - .12) * .5, run), 2.2 - 1.55 * crouchRest, squat)
   if (air > 0) {
     // Stretch off the ground, gather through the apex, then open the arms for
     // balance. A real approaching support sweeps them back for the contact.
@@ -2496,10 +2504,15 @@ function resolveAthletePose(p: Player): AthletePose {
     const ground = groundAt(p.footwork!.terrain, p.x + x * p.facing, p.y)
     return ground ? ground.y - p.y : null
   } : undefined
+  // Let the walking foot recover independently of the folding shin. The
+  // tighter airborne limit pointed its toes down even on this low swing.
+  const ankleFlex = .35 + .25 * gait * walk
+  // Curl only the free toes toward the ground during the forward swing.
+  // Loaded soles retain their forefoot contact as the heel lifts.
   const frontLeg = solveLeg(add(hip, [0, 1]), frontAnkle, contacts ? contacts[0].angle * frontFacing : lerp(frontStep.angle * (1 - squat) * moving, -.15, air), p.grounded, frontPlanted, frontFacing, 1 - air, -1,
-    contacts ? contacts[0].groundY - p.y : 0, (contacts?.[0].groundAngle ?? 0) * p.facing, terrainHeight, squat)
+    contacts ? contacts[0].groundY - p.y : 0, (contacts?.[0].groundAngle ?? 0) * p.facing, terrainHeight, squat, ankleFlex, frontStep.toeCurl * gait)
   const backLeg = solveLeg(add(hip, [0, 1]), backAnkle, contacts ? contacts[1].angle * backFacing : lerp(backStep.angle * (1 - squat) * moving, .12, air), p.grounded, backPlanted, backFacing, 1 - air, -1,
-    contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight, squat)
+    contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight, squat, ankleFlex, backStep.toeCurl * gait)
   let result: AthletePose = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
   if (p.grounded && p.contacts?.push?.hands && p.pushing?.palms) {
     const arms = [frontArm, backArm].map((arm, index) => {

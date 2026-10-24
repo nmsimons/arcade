@@ -4,7 +4,7 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, gaitPose, STEP, TUNING } from '../src/games/jumping/model.ts'
-import { footPoint, FOOT_BALL, strideProfile } from '../src/games/jumping/footwork.ts'
+import { footPoint, FOOT_BALL, FOOT_CONTACT, strideProfile } from '../src/games/jumping/footwork.ts'
 
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
 const elbowBend = arm => Math.acos(Math.max(-1, Math.min(1,
@@ -123,5 +123,92 @@ test('walking toe-off visibly lifts each heel while the loaded forefoot stays on
       }
     }
     assert.ok(lifted.every(frames => frames > 8), 'both walking feet show repeated supported heel lift')
+  }
+})
+
+test('the free walking toes dip toward the ground and straighten before landing', () => {
+  const floor = [{ x: -4000, y: 900, w: 8000, h: 100 }]
+  for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) {
+    const p = createPlayer({ x: 0, y: 900 }), input = { ...NEUTRAL_INPUT, move: direction * TUNING.walkSpeed / TUNING.runSpeed }
+    for (let time = 0; time < 1 - dt / 2; time += dt) stepPlayer(p, input, dt, floor)
+    const dips = [0, 0], forwardDip = [false, false], relaxed = [0, 0]
+    for (let time = 0; time < 2 - dt / 2; time += dt) {
+      stepPlayer(p, input, dt, floor)
+      const pose = athletePose(p)
+      for (const [index, leg] of [pose.frontLeg, pose.backLeg].entries()) {
+        assert.ok(leg.footAngle < .65, 'toe flex does not add a larger ankle roll')
+        if (leg.planted) continue
+        const clearance = -leg.end[1] - 2.8
+        if (clearance > 6) dips[index] = Math.max(dips[index], leg.toeAngle)
+        const ball = footPoint(FOOT_BALL, leg.footAngle, leg.toeAngle), tip = footPoint([4.5, 2.8], leg.footAngle, leg.toeAngle)
+        if (leg.end[0] > 0 && leg.end[0] < 9 && leg.footAngle > .1 && tip[1] - ball[1] > .35) forwardDip[index] = true
+        for (const point of FOOT_CONTACT) {
+          const sole = footPoint(point, leg.footAngle, leg.toeAngle)
+          assert.ok(p.y + leg.end[1] + sole[1] <= 900 + .02, 'the dipping free toe stays above the floor')
+        }
+        if (leg.end[0] > 9 && leg.footAngle < -.05) {
+          relaxed[index]++
+          assert.ok(Math.abs(leg.toeAngle) < .04, 'the toe tip straightens as the shoe reaches forward')
+        }
+        const foot = p.footwork.feet[index]
+        assert.ok(distance([p.x + leg.end[0] * direction, p.y + leg.end[1]], [foot.x, foot.y]) < .01,
+          'toe flex retains the original ankle trajectory')
+      }
+    }
+    assert.ok(dips.every(dip => dip > .15 && dip < .35), 'both free toe tips curl down during the forward swing')
+    assert.ok(forwardDip.every(Boolean), 'the whole front shoe tips down while it travels ahead of the hips')
+    assert.ok(relaxed.every(frames => frames > 1), 'both toes repeatedly relax before contact')
+  }
+})
+
+test('precision walking visibly transfers weight through the body without a larger step', () => {
+  const floor = [{ x: -4000, y: 900, w: 8000, h: 100 }]
+  for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) {
+    const p = createPlayer({ x: 0, y: 900 }), input = { ...NEUTRAL_INPUT, move: direction * TUNING.walkSpeed / TUNING.runSpeed }
+    for (let time = 0; time < 1 - dt / 2; time += dt) stepPlayer(p, input, dt, floor)
+    const startX = p.x, hips = [], heads = [], recovered = [], elbows = []
+    let previous = p.footwork.feet.map(foot => foot.planted), landings = 0, lift = 0
+    for (let time = 0; time < 4 - dt / 2; time += dt) {
+      stepPlayer(p, input, dt, floor)
+      const pose = athletePose(p), feet = p.footwork.feet
+      assert.ok(feet.some(foot => foot.planted), 'the walk always has real support')
+      hips.push(pose.hip[1]); heads.push(pose.head[1])
+      for (const leg of [pose.frontLeg, pose.backLeg]) {
+        const clearance = -leg.end[1] - 2.8
+        lift = Math.max(lift, clearance)
+        if (!leg.planted && clearance > 6.5) recovered.push(leg.footAngle)
+      }
+      for (const arm of [pose.frontArm, pose.backArm]) elbows.push(elbowBend(arm))
+      landings += feet.filter((foot, i) => foot.planted && !previous[i]).length
+      previous = feet.map(foot => foot.planted)
+    }
+    const hipTravel = Math.max(...hips) - Math.min(...hips), headTravel = Math.max(...heads) - Math.min(...heads)
+    assert.ok(hipTravel > 2.5 && hipTravel < 4, 'the supporting knee visibly compresses and extends without a large bounce')
+    assert.ok(headTravel > 3 && headTravel < 4, 'the head rise and fall survives scaling to the gameplay view')
+    assert.ok(Math.abs(headTravel - hipTravel) < .5, 'the head follows the weight transfer through the body')
+    assert.ok(recovered.length > 10 && Math.max(...recovered) < .6, 'the recovering shin does not force the shoe to point steeply down')
+    assert.ok(lift > 6.5 && lift < 8, 'the original low foot swing is preserved')
+    assert.ok(Math.max(...elbows) - Math.min(...elbows) > .2 && Math.max(...elbows) < .55, 'the elbows soften slightly through the swing')
+    assert.equal(landings, 25, 'the established walking cadence is preserved')
+    assert.ok(Math.abs(p.x - startX - direction * TUNING.walkSpeed * 4) < .01, 'walking speed is unchanged')
+  }
+})
+
+test('the walking head follows the supporting knee from recoil to the high point', () => {
+  for (const direction of [-1, 1]) {
+    const poses = [0, .125, .25, .375].map(phase => athletePose({ ...createPlayer({ x: 0, y: 900 }),
+      grounded: true, vx: direction * TUNING.walkSpeed, facing: direction, gait: gaitPose(TUNING.walkSpeed),
+      stride: direction * phase * Math.PI * 2 }))
+    const [contact, recoil, passing, highPoint] = poses
+    assert.ok(recoil.hip[1] > contact.hip[1] + .4, 'the body absorbs weight after heel contact')
+    assert.ok(passing.hip[1] < recoil.hip[1] - .4, 'the body rises as the free foot passes underneath')
+    assert.ok(highPoint.hip[1] < passing.hip[1] - .4, 'late support has the highest pelvis')
+    assert.ok(recoil.head[1] > contact.head[1] + 1, 'the head visibly lowers with the knee after contact')
+    assert.ok(highPoint.head[1] < passing.head[1] - 1, 'the head visibly rises as the supporting leg extends')
+    const supportReach = pose => distance(pose.frontLeg.root, pose.frontLeg.end)
+    assert.ok(supportReach(passing) > supportReach(recoil) + 1, 'the rise corresponds to extension of the real supporting knee')
+    assert.ok(contact.frontLeg.planted && contact.frontLeg.footAngle < -.15, 'the leading shoe receives weight on its heel')
+    assert.ok(contact.backLeg.planted && contact.backLeg.footAngle > .45, 'the trailing heel peels up over the toes')
+    assert.ok(contact.hip[1] - highPoint.hip[1] < 2, 'the rise remains restrained')
   }
 })

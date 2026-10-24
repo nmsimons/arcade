@@ -60,7 +60,8 @@ function stanceAngle(phase: number, run: number) {
   // A late, short toe-off looked flat at gameplay scale; running retains its
   // existing shorter support phase and heel lift.
   const toeOff = lerp(.46, .58, run)
-  return -lerp(.12, .1, run) * (1 - smooth(phase / .18)) + lerp(.6, .65, run) * smooth((phase - toeOff) / (1 - toeOff))
+  const heel = lerp(.12, .1, run) + .08 * (1 - smooth(run / .2))
+  return -heel * (1 - smooth(phase / .18)) + lerp(.6, .65, run) * smooth((phase - toeOff) / (1 - toeOff))
 }
 
 export function strideProfile(run: number, moving = 1, jog = 0) {
@@ -77,16 +78,16 @@ export function sampleStride(cycle: number, run: number, moving = 1, jog = 0) {
   const { duty, lead, trail, scale, length } = strideProfile(run, moving, jog)
   if (phase < duty) {
     const angle = stanceAngle(phase / duty, run), roll = footRoll(angle)
-    return { ankle: [lead - phase * length + roll[0], roll[1]] as Point, angle, planted: true }
+    return { ankle: [lead - phase * length + roll[0], roll[1]] as Point, angle, planted: true, toeCurl: 0 }
   }
-  const t = (phase - duty) / (1 - duty)
+  const t = (phase - duty) / (1 - duty), walk = 1 - smooth(run / .2)
   const toeAngle = stanceAngle(1, run), heelAngle = stanceAngle(0, run), toe = footRoll(toeAngle), heel = footRoll(heelAngle)
   const keys = [
     [0, -trail + toe[0], toe[1], toeAngle],
     [.2, lerp(-15, -20, run) * scale, -2.8 - lerp(3.2, 10.2, run) * scale, lerp(.35, .8, run)],
     [.42, lerp(-6, -14, run) * scale, -2.8 - lerp(7.2, 16.2, run) * scale, lerp(.4, .9, run)],
-    [.62, lerp(6, 1, run) * scale, -2.8 - lerp(5.2, 11.7, run) * scale, lerp(-.15, -.25, run)],
-    [.82, lead, -2.8 - lerp(2.2, 9.2, run) * scale, lerp(-.1, -.35, run)],
+    [.62, lerp(6, 1, run) * scale, -2.8 - (lerp(5.2, 11.7, run) - walk * 2) * scale, lerp(-.15, -.25, run) + walk * .37],
+    [.82, lead, -2.8 - (lerp(2.2, 9.2, run) - walk * .8) * scale, lerp(-.1, -.35, run) + walk * .18],
     [1, lead + heel[0], heel[1], heelAngle],
   ]
   const index = keys.findIndex((key, i) => i > 0 && key[0] >= t)
@@ -101,7 +102,10 @@ export function sampleStride(cycle: number, run: number, moving = 1, jog = 0) {
   const sample = (axis: number) => (2 * u ** 3 - 3 * u ** 2 + 1) * a[axis]
     + (u ** 3 - 2 * u ** 2 + u) * span * tangent(index - 1, axis)
     + (-2 * u ** 3 + 3 * u ** 2) * b[axis] + (u ** 3 - u ** 2) * span * tangent(index, axis)
-  return { ankle: [sample(1), sample(2)] as Point, angle: sample(3), planted: false }
+  // The free walking toes dip as the foot passes forward, then straighten
+  // before heel contact. Loaded toes get their bend from the support roll.
+  const toeCurl = .35 * walk * Math.sin(Math.PI * clamp((t - .1) / .7)) ** 2
+  return { ankle: [sample(1), sample(2)] as Point, angle: sample(3), planted: false, toeCurl }
 }
 
 function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: number, bodyX: number) {

@@ -764,17 +764,23 @@ back to the ordinary airborne pose over 0.28 seconds.
 The same state runs in the reflected gravity frame. Respawn clears it.
 Regression coverage lives in `tests/jumping-free-fall.test.mjs`.
 
-The `codex/player-ragdoll` experiment adds a short constrained ragdoll response
-to hard prone landings (downward speed above 1000, prone blend above 0.35) and
-strong humanoid repulsor impulses (at least 750). Angular springs carry impact
-momentum through the torso, neck, shoulders, elbows, hips and knees. Bounded
+Hard prone landings (downward speed above 1000, prone blend above 0.35) and
+strong humanoid repulsor impulses (at least 750) trigger a short constrained
+ragdoll response. Angular springs carry impact momentum through the torso, neck,
+shoulders, elbows, hips and knees. Bounded
 joints, fixed bone lengths and the existing terrain/prop clearance solve keep
-the rig together. The response scales with impulse magnitude, seeds from the
-outgoing pose, and fades back into the active rig within 0.55 seconds. It is
+the rig together. Knee rotations preserve their incoming hinge direction rather
+than extending backward. Falling and recoil share loose-body clearance, applied
+after articulation so a landing does not clear the target and final rig twice.
+The response scales with impulse magnitude, seeds from the outgoing pose, and
+fades back into the active rig within 0.55 seconds. It is
 presentation physics around the existing motor hull; it adds no input lock,
 damage, death, displacement or longer recovery. Active walking uses the existing
-fast get-up; jumping, gripping, bracing, sliding, gravity turns, water entry and
-respawn release the response. Dry gravity inversion uses the same local rig.
+fast get-up; jumping, gripping, bracing, sliding, working push contacts, gravity
+turns, water entry and respawn release the response. Working palms and planted
+shoes immediately use their real contacts. A gravity turn captures the loose
+rig and releases live recoil in the same tick. Dry gravity inversion uses the
+same local rig.
 The untimed **Impact Lab** development room provides a repeatable high drop,
 return ladder and separated repulsor bay. Focused regressions live in
 `tests/jumping-impact-ragdoll.test.mjs`.

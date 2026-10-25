@@ -88,17 +88,17 @@
       "y": 585,
       "w": 130,
       "h": 120,
-      "text": "OPERATOR CONNECTION\nNO RESPONSE",
+      "text": "OPERATOR CONNECTION:\nNO RESPONSE",
       "fontSize": 12,
       "align": "left",
       "style": "terminal"
     },
     {
-      "x": 1370,
-      "y": 548,
-      "w": 300,
-      "h": 60,
-      "text": "EXTERIOR ACCESS\nTRAINING ROUTE →",
+      "x": 1490,
+      "y": 650,
+      "w": 120,
+      "h": 65,
+      "text": "TRAINING COURSE",
       "fontSize": 18,
       "align": "left",
       "style": "official"
@@ -112,6 +112,26 @@
       "fontSize": 28,
       "align": "center",
       "style": "lab-stamp"
+    },
+    {
+      "x": 1570,
+      "y": 660,
+      "w": 140,
+      "h": 35,
+      "text": " →",
+      "fontSize": 28,
+      "align": "left"
+    },
+    {
+      "x": 1455,
+      "y": 595,
+      "w": 65,
+      "h": 70,
+      "text": "The only way out is through",
+      "fontSize": 12,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -20
     }
   ],
   "wallLights": [

@@ -722,6 +722,9 @@ function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
   if (Math.abs(gravity) <= TUNING.gravity * .05 || p.grounded || p.hang || p.mantle || p.climbing || p.releaseTurn || p.waterMotion || p.wallBrace?.active
     || (gravity < 0) === !!p.inverted) return
   p.releaseTurn = { angle: 0, target: p.facing * Math.PI, pose: pose ?? athletePose(p), facing: p.facing, time: 0, progress: 0 }
+  // The turn now owns the outgoing rig, including any loose impact joints.
+  // Do not apply recoil again before the next controller tick releases it.
+  p.ragdoll = null
   p.grounded = false; p.coyote = 0
   p.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.ledgeReach = null
   p.freeFall = null; p.dryTurn = null; p.slideEntry = null

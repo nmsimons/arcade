@@ -5,6 +5,9 @@ import { createPlayer, NEUTRAL_INPUT, respawn, STEP, stepPlayer, TUNING } from '
 import { repulsePlayer } from '../src/games/jumping/actorImpulse.ts'
 import { mirrorPlatform } from '../src/games/jumping/gravityFrame.ts'
 import { createImpactRagdoll, stepImpactRagdoll } from '../src/games/jumping/impactRagdoll.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
+import { blankTrial } from '../src/games/jumping/level.ts'
+import { createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
 
 const floor = [{ x: -3000, y: 1400, w: 6000, h: 100 }]
 function lengths(pose) {
@@ -149,5 +152,110 @@ test('steering against a repulsor hit gathers the loose rig into a continuous su
     assert.equal(p.ragdoll, null)
     assert.equal(p.dryTurn, null)
     assert.ok(p.vx * direction < 0 && p.grounded)
+  }
+})
+
+test('a working push takes over recoil with its real palms and supported feet', () => {
+  for (const blocked of [false, true]) for (const direction of [-1, 1]) {
+    const level = blankTrial()
+    level.entrance = { x: 540 - direction * 65.5, y: 920 }
+    level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
+    level.platforms = blocked ? [{ x: direction === 1 ? 580 : 380, y: 650, w: 120, h: 270 }] : []
+    const run = createRun(level), p = run.player
+    p.facing = direction
+    for (let i = 0; i < 100; i++) stepRun(run, NEUTRAL_INPUT)
+    repulsePlayer(p, [direction, 0])
+    assert.ok(p.ragdoll)
+    let contacts = 0
+    const from = run.props[0].x
+    for (let frame = 0; frame < 90; frame++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: direction })
+      if (!p.contacts?.push?.hands || !p.pushing?.palms) continue
+      contacts++
+      assert.equal(p.ragdoll, null, 'working contacts own the rig as soon as they apply force')
+      const pose = athletePose(p)
+      lengths(pose)
+      assert.ok(pose.frontLeg.planted || pose.backLeg.planted, 'a loaded push has a supporting shoe')
+      for (const [index, arm] of [pose.frontArm, pose.backArm].entries()) {
+        const palm = p.pushing.palms[index]
+        assert.ok(Math.hypot(p.x + arm.hand[0] * p.facing - palm.x - palm.nx * 1.6,
+          p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .1, 'the visible palm stays on its working contact')
+      }
+    }
+    assert.ok(contacts > 30)
+    assert.ok(blocked ? Math.abs(run.props[0].x - from) < 1 : (run.props[0].x - from) * direction > 5)
+  }
+})
+
+test('recoil cannot hyperextend a supported knee in either gravity frame or facing', () => {
+  for (const inverted of [false, true]) for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) {
+    const p = createPlayer({ x: 0, y: inverted ? -1400 : 1400 })
+    Object.assign(p, { inverted, facing: direction })
+    const ground = inverted ? floor.map(mirrorPlatform) : floor
+    const gravity = (inverted ? -1 : 1) * TUNING.gravity
+    for (let i = 0; i < 60; i++) stepPlayer(p, NEUTRAL_INPUT, dt, ground, undefined, undefined, undefined, undefined, gravity)
+    repulsePlayer(p, [direction, 0])
+    let samples = 0
+    for (let frame = 0; frame < Math.ceil(.6 / dt); frame++) {
+      stepPlayer(p, NEUTRAL_INPUT, dt, ground, undefined, undefined, undefined, undefined, gravity)
+      if (!p.ragdoll) continue
+      samples++
+      const pose = athletePose(p)
+      lengths(pose)
+      for (const leg of [pose.frontLeg, pose.backLeg]) {
+        const upper = [leg.joint[0] - leg.root[0], leg.joint[1] - leg.root[1]]
+        const lower = [leg.end[0] - leg.joint[0], leg.end[1] - leg.joint[1]]
+        assert.ok(upper[0] * lower[1] - upper[1] * lower[0] >= -1e-6,
+          `frame ${frame}, dt ${dt}: the knee keeps its forward bend`)
+      }
+    }
+    assert.ok(samples > 10)
+  }
+})
+
+test('entering reverse gravity transfers the loose pose to the turn in the same tick', () => {
+  for (const inverted of [false, true]) for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) {
+    const field = createGravityField()
+    updateGravityField(field, [{ id: 'flip', x: -3000, y: -3000, w: 6000, h: 6000,
+      gravity: inverted ? 1 : -1, power: 'always' }], new Map(), true)
+    const p = createPlayer({ x: 0, y: inverted ? -500 : 500 })
+    Object.assign(p, { grounded: false, inverted, facing: direction })
+    repulsePlayer(p, [direction, 0])
+    for (let i = 0; i < Math.round(.3 / dt); i++) {
+      stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, undefined, (inverted ? -1 : 1) * TUNING.gravity)
+    }
+    assert.ok(p.ragdoll)
+    stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, field)
+    assert.ok(p.releaseTurn)
+    assert.equal(p.ragdoll, null, 'the gravity turn is the sole owner of the captured pose')
+    const pose = athletePose(p), source = p.releaseTurn.pose
+    const points = rig => [rig.hip, rig.waist, rig.shoulder, rig.head,
+      ...[rig.frontArm, rig.backArm, rig.frontLeg, rig.backLeg].flatMap(limb => [limb.joint, limb.end])]
+    points(pose).forEach((point, i) => assert.ok(Math.hypot(point[0] - points(source)[i][0], point[1] - points(source)[i][1]) < 1,
+      'the first turn frame displays its captured rig without another layer of recoil'))
+    lengths(pose)
+  }
+})
+
+test('distant solids do not change loose clearance near a real floor and wall', () => {
+  for (const inverted of [false, true]) for (const direction of [-1, 1]) for (const kind of ['landing', 'repulsor']) {
+    const shapes = [...floor, { x: direction > 0 ? 100 : -120, y: 0, w: 20, h: 1400 }]
+    const distant = Array.from({ length: 50 }, (_, i) => ({ x: 5000 + i * 100, y: 0, w: 20, h: 1400 }))
+    const near = inverted ? shapes.map(mirrorPlatform) : shapes
+    const all = [...near, ...(inverted ? distant.map(mirrorPlatform) : distant)]
+    const p = createPlayer({ x: direction * 60, y: (inverted ? -1 : 1) * (kind === 'landing' ? 100 : 500) })
+    Object.assign(p, { inverted, facing: direction, grounded: false, coyote: 0, terrain: near })
+    const extended = structuredClone(p)
+    extended.terrain = all
+    if (kind === 'repulsor') { repulsePlayer(p, [direction, 0]); repulsePlayer(extended, [direction, 0]) }
+    let sawRecoil = false
+    for (let frame = 0; frame < 300; frame++) {
+      const gravity = (inverted ? -1 : 1) * TUNING.gravity
+      stepPlayer(p, NEUTRAL_INPUT, STEP, near, undefined, undefined, undefined, undefined, gravity)
+      stepPlayer(extended, NEUTRAL_INPUT, STEP, all, undefined, undefined, undefined, undefined, gravity)
+      sawRecoil ||= !!p.ragdoll
+      assert.deepEqual(athletePose(extended), athletePose(p), 'only reachable surfaces can change the final rig')
+    }
+    assert.ok(sawRecoil, `${kind}, facing ${direction}, inverted ${inverted}: exercise loose clearance`)
   }
 })

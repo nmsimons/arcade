@@ -752,7 +752,7 @@
       "y": 545,
       "w": 185,
       "h": 68,
-      "text": "OPERATOR CONNECTION\nNO RESPONSE",
+      "text": "OPERATOR CONNECTION:\nNO RESPONSE",
       "fontSize": 12,
       "align": "left",
       "style": "terminal"

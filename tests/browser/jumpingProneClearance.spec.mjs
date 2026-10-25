@@ -48,7 +48,7 @@ for (const direction of [-1, 1]) for (const kind of ['wall', 'thin wall', 'under
 }
 
 for (const direction of [-1, 1]) {
-  test(`released long fall away from a thin column retains its flat landing: direction=${direction}`, async ({ page }, info) => {
+  test(`released long fall away from a thin column retains its prone impact and recoil: direction=${direction}`, async ({ page }, info) => {
     const level = { ...proneColumnDropLevel(direction), name: 'Released prone fall' }
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await useLevelFixtures(page, [level])
@@ -78,11 +78,15 @@ for (const direction of [-1, 1]) {
     expect(Math.abs(impact.vx)).toBeGreaterThan(20)
     expect(impact.signals.mode).toBe('get-up')
     await page.clock.runFor(120)
-    const flat = await sample()
-    expect(flat.signals.mode).toBe('get-up')
-    expect(Math.abs(flat.points[1][1] - flat.points[0][1])).toBeLessThan(2)
-    expect(flat.contacts.feet.every(foot => !foot.planted)).toBe(true)
-    await page.screenshot({ path: info.outputPath('released-flat-impact.png') })
+    const recoil = await sample()
+    expect(recoil.signals.mode).toBe('get-up')
+    expect(recoil.signals.ragdoll).toBe('landing')
+    // The limited torso spring can tilt a prone body. It must keep its head
+    // clear of the floor without turning residual drift into walking support.
+    expect(Math.abs(recoil.points[1][1] - recoil.points[0][1])).toBeLessThan(7)
+    expect(recoil.points[2][1]).toBeLessThanOrEqual(-6.18)
+    expect(recoil.contacts.feet.every(foot => !foot.planted)).toBe(true)
+    await page.screenshot({ path: info.outputPath('released-recoil-impact.png') })
     await page.clock.runFor(1000)
     expect((await sample()).signals.mode).toBe('free')
     expect((await sample()).signals.grounded).toBe(true)

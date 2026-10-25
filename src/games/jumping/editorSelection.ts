@@ -11,6 +11,7 @@ import { switchedItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import { goalBounds } from './goal.ts'
 import { attachPressurePlateOnSurface, syncPressurePlateMounts } from './pressurePlateMount.ts'
+import { MAX_TOGGLE_GROUPS } from './toggleGroups.ts'
 
 type Rect = { x: number; y: number; w: number; h: number }
 type Item = Record<string, unknown>
@@ -197,6 +198,7 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
   if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'logic-relay', 'float-switch', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)
   if (originals.some(s => s.kind === 'light')) { next.version = 2; next.lighting ??= { nightMode: false, ambient: 0, lights: [] } }
   const indices = new Map<string, number>(), ids = new Map<string, string>(), pasted: Selection[] = []
+  const toggleGroups = new Map<string, string>()
   for (const s of originals) {
     const array = itemArray(next, s.kind)
     if (array.length >= limits[s.kind]!) throw new Error(`This level has no room for more ${s.kind} items.`)
@@ -225,11 +227,33 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
     }
     if (s.kind === 'trigger') {
       const plate = next.triggers![s.index]
+      if (plate.mode !== 'coins' && plate.toggleGroup) {
+        const original = source.toggleGroups!.find(g => g.id === plate.toggleGroup)!
+        if (source.id !== level.id || !next.toggleGroups?.some(g => g.id === original.id)) {
+          let id = toggleGroups.get(original.id)
+          if (!id) {
+            if ((next.toggleGroups?.length ?? 0) >= MAX_TOGGLE_GROUPS) throw new Error('This level has no room for more toggle groups.')
+            id = newLevelId(); toggleGroups.set(original.id, id)
+            let name = original.name, suffix = 2
+            while (next.toggleGroups?.some(g => g.name === name)) name = `${original.name.slice(0, 70)} ${suffix++}`
+            ;(next.toggleGroups ??= []).push({ ...original, id, name })
+          }
+          plate.toggleGroup = id
+        }
+      }
       if (plate.mode !== 'coins' && plate.mount) {
         const host = ids.get(plate.mount.mechanism)
         if (host) plate.mount.mechanism = host; else delete plate.mount
       }
     }
+  }
+  // Pasted members keep their group, independent of the source objects.
+  for (const group of source.editorGroups ?? []) {
+    const members = group.members.flatMap(s => {
+      const index = indices.get(key(s))
+      return index === undefined ? [] : [{ kind: s.kind, index }]
+    })
+    if (members.length >= 2) (next.editorGroups ??= []).push({ id: newLevelId(), members })
   }
   // Preserve relative terrain layering and place the whole pasted group in front.
   for (const i of terrainDrawOrder(source.platforms)) {

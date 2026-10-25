@@ -5,6 +5,7 @@ import { blankTrial } from './level.ts'
 import { groundAt } from './terrain.ts'
 import { switchSources } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
+import { remapEditorGroups } from './editorGroups.ts'
 
 export function asTrial(level: JumpLevel): PuzzleLevel {
   if (isPuzzleLevel(level)) return copyLevel(level)
@@ -15,6 +16,9 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
 }
 export function copyForEditing(level: JumpLevel): JumpLevel {
   const next = { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` }
+  const groups = new Map((next.toggleGroups ?? []).map(g => [g.id, newLevelId()]))
+  for (const group of next.toggleGroups ?? []) group.id = groups.get(group.id)!
+  for (const plate of next.triggers ?? []) if (plate.mode !== 'coins' && plate.toggleGroup) plate.toggleGroup = groups.get(plate.toggleGroup)!
   const items = [...(next.floatSwitches ?? []), ...(next.logicRelays ?? []), ...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []), ...(next.goal?.id ? [next.goal] : [])]
   const ids = new Map<string, string>(items.map(item => [item.id!, newLevelId()]))
   for (const p of next.gravityPlates ?? []) if (p.effect === 'water') for (const action of ['fill', 'drain'] as const)
@@ -37,21 +41,27 @@ export function carvePit(source: JumpLevel, start: { x: number; y: number }, end
   const depth = Math.max(320, Math.min(800, Math.abs(end.y - start.y))), bottom = Math.min(2800, deck + depth)
   const oldFloor = level.floor; level.floor = Math.max(oldFloor, bottom); level.height = Math.max(level.height, level.floor + 120)
   if (deck === oldFloor) level.platforms.push({ x: 24, y: deck, w: level.width - 48, h: level.floor - deck })
-  const previous = level.platforms, platforms: JumpLevel['platforms'] = [], indices = new Map<number, number>()
+  const previous = level.platforms, platforms: JumpLevel['platforms'] = [], indices = new Map<number, number>(), fragments = new Map<number, number[]>()
   previous.forEach((b, index) => {
+    const first = platforms.length
     const intersects = !b.profile && b.x < x + w && b.x + b.w > x && b.y >= deck - .1 && b.y < bottom
-    if (!intersects) { indices.set(index, platforms.length); platforms.push(b); return }
+    if (!intersects) { indices.set(index, platforms.length); fragments.set(index, [platforms.length]); platforms.push(b); return }
     if (b.x < x) { indices.set(index, platforms.length); platforms.push({ ...b, w: x - b.x, h: Math.max(b.h, level.floor - b.y) }) }
     if (b.x + b.w > x + w) { if (!indices.has(index)) indices.set(index, platforms.length); platforms.push({ ...b, x: x + w, w: b.x + b.w - x - w, h: Math.max(b.h, level.floor - b.y) }) }
     if (bottom < level.floor) platforms.push({ x: Math.max(x, b.x), y: bottom, w: Math.min(x + w, b.x + b.w) - Math.max(x, b.x), h: level.floor - bottom })
+    fragments.set(index, Array.from({ length: platforms.length - first }, (_, i) => first + i))
   })
   level.platforms = platforms
-  level.climbables.ladders = level.climbables.ladders.flatMap(l => {
+  const ladderIndices = new Map<number, number>()
+  level.climbables.ladders = level.climbables.ladders.flatMap((l, i) => {
     const platform = indices.get(l.platform); if (platform === undefined) return []
+    ladderIndices.set(i, ladderIndices.size)
     const b = platforms[platform]; return [{ ...l, platform, x: l.side === 1 ? b.x - 16 : b.x + b.w + 16, top: b.y }]
   })
   const left = platforms.findIndex(b => Math.abs(b.x + b.w - x) < .1 && Math.abs(b.y - deck) < .1)
   if (left >= 0 && !level.climbables.ladders.some(l => l.platform === left && l.side === -1)) level.climbables.ladders.push({ x: x + 16, top: deck, bottom, platform: left, side: -1 })
+  remapEditorGroups(level, s => s.kind === 'platform' ? (fragments.get(s.index) ?? []).map(index => ({ ...s, index }))
+    : s.kind === 'ladder' ? ladderIndices.has(s.index) ? [{ ...s, index: ladderIndices.get(s.index)! }] : [] : [s])
   return level
 }
 export function pusherRange(level: JumpLevel, x: number, y: number) {

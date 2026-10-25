@@ -5,6 +5,7 @@ import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerSwimStrength, propWaterStrength } from './gravity.ts'
 import { robotDrive } from './robotPhysics.ts'
 import { chargingBayOpening } from './goal.ts'
+import { triggerToggleGroup } from './toggleGroups.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo'
 export type CueKind = 'footstep' | 'robot-footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'emp-shot' | 'repulsor' | 'shove'
@@ -32,6 +33,7 @@ function snapshot(p: Player, run: Run | null) {
     props: run?.props.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, water: propWaterStrength(run.gravityField, b), grounded: b.grounded, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
+    triggerPresses: run?.triggers.map(t => t.pressed) ?? [],
     coins: run?.coinsCollected ?? 0,
     outage: run?.empRemaining ?? 0, playerOutage: run?.gadgets.disabled.get(p) ?? 0, shots: run?.gadgets.shots ?? 0,
     robotShots: run?.robots.map(robot => robot.shots ?? 0) ?? [],
@@ -211,6 +213,8 @@ export class JumpingAudioState {
       }
       run.triggers.forEach((t, i) => {
         const plate = run.level.triggers[i]
+        // Shared indicator changes are silent at remote or already-held members.
+        if (triggerToggleGroup(plate) && (!t.pressed || before.triggerPresses[i])) return
         const position = pressurePlatePosition(plate, run.mechanisms)
         if (t.active && before.triggers[i] === false || plate.mode !== 'coins' && (plate.behavior === 'switch' || plate.behavior === 'toggle') && !t.active && before.triggers[i] === true) cue('switch', position.x + plate.w / 2, position.y)
       })

@@ -1,6 +1,7 @@
 import type { JumpLevel, Trigger } from './level.ts'
 import { objectReference, objectLabel } from './objectLabels.ts'
 import { waterControlId } from './waterLevel.ts'
+import { triggerToggleGroup } from './toggleGroups.ts'
 
 export type PowerMode = 'always' | 'switched'
 export type PlateBehavior = 'pressure' | 'switch' | 'toggle'
@@ -43,11 +44,18 @@ export function parseSwitchSettings(value: { switchLogic?: unknown; switchRevers
 
 export const switchTargets = (source: { targets?: readonly string[]; target?: string }): readonly string[] => source.targets ?? (source.target ? [source.target] : [])
 
-/** Count each connected switch once, including inactive and legacy inputs. */
+/** Count each connected signal once; members of a toggle group share one input. */
 export function collectSwitchInputs(triggers: readonly Trigger[] = [], states: readonly { active: boolean }[] = []) {
   const inputs = new Map<string, SwitchInputs>()
+  const groups = new Map<string, Set<string>>()
   for (const [index, trigger] of triggers.entries()) {
     for (const id of switchTargets(trigger)) {
+      const group = triggerToggleGroup(trigger)
+      if (group) {
+        const seen = groups.get(id) ?? new Set<string>()
+        if (seen.has(group)) continue
+        seen.add(group); groups.set(id, seen)
+      }
       const counts = inputs.get(id) ?? { connected: 0, active: 0 }
       counts.connected++
       if (states[index]?.active) counts.active++

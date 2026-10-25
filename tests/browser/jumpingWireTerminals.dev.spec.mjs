@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { wallTerminals } from '../../src/games/jumping/wallWiring.ts'
-import { installBuiltInFixtures, useLevelFixtures, waitForBuilderPreview, selectBuilderObject, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { installBuiltInFixtures, useLevelFixtures, waitForBuilderPreview, selectBuilderObject, saveTestLevel, reopenTestLevel, openBuilderSection } from './helpers/jumpingLevels.mjs'
 
 test('wall jacks support dragging, exact coordinates, nudging, undo, automatic reset and save/reopen', async ({ page }, info) => {
   test.setTimeout(60000)
@@ -49,14 +49,15 @@ test('wall jacks support dragging, exact coordinates, nudging, undo, automatic r
   await page.keyboard.press('Shift+ArrowRight')
   await expect(x).toHaveValue('901')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await selectBuilderObject(page, 'goal:0'); await expect(x).toHaveValue('900')
+  await selectBuilderObject(page, 'goal:0'); await openBuilderSection(page, 'Wall wiring'); await expect(x).toHaveValue('900')
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
-  await selectBuilderObject(page, 'goal:0'); await expect(x).toHaveValue('901')
+  await selectBuilderObject(page, 'goal:0'); await openBuilderSection(page, 'Wall wiring'); await expect(x).toHaveValue('901')
   await x.fill('912'); await x.press('Tab')
   await y.fill('260'); await y.press('Tab')
   await reset.click(); await expect(reset).toBeDisabled()
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await selectBuilderObject(page, 'goal:0')
+  await openBuilderSection(page, 'Wall wiring')
   await expect(x).toHaveValue('912'); await expect(y).toHaveValue('260')
   const source = wallTerminals(level).find(point => point.owner.kind === 'trigger')
   await drag(source, { x: 412, y: 682 }, true)
@@ -68,13 +69,14 @@ test('wall jacks support dragging, exact coordinates, nudging, undo, automatic r
   expect(levelProblems(saved.level)).toEqual([])
   await page.reload(); await reopenTestLevel(page, saved)
   await selectBuilderObject(page, 'goal:0')
+  await openBuilderSection(page, 'Wall wiring')
   await expect(x).toHaveValue('912'); await expect(y).toHaveValue('260')
   // Deleting a focused jack resets its position without deleting its owner.
   const point = await toScreen({ x: 912, y: 540 })
   await page.mouse.click(point.x, point.y); await page.keyboard.press('Delete')
   await expect(reset).toBeDisabled()
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await selectBuilderObject(page, 'goal:0'); await expect(x).toHaveValue('912')
+  await selectBuilderObject(page, 'goal:0'); await openBuilderSection(page, 'Wall wiring'); await expect(x).toHaveValue('912')
   await reset.scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('wire-terminal-editor.png') })
 })

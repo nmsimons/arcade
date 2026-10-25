@@ -5,7 +5,7 @@
   --builder-field: var(--jumping-section);
   --builder-hover: var(--jumping-soft);
   position: absolute; inset: 0; z-index: 20;
-  display: grid; grid-template: auto auto minmax(0, 1fr) auto / 320px minmax(0, 1fr) 288px;
+  display: grid; grid-template: auto auto minmax(0, 1fr) auto / 288px minmax(0, 1fr) 320px;
   overflow: auto;
   background: var(--jumping-section); color: var(--jumping-ink);
   font: 400 var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif;
@@ -108,27 +108,50 @@
 .jumping-game .jumping-builder .builder-inspector-tabs button[aria-selected=true] { background: var(--jumping-paper); color: var(--jumping-ink); }
 .jumping-game .jumping-builder .builder-inspector-tabs button[aria-selected=false]:hover:not(:disabled) { background: var(--jumping-soft); color: var(--jumping-ink); }
 .builder-inspector-empty { margin: 0; padding: 20px; }
-.builder-inspector-heading { padding: 20px; background: var(--jumping-paper); }
-.builder-property-card { display: grid; gap: 20px; padding: 20px; }
+.builder-inspector-heading { padding: 12px 20px 4px; background: var(--jumping-paper); }
+.builder-inspector-heading .builder-select-field > span, .jumping-builder .builder-object-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.builder-property-card { display: grid; gap: 12px; padding: 12px 20px 20px; }
+.builder-inspector-section { min-width: 0; border-top: 1px solid color-mix(in srgb, var(--jumping-ink) 18%, transparent); }
+.builder-inspector-section > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 0; font-weight: 600; cursor: pointer; list-style: none; }
+.builder-inspector-section > summary::-webkit-details-marker, .builder-inspector-subsection > summary::-webkit-details-marker { display: none; }
+.builder-inspector-section > summary svg { width: 18px; height: 18px; flex: none; transform: rotate(-90deg); }
+.builder-inspector-section[open] > summary svg { transform: none; }
+.builder-inspector-section-content { display: grid; gap: 12px; padding: 0 0 8px; }
+.builder-inspector-section:not([open]) > .builder-inspector-section-content, .builder-inspector-subsection:not([open]) > div { display: none; }
+.builder-inspector-subsection { min-width: 0; }
+.builder-inspector-subsection > summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; min-height: 40px; cursor: pointer; list-style: none; }
+.builder-inspector-subsection > summary::before { content: '+'; width: 12px; }
+.builder-inspector-subsection[open] > summary::before { content: '−'; }
+.builder-inspector-subsection > summary .builder-hint { margin-left: auto; }
+.builder-inspector-subsection > div { display: grid; gap: 12px; padding: 4px 0 8px; }
+.builder-toggle-group { display: grid; gap: 12px; min-width: 0; }
+.builder-toggle-group-picker { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; align-items: end; }
+.builder-toggle-group-picker svg { display: block; width: 20px; height: 20px; }
+.builder-connection-list { display: grid; gap: 8px; min-width: 0; }
+.builder-connection-options { max-height: 240px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--jumping-ink) transparent; }
+.jumping-builder .builder-hint { margin: 0; font-size: var(--jumping-type-small); line-height: 1.5; overflow-wrap: anywhere; }
 .jumping-builder .builder-object-heading { margin: 0; font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere; }
 .builder-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 .builder-surface-placement, .builder-anchor { display: grid; gap: 8px; }
 .builder-surface-placement > span, .builder-anchor > span { font-size: inherit; overflow-wrap: anywhere; }
-.builder-materials, .builder-connections, .builder-grades, .builder-terrain-order { min-width: 0; margin: 0; padding: 0; border: 0; }
-.builder-inspector legend { margin-bottom: 8px; padding: 0; font: inherit; }
+.builder-materials, .builder-connections, .builder-grades, .builder-terrain-order { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.builder-inspector legend { margin-bottom: 8px; padding: 0; font: inherit; font-weight: 600; }
+.builder-switch-rule > legend { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .builder-materials > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .jumping-game .jumping-builder .builder-inspector button { background: var(--builder-field); }
 .jumping-game .jumping-builder .builder-inspector button:where(:not([role=tab])):hover:not(:disabled) { background: var(--jumping-color-ink); color: var(--jumping-color-paper); }
 .jumping-game .builder-materials button { display: grid; gap: 8px; padding: 8px; }
 .jumping-game .jumping-builder .builder-inspector button[aria-pressed=true] { background: var(--jumping-soft); color: var(--jumping-ink); }
 .builder-materials svg { width: 100%; height: 32px; border-radius: 0; }
-.jumping-builder .builder-connections label { flex-direction: row; align-items: center; gap: 8px; min-height: 44px; padding: 8px 0; overflow-wrap: anywhere; }
+.jumping-builder .builder-inspector label:has(> input[type=checkbox]) { flex-direction: row; align-items: center; gap: 8px; min-height: 44px; padding: 6px 0; overflow-wrap: anywhere; }
+.builder-connection-options label + label { border-top: 1px solid color-mix(in srgb, var(--jumping-ink) 8%, transparent); }
 .builder-action-row, .builder-object-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .builder-selection-list { margin: 0; padding-left: 20px; overflow-wrap: anywhere; }
 .jumping-game .builder-surface-placement button { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .jumping-game .builder-property-action { width: 100%; }
 .jumping-game .jumping-builder .builder-delete { color: var(--jumping-danger); }
-.builder-level-settings { display: grid; gap: 20px; padding: 20px; }
+.builder-level-settings { display: grid; gap: 12px; padding: 16px 20px 20px; }
+.builder-level-settings .builder-save-location { margin: 0 0 4px; font-size: var(--jumping-type-small); }
 .builder-lighting-settings { display: grid; gap: 6px; }
 .builder-lighting-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .jumping-builder .builder-night-mode, .jumping-builder .builder-headlight { white-space: nowrap; flex-direction: row; align-items: center; gap: 8px; min-height: 44px; }
@@ -175,7 +198,7 @@
   .builder-tools button[aria-pressed=true]::after, .builder-mode-controls button[aria-pressed=true]::after, .builder-materials button[aria-pressed=true]::after { content: '✓'; }
 }
 @media (max-width: 1100px) {
-  .jumping-builder { grid-template-columns: 288px minmax(0, 1fr) 252px; }
+  .jumping-builder { grid-template-columns: 252px minmax(0, 1fr) 288px; }
   .builder-tool-group { padding-inline: 12px; }
   .builder-inspector-heading, .builder-property-card, .builder-level-settings, .builder-validation, .builder-inspector-empty { padding-inline: 16px; }
   .jumping-game .jumping-builder .builder-inspector-tabs button { padding-inline: 16px; }

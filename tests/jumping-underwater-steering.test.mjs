@@ -41,7 +41,8 @@ for (const dt of [STEP, 1 / 60, 1 / 30]) for (const side of [-1, 1]) for (const 
         deepestTuck = Math.max(deepestTuck, p.waterMotion.gather)
       }
       const points = [pose.hip, pose.waist, pose.shoulder, pose.head,
-        ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end])]
+        ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end]),
+        ...[pose.frontArm, pose.backArm].map(arm => arm.hand ?? arm.end)]
         .map(([x, y]) => [p.x + x * p.facing, p.y + y])
       if (previous) for (const [j, point] of points.entries()) {
         assert.ok(Math.hypot(point[0] - previous[j][0], point[1] - previous[j][1]) < 450 * dt + .02, `continuous dive joint ${j}`)
@@ -74,7 +75,8 @@ for (const dt of [STEP, 1 / 60, 1 / 30]) for (const side of [-1, 1]) {
       stepPlayer(p, { ...NEUTRAL_INPUT, ...intent }, dt, [], undefined, undefined, undefined, f)
       const pose = athletePose(p)
       const points = [pose.hip, pose.waist, pose.shoulder, pose.head,
-        ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end])]
+        ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end]),
+        ...[pose.frontArm, pose.backArm].map(arm => arm.hand ?? arm.end)]
         .map(([x, y]) => [p.x + x * p.facing, p.y + y])
       if (previous) for (const [j, point] of points.entries()) {
         assert.ok(Math.hypot(point[0] - previous[j][0], point[1] - previous[j][1]) < 450 * dt + .02,

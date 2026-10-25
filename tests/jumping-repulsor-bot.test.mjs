@@ -505,11 +505,53 @@ for (const direction of [-1, 1]) test(`airborne Rbot keeps its travel heading wh
   tick(run)
   Object.assign(bot.actor, { x: 700, y: 650, vx: direction * 260, vy: 0, grounded: false })
   bot.x = 700; bot.y = 650
-  for (let frame = 0; frame < 24; frame++) {
+  let turns = 0, previousTurn
+  for (let frame = 0; frame < 48; frame++) {
     tick(run)
     assert.ok(!bot.actor.grounded && Math.abs(bot.actor.vx) > 100)
     assert.equal(bot.facing, direction, 'a braking command or opposite sighting cannot spin the airborne body')
+    const turn = bot.actor.dryTurn
+    if (turn && !previousTurn) turns++
+    if (turn) assert.equal(turn.target, direction, 'braking keeps the animation pointed along actual travel')
+    if (turn && previousTurn) assert.ok(Math.abs(turn.time - previousTurn.time - STEP) < 1e-8, 'the turn advances once per motor step without restarting')
+    previousTurn = turn && { time: turn.time }
   }
+  assert.ok(turns <= 1, 'braking cannot repeatedly restart a cosmetic turn while mechanical facing stays unchanged')
+})
+
+for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) test(`a genuine airborne Rbot reversal makes one continuous articulated turn (${direction}, ${dt})`, () => {
+  const file = level(); file.entrance.x = 700 - direction * 400
+  const run = createRun(file), bot = run.robots[0]
+  tick(run)
+  Object.assign(bot.actor, { x: 700, y: 200, vx: direction * 100, vy: 0, grounded: false })
+  bot.x = 700; bot.y = 200; bot.facing = direction
+  let turns = 0, depth = 0, previousFacing = direction, previousPoints
+  for (let frame = 0; frame < .83 / dt; frame++) {
+    stepRun(run, NEUTRAL_INPUT, dt)
+    const actor = bot.actor, pose = repulsorBotPose(actor)
+    assert.equal(actor.grounded, false)
+    if (frame * dt < .34) continue // Let the initial placed heading settle before the actual reversal.
+    if (actor.facing !== previousFacing) {
+      turns++
+      assert.ok(actor.dryTurn, 'a real heading reversal owns a visible turn instead of mirroring the rig')
+      assert.ok(Math.abs(actor.vx) > 60, 'small landing corrections retain the outgoing heading')
+    }
+    const arms = [pose.frontArm, pose.backArm], limbs = [...arms, pose.frontLeg, pose.backLeg]
+    const points = [pose.hip, pose.waist, pose.shoulder, pose.head, ...limbs.flatMap(limb => [limb.root, limb.joint, limb.end]),
+      ...arms.map(arm => {
+        const angle = arm.handAngle ?? Math.atan2(arm.end[1] - arm.joint[1], arm.end[0] - arm.joint[0])
+        return arm.hand ?? [arm.end[0] + Math.cos(angle) * 1.4, arm.end[1] + Math.sin(angle) * 1.4]
+      })].map(point => [point[0] * actor.facing * REPULSOR_BOT_WIDTH_SCALE, point[1]])
+    if (previousPoints) for (let i = 0; i < points.length; i++) {
+      assert.ok(Math.hypot(points[i][0] - previousPoints[i][0], points[i][1] - previousPoints[i][1]) < 600 * dt,
+        'the widened shell, wrists and palms turn continuously in the body frame')
+    }
+    depth = Math.max(depth, ...limbs.map(limb => Math.abs(limb.jointDepth ?? 0)))
+    previousPoints = points; previousFacing = actor.facing
+  }
+  assert.equal(turns, 1)
+  assert.ok(depth > 4, 'knees and elbows articulate through depth during the turn')
+  assert.equal(bot.actor.dryTurn, null, 'the turn finishes and returns to the normal airborne pose')
 })
 
 for (const mirror of [false, true]) test(`Rbot settles at a real takeoff instead of jumping into an overlapping deck (${mirror ? 'left' : 'right'})`, () => {

@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { selectBuilderObject, selectBuilderOption, installBuiltInFixtures, useLevelFixtures, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { selectBuilderObject, selectBuilderOption, installBuiltInFixtures, useLevelFixtures, saveTestLevel, reopenTestLevel, openBuilderSection } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 
 async function openSwitches(page) {
@@ -12,6 +12,54 @@ async function openSwitches(page) {
   await page.getByRole('button', { name: 'Open switches.json', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
 }
+
+test('shared toggle groups edit one starting state, undo, delete, save and reopen', async ({ page }, info) => {
+  await openSwitches(page)
+  await selectBuilderObject(page, 'trigger:0')
+  await selectBuilderOption(page, 'Pressure plate mode', 'toggle')
+  await selectBuilderOption(page, 'Pressure plate initial state', 'on')
+  await page.getByRole('button', { name: 'New toggle group', exact: true }).click()
+  const group = await page.getByRole('combobox', { name: 'Toggle group', exact: true }).getAttribute('data-value')
+  await openBuilderSection(page, 'Group settings')
+  await page.getByRole('textbox', { name: 'Toggle group name', exact: true }).fill('Main doors')
+  await page.getByRole('textbox', { name: 'Toggle group name', exact: true }).press('Enter')
+  await expect(page.getByRole('combobox', { name: 'Toggle group', exact: true })).toHaveText('Main doors')
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await selectBuilderObject(page, 'trigger:1')
+  await expect(page.getByRole('combobox', { name: 'Toggle group', exact: true })).toHaveText('Main doors')
+  await selectBuilderOption(page, 'Pressure plate initial state', 'off')
+  await selectBuilderObject(page, 'trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Pressure plate initial state' })).toHaveText('Off')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await selectBuilderObject(page, 'trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Pressure plate initial state' })).toHaveText('On')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await selectBuilderObject(page, 'trigger:1')
+  await selectBuilderOption(page, 'Toggle group', '')
+  await expect(page.getByRole('textbox', { name: 'Toggle group name' })).toHaveCount(0)
+  await selectBuilderOption(page, 'Toggle group', group)
+  await openBuilderSection(page, 'Group settings')
+  await page.getByRole('button', { name: 'Delete toggle group', exact: true }).click()
+  await selectBuilderObject(page, 'trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Toggle group', exact: true })).toHaveText('Independent')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await selectBuilderObject(page, 'trigger:0')
+  await selectBuilderOption(page, 'Pressure plate initial state', 'on')
+  const saved = await saveTestLevel(page)
+  expect(saved.level.toggleGroups).toEqual([{ id: group, name: 'Main doors', startsOn: true }])
+  expect(saved.level.triggers).toHaveLength(2)
+  for (const plate of saved.level.triggers) {
+    expect(plate.toggleGroup).toBe(group); expect(plate.startsOn).toBeUndefined()
+  }
+  await page.reload(); await reopenTestLevel(page, saved)
+  for (const index of [0, 1]) {
+    await selectBuilderObject(page, `trigger:${index}`)
+    await expect(page.getByRole('combobox', { name: 'Toggle group', exact: true })).toHaveText('Main doors')
+    await expect(page.getByRole('combobox', { name: 'Pressure plate initial state' })).toHaveText('On')
+  }
+  await page.getByRole('group', { name: 'Shared toggle', exact: true }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: info.outputPath('shared-toggle-inspector.png') })
+})
 
 test('dedicated logic nodes wire, undo, duplicate and reopen without Power or Relay controls', async ({ page }, info) => {
   await openSwitches(page)

@@ -39,9 +39,9 @@ The reusable carried EMP fires a swept electric bolt at 1,200 units/second,
 with a 900-unit range and one-second cooldown. Its first hit disables just that
 mechanism, shovebot, force field, or dry gravity emitter for five seconds.
 Machinery and bots freeze in place and stay solid; fields lose their effect.
-Rehits refresh the duration. Terrain and props absorb bolts. Blue beams pass
-them, but either emitter is targetable; red beams absorb them and disable only
-that field. Water is unaffected and does not block shots. This local disable
+Rehits refresh the duration. Terrain and props absorb bolts. Active blue and red
+beams absorb bolts and disable only the struck field; either emitter remains
+targetable while its beam is off. Water is unaffected and does not block shots. This local disable
 does not alter wiring, switches, other devices, or the legacy automatic EMP's
 global power outage. Bolts, cooldowns, and disable timers use simulation time.
 
@@ -139,6 +139,28 @@ using a bot rider when the player is not attached. Humanoid bodies stay outside
 rope obstacle geometry throughout attachment and release, matching the player;
 their body cannot suddenly kick the rope during an exit. Their route planner supplies
 controls from a bounded, shared graph; collision queries determine actual travel.
+Water contributes surface and submerged waypoints to the same graph. Swimming
+connections require continuous filled water and body clearance, including live red
+fields and mechanisms. The hunter steers Up/Down and sideways through the shared
+swimming motor and prioritizes leaving the water over pursuit or attacks. It
+commits to reachable dry footing, using ordinary surface jumps and ledge catches
+to leave a pool. Rope and ladder approaches retain swimming controls until the
+actual grip is accepted; reaching a climb waypoint alone does not count as a catch.
+Shallow ground takeoffs hold the ordinary jump, and airborne bank approaches
+retain their planned clearance. A rope release waits until the actual feet can
+reach the destination, including when low water requires a jump onto a hanging
+rope first. A submerged player is pursued from reachable shore after the
+escape, rather than provoking another dive. Dry chase and patrol routes use
+land and climbing connections, including ordinary jumps over water. Beneath a bank, the swimmer first
+clears the overhang, rises beside it, then approaches the lip. Live obstructions
+can select another exit; a temporarily sealed pool waits near the surface and
+rechecks when it opens. Waterline changes refresh this bounded topology;
+disconnected reservoirs do not create swimming shortcuts. Waypoint depth follows
+the displaced body rather than the changing foot root, preserving a level stroke
+as the body turns. Escaping hunters interrupt weapon windup/recovery and
+reserve palm shoves for dry footing. EMP still leaves the body under ordinary passive
+water physics. Regression coverage includes the Quarantine II water route in
+`tests/jumping-rbot-water.test.mjs` and `tests/browser/jumpingRbotWater.dev.spec.mjs`.
 Climb routes include intermediate ledge heights and exposed-lip handoffs onto
 the supporting platform. Jump edges retain their required strength, allowing
 short jumps under low ceilings as well as full-height reaches. Takeoff approach
@@ -154,6 +176,13 @@ it does not repeatedly jump into the ceiling. High ledge catches retain their
 airborne destination and brake using the remaining flight time. An unsupported
 bot faces its actual horizontal travel, retaining that heading through small
 corrections instead of flipping with each braking command or sighting.
+Dry flight resolves that heading once inside the motor, before advancing the
+shared turn animation. Braking and new clues cannot restart cosmetic turns;
+an actual velocity reversal passes through one continuous articulated turn.
+Airborne wall braces, grips and gravity turns also retain the motor's outgoing
+facing before a new sighting is considered. Looking behind cannot mirror a
+contact-owned pose and restart its turn every frame when a red field closes
+during a jump. The ordinary wall contact and fall still resolve the blocked arc.
 Descending ladder exits keep Down until the body clears the floor, then detach
 and fall through ordinary contacts rather than jumping into the underside.
 Before grabbing, local steering samples visible segments of the simulated rope
@@ -471,6 +500,13 @@ twice. Switch and Toggle retain their state during EMP; new presses wait for pow
 Switch plates start raised and, once switched on or off, stay visually depressed
 until restart, including during EMP. Pressure and Toggle plates retain their
 existing press and release animation.
+Toggle groups store one shared activation and initial state. Each member keeps
+its own load, debounce and release state, so a new press can flip the group while
+another member remains held. Simultaneous press edges in one sensor sample flip
+the group once. All member indicators and outgoing signals update before target
+evaluation; a target wired to several members counts the shared group once.
+Only newly pressed members emit a switch click. Group state follows ordinary
+Toggle EMP and restart rules.
 Always-on elevators and moving platforms still obey global EMP pauses.
 
 Entering the fully open back-wall door locks scoring and
@@ -1046,6 +1082,13 @@ limbs without returning upright. Both yaw layers ease through their turn angles;
 the elbow/knee depth axis stays continuous when mechanical facing changes.
 Interrupted turns and quick Up/Down changes keep every visible rig point
 continuous while preserving the limb lengths and normal clearance solves.
+Explicit palms follow the wrist's depth and heading through these turns as well;
+a facing change cannot leave a hand on the opposite side of the body. Rbot's wider
+shell preserves the shared swimming stroke and palm targets. Its horizontal
+broadening transfers into the shell's own cross sections as the swimming pose
+blends in, keeping the head, torso and limbs broad through horizontal strokes,
+dives and turns without lengthening the solved rig. Its artwork, shadow,
+headlight and palm emitter use that same presented rig.
 
 Intentional swimming well below the surface engages sculling that balances
 physical buoyancy. Horizontal travel can then maintain depth; releasing inputs

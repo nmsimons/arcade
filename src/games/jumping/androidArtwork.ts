@@ -37,17 +37,18 @@ function panel(path: AthleteOutline, a: Point, b: Point, from: number, to: numbe
   path.lineTo(...at(a, -from))
   path.quadraticCurveTo(a[0] - dx / length * from, a[1] - dy / length * from, ...at(a, from)); path.closePath()
 }
-function armShell(path: AthleteOutline, limb: Limb, forearmScale = 1) {
-  panel(path, along(limb.root, limb.joint, .06), along(limb.root, limb.joint, .78), 2.5, 1.95)
-  panel(path, along(limb.joint, limb.end, .18), along(limb.joint, limb.end, .86), 2.15, 1.6 * forearmScale)
+function armShell(path: AthleteOutline, limb: Limb, forearmScale = 1, width = 1) {
+  panel(path, along(limb.root, limb.joint, .06), along(limb.root, limb.joint, .78), 2.5 * width, 1.95 * width)
+  panel(path, along(limb.joint, limb.end, .18), along(limb.joint, limb.end, .86), 2.15 * width, 1.6 * forearmScale * width)
 }
-function legShell(path: AthleteOutline, limb: Limb, calfScale = 1) {
-  panel(path, along(limb.root, limb.joint, .04), along(limb.root, limb.joint, .8), 3, 2.35)
-  panel(path, along(limb.joint, limb.end, .15), along(limb.joint, limb.end, .88), 2.25, 1.6 * calfScale)
+function legShell(path: AthleteOutline, limb: Limb, calfScale = 1, width = 1) {
+  panel(path, along(limb.root, limb.joint, .04), along(limb.root, limb.joint, .8), 3 * width, 2.35 * width)
+  panel(path, along(limb.joint, limb.end, .15), along(limb.joint, limb.end, .88), 2.25 * width, 1.6 * calfScale * width)
 }
 function torso(path: AthleteOutline, pose: AthletePose, back: boolean) {
   const { hip, waist, shoulder } = pose
   const at = (p: Point, width: number, offset = 0): Point => {
+    width *= pose.shellWidth ?? 1
     const a = p === hip ? waist : shoulder, b = p === shoulder ? waist : hip
     const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy) || 1
     return [p[0] + (dy * width + dx * offset) / length, p[1] + (dy * offset - dx * width) / length]
@@ -62,8 +63,8 @@ function torso(path: AthleteOutline, pose: AthletePose, back: boolean) {
   path.lineTo(...at(hip, -2.7, 3.5)); path.quadraticCurveTo(...at(hip, 0, 4.2), ...at(hip, 2.7, 3.5))
   path.lineTo(...at(hip, 4.2, .1)); path.lineTo(...at(hip, 3.5, -1.6)); path.closePath()
 }
-function headPoint(head: Point, tilt: number) {
-  return (x: number, y: number): [number, number] => [head[0] + x * Math.cos(tilt) - y * Math.sin(tilt), head[1] + x * Math.sin(tilt) + y * Math.cos(tilt)]
+function headPoint(head: Point, tilt: number, width = 1) {
+  return (x: number, y: number): [number, number] => [head[0] + x * width * Math.cos(tilt) - y * Math.sin(tilt), head[1] + x * width * Math.sin(tilt) + y * Math.cos(tilt)]
 }
 function headFront(path: AthleteOutline, at: ReturnType<typeof headPoint>) {
   path.moveTo(...at(-.5, -5.8))
@@ -71,8 +72,8 @@ function headFront(path: AthleteOutline, at: ReturnType<typeof headPoint>) {
   path.lineTo(...at(5.6, 2))
   path.bezierCurveTo(...at(5.6, 4.5), ...at(3.4, 5.7), ...at(.7, 5.7))
 }
-function headShell(path: AthleteOutline, head: Point, tilt: number) {
-  const at = headPoint(head, tilt)
+function headShell(path: AthleteOutline, head: Point, tilt: number, width = 1) {
+  const at = headPoint(head, tilt, width)
   headFront(path, at)
   path.bezierCurveTo(...at(-3.6, 5.7), ...at(-5.5, 3.6), ...at(-5.5, .1))
   path.bezierCurveTo(...at(-5.5, -3.3), ...at(-3.9, -5.8), ...at(-.5, -5.8)); path.closePath()
@@ -80,11 +81,11 @@ function headShell(path: AthleteOutline, head: Point, tilt: number) {
 function shape(trace: (path: AthleteOutline) => void) {
   const path = new Path2D(); trace(path); return path
 }
-export function drawAndroidArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, forearmScale = 1) {
-  ctx.fillStyle = color; ctx.fill(shape(path => armShell(path, limb, forearmScale)))
+export function drawAndroidArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, forearmScale = 1, width = 1) {
+  ctx.fillStyle = color; ctx.fill(shape(path => armShell(path, limb, forearmScale, width)))
 }
-export function drawAndroidLeg(ctx: CanvasRenderingContext2D, limb: Limb, color: string, calfScale = 1) {
-  ctx.fillStyle = color; ctx.fill(shape(path => legShell(path, limb, calfScale)))
+export function drawAndroidLeg(ctx: CanvasRenderingContext2D, limb: Limb, color: string, calfScale = 1, width = 1) {
+  ctx.fillStyle = color; ctx.fill(shape(path => legShell(path, limb, calfScale, width)))
 }
 export function drawAndroidTorso(ctx: CanvasRenderingContext2D, pose: AthletePose, back: boolean, materials: AndroidMaterials) {
   const body = shape(path => torso(path, pose, back))
@@ -93,10 +94,10 @@ export function drawAndroidTorso(ctx: CanvasRenderingContext2D, pose: AthletePos
   ctx.fill(shape(path => panel(path, along(pose.shoulder, pose.waist, .36), along(pose.shoulder, pose.waist, .58), .7, .7)))
   ctx.restore()
 }
-export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt: number, materials: AndroidMaterials) {
+export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt: number, materials: AndroidMaterials, width = 1) {
   ctx.save(); ctx.translate(...head); ctx.rotate(tilt)
-  const outer = shape(path => headShell(path, [0, 0], 0))
-  const at = headPoint([0, 0], 0)
+  const outer = shape(path => headShell(path, [0, 0], 0, width))
+  const at = headPoint([0, 0], 0, width)
   const face = new Path2D(); headFront(face, at)
   face.bezierCurveTo(...at(-1.3, 3.5), ...at(-1.8, -3.8), ...at(-.5, -5.8)); face.closePath()
   // Adjacent color regions share one opacity rather than stacking during
@@ -110,7 +111,7 @@ export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt
 /** Lighting uses the shell silhouette. Physical clearance retains the
  * separate, original traceAthlete skin and the existing locomotion hull. */
 export function traceAndroidShell(path: AthleteOutline, pose: AthletePose, back: boolean) {
-  for (const limb of [pose.backLeg, pose.frontLeg]) legShell(path, limb, pose.calfScale)
-  for (const limb of [pose.backArm, pose.frontArm]) armShell(path, limb, pose.forearmScale)
-  torso(path, pose, back); headShell(path, pose.head, pose.headTilt ?? 0)
+  for (const limb of [pose.backLeg, pose.frontLeg]) legShell(path, limb, pose.calfScale, pose.shellWidth)
+  for (const limb of [pose.backArm, pose.frontArm]) armShell(path, limb, pose.forearmScale, pose.shellWidth)
+  torso(path, pose, back); headShell(path, pose.head, pose.headTilt ?? 0, pose.shellWidth)
 }

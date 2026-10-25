@@ -125,8 +125,10 @@ test('normal Up controls climb with the sleeve, then keep climbing after a red f
   await page.screenshot({ path: info.outputPath('red-field-climb-detached.png') })
 })
 
-test('carried EMP bolt disables the red barrier and stays equipped', async ({ page }, info) => {
-  await open(page, fixture(true)); await key(page, 'e')
+for (const mode of ['player', 'objects']) test(`carried EMP bolt disables the ${mode === 'player' ? 'blue' : 'red'} barrier and stays equipped`, async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  const level = fixture(true); level.forceFields[0].mode = mode
+  await open(page, level); await key(page, 'e')
   await expect(page.getByLabel('Available actions')).toHaveCount(0)
   await key(page, 'f')
   await page.clock.runFor(300)
@@ -136,6 +138,13 @@ test('carried EMP bolt disables the red barrier and stays equipped', async ({ pa
   await expect(page.getByLabel('Available actions')).toHaveCount(0)
   const sleeve = await page.locator('canvas').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
   expect(sleeve.x).toBeGreaterThan(520)
+  if (mode === 'player') {
+    await page.clock.runFor(5500)
+    await page.keyboard.down('a'); await page.clock.runFor(1300); await page.keyboard.up('a')
+    expect((await motion(page)).x).toBeCloseTo(537.5, 1)
+    await page.screenshot({ path: info.outputPath('emp-restored-blue-field.png') })
+  }
+  expect(errors).toEqual([])
 })
 
 test('a lightning-blue shovebot shocks and pushes the player through normal controls', async ({ page }, info) => {

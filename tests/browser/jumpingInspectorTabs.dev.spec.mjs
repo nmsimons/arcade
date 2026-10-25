@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { installBuiltInFixtures, useLevelFixtures, selectBuilderObject, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { installBuiltInFixtures, useLevelFixtures, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, openBuilderSection } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 async function open(page, level = blankTrial()) {
@@ -17,6 +17,91 @@ async function open(page, level = blankTrial()) {
   await page.getByRole('button', { name: 'Open tabs.json', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
 }
+
+function inspectorFixture() {
+  const level = blankTrial()
+  level.toggleGroups = [{ id: 'doors', name: 'Doors', startsOn: false }]
+  level.triggers = [{ mode: 'weight', behavior: 'toggle', toggleGroup: 'doors', x: 320, y: 920, w: 100, targets: ['lamp-1', 'lamp-12'] }]
+  level.wallLights = Array.from({ length: 12 }, (_, i) => ({ id: `lamp-${i + 1}`, name: `Lamp ${String(i + 1).padStart(2, '0')}`, x: 200 + i * 100, y: 600 }))
+  return level
+}
+
+test('inspector sections prioritize behavior and keep folding separate from level edits', async ({ page }, info) => {
+  await open(page, inspectorFixture())
+  await selectBuilderObject(page, 'trigger:0')
+  const panel = page.getByRole('tabpanel', { name: 'Object', exact: true })
+  expect(await panel.locator('.builder-inspector-section > summary').allTextContents()).toEqual(['Behavior', 'Connections', 'Transform', 'Wall wiring', 'Object help'])
+  await expect(page.getByRole('textbox', { name: 'Toggle group name', exact: true })).toBeHidden()
+  await expect(page.getByRole('checkbox', { name: 'Show wall wiring', exact: true })).toBeHidden()
+  const mode = await page.getByRole('combobox', { name: 'Pressure plate mode' }).boundingBox()
+  const position = await page.getByRole('spinbutton', { name: 'Object x', exact: true }).boundingBox()
+  expect(mode.y).toBeLessThan(position.y)
+  const connections = page.locator('summary[aria-label="Connections"]')
+  await connections.focus(); await connections.press('Enter')
+  await expect(panel.getByRole('group', { name: 'Activates', exact: true })).toBeHidden()
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Built-in level')
+  await selectBuilderOption(page, 'Pressure plate initial state', 'on')
+  await expect(panel.getByRole('group', { name: 'Activates', exact: true })).toBeHidden()
+  await connections.press('Enter')
+  await expect(panel.getByRole('group', { name: 'Activates', exact: true })).toBeVisible()
+  await openBuilderSection(page, 'Group settings')
+  const name = page.getByRole('textbox', { name: 'Toggle group name', exact: true })
+  await expect(name).toBeVisible()
+  await name.fill('Exit controls'); await name.press('Tab')
+  const saved = await saveTestLevel(page)
+  expect(saved.level.toggleGroups[0]).toMatchObject({ name: 'Exit controls', startsOn: true })
+  expect(saved.level.triggers[0].targets).toEqual(['lamp-1', 'lamp-12'])
+  await reopenTestLevel(page, saved); await selectBuilderObject(page, 'trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Toggle group', exact: true })).toHaveText('Exit controls')
+  await expect(page.getByRole('combobox', { name: 'Pressure plate initial state', exact: true })).toHaveText('On')
+  await page.screenshot({ path: info.outputPath('inspector-organized-toggle.png') })
+})
+
+test('large connection lists filter without changing hidden wiring and reset for another object', async ({ page }, info) => {
+  await open(page, inspectorFixture())
+  await selectBuilderObject(page, 'trigger:0')
+  const activates = page.getByRole('group', { name: 'Activates', exact: true })
+  await expect(activates).toContainText('2 of 12 connected')
+  const bounds = await activates.locator('.builder-connection-options').boundingBox()
+  expect(bounds.height).toBeLessThanOrEqual(241)
+  const filter = page.getByRole('searchbox', { name: 'Filter Activates', exact: true })
+  await filter.fill('lamp 12')
+  await expect(activates.getByRole('checkbox')).toHaveCount(1)
+  await activates.getByRole('checkbox', { name: /Lamp 12/ }).uncheck()
+  await filter.fill('missing')
+  await expect(activates).toContainText('No matching connections')
+  await expect(activates).toContainText('1 of 12 connected')
+  await filter.fill('')
+  await expect(activates.getByRole('checkbox', { name: /Lamp 01/ })).toBeChecked()
+  await expect(activates.getByRole('checkbox', { name: /Lamp 12/ })).not.toBeChecked()
+  const saved = await saveTestLevel(page)
+  expect(saved.level.triggers[0].targets).toEqual(['lamp-1'])
+  await selectBuilderObject(page, 'wall-light:0')
+  await expect(page.getByRole('searchbox', { name: 'Filter Activates', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Switched by', exact: true }).getByRole('checkbox')).toHaveCount(1)
+  await selectBuilderObject(page, 'trigger:0')
+  await expect(filter).toHaveValue('')
+  await expect(activates.getByRole('checkbox')).toHaveCount(12)
+  await filter.fill('Lamp 01')
+  await page.screenshot({ path: info.outputPath('inspector-filter-connections.png') })
+})
+
+test('group settings and section headers fit the narrow inspector and support keyboard activation', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await open(page, inspectorFixture())
+  await selectBuilderObject(page, 'trigger:0')
+  const group = page.locator('summary[aria-label="Group settings"]')
+  await group.focus(); await group.press('Enter')
+  await expect(page.getByRole('textbox', { name: 'Toggle group name', exact: true })).toBeVisible()
+  const inspector = page.getByRole('complementary', { name: 'Inspector', exact: true })
+  expect(await inspector.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+  const transform = page.locator('summary[aria-label="Transform"]')
+  await transform.focus(); await transform.press('Enter')
+  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toBeHidden()
+  await transform.press('Enter')
+  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toBeVisible()
+  await page.screenshot({ path: info.outputPath('inspector-sections-narrow.png') })
+})
 
 test('inspector tabs preserve edits and selection, support keyboard navigation, and follow canvas selection', async ({ page }, info) => {
   await open(page)

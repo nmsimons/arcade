@@ -7,16 +7,17 @@ import type { Player, Platform } from './model.ts'
 import { bodyIntersects, bodyPolygon, lineBlocked } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { pulseHit } from './gadgets.ts'
-import { advanceDryTurn, athletePose, captureDryTurn } from './athlete.ts'
+import { athletePose } from './athlete.ts'
 import { repulseProp } from './propPhysics.ts'
 import { ballShape, boxShape, propHeight } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { faceRobotToward, repulseRobot, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer } from './robotPhysics.ts'
 import { botActive, visibleShovebotRival } from './botCombat.ts'
-import { botMovement } from './botNavigation.ts'
+import { botEscapingWater, botMovement } from './botNavigation.ts'
+import { playerSwimStrength } from './gravity.ts'
 import { rightArmSupporting } from './armSupport.ts'
 import { createRope } from './climbables.ts'
-import { REPULSOR_BOT_WIDTH_SCALE } from './repulsorBotRig.ts'
+import { REPULSOR_BOT_WIDTH_SCALE, repulsorBotPose, repulsorBotWidthScale } from './repulsorBotRig.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
 export { REPULSOR_BOT_WIDTH_SCALE } from './repulsorBotRig.ts'
 import { botSeesProp, chooseBotTactic } from './botTactics.ts'
@@ -45,12 +46,12 @@ export function createRepulsorActor(x: number, y: number) {
 
 /** The same horizontal proportion transform is used by artwork and the muzzle. */
 export function repulsorBotHand(robot: RobotState) {
-  const actor = robot.actor!, pose = athletePose(actor), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
+  const actor = robot.actor!, pose = repulsorBotPose(actor, athletePose(actor)), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
   const flip = actor.inverted ? -1 : 1, angle = Math.atan2((arm.end[1] - arm.joint[1]) * flip, (arm.end[0] - arm.joint[0]) * actor.facing)
   const dx = Math.cos(angle), dy = Math.sin(angle), palm = arm.hand ?? arm.end
-  return { from: [actor.x + palm[0] * actor.facing * REPULSOR_BOT_WIDTH_SCALE, actor.y + palm[1] * flip] as Vec,
-    direction: [dx * REPULSOR_BOT_WIDTH_SCALE / Math.hypot(dx * REPULSOR_BOT_WIDTH_SCALE, dy),
-      dy / Math.hypot(dx * REPULSOR_BOT_WIDTH_SCALE, dy)] as Vec }
+  const scale = repulsorBotWidthScale(actor), length = Math.hypot(dx * scale, dy)
+  return { from: [actor.x + palm[0] * actor.facing * scale, actor.y + palm[1] * flip] as Vec,
+    direction: [dx * scale / length, dy / length] as Vec }
 }
 
 function fire(run: Run, robot: RobotState) {
@@ -80,7 +81,7 @@ function fire(run: Run, robot: RobotState) {
 function hasFiringLine(run: Run, robot: RobotState, target: Vec, prop?: Run['props'][number], obstruction?: RobotState) {
   const angle = Math.atan2(target[1] - (robot.y - 42), target[0] - robot.x)
   const actor = { ...robot.actor!, facing: Math.cos(angle) < 0 ? -1 : 1,
-    armAim: { angle: Math.atan2(Math.sin(angle), Math.cos(angle) / REPULSOR_BOT_WIDTH_SCALE), aiming: true } }
+    armAim: { angle: Math.atan2(Math.sin(angle), Math.cos(angle) / (robot.actor!.waterMotion ? 1 : REPULSOR_BOT_WIDTH_SCALE)), aiming: true } }
   const { from } = repulsorBotHand({ ...robot, actor })
   const solids = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, x: m.x, y: m.y })),
     ...forceFieldPlatforms(run.forceFields, 'objects'), ...run.props.filter(p => p !== prop && !p.gadget).map(p => p.kind === 'ball' ? ballShape(p) : boxShape(p)),
@@ -149,11 +150,19 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     moveRepulsorActor(run, robot, dt, world, NEUTRAL_INPUT)
     return
   }
+  if (playerSwimStrength(run.gravityField, actor) > .05 || botEscapingWater(robot)) {
+    // Finish getting onto dry footing before resuming combat, even if the
+    // player dives, changes banks or offers a tempting shot during recovery.
+    actor.shove = undefined; actor.armAim = { angle: robot.aim ?? 0, aiming: false }
+    robot.phase = hunting ? 'chase' : 'patrol'; robot.time = 0
+    moveRepulsorActor(run, robot, dt, world, botMovement(run, robot, dt, clue))
+    return
+  }
   const standingOnPlayer = actor.contacts?.support?.collider.id === 'player'
   const free = !standingOnPlayer && !rightArmSupporting(actor) && !actor.climbing && !actor.hang && !actor.mantle
   const touchingRival = rival && Math.abs(rival.y - actor.y) < 30 && robotTouchesPlayer(rival, actor)
   if (touchingRival && !actor.shove) faceRobotToward(robot, rival.x)
-  if (!actor.shove && canShove(actor) && (seen && shoveReaches(run, actor, run.player, actor.facing, world)
+  if (!actor.shove && (!actor.waterMotion || actor.grounded) && canShove(actor) && (seen && shoveReaches(run, actor, run.player, actor.facing, world)
     || touchingRival)) {
     beginShove(actor, BOT_SHOVE_WINDUP)
     robot.phase = 'recover'; robot.time = REPULSOR_BOT_RECOVERY - BOT_SHOVE_WINDUP - SHOVE_RECOVERY
@@ -203,14 +212,17 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   }
   if (!standingOnPlayer) stepOffSides.delete(robot)
   const aiming = robot.phase === 'windup' && free
-  actor.armAim = { angle: Math.atan2(Math.sin(robot.aim ?? 0), Math.cos(robot.aim ?? 0) / REPULSOR_BOT_WIDTH_SCALE), aiming }
+  actor.armAim = { angle: Math.atan2(Math.sin(robot.aim ?? 0), Math.cos(robot.aim ?? 0) / (actor.waterMotion ? 1 : REPULSOR_BOT_WIDTH_SCALE)), aiming }
   moveRepulsorActor(run, robot, dt, world, movement)
 }
 
 function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: ContactWorld, movement: JumpInput) {
   const actor = robot.actor!
-  const airborneFacing = airborneFacings.get(actor) ?? actor.facing
-  const turning = !!actor.releaseTurn
+  // Senses may look toward a new clue. Keep the outgoing body's orientation
+  // until the motor chooses a real travel turn or acquires a physical contact.
+  if (!actor.grounded && !actor.waterMotion && !actor.shove) {
+    actor.facing = airborneFacings.get(actor) ?? actor.facing
+  }
   run.player.ropes ??= run.level.climbables.ropes.map(createRope)
   actor.ropes = run.player.ropes
   const colliders = [...world.colliders.filter(c => c.robot !== robot && !c.playerOnly),
@@ -219,18 +231,7 @@ function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: Conta
   const botWorld = { colliders, platforms: colliders.map(c => c.platform), ropePlatforms: world.ropePlatforms }
   followPropGrip(actor, botWorld)
   stepPlayer(actor, movement, dt, botWorld.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, botWorld, run.gravityField,
-    undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE })
-  // Air braking and a fresh sighting can point in opposite directions. Turn
-  // with real travel, retaining the heading through small landing corrections.
-  if (!turning && !actor.releaseTurn && !actor.grounded && !actor.climbing && !actor.hang && !actor.mantle
-    && !actor.wallBrace?.active && !actor.wallJump && !actor.shove) {
-    const facing = Math.abs(actor.vx) > 60 ? Math.sign(actor.vx) : airborneFacing
-    if (actor.facing !== facing) {
-      const intent = { ...movement, move: facing }, before = captureDryTurn(actor, intent)
-      actor.facing = facing
-      advanceDryTurn(actor, intent, dt, before)
-    }
-  }
+    undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE, airFacing: 'travel' })
   airborneFacings.set(actor, actor.facing)
   // A blocked shove must not freeze an EMP-disabled body in its incoming run pose.
   if (actor.grounded && (actor.contacts?.motion.speed ?? Math.abs(actor.vx)) < .01) actor.gait = gaitPose(0)

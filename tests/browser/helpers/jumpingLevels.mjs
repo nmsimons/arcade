@@ -153,3 +153,8 @@ export async function selectBuilderOption(page, label, value) {
   await page.getByRole('combobox', { name: label, exact: true }).click()
   await page.getByRole('listbox', { name: label, exact: true }).locator(`[role=option][data-value=${JSON.stringify(value)}]`).click()
 }
+
+export async function openBuilderSection(page, title) {
+  const summary = page.locator(`.builder-inspector summary[aria-label=${JSON.stringify(title)}]`)
+  if (!await summary.evaluate(el => el.parentElement.open)) await summary.click()
+}

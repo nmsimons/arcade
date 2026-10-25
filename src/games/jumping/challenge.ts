@@ -4,6 +4,7 @@ import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUN
 import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import { resolveSwitchStates } from './switchPower.ts'
+import { triggerStartsOn, triggerToggleGroup } from './toggleGroups.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import type { PuzzleLevel, Mechanism, Pusher, PropDefinition } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
@@ -68,6 +69,7 @@ export interface Run {
   forceFields: ForceFieldState[]
   floatSwitches: FloatSwitchState[]
   switchStates: Map<string, boolean>; gravityField: GravityField
+  toggleGroupStates: Map<string, boolean>
   waterSurface?: WaterSurfaceState
   water: WaterLevels; waterSpaces: Map<GravityPlate, ReturnType<typeof waterSpace>>; waterEffectsEnabled: boolean
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
@@ -110,7 +112,8 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
       const definition = prepareMechanism(m, level.floor)
       return { definition, x: definition.x, y: definition.y, direction: -1, wait: 0, active: false, safetyHold: null }
     }),
-    triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && (t.behavior === 'switch' || t.behavior === 'toggle') && !!t.startsOn, depression: 0 })),
+    triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: triggerStartsOn(level, t), depression: 0 })),
+    toggleGroupStates: new Map((level.toggleGroups ?? []).map(g => [g.id, !!g.startsOn])),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false,
       ...(definition.kind === 'repulsor' ? { actor: createRepulsorActor(definition.x, definition.y),
         ...(definition.chargingBay ? { awakening: { elapsed: 0, triggered: false } } : {}) } : {}) })),
@@ -272,6 +275,7 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number, powered: bool
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h, powered)
 }
 function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
+  const toggledGroups = new Set<string>()
   run.level.triggers.forEach((plate, index) => {
     const sensor = run.triggers[index]
     if (plate.mode === 'coins') {
@@ -287,11 +291,21 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
     if (behavior === 'pressure') sensor.active = powered && pressed
-    else if (powered && pressed && !sensor.pressed) sensor.active = behavior === 'switch' ? !plate.startsOn : !sensor.active
+    else if (powered && pressed && !sensor.pressed) {
+      const group = triggerToggleGroup(plate)
+      if (group) toggledGroups.add(group)
+      else sensor.active = behavior === 'switch' ? !plate.startsOn : !sensor.active
+    }
     // Track the physical press separately: the final-position sample cannot
     // toggle twice, and another load cannot retrigger an already held plate.
     sensor.pressed = pressed
     sensor.depression = approach(sensor.depression, weighted || touched || behavior === 'switch' && sensor.active !== !!plate.startsOn ? 1 : 0, dt / .12)
+  })
+  // Simultaneous presses are one shared action, independent of member order.
+  for (const id of toggledGroups) run.toggleGroupStates.set(id, !run.toggleGroupStates.get(id))
+  run.level.triggers.forEach((plate, index) => {
+    const group = triggerToggleGroup(plate)
+    if (group) run.triggers[index].active = !!run.toggleGroupStates.get(group)
   })
   updateSwitchTargets(run)
 }

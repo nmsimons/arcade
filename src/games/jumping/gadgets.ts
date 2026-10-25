@@ -274,9 +274,9 @@ function advanceEmpBolts(run: Run, dt: number) {
     ...run.robots.flatMap(robot => robotPlatforms(robot).map(shape => ({ shape, device: robot, robot }))),
   ]
   for (const field of run.forceFields) {
-    if (field.active && field.definition.mode === 'objects') targets.push({ shape: field.platform, device: field })
+    if (field.active) targets.push({ shape: field.platform, device: field })
     const { x, y, w, h, orientation } = field.definition
-    // Blue beams pass projectiles; either emitter can still be targeted.
+    // Either beam absorbs EMP; emitters remain targetable while it is off.
     for (const end of [0, 1]) targets.push({ device: field, shape: orientation === 'vertical'
       ? { x: x - 2, y: y + h * end - 4, w: w + 4, h: 8 }
       : { x: x + w * end - 4, y: y - 2, w: 8, h: h + 4 } })

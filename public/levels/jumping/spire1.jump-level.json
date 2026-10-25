@@ -684,7 +684,7 @@
     },
     {
       "showWires": true,
-      "wireHeight": 130,
+      "wireHeight": 120,
       "x": 24,
       "y": 1200,
       "w": 40,

@@ -41,6 +41,37 @@ async function walkTo(page, target) {
   await page.keyboard.up(key); await page.clock.runFor(350)
 }
 
+for (const startsOn of [false, true]) test(`shared toggles starting ${startsOn} synchronize indicators through normal controls and restart`, async ({ page }, info) => {
+  test.setTimeout(60_000)
+  const level = readLevelAsset('switch-modes.json')
+  level.toggleGroups = [{ id: 'doors', name: 'Doors', startsOn }]
+  level.triggers = [320, 700].map(x => ({ mode: 'weight', behavior: 'toggle', toggleGroup: 'doors', x, y: 920, w: 200, targets: ['exit', 'lamp'] }))
+  level.goal.switchLogic = 'xor'
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype, fill = proto.fillRect
+    proto.fillRect = function (x, y, w, h) {
+      if ([320, 700].includes(x) && w === 200 && h === 3 && ['#c4a66b', '#9bb878'].includes(this.fillStyle)) {
+        this.canvas.sharedPlateLights ??= {}
+        this.canvas.sharedPlateLights[x] = this.fillStyle === '#9bb878'
+      }
+      return fill.call(this, x, y, w, h)
+    }
+  })
+  const canvas = await open(page, level)
+  const on = () => canvas.evaluate(c => ({ exit: c.exitOn, plates: c.sharedPlateLights }))
+  const expected = active => ({ exit: active, plates: { 320: active, 700: active } })
+  expect(await on()).toEqual(expected(startsOn))
+  await walkTo(page, 420); expect(await on()).toEqual(expected(!startsOn))
+  await page.clock.runFor(1000); expect(await on()).toEqual(expected(!startsOn))
+  await walkTo(page, 620); expect(await on()).toEqual(expected(!startsOn))
+  await walkTo(page, 800); expect(await on()).toEqual(expected(startsOn))
+  await page.screenshot({ path: info.outputPath('shared-toggle-indicators.png') })
+  await walkTo(page, 620); await walkTo(page, 420)
+  expect(await on()).toEqual(expected(!startsOn))
+  await restartFromPause(page); await page.clock.runFor(64)
+  expect(await on()).toEqual(expected(startsOn))
+})
+
 test('a logic-only XOR relay powers only the corresponding light, with release, competing load and restart', async ({ page }, info) => {
   const level = readLevelAsset('logic-relay-exclusive.json')
   // A held Switch plate lets the normal player controls exercise multiple inputs.

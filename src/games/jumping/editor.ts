@@ -37,6 +37,7 @@ import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from 
 import { plateSolids, plateSurface } from './plateSurface.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { GADGET_SIZE } from './gadgets.ts'
+import { removeEditorGroupMember } from './editorGroups.ts'
 import { propHeight, propWidth } from './propGeometry.ts'
 
 export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor'
@@ -251,7 +252,9 @@ export function setPlateBehavior(level: JumpLevel, index: number, behavior: Plat
   if (plate.mode === 'coins') return level
   plate.behavior = behavior
   delete plate.startsOn
-  if (behavior === 'switch' || behavior === 'toggle') plate.startsOn = startsOn
+  if (behavior !== 'toggle') delete plate.toggleGroup
+  if (behavior === 'toggle' && plate.toggleGroup) next.toggleGroups!.find(g => g.id === plate.toggleGroup)!.startsOn = startsOn
+  else if (behavior === 'switch' || behavior === 'toggle') plate.startsOn = startsOn
   return next
 }
 /** Flip the artwork and exposed face. Gravity strength and wiring stay authored. */
@@ -716,6 +719,7 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     syncPressurePlateMounts(next)
   }
   else next.checkpoints.splice(i, 1)
+  removeEditorGroupMember(next, selection)
   return next
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {

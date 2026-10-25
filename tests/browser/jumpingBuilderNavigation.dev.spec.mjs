@@ -126,6 +126,7 @@ test('arrows navigate fields until Enter starts editing, then apply or cancel re
   await page.keyboard.press('Enter'); await page.keyboard.press('ArrowDown'); await expect(fileName).toBeFocused()
   await width.focus(); await page.keyboard.press('ArrowRight'); await expect(height).toBeFocused()
   await page.keyboard.press('ArrowLeft'); await expect(width).toBeFocused()
+  await page.keyboard.press('ArrowUp'); await expect(page.locator('summary[aria-label="World"]')).toBeFocused()
   await page.keyboard.press('ArrowUp'); await expect(fileName).toBeFocused()
   await expect(width).toHaveValue(String(initial)); await expect(button(page, 'Undo')).toBeDisabled()
   await width.focus(); await page.keyboard.press('Enter'); await expect(width).toHaveAttribute('data-builder-editing', 'true')

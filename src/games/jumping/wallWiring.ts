@@ -1,4 +1,5 @@
 import type { JumpLevel } from './level.ts'
+import { triggerStartsOn } from './toggleGroups.ts'
 import type { Selection } from './editor.ts'
 import type { Vec } from './geometry.ts'
 import { itemDefinition } from './objectLabels.ts'
@@ -98,7 +99,7 @@ const initialStates = new WeakMap<JumpLevel, WallWireState>()
 function initialState(level: JumpLevel): WallWireState {
   let state = initialStates.get(level)
   if (!state) {
-    const triggers = (level.triggers ?? []).map(t => ({ active: t.mode !== 'coins' && (t.behavior === 'switch' || t.behavior === 'toggle') && !!t.startsOn }))
+    const triggers = (level.triggers ?? []).map(t => ({ active: triggerStartsOn(level, t) }))
     const floats = (level.floatSwitches ?? []).map(f => ({ active: f.activeWhen === 'lowered' ? !f.startsRaised : !!f.startsRaised }))
     state = { triggers, floatSwitches: floats, switchStates: resolveSwitchStates(level, triggers, floats), empRemaining: 0 }
     initialStates.set(level, state)

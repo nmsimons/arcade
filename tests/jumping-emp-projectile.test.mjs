@@ -93,16 +93,26 @@ for (const blocker of ['wall', 'prop', 'range']) test(`EMP is stopped by ${block
   assert.ok(run.gadgets.held)
 })
 
-test('a red field absorbs the EMP bolt and temporarily disables only that field', () => {
+for (const mode of [undefined, 'player', 'objects']) for (const orientation of ['vertical', 'horizontal'])
+test(`EMP hits the ${orientation} ${mode ?? 'default blue'} beam and temporarily disables only that field`, () => {
   const level = scene(); level.mechanisms = []
-  level.forceFields = [{ id: 'red', mode: 'objects', x: 350, y: 500, w: 12, h: 420, orientation: 'vertical' }]
-  const run = equipped(level), field = run.forceFields[0]
-  tick(run, 1, { use: true }); impact(run, field)
+  level.forceFields = orientation === 'vertical'
+    ? [{ id: 'near', mode, x: 350, y: 500, w: 12, h: 420, orientation },
+      { id: 'far', mode, x: 650, y: 500, w: 12, h: 420, orientation }]
+    : [{ id: 'near', mode, x: 100, y: 750, w: 500, h: 12, orientation },
+      { id: 'far', mode, x: 100, y: 600, w: 500, h: 12, orientation }]
+  const run = equipped(level), [field, other] = run.forceFields
+  tick(run, 1, { aimX: orientation === 'vertical' ? 1 : 0, aimY: orientation === 'vertical' ? 0 : -1, use: true })
+  impact(run, field)
   assert.equal(field.active, false)
+  assert.equal(other.active, true)
+  assert.equal(run.gadgets.disabled.has(other), false)
   assert.equal(run.gadgets.bolts.length, 0)
   assert.equal(run.gadgets.disabled.size, 1)
+  assert.equal(run.empRemaining, 0)
   tick(run, Math.ceil(EMP_DISABLE_SECONDS / STEP) + 20)
   assert.equal(field.active, true)
+  assert.equal(run.gadgets.disabled.size, 0)
 })
 
 test('a locally disabled red field waits for a body to clear before returning', () => {
@@ -162,15 +172,59 @@ test('EMP crackle changes in discrete flickers, has bounded work, and draws no c
   assert.deepEqual(exposures, [1], 'electricity stays visible in darkness through the existing emission pass')
 })
 
-test('blue beams pass EMP bolts, but their emitters can be targeted', () => {
+test('a disabled blue beam lets the next EMP bolt reach a device behind it', () => {
   const level = scene()
   level.forceFields = [{ id: 'blue', x: 350, y: 500, w: 12, h: 420, orientation: 'vertical' }]
-  const run = equipped(level)
-  tick(run, 1, { use: true }); impact(run, run.mechanisms[0])
-  assert.equal(run.forceFields[0].active, true)
-  const second = equipped({ ...level, forceFields: [{ ...level.forceFields[0], y: 881, h: 40 }] })
-  tick(second, 1, { use: true }); impact(second, second.forceFields[0])
-  assert.equal(second.forceFields[0].active, false)
+  const run = equipped(level), field = run.forceFields[0], target = run.mechanisms[0]
+  tick(run, 1, { use: true }); impact(run, field)
+  assert.equal(run.gadgets.disabled.has(target), false)
+  tick(run, Math.ceil(EMP_COOLDOWN / STEP))
+  tick(run, 1, { use: true }); impact(run, target)
+  assert.equal(field.active, false)
+  assert.equal(run.gadgets.disabled.size, 2)
+})
+
+test('blue emitters can still be targeted while their beam is off', () => {
+  const level = scene(); level.mechanisms = []
+  level.forceFields = [{ id: 'blue', power: 'switched', x: 350, y: 881, w: 12, h: 40, orientation: 'vertical' }]
+  const run = equipped(level), field = run.forceFields[0]
+  assert.equal(field.active, false)
+  tick(run, 1, { use: true }); impact(run, field)
+  assert.equal(field.active, false)
+})
+
+test('a locally disabled blue field waits for the player to clear before returning', () => {
+  const level = scene(); level.mechanisms = []
+  level.forceFields = [{ id: 'blue', x: 350, y: 500, w: 12, h: 420, orientation: 'vertical' }]
+  const run = equipped(level), field = run.forceFields[0]
+  tick(run, 1, { use: true }); impact(run, field)
+  translatePlayer(run.player, 356 - run.player.x, 0)
+  tick(run, Math.ceil(EMP_DISABLE_SECONDS / STEP) + 20)
+  assert.equal(run.gadgets.disabled.size, 0)
+  assert.equal(field.active, false)
+  assert.equal(field.pending, true)
+  tick(run, 60, { move: 1 })
+  assert.ok(run.player.x > 400)
+  assert.equal(field.active, true)
+  assert.equal(field.pending, false)
+})
+
+test('a shot blue field resumes its current switch state after the EMP expires', () => {
+  const level = scene(); level.mechanisms = []
+  level.forceFields = [{ id: 'blue', power: 'switched', x: 350, y: 500, w: 12, h: 420, orientation: 'vertical' }]
+  level.triggers = [{ x: 380, y: 920, w: 80, mode: 'weight', behavior: 'toggle', startsOn: true, targets: ['blue'] }]
+  const run = equipped(level), field = run.forceFields[0]
+  assert.equal(field.active, true)
+  tick(run, 1, { use: true }); impact(run, field)
+  assert.equal(run.triggers[0].active, true, 'the EMP preserves the toggle state')
+  tick(run, 95, { move: 1 }); tick(run, 36)
+  assert.equal(run.triggers[0].active, false, 'walking across the plate turns it off during the local outage')
+  tick(run, Math.ceil(EMP_DISABLE_SECONDS / STEP) + 20)
+  assert.equal(run.gadgets.disabled.size, 0)
+  assert.equal(field.active, false, 'timer expiry cannot override a switched-off field')
+  tick(run, 120, { move: -1 })
+  assert.equal(run.triggers[0].active, true)
+  assert.equal(field.active, true)
 })
 
 test('EMP stuns just the hit shovebot, turns it toward the shooter, and leaves it solid', () => {

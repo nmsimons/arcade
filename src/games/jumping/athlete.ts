@@ -23,7 +23,13 @@ import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
 
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
-export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point; forearmScale?: number; handScale?: number; calfScale?: number; footScale?: number }
+export type AthletePose = {
+  hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg
+  sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point
+  forearmScale?: number; handScale?: number; calfScale?: number; footScale?: number
+  /** Cosmetic width perpendicular to each shell's own axis. */
+  shellWidth?: number
+}
 export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; ledgeDrop?: boolean; slide?: boolean; pushing?: boolean; step?: NonNullable<Player['mantle']> }
 export interface SlideEntryFrame { player: Player; facing: number; sliding: boolean }
 const renderPoses = new WeakMap<Player, { pose?: AthletePose; base?: AthletePose }>()
@@ -286,11 +292,11 @@ function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1
     path.closePath()
   }
 }
-function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string, materials: AndroidMaterials, calfScale = 1, footScale = 1) {
+function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string, materials: AndroidMaterials, calfScale = 1, footScale = 1, shellWidth = 1) {
   const path = joined([segmentPath(limb.root, limb.joint, 2.2, 1.65, 2.2), roundPath(limb.joint, 1.7),
     segmentPath(limb.joint, limb.end, 1.7, 1.25, 1.8), roundPath(limb.end, 1.3)])
   fillShape(ctx, path, materials.joint)
-  drawAndroidLeg(ctx, limb, color, calfScale)
+  drawAndroidLeg(ctx, limb, color, calfScale, shellWidth)
   if (limb.rear) fillShape(ctx, roundPath(add(limb.end, [0, 1]), 2.1 * limb.rear * footScale, 1.8), materials.grip)
   if ((limb.rear ?? 0) < 1) fillShape(ctx, footPath(limb.end, limb.footAngle, limb.footFacing, limb.toeAngle, 1 - (limb.rear ?? 0), footScale), materials.grip)
 }
@@ -306,12 +312,12 @@ export function handOutline(limb: Limb): Point[] {
   const { palm, angle } = handGeometry(limb), cos = Math.cos(angle), sin = Math.sin(angle)
   return handBoundary.map(([x, y]) => [palm[0] + x * cos - y * sin, palm[1] + x * sin + y * cos])
 }
-function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1, handScale = 1) {
+function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1, handScale = 1, shellWidth = 1) {
   const { palm, angle } = handGeometry(limb)
   const path = joined([roundPath(limb.root, 1.65), segmentPath(limb.root, limb.joint, 1.6, 1.35, 1.6), roundPath(limb.joint, 1.4),
     segmentPath(limb.joint, limb.end, 1.4, 1.05, 1.45), roundPath(palm, 2.1 * handScale, 1.6 * handScale, angle)])
   fillShape(ctx, path, materials.joint)
-  drawAndroidArm(ctx, limb, color, forearmScale)
+  drawAndroidArm(ctx, limb, color, forearmScale, shellWidth)
   fillShape(ctx, roundPath(palm, 2.1 * handScale, 1.6 * handScale, angle), materials.grip)
 }
 function drawTorso(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string) {
@@ -1538,6 +1544,8 @@ function waterPose(p: Player): AthletePose {
       const sin = Math.sqrt(Math.max(0, 1 - turn ** 2)) * p.facing
       const at = (position: Point, depth: number): Point => [root[0] + (position[0] - value.root[0]) * turn - depth * sin, position[1]]
       return { ...value, root, joint: at(value.joint, value.jointDepth ?? 0), end: at(value.end, value.endDepth ?? 0),
+        ...(value.hand ? { hand: at(value.hand, value.endDepth ?? 0) } : {}),
+        ...(value.handAngle === undefined ? {} : { handAngle: Math.atan2(Math.sin(value.handAngle), Math.cos(value.handAngle) * turn) }),
         jointDepth: (value.joint[0] - value.root[0]) * sin + (value.jointDepth ?? 0) * turn,
         endDepth: (value.end[0] - value.root[0]) * sin + (value.endDepth ?? 0) * turn }
     }
@@ -2877,23 +2885,23 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#6
     drawSleeve(ctx, tool.kind, tool.size, tool.blocked); ctx.restore()
   }
   const backPose = !!p.climbing || backView > 0
-  drawLeg(ctx, backLeg, materials.rear, materials, pose.calfScale, pose.footScale)
-  drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale, pose.handScale)
+  drawLeg(ctx, backLeg, materials.rear, materials, pose.calfScale, pose.footScale, pose.shellWidth)
+  drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
   if (p.facing < 0) sleeve(backArm)
   if (backPose) {
-    drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale)
+    drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
     if (p.facing >= 0) sleeve(frontArm)
   }
 
   if (backPose) drawBack(ctx, hip, waist, shoulder, materials.joint, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else drawTorso(ctx, hip, waist, shoulder, materials.joint)
   drawAndroidTorso(ctx, pose, backPose, materials)
-  drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale)
+  drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale, pose.shellWidth)
   const [neck, nape] = neckPoints(shoulder, head, headTilt)
   fillShape(ctx, segmentPath(neck, nape, 1.15, 1.15, 1.15), materials.joint)
-  drawAndroidHead(ctx, head, headTilt ?? 0, materials)
+  drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth)
   if (!backPose) {
-    drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale)
+    drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
     if (p.facing >= 0) sleeve(frontArm)
   }
   ctx.restore()

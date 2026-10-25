@@ -1,0 +1,241 @@
+{
+  "version": 2,
+  "id": "dbf1b51d-bf10-4c7a-aa35-0d769445c766",
+  "name": "Lock Out II",
+  "width": 1800,
+  "height": 920,
+  "platforms": [
+    {
+      "x": 1340,
+      "y": 220,
+      "w": 460,
+      "h": 700,
+      "polygon": [
+        [
+          460,
+          700
+        ],
+        [
+          0,
+          700
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          143.75,
+          0
+        ],
+        [
+          460,
+          0
+        ]
+      ],
+      "bezier": [
+        null,
+        null,
+        {
+          "in": [
+            0,
+            220
+          ],
+          "out": [
+            70,
+            -40
+          ],
+          "mode": "corner"
+        },
+        {
+          "in": [
+            -33.75,
+            0
+          ],
+          "out": [
+            105.41666666666667,
+            0
+          ],
+          "mode": "corner"
+        },
+        null
+      ]
+    },
+    {
+      "x": 0,
+      "y": 220,
+      "w": 460,
+      "h": 700,
+      "polygon": [
+        [
+          0,
+          700
+        ],
+        [
+          460,
+          700
+        ],
+        [
+          460,
+          40
+        ],
+        [
+          316.25,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "bezier": [
+        null,
+        null,
+        {
+          "in": [
+            0,
+            220
+          ],
+          "out": [
+            -70,
+            -40
+          ],
+          "mode": "corner"
+        },
+        {
+          "in": [
+            33.75,
+            0
+          ],
+          "out": [
+            -105.41666666666669,
+            0
+          ],
+          "mode": "corner"
+        },
+        null
+      ]
+    }
+  ],
+  "entrance": {
+    "x": 165,
+    "y": 220
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "floor": 920,
+  "goal": {
+    "x": 1720,
+    "y": 220,
+    "flipX": true,
+    "id": "94cd8996-52c4-45fd-ac97-f8f0e536990c",
+    "power": "switched"
+  },
+  "times": {
+    "a": 10,
+    "b": 20,
+    "c": 40,
+    "d": 60
+  },
+  "props": [
+    {
+      "kind": "ball",
+      "x": 1525,
+      "y": 220,
+      "size": 40
+    },
+    {
+      "kind": "box",
+      "x": 228,
+      "y": 220,
+      "size": 40,
+      "gadget": "repulsor"
+    },
+    {
+      "kind": "ball",
+      "x": 1050,
+      "y": 905,
+      "size": 40
+    }
+  ],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "x": 5,
+      "y": 220,
+      "w": 70,
+      "targets": [
+        "94cd8996-52c4-45fd-ac97-f8f0e536990c"
+      ],
+      "mode": "touch"
+    },
+    {
+      "x": 1725,
+      "y": 220,
+      "w": 70,
+      "targets": [
+        "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:fill",
+        "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:drain"
+      ],
+      "mode": "touch"
+    }
+  ],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [],
+  "gravityPlates": [
+    {
+      "id": "ee9b7f6b-f3fc-4398-8024-b184070f1f2b",
+      "x": 0,
+      "y": 225,
+      "w": 1800,
+      "h": 695,
+      "gravity": -1,
+      "effect": "water",
+      "waterLevel": 5,
+      "waterMinLevel": 5,
+      "waterRate": 20,
+      "drain": {
+        "switchReversed": true
+      }
+    }
+  ],
+  "forceFields": [
+    {
+      "id": "e92c44fc-e3ff-4385-9d91-d3d10d47e777",
+      "x": 460,
+      "y": 260,
+      "w": 880,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "always"
+    }
+  ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "9b8ea8fa-61cb-4fa1-a8f7-60afb6b950dc",
+        "x": 305,
+        "y": 25,
+        "intensity": 100,
+        "direction": 130,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "0fdc0841-8d6e-4de0-a62f-02971e7cedd4",
+        "x": 1410,
+        "y": 25,
+        "intensity": 100,
+        "direction": 65,
+        "spread": 100,
+        "power": "always"
+      }
+    ]
+  }
+}

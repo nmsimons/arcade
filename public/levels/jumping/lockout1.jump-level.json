@@ -1,0 +1,157 @@
+{
+  "version": 2,
+  "id": "243237ee-296d-40f6-abd4-950eee0bbffc",
+  "name": "Lock Out I",
+  "width": 1800,
+  "height": 400,
+  "platforms": [],
+  "entrance": {
+    "x": 230,
+    "y": 400
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "floor": 400,
+  "goal": {
+    "wireTerminal": {
+      "x": 100,
+      "y": 310
+    },
+    "relay": true,
+    "targets": [
+      "cbc4fe0c-3116-459c-a49e-dfc5aa13d6f1",
+      "6e059026-fb2c-44e3-ba6d-7bca53dee26c",
+      "77a9440e-98c7-4fcf-8397-600e270c9b67",
+      "1272525c-6a96-4725-9409-e4bdc6f6b983"
+    ],
+    "x": 0,
+    "y": 400,
+    "id": "5eacbbfa-09c5-489a-98dc-cf2f526f0985",
+    "power": "switched"
+  },
+  "times": {
+    "a": 6,
+    "b": 12,
+    "c": 20,
+    "d": 45
+  },
+  "props": [
+    {
+      "kind": "ball",
+      "x": 974,
+      "y": 400,
+      "size": 68
+    },
+    {
+      "kind": "box",
+      "x": 690,
+      "y": 400,
+      "size": 40,
+      "gadget": "repulsor"
+    }
+  ],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "showWires": true,
+      "x": 1690,
+      "y": 400,
+      "w": 100,
+      "targets": [
+        "5eacbbfa-09c5-489a-98dc-cf2f526f0985"
+      ],
+      "mode": "touch"
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "x": 25,
+      "y": 260
+    }
+  ],
+  "pickups": [],
+  "texts": [
+    {
+      "x": 620,
+      "y": 345,
+      "w": 80,
+      "h": 24,
+      "text": "Pick this up",
+      "fontSize": 12,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": -10
+    },
+    {
+      "x": 655,
+      "y": 355,
+      "w": 40,
+      "h": 24,
+      "text": "->",
+      "fontSize": 12,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": 65
+    }
+  ],
+  "forceFields": [
+    {
+      "id": "0bd23e5b-12d8-473d-b5ad-3351e63c810e",
+      "x": 810,
+      "y": 0,
+      "w": 12,
+      "h": 400,
+      "orientation": "vertical",
+      "power": "always"
+    }
+  ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "77a9440e-98c7-4fcf-8397-600e270c9b67",
+        "x": 690,
+        "y": 25,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 35,
+        "power": "switched",
+        "switchReversed": true
+      },
+      {
+        "id": "6e059026-fb2c-44e3-ba6d-7bca53dee26c",
+        "x": 940,
+        "y": 25,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 20,
+        "power": "switched",
+        "switchReversed": true
+      },
+      {
+        "id": "cbc4fe0c-3116-459c-a49e-dfc5aa13d6f1",
+        "x": 1740,
+        "y": 25,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 50,
+        "power": "switched",
+        "switchReversed": true
+      },
+      {
+        "id": "1272525c-6a96-4725-9409-e4bdc6f6b983",
+        "x": 100,
+        "y": 25,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 50,
+        "power": "switched"
+      }
+    ]
+  }
+}

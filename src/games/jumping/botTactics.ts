@@ -4,6 +4,7 @@ import { lineBlocked } from './geometry.ts'
 import { ballShape, boxShape, propHeight, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { resolveSwitchStates } from './switchPower.ts'
+import { withTriggerActive } from './toggleGroups.ts'
 import { botCanReach, botNavigationGraph, botRouteProgress, botSearchPlaces } from './botNavigation.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { robotPlatforms } from './robotPhysics.ts'
@@ -96,7 +97,7 @@ export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting
     const behavior = plate.behavior ?? 'pressure', current = run.triggers[index]
     if (!current.pressed) {
       const active = behavior === 'pressure' ? true : behavior === 'switch' ? !plate.startsOn : !current.active
-      const states = resolveSwitchStates(run.level, run.triggers.map((s, i) => i === index ? { active } : s), run.floatSwitches)
+      const states = resolveSwitchStates(run.level, withTriggerActive(run.level, run.triggers, index, active), run.floatSwitches)
       const effect = disruption(run, memory, states), score = effect.score - Math.hypot(x - robot.x, y - robot.y) * .35
       if (score > bestScore && botCanReach(run, robot, { x, y })) { bestScore = score; best = { kind: 'operate', x, y, trigger: index, blocker: effect.blocker } }
     }

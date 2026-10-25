@@ -212,7 +212,7 @@ color. Failed actions should not open a dialog or interrupt movement.
 | Loose tool, or tool transferring during pickup/drop | Passes through | Blocked as an object |
 | Held tool | Tool passes; the player's body remains blocked | Detaches at the first swept contact on the approach side; player continues |
 | Repulsor pulse | Passes through | Stops at the first field surface |
-| Carried EMP bolt | Passes through the beam; hitting either emitter disables this field | Beam absorbs the bolt and disables this field |
+| Carried EMP bolt | Beam or either emitter absorbs the bolt and disables this field | Beam or either emitter absorbs the bolt and disables this field |
 | Automatic EMP collectible | Global effect disables the field | Global effect disables the field |
 
 Walking, jumping, climbing, or riding through an active red field leaves the
@@ -248,8 +248,8 @@ Bolts sweep the whole distance traveled each step, so thin obstacles stop them.
 The first hit consumes the bolt. A mechanism freezes at its current position,
 retaining its direction, wait state, and ordinary collision hull. A shovebot
 stops its motor, perception, timers, and recoil, stays solid, faces the shooter,
-and loses its own headlight. Hitting a force field disables only that field;
-either emitter can be targeted, while an active red beam also absorbs bolts.
+and loses its own headlight. Hitting either an active blue or red beam, or
+either emitter, absorbs the bolt and disables only that field.
 A dry gravity plate is hit through its shallow emitter bar, not its invisible
 field volume. Its gravity effect stops independently of other fields and water.
 Terrain and loose props absorb bolts without an electrical effect. Ladders,

@@ -36,7 +36,7 @@ export interface Platform extends NamedObject { looseProp?: boolean; x: number; 
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number }
+interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel' }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export interface GaitPose { speed: number; moving: number; run: number; air: number; jog?: number }
@@ -476,6 +476,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle, oldLadder = p.climbing?.ladder
   const beforeBody = playerContactBody(p)
   const previousFacing = p.facing
+  const flightFacing = options.airFacing === 'travel' && !p.releaseTurn ? previousFacing : undefined
   const turnFrame = captureDryTurn(p, input, frameDirection)
   const slideEntryFrame = captureSlideEntry(p)
   const previousWaterCenter = inWater ? playerWaterCenterOffset(p) : 0
@@ -667,6 +668,13 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   else updateCantedWallBrace(p, input.move, dt, platforms, result.contacts)
   if (p.wallBrace?.normal) tryWallJump(p, platforms)
   stepReleasedTurn(p, platforms, dt, orientationGravity)
+  // Navigation's air brake is a velocity request, not a body turn. Contacts
+  // still receive the full steering intent; resolve free-flight heading once
+  // before the shared presentation observes the final orientation.
+  if (flightFacing !== undefined && !p.grounded && !p.hang && !p.mantle && !p.climbing
+    && !p.waterMotion && !p.releaseTurn && !p.wallBrace?.active && !p.wallJump && !p.shove) {
+    p.facing = Math.abs(p.vx) > 60 ? Math.sign(p.vx) : flightFacing
+  }
   finishPlayerStep(p, input, dt, world, from, verticalUsed, turnFrame, slideEntryFrame, frameDirection)
   settleFallClearance(p, dt, previousFacing)
   if (p.waterMotion) {

@@ -205,7 +205,7 @@ test('spotlight names identify the inspector, errors and connections and survive
   await page.mouse.click(lamp.x, lamp.y)
   await expect(selected).toHaveAttribute('data-value', 'light:1')
   await expect(name).toBeInViewport()
-  await expect(inspector.getByRole('heading', { name: 'Spotlight 2', exact: true })).toBeInViewport()
+  await expect(selected).toHaveText('Spotlight 2'); await expect(selected).toBeInViewport()
 })
 
 test('every switchable object shares a bidirectional Switched by list with undo and saved connections', async ({ page }, info) => {

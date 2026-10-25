@@ -18,8 +18,20 @@
       "reason": "New World I level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
     },
     {
-      "file": "Aloft.jump-level.json",
-      "reason": "New authored level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
+      "file": "lockout1.jump-level.json",
+      "reason": "New authored Lock Out I course; a completed fresh-start player route and medal timing audit are pending."
+    },
+    {
+      "file": "Lock Out 2.jump-level.json",
+      "reason": "New authored Lock Out II course; a completed fresh-start player route and medal timing audit are pending."
+    },
+    {
+      "file": "Quarantine II.jump-level.json",
+      "reason": "New authored Quarantine II course; Rbot water recovery has regression coverage, but a completed fresh-start player route and medal timing audit are pending."
+    },
+    {
+      "file": "Quarantine III.jump-level.json",
+      "reason": "New authored Quarantine III course; the solution is now 25 and Rbot low-water recovery has regression coverage, but a completed fresh-start player route and medal timing audit are pending."
     },
     {
       "file": "scaffold1.jump-level.json",

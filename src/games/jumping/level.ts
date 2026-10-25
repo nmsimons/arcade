@@ -46,6 +46,10 @@ import { waterControlId } from './waterLevel.ts'
 import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
 import type { ForceField } from './forceField.ts'
 import type { PropWeight } from './propWeight.ts'
+import { parseEditorGroups } from './editorGroups.ts'
+import type { EditorGroup } from './editorGroups.ts'
+import { parseToggleGroups } from './toggleGroups.ts'
+import type { ToggleGroup } from './toggleGroups.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
@@ -54,12 +58,14 @@ export interface Mechanism extends NamedObject, SwitchSettings { id: string; kin
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
 export type Trigger = NamedObject & WallWiringSettings & { x: number; y: number; w: number } & TriggerConnection
-  & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; mount?: PressurePlateMount; ceiling?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
+  & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; toggleGroup?: string; mount?: PressurePlateMount; ceiling?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
 export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean; kind?: 'repulsor'; mode?: 'emp'; chargingBay?: boolean }
 export interface JumpLevel {
   version: 1 | 2; id: string; name: string; width: number; height?: number
+  editorGroups?: EditorGroup[]
+  toggleGroups?: ToggleGroup[]
   lighting?: LightingDefinition
   entrance: Entrance; checkpoints: Checkpoint[]; platforms: Platform[]
   timing?: 'untimed'
@@ -331,6 +337,7 @@ export function parseLevel(value: unknown): JumpLevel {
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
     platforms, entrance: { ...entrance, ...(entranceKind ? { kind: entranceKind as 'charging-bay' } : {}) }, checkpoints, climbables: { ladders, ropes },
     ...(v.timing ? { timing: v.timing as 'untimed' } : {}) }
+  if (v.toggleGroups !== undefined) level.toggleGroups = parseToggleGroups(v.toggleGroups, fail)
   if (v.floorMaterial !== undefined) {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()
     level.floorMaterial = v.floorMaterial
@@ -384,6 +391,8 @@ export function parseLevel(value: unknown): JumpLevel {
       if (t.ceiling !== undefined && (t.mode === 'coins' || typeof t.ceiling !== 'boolean')) fail()
       if (t.behavior !== undefined && (t.mode === 'coins' || !['pressure', 'switch', 'toggle'].includes(t.behavior as string))) fail()
       if (t.startsOn !== undefined && (t.behavior !== 'switch' && t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
+      if (t.toggleGroup !== undefined && (t.mode === 'coins' || t.behavior !== 'toggle' || t.startsOn !== undefined
+        || !level.toggleGroups?.some(g => g.id === t.toggleGroup))) fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
         if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > MAX_SWITCH_TARGETS - (v.version === 1 ? MAX_LIGHTS : 0)
@@ -425,7 +434,8 @@ export function parseLevel(value: unknown): JumpLevel {
       if (mount) { const host = level.mechanisms!.find(m => m.id === mount.mechanism)!; position.x = host.x + mount.x; position.y = host.y + (t.ceiling ? host.h : 0) }
       return { ...objectName(t), ...wiring, ...position, w, ...connection, mode: t.mode as 'touch' | 'weight', ...(mount ? { mount } : {}),
         ...(t.ceiling === undefined ? {} : { ceiling: t.ceiling as boolean }),
-        ...(t.behavior === undefined ? {} : { behavior: t.behavior as PlateBehavior }), ...(t.startsOn === undefined ? {} : { startsOn: t.startsOn as boolean }) }
+        ...(t.behavior === undefined ? {} : { behavior: t.behavior as PlateBehavior }), ...(t.startsOn === undefined ? {} : { startsOn: t.startsOn as boolean }),
+        ...(t.toggleGroup === undefined ? {} : { toggleGroup: t.toggleGroup as string }) }
     })
     level.robots = list(v.robots, 30).map(item => {
       const r = object(item), left = num(r.left, ROBOT_HALF_WIDTH, width - ROBOT_HALF_WIDTH - 50), right = num(r.right, left + 50, width - ROBOT_HALF_WIDTH)
@@ -536,6 +546,7 @@ export function parseLevel(value: unknown): JumpLevel {
       y: num(relay.y, LOGIC_RELAY_HEIGHT / 2, levelHeight(level) - LOGIC_RELAY_HEIGHT / 2) }
   })
   if (level.version === 2) level.lighting = parseLighting(v.lighting)
+  if (v.editorGroups !== undefined) level.editorGroups = parseEditorGroups(v.editorGroups, level)
   // Older pools were wired like gravity devices. Water is now a passive region;
   // remove those obsolete connections before validating the remaining circuit.
   for (const plate of level.gravityPlates ?? []) if (plate.effect === 'water') removeSwitchTarget(level, plate.id)

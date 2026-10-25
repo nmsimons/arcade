@@ -8,6 +8,7 @@
     "01.json",
     "02.json",
     "05.json",
+    "lockout1.jump-level.json",
     "Here There Everywhere.jump-level.json",
     "03.json",
     "LAB2.jump-level.json",
@@ -37,8 +38,10 @@
     "world1.jump-level.json",
     "pinball.jump-level.json",
     "scaffold3.jump-level.json",
+    "Lock Out 2.jump-level.json",
+    "Quarantine II.jump-level.json",
+    "Quarantine III.jump-level.json",
     "scaffold4.jump-level.json",
-    "scaffold5.jump-level.json",
-    "Aloft.jump-level.json"
+    "scaffold5.jump-level.json"
   ]
 }

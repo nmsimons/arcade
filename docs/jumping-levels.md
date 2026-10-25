@@ -172,6 +172,13 @@ inserted on slopes stay on the existing edge, snapping along its dominant axis.
 Snap also catches nearby surfaces. Hold Alt or disable Snap to bypass this. The preview does not
 edit the level; click to place it or drag to set its size. **Place on surface**
 (End) moves a selected object to a supporting surface below.
+With Pointer and Snap enabled, blue dashed guides mark the horizontal and
+vertical center of the level. Dragging a selection snaps its center, left/right
+edges, or top/bottom edges to those guides within eight screen pixels. Each axis
+snaps independently; a guide becomes solid and shows a diamond when aligned.
+Multi-selection and saved groups use their combined bounding rectangle, preserving
+the spacing of their members. Center alignment takes precedence over the grid
+and nearby surfaces. Alt and Snap off bypass the guides and center snapping.
 Space + drag or the middle mouse button pans from anywhere. Placement tools return
 to this default interaction after one use unless **Keep placing** is enabled;
 press Esc or click the active tool again to stop placing. Zoom centers on the
@@ -184,6 +191,15 @@ night mode, floor material, and medal times) from **Object** properties. Selecti
 or placing an object opens **Object** automatically; switching tabs preserves the
 selection. The tabs stay visible while scrolling. With a tab focused, Left/Right
 arrows switch tabs and Home/End select the first/last tab.
+
+Object settings are organized into **Behavior**, **Connections**, **Transform**,
+and **Appearance**, where relevant. Click a section heading, or focus it and
+press Enter, to fold or expand it. **Wall wiring** and **Object help** start
+folded; clicking a wire's wall jack opens its wiring controls. Toggle-group names
+and deletion are under **Group settings**. Folding sections does not edit the
+level. Long connection lists scroll independently and offer a name filter and
+connected count. Filtering preserves all wiring. Level settings group dimensions,
+lighting and floor material under **World**, with time limits under **Timing**.
 
 Numeric inspector edits preview on the canvas as you type a complete number.
 Arrow keys move focus in the direction pressed, following the visible layout.
@@ -259,6 +275,26 @@ connections are retained only within the source level. Entrance and exit remain
 unique and are excluded from copies and deletion. Rotate and flip are enabled
 when all selected objects are terrain, acting around the entire group's center.
 Every group move, paste, deletion, or transform is one undoable edit.
+
+**Group** (Ctrl/⌘ + G) keeps two or more selected objects together. Groups are
+saved with the level. Clicking any member selects the whole group; once the group
+is selected, clicking a member again selects just that object for individual
+editing. Dragging a member while the group is selected moves the whole group.
+The object picker and Node tool also allow individual member editing. Shift-click
+adds or removes a whole group, and marquee selection includes a whole group when
+it touches a member. **Ungroup** (Ctrl/⌘ + Shift + G) releases selected groups.
+Grouping existing groups merges their members into one flat group. Copy, paste
+and Duplicate preserve copied group memberships using independent group IDs;
+one copied member stays independent. Deleting a member preserves groups with at
+least two remaining members. Group and Ungroup each use one undo step.
+
+Both file versions accept optional `editorGroups`, an array of up to 512
+`{ "id": "group-id", "members": [{ "kind": "platform", "index": 0 }, ...] }`
+records. Members use the editor's object kinds and zero-based collection indices;
+entrance and goal use index 0. Each group needs 2–1,000 existing members, a unique
+nonempty ID of at most 100 characters, and no object may belong to two groups.
+The editor updates indices after deletion. Groups affect editor selection only;
+members retain their independent gameplay behavior and wiring.
 
 **Terrain → Steps narrow / Steps wide** stamps five one-grid-square
 rises with treads one or two squares wide. Both have a stepped underside formed
@@ -617,6 +653,8 @@ walking over one does not collect it. Normal weight floats; Heavy sinks.
 E / controller X picks up or drops;
 F / RT fires it. The EMP sends a traveling bolt that disables the hit device for
 five seconds, with a one-second cooldown. It remains equipped after firing.
+A hit anywhere on an active blue or red force-field beam, or either emitter,
+disables only that field; its normal power and clearance rules apply afterward.
 Movement directions also point either tool in eight directions;
 neutral input returns to horizontal hip fire. The arm shows direction without a
 reticle. Active red fields drop the sleeve on the approach side while the player
@@ -1140,6 +1178,39 @@ indicator. Restart restores Switch and Toggle to their chosen starting state.
 An initially on Switch or Toggle powers its targets in the first playable frame
 and in editor previews.
 
+Toggle plates also have **Toggle group**, initially **Independent**. Choose
+the **+** button (**New toggle group**), name it under **Group settings**, then select that group on other Toggle
+plates. **Group starts** edits one starting state for every member. Pressing any
+member flips the shared state and every member's green indicator immediately,
+including while another member is held. Each plate depresses only under its own
+load. Simultaneous presses in one simulation step flip the group once. Release
+each plate before pressing it again. EMP preserves the group state. New presses
+wait for power; a load still held when power returns must complete the usual
+powered debounce. A press released during the outage is not queued.
+
+Wire any member through **Activates** as usual. All members output the same
+signal, even when they control different devices. Connecting several members to
+one device counts the group as one input for OR, AND and XOR. A toggle group is
+independent of editor selection groups. Switching a member to another Mode or
+choosing Independent removes just that member; deleting the toggle group makes
+all members independent and preserves its starting state. Undo restores it.
+Duplicating or pasting within the same level keeps membership. Copying into
+another level creates a separate group for the copied members; templates also
+keep their shared state with new group IDs.
+
+Both file versions accept up to 40 optional `toggleGroups`, each with a unique
+`id` (up to 100 characters), a nonempty `name` (up to 80), and optional boolean
+`startsOn` (default off). A Toggle plate joins with `toggleGroup: "group-id"`;
+grouped members omit their individual `startsOn`. Other modes cannot join.
+
+```json
+"toggleGroups": [{ "id": "doors", "name": "Doors", "startsOn": false }]
+```
+
+For example, a member is `{ "mode": "weight", "behavior": "toggle",
+"toggleGroup": "doors", "x": 120, "y": 920, "w": 100,
+"targets": ["exit"] }`.
+
 **Flip vertically** mirrors a pressure plate for ceiling placement. Snap catches
 both floors and exposed undersides, choosing the facing automatically. A ceiling
 plate responds to inverted feet or the supported top edge of a prop pressed
@@ -1419,7 +1490,9 @@ Light passes through both modes. Neither creates a ledge for the player to grab.
 rectangle must fit inside the level. `power` defaults to Always on; Switched
 uses the standard Logic, Reversed, Relay, Switched by and Activates controls.
 IDs must be unique across all devices. Optional `name` follows the normal rules.
-EMP disables either power mode. Enabling a blue field waits for the player's
+EMP disables either power mode. A carried EMP bolt hitting the active beam or
+either emitter disables just that field for five seconds, in both colors.
+Enabling a blue field waits for the player's
 current collision body to clear it. Red waits for overlapping props, bots,
 mechanisms and rope spans to clear; an overlapping player does not delay it.
 An always-on red field participates in the rope's prepared starting layout.

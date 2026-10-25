@@ -12,6 +12,26 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   test.setTimeout(180000)
   const errors = [], checkpoints = []
   page.on('pageerror', error => errors.push(error.message))
+  // Gravity changes can clear the diagnostic stream between physics steps.
+  // Force one such observation gap without changing the player or scored time.
+  await page.addInitScript(() => {
+    let monitor, gap = true
+    Object.defineProperty(window, 'jumpingMotion', {
+      configurable: true, get: () => monitor,
+      set(value) {
+        const read = value.read
+        value.read = () => {
+          const state = read()
+          if (gap && state.recent.length) {
+            gap = false; window.buoyancyObservationGap = true
+            return { ...state, recent: [] }
+          }
+          return state
+        }
+        monitor = value
+      },
+    })
+  })
   await page.setViewportSize({ width: 852, height: 393 })
   await page.clock.install({ time: new Date('2026-10-10T12:00:00Z') })
   await page.goto('/lab/levels/built-in/buoyancy.jump-level.json?motionDebug=1')
@@ -30,21 +50,22 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   // Water bobbing and free prop contacts vary with the idle time before input.
   // Drive to visible waypoints with ordinary keys; never move actors or edit
   // scored time directly, and cap each phase so waits cannot hide failed delivery.
-  async function steer(wanted, arrived, label, budget = 8000) {
+  async function steer(wanted, arrived, label, { budget = 8000, needsSample = true } = {}) {
     await keys(wanted)
-    let p, spent = 0
+    let p, spent = 0, reached = false
     while (spent < budget) {
       await page.clock.runFor(64); spent += 64
       p = await read()
-      if (await arrived(p)) break
+      // A diagnostic reset is not an arrival; wait within the same phase budget.
+      if ((p || !needsSample) && await arrived(p)) { reached = true; break }
     }
     checkpoints.push({ label, spent, ...p })
-    expect(await arrived(p), label).toBe(true)
+    expect(reached, label).toBe(true)
   }
   await steer(['d'], p => p.x >= 645, 'enter the pool')
   await steer(['d', 's'], p => p.x >= 833 && p.y >= 1148, 'reach the bottom')
   await steer(['d'], p => p.x >= 1020, 'move the heavy ball off the pump switch')
-  await steer(['w'], p => p.y <= 705, 'rise with the filling pool', 10000)
+  await steer(['w'], p => p.y <= 705, 'rise with the filling pool', { budget: 10000 })
   await page.screenshot({ path: info.outputPath('filled-pool.png') })
   await steer(['d'], p => p.x >= 1215, 'collect the stopwatch')
   await steer(['d', 'w', 'Space'], p => p.y < 530, 'jump toward the right bank')
@@ -65,7 +86,7 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   await steer(['a', 'w'], p => p.x <= 950 && p.y <= 840, 'catch the island and enter its gravity lift')
   await steer(['w'], p => p.y <= 230, 'rise above the roof')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
-  await steer(['a'], () => complete.isVisible(), 'reach the powered doorway')
+  await steer(['a'], () => complete.isVisible(), 'reach the powered doorway', { needsSample: false })
   await keys([])
   const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
   const elapsed = minutes * 60 + seconds
@@ -73,5 +94,6 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
   expect(elapsed).toBeLessThanOrEqual(level.times.a)
   expect(errors).toEqual([])
+  expect(await page.evaluate(() => window.buoyancyObservationGap)).toBe(true)
   await page.screenshot({ path: info.outputPath('completed.png') })
 })

@@ -81,8 +81,10 @@ async function outside(page) {
 
 function slopeLevel(slope) {
   const rise = Math.abs(slope) * 200
-  return { ...blankTrial(), name: 'Bot placement', width: 1200, height: 1200, floor: 1200,
-    entrance: { x: 1100, y: 1200 }, goal: { x: 1040, y: 1200 },
+  // Keep the level-center guides clear of the ramp: this fixture exercises
+  // surface snapping, while center alignment intentionally takes precedence.
+  return { ...blankTrial(), name: 'Bot placement', width: 1200, height: 1800, floor: 1800,
+    entrance: { x: 1100, y: 1800 }, goal: { x: 1040, y: 1800 },
     platforms: [{ x: 300, y: 700 - rise / 2, w: 200, h: rise + 20,
       polygon: slope > 0 ? [[0, 0], [200, rise], [200, rise + 20], [0, 20]]
         : [[0, rise], [200, 0], [200, 20], [0, rise + 20]] }] }

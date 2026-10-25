@@ -21,6 +21,8 @@ import type { Limb, Point } from './limbPose.ts'
 import { drawSleeve } from './sleeveArtwork.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
+import { createImpactRagdoll, stepImpactRagdoll } from './impactRagdoll.ts'
+import type { ImpactJoint, ImpactKind } from './impactRagdoll.ts'
 
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
 export type AthletePose = {
@@ -932,7 +934,7 @@ function landingPreparation(p: Player): number {
 function fallRecoveryPose(p: Player): AthletePose {
   const fall = p.freeFall!, recovery = fall.recovery
   if (fall.moving) return fall.moving.pose
-  const source = athletePose({ ...p, ...fall.impact, freeFall: null, grounded: false,
+  const source = athletePose({ ...p, ...fall.impact, freeFall: null, ragdoll: null, grounded: false,
     groundAngle: 0, footwork: null, landing: 0, pushing: null, ledgeReach: null, wallBrace: null, sliding: null })
   const prone = fallFrame(p)
   // Bend through depth as the limbs fold across the torso; interpolating only
@@ -947,7 +949,7 @@ function fallRecoveryPose(p: Player): AthletePose {
   const kneeling = fallFrame(p, 1), crouched = fallFrame(p, 2)
   if (recovery < .48) return blend(prone, kneeling, smooth((recovery - .18) / .3))
   if (recovery < .7) return blend(kneeling, crouched, smooth((recovery - .48) / .22))
-  const standing = athletePose({ ...p, freeFall: null, landing: 0 })
+  const standing = athletePose({ ...p, freeFall: null, ragdoll: null, landing: 0 })
   return blend(crouched, standing, smooth((recovery - .7) / (TUNING.fallRecoveryTime - .7)))
 }
 
@@ -988,7 +990,8 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean,
   if (!fall.moving) {
     // The first steering press may already have changed mechanical facing.
     // Seed from the actual preceding rig, expressed in the new local frame.
-    const source = captured?.pose ?? fallPose(p)
+    const source = captured?.pose ?? athletePose(p)
+    p.ragdoll = null
     fall.moving = { pose: captured && captured.facing !== p.facing ? reflectAthletePose(source) : source,
       time: 0, facing: p.facing }
   }
@@ -998,7 +1001,7 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean,
     motion.facing = p.facing
   }
   motion.time += dt
-  const target = athletePose({ ...p, freeFall: null, dryTurn: null, landing: 0 })
+  const target = athletePose({ ...p, freeFall: null, ragdoll: null, dryTurn: null, landing: 0 })
   const fraction = Math.min(1, dt / Math.max(dt, .1 - motion.time + dt))
   const from = motion.pose
   const points = (pose: AthletePose) => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -1031,6 +1034,85 @@ export function reflectAthletePose(pose: AthletePose): AthletePose {
     footAngle: -part.footAngle, toeAngle: -part.toeAngle })
   return { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head), headTilt: -(pose.headTilt ?? 0),
     frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
+}
+
+/** Seed from the actual outgoing rig; impulse and pose use the same local
+ * gravity frame. This never changes the motor, contact hull or input rules. */
+export function startImpactRagdoll(p: Player, velocity: Point, kind: ImpactKind) {
+  if (p.inverted) {
+    mirrorPlayerState(p); p.inverted = false
+    try { startImpactRagdoll(p, [velocity[0], -velocity[1]], kind) }
+    finally { mirrorPlayerState(p); p.inverted = true }
+    return
+  }
+  if (p.ragdoll?.kind === kind) {
+    // Closely spaced hits add momentum to the same joints. Repeatedly seeding
+    // from an already displaced rig would accumulate permanent contortions.
+    const kick = createImpactRagdoll(p.ragdoll.source, p.ragdoll.facing, kind, ...velocity)
+    for (const name of Object.keys(kick.joints) as ImpactJoint[]) {
+      const spring = p.ragdoll.joints[name]
+      spring.speed = Math.max(-24, Math.min(24, spring.speed + kick.joints[name].speed))
+    }
+    return
+  }
+  const source = kind === 'landing' ? athletePose({ ...p, grounded: true, ragdoll: null }) : athletePose(p)
+  p.ragdoll = createImpactRagdoll(source, p.facing, kind, ...velocity)
+}
+
+export function advanceImpactRagdoll(p: Player, dt: number) {
+  const motion = p.ragdoll
+  if (!motion) return
+  if (p.hang || p.climbing || p.mantle || p.waterMotion || p.releaseTurn || p.wallBrace?.active
+    || p.sliding?.active || p.jumpLift) { p.ragdoll = null; return }
+  if (motion.facing !== p.facing) {
+    motion.source = reflectAthletePose(motion.source)
+    for (const spring of Object.values(motion.joints)) { spring.angle *= -1; spring.speed *= -1 }
+    motion.facing = p.facing
+  }
+  stepImpactRagdoll(motion, dt)
+  if (motion.time >= motion.duration) p.ragdoll = null
+}
+
+function impactRagdollPose(p: Player): AthletePose {
+  const motion = p.ragdoll!, normal = resolveAthletePose({ ...p, ragdoll: null })
+  const blend = motion.kind === 'landing' ? smooth(motion.time / .08) : smooth((motion.time - .1) / .4)
+  let pose = transferPose(motion.source, normal, [0, 0], blend, [0, 0], 0, true)
+  const release = Math.min(.16, motion.duration * .3)
+  const weight = 1 - smooth((motion.time - release) / (motion.duration - release))
+  const angle = (name: ImpactJoint) => motion.joints[name].angle * weight
+  pose = rotatePose(pose, angle('body'), 1, pose.hip)
+  // Neck and each two-bone chain retain their exact projected and depth
+  // lengths. The springs rotate the joints, rather than stretching endpoints.
+  const turn = (point: Point, pivot: Point, a: number): Point => {
+    const x = point[0] - pivot[0], y = point[1] - pivot[1]
+    return [pivot[0] + x * Math.cos(a) - y * Math.sin(a), pivot[1] + x * Math.sin(a) + y * Math.cos(a)]
+  }
+  pose.head = turn(pose.head, pose.shoulder, angle('neck'))
+  pose.headTilt = (pose.headTilt ?? 0) + angle('neck')
+  const limb = <T extends Limb>(part: T, upper: ImpactJoint, lower: ImpactJoint): T => {
+    const a = angle(upper), b = a + angle(lower)
+    const joint = turn(part.joint, part.root, a)
+    const end = add(joint, turn([part.end[0] - part.joint[0], part.end[1] - part.joint[1]], [0, 0], b))
+    const hand = part.hand && add(end, turn([part.hand[0] - part.end[0], part.hand[1] - part.end[1]], [0, 0], b))
+    return { ...part, joint, end, hand, handAngle: part.handAngle === undefined ? undefined : part.handAngle + b }
+  }
+  pose.frontArm = limb(pose.frontArm, 'frontShoulder', 'frontElbow')
+  pose.backArm = limb(pose.backArm, 'backShoulder', 'backElbow')
+  const leg = (part: Leg, upper: ImpactJoint, lower: ImpactJoint): Leg => ({ ...limb(part, upper, lower),
+    footAngle: part.footAngle + (angle(upper) + angle(lower)) / part.footFacing, planted: false })
+  pose.frontLeg = leg(pose.frontLeg, 'frontHip', 'frontKnee')
+  pose.backLeg = leg(pose.backLeg, 'backHip', 'backKnee')
+  pose = clearBody(p, pose).pose
+  for (const name of ['frontArm', 'backArm'] as const) pose[name] = clearLimb(p, pose[name], UPPER_ARM, FOREARM, 1, true)
+  for (const name of ['frontLeg', 'backLeg'] as const) {
+    let part = pose[name]
+    for (let i = 0; i < 4; i++) {
+      part = { ...part, ...clearLimb(p, part, 15, 14.5, -1) }
+      part = clearAirborneFoot(p, part)
+    }
+    pose[name] = part
+  }
+  return pose
 }
 
 /** Capture requested turns and slides whose real wall brace can select facing.
@@ -1098,7 +1180,10 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   let from = before?.pose ?? p.dryTurn!.pose
   if (previousFacing !== p.facing) from = reflectAthletePose(from)
   const motion = p.dryTurn ??= { pose: from, facing: p.facing, target: previousFacing, time: 0, departure,
-    slide: !!(before?.slide || p.sliding || p.slideEntry), pushing: contactTurn, step: !!interruptedStep }
+    slide: !!(before?.slide || p.sliding || p.slideEntry), pushing: contactTurn, step: !!interruptedStep, recoil: !!p.ragdoll }
+  // The turn already owns the outgoing loose pose. Return toward the active
+  // rig once, rather than layering recoil onto its own captured deformation.
+  p.ragdoll = null
   motion.pushing ||= contactTurn
   const braking = input.move * p.vx < -1
   const approach = !p.grounded && (p.pushing?.ready ?? 0) > 0 && p.pushing?.effort === 0
@@ -1111,14 +1196,14 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   if (direction !== p.facing) target = reflectAthletePose(target)
   // A planted shoe uses the current motor contact, including heel/toe roll.
   // Blending its angle independently of its ankle would drag material points.
-  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) {
+  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted && !motion.recoil) {
     from = { ...from, [name]: { ...from[name], end: target[name].end, footAngle: target[name].footAngle,
       toeAngle: target[name].toeAngle, footFacing: target[name].footFacing, planted: true } }
   }
   // The old pelvis follows the motor root immediately. Bend the loaded leg
   // enough for its unchanged contact before interpolating the two valid rigs.
   let dip = 0
-  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) {
+  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted && !motion.recoil) {
     const end = target[name].end, dx = end[0] - from.hip[0]
     dip = Math.max(dip, end[1] - Math.sqrt(Math.max(0, 29 ** 2 - dx ** 2)) - from.hip[1] - 1)
   }
@@ -1138,13 +1223,13 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   const sample = (t: number) => {
     // A slowed slide turn also slows its added bend through depth. At zero
     // progress the outgoing bend is retained, rather than adding a full fold.
-    const bend = motion.slide || reaching || motion.departure ? depth * t / fraction : depth
+    const bend = motion.slide || reaching || motion.departure || motion.recoil ? depth * t / fraction : depth
     let pose = t === 1 ? target : transferPose(from, target, [0,0], t, [0,0], 0, true, 0,
       { depth: bend * (motion.slide ? 6 : 8), kneeOpening: motion.slide ? MIN_KNEE_OPENING : 0,
         legDepth: motion.slide ? bend * 6 : undefined })
     if (reaching && t < 1) pose = transferReachingPushTurn(p, pose, from, target, t)
     else if (contactTurn && t < 1) pose = transferPushTurn(p, pose, from, target, t)
-    if (!p.grounded) {
+    if (!p.grounded || motion.recoil) {
       pose = clearBody(p, pose).pose
       for (const name of ['frontLeg','backLeg'] as const) {
         pose[name] = motion.slide
@@ -1163,7 +1248,7 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
     return pose
   }
   let t = fraction, pose = sample(t)
-  if (motion.slide || reaching || motion.departure) {
+  if (motion.slide || reaching || motion.departure || motion.recoil) {
     // Reacquired slopes and crowded reaches can require more clearance than
     // the raw transfer predicts. Budget the final cleared joints, preserving
     // fixed bones and safe skin instead of blending corrected coordinates.
@@ -2255,6 +2340,7 @@ function resolveAthletePose(p: Player): AthletePose {
     try { return resolveAthletePose(p) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
+  if (p.ragdoll) return impactRagdollPose(p)
   if (p.releaseTurn) {
     const turn = p.releaseTurn
     let target = athletePose({ ...p, releaseTurn: undefined })

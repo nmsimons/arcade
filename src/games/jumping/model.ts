@@ -19,7 +19,8 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, athletePose, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, swimmingLedgeReach } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, athletePose, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, startImpactRagdoll, swimmingLedgeReach } from './athlete.ts'
+import type { ImpactRagdoll } from './impactRagdoll.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
@@ -65,7 +66,7 @@ export interface Player {
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
-    caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; waterMotion?: Player['waterMotion']; dryTurn?: Player['dryTurn']; heldTool?: Player['heldTool'] } } | null
+    caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; ragdoll?: Player['ragdoll']; waterMotion?: Player['waterMotion']; dryTurn?: Player['dryTurn']; heldTool?: Player['heldTool'] } } | null
   mantle: { edgeX: number; edgeY: number; side: number; slope?: number; toX: number; toY: number; time: number; braced: boolean;
     platform?: number; returning?: boolean; crouched?: boolean; inset?: number; blockedTime?: number;
     step?: StepUp;
@@ -73,8 +74,9 @@ export interface Player {
     ladder?: { climb: Climbing; x: number; y: number; entry: number };
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
+  ragdoll: ImpactRagdoll | null
   freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
-  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; reaching?: boolean; step?: boolean } | null
+  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; reaching?: boolean; step?: boolean; recoil?: boolean } | null
   slideEntry: { pose: AthletePose; facing: number; time: number; landing?: boolean } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
@@ -102,7 +104,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
     shove: undefined, stagger: 0, shoves: 0, shoveDrift: false,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: undefined, jumpHeld: false, jumpLift: null,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
-    freeFall: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0, waterPushOff: false,
+    freeFall: null, ragdoll: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0, waterPushOff: false,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, airBoost: { x: 0, lift: 0, time: 0 }, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false, waterJump: false, swimAcceleration: 0 }
 }
 export function airBoostStrength(p: Player) {
@@ -149,6 +151,7 @@ const approach = (value: number, target: number, delta: number) => value + Math.
 const overlaps = (x: number, y: number, b: Platform, height: number = TUNING.height) => bodyIntersects(x, y, b, height)
 function launch(p: Player, baseSpeed: number = TUNING.jumpSpeed, maxSpeed: number = TUNING.directedJumpSpeed) {
   p.freeFall = null
+  p.ragdoll = null
   const extraSpeed = maxSpeed - baseSpeed
   p.jumpLift = p.jumpStrength === undefined
     ? { elapsed: 0, strength: 0, entrySpeed: 0, extraSpeed, fresh: true } : null
@@ -675,8 +678,13 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     && !p.waterMotion && !p.releaseTurn && !p.wallBrace?.active && !p.wallJump && !p.shove) {
     p.facing = Math.abs(p.vx) > 60 ? Math.sign(p.vx) : flightFacing
   }
+  const impact = p.freeFall?.recovery === 0 ? p.freeFall.impact : undefined
+  if (impact && impact.vy > 1000 && p.freeFall!.amount > .35 && !p.waterMotion) {
+    startImpactRagdoll(p, [impact.vx, impact.vy], 'landing')
+  }
   finishPlayerStep(p, input, dt, world, from, verticalUsed, turnFrame, slideEntryFrame, frameDirection)
   settleFallClearance(p, dt, previousFacing)
+  advanceImpactRagdoll(p, dt)
   if (p.waterMotion) {
     if (p.facing !== previousFacing && p.waterMotion.bodyOffset) p.waterMotion.bodyOffset[0] *= -1
     if (p.waterMotion.underwater) {
@@ -974,7 +982,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const edge = loweringOption(p,platforms)
     if (edge) {
       const { crouched, inset, braced } = edge
-      const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, crouching: p.crouching, crouch: p.crouch, facing: p.facing, freeFall: p.freeFall, dryTurn: p.dryTurn,
+      const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, crouching: p.crouching, crouch: p.crouch, facing: p.facing, freeFall: p.freeFall, ragdoll: p.ragdoll, dryTurn: p.dryTurn,
         ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
       const ladderIndex = climbables.ladders.findIndex(ladder => {
         const exit = ladderLedge(ladder, platforms)
@@ -1429,7 +1437,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         if ((edge - catchPosition.x) * side < 10 || Math.abs(catchPosition.x + side * 14 - edge) >= catchGap
           || !reachable(catchPosition.y)) continue
         p.x = catchPosition.x; p.y = catchPosition.y
-        const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, gait: p.gait, ledgeReach: reach, freeFall: p.freeFall, dryTurn: p.dryTurn,
+        const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, gait: p.gait, ledgeReach: reach, freeFall: p.freeFall, ragdoll: p.ragdoll, dryTurn: p.dryTurn,
           ...(p.waterMotion ? { waterMotion: { ...p.waterMotion } } : {}),
           ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
         p.vx = 0; p.vy = 0; p.hang = { platform: index, side, edgeX: edge, edgeY, slope: ledge.slope, time: 0, queued: false, braced, caught }

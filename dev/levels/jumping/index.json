@@ -2,6 +2,7 @@
   "version": 1,
   "order": "listed",
   "levels": [
+    "Impact Lab.jump-level.json",
     "Tool Bench.jump-level.json",
     "Load Test.jump-level.json",
     "Load Test Max.jump-level.json"

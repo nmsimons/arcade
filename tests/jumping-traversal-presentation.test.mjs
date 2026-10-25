@@ -343,7 +343,7 @@ test('held movement springs a long-fall landing into the actual supported gait',
   }
 })
 
-test('released steering retains a flat long-fall landing despite remaining sideways drift', () => {
+test('released steering retains a prone impact and recovery despite remaining sideways drift', () => {
   const base = [{ x: -2000, y: 1400, w: 6000, h: 100 }]
   for (const inverted of [false, true]) for (const direction of [-1, 1]) {
     const floor = inverted ? base.map(mirrorPlatform) : base
@@ -369,7 +369,7 @@ test('released steering retains a flat long-fall landing despite remaining sidew
       if (!impact) continue
       assert.equal(p.freeFall?.moving, undefined, 'drift cannot start the steering get-up')
       if (p.freeFall?.recovery < .18) {
-        assert.ok(Math.abs(pose.shoulder[1] - pose.hip[1]) < 2, 'the impact remains flat')
+        assert.ok(Math.abs(pose.shoulder[1] - pose.hip[1]) < (p.ragdoll ? 7 : 2), 'the impact stays prone through bounded torso recoil')
         assert.ok(!pose.frontLeg.planted && !pose.backLeg.planted, 'feet do not claim the initial impact')
       }
       if (!p.freeFall) {

@@ -189,7 +189,8 @@ test('autonomous patrol jumps over a raised obstruction using swept contacts and
 test('a repulsor impulse releases hand support and stops at solid walls through normal controls', () => {
   const file = level(); file.robots = []; file.platforms = [{ x: 200, y: 600, w: 20, h: 320 }]
   const run = createRun(file), actor = run.player
-  actor.hang = { side: 1 }; actor.climbing = { kind: 'ladder' }
+  actor.hang = { platform: 0, side: 1, edgeX: 200, edgeY: 600, time: .3, queued: false, braced: true,
+    caught: { x: actor.x, y: actor.y, vx: 0, vy: 0, stride: 0, gait: actor.gait, ledgeReach: null } }
   repulsePlayer(actor, [1, 0])
   assert.equal(actor.hang, null); assert.equal(actor.climbing, null)
   tick(run, 120)

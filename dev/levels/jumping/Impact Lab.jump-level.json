@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "id": "lab-impact-ragdoll-prototype",
+  "name": "Impact Lab",
+  "width": 2000,
+  "height": 1660,
+  "floor": 1600,
+  "timing": "untimed",
+  "entrance": { "x": 200, "y": 220 },
+  "goal": { "x": 1900, "y": 1600, "flipX": true },
+  "times": { "a": 30, "b": 60, "c": 90, "d": 120 },
+  "checkpoints": [],
+  "platforms": [
+    { "x": 80, "y": 220, "w": 340, "h": 24, "material": "steel" },
+    { "x": 1270, "y": 1420, "w": 40, "h": 180, "material": "stone" }
+  ],
+  "climbables": {
+    "ladders": [{ "x": 150, "top": 220, "bottom": 1600, "platform": -1, "side": 1 }],
+    "ropes": []
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [{ "kind": "repulsor", "x": 1650, "y": 1600, "left": 1336, "right": 1940, "chargingBay": true }],
+  "texts": [
+    { "x": 90, "y": 70, "w": 320, "h": 50, "text": "IMPACT LAB", "fontSize": 28, "align": "left", "style": "official" },
+    { "x": 310, "y": 290, "w": 250, "h": 90, "text": "let go on the way down", "fontSize": 24, "align": "center", "style": "graffiti" },
+    { "x": 200, "y": 1450, "w": 240, "h": 70, "text": "another go?", "fontSize": 24, "align": "left", "style": "graffiti" },
+    { "x": 1400, "y": 1320, "w": 400, "h": 70, "text": "REPULSOR TEST BAY", "fontSize": 26, "align": "center", "style": "official" }
+  ]
+}

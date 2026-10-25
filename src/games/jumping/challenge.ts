@@ -505,7 +505,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
     run.gadgets.held = null; run.gadgets.aiming = false; delete p.heldTool
     run.grade = run.level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, run.level)
-    p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null; p.freeFall = null
+    p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null; p.freeFall = null; p.ragdoll = null
     cancelJumpInput(p)
   }
 }

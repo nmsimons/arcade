@@ -764,6 +764,21 @@ back to the ordinary airborne pose over 0.28 seconds.
 The same state runs in the reflected gravity frame. Respawn clears it.
 Regression coverage lives in `tests/jumping-free-fall.test.mjs`.
 
+The `codex/player-ragdoll` experiment adds a short constrained ragdoll response
+to hard prone landings (downward speed above 1000, prone blend above 0.35) and
+strong humanoid repulsor impulses (at least 750). Angular springs carry impact
+momentum through the torso, neck, shoulders, elbows, hips and knees. Bounded
+joints, fixed bone lengths and the existing terrain/prop clearance solve keep
+the rig together. The response scales with impulse magnitude, seeds from the
+outgoing pose, and fades back into the active rig within 0.55 seconds. It is
+presentation physics around the existing motor hull; it adds no input lock,
+damage, death, displacement or longer recovery. Active walking uses the existing
+fast get-up; jumping, gripping, bracing, sliding, gravity turns, water entry and
+respawn release the response. Dry gravity inversion uses the same local rig.
+The untimed **Impact Lab** development room provides a repeatable high drop,
+return ladder and separated repulsor bay. Focused regressions live in
+`tests/jumping-impact-ragdoll.test.mjs`.
+
 Prone limbs clear the terrain on the same side as their shoulder or hip. A
 penetrating knee, ankle or hand must not take a thin wall's nearer far-side exit
 and leave its connecting bone through the wall. The visible foot clearance also

@@ -80,6 +80,7 @@ test('the broader player rig charges and fires from its palm, pushing the player
     if (after < start - 1) { fired = true; await page.screenshot({ path: info.outputPath('rbot-palm-shot.png') }) }
   }
   expect(fired).toBe(true)
+  expect((await motion(page)).signals.ragdoll).toBe('repulsor')
   await page.clock.runFor(300)
   expect((await motion(page)).x).toBeLessThan(start - 80)
   expect(await page.locator('canvas').evaluate(canvas => canvas.repulsorBots.length)).toBe(1)

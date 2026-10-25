@@ -19,10 +19,12 @@ function snapshot(p: Player, input: JumpInput, time: number) {
       waterCeiling: (p.waterMotion?.ceiling?.amount ?? 0) > .5,
       slideLanding: !!p.slideEntry?.landing,
       reachingPush: !!p.dryTurn?.reaching,
+      ragdoll: p.ragdoll?.kind ?? null,
       support: p.contacts?.support?.collider.id ?? null, push: p.contacts?.push?.collider.id ?? null,
     },
     blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0,
-      ceiling: p.waterMotion?.ceiling?.amount ?? 0, gravityTurn: playerTurnAngle(p) },
+      ceiling: p.waterMotion?.ceiling?.amount ?? 0, gravityTurn: playerTurnAngle(p),
+      ragdoll: p.ragdoll ? 1 - Math.min(1, p.ragdoll.time / p.ragdoll.duration) : 0 },
     contacts: {
       floorHand: p.waterMotion?.landing && !p.waterMotion.landing.leaving ? { ...p.waterMotion.landing.hand } : null,
       palms: p.pushing?.palms?.map(palm => ({ ...palm })) ?? [],

@@ -47,5 +47,5 @@ export function rightArmAnimating(p: Player): boolean {
   return rightArmSupporting(p) || !!(p.climbing || p.hang || p.mantle || p.ledgeReach
     || p.pushing && Math.max(p.pushing.amount, p.pushing.ready ?? 0) > .001
     || p.wallBrace && p.wallBrace.hands[p.facing < 0 ? 1 : 0] > .001
-    || p.waterMotion?.landing || p.waterMotion?.ceiling || p.releaseTurn || p.freeFall)
+    || p.waterMotion?.landing || p.waterMotion?.ceiling || p.releaseTurn || p.freeFall || p.ragdoll)
 }

@@ -1,0 +1,405 @@
+{
+  "description": "Sequential Node pose CPU comparisons; fixed regression cave, three alternating pairs. Current authored cave checked separately. Rope simulation, rendering and browser frame scheduling excluded.",
+  "fixture": "tests/fixtures/jumping/ascent-chimney-clearance.json",
+  "beforeReference": "46bdf0aee80787a8e1485c6d034e048aae2d7683",
+  "pairs": [
+    {
+      "before": {
+        "reference": "46bdf0aee80787a8e1485c6d034e048aae2d7683",
+        "node": "v25.9.0",
+        "cpu": "Apple M5 Pro",
+        "sourceHashes": {
+          "athlete.ts": "0e1296a491bf05a1171a4e65a25749842175ec24be435f0518c365bfd5680483",
+          "geometry.ts": "ae46d0afb7fe1d4ab2d1b8629f82e6f94e63207af87f7dda8549d4c6e68984ec"
+        },
+        "levelHash": "c690514cf97e6565bf31bceb4f7adeee0567dca555f3df33544b1c76dc5ba456",
+        "samples": 559,
+        "stateHash": "f032b898f142dc62d24db1cbb5bc81ed16375860ec2544874060a63b20d2580a",
+        "poseHash": "5a94f069e3a713cbb67a2c1d50db4fa5f3e9cf122d33e804463dd9a4293505f9",
+        "poseMs": {
+          "mean": 0.38001903577817625,
+          "p95": 2.5023749999999723,
+          "max": 4.87662499999999
+        },
+        "hotspot": {
+          "x": 805.51779968231,
+          "y": 1219.177976006289,
+          "vx": 79.28399046930222,
+          "vy": -517.5952430069894,
+          "state": "Bracing",
+          "brace": {
+            "wallX": 817.5657480339264,
+            "wallY": 1201.184514417873,
+            "normal": [
+              -0.9908301680442988,
+              -0.13511320473331348
+            ],
+            "direction": 1,
+            "hands": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "feet": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "active": true,
+            "amount": 0.16666666666666666
+          },
+          "hang": null,
+          "poseMs": {
+            "mean": 2.8629883333333326,
+            "p95": 3.5699999999999363,
+            "max": 4.168917000000192
+          }
+        }
+      },
+      "after": {
+        "reference": "working tree",
+        "node": "v25.9.0",
+        "cpu": "Apple M5 Pro",
+        "sourceHashes": {
+          "athlete.ts": "5479831ac3021f10c95d3e0ae9195b1756fc5d6448355a89f26942ce274aa6f0",
+          "geometry.ts": "f45d78c5281fc21103a1a2e46b284e54938726914f13208f94ab3b590324b04f"
+        },
+        "levelHash": "c690514cf97e6565bf31bceb4f7adeee0567dca555f3df33544b1c76dc5ba456",
+        "samples": 559,
+        "stateHash": "f032b898f142dc62d24db1cbb5bc81ed16375860ec2544874060a63b20d2580a",
+        "poseHash": "5a94f069e3a713cbb67a2c1d50db4fa5f3e9cf122d33e804463dd9a4293505f9",
+        "poseMs": {
+          "mean": 0.24375118962433015,
+          "p95": 1.4904999999999973,
+          "max": 3.1420420000000036
+        },
+        "hotspot": {
+          "x": 805.51779968231,
+          "y": 1219.177976006289,
+          "vx": 79.28399046930222,
+          "vy": -517.5952430069894,
+          "state": "Bracing",
+          "brace": {
+            "wallX": 817.5657480339264,
+            "wallY": 1201.184514417873,
+            "normal": [
+              -0.9908301680442988,
+              -0.13511320473331348
+            ],
+            "direction": 1,
+            "hands": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "feet": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "active": true,
+            "amount": 0.16666666666666666
+          },
+          "hang": null,
+          "poseMs": {
+            "mean": 1.605824989999998,
+            "p95": 2.161542000000054,
+            "max": 2.428625000000011
+          }
+        }
+      }
+    },
+    {
+      "before": {
+        "reference": "46bdf0aee80787a8e1485c6d034e048aae2d7683",
+        "node": "v25.9.0",
+        "cpu": "Apple M5 Pro",
+        "sourceHashes": {
+          "athlete.ts": "0e1296a491bf05a1171a4e65a25749842175ec24be435f0518c365bfd5680483",
+          "geometry.ts": "ae46d0afb7fe1d4ab2d1b8629f82e6f94e63207af87f7dda8549d4c6e68984ec"
+        },
+        "levelHash": "c690514cf97e6565bf31bceb4f7adeee0567dca555f3df33544b1c76dc5ba456",
+        "samples": 559,
+        "stateHash": "f032b898f142dc62d24db1cbb5bc81ed16375860ec2544874060a63b20d2580a",
+        "poseHash": "5a94f069e3a713cbb67a2c1d50db4fa5f3e9cf122d33e804463dd9a4293505f9",
+        "poseMs": {
+          "mean": 0.3815512110912339,
+          "p95": 2.585833999999977,
+          "max": 5.133708000000013
+        },
+        "hotspot": {
+          "x": 805.51779968231,
+          "y": 1219.177976006289,
+          "vx": 79.28399046930222,
+          "vy": -517.5952430069894,
+          "state": "Bracing",
+          "brace": {
+            "wallX": 817.5657480339264,
+            "wallY": 1201.184514417873,
+            "normal": [
+              -0.9908301680442988,
+              -0.13511320473331348
+            ],
+            "direction": 1,
+            "hands": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "feet": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "active": true,
+            "amount": 0.16666666666666666
+          },
+          "hang": null,
+          "poseMs": {
+            "mean": 2.906152636666662,
+            "p95": 3.585749999999962,
+            "max": 4.286249999999882
+          }
+        }
+      },
+      "after": {
+        "reference": "working tree",
+        "node": "v25.9.0",
+        "cpu": "Apple M5 Pro",
+        "sourceHashes": {
+          "athlete.ts": "5479831ac3021f10c95d3e0ae9195b1756fc5d6448355a89f26942ce274aa6f0",
+          "geometry.ts": "f45d78c5281fc21103a1a2e46b284e54938726914f13208f94ab3b590324b04f"
+        },
+        "levelHash": "c690514cf97e6565bf31bceb4f7adeee0567dca555f3df33544b1c76dc5ba456",
+        "samples": 559,
+        "stateHash": "f032b898f142dc62d24db1cbb5bc81ed16375860ec2544874060a63b20d2580a",
+        "poseHash": "5a94f069e3a713cbb67a2c1d50db4fa5f3e9cf122d33e804463dd9a4293505f9",
+        "poseMs": {
+          "mean": 0.24420133810375594,
+          "p95": 1.5637090000000171,
+          "max": 2.7681670000000054
+        },
+        "hotspot": {
+          "x": 805.51779968231,
+          "y": 1219.177976006289,
+          "vx": 79.28399046930222,
+          "vy": -517.5952430069894,
+          "state": "Bracing",
+          "brace": {
+            "wallX": 817.5657480339264,
+            "wallY": 1201.184514417873,
+            "normal": [
+              -0.9908301680442988,
+              -0.13511320473331348
+            ],
+            "direction": 1,
+            "hands": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "feet": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "active": true,
+            "amount": 0.16666666666666666
+          },
+          "hang": null,
+          "poseMs": {
+            "mean": 1.6526713933333346,
+            "p95": 2.208582999999976,
+            "max": 2.871040999999991
+          }
+        }
+      }
+    },
+    {
+      "before": {
+        "reference": "46bdf0aee80787a8e1485c6d034e048aae2d7683",
+        "node": "v25.9.0",
+        "cpu": "Apple M5 Pro",
+        "sourceHashes": {
+          "athlete.ts": "0e1296a491bf05a1171a4e65a25749842175ec24be435f0518c365bfd5680483",
+          "geometry.ts": "ae46d0afb7fe1d4ab2d1b8629f82e6f94e63207af87f7dda8549d4c6e68984ec"
+        },
+        "levelHash": "c690514cf97e6565bf31bceb4f7adeee0567dca555f3df33544b1c76dc5ba456",
+        "samples": 559,
+        "stateHash": "f032b898f142dc62d24db1cbb5bc81ed16375860ec2544874060a63b20d2580a",
+        "poseHash": "5a94f069e3a713cbb67a2c1d50db4fa5f3e9cf122d33e804463dd9a4293505f9",
+        "poseMs": {
+          "mean": 0.3842059481216456,
+          "p95": 2.4870839999999816,
+          "max": 5.008915999999999
+        },
+        "hotspot": {
+          "x": 805.51779968231,
+          "y": 1219.177976006289,
+          "vx": 79.28399046930222,
+          "vy": -517.5952430069894,
+          "state": "Bracing",
+          "brace": {
+            "wallX": 817.5657480339264,
+            "wallY": 1201.184514417873,
+            "normal": [
+              -0.9908301680442988,
+              -0.13511320473331348
+            ],
+            "direction": 1,
+            "hands": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "feet": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "active": true,
+            "amount": 0.16666666666666666
+          },
+          "hang": null,
+          "poseMs": {
+            "mean": 2.887796646666664,
+            "p95": 3.5779999999999745,
+            "max": 4.32608300000004
+          }
+        }
+      },
+      "after": {
+        "reference": "working tree",
+        "node": "v25.9.0",
+        "cpu": "Apple M5 Pro",
+        "sourceHashes": {
+          "athlete.ts": "5479831ac3021f10c95d3e0ae9195b1756fc5d6448355a89f26942ce274aa6f0",
+          "geometry.ts": "f45d78c5281fc21103a1a2e46b284e54938726914f13208f94ab3b590324b04f"
+        },
+        "levelHash": "c690514cf97e6565bf31bceb4f7adeee0567dca555f3df33544b1c76dc5ba456",
+        "samples": 559,
+        "stateHash": "f032b898f142dc62d24db1cbb5bc81ed16375860ec2544874060a63b20d2580a",
+        "poseHash": "5a94f069e3a713cbb67a2c1d50db4fa5f3e9cf122d33e804463dd9a4293505f9",
+        "poseMs": {
+          "mean": 0.23517827370304042,
+          "p95": 1.5634170000000154,
+          "max": 2.8302089999999964
+        },
+        "hotspot": {
+          "x": 805.51779968231,
+          "y": 1219.177976006289,
+          "vx": 79.28399046930222,
+          "vy": -517.5952430069894,
+          "state": "Bracing",
+          "brace": {
+            "wallX": 817.5657480339264,
+            "wallY": 1201.184514417873,
+            "normal": [
+              -0.9908301680442988,
+              -0.13511320473331348
+            ],
+            "direction": 1,
+            "hands": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "feet": [
+              0.20833333333333331,
+              0.20833333333333331
+            ],
+            "active": true,
+            "amount": 0.16666666666666666
+          },
+          "hang": null,
+          "poseMs": {
+            "mean": 1.6232169733333277,
+            "p95": 2.3162079999999605,
+            "max": 2.648040999999921
+          }
+        }
+      }
+    }
+  ],
+  "currentCave": {
+    "before": {
+      "reference": "46bdf0aee80787a8e1485c6d034e048aae2d7683",
+      "node": "v25.9.0",
+      "cpu": "Apple M5 Pro",
+      "sourceHashes": {
+        "athlete.ts": "0e1296a491bf05a1171a4e65a25749842175ec24be435f0518c365bfd5680483",
+        "geometry.ts": "ae46d0afb7fe1d4ab2d1b8629f82e6f94e63207af87f7dda8549d4c6e68984ec"
+      },
+      "levelHash": "993d3444c4bb6c3d7bbd20f5547b5cc83a73bc21115d7142e4ee29203d7294cb",
+      "samples": 565,
+      "stateHash": "4db3a78f5d36dc3eb343a45ff588cfa14e78965740986c1c4198a2b8aea3167a",
+      "poseHash": "40d595d69136253d439cb0322f46c65ca3ff964a51d0a5c70f58a6c34b89cc46",
+      "poseMs": {
+        "mean": 0.5645227964601772,
+        "p95": 3.4805840000000217,
+        "max": 7.005957999999993
+      },
+      "hotspot": {
+        "x": 803,
+        "y": 1216.7363958181415,
+        "vx": 0,
+        "vy": -564.732961181737,
+        "state": "Bracing",
+        "brace": {
+          "wallX": 815.0208333333334,
+          "direction": 1,
+          "hands": [
+            0.7291666666666665,
+            0.8333333333333331
+          ],
+          "feet": [
+            0.10416666666666666,
+            0.20833333333333331
+          ],
+          "active": true,
+          "amount": 0.6666666666666666
+        },
+        "hang": null,
+        "poseMs": {
+          "mean": 1.8861810200000009,
+          "p95": 2.470459000000119,
+          "max": 3.155042000000094
+        }
+      }
+    },
+    "after": {
+      "reference": "working tree",
+      "node": "v25.9.0",
+      "cpu": "Apple M5 Pro",
+      "sourceHashes": {
+        "athlete.ts": "5479831ac3021f10c95d3e0ae9195b1756fc5d6448355a89f26942ce274aa6f0",
+        "geometry.ts": "f45d78c5281fc21103a1a2e46b284e54938726914f13208f94ab3b590324b04f"
+      },
+      "levelHash": "993d3444c4bb6c3d7bbd20f5547b5cc83a73bc21115d7142e4ee29203d7294cb",
+      "samples": 565,
+      "stateHash": "4db3a78f5d36dc3eb343a45ff588cfa14e78965740986c1c4198a2b8aea3167a",
+      "poseHash": "40d595d69136253d439cb0322f46c65ca3ff964a51d0a5c70f58a6c34b89cc46",
+      "poseMs": {
+        "mean": 0.347360067256636,
+        "p95": 2.183249999999987,
+        "max": 5.1037919999999986
+      },
+      "hotspot": {
+        "x": 803,
+        "y": 1216.7363958181415,
+        "vx": 0,
+        "vy": -564.732961181737,
+        "state": "Bracing",
+        "brace": {
+          "wallX": 815.0208333333334,
+          "direction": 1,
+          "hands": [
+            0.7291666666666665,
+            0.8333333333333331
+          ],
+          "feet": [
+            0.10416666666666666,
+            0.20833333333333331
+          ],
+          "active": true,
+          "amount": 0.6666666666666666
+        },
+        "hang": null,
+        "poseMs": {
+          "mean": 1.0714100066666732,
+          "p95": 1.5330000000000155,
+          "max": 2.1412500000000136
+        }
+      }
+    }
+  }
+}

@@ -2,10 +2,12 @@ import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
 
-test('a fresh keyboard climb settles into a relaxed hang and coasts with passive body motion', async ({ page }, info) => {
+for (const length of [500, 1300]) test(`a fresh keyboard climb on a ${length}-unit rope settles into a relaxed hang and coasts with passive body motion`, async ({ page }, info) => {
   test.setTimeout(60_000)
   const level = reverseRopeWorkshop('ceiling')
   level.gravityPlates = []
+  level.height = level.floor = level.entrance.y = level.goal.y = 100 + length
+  level.climbables.ropes[0].length = length
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })

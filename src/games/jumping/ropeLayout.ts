@@ -1,6 +1,6 @@
 import type { Platform } from './model.ts'
 import type { Rope, Point } from './climbables.ts'
-import { createRope, stepRope, ROPE_CLEARANCE, ROPE_SEGMENT_LENGTH, ropeSegmentCount } from './climbables.ts'
+import { createRope, stepRope, ROPE_CLEARANCE, ropeSegmentLength, ropeSegmentCount } from './climbables.ts'
 import { lineBlocked, nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
 
 // Keep drag previews and unrelated inspector changes from solving the same layout twice.
@@ -28,7 +28,7 @@ function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
     // On a vertical face, clear the wall with the first segment and hang the
     // rest straight down. A diagonal seed makes every particle slide sideways
     // against the wall, taking seconds to converge for a long rope.
-    const dx = end[0] - start[0], firstLength = Math.min(rope.length, ROPE_SEGMENT_LENGTH)
+    const dx = end[0] - start[0], firstLength = Math.min(rope.length, ropeSegmentLength(rope.length))
     if (Math.abs(dx) > 0 && Math.abs(dx) <= ROPE_CLEARANCE + .00001 && end[1] > start[1] + firstLength) {
       const first: Point = [end[0], start[1] + Math.sqrt(firstLength * firstLength - dx * dx)]
       if (!lineBlocked(start, first, terrain) && !lineBlocked(first, end, terrain)) return [start, first, end]
@@ -89,7 +89,7 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
     if (rope.rest?.key === key || rope.rest?.key === `preview:${key}`) return definition
     const state = createRope({ ...rope, rest: undefined })
     return { ...rope, rest: { key: `preview:${key}`, points: state.nodes.map(n => [n.x, n.y] as Point),
-      distances: state.nodes.map((_, i) => Math.min(rope.length, i * ROPE_SEGMENT_LENGTH)) } }
+      distances: state.nodes.map((_, i) => Math.min(rope.length, i * ropeSegmentLength(rope.length))) } }
   }
   const rope = { ...definition, segments: ropeSegmentCount(definition.length) }
   // Use an exposed face of the terrain union, so overlapping blocks cannot bounce
@@ -118,7 +118,7 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
   if (cached) return { ...rope, rest: cached }
   delete rope.rest
   const state = createRope(rope)
-  const distances = state.nodes.map((_, i) => Math.min(rope.length, i * ROPE_SEGMENT_LENGTH))
+  const distances = state.nodes.map((_, i) => Math.min(rope.length, i * ropeSegmentLength(rope.length)))
   // A free vertical span is already its exact rest shape. Do not simulate
   // thousands of constraint passes merely to rediscover that straight line.
   if (!nearby.some(b => b.x < rope.x + ROPE_CLEARANCE && b.x + b.w > rope.x - ROPE_CLEARANCE

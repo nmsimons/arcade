@@ -231,7 +231,7 @@ function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: Conta
   const botWorld = { colliders, platforms: colliders.map(c => c.platform), ropePlatforms: world.ropePlatforms }
   followPropGrip(actor, botWorld)
   stepPlayer(actor, movement, dt, botWorld.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, botWorld, run.gravityField,
-    undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE, airFacing: 'travel' })
+    undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE, airFacing: 'travel', water: run.water })
   airborneFacings.set(actor, actor.facing)
   // A blocked shove must not freeze an EMP-disabled body in its incoming run pose.
   if (actor.grounded && (actor.contacts?.motion.speed ?? Math.abs(actor.vx)) < .01) actor.gait = gaitPose(0)

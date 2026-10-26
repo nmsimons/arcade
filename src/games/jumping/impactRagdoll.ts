@@ -10,8 +10,8 @@ export interface ImpactRagdoll {
 }
 export const IMPACT_RAGDOLL_SECONDS = .55
 
-// Joint limits keep the recoil articulated rather than letting elbows or knees
-// turn inside out. Different inertia lets the extremities follow the torso.
+// Spring limits bound the recoil offset; the pose solver also constrains the
+// final knee hinge. Different inertia lets extremities follow the torso.
 const joints: Record<ImpactJoint, { inertia: number; limit: number; kick: number }> = {
   body: { inertia: 1, limit: .3, kick: .7 }, neck: { inertia: .65, limit: .4, kick: -.8 },
   frontShoulder: { inertia: 1.2, limit: .9, kick: -1.8 }, frontElbow: { inertia: .7, limit: .7, kick: 1.1 },

@@ -17,5 +17,5 @@ export function editorSolids(level: JumpLevel, selection?: Selection) {
 }
 
 export function editorRobotPose(level: JumpLevel, robot: Pusher) {
-  return robotPreviewPose(editorSolids(level), robot)
+  return robot.kind === 'repulsor' ? { x: robot.x, y: robot.y, angle: 0 } : robotPreviewPose(editorSolids(level), robot)
 }

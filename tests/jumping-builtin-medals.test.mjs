@@ -35,6 +35,10 @@ test('every built-in level has one medal recording, an explicit pending audit, o
     assert.ok(pending.some(audit => audit.file === historical.file), 'historical evidence cannot certify a revised live level')
     assert.ok(historicalLevels.levels[historical.file], 'historical routes retain their captured layout')
   }
+  for (const superseded of recordings.supersededRuns ?? []) {
+    assert.ok(pending.some(audit => audit.file === superseded.file), 'superseded evidence cannot certify a revised live level')
+    assert.ok(superseded.reason?.trim() && superseded.trace.length > 0, 'retain the old route and explain why it no longer certifies the level')
+  }
 })
 
 // Historical routes preserve their jump impulses for contact/mechanism coverage.
@@ -83,7 +87,7 @@ for (const { recording, historical } of routes) test(`${historical ? 'captured' 
       if (recording.file === '05.json' && run.player.contacts.support?.collider.prop === run.props[0]
         && run.player.contacts.push?.collider.id === 'mechanism:0') bracedOnBall = true
       if (recording.file === 'buoyancy.jump-level.json' && run.water.pools[0].level >= 99.9) waterFilled = true
-      if (recording.file === 'Waterline.jump-level.json' && run.player.grounded
+      if (recording.file === 'Waterline1.jump-level.json' && run.player.grounded
         && run.triggers.some((button, index) => button.active && Math.abs(run.player.y - level.triggers[index].y) < 1)) waterlineUpperControls = true
     }
   }
@@ -151,7 +155,7 @@ for (const { recording, historical } of routes) test(`${historical ? 'captured' 
     assert.deepEqual(weighted(level.triggers[1]), [run.props[1], run.props[2]], 'the delivered floats must keep the exit and gravity lift powered')
     assert.ok(run.pickups.every(pickup => pickup.collectedAge !== null), 'collect both timing rewards')
   }
-  if (recording.file === 'Waterline.jump-level.json') {
+  if (recording.file === 'Waterline1.jump-level.json') {
     assert.ok(waterlineUpperControls, 'operate the paired pumps from the upper deck')
     assert.deepEqual(run.floatSwitches.map(float => float.active), [false, true, true, true, true, true, false, false, true],
       'shaft 1 middle, shaft 2 high, shaft 3 low')
@@ -160,7 +164,7 @@ for (const { recording, historical } of routes) test(`${historical ? 'captured' 
 })
 
 test('Waterline accepts only shaft 1 middle, shaft 2 high and shaft 3 low across all float patterns', async () => {
-  const level = parseLevel(JSON.parse(await readFile(new URL('Waterline.jump-level.json', root), 'utf8')))
+  const level = parseLevel(JSON.parse(await readFile(new URL('Waterline1.jump-level.json', root), 'utf8')))
   const needed = new Map([
     ['Left top', false], ['Left middle', true], ['Left bottom', true],
     ['Centre top', true], ['Centre middle', true], ['Centre bottom', true],

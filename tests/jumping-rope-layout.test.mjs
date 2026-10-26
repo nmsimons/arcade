@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { newLevel, prepareLevelRopes, levelPlayer, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
-import { createRope, stepRope, ropeImpulse, ropePoint, ropePath, findRope, ROPE_SEGMENT_LENGTH } from '../src/games/jumping/climbables.ts'
+import { createRope, stepRope, ropeImpulse, ropePoint, ropePath, findRope, ropeSegmentLength } from '../src/games/jumping/climbables.ts'
 import { STEP, respawn } from '../src/games/jumping/model.ts'
 import { hitItem, itemHandle, itemOutline, moveItem, resizeItem, deleteItem, replacePlatform } from '../src/games/jumping/editor.ts'
 import { lineBlocked, nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
@@ -160,15 +160,50 @@ test('an older stored hump is rebuilt, without changing the anchor or the undo s
   assert.ok(Math.abs(tail[0] - 600) < 3, 'the resting tail should hang against the cliff instead of floating away from it')
 })
 
-test('short and long ropes use the same fixed material segment size, independent of legacy counts', () => {
-  for (const length of [80, 83, 320, 333, 2000]) for (const segments of [12, 24, 40]) {
+test('long ropes use wider material spans while short ropes retain fine contact resolution', () => {
+  for (const length of [80, 83, 320, 333, 800, 801, 1997, 2000]) for (const segments of [12, 24, 40]) {
     const rope = createRope({ x: 200, y: 100, length, segments })
-    assert.equal(rope.nodes.length, Math.ceil(length / ROPE_SEGMENT_LENGTH) + 1)
+    const spacing = length > 800 ? 12 : 8
+    assert.equal(ropeSegmentLength(length), spacing)
+    assert.equal(rope.nodes.length, Math.ceil(length / spacing) + 1)
     rope.nodes.slice(1).forEach((node, i) => {
-      assert.equal(node.y - rope.nodes[i].y, Math.min(ROPE_SEGMENT_LENGTH, length - i * ROPE_SEGMENT_LENGTH))
+      assert.equal(node.y - rope.nodes[i].y, Math.min(spacing, length - i * spacing))
     })
     assert.deepEqual(ropePoint(rope, length), [200, 100 + length])
     assert.deepEqual(ropePoint(rope, length + 5), [200, 105 + length])
+  }
+})
+
+test('saved eight-unit long ropes import and rebuild without modifying the authored snapshot', () => {
+  const input = fixture(500, 100, null)
+  input.height = 3000
+  input.climbables.ropes = [{ x: 500, y: 100, length: 2000, segments: 250,
+    rest: { key: '7:0000000000000000', points: Array.from({ length: 251 }, (_, i) => [500, 100 + i * 8]),
+      distances: Array.from({ length: 251 }, (_, i) => i * 8), bends: Array(250).fill(null) } }]
+  const snapshot = structuredClone(input), parsed = parseLevel(input), prepared = prepareLevelRopes(parsed)
+  assert.equal(parsed.climbables.ropes[0].segments, 250, 'old segment counts remain valid input')
+  const definition = prepared.climbables.ropes[0], rope = createRope(definition)
+  assert.equal(definition.segments, 167)
+  assert.equal(rope.nodes.length, 168)
+  assert.deepEqual(ropePoint(rope, 2000), [500, 2100])
+  assert.deepEqual(parseLevel(prepared), prepared)
+  assert.deepEqual(input, snapshot)
+})
+
+test('wider long-rope spans retain terrain bends and clearance around a thin cliff lip', () => {
+  for (const offset of [157, 160, 165]) {
+    const level = fixture(620 - offset, 200)
+    level.height = 3000
+    level.platforms = [{ x: 0, y: 200, w: 620, h: 2800,
+      polygon: [[0, 0], [620, 0], [620, 20], [600, 20], [600, 2800], [0, 2800]] }]
+    level.climbables.ropes[0].length = 1997
+    const prepared = prepareLevelRopes(level), def = prepared.climbables.ropes[0], rope = createRope(def), terrain = levelTerrain(prepared)
+    assert.ok(rope.bends.some(Boolean), 'exercise a corner between the wider particles')
+    for (let frame = 0; frame < 30; frame++) {
+      stepRope(rope, STEP, terrain, { distance: 1500, move: frame < 15 ? 1 : -1 })
+      const path = ropePath(def, rope)
+      path.slice(1).forEach((p, i) => assert.equal(lineBlocked(path[i], p, terrain), false, `clear span ${i} at frame ${frame}`))
+    }
   }
 })
 

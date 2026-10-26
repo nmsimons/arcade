@@ -1,6 +1,17 @@
 export type Point = [number, number]
 export type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 
+/** Limit an added hinge rotation to the limb's existing bend side. Bounds on
+ * the added angle alone cannot stop an almost straight knee bending backward.
+ * Depth and both bone lengths are unaffected by the projected rotation. */
+export function limitLimbBend(limb: Limb, rotation: number): number {
+  const ux = limb.joint[0] - limb.root[0], uy = limb.joint[1] - limb.root[1]
+  const vx = limb.end[0] - limb.joint[0], vy = limb.end[1] - limb.joint[1]
+  const bend = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+  const side = Math.sign(bend) || 1
+  return side * Math.max(0, Math.min(Math.PI, (bend + rotation) * side)) - bend
+}
+
 interface LimbReach {
   root: Point; axis: number[]; length: number; center: number[]; radius: number
 }

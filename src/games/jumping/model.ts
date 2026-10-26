@@ -19,6 +19,8 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
+import { carryWithRisingWater } from './waterTransport.ts'
+import type { WaterLevels } from './waterLevel.ts'
 import { advanceReturningStepPreparation, advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, athletePose, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, startImpactRagdoll, swimmingLedgeReach } from './athlete.ts'
 import type { ImpactRagdoll } from './impactRagdoll.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
@@ -37,7 +39,7 @@ export interface Platform extends NamedObject { looseProp?: boolean; x: number; 
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel' }
+interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export interface GaitPose { speed: number; moving: number; run: number; air: number; jog?: number }
@@ -439,6 +441,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms), gravityField?: GravityField, gravityOverride?: number, frameDirection = 1,
   fieldMotionOverride?: { floatDrag: number; swimStrength: number; swimDepth: number; swimAcceleration: number; orientationGravity: number },
   options: PlayerStepOptions = {}) {
+  if (frameDirection === 1 && gravityField && options.water) carryWithRisingWater(p, options.water, gravityField, world)
   const swimStrength = fieldMotionOverride?.swimStrength ?? (gravityField ? playerSwimStrength(gravityField, p) : 0)
   const swimDepth = fieldMotionOverride?.swimDepth ?? (gravityField ? playerSwimDepth(gravityField, p) : 0)
   const floatDrag = fieldMotionOverride?.floatDrag ?? (gravityField ? playerFloatDrag(gravityField, p) : 0)
@@ -722,6 +725,9 @@ function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
   if (Math.abs(gravity) <= TUNING.gravity * .05 || p.grounded || p.hang || p.mantle || p.climbing || p.releaseTurn || p.waterMotion || p.wallBrace?.active
     || (gravity < 0) === !!p.inverted) return
   p.releaseTurn = { angle: 0, target: p.facing * Math.PI, pose: pose ?? athletePose(p), facing: p.facing, time: 0, progress: 0 }
+  // The turn now owns the outgoing rig, including any loose impact joints.
+  // Do not apply recoil again before the next controller tick releases it.
+  p.ragdoll = null
   p.grounded = false; p.coyote = 0
   p.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.ledgeReach = null
   p.freeFall = null; p.dryTurn = null; p.slideEntry = null

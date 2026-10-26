@@ -1,4 +1,6 @@
-import { presentedAthletePose } from './athlete.ts'
+import { awakeningPose, presentedAthletePose } from './athlete.ts'
+import type { RobotState } from './challenge.ts'
+import { AWAKENING_SECONDS, awakeningProgress, entranceVisibility } from './goal.ts'
 import type { Player } from './model.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
 
@@ -7,6 +9,14 @@ const smooth = (n: number) => { const t = Math.max(0, Math.min(1, n)); return t 
 
 /** Screen-horizontal broadening flattens a pitched swimmer and its yaw turn. */
 export const repulsorBotWidthScale = (actor: Player) => 1 + (REPULSOR_BOT_WIDTH_SCALE - 1) * (1 - smooth(actor.waterMotion?.amount ?? 0))
+
+/** Artwork and shadow geometry must use the same entrance or waking actor. */
+export function repulsorBotPresentation(robot: RobotState) {
+  const actor = robot.entrance?.player ?? robot.actor!
+  return { actor, opacity: robot.entrance ? entranceVisibility(robot.entrance.elapsed) : 1,
+    pose: repulsorBotPose(actor, robot.awakening && robot.awakening.elapsed < AWAKENING_SECONDS
+      ? awakeningPose(actor, awakeningProgress(robot.awakening.elapsed)) : undefined) }
+}
 
 /** Broaden the shell and upper limbs without sliding planted feet or palms. */
 export function repulsorBotPose(actor: Player, pose = presentedAthletePose(actor)) {

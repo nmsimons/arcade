@@ -276,7 +276,9 @@ export class LightingRenderer {
     const ambient = nightMode ? ambientExposure(definition.ambient) : DAY_AMBIENT_EXPOSURE, ambientColor = gray(ambient)
     const cacheDayField = this.cacheDayAmbient && this.reuseAmbientBuffer && !nightMode && !sources.length && !editor
       && width * height <= 2_000_000 && 'elapsed' in run && !run.mechanisms.length
-    const cacheAmbientWorld = cacheDayField && 'elapsed' in run && !hasWallWiring(run.level) && !run.pickups.length && !run.triggers.length
+    // Doorway edges and shading change during entry; cache the static world
+    // only after they close, so no portal pixels survive into gameplay.
+    const cacheAmbientWorld = cacheDayField && 'elapsed' in run && !run.entrance && !hasWallWiring(run.level) && !run.pickups.length && !run.triggers.length
       && !run.level.timers?.length && !run.level.wallLights?.length && !run.level.gravityPlates?.length && !run.forceFields.length
       && !run.level.climbables?.ladders?.length && !run.level.climbables?.ropes?.length
       && airBoostStrength(run.player) < .01

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRope, ropeImpulse, stepRope } from '../src/games/jumping/climbables.ts'
 import { prepareRope } from '../src/games/jumping/ropeLayout.ts'
-import { lineBlocked } from '../src/games/jumping/geometry.ts'
+import { lineBlocked, nearestBoundary } from '../src/games/jumping/geometry.ts'
 import { STEP } from '../src/games/jumping/model.ts'
 
 const terrain = () => ({ x: 0, y: 880, w: 8000, h: 520, polygon: [
@@ -61,4 +61,21 @@ test('leaving all terrain releases old corner bends during the normal solve', ()
   stepRope(rope, STEP, [], null)
   assert.ok(rope.bends.every(b => b === null), 'a removed corner must not retain its old constraint')
   assert.ok(rope.nodes.every(n => Number.isFinite(n.x) && Number.isFinite(n.y)))
+})
+
+test('rope sweeps validate a cave outline once and observe in-place edits on the next step', () => {
+  const shape = terrain(), rope = createRope(prepareRope({ x: 560, y: 760, length: 503, segments: 63 }, [shape]))
+  ropeImpulse(rope, 220, -250, 0, STEP)
+  nearestBoundary(shape, 560, 1000)
+  let validations = 0
+  const every = shape.polygon.every
+  Object.defineProperty(shape.polygon, 'every', { configurable: true, value(...args) { validations++; return every.apply(this, args) } })
+  stepRope(rope, STEP, [shape], { distance: 220, move: -1 })
+  assert.equal(validations, 1, 'all constraint and contact passes share one geometry validation')
+  delete shape.polygon.every
+  shape.polygon[1][0] = shape.polygon[2][0] = 570
+  const control = structuredClone(rope)
+  stepRope(rope, STEP, [shape], { distance: 220, move: -1 })
+  stepRope(control, STEP, [structuredClone(shape)], { distance: 220, move: -1 })
+  assert.deepEqual(rope, control, 'the next solve must use the edited outline, including its contact normals')
 })

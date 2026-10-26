@@ -376,7 +376,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   })
   // Router/catalog changes transition the running game and retained editor together.
   // This synchronizes imperative input, audio and preparation work after commit.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { followRoute() }, [location.key, location.pathname, catalog.files, builtIn.restoring, builtIn.busy])
   const finishRun = useEffectEvent(() => {
     if (!run.current?.finished || screenRef.current !== 'playing') return
@@ -484,7 +483,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     const canvas = canvasRef.current!, ctx = lightingRenderer.drawingContext(canvas)
     // The context itself is deferred until a pointer, keyboard or controller action.
     const sound = new JumpingSoundSession()
-    const motion = import.meta.env.DEV || new URLSearchParams(window.location.search).get('motionDebug') === '1'
+    // Sampling the complete rig every physics tick is expensive near cave lips.
+    const motion = new URLSearchParams(window.location.search).get('motionDebug') === '1'
       ? new JumpingMotionDiagnostics() : null
     const debugWindow = window as Window & { jumpingMotion?: { read: () => ReturnType<JumpingMotionDiagnostics['read']> } }
     const motionView = motion ? { read: () => motion.read() } : undefined

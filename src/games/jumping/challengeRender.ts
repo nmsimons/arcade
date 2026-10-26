@@ -155,6 +155,11 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
   drawDoorway(ctx, goalDoor(goal), opening, editor)
 }
+/** Editor and placement show the full doorway, including starts awaiting manual repair. */
+export function drawRobotPortal(ctx: CanvasRenderingContext2D, robot: RobotState, editor = false, paint: WorldPaint = paintNormally) {
+  if (robot.definition.kind !== 'repulsor' || robot.definition.chargingBay || !editor && !robot.entrance) return
+  ambientPaint(paint)(ctx, 0, () => drawDoorway(ctx, entranceDoor(robot.definition), editor ? 1 : entranceOpening(robot.entrance!.elapsed)))
+}
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
 export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
   const { level, player: p } = run
@@ -167,6 +172,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     if (level.entrance.kind !== 'charging-bay' && (editor || !run.started && run.entrance)) wallPaint(ctx, 0, () =>
       drawDoorway(ctx, entranceDoor(level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))
+    for (const robot of run.robots) drawRobotPortal(ctx, robot, editor, paint)
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
     const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
     const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0

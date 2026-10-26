@@ -1465,7 +1465,15 @@
       "mode": "touch"
     }
   ],
-  "robots": [],
+  "robots": [
+    {
+      "x": 3265,
+      "y": 1780,
+      "left": 3170,
+      "right": 3370,
+      "kind": "repulsor"
+    }
+  ],
   "timers": [
     {
       "x": 1445,

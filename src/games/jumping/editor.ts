@@ -198,6 +198,10 @@ export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
   if (robot) {
+    if (robot.kind === 'repulsor' && !robot.chargingBay) {
+      const bounds = itemBounds(level, selection)!
+      return { ...bounds, y: robot.y - GOAL_DOOR_HEIGHT, h: GOAL_DOOR_HEIGHT }
+    }
     const pose = editorRobotPose(level, robot)
     if (Math.abs(pose.angle) > .001) {
       const points = robotHulls({ ...pose, definition: robot, facing: -1, phase: 'patrol' }).flat()
@@ -388,37 +392,45 @@ export function setCoinSwitchOrientation(level: JumpLevel, index: number, orient
   return next
 }
 export function hitItem(level: JumpLevel, x: number, y: number, tolerance: number): Selection | null {
+  return hitItems(level, x, y, tolerance).next().value ?? null
+}
+
+// Yield front to back so repeated clicks can reach obscured objects, using
+// the same shapes and priority as the first hit without scanning behind it.
+export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: number): Generator<Selection, void> {
   // Logic nodes are studio overlays, so remain selectable even over terrain.
   for (let i = (level.floatSwitches?.length ?? 0) - 1; i >= 0; i--) {
     const f = level.floatSwitches![i], c = floatBallCenter(f), dx = c.x - f.x, dy = c.y - f.y
     const t = clamp(((x - f.x) * dx + (y - f.y) * dy) / f.armLength ** 2, 0, 1)
-    if (Math.hypot(x - f.x, y - f.y) <= WALL_LIGHT_RADIUS + tolerance || Math.hypot(x - c.x, y - c.y) <= f.size / 2 + tolerance || Math.hypot(x - f.x - t * dx, y - f.y - t * dy) <= 5 + tolerance) return { kind: 'float-switch', index: i }
+    if (Math.hypot(x - f.x, y - f.y) <= WALL_LIGHT_RADIUS + tolerance || Math.hypot(x - c.x, y - c.y) <= f.size / 2 + tolerance || Math.hypot(x - f.x - t * dx, y - f.y - t * dy) <= 5 + tolerance) yield { kind: 'float-switch', index: i }
   }
   for (let i = (level.logicRelays?.length ?? 0) - 1; i >= 0; i--) {
     const b = logicRelayBounds(level.logicRelays![i])
-    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'logic-relay', index: i }
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'logic-relay', index: i }
   }
   const entrance = entranceBounds(level.entrance)
-  if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) return { kind: 'entrance', index: 0 }
-  for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) return { kind: 'checkpoint', index: i }
+  if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) yield { kind: 'entrance', index: 0 }
+  for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) yield { kind: 'checkpoint', index: i }
   if (level.goal) {
     const b = goalBounds(level.goal)
-    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'goal', index: 0 }
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'goal', index: 0 }
   }
   for (let i = (level.pickups?.length ?? 0) - 1; i >= 0; i--) {
     const b = pickupBounds(level.pickups![i])
-    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'pickup', index: i }
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'pickup', index: i }
   }
   for (const kind of ['prop', 'robot', 'trigger', 'mechanism', 'force-field'] as const) {
     const length = (kind === 'prop' ? level.props : kind === 'robot' ? level.robots : kind === 'trigger' ? level.triggers : kind === 'force-field' ? level.forceFields : level.mechanisms)?.length ?? 0
     for (let i = length - 1; i >= 0; i--) {
       const b = kind === 'robot' ? itemOutline(level, { kind, index: i })! : itemBounds(level, { kind, index: i })!
-      if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind, index: i }
+      if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) {
+        yield { kind, index: i }; continue
+      }
       if (kind === 'mechanism' && level.mechanisms![i].kind === 'lift') {
         const m = level.mechanisms![i], anchor = mechanismAnchor(m), end = mechanismRopeEnd(m)
         const dx = end.x - anchor.x, dy = end.y - anchor.y
         const t = clamp(((x - anchor.x) * dx + (y - anchor.y) * dy) / (dx * dx + dy * dy || 1), 0, 1)
-        if (Math.hypot(x - anchor.x - t * dx, y - anchor.y - t * dy) <= tolerance + 5) return { kind, index: i }
+        if (Math.hypot(x - anchor.x - t * dx, y - anchor.y - t * dy) <= tolerance + 5) yield { kind, index: i }
       }
     }
   }
@@ -429,17 +441,17 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
       const a = points[j], dx = b[0] - a[0], dy = b[1] - a[1]
       const t = clamp(((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1)
       return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy) <= tolerance
-    })) return { kind: 'rope', index: i }
+    })) yield { kind: 'rope', index: i }
   }
   for (let i = level.climbables.ladders.length - 1; i >= 0; i--) {
     const l = level.climbables.ladders[i]
-    if (Math.abs(x - l.x) <= tolerance + 8 && y >= l.top - tolerance && y <= l.bottom + tolerance) return { kind: 'ladder', index: i }
+    if (Math.abs(x - l.x) <= tolerance + 8 && y >= l.top - tolerance && y <= l.bottom + tolerance) yield { kind: 'ladder', index: i }
   }
   const terrainOrder = terrainDrawOrder(level.platforms)
   for (let position = terrainOrder.length - 1; position >= 0; position--) {
     const i = terrainOrder[position]
     const b = level.platforms[i]
-    if (pointInside(b, x, y)) return { kind: 'platform', index: i }
+    if (pointInside(b, x, y)) yield { kind: 'platform', index: i }
   }
   for (let i = (level.gravityPlates?.length ?? 0) - 1; i >= 0; i--) {
     const b = level.gravityPlates![i]
@@ -448,27 +460,26 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     const inside = x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance
     if (inside && (b.effect === 'water' || Math.abs(x - b.x) <= tolerance || Math.abs(x - b.x - b.w) <= tolerance
       || Math.abs(y - b.y) <= tolerance || Math.abs(y - b.y - b.h) <= tolerance
-      || (b.ceiling ? y <= b.y + 10 + tolerance : y >= b.y + b.h - 10 - tolerance))) return { kind: 'gravity-plate', index: i }
+      || (b.ceiling ? y <= b.y + 10 + tolerance : y >= b.y + b.h - 10 - tolerance))) yield { kind: 'gravity-plate', index: i }
   }
   // Wall objects sit behind the terrain and other playable objects.
   for (let i = (level.wallLights?.length ?? 0) - 1; i >= 0; i--) {
     const b = wallLightBounds(level.wallLights![i])
-    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'wall-light', index: i }
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'wall-light', index: i }
   }
   for (let i = (level.lighting?.lights.length ?? 0) - 1; i >= 0; i--) {
     const b = lightBounds(level.lighting!.lights[i])
-    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'light', index: i }
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'light', index: i }
   }
   for (let i = (level.timers?.length ?? 0) - 1; i >= 0; i--) {
     const t = level.timers![i]
-    if (x >= t.x - tolerance && x <= t.x + WALL_TIMER_WIDTH + tolerance && y >= t.y - tolerance && y <= t.y + WALL_TIMER_HEIGHT + tolerance) return { kind: 'timer', index: i }
+    if (x >= t.x - tolerance && x <= t.x + WALL_TIMER_WIDTH + tolerance && y >= t.y - tolerance && y <= t.y + WALL_TIMER_HEIGHT + tolerance) yield { kind: 'timer', index: i }
   }
   for (let i = (level.texts?.length ?? 0) - 1; i >= 0; i--) {
     const t = level.texts![i]
     const local = wallTextLocalPoint(t, x, y)
-    if (local.x >= -tolerance && local.x <= t.w + tolerance && local.y >= -tolerance && local.y <= t.h + tolerance) return { kind: 'text', index: i }
+    if (local.x >= -tolerance && local.x <= t.w + tolerance && local.y >= -tolerance && local.y <= t.h + tolerance) yield { kind: 'text', index: i }
   }
-  return null
 }
 export function replacePlatform(level: JumpLevel, index: number, platform: Platform): JumpLevel {
   const next = copyLevel(level), before = level.platforms[index]

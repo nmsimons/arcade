@@ -5,7 +5,7 @@ import { objectReference } from './objectLabels.ts'
 import type { NamedObject } from './objectNames.ts'
 import { createPlayer } from './model.ts'
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
-import { createRope, ropeSegmentCount } from './climbables.ts'
+import { createRope } from './climbables.ts'
 import { prepareRope } from './ropeLayout.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
@@ -13,7 +13,7 @@ import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { MAX_CURVE_POINTS, terrainCurveOutline } from './terrainCurves.ts'
-import { chargingBayBounds, entranceDoor, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
@@ -140,16 +140,7 @@ export function snapToGround(level: JumpLevel, x: number, y: number): Checkpoint
   return { x, y: surfaces[0]?.y ?? y }
 }
 export function spawnProblem(level: JumpLevel): string | null {
-  const terrain = levelTerrain(level)
-  const { y } = level.entrance
-  const door = entranceDoor(level.entrance)
-  const supported = Array.from({ length: 11 }, (_, i) => door.x + .01 + (door.w - .02) * i / 10).every(px => {
-    const ground = groundAt(terrain, px, y, .15)
-    return ground && Math.abs(ground.angle) < .02
-  })
-  const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
-    [door.x + door.w, y], [door.x, y]], b, .01))
-  if (!supported || blocked || door.x < 0 || door.x + door.w > level.width || door.y < 0 || y > levelHeight(level))
+  if (!entranceFits(level.entrance, levelTerrain(level), level.width, levelHeight(level)))
     return `Place ${objectReference(level, 'entrance')} on a continuous flat surface, with a clear doorway inside the level.`
   return null
 }
@@ -291,7 +282,9 @@ export function parseLevel(value: unknown): JumpLevel {
     return ladder
   })
   const ropes = list(climbables.ropes, 40).map(item => {
-    const r = object(item), segments = num(r.segments, 4, ropeSegmentCount(2000))
+    // Keep saved eight-unit layouts readable when the live solver uses fewer
+    // particles. Rope preparation rebuilds their cached geometry as needed.
+    const r = object(item), segments = num(r.segments, 4, 250)
     if (!Number.isInteger(segments)) fail()
     const rope: ClimbableWorld['ropes'][number] = { ...objectName(r), x: num(r.x, 0, width), y: num(r.y, -2000, 6000), length: num(r.length, 80, 2000), segments }
     if (r.anchor !== undefined) {

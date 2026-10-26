@@ -9,7 +9,7 @@ import { drawLevelCenterGuides, levelCenterSnap } from './builderSnap'
 import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, rememberEditorClipboard } from './editorClipboard'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { moveTerrainHandle, setTerrainNodeMode } from './editor'
 import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
@@ -99,7 +99,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
   return selection.kind === 'text' ? handles.map(p => ({ ...p, ...wallTextPoint(level.texts![selection.index], p.x - bounds.x, p.y - bounds.y) })) : handles
 }
-type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'bezier' | 'wire-terminal' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; tangent?: 'in' | 'out'; terminal?: Point; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean; drill?: boolean }
+type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'bezier' | 'wire-terminal' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; tangent?: 'in' | 'out'; terminal?: Point; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean; drill?: boolean; cycle?: Selection; overlap?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
   { id: 'node', group: 'Editing', label: 'Node', help: 'Drag a node to reshape terrain, or click an edge to add one. Select a node and choose Bézier handles in the inspector to curve its edges. N activates this tool.' },
@@ -114,7 +114,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'carried-emp', group: 'Gadgets', label: 'Carried EMP', help: 'E / X picks up or drops. F / RT fires an electric bolt: hit devices stop for five seconds; one-second cooldown. Movement also aims. Red fields drop the tool.' },
   { id: 'repulsor', group: 'Gadgets', label: 'Repulsor rifle', help: 'Pick up with E / X. F / RT fires. Movement also aims in eight directions. Red fields drop carried tools and block pulses.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click to place a shovebot at the cursor. Snap catches nearby surfaces. Drag either end of its patrol range, or set the limits in the inspector.' },
-  { id: 'repulsorbot', group: 'Objects', label: 'Repulsorbot', help: 'Hunts across the whole level once it spots you. Runs, jumps, and climbs with the player rig. Its arm charges before firing a strong repulsor. Cover blocks shots; EMP disables it.' },
+  { id: 'repulsorbot', group: 'Objects', label: 'Repulsorbot', help: 'Enters through a portal on a flat sill with 40 × 80 clear space. Hunts across the level once it spots you. Runs, jumps, and climbs with the player rig. Cover blocks shots; EMP disables it.' },
   { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate or coin switch to move it.' },
   { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
@@ -174,6 +174,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   useEffect(() => () => savePreparation.current?.abort(), [])
   const [tool, setTool] = useState<Tool>('select'), [selectedItems, setSelectedItems] = useState<Selection[]>([])
   const selection = selectedItems.length === 1 ? selectedItems[0] : null
+  const lastClick = useRef<{ point: Point; level: JumpLevel; selection: Selection; additive?: boolean } | null>(null)
   const allTerrain = selectedItems.length > 0 && selectedItems.every(s => s.kind === 'platform')
   const selectedGroup = selectedEditorGroup(level, selectedItems)
   const canUngroup = (level.editorGroups ?? []).some(g => g.members.some(s => selectedItems.some(item => sameSelection(item, s))))
@@ -308,11 +309,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     inspectorRef.current?.scrollTo({ top: 0 })
   }
   function chooseSelection(next: Selection | null) {
+    lastClick.current = null
     if (next && inspectorTab !== 'object') chooseInspectorTab('object')
     if (next?.kind !== selection?.kind || next?.index !== selection?.index) inspectorRef.current?.scrollTo({ top: 0 })
     setSelectedItems(next ? [next] : []); setSelectedNode(null); setTerminalFocus(null); setPreviewLight(null)
   }
   function chooseSelections(items: Selection[]) {
+    lastClick.current = null
     const next = validSelections(level, items)
     if (next.length) chooseInspectorTab('object')
     setSelectedItems(next); setSelectedNode(null); setTerminalFocus(null); setPreviewLight(null)
@@ -666,6 +669,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     // Controller drags use the same editor events without a physical pointer ID.
     if (event.nativeEvent.isTrusted) event.currentTarget.setPointerCapture(event.pointerId)
     const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = preview ?? history.present
+    const previousClick = lastClick.current; lastClick.current = null
     hover(p, event.altKey)
     latestPreview.current = null
     if (panHeld.current || event.button === 1) { setDrag({ mode: 'pan', start: p, screen, base, view, selection: null }); return }
@@ -696,12 +700,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       const grid = gridSize
       setDrag({ mode: 'draw', start: event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, screen, base, view, selection: null }); return
     }
+    const repeated = previousClick?.level === base
+      && Math.hypot(p.x - previousClick.point.x, p.y - previousClick.point.y) * view.zoom < 3
     if (event.shiftKey) {
-      const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
+      const hits = [...hitItems(level, p.x, p.y, 9 / view.zoom)]
+      const current = repeated ? hits.findIndex(s => sameSelection(s, previousClick.selection)) : -1
+      const hit = hits[current >= 0 ? (current + 1) % hits.length : 0]
       if (hit) {
         const members = expandEditorGroups(level, [hit])
         chooseSelections(members.every(m => selectedItems.some(s => sameSelection(s, m)))
           ? selectedItems.filter(s => !members.some(m => sameSelection(s, m))) : [...selectedItems, ...members])
+        lastClick.current = { point: p, level: base, selection: hit, additive: true }
         return
       }
       setMarquee({ ...p, w: 0, h: 0 })
@@ -734,14 +743,20 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       const point = terrainNodes(chosen).findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
       if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); setDrag({ mode: 'point', start: p, screen, base, view, selection, point }); return }
     }
-    const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
+    const hits = [...hitItems(level, p.x, p.y, 9 / view.zoom)]
+    const current = repeated && !previousClick.additive && (selection || selectedGroup)
+      && selectedItems.some(s => sameSelection(s, previousClick.selection))
+      ? hits.findIndex(s => sameSelection(s, previousClick.selection)) : -1
+    const hit = hits[current >= 0 ? current : 0]
     if (!hit) {
       chooseSelection(null); setMarquee({ ...p, w: 0, h: 0 })
       setDrag({ mode: 'marquee', start: p, screen, base, view, selection: null }); return
     }
     const retained = selectedItems.some(s => sameSelection(s, hit))
     const items = retained ? selectedItems : expandEditorGroups(level, [hit])
-    chooseSelections(items); setDrag({ mode: 'move', start: p, screen, base, view, selection: hit, selections: items, drill: retained && !!selectedGroup })
+    const drill = retained && !!selectedGroup
+    const cycle = !drill && current >= 0 && hits.length > 1 ? hits[(current + 1) % hits.length] : undefined
+    chooseSelections(items); setDrag({ mode: 'move', start: p, screen, base, view, selection: hit, selections: items, drill, cycle, overlap: hits.length > 1 })
   }
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
     const d = drag
@@ -768,9 +783,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         next = setWallTerminal(d.base, d.selection, { x: qx(d.terminal.x + dx), y: qy(d.terminal.y + dy) })
       }
       if (d.mode === 'move') {
-        // A selected group needs click-vs-drag separation to select a member.
-        // Individual objects still accept tiny drags at any zoom.
-        if (d.drill && Math.hypot(dx, dy) * view.zoom < 3) return
+        // Resolve group drill-down and overlap cycling on release; drags keep
+        // moving the current selection. Overlaps also ignore initial click
+        // jitter; Alt and unobscured objects still accept tiny drags.
+        if ((d.drill || d.cycle || (d.overlap && !event.altKey)) && Math.hypot(dx, dy) * view.zoom < 3) return
         const items = d.selections ?? [d.selection]
         const aligned = snap && !event.altKey ? levelCenterSnap(d.base, items, dx, dy, 8 / view.zoom) : { dx: null, dy: null }
         next = moveSelections(d.base, items, aligned.dx ?? qx(b.x + dx) - b.x, aligned.dy ?? qy(b.y + dy) - b.y)
@@ -831,7 +847,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       if (Math.hypot(rect.w, rect.h) * view.zoom >= 3) chooseSelections(expandEditorGroups(d.base, [...(d.additive ? d.selections ?? [] : []), ...selectionsInRect(d.base, rect)]))
       return
     }
-    if (d.mode === 'move' && d.drill && !latestPreview.current) chooseSelection(d.selection)
+    if (d.mode === 'move' && d.selection && !latestPreview.current) {
+      const picked = d.cycle ?? d.selection
+      if (d.drill) chooseSelection(picked)
+      else if (d.cycle) {
+        const members = expandEditorGroups(d.base, [picked]), previous = d.selection
+        // Enter a new group together; once drilled in, cycle its members individually.
+        if (members.some(s => sameSelection(s, previous))) chooseSelection(picked)
+        else chooseSelections(members)
+      }
+      lastClick.current = { point: d.start, level: d.base, selection: picked }
+    }
     if (d.mode === 'draw') {
       const p = position(event), grid = gridSize
       add(tool, d.start, event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, event.altKey)
@@ -1159,7 +1185,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             else delete next.robots![selection.index].chargingBay
             commit(next)
           }} />Charging bay</label>}
-          {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
+          {robot && <label className="builder-headlight" title="Lights ahead of this bot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
           {switchedObject && <><fieldset className="builder-connections builder-switch-rule"><legend>Switch behavior</legend>
             <BuilderSelect label="Logic" accessibleLabel="Switch logic" value={objectSwitchLogic}
               options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
@@ -1356,7 +1382,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           {selectedSource && <>
             {selectedSource.kind !== 'trigger' && selectedSource.kind !== 'float-switch' && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed.{selectedSource.kind !== 'logic-relay' && ' Turning Relay off clears these outputs.'}</p>}
           </>}
-          {robot?.kind === 'repulsor' && <p className="builder-hint">Hunts the player across the whole level once alerted. Large forearms charge and fire from the palms. Sight and cover govern its shots.</p>}
+          {robot?.kind === 'repulsor' && <p className="builder-hint">{robot.chargingBay ? 'Wakes in its charging bay when it sees, hears or touches a rival.' : 'Enters through the shown portal. Give its full 40 × 80 opening a flat sill and clear space. Unsupported starts remain static until you fix their placement.'} Hunts across the level once alerted. Large forearms charge and fire from the palms. Sight and cover govern its shots.</p>}
           {logicRelay && <p className="builder-hint">Visible only in the studio. Sends its result to connected items, with no physical behavior during play.</p>}
         </BuilderInspectorSection>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>

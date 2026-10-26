@@ -90,8 +90,20 @@
       "reason": "Studio revisions removed timing pickups and moved the ball. The prior A recording is preserved against its captured layout for cargo and switch regression coverage; a fresh completion and timing audit of the revised level are pending."
     },
     {
-      "file": "Waterline.jump-level.json",
+      "file": "Waterline1.jump-level.json",
       "reason": "October 23 pump rates changed to 20 and the lower-left float moved. The prior A route is retained against the captured pre-change layout for water and circuit regression coverage; the revised live level needs a fresh completion and timing audit."
+    },
+    {
+      "file": "Waterline2.jump-level.json",
+      "reason": "New authored Waterline II layout. Pump/float wiring and Rbot water recovery have focused regression coverage; a completed fresh-start player route and medal timing audit are pending."
+    },
+    {
+      "file": "Ascent.jump-level.json",
+      "reason": "Ascent I was revised after its recorded completion and an Rbot was added. The earlier trace is retained as superseded evidence; the live layout needs a fresh completion and medal timing audit."
+    },
+    {
+      "file": "ascent2.jump-level.json",
+      "reason": "New authored Ascent II layout. A completed fresh-start player route and medal timing audit are pending."
     }
   ],
   "runs": [
@@ -4462,7 +4474,7 @@
       ]
     },
     {
-      "file": "Waterline.jump-level.json",
+      "file": "Waterline1.jump-level.json",
       "jumpModel": "tap-hold",
       "elapsed": 29.4833333333323,
       "activeTime": 30.341666666665585,
@@ -4543,6 +4555,387 @@
           "input": {}
         }
       ]
+    }
+  ],
+  "supersededRuns": [
+    {
+      "file": "Ascent.jump-level.json",
+      "jumpModel": "tap-hold",
+      "route": "Two wall-jump chimneys, the three-rope crossing, and the 40-coin exit.",
+      "elapsed": 39.18333333333175,
+      "activeTime": 40.04166666666504,
+      "coins": 41,
+      "wallJumps": 8,
+      "normalSpeedReview": {
+        "date": "2026-10-25",
+        "elapsed": 73.65,
+        "coins": 42,
+        "grade": "B"
+      },
+      "trace": [
+        {
+          "frames": 26,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 197,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 74,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 77,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 67,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 584,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 65,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 78,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 27,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 495,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 134,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 207,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 92,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 102,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 794,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 200,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 33,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 75,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 293,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 62,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 86,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 43,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 43,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 43,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 43,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 65,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 119,
+          "input": {
+            "move": -1
+          }
+        }
+      ],
+      "reason": "Superseded by subsequent authored Ascent I revisions and its added Rbot. This trace no longer completes the live layout; retain it as earlier completion evidence, without certifying current medal targets."
     }
   ]
 }

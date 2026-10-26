@@ -143,6 +143,13 @@
       "y": 650,
       "left": 130,
       "right": 1470
+    },
+    {
+      "x": 880,
+      "y": 900,
+      "left": 26,
+      "right": 1574,
+      "kind": "repulsor"
     }
   ],
   "timers": [

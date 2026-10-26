@@ -3,7 +3,7 @@ import { gaitPose } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
-import { bodyPolygon, lineBlocked, moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
+import { bodyPolygon, lineBlocked, moveBody, nearbyBoundary, nearestBoundary, pointInside, platformOutline, withTerrainQueries } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, ladderMantleProgress, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { ropeArmReach, ropeHangOffset } from './ropeBodyMotion.ts'
@@ -16,7 +16,7 @@ import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
 import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
 import type { AndroidMaterials } from './androidArtwork.ts'
-import { limbOnBend, limbReach } from './limbPose.ts'
+import { limbOnBend, limbReach, limitLimbBend } from './limbPose.ts'
 import type { Limb, Point } from './limbPose.ts'
 import { drawSleeve } from './sleeveArtwork.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
@@ -953,19 +953,42 @@ function fallRecoveryPose(p: Player): AthletePose {
   return blend(crouched, standing, smooth((recovery - .7) / (TUNING.fallRecoveryTime - .7)))
 }
 
-function fallPose(p: Player): AthletePose {
-  const pose = clearBody(p, fallRecoveryPose(p), p.freeFall?.moving ? undefined : p.freeFall?.bodyOffset, true).pose
-  pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
-  pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+/** Falling and impact recoil share the same loose-limb clearance policy.
+ * Apply it after articulation so the final rig, rather than its unused target,
+ * owns the body, palm and shoe queries. */
+function clearLoosePose(p: Player, source: AthletePose, initial?: Point, retainSide = false): AthletePose {
+  const pose = clearBody(p, source, initial, retainSide).pose
+  // The body has settled and limb roots stay fixed through all bend/foot
+  // searches. No point of the final limb can reach beyond its bones and skin.
+  const nearby = (limb: Limb, reach: number): Player => {
+    if (!p.terrain || p.terrain.length < 2) return p
+    const x = p.x + limb.root[0] * p.facing, y = p.y + limb.root[1]
+    const terrain = p.terrain.filter(b => b.x <= x + reach && b.x + b.w >= x - reach
+      && b.y <= y + reach && b.y + b.h >= y - reach)
+    return terrain.length === p.terrain.length ? p : { ...p, terrain }
+  }
+  for (const name of ['frontArm', 'backArm'] as const) {
+    const arm = pose[name], hand = arm.hand ? Math.hypot(arm.hand[0] - arm.end[0], arm.hand[1] - arm.end[1]) : 1.4
+    pose[name] = clearLimb(nearby(arm, UPPER_ARM + FOREARM + hand + 2.2), arm, UPPER_ARM, FOREARM, 1, true)
+  }
   for (const name of ['frontLeg', 'backLeg'] as const) {
     let leg = pose[name]
+    // Include the heel and the toe's full rotation around the ball of the foot.
+    const local = nearby(leg, 15 + 14.5 + 8)
     for (let i = 0; i < 4; i++) {
-      leg = { ...leg, ...clearLimb(p, leg, 15, 14.5, -1) }
-      leg = clearAirborneFoot(p, leg)
+      leg = { ...leg, ...clearLimb(local, leg, 15, 14.5, -1) }
+      leg = clearAirborneFoot(local, leg)
     }
     pose[name] = leg
   }
   return pose
+}
+
+function fallPose(p: Player, deferClearance = false): AthletePose {
+  const source = fallRecoveryPose(p), offset = p.freeFall?.moving ? undefined : p.freeFall?.bodyOffset
+  // Preserve the settled balance offset when recoil will clear the final rig.
+  return deferClearance ? rotatePose(source, 0, 1, [0, 0], offset)
+    : clearLoosePose(p, source, offset, true)
 }
 
 /** Retain the side of a prop corner already cleared by the falling body.
@@ -1063,7 +1086,7 @@ export function advanceImpactRagdoll(p: Player, dt: number) {
   const motion = p.ragdoll
   if (!motion) return
   if (p.hang || p.climbing || p.mantle || p.waterMotion || p.releaseTurn || p.wallBrace?.active
-    || p.sliding?.active || p.jumpLift) { p.ragdoll = null; return }
+    || p.sliding?.active || p.jumpLift || p.contacts?.push?.hands) { p.ragdoll = null; return }
   if (motion.facing !== p.facing) {
     motion.source = reflectAthletePose(motion.source)
     for (const spring of Object.values(motion.joints)) { spring.angle *= -1; spring.speed *= -1 }
@@ -1074,9 +1097,12 @@ export function advanceImpactRagdoll(p: Player, dt: number) {
 }
 
 function impactRagdollPose(p: Player): AthletePose {
-  const motion = p.ragdoll!, normal = resolveAthletePose({ ...p, ragdoll: null })
+  const motion = p.ragdoll!
   const blend = motion.kind === 'landing' ? smooth(motion.time / .08) : smooth((motion.time - .1) / .4)
-  let pose = transferPose(motion.source, normal, [0, 0], blend, [0, 0], 0, true)
+  // The repulsor's initial hold has no target contribution. A falling target
+  // also defers its loose clearance until after the joint springs are applied.
+  let pose = blend === 0 ? motion.source
+    : transferPose(motion.source, resolveAthletePose({ ...p, ragdoll: null }, true), [0, 0], blend, [0, 0], 0, true)
   const release = Math.min(.16, motion.duration * .3)
   const weight = 1 - smooth((motion.time - release) / (motion.duration - release))
   const angle = (name: ImpactJoint) => motion.joints[name].angle * weight
@@ -1089,30 +1115,22 @@ function impactRagdollPose(p: Player): AthletePose {
   }
   pose.head = turn(pose.head, pose.shoulder, angle('neck'))
   pose.headTilt = (pose.headTilt ?? 0) + angle('neck')
-  const limb = <T extends Limb>(part: T, upper: ImpactJoint, lower: ImpactJoint): T => {
-    const a = angle(upper), b = a + angle(lower)
+  const limb = <T extends Limb>(part: T, a: number, lower: number): T => {
+    const b = a + lower
     const joint = turn(part.joint, part.root, a)
     const end = add(joint, turn([part.end[0] - part.joint[0], part.end[1] - part.joint[1]], [0, 0], b))
     const hand = part.hand && add(end, turn([part.hand[0] - part.end[0], part.hand[1] - part.end[1]], [0, 0], b))
     return { ...part, joint, end, hand, handAngle: part.handAngle === undefined ? undefined : part.handAngle + b }
   }
-  pose.frontArm = limb(pose.frontArm, 'frontShoulder', 'frontElbow')
-  pose.backArm = limb(pose.backArm, 'backShoulder', 'backElbow')
-  const leg = (part: Leg, upper: ImpactJoint, lower: ImpactJoint): Leg => ({ ...limb(part, upper, lower),
-    footAngle: part.footAngle + (angle(upper) + angle(lower)) / part.footFacing, planted: false })
+  pose.frontArm = limb(pose.frontArm, angle('frontShoulder'), angle('frontElbow'))
+  pose.backArm = limb(pose.backArm, angle('backShoulder'), angle('backElbow'))
+  const leg = (part: Leg, upper: ImpactJoint, lower: ImpactJoint): Leg => {
+    const hip = angle(upper), knee = limitLimbBend(part, angle(lower))
+    return { ...limb(part, hip, knee), footAngle: part.footAngle + (hip + knee) / part.footFacing, planted: false }
+  }
   pose.frontLeg = leg(pose.frontLeg, 'frontHip', 'frontKnee')
   pose.backLeg = leg(pose.backLeg, 'backHip', 'backKnee')
-  pose = clearBody(p, pose).pose
-  for (const name of ['frontArm', 'backArm'] as const) pose[name] = clearLimb(p, pose[name], UPPER_ARM, FOREARM, 1, true)
-  for (const name of ['frontLeg', 'backLeg'] as const) {
-    let part = pose[name]
-    for (let i = 0; i < 4; i++) {
-      part = { ...part, ...clearLimb(p, part, 15, 14.5, -1) }
-      part = clearAirborneFoot(p, part)
-    }
-    pose[name] = part
-  }
-  return pose
+  return clearLoosePose(p, pose)
 }
 
 /** Capture requested turns and slides whose real wall brace can select facing.
@@ -2042,7 +2060,8 @@ function waterLandingPose(p: Player): AthletePose {
  * the head and spine outside nearby solids before solving the reaching limbs. */
 function clearanceBoundary(p: Player, solid: Platform, x: number, y: number, origin?: Point) {
   const edge = nearestBoundary(solid, x, y)
-  if (origin && pointInside(solid, x, y)) {
+  // Both callers already established that this sample is inside the solid.
+  if (origin) {
     const ox = p.x + origin[0] * p.facing, oy = p.y + origin[1]
     // A free limb belongs to its clear shoulder/hip. The nearest exit from a
     // thin solid can be its far face, leaving the connecting bone through it.
@@ -2063,7 +2082,10 @@ function bodyIntrusion(p: Player, point: Point, radius: number, visibleBall?: Pl
       if (depth > .01) return { x: dx / (distance || 1) * (depth + .05) * p.facing, y: dy / (distance || 1) * (depth + .05) }
       continue
     }
-    const edge = clearanceBoundary(p, b, x, y, origin), inside = pointInside(b, x, y)
+    const inside = pointInside(b, x, y)
+    if (!inside && radius <= .01) continue
+    const edge = inside ? clearanceBoundary(p, b, x, y, origin) : nearbyBoundary(b, x, y, radius)
+    if (!edge) continue
     const depth = radius + (inside ? edge.distance : -edge.distance)
     if (depth > .01) {
       // Outside a corner, a circle separates radially from the closest point.
@@ -2235,7 +2257,7 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
 export function athletePose(p: Player): AthletePose {
   const frame = renderPoses.get(p)
   if (frame?.pose) return frame.pose
-  const pose = shovingPose(p, equippedArmPose(p, baseAthletePose(p)))
+  const pose = withTerrainQueries(() => shovingPose(p, equippedArmPose(p, baseAthletePose(p))))
   if (frame) frame.pose = pose
   return pose
 }
@@ -2290,7 +2312,7 @@ function equippedArmPose(p: Player, pose: AthletePose, presentation = false): At
 /** Ease only presentation; the arm and its sleeve always share the same bones.
  * Contacts, obstruction queries and fresh shots use the selected direction. */
 export function presentedAthletePose(p: Player): AthletePose {
-  return shovingPose(p, equippedArmPose(p, baseAthletePose(p), true))
+  return withTerrainQueries(() => shovingPose(p, equippedArmPose(p, baseAthletePose(p), true)))
 }
 
 /** Gather both palms, drive them forward, then return to the current moving pose. */
@@ -2334,10 +2356,10 @@ function shovingPose(p: Player, pose: AthletePose): AthletePose {
   return result
 }
 
-function resolveAthletePose(p: Player): AthletePose {
+function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose {
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
-    try { return resolveAthletePose(p) }
+    try { return resolveAthletePose(p, deferLooseClearance) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
   if (p.ragdoll) return impactRagdollPose(p)
@@ -2380,7 +2402,7 @@ function resolveAthletePose(p: Player): AthletePose {
   if (p.waterMotion && !p.jumpLift && !p.waterJump) return waterPose(p)
   if (p.dryTurn) return p.dryTurn.facing === p.facing ? p.dryTurn.pose : reflectAthletePose(p.dryTurn.pose)
   if (p.slideEntry) return p.slideEntry.facing === p.facing ? p.slideEntry.pose : reflectAthletePose(p.slideEntry.pose)
-  if ((p.freeFall?.amount ?? 0) > 0) return fallPose(p)
+  if ((p.freeFall?.amount ?? 0) > 0) return fallPose(p, deferLooseClearance)
   // Sliding blends from the same locomotion pose on contact and release. A
   // momentary slip must not replace the airborne gait before its blend begins.
   const pose = p.gait ?? gaitPose(p.vx, !p.grounded)

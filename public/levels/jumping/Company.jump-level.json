@@ -752,7 +752,7 @@
       "y": 545,
       "w": 185,
       "h": 68,
-      "text": "OPERATOR CONNECTION\nNO RESPONSE",
+      "text": "OPERATOR CONNECTION:\nNO RESPONSE",
       "fontSize": 12,
       "align": "left",
       "style": "terminal"
@@ -770,8 +770,8 @@
     },
     {
       "name": "Last shift graffiti",
-      "x": 920,
-      "y": 635,
+      "x": 275,
+      "y": 800,
       "w": 230,
       "h": 45,
       "text": "not everyone left",
@@ -793,14 +793,25 @@
     },
     {
       "name": "Isolation tool stencil",
-      "x": 445,
-      "y": 770,
+      "x": 435,
+      "y": 820,
       "w": 165,
       "h": 30,
-      "text": "LOCAL ISOLATION",
+      "text": "EMP",
       "fontSize": 13,
       "align": "center",
       "style": "official"
+    },
+    {
+      "x": 370,
+      "y": 840,
+      "w": 275,
+      "h": 24,
+      "text": "You might need this ->",
+      "fontSize": 12,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": 5
     }
   ],
   "forceFields": [],

@@ -1,5 +1,266 @@
 # LAB performance notes
 
+## October 25, 2026: rope solver optimization
+
+Rope solves now share validated terrain geometry across all constraint sweeps.
+Outside particles only query faces within the rope radius; embedded particles
+still find the full separating boundary. The solver also reads its cached mass
+weights directly. These changes preserve the constraint order, contact radius,
+damping, sleep rules and offscreen simulation.
+
+Ropes up to 800 units retain eight-unit material segments. Longer ropes use
+12-unit segments, including consistent mass, grip coordinates, impulse spacing
+and saved rest distances. Independent terrain bend joints and complete-span
+collision checks remain active. Old eight-unit saved layouts still import and
+rebuild without rewriting their authored length or anchor. Shorter ropes retain
+fine resolution around anchors and slopes, and the four existing development
+stress route recordings still pass unchanged.
+
+The [before/after report](performance/2026-10-25-ascent-rope-optimization.json)
+uses the frozen eight-rope Ascent snapshot from the earlier Rbot profile. Live
+Ascent authoring continued during this work; this task did not write level files.
+Measurements deliberately keep the same frozen workload for both solvers.
+Ascent's simulated particle count falls from 666 to 610. Its segment-pair
+relaxations fall from 67,984 to 51,800 per physics tick (24% less); the longest
+rope alone drops from 29,744 to 13,560 (54% less). The iteration-count formula
+and contact checks are unchanged.
+
+### Measurements
+
+The geometry/query optimization was checked separately with the original
+8-unit spacing: all six probes, totaling 7,200 ticks, retained identical hashes
+of sampled player/robot state and every rope position, stored velocity and bend
+point. Its all-ropes-moving Node update mean fell from 8.46 to 5.97 ms/tick. Wider long-rope
+segments intentionally change trajectories; they are covered by behavioral
+regressions rather than an identity claim.
+
+The standalone rope benchmark reports median CPU milliseconds per 60 Hz frame,
+with two physics ticks and a pose query in the coupled cases. On Apple M5 Pro /
+Node 25.9, a moving 2,000-unit rope plus player/pose fell from 2.041 to 0.898 ms
+upright and 2.026 to 0.919 ms under reverse gravity. Cliff layout preparation
+fell from 140.4 to 65.1 ms. These exclude the rest of the game and rendering.
+
+The browser comparison uses separate sequential Chrome/Metal runs, the normal
+120 Hz accumulator with its 50 ms frame-delta cap, a 1280x800 DPR 1 viewport,
+and the same production update/draw paths. There is no fixed-tick shortcut,
+adaptive resolution or motion-diagnostic overhead. No builds, tests or other
+benchmarks ran concurrently. The stressed cases apply one 80-unit/sec impulse
+at 70% material distance to every rope. These diagnostic placements and ordinary
+controller inputs are profiling probes, not a completed normal-control Ascent
+route.
+
+All values below are **CPU milliseconds per displayed frame**, including the
+actual number of physics ticks in that frame. Both runs use the same hardware.
+
+| Browser workload | Update before | Update after | p95 before | p95 after | FPS before / after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 60-second Rbot activity | 9.32 | 5.08 | 13.20 | 8.10 | 60.0 / 60.0 |
+| Fresh entrance | 4.86 | 2.28 | 7.90 | 3.80 | 60.0 / 60.0 |
+| Player on longest rope | 5.60 | 2.48 | 8.50 | 2.90 | 60.0 / 60.0 |
+| Middle rope | 5.81 | 2.95 | 8.30 | 5.20 | 60.0 / 60.0 |
+| Chimney wall jumps | 5.10 | 2.57 | 9.30 | 4.70 | 60.0 / 60.0 |
+| Exit perch | 4.94 | 2.29 | 7.80 | 3.90 | 60.0 / 60.0 |
+| All ropes moving: entrance | 13.15 | 8.14 | 15.80 | 12.60 | 59.3 / 60.0 |
+| All ropes moving: middle balcony | 13.35 | 8.10 | 21.60 | 13.80 | 59.0 / 60.0 |
+| All ropes moving: chimney | 16.65 | 8.36 | 48.30 | 14.00 | 49.1 / 60.0 |
+| All ropes moving: exit | 14.10 | 8.22 | 31.10 | 10.00 | 56.5 / 60.0 |
+
+The final stressed runs hold 60 FPS at all four sampled locations, with no
+frame interval exceeding 16.8 ms. The 60-second run averages 5.08 ms of update
+work per frame, down from 9.32 ms, as ropes accumulate activity. Drawing stays
+around 0.8–1.1 ms per frame. There were no browser page errors. Separate CPU
+profiles confirm that repeated outline validation and nearest-edge queries
+shrink; active rope constraint/contact work remains the largest cost.
+
+### Verification and reproduction
+
+227 distinct focused unit checks passed, including all four recorded development
+stress routes, moving-rope Rbot interceptions, rope-to-rope jumps between both
+segment sizes in both directions, long-rope momentum, gravity, sleeping, gates,
+props, thin lips, legacy imports and geometry edits between solves. Ten browser
+checks passed, including a fresh keyboard climb/swing/coast/release on a
+1,300-unit rope and rendered gate/window transfers. TypeScript, Vite build,
+focused ESLint and all 43 built-in level validations passed. The full builtin
+medal audit was not rerun; its previously recorded Ascent/Waterline route and
+catalog failures predate this change.
+
+Use `node scripts/benchmark-jumping-ropes.mjs --output /tmp/ropes.json` for the
+standalone benchmark. To compare saved solver sources, add `--reference-dir DIR`,
+where DIR contains `src/games/jumping/{climbables,geometry,ropeLayout}.ts` from the
+reference checkout. The retained report includes source hashes, the frozen level
+hash, exact-solver trajectory hashes, timing distributions, five-second windows,
+CPU profile summaries and validation results. Raw Chrome/Node probe artifacts
+remain in `.local/ascent-rope-optimization/`.
+
+## October 25, 2026: Ascent with the Rbot, full-level profile
+
+The main cost is global rope simulation. The new Rbot begins climbing the long
+right-hand rope during patrol, before seeing the player. Its later travel wakes
+more ropes. That work runs regardless of the player's position or camera, so
+the same cost appears at the entrance, middle balconies, chimney and exit.
+
+The [retained report](performance/2026-10-25-ascent-rbot-profile.json) includes the
+exact authored JSON, source hashes, scenario coordinates, timing distributions,
+per-second history, per-rope phase attribution, memory checks and CPU summaries.
+The level and runtime files remained byte-identical throughout this investigation.
+Only profiling artifacts and these notes were added.
+
+### Measurements and coverage
+
+The snapshot contains one Repulsorbot, eight ropes with 666 total particles,
+20 terrain pieces, 52 coins and the bottom water region. The longest rope hangs
+near x=1563, is 1,349 units long, and has 169 segments / 170 particles.
+
+The sweep covered twelve sections with ordinary controller inputs after isolated,
+collision-free diagnostic placements: entrance/water, lower beam, Rbot balcony,
+long rope, canted rock, crossing balcony, middle rope, high right refuge, upper
+return rope, chimney, exit and central long fall. These are profiling probes,
+not a completed normal-control route. The chimney probe successfully reaches
+the exit perch with the current authored geometry.
+
+There are 33 uninstrumented Node scenarios, 105 simulated seconds of separately
+instrumented Node traces, 38 browser measurements, four browser sampling profiles
+and six repeated-world memory checks. The browser uses hardware Chrome on Apple
+M5 Pro / Metal, a readable production bundle, 1280x800 viewport, the real 120 Hz
+accumulator and its 50 ms delta cap. No other benchmark ran concurrently. Motion
+diagnostics and adaptive resolution were disabled in the profiling harness.
+Both requested DPR 1 and DPR 2 were tested; the normal two-million-pixel cap
+reduces the latter's backing scale. No browser page errors were recorded.
+
+All table timings below are **CPU milliseconds per displayed frame**, including
+the frame's actual number of physics ticks; they are not per-tick timings.
+
+| Browser workload | Update mean | Update p95 | Draw mean | FPS |
+| --- | ---: | ---: | ---: | ---: |
+| Fresh entrance, Rbot present | 5.06 | 7.90 | 0.91 | 60.0 |
+| Entrance, Rbot removed in memory | 0.32 | 0.50 | 0.82 | 60.0 |
+| Player climbing longest rope, no Rbot | 5.40 | 8.50 | 0.77 | 60.0 |
+| Middle rope, Rbot present | 6.05 | 8.30 | 0.86 | 60.0 |
+| Chimney wall jumps, Rbot present | 5.43 | 10.00 | 1.13 | 60.0 |
+| Exit perch, Rbot present | 5.06 | 7.90 | 0.93 | 60.0 |
+| All ropes disturbed: entrance | 14.70 | 31.90 | 1.01 | 54.5 |
+| All ropes disturbed: middle balcony | 14.51 | 32.10 | 0.97 | 54.8 |
+| All ropes disturbed: chimney | 15.54 | 39.20 | 1.05 | 51.7 |
+| All ropes disturbed: exit | 13.87 | 26.60 | 0.92 | 56.5 |
+
+The disturbed cases apply one horizontal impulse of 80 world units/sec to each
+existing rope at 70% material distance. This is an explicit stress probe, not a
+claim that a recorded player route produced that exact state. No authored file
+or object count changes. Node samples confirm the ordinary Rbot patrol itself
+leaves six ropes moving after 60 seconds, without any diagnostic impulses.
+
+### Costs that accumulate during play
+
+A 60-second browser run begins around 5.36 ms update CPU per frame in its first
+five-second window. By 30 seconds, six ropes are moving and the window average
+is 11.31 ms. The final window averages 12.26 ms. Drawing stays near 1 ms. This
+run averages 59.9 FPS, but includes three frames above 33.8 ms and a 66.7 ms
+maximum. Fresh section averages can therefore hide both later cost and spikes.
+
+In the instrumented 60-second simulation, rope phases consume **94.9% of update
+CPU**. The longest rope alone consumes 53.2%. The entire Rbot update, including
+its motor, consumes 2.2%; navigation/patrol selection is about 0.2%. Inclusive
+phase totals are nested and must not all be added together.
+
+The concrete hot paths are:
+
+- [`stepRope`](../src/games/jumping/climbables.ts): the pass count scales with
+  particle count, and every pass revisits every segment. The longest rope runs
+  176 passes, or 29,744 segment-pair relaxations per physics tick. All eight
+  active ropes total 67,984 relaxations per tick, before terrain contact work.
+- [`geometry.ts`](../src/games/jumping/geometry.ts): nearest-boundary queries,
+  inside tests, segment penetration and bend queries dominate contact work.
+  Repeated outline validation is still visible in rope profiles. The earlier
+  pose-only prepared-query scope does not cover the rope solver.
+- [`ropeSleep.ts`](../src/games/jumping/ropeSleep.ts): disturbed unloaded ropes
+  continue moving and cannot sleep. In the stress captures their largest node
+  deltas are roughly 0.05–0.14 world units per tick, above the 0.0005 quiet
+  threshold. This is actual residual motion, not proof of a sleep flag bug.
+- [`UntitledJumpingGame.tsx`](../src/games/UntitledJumpingGame.tsx): missed frames
+  cause additional catch-up ticks. Disturbed probes reach six ticks per frame
+  and 33–50 ms frame intervals. An artificial fixed-two-tick comparison stays
+  near 59.7 FPS, versus 54.5 with the real accumulator. That comparison diagnoses
+  amplification; it advances a different amount of game time and is not a fix.
+
+An additional cold-start cost comes from
+[`botNavigationGraph`](../src/games/jumping/botNavigation.ts): its first build
+takes about 10–20 ms in instrumented runs. It then remains cached. This explains
+an initial hitch, but contributes little to the sustained slowdown.
+
+### Rendering, poses and memory
+
+Drawing generally averages 0.8–1.1 ms CPU. The chimney reaches a 2.4 ms draw p95
+in one fresh probe. Higher requested DPR retains 60 FPS in the fresh cases, and
+render-only controls also retain 60 FPS. GPU/compositor execution was not timed
+directly. These results put simulation first in the optimization order.
+
+The existing in-app playtest was also spot-checked while idle: 60 FPS,
+approximately 0.5–0.6 ms update / 0.8 ms draw, GPU rendering, 1529x1308 backing
+pixels. Its position and run were preserved, and the performance monitor was
+returned to its original off setting. This idle observation does not establish
+that the existing tab loaded the newly saved Rbot or reproduce traversal cost.
+
+After six fresh worlds in one browser document, retained JS heap after full GC
+reaches 5.56 MB, with growth flattening from about 172 KB on the second world
+to 9 KB on the sixth. DOM counts remain at one document, 11 nodes and 13
+listeners. CPU sampling attributes roughly 2% to GC. This short check does not
+establish long-session or native GPU memory behavior.
+
+### Optimization order
+
+First reuse prepared terrain/query data inside each synchronous rope solve and
+reduce repeated distant-edge/contact work. Then measure repeated constraint
+passes and convergence, retaining rope/body clearance and momentum regressions.
+Audit unloaded settling and sleep eligibility against meaningful motion. Verify
+those changes under the real accumulator and accumulated rope activity. Cold
+navigation preparation is a smaller, separate target.
+
+Raw profiles, the frozen level, full per-frame samples and reproduction scripts
+are retained locally in `.local/ascent-profile-2026-10-25/`. Run `node
+.local/ascent-profile-2026-10-25/node-scan.mjs` for the uninstrumented simulation
+sweep, `node .local/ascent-profile-2026-10-25/node-detail.mjs` for phase/CPU traces,
+and `node .local/ascent-profile-2026-10-25/browser-run.mjs` for the browser sweep.
+Set `ASCENT_PROFILE_SWEEP=stress` or `memory` for the additional browser arms.
+Run them sequentially; the browser script uses local port 4198 and isolated Chrome.
+
+## October 25, 2026: Ascent chimney poses
+
+Bracing near the upper chimney repeatedly fit the visible limbs against a large
+concave cave shell. Limb samples now share validated geometry within each
+synchronous, read-only pose solve. Cached edge neighborhoods and horizontal ray
+bands reject distant edges without clipping the outline. Outside skin samples
+only search as far as their clearance radius, and inside tests are reused.
+Edge order, corner ties, skin detail and solver iteration limits are preserved.
+Geometry edits between solves still invalidate the prepared data; spatial
+neighborhoods are bounded and only used where repeated pose queries amortize them.
+
+Motion diagnostics now require `?motionDebug=1` in development as well as
+production. Ordinary development play no longer solves the complete pose at
+120 Hz for this observer in addition to rendering.
+
+The [CPU comparison](performance/2026-10-25-ascent-poses.json) uses Node 25.9.0
+on Apple M5 Pro, with three sequential, alternating before/after pairs against
+`46bdf0a`. Each arm climbs the retained static chimney fixture twice and measures
+300 repeated mouth poses after 100 warmup solves. Medians across the three runs:
+
+| Pose CPU | Before | After |
+| --- | ---: | ---: |
+| Climb mean | 0.38 ms | 0.24 ms |
+| Climb p95 | 2.50 ms | 1.56 ms |
+| Mouth mean | 2.89 ms | 1.62 ms |
+| Mouth p95 | 3.58 ms | 2.21 ms |
+
+All 559 movement and pose samples match exactly in every pair. A separate pair
+using the current complete static Ascent cave also matches all 565 samples.
+These measurements exclude rope simulation, rendering, audio and browser frame
+scheduling; they establish lower pose CPU cost, not a measured gameplay FPS.
+
+Reproduce with `node scripts/benchmark-jumping-cave-poses.mjs --reference 46bdf0a`
+and `node scripts/benchmark-jumping-cave-poses.mjs`, sequentially while other
+tests/builds are idle. Use `--output <file>` to retain reports, or `--level <file>`
+to compare the same saved complete static cave. The fixture retains the original
+reported lip even as the authored level changes.
+
 ## October 23, 2026: Curved pinball terrain
 
 Pinball's six curved terrain pieces expanded to 525 outline vertices and 487

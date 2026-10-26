@@ -144,7 +144,9 @@ connections require continuous filled water and body clearance, including live r
 fields and mechanisms. The hunter steers Up/Down and sideways through the shared
 swimming motor and prioritizes leaving the water over pursuit or attacks. It
 commits to reachable dry footing, using ordinary surface jumps and ledge catches
-to leave a pool. Rope and ladder approaches retain swimming controls until the
+to leave a pool. Once a swimmer leaves a waypoint to approach takeoff, replanning
+retains that approach while its path stays clear. A changed exit or live barrier
+can still replace the route. Rope and ladder approaches retain swimming controls until the
 actual grip is accepted; reaching a climb waypoint alone does not count as a catch.
 Shallow ground takeoffs hold the ordinary jump, and airborne bank approaches
 retain their planned clearance. A rope release waits until the actual feet can
@@ -430,6 +432,16 @@ When the door disappears, the world and clock activate automatically, including
 with neutral input. The entrance time does not count toward medals. Pause freezes
 its progress; restart reconstructs it. Static editor previews show the open entrance.
 
+Ordinary Repulsorbots enter simultaneously through the same doorway animation at
+their authored positions. Their presentation actors, shadows and door closures
+share the player's timing; AI, physical bodies and sensory memory stay frozen.
+Headlights turn on after their doors close. A bot's entire 40-by-80 doorway must
+have flat support, clear space and fit inside the level; otherwise it retains
+its ordinary static start until the author fixes its placement. No terrain or
+bot positions are adjusted. Editor previews remain static and show each bot's
+full portal footprint, including starts awaiting manual repair. Installed charging
+bays keep their local awakening instead of using an entrance portal.
+
 An authored `entrance.kind: "charging-bay"` replaces that door presentation with
 a 3.6-second awakening: power returns, the robot rises from its slumped pose,
 and the capsule cover retracts. The separate actor stays on its planted feet;
@@ -593,6 +605,21 @@ the same riser clearance as walking, including resting crate tilt. The packed
 mountain regressions in `tests/jumping-box-bin.test.mjs` cover jumps, reaching,
 sustained pushing, release and mirrored approaches at 120 and 30 Hz, including
 the actual rendered skin as well as collision hulls.
+
+Ropes up to 800 units use eight-unit material segments; longer ropes use
+twelve-unit segments, with a shorter final segment when needed. Rope mass,
+grip interpolation, impulses and saved rest distances use that same spacing.
+Saved eight-unit layouts remain readable and rebuild their rest geometry without
+changing the authored length or anchor. Longer spans still add independent
+terrain bend joints at corners. Short ropes retain the finer resolution needed
+around anchors and sloping exits.
+
+Each synchronous rope solve shares validated terrain outlines and spatial
+queries across its constraint passes. Outside particles only search for faces
+within the rope radius; embedded particles still find the full separating face.
+Terrain edits are checked again at the next solve. Constraint pass counts,
+collision padding, damping, sleeping and offscreen simulation retain their
+existing rules.
 
 Rope contacts apply to the complete path, including spans between particles and
 corner bends. Body corrections during climbing must keep adjacent spans clear;
@@ -764,17 +791,23 @@ back to the ordinary airborne pose over 0.28 seconds.
 The same state runs in the reflected gravity frame. Respawn clears it.
 Regression coverage lives in `tests/jumping-free-fall.test.mjs`.
 
-The `codex/player-ragdoll` experiment adds a short constrained ragdoll response
-to hard prone landings (downward speed above 1000, prone blend above 0.35) and
-strong humanoid repulsor impulses (at least 750). Angular springs carry impact
-momentum through the torso, neck, shoulders, elbows, hips and knees. Bounded
+Hard prone landings (downward speed above 1000, prone blend above 0.35) and
+strong humanoid repulsor impulses (at least 750) trigger a short constrained
+ragdoll response. Angular springs carry impact momentum through the torso, neck,
+shoulders, elbows, hips and knees. Bounded
 joints, fixed bone lengths and the existing terrain/prop clearance solve keep
-the rig together. The response scales with impulse magnitude, seeds from the
-outgoing pose, and fades back into the active rig within 0.55 seconds. It is
+the rig together. Knee rotations preserve their incoming hinge direction rather
+than extending backward. Falling and recoil share loose-body clearance, applied
+after articulation so a landing does not clear the target and final rig twice.
+The response scales with impulse magnitude, seeds from the outgoing pose, and
+fades back into the active rig within 0.55 seconds. It is
 presentation physics around the existing motor hull; it adds no input lock,
 damage, death, displacement or longer recovery. Active walking uses the existing
-fast get-up; jumping, gripping, bracing, sliding, gravity turns, water entry and
-respawn release the response. Dry gravity inversion uses the same local rig.
+fast get-up; jumping, gripping, bracing, sliding, working push contacts, gravity
+turns, water entry and respawn release the response. Working palms and planted
+shoes immediately use their real contacts. A gravity turn captures the loose
+rig and releases live recoil in the same tick. Dry gravity inversion uses the
+same local rig.
 The untimed **Impact Lab** development room provides a repeatable high drop,
 return ladder and separated repulsor bay. Focused regressions live in
 `tests/jumping-impact-ragdoll.test.mjs`.
@@ -900,9 +933,10 @@ solved support obeys the same continuity limit. Swing feet retain the running
 stride's brief flight phase. Broader dynamic/brief-contact review is tracked in #56;
 continuity and clearance alone do not prove a convincing support transfer.
 
-Development builds observe the final player state after each physics step with
-`JumpingMotionDiagnostics`. For a production build, open the game with
-`?motionDebug=1` to enable the same observer. It reports repeated contact/state
+Open either development or production builds with `?motionDebug=1` to observe
+the final player state after each physics step with `JumpingMotionDiagnostics`.
+This observer is opt-in because it solves the complete pose at 120 Hz in addition
+to rendering, which can be expensive around cave lips. It reports repeated contact/state
 reversals, abrupt joint reversals relative to the body, and physical root
 oscillation separately. These are diagnostic candidates, not proof of a bug.
 Intent changes, pauses, new players, respawns and teleports break the detection
@@ -914,7 +948,7 @@ tools, `window.jumpingMotion.read()` returns detached copies of the most recent
 two seconds (at most 240 samples) and the last eight reports, including level ID,
 inputs, positions, velocities, contact identities, blend weights and local joint
 positions. Reports survive pauses/restarts so they can be inspected afterward;
-they remain in memory and are never sent to a server. Production play without
+they remain in memory and are never sent to a server. Ordinary play without
 the flag does not sample poses for diagnostics.
 
 The observer never changes physics or filters the rendered pose. Use captures to
@@ -1020,6 +1054,16 @@ including logic relays, OR/AND/XOR and reversal. `waterRate` sets percentage
 points per second (default 10). Both pumps off or both on hold the current level;
 one toggle can drive both ports with Drain reversed. EMP pauses pumping without
 removing water. Pause stops progress; restart restores the initial level.
+Free swimmers travel upward with each committed waterline rise before their
+buoyancy and swimming controls run. The carry uses the same displaced body as
+buoyancy and the ordinary swept contact hull, so a roof can stop it. Overlapping
+pools blend their rise by submerged area rather than adding duplicate travel.
+Surface floating keeps its neck depth and jump opportunity while a pump fills;
+submerged steering and depth hold remain relative to the rising pool. Grounded
+feet, held grips and airborne jumps retain their ordinary support and motion
+rules. The player and Rbot share this transport, including when surface effects
+are disabled. Regression coverage is in `tests/jumping-rising-water.test.mjs`
+and the keyboard fill/jump cases in `tests/browser/jumpingWaterLevels.dev.spec.mjs`.
 Existing files retain their full passive pools. Its buoyancy is
 fixed; there is no editable gravity strength. Prop lift uses submerged area
 and the weight preset: normal props float half submerged without a rider,

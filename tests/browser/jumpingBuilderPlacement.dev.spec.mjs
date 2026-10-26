@@ -14,19 +14,31 @@ async function open(page, level = blankTrial()) {
     window.testPad = { index: 0, id: 'Placement controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0],
       buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
     Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.testPad] })
-    const proto = CanvasRenderingContext2D.prototype, fill = proto.fillRect, stroke = proto.strokeRect, clear = proto.clearRect, arc = proto.arc
+    const proto = CanvasRenderingContext2D.prototype, fill = proto.fillRect, pathFill = proto.fill, stroke = proto.strokeRect, clear = proto.clearRect, arc = proto.arc
     proto.fillRect = function (...args) {
       if (this.fillStyle === '#f1f1ed' && args[0] === 0 && args[1] === 0) {
         this.canvas.camera = this.getTransform(); this.canvas.robotPose = null
       }
       if (this.canvas.getAttribute('aria-label') === 'Level canvas') {
-        if (this.fillStyle === '#eeeee6' && args[0] === 0 && args[1] === 0) this.canvas.placement = null
+        if (this.fillStyle === '#eeeee6' && args[0] === 0 && args[1] === 0) {
+          this.canvas.placement = null; this.canvas.rbotActor = false; this.canvas.robotPortals = []
+        }
         if (this.fillStyle === '#f1f1ed' && args[0] === 0 && args[1] === 0) this.canvas.camera = this.getTransform()
+      }
+      if (this.fillStyle === '#000000' && args[3] === 80) {
+        this.canvas.robotPortals ??= []
+        this.canvas.robotPortals.push({ x: args[0], y: args[1], w: args[2], h: args[3] })
       }
       return fill.apply(this, args)
     }
+    proto.fill = function (...args) {
+      if (this.fillStyle === '#b66d65' && args[0] instanceof Path2D) this.canvas.rbotActor = true
+      return pathFill.apply(this, args)
+    }
     proto.clearRect = function (...args) {
-      if (this.canvas.classList.contains('builder-placement-preview')) { this.canvas.placement = null; this.canvas.robotPose = null }
+      if (this.canvas.classList.contains('builder-placement-preview')) {
+        this.canvas.placement = null; this.canvas.robotPose = null; this.canvas.rbotActor = false; this.canvas.robotPortals = []
+      }
       return clear.apply(this, args)
     }
     proto.arc = function (...args) {
@@ -89,6 +101,39 @@ function slopeLevel(slope) {
       polygon: slope > 0 ? [[0, 0], [200, rise], [200, rise + 20], [0, 20]]
         : [[0, rise], [200, 0], [200, 20], [0, rise + 20]] }] }
 }
+
+for (const night of [false, true]) test(`${night ? 'night' : 'day'} Rbot placement shows its humanoid and portal before the first click`, async ({ page }, info) => {
+  const level = await open(page)
+  if (night) await page.getByRole('checkbox', { name: 'Night mode', exact: true }).check()
+  await page.getByRole('button', { name: 'Repulsorbot', exact: true }).click()
+  await move(page, 650, level.floor)
+  const appearance = canvas => canvas.evaluate(c => ({ actor: !!c.rbotActor, wheels: c.robotPose, portals: c.robotPortals ?? [] }))
+  const previewCanvas = page.locator('.builder-placement-preview'), preview = await appearance(previewCanvas)
+  expect(preview.actor).toBe(true)
+  expect(preview.wheels).toBeNull()
+  const door = { x: 630, y: level.floor - 80, w: 40, h: 80 }
+  expect(preview.portals).toContainEqual(door)
+  expect((await ghost(page)).h).toBeCloseTo(80, 5)
+  await page.screenshot({ path: info.outputPath('rbot-placement-portal.png') })
+  await page.mouse.down(); await page.mouse.up(); await page.clock.runFor(64)
+  await outside(page)
+  expect((await appearance(board(page))).actor).toBe(true)
+  expect((await appearance(board(page))).portals).toContainEqual(door)
+  // The doorway above the humanoid is part of this bot's selectable artwork.
+  const top = await worldPoint(page, 650, level.floor - 76)
+  await page.mouse.click(top.x, top.y); await page.clock.runFor(64)
+  const bay = page.getByRole('checkbox', { name: 'Charging bay', exact: true })
+  await expect(bay).toBeVisible()
+  await page.screenshot({ path: info.outputPath('rbot-selected-portal.png') })
+  await bay.check(); await page.clock.runFor(64)
+  expect((await appearance(board(page))).portals).not.toContainEqual(door)
+  await bay.uncheck(); await page.clock.runFor(64)
+  expect((await appearance(board(page))).portals).toContainEqual(door)
+  await page.getByRole('button', { name: 'Save level', exact: true }).click()
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
+  const saved = await readTestLevel(page, 'preview.json')
+  expect(saved.robots[0]).toMatchObject({ kind: 'repulsor', x: 650, y: level.floor })
+})
 
 test('Place on surface seats a freely placed shovebot on a steep ramp', async ({ page }) => {
   await open(page, slopeLevel(3))

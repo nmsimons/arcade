@@ -136,13 +136,18 @@ export function validPolygon(points: readonly Vec[], maxPoints = 64) {
 }
 export function pointInside(b: Platform, x: number, y: number) {
   if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) return false
-  const geometry = boundaryGeometry(b), points = geometry.points, edges = boundaryEdges(geometry), point: Vec = [x, y]; let inside = false
-  for (const i of edges.length <= 8 ? points.keys() : rowEdges(geometry, y)) {
-    const j = (i + points.length - 1) % points.length
+  const geometry = boundaryGeometry(b), points = geometry.points, edges = boundaryEdges(geometry)
+  const indices = edges.length > 8 ? rowEdges(geometry, y) : undefined
+  let inside = false
+  for (let k = 0; k < (indices?.length ?? points.length); k++) {
+    const i = indices ? indices[k] : k, j = (i + points.length - 1) % points.length
     const edge = edges[j]
     if (y < edge.top - EPS || y > edge.bottom + EPS) continue
     const a = points[i], c = points[j]
-    if (onSegment(point, a, c)) return true
+    // The prepared edge already supplies onSegment's bounds. Keep its exact
+    // cross-product arithmetic and epsilon, without allocating a sample point.
+    if (x >= edge.left - EPS && x <= edge.right + EPS
+      && Math.abs((c[0] - a[0]) * (y - a[1]) - (c[1] - a[1]) * (x - a[0])) < EPS) return true
     if ((a[1] > y) !== (c[1] > y) && x < (c[0] - a[0]) * (y - a[1]) / (c[1] - a[1]) + a[0]) inside = !inside
   }
   return inside
@@ -356,21 +361,27 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
 function findBoundary(geometry: BoundaryGeometry, x: number, y: number, normal?: Vec, maxDistance = Infinity) {
   const edges = boundaryEdges(geometry)
   const hint = !normal && edges.length ? geometry.nearest ?? 0 : -1
-  let best = { x, y, distance: maxDistance, nx: 0, ny: -1 }
+  let bestX = x, bestY = y, bestDistance = maxDistance, bestNx = 0, bestNy = -1
   let bestIndex = Infinity
   // Adjacent rope particles usually meet the same face. Its exact distance is
   // an upper bound, so distant faces can be rejected before a square root.
   // Preserve the original first-edge tie policy among all reachable edges.
   if (hint >= 0) {
-    const { a, dx, dy, squared, nx, ny } = edges[hint]
-    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / squared))
-    const px = a[0] + dx * t, py = a[1] + dy * t
-    const distance = Math.hypot(px - x, py - y)
-    if (distance <= maxDistance) { best = { x: px, y: py, distance, nx, ny }; bestIndex = hint }
+    const { a, dx, dy, squared, nx, ny, left, right, top, bottom } = edges[hint]
+    // An outside clearance query often cannot reach the previous face at all.
+    // Its bounds reject that hint before projection and a costly hypot.
+    if (x >= left - maxDistance - EPS && x <= right + maxDistance + EPS
+      && y >= top - maxDistance - EPS && y <= bottom + maxDistance + EPS) {
+      const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / squared))
+      const px = a[0] + dx * t, py = a[1] + dy * t
+      const distance = Math.hypot(px - x, py - y)
+      if (distance <= maxDistance) { bestX = px; bestY = py; bestDistance = distance; bestNx = nx; bestNy = ny; bestIndex = hint }
+    }
   }
   // Small shapes and one-off physics queries do not amortize a spatial lookup.
-  const indices = queryGeometry && !normal && edges.length > 8 ? nearbyEdges(geometry, x, y) : edges.keys()
-  for (const i of indices) {
+  const indices = queryGeometry && !normal && edges.length > 8 ? nearbyEdges(geometry, x, y) : undefined
+  for (let k = 0; k < (indices?.length ?? edges.length); k++) {
+    const i = indices ? indices[k] : k
     if (i === hint) continue // Its exact distance was already tested above.
     const { a, dx, dy, squared, nx, ny, left, right, top, bottom } = edges[i]
     // A collision query must keep a face that can supply its separating normal.
@@ -379,25 +390,25 @@ function findBoundary(geometry: BoundaryGeometry, x: number, y: number, normal?:
     if (normal && nx * normal[0] + ny * normal[1] <= EPS) continue
     // The edge's bounding box supplies a cheap lower distance bound. Preserve
     // close candidates, including the normal-directed corner tie tolerance.
-    const limit = best.distance + (normal ? 1e-5 : EPS)
+    const limit = bestDistance + (normal ? 1e-5 : EPS)
     const boxX = Math.max(left - x, 0, x - right), boxY = Math.max(top - y, 0, y - bottom)
     if (boxX * boxX + boxY * boxY > limit * limit) continue
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / squared))
     const px = a[0] + dx * t, py = a[1] + dy * t, gapX = px - x, gapY = py - y
     // Reject clearly farther edges before a square root. Keep the original
     // hypot comparison for close candidates and the normal tie-break policy.
-    if (!normal && gapX * gapX + gapY * gapY > (best.distance + EPS) * (best.distance + EPS)) continue
+    if (!normal && gapX * gapX + gapY * gapY > (bestDistance + EPS) * (bestDistance + EPS)) continue
     const distance = Math.hypot(gapX, gapY)
     // Adjacent faces can share the contact point. Prefer the face that supplied
     // the collision normal instead of depending on vertex order or roundoff.
-    const tied = normal && Math.abs(distance - best.distance) < 1e-5
-    if (tied ? nx * normal[0] + ny * normal[1] > best.nx * normal[0] + best.ny * normal[1]
-      : distance < best.distance || !normal && distance === best.distance && i < bestIndex) {
-      best = { x: px, y: py, distance, nx, ny }; bestIndex = i
+    const tied = normal && Math.abs(distance - bestDistance) < 1e-5
+    if (tied ? nx * normal[0] + ny * normal[1] > bestNx * normal[0] + bestNy * normal[1]
+      : distance < bestDistance || !normal && distance === bestDistance && i < bestIndex) {
+      bestX = px; bestY = py; bestDistance = distance; bestNx = nx; bestNy = ny; bestIndex = i
     }
   }
   if (!normal && bestIndex !== Infinity) geometry.nearest = bestIndex
-  return bestIndex === Infinity ? null : best
+  return bestIndex === Infinity ? null : { x: bestX, y: bestY, distance: bestDistance, nx: bestNx, ny: bestNy }
 }
 export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec) {
   return findBoundary(boundaryGeometry(b), x, y, normal) ?? { x, y, distance: Infinity, nx: 0, ny: -1 }

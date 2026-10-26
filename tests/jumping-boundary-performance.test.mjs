@@ -105,3 +105,23 @@ test('spatial cave queries retain exhaustive distances, face ties and inside tes
     })
   }
 })
+
+
+test('bounded clearance rejects distant cached faces without repeated distance roots', t => {
+  const shape = { x: 0, y: 0, w: 1000, h: 1000,
+    polygon: [[0, 0], [1000, 0], [1000, 100], [100, 100], [100, 1000], [0, 1000]] }
+  // The empty inside corner remains within the shape's broad bounding box.
+  assert.equal(pointInside(shape, 500, 500), false)
+  const nearest = nearestBoundary(shape, 500, 500)
+  assert.equal(nearest.distance, 400)
+  let roots = 0
+  const hypot = Math.hypot
+  t.mock.method(Math, 'hypot', (...values) => { roots++; return hypot(...values) })
+  withTerrainQueries(() => {
+    for (let i = 0; i < 100; i++) assert.equal(nearbyBoundary(shape, 500, 500, 1.5), null)
+  })
+  assert.equal(roots, 0, 'a cached face outside the radius must not require a distance root')
+  assert.deepEqual(nearbyBoundary(shape, 101, 500, 1), { x: 100, y: 500, distance: 1, nx: 1, ny: -0 })
+  shape.polygon[3][0] = 120; shape.polygon[4][0] = 120
+  assert.deepEqual(nearbyBoundary(shape, 121, 500, 1), { x: 120, y: 500, distance: 1, nx: 1, ny: -0 })
+})

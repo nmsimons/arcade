@@ -1,0 +1,3361 @@
+{
+  "date": "2026-10-26T20:05:11.603420+00:00",
+  "base": "7ec0c74cac0ae79453b0896436025310b00950f6",
+  "machine": "Snapdragon X Elite X1E80100 / Adreno X1-85, Windows ARM64",
+  "browser": "Edge 156.0.4314.42",
+  "scope": "Query work only; same authored snapshot in both arms, unchanged particles, constraint passes, contact ordering, damping, wake/sleep and offscreen simulation.",
+  "levelHash": "1a31be65423b867b457c8f53f2cbba00bf53ca96c6f1ba4e25110d74acf66722",
+  "sourceHashes": {
+    "referenceGeometry": "d4078bbbeec13799f750296efd72ef4b63d3ae01d0f3def18b5d1199c980e56c",
+    "optimizedGeometry": "e968007a0db28f532370ed5e12813379b6507da2946a0e9239c6cda7eb6a0040"
+  },
+  "method": {
+    "browser": "Three sequential alternating original/optimized pairs, fresh hardware Edge per arm, fresh context per case, production simulation/camera/renderer, 1280x800 DPR1, 60 warmup frames, six measured seconds, normal 120Hz accumulator and 50ms elapsed cap, full GPU lighting and water, no adaptive quality or motion observer. Timing excludes React UI, audio, hardware input latency and asynchronous GPU completion.",
+    "stress": "One 80-unit/sec horizontal impulse to each of the seven ropes at 70% material distance. Diagnostic stress, not a recorded complete route.",
+    "identity": "14 probes of 600 fixed 120Hz ticks each. Exact numeric state (including signed zero) and pose hashes; player, robot, rope position/stored velocity/bends every tick, poses every fourth tick. Object aliasing is deliberately excluded from the value comparison.",
+    "variability": "Shared machine with variable background CPU load. Episode medians and all arms retained. FPS is not a guarantee for other machines, viewport sizes or background workloads."
+  },
+  "comparison": {
+    "summary": [
+      {
+        "case": "first-rope",
+        "reference": {
+          "fps": 59.99933148377177,
+          "updateMs": 5.727071823243525,
+          "msPerTick": 2.883449235068367,
+          "p95UpdateMs": 10.800000000745058,
+          "slowFrames": 8
+        },
+        "optimized": {
+          "fps": 60.002339924119596,
+          "updateMs": 5.249582172752796,
+          "msPerTick": 2.624791086376398,
+          "p95UpdateMs": 9.900000000372529,
+          "slowFrames": 12
+        },
+        "tickReductionPercent": 8.970442258742805
+      },
+      {
+        "case": "disturbed-entrance",
+        "reference": {
+          "fps": 42.78575368107901,
+          "updateMs": 17.9351562499578,
+          "msPerTick": 6.50339943341246,
+          "p95UpdateMs": 44.100000001490116,
+          "slowFrames": 192
+        },
+        "optimized": {
+          "fps": 58.07937514603292,
+          "updateMs": 11.10909090903376,
+          "msPerTick": 5.446239554289532,
+          "p95UpdateMs": 18.700000001117587,
+          "slowFrames": 40
+        },
+        "tickReductionPercent": 16.255496682113147
+      }
+    ],
+    "pairs": [
+      {
+        "pair": 1,
+        "reference": [
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "first-rope",
+              "seconds": 6,
+              "rope": 0,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 19.299999998882413,
+            "frameCount": 362,
+            "wallSeconds": 6.016300000000001,
+            "fps": 60.336350150840886,
+            "intervals": {
+              "n": 362,
+              "mean": 16.573756906077346,
+              "p50": 16.699999999999818,
+              "p95": 16.90000000000009,
+              "p99": 25,
+              "max": 25.200000000000273
+            },
+            "update": {
+              "n": 362,
+              "mean": 5.727071823243525,
+              "p50": 5.5,
+              "p95": 10.5,
+              "p99": 12.400000000372529,
+              "max": 13.599999999627471
+            },
+            "draw": {
+              "n": 362,
+              "mean": 3.406077348081735,
+              "p50": 3.300000000745058,
+              "p95": 4.799999998882413,
+              "p99": 6,
+              "max": 10.700000001117587
+            },
+            "cpu": {
+              "n": 362,
+              "mean": 9.13314917132526,
+              "p50": 9.099999999627471,
+              "p95": 14.300000000745058,
+              "p99": 17.600000001490116,
+              "max": 22.700000001117587
+            },
+            "steps": {
+              "n": 362,
+              "mean": 1.9861878453038675,
+              "p50": 2,
+              "p95": 3,
+              "p99": 3,
+              "max": 4
+            },
+            "over25ms": 3,
+            "over33_83ms": 0,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794808,
+              "lights": 1,
+              "edges": 57
+            },
+            "initial": {
+              "time": 0,
+              "x": 1085.9904591809407,
+              "y": 4369.749057249236,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "placement": {
+              "fraction": 0.75,
+              "offset": -14
+            },
+            "final": {
+              "time": 7.125000000000144,
+              "x": 1107.5472401044542,
+              "y": 4363.965726309674,
+              "state": "Rope \u00c2\u00b7 holding",
+              "climb": 0,
+              "robots": [
+                {
+                  "x": 1444.110606289865,
+                  "y": 3408.8846015737167,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.2944281916932141
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "states": {
+              "Rope \u00c2\u00b7 holding": 362
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 60.400000000000006,
+                "update": {
+                  "n": 302,
+                  "mean": 5.473509933848847,
+                  "p50": 5.099999999627471,
+                  "p95": 10.5,
+                  "p99": 12,
+                  "max": 13.5
+                },
+                "draw": {
+                  "n": 302,
+                  "mean": 3.3347682119131288,
+                  "p50": 3.199999999254942,
+                  "p95": 5,
+                  "p99": 6,
+                  "max": 10.700000001117587
+                },
+                "steps": {
+                  "n": 302,
+                  "mean": 1.9834437086092715,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 3,
+                  "max": 4
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 60.01800540162044,
+                "update": {
+                  "n": 60,
+                  "mean": 7.003333333196739,
+                  "p50": 7,
+                  "p95": 10.299999998882413,
+                  "p99": 13.599999999627471,
+                  "max": 13.599999999627471
+                },
+                "draw": {
+                  "n": 60,
+                  "mean": 3.765000000130385,
+                  "p50": 3.700000001117587,
+                  "p95": 4.600000001490116,
+                  "p99": 4.700000001117587,
+                  "max": 4.700000001117587
+                },
+                "steps": {
+                  "n": 60,
+                  "mean": 2,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 3,
+                  "max": 3
+                }
+              }
+            ]
+          },
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "disturbed-entrance",
+              "seconds": 6,
+              "disturbed": true,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 18.09999999962747,
+            "frameCount": 314,
+            "wallSeconds": 6.0501000000000005,
+            "fps": 52.042761249689235,
+            "intervals": {
+              "n": 314,
+              "mean": 19.21496815286624,
+              "p50": 16.699999999999818,
+              "p95": 49,
+              "p99": 50.099999999999454,
+              "max": 66.80000000000018
+            },
+            "update": {
+              "n": 314,
+              "mean": 13.406369426726679,
+              "p50": 10.900000000372529,
+              "p95": 37.09999999962747,
+              "p99": 50.79999999888241,
+              "max": 53.79999999888241
+            },
+            "draw": {
+              "n": 314,
+              "mean": 2.973566879043771,
+              "p50": 2.599999999627471,
+              "p95": 4.900000000372529,
+              "p99": 6.699999999254942,
+              "max": 8.900000000372529
+            },
+            "cpu": {
+              "n": 314,
+              "mean": 16.37993630577045,
+              "p50": 13.799999998882413,
+              "p95": 40,
+              "p99": 56.29999999888241,
+              "max": 59.79999999888241
+            },
+            "steps": {
+              "n": 314,
+              "mean": 2.28343949044586,
+              "p50": 2,
+              "p95": 5,
+              "p99": 6,
+              "max": 6
+            },
+            "over25ms": 31,
+            "over33_83ms": 17,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794640,
+              "lights": 1,
+              "edges": 54
+            },
+            "initial": {
+              "time": 0,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.6666666666666856
+                }
+              ]
+            },
+            "placement": null,
+            "final": {
+              "time": 7.075000000000141,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1441.4882070709414,
+                  "y": 3412.548906480571,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.08203598367890663
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.11709446061104245
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.051867519291931785
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.03201280186090116
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.04778903118267408
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.09640478029098176
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.09708154451186601
+                }
+              ]
+            },
+            "states": {
+              "Ready": 314
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 53.77854476863186,
+                "update": {
+                  "n": 268,
+                  "mean": 12.563059701459176,
+                  "p50": 10.399999998509884,
+                  "p95": 35,
+                  "p99": 46.09999999962747,
+                  "max": 53.79999999888241
+                },
+                "draw": {
+                  "n": 268,
+                  "mean": 2.888432835923758,
+                  "p50": 2.599999999627471,
+                  "p95": 4.899999998509884,
+                  "p99": 7.5,
+                  "max": 8.900000000372529
+                },
+                "steps": {
+                  "n": 268,
+                  "mean": 2.2276119402985075,
+                  "p50": 2,
+                  "p95": 5,
+                  "p99": 6,
+                  "max": 6
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 43.805351871250345,
+                "update": {
+                  "n": 46,
+                  "mean": 18.3195652174156,
+                  "p50": 14.300000000745058,
+                  "p95": 38.29999999888241,
+                  "p99": 53.40000000037253,
+                  "max": 53.40000000037253
+                },
+                "draw": {
+                  "n": 46,
+                  "mean": 3.469565217221237,
+                  "p50": 3.300000000745058,
+                  "p95": 5.299999998882413,
+                  "p99": 5.599999999627471,
+                  "max": 5.599999999627471
+                },
+                "steps": {
+                  "n": 46,
+                  "mean": 2.608695652173913,
+                  "p50": 2,
+                  "p95": 4,
+                  "p99": 6,
+                  "max": 6
+                }
+              }
+            ]
+          }
+        ],
+        "optimized": [
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "first-rope",
+              "seconds": 6,
+              "rope": 0,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 19.5,
+            "frameCount": 359,
+            "wallSeconds": 6,
+            "fps": 60.002339924119596,
+            "intervals": {
+              "n": 359,
+              "mean": 16.666016713091924,
+              "p50": 16.699999999999818,
+              "p95": 17.09999999999991,
+              "p99": 18.399999999999864,
+              "max": 18.699999999999818
+            },
+            "update": {
+              "n": 359,
+              "mean": 5.249582172752796,
+              "p50": 5.099999999627471,
+              "p95": 9,
+              "p99": 12.699999999254942,
+              "max": 21.5
+            },
+            "draw": {
+              "n": 359,
+              "mean": 3.327855153232398,
+              "p50": 3.200000001117587,
+              "p95": 5.400000000372529,
+              "p99": 6.300000000745058,
+              "max": 8.200000001117587
+            },
+            "cpu": {
+              "n": 359,
+              "mean": 8.577437325985194,
+              "p50": 8.300000000745058,
+              "p95": 12.800000000745058,
+              "p99": 18.90000000037253,
+              "max": 26.09999999962747
+            },
+            "steps": {
+              "n": 359,
+              "mean": 2,
+              "p50": 2,
+              "p95": 2,
+              "p99": 3,
+              "max": 3
+            },
+            "over25ms": 0,
+            "over33_83ms": 0,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794808,
+              "lights": 1,
+              "edges": 57
+            },
+            "initial": {
+              "time": 0,
+              "x": 1085.9904591809407,
+              "y": 4369.749057249236,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "placement": {
+              "fraction": 0.75,
+              "offset": -14
+            },
+            "final": {
+              "time": 7.108333333333476,
+              "x": 1108.2657789435427,
+              "y": 4363.923280998563,
+              "state": "Rope \u00c2\u00b7 holding",
+              "climb": 0,
+              "robots": [
+                {
+                  "x": 1443.3257424089861,
+                  "y": 3410.0335733271786,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.3150229987199964
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "states": {
+              "Rope \u00c2\u00b7 holding": 359
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 60.0028094960968,
+                "update": {
+                  "n": 299,
+                  "mean": 5.094648829471307,
+                  "p50": 4.900000000372529,
+                  "p95": 9,
+                  "p99": 12.699999999254942,
+                  "max": 19.300000000745058
+                },
+                "draw": {
+                  "n": 299,
+                  "mean": 3.324414715756441,
+                  "p50": 3.199999999254942,
+                  "p95": 5.599999999627471,
+                  "p99": 6.700000001117587,
+                  "max": 8.200000001117587
+                },
+                "steps": {
+                  "n": 299,
+                  "mean": 2,
+                  "p50": 2,
+                  "p95": 2,
+                  "p99": 3,
+                  "max": 3
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 59.99999999999999,
+                "update": {
+                  "n": 60,
+                  "mean": 6.021666666772217,
+                  "p50": 5.400000000372529,
+                  "p95": 8.900000000372529,
+                  "p99": 21.5,
+                  "max": 21.5
+                },
+                "draw": {
+                  "n": 60,
+                  "mean": 3.3449999999875826,
+                  "p50": 3.300000000745058,
+                  "p95": 4.599999999627471,
+                  "p99": 5.800000000745058,
+                  "max": 5.800000000745058
+                },
+                "steps": {
+                  "n": 60,
+                  "mean": 2,
+                  "p50": 2,
+                  "p95": 2,
+                  "p99": 2,
+                  "max": 2
+                }
+              }
+            ]
+          },
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "disturbed-entrance",
+              "seconds": 6,
+              "disturbed": true,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 18.90000000037253,
+            "frameCount": 342,
+            "wallSeconds": 6.000400000000001,
+            "fps": 57.156227020522756,
+            "intervals": {
+              "n": 342,
+              "mean": 17.49590643274854,
+              "p50": 16.699999999999818,
+              "p95": 16.900000000000546,
+              "p99": 33.5,
+              "max": 51.29999999999927
+            },
+            "update": {
+              "n": 342,
+              "mean": 11.51052631581017,
+              "p50": 11,
+              "p95": 20.299999998882413,
+              "p99": 33.5,
+              "max": 43.80000000074506
+            },
+            "draw": {
+              "n": 342,
+              "mean": 3.3076023391845544,
+              "p50": 3.100000001490116,
+              "p95": 5,
+              "p99": 6.099999999627471,
+              "max": 8.400000000372529
+            },
+            "cpu": {
+              "n": 342,
+              "mean": 14.818128654994725,
+              "p50": 14.5,
+              "p95": 24.700000001117587,
+              "p99": 37.59999999962747,
+              "max": 49.600000001490116
+            },
+            "steps": {
+              "n": 342,
+              "mean": 2.0994152046783627,
+              "p50": 2,
+              "p95": 3,
+              "p99": 4,
+              "max": 6
+            },
+            "over25ms": 15,
+            "over33_83ms": 3,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794640,
+              "lights": 1,
+              "edges": 54
+            },
+            "initial": {
+              "time": 0,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.6666666666666856
+                }
+              ]
+            },
+            "placement": null,
+            "final": {
+              "time": 7.058333333333474,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1440.9384686220526,
+                  "y": 3413.4958972729296,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.08112274589916524
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.12811288150851396
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.04819147219814113
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.0345406713072407
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.04487768217722987
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.09622066117094619
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.09666366339553178
+                }
+              ]
+            },
+            "states": {
+              "Ready": 342
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 59.59666900772549,
+                "update": {
+                  "n": 297,
+                  "mean": 10.566329966390173,
+                  "p50": 10.699999999254942,
+                  "p95": 17.5,
+                  "p99": 23.59999999962747,
+                  "max": 27.800000000745058
+                },
+                "draw": {
+                  "n": 297,
+                  "mean": 3.216835016811185,
+                  "p50": 3.099999999627471,
+                  "p95": 4.800000000745058,
+                  "p99": 5.399999998509884,
+                  "max": 5.5
+                },
+                "steps": {
+                  "n": 297,
+                  "mean": 2.016835016835017,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 3,
+                  "max": 4
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 44.99550044995499,
+                "update": {
+                  "n": 45,
+                  "mean": 17.742222221982146,
+                  "p50": 15.199999999254942,
+                  "p95": 40.399999998509884,
+                  "p99": 43.80000000074506,
+                  "max": 43.80000000074506
+                },
+                "draw": {
+                  "n": 45,
+                  "mean": 3.906666666848792,
+                  "p50": 3.599999999627471,
+                  "p95": 6.300000000745058,
+                  "p99": 8.400000000372529,
+                  "max": 8.400000000372529
+                },
+                "steps": {
+                  "n": 45,
+                  "mean": 2.6444444444444444,
+                  "p50": 2,
+                  "p95": 5,
+                  "p99": 6,
+                  "max": 6
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "pair": 2,
+        "reference": [
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "first-rope",
+              "seconds": 6,
+              "rope": 0,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 19.699999999254942,
+            "frameCount": 354,
+            "wallSeconds": 6,
+            "fps": 59.16467501211707,
+            "intervals": {
+              "n": 354,
+              "mean": 16.90197740112994,
+              "p50": 16.699999999999818,
+              "p95": 18.200000000000728,
+              "p99": 33.30000000000018,
+              "max": 33.5
+            },
+            "update": {
+              "n": 354,
+              "mean": 6.578248587557994,
+              "p50": 6.099999999627471,
+              "p95": 12,
+              "p99": 15.799999998882413,
+              "max": 23
+            },
+            "draw": {
+              "n": 354,
+              "mean": 3.922316384149221,
+              "p50": 3.800000000745058,
+              "p95": 6.400000000372529,
+              "p99": 8.300000000745058,
+              "max": 8.599999999627471
+            },
+            "cpu": {
+              "n": 354,
+              "mean": 10.500564971707215,
+              "p50": 10,
+              "p95": 17,
+              "p99": 21.800000000745058,
+              "max": 27
+            },
+            "steps": {
+              "n": 354,
+              "mean": 2.0282485875706215,
+              "p50": 2,
+              "p95": 2,
+              "p99": 4,
+              "max": 4
+            },
+            "over25ms": 5,
+            "over33_83ms": 0,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794808,
+              "lights": 1,
+              "edges": 57
+            },
+            "initial": {
+              "time": 0,
+              "x": 1085.9904591809407,
+              "y": 4369.749057249236,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "placement": {
+              "fraction": 0.75,
+              "offset": -14
+            },
+            "final": {
+              "time": 7.100000000000143,
+              "x": 1108.6493391377626,
+              "y": 4363.901572893479,
+              "state": "Rope \u00c2\u00b7 holding",
+              "climb": 0,
+              "robots": [
+                {
+                  "x": 1442.9014499574428,
+                  "y": 3410.635224224579,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.32729690022847535
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "states": {
+              "Rope \u00c2\u00b7 holding": 354
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 59.39719869968295,
+                "update": {
+                  "n": 296,
+                  "mean": 6.176013513512255,
+                  "p50": 5.5,
+                  "p95": 11.300000000745058,
+                  "p99": 15.700000001117587,
+                  "max": 23
+                },
+                "draw": {
+                  "n": 296,
+                  "mean": 3.794256756692571,
+                  "p50": 3.699999999254942,
+                  "p95": 6.300000000745058,
+                  "p99": 8.399999998509884,
+                  "max": 8.599999999627471
+                },
+                "steps": {
+                  "n": 296,
+                  "mean": 2.02027027027027,
+                  "p50": 2,
+                  "p95": 2,
+                  "p99": 4,
+                  "max": 4
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 58.00580058005803,
+                "update": {
+                  "n": 58,
+                  "mean": 8.63103448268797,
+                  "p50": 8.299999998882413,
+                  "p95": 15.600000001490116,
+                  "p99": 21.09999999962747,
+                  "max": 21.09999999962747
+                },
+                "draw": {
+                  "n": 58,
+                  "mean": 4.575862069100398,
+                  "p50": 4.300000000745058,
+                  "p95": 8,
+                  "p99": 8.300000000745058,
+                  "max": 8.300000000745058
+                },
+                "steps": {
+                  "n": 58,
+                  "mean": 2.0689655172413794,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 4,
+                  "max": 4
+                }
+              }
+            ]
+          },
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "disturbed-entrance",
+              "seconds": 6,
+              "disturbed": true,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 19.199999999254942,
+            "frameCount": 256,
+            "wallSeconds": 6,
+            "fps": 42.78575368107901,
+            "intervals": {
+              "n": 256,
+              "mean": 23.372265624999997,
+              "p50": 16.700000000000045,
+              "p95": 50.000000000000455,
+              "p99": 66.40000000000055,
+              "max": 66.80000000000018
+            },
+            "update": {
+              "n": 256,
+              "mean": 17.9351562499578,
+              "p50": 13.699999999254942,
+              "p95": 44.100000001490116,
+              "p99": 56.40000000037253,
+              "max": 57.59999999962747
+            },
+            "draw": {
+              "n": 256,
+              "mean": 3.204687500037835,
+              "p50": 3.099999999627471,
+              "p95": 4.599999999627471,
+              "p99": 6.5,
+              "max": 8.599999999627471
+            },
+            "cpu": {
+              "n": 256,
+              "mean": 21.139843749995634,
+              "p50": 17.09999999962747,
+              "p95": 47.30000000074506,
+              "p99": 60.5,
+              "max": 61.70000000111759
+            },
+            "steps": {
+              "n": 256,
+              "mean": 2.7578125,
+              "p50": 2,
+              "p95": 6,
+              "p99": 6,
+              "max": 6
+            },
+            "over25ms": 77,
+            "over33_83ms": 22,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794640,
+              "lights": 1,
+              "edges": 54
+            },
+            "initial": {
+              "time": 0,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.6666666666666856
+                }
+              ]
+            },
+            "placement": null,
+            "final": {
+              "time": 7.025000000000139,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1440.8796111419617,
+                  "y": 3416.850233950383,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.08031881679221442
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.14534384822513857
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.03862085625837608
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.04086698650189646
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.03884661836491432
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.09650771561575766
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.09535401644359354
+                }
+              ]
+            },
+            "states": {
+              "Ready": 256
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 47.358176308871634,
+                "update": {
+                  "n": 236,
+                  "mean": 15.616949152501332,
+                  "p50": 13.199999999254942,
+                  "p95": 32.600000001490116,
+                  "p99": 42.399999998509884,
+                  "max": 44.90000000037253
+                },
+                "draw": {
+                  "n": 236,
+                  "mean": 3.139830508514039,
+                  "p50": 3.099999999627471,
+                  "p95": 4.5,
+                  "p99": 5.599999999627471,
+                  "max": 8.599999999627471
+                },
+                "steps": {
+                  "n": 236,
+                  "mean": 2.5254237288135593,
+                  "p50": 2,
+                  "p95": 4,
+                  "p99": 6,
+                  "max": 6
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 20,
+                "update": {
+                  "n": 20,
+                  "mean": 45.28999999994412,
+                  "p50": 44.80000000074506,
+                  "p95": 57.5,
+                  "p99": 57.59999999962747,
+                  "max": 57.59999999962747
+                },
+                "draw": {
+                  "n": 20,
+                  "mean": 3.9700000000186266,
+                  "p50": 3.800000000745058,
+                  "p95": 4.900000000372529,
+                  "p99": 6.900000000372529,
+                  "max": 6.900000000372529
+                },
+                "steps": {
+                  "n": 20,
+                  "mean": 5.5,
+                  "p50": 6,
+                  "p95": 6,
+                  "p99": 6,
+                  "max": 6
+                }
+              }
+            ]
+          }
+        ],
+        "optimized": [
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "first-rope",
+              "seconds": 6,
+              "rope": 0,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 19.5,
+            "frameCount": 363,
+            "wallSeconds": 6.0001999999999995,
+            "fps": 60.66683379293057,
+            "intervals": {
+              "n": 363,
+              "mean": 16.483471074380162,
+              "p50": 16.699999999999818,
+              "p95": 17.399999999999636,
+              "p99": 25.199999999999818,
+              "max": 25.200000000000728
+            },
+            "update": {
+              "n": 363,
+              "mean": 4.9884297520733,
+              "p50": 4.300000000745058,
+              "p95": 9.900000000372529,
+              "p99": 11.5,
+              "max": 14.800000000745058
+            },
+            "draw": {
+              "n": 363,
+              "mean": 3.342148760328526,
+              "p50": 3.199999999254942,
+              "p95": 4.700000001117587,
+              "p99": 5.799999998882413,
+              "max": 7.900000000372529
+            },
+            "cpu": {
+              "n": 363,
+              "mean": 8.330578512401825,
+              "p50": 7.800000000745058,
+              "p95": 13.5,
+              "p99": 15.199999999254942,
+              "max": 20.90000000037253
+            },
+            "steps": {
+              "n": 363,
+              "mean": 1.977961432506887,
+              "p50": 2,
+              "p95": 3,
+              "p99": 4,
+              "max": 4
+            },
+            "over25ms": 6,
+            "over33_83ms": 0,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794808,
+              "lights": 1,
+              "edges": 57
+            },
+            "initial": {
+              "time": 0,
+              "x": 1085.9904591809407,
+              "y": 4369.749057249236,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "placement": {
+              "fraction": 0.75,
+              "offset": -14
+            },
+            "final": {
+              "time": 7.091666666666809,
+              "x": 1109.0490733111144,
+              "y": 4363.878663636814,
+              "state": "Rope \u00c2\u00b7 holding",
+              "climb": 0,
+              "robots": [
+                {
+                  "x": 1442.4544973551633,
+                  "y": 3411.2549927691457,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.3374176977847583
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "states": {
+              "Rope \u00c2\u00b7 holding": 363
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 60.700763267023255,
+                "update": {
+                  "n": 303,
+                  "mean": 4.990759075929721,
+                  "p50": 4.400000000372529,
+                  "p95": 10,
+                  "p99": 11.5,
+                  "max": 14.800000000745058
+                },
+                "draw": {
+                  "n": 303,
+                  "mean": 3.399339933981105,
+                  "p50": 3.200000001117587,
+                  "p95": 4.899999998509884,
+                  "p99": 5.799999998882413,
+                  "max": 7.900000000372529
+                },
+                "steps": {
+                  "n": 303,
+                  "mean": 1.976897689768977,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 4,
+                  "max": 4
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 60.49606775559593,
+                "update": {
+                  "n": 60,
+                  "mean": 4.97666666659837,
+                  "p50": 3.900000000372529,
+                  "p95": 9.199999999254942,
+                  "p99": 11,
+                  "max": 11
+                },
+                "draw": {
+                  "n": 60,
+                  "mean": 3.0533333333830037,
+                  "p50": 2.900000000372529,
+                  "p95": 4,
+                  "p99": 4.400000000372529,
+                  "max": 4.400000000372529
+                },
+                "steps": {
+                  "n": 60,
+                  "mean": 1.9833333333333334,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 4,
+                  "max": 4
+                }
+              }
+            ]
+          },
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "disturbed-entrance",
+              "seconds": 6,
+              "disturbed": true,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 18.799999998882413,
+            "frameCount": 348,
+            "wallSeconds": 6.0083,
+            "fps": 58.07937514603292,
+            "intervals": {
+              "n": 348,
+              "mean": 17.21781609195402,
+              "p50": 16.699999999999818,
+              "p95": 25,
+              "p99": 33.40000000000009,
+              "max": 41.80000000000018
+            },
+            "update": {
+              "n": 348,
+              "mean": 10.806321838966989,
+              "p50": 10.5,
+              "p95": 18.700000001117587,
+              "p99": 26,
+              "max": 32.30000000074506
+            },
+            "draw": {
+              "n": 348,
+              "mean": 3.2856321840322225,
+              "p50": 3.100000001490116,
+              "p95": 5.199999999254942,
+              "p99": 6,
+              "max": 7.5
+            },
+            "cpu": {
+              "n": 348,
+              "mean": 14.09195402299921,
+              "p50": 14.099999999627471,
+              "p95": 22.5,
+              "p99": 29.5,
+              "max": 35.09999999962747
+            },
+            "steps": {
+              "n": 348,
+              "mean": 2.0660919540229883,
+              "p50": 2,
+              "p95": 3,
+              "p99": 4,
+              "max": 5
+            },
+            "over25ms": 17,
+            "over33_83ms": 1,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794640,
+              "lights": 1,
+              "edges": 54
+            },
+            "initial": {
+              "time": 0,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.6666666666666856
+                }
+              ]
+            },
+            "placement": null,
+            "final": {
+              "time": 7.083333333333475,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1441.9837881226572,
+                  "y": 3411.89288485593,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.08243660390621699
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.11102670286970806
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.05342708587249945
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.030663152331499077
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.04921727593705327
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.0963719278777262
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.09722191272794589
+                }
+              ]
+            },
+            "states": {
+              "Ready": 348
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 57.99137152603593,
+                "update": {
+                  "n": 289,
+                  "mean": 10.440830449725157,
+                  "p50": 9.900000000372529,
+                  "p95": 19.09999999962747,
+                  "p99": 26.09999999962747,
+                  "max": 32.30000000074506
+                },
+                "draw": {
+                  "n": 289,
+                  "mean": 3.2176470589601665,
+                  "p50": 3,
+                  "p95": 5.199999999254942,
+                  "p99": 6.099999999627471,
+                  "max": 7.5
+                },
+                "steps": {
+                  "n": 289,
+                  "mean": 2.069204152249135,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 4,
+                  "max": 5
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 58.51433105226617,
+                "update": {
+                  "n": 59,
+                  "mean": 12.596610169321046,
+                  "p50": 12.399999998509884,
+                  "p95": 15.599999999627471,
+                  "p99": 26,
+                  "max": 26
+                },
+                "draw": {
+                  "n": 59,
+                  "mean": 3.618644067859751,
+                  "p50": 3.599999999627471,
+                  "p95": 5.100000001490116,
+                  "p99": 5.599999999627471,
+                  "max": 5.599999999627471
+                },
+                "steps": {
+                  "n": 59,
+                  "mean": 2.0508474576271185,
+                  "p50": 2,
+                  "p95": 2,
+                  "p99": 4,
+                  "max": 4
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "pair": 3,
+        "reference": [
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "first-rope",
+              "seconds": 6,
+              "rope": 0,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 19.59999999962747,
+            "frameCount": 359,
+            "wallSeconds": 6,
+            "fps": 59.99933148377177,
+            "intervals": {
+              "n": 359,
+              "mean": 16.666852367688023,
+              "p50": 16.699999999999818,
+              "p95": 16.899999999999636,
+              "p99": 17.600000000000364,
+              "max": 18.300000000000182
+            },
+            "update": {
+              "n": 359,
+              "mean": 5.726740947050304,
+              "p50": 5.400000000372529,
+              "p95": 10.800000000745058,
+              "p99": 14.599999999627471,
+              "max": 20.300000000745058
+            },
+            "draw": {
+              "n": 359,
+              "mean": 3.428969359305534,
+              "p50": 3.300000000745058,
+              "p95": 4.900000000372529,
+              "p99": 6.5,
+              "max": 9.200000001117587
+            },
+            "cpu": {
+              "n": 359,
+              "mean": 9.15571030635584,
+              "p50": 8.800000000745058,
+              "p95": 14.400000000372529,
+              "p99": 20.199999999254942,
+              "max": 23.59999999962747
+            },
+            "steps": {
+              "n": 359,
+              "mean": 2,
+              "p50": 2,
+              "p95": 3,
+              "p99": 3,
+              "max": 3
+            },
+            "over25ms": 0,
+            "over33_83ms": 0,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794808,
+              "lights": 1,
+              "edges": 57
+            },
+            "initial": {
+              "time": 0,
+              "x": 1085.9904591809407,
+              "y": 4369.749057249236,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "placement": {
+              "fraction": 0.75,
+              "offset": -14
+            },
+            "final": {
+              "time": 7.108333333333476,
+              "x": 1108.2657789435427,
+              "y": 4363.923280998563,
+              "state": "Rope \u00c2\u00b7 holding",
+              "climb": 0,
+              "robots": [
+                {
+                  "x": 1443.3257424089861,
+                  "y": 3410.0335733271786,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.3150229987199964
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "states": {
+              "Rope \u00c2\u00b7 holding": 359
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 59.997993378147896,
+                "update": {
+                  "n": 299,
+                  "mean": 5.593645484937373,
+                  "p50": 5.199999999254942,
+                  "p95": 10.700000001117587,
+                  "p99": 18.199999999254942,
+                  "max": 20.300000000745058
+                },
+                "draw": {
+                  "n": 299,
+                  "mean": 3.3973244146496855,
+                  "p50": 3.299999998882413,
+                  "p95": 4.900000000372529,
+                  "p99": 7.599999999627471,
+                  "max": 9.200000001117587
+                },
+                "steps": {
+                  "n": 299,
+                  "mean": 2,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 3,
+                  "max": 3
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 60.00600060005997,
+                "update": {
+                  "n": 60,
+                  "mean": 6.389999999913076,
+                  "p50": 6,
+                  "p95": 11.099999999627471,
+                  "p99": 14.599999999627471,
+                  "max": 14.599999999627471
+                },
+                "draw": {
+                  "n": 60,
+                  "mean": 3.5866666668405136,
+                  "p50": 3.5,
+                  "p95": 4.5,
+                  "p99": 5.599999999627471,
+                  "max": 5.599999999627471
+                },
+                "steps": {
+                  "n": 60,
+                  "mean": 2,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 3,
+                  "max": 3
+                }
+              }
+            ]
+          },
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "disturbed-entrance",
+              "seconds": 6,
+              "disturbed": true,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 17.699999999254942,
+            "frameCount": 217,
+            "wallSeconds": 6.049900000000001,
+            "fps": 35.967049541710175,
+            "intervals": {
+              "n": 217,
+              "mean": 27.803225806451614,
+              "p50": 16.799999999999955,
+              "p95": 66.40000000000055,
+              "p99": 66.80000000000018,
+              "max": 81.60000000000036
+            },
+            "update": {
+              "n": 217,
+              "mean": 21.564055299506553,
+              "p50": 13.5,
+              "p95": 55.80000000074506,
+              "p99": 62.40000000037253,
+              "max": 65.90000000037253
+            },
+            "draw": {
+              "n": 217,
+              "mean": 3.198156682001899,
+              "p50": 3,
+              "p95": 5.599999999627471,
+              "p99": 7.599999999627471,
+              "max": 9.299999998882413
+            },
+            "cpu": {
+              "n": 217,
+              "mean": 24.76221198150845,
+              "p50": 16.299999998882413,
+              "p95": 60.69999999925494,
+              "p99": 67.60000000149012,
+              "max": 69.90000000037253
+            },
+            "steps": {
+              "n": 217,
+              "mean": 3.175115207373272,
+              "p50": 3,
+              "p95": 6,
+              "p99": 6,
+              "max": 6
+            },
+            "over25ms": 84,
+            "over33_83ms": 46,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794640,
+              "lights": 1,
+              "edges": 54
+            },
+            "initial": {
+              "time": 0,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.6666666666666856
+                }
+              ]
+            },
+            "placement": null,
+            "final": {
+              "time": 6.858333333333464,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1441.1562438572582,
+                  "y": 3433.4069401819556,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.0761099044329967
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.17821975262484102
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.038931719327933934
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.06353135846461555
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.05135764563340217
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.08928465971416699
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.08795784540080831
+                }
+              ]
+            },
+            "states": {
+              "Ready": 217
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 39.60317617472921,
+                "update": {
+                  "n": 200,
+                  "mean": 18.919999999953433,
+                  "p50": 12.099999999627471,
+                  "p95": 49.09999999962747,
+                  "p99": 60.5,
+                  "max": 62.90000000037253
+                },
+                "draw": {
+                  "n": 200,
+                  "mean": 3.0634999999776484,
+                  "p50": 2.899999998509884,
+                  "p95": 5.299999998882413,
+                  "p99": 6.300000000745058,
+                  "max": 7.599999999627471
+                },
+                "steps": {
+                  "n": 200,
+                  "mean": 2.935,
+                  "p50": 3,
+                  "p95": 6,
+                  "p99": 6,
+                  "max": 6
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 17.290480065093575,
+                "update": {
+                  "n": 17,
+                  "mean": 52.6705882354256,
+                  "p50": 52.600000001490116,
+                  "p95": 65.90000000037253,
+                  "p99": 65.90000000037253,
+                  "max": 65.90000000037253
+                },
+                "draw": {
+                  "n": 17,
+                  "mean": 4.78235294111073,
+                  "p50": 4.100000001490116,
+                  "p95": 9.299999998882413,
+                  "p99": 9.299999998882413,
+                  "max": 9.299999998882413
+                },
+                "steps": {
+                  "n": 17,
+                  "mean": 6,
+                  "p50": 6,
+                  "p95": 6,
+                  "p99": 6,
+                  "max": 6
+                }
+              }
+            ]
+          }
+        ],
+        "optimized": [
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "first-rope",
+              "seconds": 6,
+              "rope": 0,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 20.40000000037253,
+            "frameCount": 353,
+            "wallSeconds": 6.000000000000001,
+            "fps": 58.99852921513571,
+            "intervals": {
+              "n": 353,
+              "mean": 16.94957507082153,
+              "p50": 16.699999999999818,
+              "p95": 18.100000000000364,
+              "p99": 33.30000000000018,
+              "max": 34.59999999999991
+            },
+            "update": {
+              "n": 353,
+              "mean": 5.7881019830059985,
+              "p50": 5.5,
+              "p95": 11.099999999627471,
+              "p99": 13.299999998882413,
+              "max": 23.799999998882413
+            },
+            "draw": {
+              "n": 353,
+              "mean": 3.5875354107553745,
+              "p50": 3.299999998882413,
+              "p95": 5.800000000745058,
+              "p99": 9,
+              "max": 17
+            },
+            "cpu": {
+              "n": 353,
+              "mean": 9.375637393761373,
+              "p50": 8.900000000372529,
+              "p95": 15.199999999254942,
+              "p99": 18.399999998509884,
+              "max": 32.69999999925494
+            },
+            "steps": {
+              "n": 353,
+              "mean": 2.0339943342776206,
+              "p50": 2,
+              "p95": 3,
+              "p99": 4,
+              "max": 4
+            },
+            "over25ms": 6,
+            "over33_83ms": 1,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794808,
+              "lights": 1,
+              "edges": 57
+            },
+            "initial": {
+              "time": 0,
+              "x": 1085.9904591809407,
+              "y": 4369.749057249236,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "placement": {
+              "fraction": 0.75,
+              "offset": -14
+            },
+            "final": {
+              "time": 7.100000000000143,
+              "x": 1108.6493391377626,
+              "y": 4363.901572893479,
+              "state": "Rope \u00c2\u00b7 holding",
+              "climb": 0,
+              "robots": [
+                {
+                  "x": 1442.9014499574428,
+                  "y": 3410.635224224579,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.32729690022847535
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0
+                }
+              ]
+            },
+            "states": {
+              "Rope \u00c2\u00b7 holding": 353
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 59.39958259752769,
+                "update": {
+                  "n": 296,
+                  "mean": 5.573310810814586,
+                  "p50": 5.400000000372529,
+                  "p95": 10.600000001490116,
+                  "p99": 13.299999998882413,
+                  "max": 23.799999998882413
+                },
+                "draw": {
+                  "n": 296,
+                  "mean": 3.5148648648661234,
+                  "p50": 3.200000001117587,
+                  "p95": 5.599999999627471,
+                  "p99": 10.800000000745058,
+                  "max": 17
+                },
+                "steps": {
+                  "n": 296,
+                  "mean": 2.02027027027027,
+                  "p50": 2,
+                  "p95": 3,
+                  "p99": 4,
+                  "max": 4
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 56.99999999999999,
+                "update": {
+                  "n": 57,
+                  "mean": 6.9035087719298245,
+                  "p50": 6,
+                  "p95": 11.300000000745058,
+                  "p99": 13.900000000372529,
+                  "max": 13.900000000372529
+                },
+                "draw": {
+                  "n": 57,
+                  "mean": 3.9649122806363986,
+                  "p50": 3.599999999627471,
+                  "p95": 6.799999998882413,
+                  "p99": 7.300000000745058,
+                  "max": 7.300000000745058
+                },
+                "steps": {
+                  "n": 57,
+                  "mean": 2.1052631578947367,
+                  "p50": 2,
+                  "p95": 4,
+                  "p99": 4,
+                  "max": 4
+                }
+              }
+            ]
+          },
+          {
+            "repeat": 0,
+            "scenario": {
+              "id": "disturbed-entrance",
+              "seconds": 6,
+              "disturbed": true,
+              "mode": "full",
+              "width": 1280,
+              "height": 800,
+              "profile": false
+            },
+            "setupMs": 19.5,
+            "frameCount": 352,
+            "wallSeconds": 6.0166,
+            "fps": 58.666666666666664,
+            "intervals": {
+              "n": 352,
+              "mean": 17.045454545454547,
+              "p50": 16.699999999999818,
+              "p95": 16.899999999999636,
+              "p99": 33.400000000000546,
+              "max": 33.5
+            },
+            "update": {
+              "n": 352,
+              "mean": 11.10909090903376,
+              "p50": 10.899999998509884,
+              "p95": 15.300000000745058,
+              "p99": 23.700000001117587,
+              "max": 24.90000000037253
+            },
+            "draw": {
+              "n": 352,
+              "mean": 3.2042613636268387,
+              "p50": 3.099999999627471,
+              "p95": 4.5,
+              "p99": 5.5,
+              "max": 7.600000001490116
+            },
+            "cpu": {
+              "n": 352,
+              "mean": 14.313352272660598,
+              "p50": 14,
+              "p95": 19.59999999962747,
+              "p99": 26.90000000037253,
+              "max": 28.699999999254942
+            },
+            "steps": {
+              "n": 352,
+              "mean": 2.039772727272727,
+              "p50": 2,
+              "p95": 2,
+              "p99": 4,
+              "max": 4
+            },
+            "over25ms": 8,
+            "over33_83ms": 0,
+            "renderer": {
+              "backend": "gpu",
+              "ratio": 1,
+              "backingWidth": 1280,
+              "backingHeight": 800,
+              "dpr": 1,
+              "buffers": 33794640,
+              "lights": 1,
+              "edges": 54
+            },
+            "initial": {
+              "time": 0,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1730,
+                  "y": 4003.8376146679657,
+                  "state": "Ready",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.6666666666667425
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.6666666666666288
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.6666666666666856
+                }
+              ]
+            },
+            "placement": null,
+            "final": {
+              "time": 7.075000000000141,
+              "x": 200,
+              "y": 4905,
+              "state": "Ready",
+              "climb": null,
+              "robots": [
+                {
+                  "x": 1441.4882070709414,
+                  "y": 3412.548906480571,
+                  "state": "Swimming up",
+                  "climb": null,
+                  "phase": "patrol",
+                  "shots": 0
+                }
+              ],
+              "ropes": [
+                {
+                  "index": 0,
+                  "nodes": 52,
+                  "maxDelta": 0.08203598367890663
+                },
+                {
+                  "index": 1,
+                  "nodes": 32,
+                  "maxDelta": 0.11709446061104245
+                },
+                {
+                  "index": 2,
+                  "nodes": 57,
+                  "maxDelta": 0.051867519291931785
+                },
+                {
+                  "index": 3,
+                  "nodes": 42,
+                  "maxDelta": 0.03201280186090116
+                },
+                {
+                  "index": 4,
+                  "nodes": 59,
+                  "maxDelta": 0.04778903118267408
+                },
+                {
+                  "index": 5,
+                  "nodes": 50,
+                  "maxDelta": 0.09640478029098176
+                },
+                {
+                  "index": 6,
+                  "nodes": 74,
+                  "maxDelta": 0.09708154451186601
+                }
+              ]
+            },
+            "states": {
+              "Ready": 352
+            },
+            "windows": [
+              {
+                "from": 0,
+                "to": 5,
+                "fps": 59.19534463730311,
+                "update": {
+                  "n": 295,
+                  "mean": 10.656610169444802,
+                  "p50": 10.599999999627471,
+                  "p95": 15.099999999627471,
+                  "p99": 21.699999999254942,
+                  "max": 23.800000000745058
+                },
+                "draw": {
+                  "n": 295,
+                  "mean": 3.137627118623863,
+                  "p50": 3.099999999627471,
+                  "p95": 4.5,
+                  "p99": 6.5,
+                  "max": 7.600000001490116
+                },
+                "steps": {
+                  "n": 295,
+                  "mean": 2.0271186440677966,
+                  "p50": 2,
+                  "p95": 2,
+                  "p99": 4,
+                  "max": 4
+                }
+              },
+              {
+                "from": 5,
+                "to": 6,
+                "fps": 56.07476635514019,
+                "update": {
+                  "n": 57,
+                  "mean": 13.450877192871351,
+                  "p50": 13,
+                  "p95": 23,
+                  "p99": 24.90000000037253,
+                  "max": 24.90000000037253
+                },
+                "draw": {
+                  "n": 57,
+                  "mean": 3.549122807063293,
+                  "p50": 3.600000001490116,
+                  "p95": 4.699999999254942,
+                  "p99": 4.799999998882413,
+                  "max": 4.799999998882413
+                },
+                "steps": {
+                  "n": 57,
+                  "mean": 2.1052631578947367,
+                  "p50": 2,
+                  "p95": 4,
+                  "p99": 4,
+                  "max": 4
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "trajectoryReference": {
+    "reference": true,
+    "results": [
+      {
+        "id": "entrance",
+        "ticks": 600,
+        "hash": "2f2b407002aa497cc03de153d2f3dec450b76c1c2fed0406db3609073b8325a0",
+        "update": {
+          "n": 480,
+          "mean": 1.0971945833333365,
+          "p50": 0.9882999999999811,
+          "p95": 1.8566999999998188,
+          "p99": 2.9320000000000164,
+          "max": 4.442500000000109
+        }
+      },
+      {
+        "id": "entrance-no-bot",
+        "ticks": 600,
+        "hash": "2c0650153d8bcd06bd3328242124156300d6c6d99308a610de65144e1c3ff8b5",
+        "update": {
+          "n": 480,
+          "mean": 0.17957541666666543,
+          "p50": 0.14089999999987413,
+          "p95": 0.38400000000001455,
+          "p99": 0.5688000000000102,
+          "max": 4.052799999999934
+        }
+      },
+      {
+        "id": "entrance-motion",
+        "ticks": 600,
+        "hash": "6edd22b0d5ca0e314e250da6d89699a111be3e26da5a61c6e0182529ad3b570f",
+        "update": {
+          "n": 480,
+          "mean": 1.3783939583333449,
+          "p50": 1.1925999999998567,
+          "p95": 2.5837000000001353,
+          "p99": 3.7897000000002663,
+          "max": 5.7051000000001295
+        }
+      },
+      {
+        "id": "first-rope",
+        "ticks": 600,
+        "hash": "9d0658e47aab4520020f22a8d2be10026b0cd2269ae2709d62b40245d6a4b832",
+        "update": {
+          "n": 480,
+          "mean": 1.8939929166666787,
+          "p50": 1.6841999999996915,
+          "p95": 2.9682000000002517,
+          "p99": 7.364399999999478,
+          "max": 15.598500000000058
+        }
+      },
+      {
+        "id": "first-rope-no-bot",
+        "ticks": 600,
+        "hash": "026fc1dfbb523e308fd503541b8c9cd09f976065b7b2f427c7407ad28032b679",
+        "update": {
+          "n": 480,
+          "mean": 0.8777572916666733,
+          "p50": 0.5007999999997992,
+          "p95": 2.1607999999996537,
+          "p99": 3.200300000000425,
+          "max": 4.051400000000285
+        }
+      },
+      {
+        "id": "new-left-rope",
+        "ticks": 600,
+        "hash": "fe0596b6f0ac5acbcfa1acce9c19b72a42692548e18461d1b5282ca7863ab0de",
+        "update": {
+          "n": 480,
+          "mean": 2.327844583333295,
+          "p50": 2.0597999999999956,
+          "p95": 4.047800000000279,
+          "p99": 6.35780000000068,
+          "max": 8.667499999999563
+        }
+      },
+      {
+        "id": "crossing-rope",
+        "ticks": 600,
+        "hash": "4eded721bbe4766a8886716e8646e6dbdcd5ddc5289e431d9c3fe1d48504c641",
+        "update": {
+          "n": 480,
+          "mean": 1.8409331250000187,
+          "p50": 1.5623999999988882,
+          "p95": 3.39929999999913,
+          "p99": 5.26759999999922,
+          "max": 10.192600000000311
+        }
+      },
+      {
+        "id": "upper-rope",
+        "ticks": 600,
+        "hash": "1dd021f8c402f2c13127ce91798f97b07399c5df1fc9a74472e7bfbdf9f630e8",
+        "update": {
+          "n": 480,
+          "mean": 1.3937391666667016,
+          "p50": 1.2247000000006665,
+          "p95": 2.38550000000032,
+          "p99": 3.4328999999997905,
+          "max": 5.953799999999319
+        }
+      },
+      {
+        "id": "water",
+        "ticks": 600,
+        "hash": "39b15c373a17646009b692303b4a20b7b9aab9d6a98ab5aa11d2a6976e9a64a0",
+        "update": {
+          "n": 480,
+          "mean": 1.9383781250000007,
+          "p50": 1.76720000000023,
+          "p95": 3.1075999999993655,
+          "p99": 4.193400000000111,
+          "max": 4.502699999999095
+        }
+      },
+      {
+        "id": "middle-balcony",
+        "ticks": 600,
+        "hash": "1d416ea1369279c32f67813705a28d2e8c23753d574ae45c040e8cf1710f98ce",
+        "update": {
+          "n": 480,
+          "mean": 1.11354249999996,
+          "p50": 0.9602999999988242,
+          "p95": 1.9344999999993888,
+          "p99": 3.126699999998891,
+          "max": 5.036600000001272
+        }
+      },
+      {
+        "id": "chimney",
+        "ticks": 600,
+        "hash": "8b2f05fc47399478e4b0df639604543c873e214eecb46607f7b8d20e8f39d8a8",
+        "update": {
+          "n": 480,
+          "mean": 2.0813385416666015,
+          "p50": 1.6827999999986787,
+          "p95": 4.9619000000020606,
+          "p99": 9.092900000003283,
+          "max": 9.769100000001345
+        }
+      },
+      {
+        "id": "exit",
+        "ticks": 600,
+        "hash": "9e24dc38c0fa06de3d0ea9298ba215d0780e1b317885778a0591d94644261095",
+        "update": {
+          "n": 480,
+          "mean": 1.1663935416667452,
+          "p50": 1.0033999999977823,
+          "p95": 1.998200000001816,
+          "p99": 3.1402999999991152,
+          "max": 7.7203000000008615
+        }
+      },
+      {
+        "id": "disturbed-entrance",
+        "ticks": 600,
+        "hash": "e3b69b86acbaf4a20438cf3b80a9075bbeb7d896c07038532edc1779a2916d5f",
+        "update": {
+          "n": 480,
+          "mean": 5.082677083333351,
+          "p50": 4.9113000000033935,
+          "p95": 7.0997000000024855,
+          "p99": 8.32050000000163,
+          "max": 15.129800000002433
+        }
+      },
+      {
+        "id": "disturbed-chimney",
+        "ticks": 600,
+        "hash": "bba271cb028128ad1c0cbf754053dd62c8c2b57c8941aa67a1390613ea9f9764",
+        "update": {
+          "n": 480,
+          "mean": 5.586126875000014,
+          "p50": 5.169300000001385,
+          "p95": 9.231299999999464,
+          "p99": 11.923099999999977,
+          "max": 14.121399999999994
+        }
+      }
+    ]
+  },
+  "trajectoryOptimized": {
+    "reference": false,
+    "results": [
+      {
+        "id": "entrance",
+        "ticks": 600,
+        "hash": "2f2b407002aa497cc03de153d2f3dec450b76c1c2fed0406db3609073b8325a0",
+        "update": {
+          "n": 480,
+          "mean": 1.0723902083333288,
+          "p50": 0.846599999999853,
+          "p95": 1.9366999999999734,
+          "p99": 3.7988000000000284,
+          "max": 7.555699999999888
+        }
+      },
+      {
+        "id": "entrance-no-bot",
+        "ticks": 600,
+        "hash": "2c0650153d8bcd06bd3328242124156300d6c6d99308a610de65144e1c3ff8b5",
+        "update": {
+          "n": 480,
+          "mean": 0.21101000000001638,
+          "p50": 0.1435999999998785,
+          "p95": 0.48649999999997817,
+          "p99": 0.9658999999996922,
+          "max": 2.179399999999987
+        }
+      },
+      {
+        "id": "entrance-motion",
+        "ticks": 600,
+        "hash": "6edd22b0d5ca0e314e250da6d89699a111be3e26da5a61c6e0182529ad3b570f",
+        "update": {
+          "n": 480,
+          "mean": 1.2807602083333365,
+          "p50": 1.138800000000174,
+          "p95": 2.224500000000262,
+          "p99": 3.8638999999998305,
+          "max": 4.595899999999801
+        }
+      },
+      {
+        "id": "first-rope",
+        "ticks": 600,
+        "hash": "9d0658e47aab4520020f22a8d2be10026b0cd2269ae2709d62b40245d6a4b832",
+        "update": {
+          "n": 480,
+          "mean": 1.5993622916666501,
+          "p50": 1.478900000000067,
+          "p95": 2.4656000000004497,
+          "p99": 3.3635999999996784,
+          "max": 3.7132000000001426
+        }
+      },
+      {
+        "id": "first-rope-no-bot",
+        "ticks": 600,
+        "hash": "026fc1dfbb523e308fd503541b8c9cd09f976065b7b2f427c7407ad28032b679",
+        "update": {
+          "n": 480,
+          "mean": 0.6528972916666665,
+          "p50": 0.43580000000019936,
+          "p95": 1.24159999999938,
+          "p99": 1.7632000000003245,
+          "max": 2.761099999999715
+        }
+      },
+      {
+        "id": "new-left-rope",
+        "ticks": 600,
+        "hash": "fe0596b6f0ac5acbcfa1acce9c19b72a42692548e18461d1b5282ca7863ab0de",
+        "update": {
+          "n": 480,
+          "mean": 1.7936591666666477,
+          "p50": 1.610000000000582,
+          "p95": 2.7557999999999083,
+          "p99": 3.426400000000285,
+          "max": 6.297800000000279
+        }
+      },
+      {
+        "id": "crossing-rope",
+        "ticks": 600,
+        "hash": "4eded721bbe4766a8886716e8646e6dbdcd5ddc5289e431d9c3fe1d48504c641",
+        "update": {
+          "n": 480,
+          "mean": 1.513224791666634,
+          "p50": 1.378499999998894,
+          "p95": 2.5133999999998196,
+          "p99": 3.2427999999999884,
+          "max": 3.8443999999999505
+        }
+      },
+      {
+        "id": "upper-rope",
+        "ticks": 600,
+        "hash": "1dd021f8c402f2c13127ce91798f97b07399c5df1fc9a74472e7bfbdf9f630e8",
+        "update": {
+          "n": 480,
+          "mean": 1.3214360416667357,
+          "p50": 1.1832999999987805,
+          "p95": 2.1829999999990832,
+          "p99": 3.2219999999997526,
+          "max": 4.112500000001091
+        }
+      },
+      {
+        "id": "water",
+        "ticks": 600,
+        "hash": "39b15c373a17646009b692303b4a20b7b9aab9d6a98ab5aa11d2a6976e9a64a0",
+        "update": {
+          "n": 480,
+          "mean": 1.7530212499999949,
+          "p50": 1.5979999999999563,
+          "p95": 2.806399999999485,
+          "p99": 3.8034999999999854,
+          "max": 4.031999999999243
+        }
+      },
+      {
+        "id": "middle-balcony",
+        "ticks": 600,
+        "hash": "1d416ea1369279c32f67813705a28d2e8c23753d574ae45c040e8cf1710f98ce",
+        "update": {
+          "n": 480,
+          "mean": 1.0667010416666736,
+          "p50": 0.9383000000016182,
+          "p95": 1.7013000000006286,
+          "p99": 2.5847999999987223,
+          "max": 6.666699999999764
+        }
+      },
+      {
+        "id": "chimney",
+        "ticks": 600,
+        "hash": "8b2f05fc47399478e4b0df639604543c873e214eecb46607f7b8d20e8f39d8a8",
+        "update": {
+          "n": 480,
+          "mean": 1.8383602083332826,
+          "p50": 1.4826999999986583,
+          "p95": 4.302799999999479,
+          "p99": 7.281199999999444,
+          "max": 8.201100000000224
+        }
+      },
+      {
+        "id": "exit",
+        "ticks": 600,
+        "hash": "9e24dc38c0fa06de3d0ea9298ba215d0780e1b317885778a0591d94644261095",
+        "update": {
+          "n": 480,
+          "mean": 1.0260649999999374,
+          "p50": 0.8711999999995896,
+          "p95": 1.8854000000010274,
+          "p99": 2.5226999999995314,
+          "max": 3.9248999999999796
+        }
+      },
+      {
+        "id": "disturbed-entrance",
+        "ticks": 600,
+        "hash": "e3b69b86acbaf4a20438cf3b80a9075bbeb7d896c07038532edc1779a2916d5f",
+        "update": {
+          "n": 480,
+          "mean": 4.0138418750000255,
+          "p50": 3.842400000001362,
+          "p95": 5.641899999998714,
+          "p99": 7.101599999998143,
+          "max": 11.33179999999993
+        }
+      },
+      {
+        "id": "disturbed-chimney",
+        "ticks": 600,
+        "hash": "bba271cb028128ad1c0cbf754053dd62c8c2b57c8941aa67a1390613ea9f9764",
+        "update": {
+          "n": 480,
+          "mean": 4.9017495833334355,
+          "p50": 4.496500000001106,
+          "p95": 7.8496999999988475,
+          "p99": 10.938899999997375,
+          "max": 17.03030000000217
+        }
+      }
+    ]
+  },
+  "validation": {
+    "focusedNodeChecks": 199,
+    "lint": "passed",
+    "typecheckAndProductionBuild": "passed",
+    "performanceRegression": "Original code performs 100 distance roots for 100 out-of-range cached hints; optimized code performs zero. Exact corner ties, bounded radii, normal-directed contacts and geometry invalidation covered by existing exhaustive tests.",
+    "browserGameplayChecks": "10 passed in hardware Edge: fresh 500/1300-unit keyboard climbs, swing/coast/release, reverse-gravity catching and turns, gate/window transfers, loose-ball contacts."
+  },
+  "rawArtifacts": ".local/rope-optimization/ and .local/ascent-perf-2026-10-26/"
+}

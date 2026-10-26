@@ -1,5 +1,57 @@
 # LAB performance notes
 
+## October 26, 2026: exact rope terrain-query optimization
+
+Repeated rope contact queries now reuse prepared edge bounds for point-on-edge
+checks, iterate candidate indices without allocating iterators, and allocate the
+nearest-boundary result only after choosing its face. Bounded clearance queries
+reject an out-of-range cached face before projection and a distance root. The
+original cross-product arithmetic, epsilons, edge ordering and normal-directed
+corner tie policy are preserved. Geometry edits between solves still invalidate
+the prepared data normally.
+
+This changes query cost, not the rope model: particle spacing, pass counts,
+contact order, damping, wake/sleep thresholds and offscreen simulation stay the
+same. The user's current seven-rope Ascent snapshot is frozen for both arms;
+this comparison does not include further rope-length or terrain-layout edits.
+
+The [retained comparison](performance/2026-10-26-rope-contact-queries.json) uses
+three alternating original/optimized hardware Edge runs on Snapdragon X Elite /
+Adreno X1-85, at 1280x800 DPR 1. Each case has 60 warmup frames and six measured
+seconds, with the normal 120 Hz accumulator and 50 ms frame-delta cap, full GPU
+lighting and water. Motion diagnostics and adaptive quality are disabled.
+Measurements ran sequentially without other tests or benchmarks.
+
+| Workload | Update CPU/frame before | After | Update CPU/tick before | After | FPS before / after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| First-rope hold and swing | 5.73 ms | 5.25 ms | 2.88 ms | 2.62 ms | 60.0 / 60.0 |
+| All seven ropes disturbed | 17.94 ms | 11.11 ms | 6.50 ms | 5.45 ms | 42.8 / 58.1 |
+
+Values are medians of three episode means. CPU per tick normalizes update time
+by actual physics steps, separating throughput from catch-up amplification. It
+falls 9% on the first rope and 16% in the seven-rope stress probe. The stress
+case's larger per-frame improvement includes fewer catch-up ticks; it records
+192 frame intervals above 25 ms before and 40 after. Background machine load
+varies, so these are matched workload measurements, not a universal 60 FPS claim.
+The stress input is one 80-unit/sec impulse at 70% distance on each rope.
+
+Across 14 probes, all captured player, bot, rope and pose numeric values match
+exactly over 8,400 physics ticks, including signed zero, stored rope velocity and
+bend points. Poses are checked every fourth tick. The new bounded-hint regression
+fails against the original code (100 unnecessary distance roots) and passes with
+the optimization (zero). The 199 focused rope, terrain, gravity, bot interception
+and geometry checks, full lint, TypeScript and production build pass. Ten browser
+checks pass for fresh keyboard climbs, passive swing/release, reversed gravity,
+gate/window transfers and loose-prop contacts. Complete CI results are checked
+before merge. Diagnostic placements are not a completed normal-control Ascent route or
+a review of level readability, enjoyment or medal times.
+
+Raw reference sources, hash probes and browser reports are retained in
+`.local/rope-optimization/` and `.local/ascent-perf-2026-10-26/`. They record the
+frozen level hash, original/optimized geometry hashes, all episode statistics and
+the exact numeric trajectory hashes. CPU drawing spans exclude asynchronous GPU
+completion, React UI, audio and input latency.
+
 ## October 25, 2026: rope solver optimization
 
 Rope solves now share validated terrain geometry across all constraint sweeps.

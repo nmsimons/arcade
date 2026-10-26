@@ -4,16 +4,18 @@ import type { NamedObject } from './objectNames.ts'
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
 import { TUNING } from './movementTuning.ts'
-import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend, polygonIntersects } from './geometry.ts'
+import { lineBlocked, moveBody, movePoint, nearestBoundary, nearbyBoundary, pointInside, segmentPenetration, ropeBend, polygonIntersects, withTerrainQueries } from './geometry.ts'
 import { initRopeSleep, ropeCanSleep, settleRopeSleep } from './ropeSleep.ts'
 import { ropeHangOffset, ropePump } from './ropeBodyMotion.ts'
 import type { RopeBodyMotion } from './ropeBodyMotion.ts'
 
 export type Point = [number, number]
 export const ROPE_CLEARANCE = 1.5
-export const ROPE_SEGMENT_LENGTH = 8
 const ROPE_PUSH_STRENGTH = 268.8
-export const ropeSegmentCount = (length: number) => Math.ceil(length / ROPE_SEGMENT_LENGTH)
+// Short ropes retain fine contact/grip resolution around anchors and slopes.
+// Longer chains use modestly wider spans; terrain corners still add bend joints.
+export const ropeSegmentLength = (length: number) => length > 800 ? 12 : 8
+export const ropeSegmentCount = (length: number) => Math.ceil(length / ropeSegmentLength(length))
 export interface Ladder extends NamedObject { x: number; top: number; bottom: number; platform: number; side: number }
 export interface Rope extends NamedObject {
   x: number; y: number; length: number; segments: number; anchor?: { platform: number; x: number; y: number }
@@ -45,13 +47,13 @@ const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(h
 export const ease = (v: number) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t) }
 
 export function createRope(definition: Rope): RopeState {
-  const segments = ropeSegmentCount(definition.length)
+  const segments = ropeSegmentCount(definition.length), spacing = ropeSegmentLength(definition.length)
   if (definition.segments !== segments) {
     definition = { ...definition, segments }
     delete definition.rest
   }
   const rope = { definition, pumpInput: 0, bends: definition.rest?.bends?.map(p => p ? [...p] as Point : null) ?? Array.from({ length: segments }, () => null), nodes: Array.from({ length: definition.segments + 1 }, (_, i) => {
-    const [x, y] = definition.rest?.points[i] ?? [definition.x, definition.y + Math.min(definition.length, i * ROPE_SEGMENT_LENGTH)]
+    const [x, y] = definition.rest?.points[i] ?? [definition.x, definition.y + Math.min(definition.length, i * spacing)]
     return { x, y, oldX: x, oldY: y }
   }) }
   initRopeSleep(rope, !!definition.rest)
@@ -122,10 +124,10 @@ export function climbRoot(climb: Climbing, facing: number): Point {
   return [root[0] + (pose.hip[0] - root[0]) * weight, root[1] + (pose.hip[1] + 32 - root[1]) * weight]
 }
 function ropeDistance(rope: RopeState, index: number) {
-  return Math.min(rope.definition.length, index * ROPE_SEGMENT_LENGTH)
+  return Math.min(rope.definition.length, index * ropeSegmentLength(rope.definition.length))
 }
 function ropeCoordinate(rope: RopeState, distance: number) {
-  const i = Math.min(rope.nodes.length - 2, Math.floor(Math.max(0, distance) / ROPE_SEGMENT_LENGTH))
+  const i = Math.min(rope.nodes.length - 2, Math.floor(Math.max(0, distance) / ropeSegmentLength(rope.definition.length)))
   return i + (Math.max(0, distance) - ropeDistance(rope, i)) / (ropeDistance(rope, i + 1) - ropeDistance(rope, i))
 }
 export function rappelWeight(climb: Climbing) {
@@ -308,7 +310,13 @@ function ropeIsClear(rope: RopeState, terrain: readonly Platform[]) {
 /** Verlet particles, distance constraints, an anchored top and a heavier loaded grip. */
 const ropeGravityRevisions = new WeakMap<RopeState, number>()
 
-export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
+export function stepRope(...args: Parameters<typeof solveRope>) {
+  // Terrain stays fixed throughout the synchronous constraint sweeps. Share its
+  // validated outlines and spatial queries across every particle and contact.
+  withTerrainQueries(() => solveRope(...args))
+}
+
+function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
   body?: { climb: Climbing; from: Point; facing: number; platforms?: readonly Platform[] }; gravity?: number } | null, gravityField?: GravityField, frameDirection = 1) {
   const { nodes, definition } = rope
   if (gravityField && (gravityField.strips.length || ropeGravityRevisions.has(rope)) && ropeGravityRevisions.get(rope) !== gravityField.revision) {
@@ -355,10 +363,9 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   const loaded = Math.round(loadedAt)
   // Rope mass scales with segment length; the player's mass does not. Sharing
   // that load between adjacent points also avoids a jerk when a grip crosses one.
-  const bodyMass = 160 / ROPE_SEGMENT_LENGTH
+  const bodyMass = 160 / ropeSegmentLength(definition.length)
   const supports = nodes.map((_, i) => load ? Math.max(0, 1 - Math.abs(i - loadedAt)) : 0)
   const weights = supports.map((support, i) => i === 0 ? 0 : 1 / (1 + bodyMass * support))
-  const weight = (i: number) => weights[i]
   // Scrambling against rock dissipates motion; it must not store a spring impulse for the next regrip.
   const damping = Math.exp(-(.12 + (load?.body?.climb.surfaceSupport ?? 0) * 12) * dt)
   if (load?.body?.climb.wallContact) {
@@ -400,7 +407,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     if (tensionStrength && pass < 32 && pass % 2 === 0) solveRopeTension(rope, tensionEnd, weights, tensionStrength)
     for (let j = 1; j < nodes.length; j++) {
       const i = pass % 2 ? nodes.length - j : j, a = nodes[i - 1], b = nodes[i]
-      const bend = rope.bends[i - 1], wa = weight(i - 1), wb = weight(i)
+      const bend = rope.bends[i - 1], wa = weights[i - 1], wb = weights[i]
       if (bend) {
         const ax = bend[0] - a.x, ay = bend[1] - a.y, bx = bend[0] - b.x, by = bend[1] - b.y
         const first = Math.sqrt(ax * ax + ay * ay), second = Math.sqrt(bx * bx + by * by), correction = Math.max(0, first + second - lengths[i - 1]) / (wa + wb)
@@ -417,8 +424,10 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     if (nearby.length) for (let i = 1; i < nodes.length; i++) for (const b of nearby) {
       const n = nodes[i]
       if (n.x <= b.x - ROPE_CLEARANCE || n.x >= b.x + b.w + ROPE_CLEARANCE || n.y <= b.y - ROPE_CLEARANCE || n.y >= b.y + b.h + ROPE_CLEARANCE) continue
-      const edge = nearestBoundary(b, n.x, n.y)
-      if (pointInside(b, n.x, n.y)) {
+      const inside = pointInside(b, n.x, n.y)
+      const edge = inside ? nearestBoundary(b, n.x, n.y) : nearbyBoundary(b, n.x, n.y, ROPE_CLEARANCE)
+      if (!edge) continue
+      if (inside) {
         n.x = edge.x + edge.nx * ROPE_CLEARANCE; n.y = edge.y + edge.ny * ROPE_CLEARANCE
       } else if (edge.distance < ROPE_CLEARANCE) {
         const scale = ROPE_CLEARANCE / edge.distance
@@ -435,7 +444,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
         const clearance = i === 1 ? pinClearances.get(terrain) ?? ROPE_CLEARANCE : ROPE_CLEARANCE
         const hit = segmentPenetration([a.x, a.y], [b.x, b.y], terrain, clearance)
         if (!hit) continue
-        const wa = weight(i - 1), wb = weight(i), denominator = (1 - hit.t) ** 2 * wa + hit.t ** 2 * wb
+        const wa = weights[i - 1], wb = weights[i], denominator = (1 - hit.t) ** 2 * wa + hit.t ** 2 * wb
         if (denominator < 1e-8) continue
         for (const [node, weight] of [[a, (1 - hit.t) * wa / denominator], [b, hit.t * wb / denominator]] as const) {
           const dx = hit.dx * weight, dy = hit.dy * weight, length = Math.hypot(dx, dy)
@@ -541,7 +550,7 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
 
 export function ropeImpulse(rope: RopeState, distance: number, vx: number, vy: number, dt: number) {
   const index = clamp(Math.round(ropeCoordinate(rope, distance)), 1, rope.nodes.length - 1)
-  const radius = Math.ceil(28 / ROPE_SEGMENT_LENGTH)
+  const radius = Math.ceil(28 / ropeSegmentLength(rope.definition.length))
   for (let i = Math.max(1, index - radius); i <= Math.min(rope.nodes.length - 1, index + radius); i++) {
     const weight = Math.max(.15, 1 - Math.abs(ropeDistance(rope, i) - ropeDistance(rope, index)) / 44), n = rope.nodes[i]
     n.oldX = n.x - clamp(vx, -600, 600) * dt * weight; n.oldY = n.y - clamp(vy, -400, 400) * dt * weight

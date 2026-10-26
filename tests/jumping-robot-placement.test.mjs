@@ -4,7 +4,9 @@ import { blankTrial, levelProblems, levelTerrain } from '../src/games/jumping/le
 import { addItem, hitItem, itemOutline, moveItem } from '../src/games/jumping/editor.ts'
 import { placeOnSurface, surfacePlacement } from '../src/games/jumping/editorPlacement.ts'
 import { placementPreview } from '../src/games/jumping/builderPlacement.ts'
-import { createPreviewRun, createRun } from './helpers/jumping-active-run.mjs'
+import { createPreviewRun, createRobotState, createRun } from './helpers/jumping-active-run.mjs'
+import { editorRobotPose } from '../src/games/jumping/editorGeometry.ts'
+import { chargingBayBounds, entranceDoor, ROBOT_BAY_WIDTH_SCALE } from '../src/games/jumping/goal.ts'
 import { nearestBoundary, polygonIntersects } from '../src/games/jumping/geometry.ts'
 import { robotHulls } from '../src/games/jumping/robotPhysics.ts'
 
@@ -78,4 +80,28 @@ test('a slope snap still needs both wheels and a clear chassis', () => {
   const centered = addItem(source, 'pusher', { x: 600, y: 790 }, { x: 600, y: 790 })
   centered.level.platforms.push({ x: 610, y: 740, w: 50, h: 40 })
   assert.equal(surfacePlacement(centered.level, centered.selection, 12), null, 'a nearby wall blocks the tilted chassis')
+})
+
+test('Rbot placement and world previews use the same humanoid actor and complete portal selection', () => {
+  const source = blankTrial(), before = structuredClone(source)
+  const candidate = placementPreview(source, 'repulsorbot', { x: 650, y: source.floor }, true, 1)
+  const definition = candidate.level.robots[0], robot = createRobotState(definition)
+  assert.deepEqual(robot.actor, createPreviewRun(candidate.level).robots[0].actor)
+  assert.equal(robot.actor.facing, robot.facing)
+  assert.equal(robot.actor.armAim.aiming, false)
+  const door = entranceDoor(definition), outline = itemOutline(candidate.level, candidate.selection)
+  assert.ok(outline.x <= door.x && outline.x + outline.w >= door.x + door.w)
+  assert.equal(outline.y, door.y); assert.equal(outline.h, door.h)
+  assert.deepEqual(hitItem(candidate.level, definition.x, door.y + 2, 0), candidate.selection, 'the portal above the head selects its bot')
+  assert.deepEqual(source, before, 'hovering never changes the authored draft')
+})
+
+test('Rbot visuals retain the authored anchor on slopes and keep charging-bay bounds', () => {
+  const level = ramp(3), robot = { kind: 'repulsor', x: 600, y: 800, left: 26, right: level.width - 26 }
+  level.robots = [robot]
+  assert.deepEqual(editorRobotPose(level, robot), { x: robot.x, y: robot.y, angle: 0 }, 'humanoid previews do not solve shovebot wheels')
+  assert.equal(itemOutline(level, { kind: 'robot', index: 0 }).y, robot.y - 80)
+  robot.chargingBay = true
+  assert.deepEqual(createRobotState(robot).awakening, { elapsed: 0, triggered: false })
+  assert.deepEqual(itemOutline(level, { kind: 'robot', index: 0 }), chargingBayBounds(robot, ROBOT_BAY_WIDTH_SCALE))
 })

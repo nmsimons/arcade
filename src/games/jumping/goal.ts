@@ -2,7 +2,9 @@ import type { NamedObject } from './objectNames.ts'
 import type { PowerMode, SwitchSettings } from './switchPower.ts'
 import { finishPlayerStep, NEUTRAL_INPUT } from './model.ts'
 import type { Platform, Player } from './model.ts'
-import { moveBody } from './geometry.ts'
+import { moveBody, polygonIntersects } from './geometry.ts'
+import { groundAt } from './terrain.ts'
+import { advanceFootwork } from './footwork.ts'
 import { staticContactWorld, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
@@ -34,6 +36,8 @@ export const entrancePosition = (entrance: EntranceAnimation) => entrance.fromX 
 export function createEntranceAnimation(player: Player, platforms: readonly Platform[], entrance?: Entrance): EntranceAnimation {
   if (entrance?.kind === 'charging-bay') return { elapsed: 0, player: structuredClone(player), fromX: player.x, toX: player.x, kind: 'charging-bay' }
   const actor = structuredClone(player), from = moveBody([player.x, player.y], [player.x - player.facing * 10, player.y], platforms)
+  actor.terrain = platforms
+  if (!actor.footwork) advanceFootwork(actor, 0, actor.x, platforms)
   translatePlayer(actor, from.x - player.x, 0)
   return { elapsed: 0, player: actor, fromX: from.x, toX: player.x }
 }
@@ -47,9 +51,21 @@ export function advanceEntranceAnimation(entrance: EntranceAnimation, dt: number
   if (used > 0) finishPlayerStep(actor, NEUTRAL_INPUT, used, world, from)
   return Math.max(0, dt - remaining)
 }
-export const entranceDoor = (entrance: Entrance) => ({ x: entrance.x - GOAL_DOOR_WIDTH / 2,
+export const entranceDoor = (entrance: Pick<Entrance, 'x' | 'y'>) => ({ x: entrance.x - GOAL_DOOR_WIDTH / 2,
   y: entrance.y - GOAL_DOOR_HEIGHT, w: GOAL_DOOR_WIDTH, h: GOAL_DOOR_HEIGHT })
 export const entranceOpening = (elapsed: number) => 1 - Math.max(0, (elapsed - ENTRANCE_HOLD_SECONDS) / GOAL_OPEN_SECONDS)
+
+/** A doorway needs its entire flat sill and clear opening at the authored position. */
+export function entranceFits(entrance: Pick<Entrance, 'x' | 'y'>, terrain: readonly Platform[], width: number, height: number): boolean {
+  const door = entranceDoor(entrance), { y } = entrance
+  if (door.x < 0 || door.x + door.w > width || door.y < 0 || y > height) return false
+  for (let i = 0; i <= 10; i++) {
+    const ground = groundAt(terrain, door.x + .01 + (door.w - .02) * i / 10, y, .15)
+    if (!ground || Math.abs(ground.angle) >= .02) return false
+  }
+  return !terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
+    [door.x + door.w, y], [door.x, y]], b, .01))
+}
 
 /** Artwork extends around the clear 40-by-80 start; it adds no collision. */
 export const chargingBayBounds = ({ x, y }: Pick<Entrance, 'x' | 'y'>, widthScale = 1) => ({ x: x - 51 * widthScale, y: y - 126, w: 102 * widthScale, h: 126 })

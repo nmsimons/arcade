@@ -55,6 +55,153 @@ async function pixel(page, x, y) {
 }
 const group = (page,n) => page.getByRole('heading', { name: `${n} objects selected`, exact: true })
 
+function submergedWallItems() {
+  return { ...fixture(), platforms: [], props: [],
+    gravityPlates: [{ id: 'water', name: 'Pool', effect: 'water', x: 200, y: 100, w: 700, h: 500, gravity: -1 }],
+    timers: [{ name: 'Clock', x: 350, y: 200 }],
+    texts: [{ name: 'Sign', x: 300, y: 180, w: 250, h: 160, text: 'Under water', fontSize: 24, align: 'left' }] }
+}
+
+test('repeated clicks cycle through water and overlapping wall items without editing them', async ({ page }) => {
+  const level = submergedWallItems()
+  await open(page, level)
+  const p = await point(page, 400, 220)
+  await page.mouse.move(p.x, p.y); await page.mouse.down()
+  await page.mouse.move(p.x + 1, p.y + 1); await page.mouse.up()
+  await expect(page.getByRole('heading', { name: 'Pool · Water 1', exact: true })).toBeVisible()
+  for (const name of ['Clock · Wall timer 1', 'Sign · Wall text 1', 'Pool · Water 1']) {
+    await click(page, 400, 220)
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+  }
+  await click(page, 400, 220)
+  await expect(page.getByRole('heading', { name: 'Clock · Wall timer 1', exact: true })).toBeVisible()
+  await click(page, 460, 220)
+  await expect(page.getByRole('heading', { name: 'Pool · Water 1', exact: true })).toBeVisible()
+  const saved = (await saveTestLevel(page)).level
+  for (const key of ['gravityPlates', 'timers', 'texts']) expect(saved[key]).toEqual(level[key])
+})
+
+test('repeated Shift-clicks toggle each overlapping item while retaining selections elsewhere', async ({ page }) => {
+  const level = { ...submergedWallItems(), props: [{ kind: 'box', x: 1050, y: 650, size: 60 }] }
+  await open(page, level)
+  await click(page, 1050, 620)
+  for (const count of [2, 3, 4, 3, 2]) {
+    await click(page, 400, 220, true)
+    await expect(group(page, count)).toBeVisible()
+  }
+  await click(page, 400, 220, true)
+  await expect(page.getByRole('combobox', { name: 'Selected object', exact: true })).toHaveAttribute('data-value', 'prop:0')
+  const saved = (await saveTestLevel(page)).level
+  for (const key of ['gravityPlates', 'timers', 'texts', 'props']) expect(saved[key]).toEqual(level[key])
+})
+
+test('Shift continues an ordinary overlap click and ordinary clicks restart after Shift selection', async ({ page }) => {
+  const level = submergedWallItems()
+  await open(page, level)
+  await click(page, 400, 220, true)
+  await click(page, 400, 220)
+  await expect(page.getByRole('heading', { name: 'Pool · Water 1', exact: true })).toBeVisible()
+  await click(page, 400, 220, true)
+  await expect(group(page, 2)).toBeVisible()
+  await click(page, 400, 220, true)
+  await expect(group(page, 3)).toBeVisible()
+  await click(page, 400, 220, true)
+  await expect(group(page, 2)).toBeVisible()
+  await board(page).focus(); await page.keyboard.press('ArrowRight')
+  const saved = (await saveTestLevel(page)).level
+  expect(saved.gravityPlates).toEqual(level.gravityPlates)
+  expect(saved.timers).toEqual([{ ...level.timers[0], x: 355 }])
+  expect(saved.texts).toEqual([{ ...level.texts[0], x: 305 }])
+})
+
+test('cycling behind water selects a saved group before drilling into its members, and drags it together', async ({ page }) => {
+  const members = [{ kind: 'timer', index: 0 }, { kind: 'text', index: 0 }]
+  const level = { ...submergedWallItems(), editorGroups: [{ id: 'wall-displays', members }] }
+  await open(page, level)
+  await click(page, 400, 220)
+  await expect(page.getByRole('heading', { name: 'Pool · Water 1', exact: true })).toBeVisible()
+  await click(page, 400, 220)
+  await expect(group(page, 2)).toBeVisible()
+  for (const name of ['Clock · Wall timer 1', 'Sign · Wall text 1', 'Pool · Water 1']) {
+    await click(page, 400, 220)
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+  }
+  await click(page, 400, 220)
+  await expect(group(page, 2)).toBeVisible()
+  await page.keyboard.down('Alt')
+  await drag(page, [400, 220], [440, 240])
+  await page.keyboard.up('Alt')
+  await expect(group(page, 2)).toBeVisible()
+  const saved = (await saveTestLevel(page)).level
+  expect(saved.gravityPlates).toEqual(level.gravityPlates)
+  expect(saved.timers[0]).toMatchObject({ x: expect.closeTo(390, 3), y: expect.closeTo(220, 3) })
+  expect(saved.texts[0]).toMatchObject({ x: expect.closeTo(340, 3), y: expect.closeTo(200, 3) })
+  expect(saved.editorGroups).toEqual(level.editorGroups)
+})
+
+test('Shift cycling adds and removes a whole submerged saved group and preserves other selected objects', async ({ page }) => {
+  const source = submergedWallItems(), members = [{ kind: 'timer', index: 0 }, { kind: 'text', index: 0 }]
+  const level = { ...source, texts: [{ ...source.texts[0], x: 600 }],
+    props: [{ kind: 'box', x: 1050, y: 650, size: 60 }], editorGroups: [{ id: 'wall-displays', members }] }
+  await open(page, level)
+  await click(page, 1050, 620)
+  for (const count of [2, 4, 3]) {
+    await click(page, 400, 220, true)
+    await expect(group(page, count)).toBeVisible()
+  }
+  await board(page).focus(); await page.keyboard.press('ArrowRight')
+  let saved = (await saveTestLevel(page)).level
+  expect(saved.gravityPlates).toEqual(level.gravityPlates)
+  expect(saved.timers).toEqual([{ ...level.timers[0], x: 355 }])
+  expect(saved.texts).toEqual([{ ...level.texts[0], x: 605 }])
+  expect(saved.props).toEqual([{ ...level.props[0], x: 1055 }])
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await click(page, 1050, 620)
+  for (const count of [2, 4, 3]) {
+    await click(page, 400, 220, true)
+    await expect(group(page, count)).toBeVisible()
+  }
+  await click(page, 400, 220, true)
+  await expect(page.getByRole('combobox', { name: 'Selected object', exact: true })).toHaveAttribute('data-value', 'prop:0')
+  saved = (await saveTestLevel(page)).level
+  for (const key of ['gravityPlates', 'timers', 'texts', 'props', 'editorGroups']) expect(saved[key]).toEqual(level[key])
+})
+
+test('dragging at an overlap keeps the current selection, including a wall item selected behind water', async ({ page }) => {
+  const level = submergedWallItems()
+  await open(page, level)
+  await click(page, 400, 220)
+  await page.keyboard.down('Alt')
+  await drag(page, [400, 220], [440, 240])
+  await page.keyboard.up('Alt')
+  await expect(page.getByRole('heading', { name: 'Pool · Water 1', exact: true })).toBeVisible()
+  let saved = (await saveTestLevel(page)).level
+  expect(saved.gravityPlates[0]).toMatchObject({ ...level.gravityPlates[0], x: expect.closeTo(240, 3), y: expect.closeTo(120, 3) })
+  expect(saved.timers).toEqual(level.timers)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await click(page, 400, 220); await click(page, 400, 220)
+  await expect(page.getByRole('heading', { name: 'Clock · Wall timer 1', exact: true })).toBeVisible()
+  await page.keyboard.down('Alt')
+  await drag(page, [400, 220], [450, 250])
+  await page.keyboard.up('Alt')
+  saved = (await saveTestLevel(page)).level
+  expect(saved.gravityPlates).toEqual(level.gravityPlates)
+  expect(saved.timers[0]).toMatchObject({ ...level.timers[0], x: expect.closeTo(400, 3), y: expect.closeTo(230, 3) })
+  expect(saved.texts).toEqual(level.texts)
+})
+
+test('overlap cycling follows group drill-down and does not regroup individual members', async ({ page }) => {
+  const members = [{ kind: 'platform', index: 0 }, { kind: 'platform', index: 1 }]
+  await open(page, { ...fixture(), editorGroups: [{ id: 'overlapping-terrain', members }] })
+  await click(page, 445, 395)
+  await expect(group(page, 2)).toBeVisible()
+  for (const name of ['B · Terrain 2', 'A · Terrain 1', 'B · Terrain 2']) {
+    await click(page, 445, 395)
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+  }
+  expect((await saveTestLevel(page)).level.editorGroups).toEqual([{ id: 'overlapping-terrain', members }])
+})
+
 test('terrain draw order changes visible overlap and pointer picking, with undo and saved persistence', async ({ page }) => {
   await open(page)
   expectDayAmbientPixel(await pixel(page,445,395), [189,196,181])

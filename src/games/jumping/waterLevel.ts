@@ -4,7 +4,7 @@ export const WATER_LEVEL_STEP = 1 / 30
 export const waterControlId = (id: string, action: 'fill' | 'drain') => `${id}:${action}`
 export interface WaterLevels {
   plates: GravityPlate[]
-  pools: { definition: GravityPlate; region: GravityPlate; level: number; pending: number }[]
+  pools: { definition: GravityPlate; region: GravityPlate; level: number; pending: number; previousY: number; rise: number }[]
   accumulator: number; revision: number
 }
 
@@ -16,7 +16,7 @@ export function createWaterLevels(plates: readonly GravityPlate[]): WaterLevels 
     const level = Math.max(definition.waterMinLevel ?? 0, definition.waterLevel ?? 100), region = { ...definition }
     region.h = definition.h * level / 100
     region.y = definition.y + definition.h - region.h
-    pools.push({ definition, region, level, pending: 0 })
+    pools.push({ definition, region, level, pending: 0, previousY: region.y, rise: 0 })
     return region
   })
   return { plates: regions, pools, accumulator: 0, revision: 0 }
@@ -27,6 +27,7 @@ export function createWaterLevels(plates: readonly GravityPlate[]): WaterLevels 
 export function advanceWaterLevels(water: WaterLevels, switches: ReadonlyMap<string, boolean>, dt: number) {
   if (!water.pools.length) return false
   for (const pool of water.pools) {
+    pool.previousY = pool.region.y; pool.rise = 0
     const direction = Number(!!switches.get(waterControlId(pool.definition.id, 'fill')))
       - Number(!!switches.get(waterControlId(pool.definition.id, 'drain')))
     pool.pending += direction * (pool.definition.waterRate ?? 10) * dt
@@ -44,6 +45,7 @@ export function advanceWaterLevels(water: WaterLevels, switches: ReadonlyMap<str
     pool.level = level
     pool.region.h = pool.definition.h * level / 100
     pool.region.y = pool.definition.y + pool.definition.h - pool.region.h
+    pool.rise = Math.max(0, pool.previousY - pool.region.y)
     changed = true
   }
   if (changed) water.revision++

@@ -8,8 +8,9 @@ import type { JumpLevel } from './level.ts'
 import { placeOnSurface } from './editorPlacement.ts'
 import { createPlayer } from './model.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
-import { drawGoal, drawGoalDoor, drawMechanism, drawPressurePlate, drawProp, drawRobot } from './challengeRender.ts'
-import { drawChargingBay, drawChargingBayCover, drawDoorway, entranceDoor } from './goal.ts'
+import { drawGoal, drawGoalDoor, drawMechanism, drawPressurePlate, drawProp, drawRobot, drawRobotPortal } from './challengeRender.ts'
+import { createRobotState } from './challenge.ts'
+import { drawChargingBay, drawChargingBayCover, drawDoorway, entranceDoor, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
 import { drawCoinSwitch } from './coins.ts'
 import { drawPickup } from './pickups.ts'
@@ -43,8 +44,11 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'platform': drawTerrain(ctx, [level.platforms[i]]); break
     case 'prop': drawProp(ctx, { ...level.props![i], vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true }); break
     case 'robot': {
-      const definition = level.robots![i]
-      drawRobot(ctx, { definition, ...editorRobotPose(level, definition), vx: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false }, 0)
+      const definition = level.robots![i], robot = Object.assign(createRobotState(definition), editorRobotPose(level, definition))
+      if (definition.chargingBay) drawChargingBay(ctx, definition, ROBOT_BAY_WIDTH_SCALE)
+      drawRobotPortal(ctx, robot, true)
+      drawRobot(ctx, robot, 0)
+      if (definition.chargingBay) drawChargingBayCover(ctx, definition, 0, undefined, false, ROBOT_BAY_WIDTH_SCALE)
       break
     }
     case 'mechanism': {

@@ -194,11 +194,17 @@ export function playerWaterCenterOffset(player: Player) {
   }
   return moment / (3 * area)
 }
+/** The same displaced body supplies buoyancy and transport by a moving waterline. */
+export function playerWaterHull(player: Player, offsetY = 0): Vec[] {
+  const amount = player.freeFall?.recovery === null ? player.freeFall.amount : 0
+  const body = playerContactBody(player)
+  if (!amount) return bodyPolygon(body.x, body.y + offsetY, body.height, player.inverted ? -1 : 1, playerTurnAngle(player))
+  return playerWaterPoints(player).map(([x, y]) => [body.x + x, body.y + offsetY + y] as Vec)
+}
 function playerWaterValue(field: GravityField, player: Player, offsetY = 0, property: 'swim' | 'coverage' = 'swim') {
   const amount = player.freeFall?.recovery === null ? player.freeFall.amount : 0
   if (!amount) return playerFieldValue(field, player, offsetY, property)
-  const body = playerContactBody(player)
-  const points = playerWaterPoints(player).map(([x, y]) => [body.x + x, body.y + offsetY + y] as Vec)
+  const points = playerWaterHull(player, offsetY)
   const left = Math.min(...points.map(p => p[0])), right = Math.max(...points.map(p => p[0]))
   const top = Math.min(...points.map(p => p[1])), bottom = Math.max(...points.map(p => p[1]))
   const area = clippedPolygonArea(points, left, top, right, bottom)

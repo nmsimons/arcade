@@ -5,6 +5,47 @@ import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/jumping/water-reservoir.json', import.meta.url), 'utf8'))
 
+for (const rate of [5, 20]) test(`keyboard swimmer follows a rising ${rate}%/sec pool and jumps out while it fills`, async ({ page }, info) => {
+  const level = fixture()
+  level.name = 'Rising water jump'; level.entrance = { x: 300, y: 760 }
+  level.platforms = [{ x: 0, y: 760, w: 400, h: 160 }]; level.props = []
+  level.gravityPlates[0].waterRate = rate; delete level.gravityPlates[0].drain
+  level.triggers = [{ x: 320, y: 760, w: 70, mode: 'weight', behavior: 'toggle', targets: ['pool:fill'] }]
+  await useLevelFixtures(page, [level])
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await page.addInitScript(() => {
+    const rect = CanvasRenderingContext2D.prototype.fillRect, move = CanvasRenderingContext2D.prototype.moveTo
+    for (const [name, original] of [['fillRect', rect], ['moveTo', move]]) CanvasRenderingContext2D.prototype[name] = function (...args) {
+      if (this.fillStyle === '#58a9df' && args[0] === 400) window.reservoirWaterline = args[1]
+      return original.apply(this, args)
+    }
+  })
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab?motionDebug=1')
+  const play = page.getByRole('button', { name: 'Play Rising water jump', exact: true })
+  await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await play.click(); await finishJumpingEntrance(page)
+  await page.keyboard.down('d'); await page.clock.runFor(700); await page.keyboard.up('d')
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(700); await page.keyboard.up('ArrowUp')
+  await page.clock.runFor(500)
+  const sample = () => page.evaluate(() => ({ ...window.jumpingMotion.read().recent.at(-1), top: window.reservoirWaterline }))
+  const before = await sample()
+  expect(before.y - before.top).toBeGreaterThan(46); expect(before.y - before.top).toBeLessThan(54)
+  await page.clock.runFor(800)
+  const carried = await sample()
+  expect(before.top - carried.top).toBeGreaterThan(rate * 4)
+  expect(Math.abs((carried.y - before.y) - (carried.top - before.top))).toBeLessThan(3)
+  await page.screenshot({ path: info.outputPath('floating-with-rising-water.png') })
+  await page.keyboard.down('Space'); await page.clock.runFor(300); await page.keyboard.up('Space')
+  const jumped = await sample()
+  expect(jumped.y).toBeLessThan(jumped.top)
+  expect(jumped.top).toBeLessThan(carried.top, 'the pump is still filling during the jump')
+  const recent = await page.evaluate(time => window.jumpingMotion.read().recent.filter(s => s.time > time), carried.time)
+  expect(recent.some(s => s.input.jump && s.vy < -300)).toBe(true)
+  await page.screenshot({ path: info.outputPath('jump-clear-of-rising-water.png') })
+  expect(errors).toEqual([])
+})
+
 test('reservoir controls wire both directions, undo, duplicate, save and reopen', async ({ page }, info) => {
   const level = fixture()
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'reservoir.json': level })

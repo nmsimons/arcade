@@ -3,7 +3,7 @@ import { gaitPose } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
-import { bodyPolygon, lineBlocked, moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
+import { bodyPolygon, lineBlocked, moveBody, nearbyBoundary, nearestBoundary, pointInside, platformOutline, withTerrainQueries } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, ladderMantleProgress, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { ropeArmReach, ropeHangOffset } from './ropeBodyMotion.ts'
@@ -2060,7 +2060,8 @@ function waterLandingPose(p: Player): AthletePose {
  * the head and spine outside nearby solids before solving the reaching limbs. */
 function clearanceBoundary(p: Player, solid: Platform, x: number, y: number, origin?: Point) {
   const edge = nearestBoundary(solid, x, y)
-  if (origin && pointInside(solid, x, y)) {
+  // Both callers already established that this sample is inside the solid.
+  if (origin) {
     const ox = p.x + origin[0] * p.facing, oy = p.y + origin[1]
     // A free limb belongs to its clear shoulder/hip. The nearest exit from a
     // thin solid can be its far face, leaving the connecting bone through it.
@@ -2081,7 +2082,10 @@ function bodyIntrusion(p: Player, point: Point, radius: number, visibleBall?: Pl
       if (depth > .01) return { x: dx / (distance || 1) * (depth + .05) * p.facing, y: dy / (distance || 1) * (depth + .05) }
       continue
     }
-    const edge = clearanceBoundary(p, b, x, y, origin), inside = pointInside(b, x, y)
+    const inside = pointInside(b, x, y)
+    if (!inside && radius <= .01) continue
+    const edge = inside ? clearanceBoundary(p, b, x, y, origin) : nearbyBoundary(b, x, y, radius)
+    if (!edge) continue
     const depth = radius + (inside ? edge.distance : -edge.distance)
     if (depth > .01) {
       // Outside a corner, a circle separates radially from the closest point.
@@ -2253,7 +2257,7 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
 export function athletePose(p: Player): AthletePose {
   const frame = renderPoses.get(p)
   if (frame?.pose) return frame.pose
-  const pose = shovingPose(p, equippedArmPose(p, baseAthletePose(p)))
+  const pose = withTerrainQueries(() => shovingPose(p, equippedArmPose(p, baseAthletePose(p))))
   if (frame) frame.pose = pose
   return pose
 }
@@ -2308,7 +2312,7 @@ function equippedArmPose(p: Player, pose: AthletePose, presentation = false): At
 /** Ease only presentation; the arm and its sleeve always share the same bones.
  * Contacts, obstruction queries and fresh shots use the selected direction. */
 export function presentedAthletePose(p: Player): AthletePose {
-  return shovingPose(p, equippedArmPose(p, baseAthletePose(p), true))
+  return withTerrainQueries(() => shovingPose(p, equippedArmPose(p, baseAthletePose(p), true)))
 }
 
 /** Gather both palms, drive them forward, then return to the current moving pose. */

@@ -14,6 +14,7 @@ import { playerSwimStrength, updateGravityField } from '../src/games/jumping/gra
 import { createRepulsorActor } from '../src/games/jumping/repulsorBot.ts'
 
 const quarantine = () => parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/quarantine-ii-rbot-water.json', import.meta.url), 'utf8')))
+const waterline = () => parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/waterline-ii-rbot-water.json', import.meta.url), 'utf8')))
 function pool(side = 1) {
   return { ...blankTrial(), width: 1400, height: 800, floor: 800,
     entrance: { x: side > 0 ? 1200 : 200, y: 340 }, goal: { x: side > 0 ? 100 : 1300, y: 400 },
@@ -220,4 +221,20 @@ for (const dt of [STEP, 1 / 30]) test(`Rbot can board a submerged ladder and cli
     exited = bot.actor.grounded && playerSwimStrength(run.gravityField, bot.actor) < .05
   }
   assert.ok(climbed && exited, `failed to use the ladder out of the water: ${bot.x},${bot.y}`)
+})
+
+for (const dt of [STEP, 1 / 30]) for (const [x, y] of [[2050, 930], [2100, 1050], [2261, 1380]])
+test(`Waterline II: Rbot finishes its bank approach after falling into the right pool (${x}, ${y}, ${dt})`, () => {
+  const level = waterline(), run = createRun(level), bot = run.robots[0]
+  bot.x = x; bot.y = y; bot.actor = createRepulsorActor(x, y); bot.actor.grounded = false
+  let wet = false, jumped = false, exited = false
+  for (let time = 0; time < 12 && !exited; time += dt) {
+    const before = [bot.x, bot.y]
+    stepRun(run, NEUTRAL_INPUT, dt)
+    wet ||= playerSwimStrength(run.gravityField, bot.actor) > .05
+    jumped ||= !!bot.actor.waterJump
+    exited = wet && bot.actor.grounded && Math.abs(bot.y - 845) < .1 && playerSwimStrength(run.gravityField, bot.actor) < .05
+    assert.ok(Math.hypot(bot.x - before[0], bot.y - before[1]) < 1400 * dt + 1, 'the shared motor supplies all travel')
+  }
+  assert.ok(wet && jumped && exited, `failed to leave the right pool: ${bot.x},${bot.y}`)
 })

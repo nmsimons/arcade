@@ -34,14 +34,17 @@
     "escapade.jump-level.json",
     "buoyancy.jump-level.json",
     "scaffold2.jump-level.json",
-    "Waterline.jump-level.json",
+    "Waterline1.jump-level.json",
     "world1.jump-level.json",
     "pinball.jump-level.json",
     "scaffold3.jump-level.json",
     "Lock Out 2.jump-level.json",
     "Quarantine II.jump-level.json",
     "Quarantine III.jump-level.json",
+    "Waterline2.jump-level.json",
     "scaffold4.jump-level.json",
-    "scaffold5.jump-level.json"
+    "Ascent.jump-level.json",
+    "scaffold5.jump-level.json",
+    "ascent2.jump-level.json"
   ]
 }

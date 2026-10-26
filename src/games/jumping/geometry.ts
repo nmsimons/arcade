@@ -15,7 +15,7 @@ function outlinePoints(b: Platform): Vec[] {
     .filter((p, i, all) => Math.hypot(p[0] - all[(i + 1) % all.length][0], p[1] - all[(i + 1) % all.length][1]) > EPS)
   return polygonArea(points) < 0 ? points.reverse() : points
 }
-interface BoundaryEdge { a: Vec; dx: number; dy: number; squared: number; nx: number; ny: number }
+interface BoundaryEdge extends Bounds { a: Vec; dx: number; dy: number; squared: number; nx: number; ny: number }
 interface Bounds { left: number; right: number; top: number; bottom: number }
 interface CollisionHull { points: readonly Vec[]; bounds: Bounds; axes?: Vec[] }
 interface CollisionPiece extends CollisionHull { axes: Vec[]; projections: number[][] }
@@ -23,20 +23,36 @@ interface BoundaryGeometry {
   x: number; y: number; w: number; h: number
   polygon: number[]; profile: number[]; bezier: string; points: Vec[]; edges?: BoundaryEdge[]; nearest?: number
   parts?: Vec[][]; collision?: CollisionPiece[]
+  nearby?: Map<number, Map<number, number[]>>; nearbyCount?: number; rows?: Map<number, number[]>
 }
 const boundaries = new WeakMap<Platform, BoundaryGeometry>()
+let queryGeometry: WeakMap<Platform, BoundaryGeometry> | undefined
+/** A synchronous, read-only solve can validate each outline once, even when
+ * hundreds of limb samples revisit it. Edits between solves are still checked. */
+export function withTerrainQueries<T>(query: () => T): T {
+  if (queryGeometry) return query()
+  queryGeometry = new WeakMap()
+  try { return query() }
+  finally { queryGeometry = undefined }
+}
 const sameOutline = (outline: Platform['polygon'], saved: number[]) => (outline?.length ?? 0) * 2 === saved.length
   && (!outline || outline.every((p, i) => p[0] === saved[i * 2] && p[1] === saved[i * 2 + 1]))
 /** Rope contacts revisit the same cave outline thousands of times per tick.
  * Retain world geometry, including edits made in place, without exposing the
  * cached arrays through the public polygonPoints authoring helper. */
 function boundaryGeometry(b: Platform): BoundaryGeometry {
+  const prepared = queryGeometry?.get(b)
+  if (prepared) return prepared
   const saved = boundaries.get(b)
   if (saved && b.x === saved.x && b.y === saved.y && b.w === saved.w && b.h === saved.h
-    && sameOutline(b.polygon, saved.polygon) && sameOutline(b.profile, saved.profile) && bezierKey(b) === saved.bezier) return saved
+    && sameOutline(b.polygon, saved.polygon) && sameOutline(b.profile, saved.profile) && bezierKey(b) === saved.bezier) {
+    queryGeometry?.set(b, saved)
+    return saved
+  }
   const geometry = { x: b.x, y: b.y, w: b.w, h: b.h, polygon: b.polygon?.flatMap(p => [...p]) ?? [],
     profile: b.profile?.flatMap(p => [...p]) ?? [], bezier: bezierKey(b), points: outlinePoints(b) }
   boundaries.set(b, geometry)
+  queryGeometry?.set(b, geometry)
   return geometry
 }
 /** Read-only contact queries share the already validated world outline. The
@@ -47,8 +63,58 @@ export function platformOutline(b: Platform): readonly Vec[] {
 function boundaryEdges(geometry: BoundaryGeometry) {
   return geometry.edges ??= geometry.points.map((a, i) => {
     const c = geometry.points[(i + 1) % geometry.points.length], dx = c[0] - a[0], dy = c[1] - a[1], length = Math.hypot(dx, dy)
-    return { a, dx, dy, squared: length * length, nx: dy / length, ny: -dx / length }
+    return { a, dx, dy, squared: length * length, nx: dy / length, ny: -dx / length,
+      left: Math.min(a[0], c[0]), right: Math.max(a[0], c[0]), top: Math.min(a[1], c[1]), bottom: Math.max(a[1], c[1]) }
   })
+}
+const QUERY_CELL = 64
+const MAX_QUERY_CELLS = 128
+/** Any point in this cell is at most its center's nearest-edge distance plus
+ * the half diagonal from that same edge. Only edges whose bounds can beat
+ * that upper bound can be nearest; their original indices retain corner ties. */
+function nearbyEdges(geometry: BoundaryGeometry, x: number, y: number) {
+  const column = Math.floor(x / QUERY_CELL), row = Math.floor(y / QUERY_CELL)
+  const columns = geometry.nearby ??= new Map()
+  let rows = columns.get(column)
+  if (!rows) { rows = new Map(); columns.set(column, rows) }
+  let indices = rows.get(row)
+  if (indices) return indices
+  if (geometry.nearbyCount === MAX_QUERY_CELLS) {
+    geometry.nearby = undefined; geometry.nearbyCount = 0
+    return nearbyEdges(geometry, x, y)
+  }
+  const edges = boundaryEdges(geometry), left = column * QUERY_CELL, top = row * QUERY_CELL
+  const cx = left + QUERY_CELL / 2, cy = top + QUERY_CELL / 2
+  let distance = Infinity
+  for (const { a, dx, dy, squared } of edges) {
+    const t = Math.max(0, Math.min(1, ((cx - a[0]) * dx + (cy - a[1]) * dy) / squared))
+    distance = Math.min(distance, Math.hypot(a[0] + dx * t - cx, a[1] + dy * t - cy))
+  }
+  const limit = (distance + Math.SQRT2 * QUERY_CELL / 2 + EPS) ** 2
+  indices = []
+  for (let i = 0; i < edges.length; i++) {
+    const edge = edges[i], dx = Math.max(edge.left - left - QUERY_CELL, 0, left - edge.right)
+    const dy = Math.max(edge.top - top - QUERY_CELL, 0, top - edge.bottom)
+    if (dx * dx + dy * dy <= limit) indices.push(i)
+  }
+  rows.set(row, indices)
+  geometry.nearbyCount = (geometry.nearbyCount ?? 0) + 1
+  return indices
+}
+function rowEdges(geometry: BoundaryGeometry, y: number) {
+  const row = Math.floor(y / QUERY_CELL), rows = geometry.rows ??= new Map()
+  let indices = rows.get(row)
+  if (indices) return indices
+  if (rows.size === MAX_QUERY_CELLS) rows.clear()
+  const edges = boundaryEdges(geometry), top = row * QUERY_CELL
+  indices = []
+  // Match pointInside's original last-to-first traversal, including horizontal
+  // edges and the on-segment epsilon on either side of a cell boundary.
+  for (let i = 0, j = edges.length - 1; i < edges.length; j = i++) {
+    if (edges[j].top <= top + QUERY_CELL + EPS && edges[j].bottom >= top - EPS) indices.push(i)
+  }
+  rows.set(row, indices)
+  return indices
 }
 function onSegment(p: Vec, a: Vec, b: Vec) {
   return p[0] >= Math.min(a[0], b[0]) - EPS && p[0] <= Math.max(a[0], b[0]) + EPS
@@ -70,8 +136,11 @@ export function validPolygon(points: readonly Vec[], maxPoints = 64) {
 }
 export function pointInside(b: Platform, x: number, y: number) {
   if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) return false
-  const points = boundaryGeometry(b).points, point: Vec = [x, y]; let inside = false
-  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+  const geometry = boundaryGeometry(b), points = geometry.points, edges = boundaryEdges(geometry), point: Vec = [x, y]; let inside = false
+  for (const i of edges.length <= 8 ? points.keys() : rowEdges(geometry, y)) {
+    const j = (i + points.length - 1) % points.length
+    const edge = edges[j]
+    if (y < edge.top - EPS || y > edge.bottom + EPS) continue
     const a = points[i], c = points[j]
     if (onSegment(point, a, c)) return true
     if ((a[1] > y) !== (c[1] > y) && x < (c[0] - a[0]) * (y - a[1]) / (c[1] - a[1]) + a[0]) inside = !inside
@@ -284,28 +353,35 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
   }
   return { x, y, contacts }
 }
-export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec) {
-  const geometry = boundaryGeometry(b), edges = boundaryEdges(geometry)
+function findBoundary(geometry: BoundaryGeometry, x: number, y: number, normal?: Vec, maxDistance = Infinity) {
+  const edges = boundaryEdges(geometry)
   const hint = !normal && edges.length ? geometry.nearest ?? 0 : -1
-  let best = { x, y, distance: Infinity, nx: 0, ny: -1 }
+  let best = { x, y, distance: maxDistance, nx: 0, ny: -1 }
   let bestIndex = Infinity
   // Adjacent rope particles usually meet the same face. Its exact distance is
   // an upper bound, so distant faces can be rejected before a square root.
-  // Still visit every edge and preserve the original first-edge tie policy.
+  // Preserve the original first-edge tie policy among all reachable edges.
   if (hint >= 0) {
-    bestIndex = hint
-    const { a, dx, dy, squared, nx, ny } = edges[bestIndex]
+    const { a, dx, dy, squared, nx, ny } = edges[hint]
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / squared))
     const px = a[0] + dx * t, py = a[1] + dy * t
-    best = { x: px, y: py, distance: Math.hypot(px - x, py - y), nx, ny }
+    const distance = Math.hypot(px - x, py - y)
+    if (distance <= maxDistance) { best = { x: px, y: py, distance, nx, ny }; bestIndex = hint }
   }
-  for (let i = 0; i < edges.length; i++) {
+  // Small shapes and one-off physics queries do not amortize a spatial lookup.
+  const indices = queryGeometry && !normal && edges.length > 8 ? nearbyEdges(geometry, x, y) : edges.keys()
+  for (const i of indices) {
     if (i === hint) continue // Its exact distance was already tested above.
-    const { a, dx, dy, squared, nx, ny } = edges[i]
+    const { a, dx, dy, squared, nx, ny, left, right, top, bottom } = edges[i]
     // A collision query must keep a face that can supply its separating normal.
     // The midpoint of a tall body's side can lie above a short box: a tiny
     // overlap must not relabel that side contact as the box's walkable top.
     if (normal && nx * normal[0] + ny * normal[1] <= EPS) continue
+    // The edge's bounding box supplies a cheap lower distance bound. Preserve
+    // close candidates, including the normal-directed corner tie tolerance.
+    const limit = best.distance + (normal ? 1e-5 : EPS)
+    const boxX = Math.max(left - x, 0, x - right), boxY = Math.max(top - y, 0, y - bottom)
+    if (boxX * boxX + boxY * boxY > limit * limit) continue
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / squared))
     const px = a[0] + dx * t, py = a[1] + dy * t, gapX = px - x, gapY = py - y
     // Reject clearly farther edges before a square root. Keep the original
@@ -321,7 +397,14 @@ export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec)
     }
   }
   if (!normal && bestIndex !== Infinity) geometry.nearest = bestIndex
-  return best
+  return bestIndex === Infinity ? null : best
+}
+export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec) {
+  return findBoundary(boundaryGeometry(b), x, y, normal) ?? { x, y, distance: Infinity, nx: 0, ny: -1 }
+}
+/** Clearance only needs an outside edge when the visible skin can reach it. */
+export function nearbyBoundary(b: Platform, x: number, y: number, radius: number) {
+  return findBoundary(boundaryGeometry(b), x, y, undefined, radius)
 }
 export { parts as convexParts }
 export function polygonIntersects(hull: readonly Vec[], terrain: Platform, tolerance = 0) {

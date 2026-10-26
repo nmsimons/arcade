@@ -15,8 +15,8 @@ for (const [angle, omega] of [[-.65, .6], [-.35, 1], [-.65, -.6], [-.35, -1]]) {
     const rope = createRope(file.climbables.ropes[0]); run.player.ropes = [rope]
     // Start with real pendulum displacement and velocity, then let the ordinary
     // rope solver and controller own every subsequent frame, contact and catch.
-    rope.nodes.forEach((node, i) => {
-      const distance = Math.min(i * 8, 770)
+    rope.nodes.forEach(node => {
+      const distance = node.y - rope.definition.y
       node.x = 600 + Math.sin(angle) * distance; node.y = 150 + Math.cos(angle) * distance
       node.oldX = node.x - Math.cos(angle) * omega * distance * STEP
       node.oldY = node.y + Math.sin(angle) * omega * distance * STEP

@@ -2,7 +2,7 @@ import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints
 import { ropePath } from './climbables.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
+import { levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import { resolveSwitchStates } from './switchPower.ts'
 import { triggerStartsOn, triggerToggleGroup } from './toggleGroups.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
@@ -11,7 +11,7 @@ export type { PuzzleLevel } from './level.ts'
 import { faceRobotToward, moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer, robotTouchesProps, settleRobot, stepRobotFall, stepRobotRecoil } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
+import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, entranceFits, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { EntranceAnimation, GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import { gradeFor, gradeTimes } from './grading.ts'
@@ -61,7 +61,7 @@ export interface Prop extends PropDefinition {
   vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
 }
 export interface MechanismState { definition: Mechanism; x: number; y: number; direction: number; wait: number; active: boolean; safetyHold: number | null }
-export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean; recoilVx?: number; fallVelocity?: number; deactivated?: boolean; actor?: Player; aim?: number; shots?: number; rams?: number; awakening?: { elapsed: number; triggered: boolean } }
+export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean; recoilVx?: number; fallVelocity?: number; deactivated?: boolean; actor?: Player; aim?: number; shots?: number; rams?: number; entrance?: EntranceAnimation; awakening?: { elapsed: number; triggered: boolean } }
 export interface Run {
   gadgets: GadgetState
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
@@ -98,6 +98,12 @@ export function createRun(level: PuzzleLevel): Run {
 export function createPreviewRun(level: PuzzleLevel): Run {
   return createInitialWorld(level, true)
 }
+/** Placement ghosts and complete worlds start from the same robot rig and state. */
+export function createRobotState(definition: Pusher): RobotState {
+  return { definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false,
+    ...(definition.kind === 'repulsor' ? { actor: createRepulsorActor(definition.x, definition.y),
+      ...(definition.chargingBay ? { awakening: { elapsed: 0, triggered: false } } : {}) } : {}) }
+}
 export function setWaterEffectsEnabled(run: Run, enabled: boolean) {
   if (run.waterEffectsEnabled === enabled) return
   run.waterEffectsEnabled = enabled
@@ -114,9 +120,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     }),
     triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: triggerStartsOn(level, t), depression: 0 })),
     toggleGroupStates: new Map((level.toggleGroups ?? []).map(g => [g.id, !!g.startsOn])),
-    robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false,
-      ...(definition.kind === 'repulsor' ? { actor: createRepulsorActor(definition.x, definition.y),
-        ...(definition.chargingBay ? { awakening: { elapsed: 0, triggered: false } } : {}) } : {}) })),
+    robots: level.robots.map(createRobotState),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
     water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
     forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, entrance: null, goalLit: false, goalElapsed: 0, exit: null, finished: false, grade: null, failed: false }
@@ -147,7 +151,15 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   advanceFootwork(p, 0, p.x, world.platforms)
   resetPlayerNoise(run)
   run.waterSurface = createWaterSurface(run.water.plates, run.terrain, p, run.props, run.gravityField)
-  if (!preview) run.entrance = createEntranceAnimation(p, world.platforms, level.entrance)
+  if (!preview) {
+    run.entrance = createEntranceAnimation(p, world.platforms, level.entrance)
+    // Presentation uses ordinary object geometry, without the bots' own bodies.
+    // Unsupported or obstructed authored starts stay in place for manual repair.
+    const solids = [...run.platforms, ...forceFieldPlatforms(run.forceFields, 'objects')]
+    for (const robot of run.robots) if (robot.actor && !robot.definition.chargingBay
+      && entranceFits(robot.definition, solids, level.width, levelHeight(level)))
+      robot.entrance = createEntranceAnimation(robot.actor, solids)
+  }
   return run
 }
 function syncPlatforms(run: Run): ContactWorld {
@@ -407,7 +419,12 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (run.finished) return
   if (!run.started) {
     if (!run.entrance) return // Static previews never activate.
+    const elapsed = run.entrance.elapsed
     dt = advanceEntranceAnimation(run.entrance, dt, syncPlatforms(run))
+    for (const robot of run.robots) if (robot.entrance) {
+      advanceEntranceAnimation(robot.entrance, run.entrance.elapsed - elapsed)
+      if (robot.entrance.elapsed + 1e-9 >= entranceDuration(robot.entrance)) delete robot.entrance
+    }
     if (run.entrance.elapsed + 1e-9 < entranceDuration(run.entrance)) return
     run.entrance = null; run.started = true
     if (dt < 1e-9) return
@@ -479,7 +496,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   followPropGrip(run.player, world)
   if (run.gadgets.disabled.has(run.player)) run.player.grabCooldown = Math.max(run.player.grabCooldown, dt + .05)
   stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world, run.gravityField,
-    undefined, 1, undefined, { ropeRiders: run.robots.flatMap(r => r.actor ? [r.actor] : []) })
+    undefined, 1, undefined, { ropeRiders: run.robots.flatMap(r => r.actor ? [r.actor] : []), water: run.water })
   if (powered && run.robots.length) faceContactedRobots(run.player, run.player.contacts, run.robots)
   applyContactEmp(run)
   finishGadgetMotion(run, toolBefore)

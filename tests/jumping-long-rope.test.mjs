@@ -1,8 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer } from '../src/games/jumping/model.ts'
-import { createRope, ropeGripDistance, ropeImpulse, ropePoint, stepRope } from '../src/games/jumping/climbables.ts'
+import { createRope, ropeGripDistance, ropeImpulse, ropePoint, stepRope, ropeSegmentCount } from '../src/games/jumping/climbables.ts'
 import { prepareRope } from '../src/games/jumping/ropeLayout.ts'
+import { createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
 
 function scene(length, distance = length - 8, speed = 0) {
   const definition = { x: 500, y: 100, length, segments: 12 }
@@ -98,5 +99,47 @@ test('dropping during the last climbing stroke does not turn animation into mome
     assert.equal(p.vx, vx)
     assert.deepEqual([p.x, p.y], [x, y], 'dropping cannot snap the player to an extrapolated rope pose')
     assert.ok(rope.nodes.every(n => Number.isFinite(n.x) && Number.isFinite(n.y)))
+  }
+})
+
+for (const dt of [STEP, 1 / 30]) test(`a long floating rope preserves screen controls and release momentum at ${Math.round(1 / dt)} Hz`, () => {
+  const definition = { x: 500, y: 2200, length: 1200, segments: 100 }, rope = createRope(definition)
+  for (const node of rope.nodes) node.y = node.oldY = 2 * definition.y - node.y
+  const p = createPlayer({ x: 490, y: 1544 }), field = createGravityField()
+  Object.assign(p, { grounded: false, inverted: true, ropes: [rope] })
+  updateGravityField(field, [{ id: 'g', x: -1000, y: -1000, w: 4000, h: 5000, gravity: -1, power: 'always' }], new Map(), true)
+  const world = { ladders: [], ropes: [definition] }
+  const tick = (input = {}, seconds = dt) => {
+    for (let i = 0; i < Math.round(seconds / dt); i++) stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, dt, [], world, undefined, undefined, field)
+  }
+  tick({}, .75)
+  assert.equal(p.climbing?.rope, rope)
+  const lower = p.y
+  tick({ climb: true }, .3)
+  assert.ok(p.y < lower - 10, 'Up follows the visible rope upward')
+  const upper = p.y
+  tick({ descend: true }, .3)
+  assert.ok(p.y > upper + 10, 'Down follows the visible rope downward')
+  tick({ move: 1 }, .3)
+  const before = [p.x, p.y, p.vx, p.vy]
+  tick({ detach: true })
+  assert.equal(p.climbing, null)
+  assert.deepEqual([p.x, p.y, p.vx, p.vy], before, 'release keeps the occupied space and real rope momentum')
+})
+
+test('ordinary jumps transfer between fine and wider rope spans in either direction', () => {
+  for (const side of [-1, 1]) for (const lengths of [[1200, 600], [600, 1200]]) {
+    const definitions = lengths.map((length, i) => ({ x: 500 + i * side * 140, y: 100, length, segments: ropeSegmentCount(length) }))
+    const ropes = definitions.map(createRope), p = createPlayer({ x: 500 - side * 10, y: 536 })
+    Object.assign(p, { grounded: false, facing: side, ropes })
+    const world = { ladders: [], ropes: definitions }, tick = input => stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, STEP, [], world)
+    for (let i = 0; i < 90; i++) tick({})
+    assert.equal(p.climbing?.rope, ropes[0])
+    tick({ jump: true, move: side })
+    assert.equal(p.climbing, null)
+    for (let i = 0; i < 150 && p.climbing?.rope !== ropes[1]; i++) tick({ move: side, jump: true })
+    assert.equal(p.climbing?.rope, ropes[1], 'the airborne hands catch the next visible rope')
+    for (let i = 0; i < 20; i++) tick({ jump: true })
+    assert.equal(p.climbing?.rope, ropes[1], 'holding the original jump must not release the new grip')
   }
 })

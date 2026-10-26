@@ -1,0 +1,528 @@
+{
+  "version": 1,
+  "id": "d52a327a-3f29-4c04-b501-3ee77d6e2e42",
+  "name": "Ascent II",
+  "width": 1620,
+  "height": 4000,
+  "platforms": [
+    {
+      "x": 720,
+      "y": 255,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 720,
+      "y": 3665,
+      "w": 175,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "w": 615,
+      "h": 4000,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          225,
+          0
+        ],
+        [
+          320,
+          520
+        ],
+        [
+          170,
+          1000
+        ],
+        [
+          305,
+          1745
+        ],
+        [
+          615,
+          2310
+        ],
+        [
+          615,
+          3060
+        ],
+        [
+          345,
+          3250
+        ],
+        [
+          295,
+          4000
+        ],
+        [
+          0,
+          4000
+        ]
+      ]
+    },
+    {
+      "x": 1220,
+      "y": 0,
+      "w": 400,
+      "h": 4000,
+      "polygon": [
+        [
+          245,
+          0
+        ],
+        [
+          400,
+          0
+        ],
+        [
+          400,
+          4000
+        ],
+        [
+          120,
+          4000
+        ],
+        [
+          40,
+          3445
+        ],
+        [
+          0,
+          2730
+        ],
+        [
+          180,
+          2380
+        ],
+        [
+          175,
+          1450
+        ],
+        [
+          170,
+          305
+        ]
+      ]
+    },
+    {
+      "x": 505,
+      "y": 3455,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 880,
+      "y": 3375,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 810,
+      "y": 3110,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 775,
+      "y": 2865,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 810,
+      "y": 2655,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 907.5,
+      "y": 2060,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 605,
+      "y": 1950,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 1045,
+      "y": 1795,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 1045,
+      "y": 1435,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 1045,
+      "y": 1080,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 825,
+      "y": 890,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 585,
+      "y": 685,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 435,
+      "y": 460,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 810,
+      "y": 2455,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 775,
+      "y": 2250,
+      "w": 180,
+      "h": 30,
+      "material": "earth"
+    },
+    {
+      "x": 390,
+      "y": 835,
+      "w": 520,
+      "h": 905,
+      "polygon": [
+        [
+          30,
+          0
+        ],
+        [
+          115,
+          125
+        ],
+        [
+          305,
+          325
+        ],
+        [
+          520,
+          470
+        ],
+        [
+          520,
+          840
+        ],
+        [
+          225,
+          905
+        ],
+        [
+          125,
+          835
+        ],
+        [
+          0,
+          190
+        ]
+      ]
+    }
+  ],
+  "entrance": {
+    "x": 807.5,
+    "y": 3665
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "floor": 4000,
+  "goal": {
+    "x": 717,
+    "y": 255
+  },
+  "times": {
+    "a": 30,
+    "b": 40,
+    "c": 45,
+    "d": 50
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [],
+  "gravityPlates": [
+    {
+      "id": "e9d9be61-f37e-4924-8b7e-12e91aabb395",
+      "x": 0,
+      "y": 300,
+      "w": 1620,
+      "h": 3700,
+      "gravity": -1,
+      "effect": "water",
+      "waterLevel": 1,
+      "waterMinLevel": 1,
+      "waterRate": 2,
+      "fill": {
+        "switchReversed": true
+      }
+    }
+  ],
+  "wallLights": [
+    {
+      "id": "36968422-14a2-43e4-b253-390887dce6df",
+      "x": 1120,
+      "y": 3660
+    },
+    {
+      "id": "56091b86-cb79-4607-8a36-9e777deb5972",
+      "x": 1120,
+      "y": 3620
+    },
+    {
+      "id": "8bb35a43-22cf-47a8-b62f-5d09a8900ba5",
+      "x": 1120,
+      "y": 3580
+    },
+    {
+      "id": "6557dd8e-7d55-431f-95a7-d8c31e9c07ee",
+      "x": 1120,
+      "y": 3540
+    },
+    {
+      "id": "c50fb436-6009-44f6-9256-176147ceda95",
+      "x": 1320,
+      "y": 2200
+    },
+    {
+      "id": "d71ed4aa-ae97-4f17-b5ec-aafba62df8fa",
+      "x": 1320,
+      "y": 2160
+    },
+    {
+      "id": "61f6f948-afa9-4504-b73e-41e0ade4998f",
+      "x": 1320,
+      "y": 2120
+    },
+    {
+      "id": "c934aadc-3ea5-4a5b-b86b-c215af614f12",
+      "x": 1320,
+      "y": 2080
+    },
+    {
+      "id": "cbce6141-eccb-4d4f-bd36-fbf66d0d69cf",
+      "x": 880,
+      "y": 1155
+    },
+    {
+      "id": "d91298ab-d9ab-47ae-bc40-511a5ebe50c9",
+      "x": 880,
+      "y": 1115
+    },
+    {
+      "id": "43ca2678-8fe7-42ca-800c-572158490c95",
+      "x": 880,
+      "y": 1075
+    },
+    {
+      "id": "5af3fd64-b650-422c-8e96-19859b4b3528",
+      "x": 880,
+      "y": 1035
+    },
+    {
+      "id": "fa3b13a2-6d83-4c85-9c26-c9d7be7c51b1",
+      "x": 1310,
+      "y": 195
+    },
+    {
+      "id": "c9c8a202-fd65-40af-a47e-d4a7f23403b5",
+      "x": 1310,
+      "y": 155
+    },
+    {
+      "id": "5b6f3ddd-ad17-441c-bfd9-d68b8e90f8bf",
+      "x": 1310,
+      "y": 115
+    },
+    {
+      "id": "56a221d8-742d-44f9-9c8e-0575baa17ffb",
+      "x": 1310,
+      "y": 75
+    }
+  ],
+  "floatSwitches": [
+    {
+      "id": "16ec9fa5-11d5-4580-bd7f-633ac7b10e12",
+      "x": 340,
+      "y": 3865,
+      "armLength": 100,
+      "size": 40,
+      "targets": [
+        "36968422-14a2-43e4-b253-390887dce6df",
+        "c50fb436-6009-44f6-9256-176147ceda95",
+        "cbce6141-eccb-4d4f-bd36-fbf66d0d69cf",
+        "fa3b13a2-6d83-4c85-9c26-c9d7be7c51b1"
+      ]
+    },
+    {
+      "id": "1129b890-0a5e-40a2-8347-1431698c390a",
+      "x": 1315,
+      "y": 2400,
+      "armLength": 100,
+      "size": 40,
+      "targets": [
+        "56091b86-cb79-4607-8a36-9e777deb5972",
+        "d71ed4aa-ae97-4f17-b5ec-aafba62df8fa",
+        "d91298ab-d9ab-47ae-bc40-511a5ebe50c9",
+        "c9c8a202-fd65-40af-a47e-d4a7f23403b5"
+      ],
+      "flipX": true
+    },
+    {
+      "id": "b9d45fda-bdf9-4233-a903-b13cb2ab4968",
+      "x": 325,
+      "y": 1595,
+      "armLength": 100,
+      "size": 40,
+      "targets": [
+        "8bb35a43-22cf-47a8-b62f-5d09a8900ba5",
+        "61f6f948-afa9-4504-b73e-41e0ade4998f",
+        "43ca2678-8fe7-42ca-800c-572158490c95",
+        "5b6f3ddd-ad17-441c-bfd9-d68b8e90f8bf"
+      ]
+    },
+    {
+      "id": "67185d0a-116e-45a3-a882-3eb0ab9c586d",
+      "x": 1320,
+      "y": 680,
+      "armLength": 100,
+      "size": 40,
+      "targets": [
+        "6557dd8e-7d55-431f-95a7-d8c31e9c07ee",
+        "c934aadc-3ea5-4a5b-b86b-c215af614f12",
+        "5af3fd64-b650-422c-8e96-19859b4b3528",
+        "56a221d8-742d-44f9-9c8e-0575baa17ffb"
+      ],
+      "flipX": true
+    }
+  ],
+  "editorGroups": [
+    {
+      "id": "c7c1383f-8312-44f5-a65b-9971db5995ad",
+      "members": [
+        {
+          "kind": "wall-light",
+          "index": 0
+        },
+        {
+          "kind": "wall-light",
+          "index": 1
+        },
+        {
+          "kind": "wall-light",
+          "index": 2
+        },
+        {
+          "kind": "wall-light",
+          "index": 3
+        }
+      ]
+    },
+    {
+      "id": "5516824f-5fb0-4f1b-a175-7d4920f318fa",
+      "members": [
+        {
+          "kind": "wall-light",
+          "index": 4
+        },
+        {
+          "kind": "wall-light",
+          "index": 5
+        },
+        {
+          "kind": "wall-light",
+          "index": 6
+        },
+        {
+          "kind": "wall-light",
+          "index": 7
+        }
+      ]
+    },
+    {
+      "id": "cd907f42-5c66-475b-b28c-93e487d8d86a",
+      "members": [
+        {
+          "kind": "wall-light",
+          "index": 8
+        },
+        {
+          "kind": "wall-light",
+          "index": 9
+        },
+        {
+          "kind": "wall-light",
+          "index": 10
+        },
+        {
+          "kind": "wall-light",
+          "index": 11
+        }
+      ]
+    },
+    {
+      "id": "f2d6643a-684d-42fd-add4-ec4046861f90",
+      "members": [
+        {
+          "kind": "wall-light",
+          "index": 12
+        },
+        {
+          "kind": "wall-light",
+          "index": 13
+        },
+        {
+          "kind": "wall-light",
+          "index": 14
+        },
+        {
+          "kind": "wall-light",
+          "index": 15
+        }
+      ]
+    }
+  ]
+}

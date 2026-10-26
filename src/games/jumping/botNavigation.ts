@@ -322,7 +322,14 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
       node.swim && Number.isFinite(costs[index]) && (best < 0 || node.y < graph.nodes[best].y - 1
         || Math.abs(node.y - graph.nodes[best].y) < 1 && costs[index] < costs[best]) ? index : best, -1)
     const goal = graph.nodes[exit]
-    if (goal) {
+    // A replan must not send a swimmer back to a surface sample it has already
+    // left for takeoff. Keep that clear departure while approaching its bank;
+    // live barriers and changed exits still replace the route normally.
+    const departing = goal && state.waterExit.node === exit && state.leg?.jump && state.launchFrom?.swim && state.path.length
+      && edgeClear(state.launchFrom, graph.nodes[state.path[0]], state.leg, barriers)
+      && botSwimClear(run, actor, state.launchFrom, walkingSolids)
+    if (departing) state.age = 0
+    else if (goal) {
       if (state.waterExit.node !== exit) state.distances.clear()
       state.waterExit = { node: exit, goal }
       state.goal = goal; state.path = [exit]; state.leg = undefined; state.age = 0

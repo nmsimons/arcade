@@ -254,7 +254,17 @@ node/edge picks follow the visible order. Changes support Undo and Redo and are
 saved with the level. New and duplicated terrain starts at the front. Collision,
 terrain indices, and attached ropes and ladders remain unchanged.
 
-**Shift-click** adds or removes objects from the selection. Dragging from empty
+Click again at the same point to cycle through overlapping objects from front
+to back, including wall items inside water rectangles. Dragging moves the current
+selection; a click changes to the next overlapping object when released.
+Reaching a saved group selects all of its members. The next click selects just
+the member under the pointer, then further clicks continue through overlaps.
+
+**Shift-click** adds or removes objects from the selection. Repeated Shift-clicks
+at the same point cycle through overlapping objects, toggling each one while
+preserving the rest of the selection. A member of a saved group toggles the whole
+group. Holding Shift after an ordinary click
+continues with the next object behind it. Dragging from empty
 canvas selects objects intersecting a rectangle; **Shift-drag** adds to the
 existing selection. Space-drag and middle-button drag pan. Drag any selected
 object or use arrow keys to move the group by one shared offset. Its spacing is
@@ -975,7 +985,15 @@ the pod; its empty shell remains at the authored position after departure.
 The pod is back-wall artwork, not a barrier or extra collision exception. Give
 its 127.5-by-126 silhouette clear space and a flat supported landing. Moving,
 duplicating, saving and reopening the bot preserve its bay; other bot kinds
-cannot use this option. Ordinary Repulsorbots retain their immediate patrol.
+cannot use this option. Ordinary Repulsorbots enter through a portal alongside
+the player before patrol begins. Their authored position is the center of a
+40-by-80 doorway, requiring the same flat sill and clear opening as the player's
+entrance. Unsupported, sloping or obstructed starts keep their static appearance
+until manually repositioned; starting a level never changes its layout. The
+portal closes before AI activates and adds no collision. Pause and restart apply
+to both entrances. Editor and placement previews show the humanoid inside its
+open portal, with selection covering the doorway as well as the body. The editor
+shows that footprint even for unsupported starts so authors can fix their placement.
 They reuse the player controller, walking/foot rig, ledge grabs, jumping,
 ladder/rope climbing, gravity and water movement. Their red armor and wider
 shell, flared forearm/lower-leg armor and large feet distinguish them; their

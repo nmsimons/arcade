@@ -4,7 +4,7 @@ const installed = new WeakSet()
 
 /** Observe the rendered head's coordinate space, independently of its outline.
  * Palette values come from the artwork so visual tuning cannot disable probes. */
-export async function installAthleteHeadObserver(page) {
+export async function installAthleteHeadObserver(page, inks = ['#686b6e', '#e5e7e6']) {
   if (installed.has(page)) return
   installed.add(page)
   await page.addInitScript(({ faces }) => {
@@ -25,11 +25,11 @@ export async function installAthleteHeadObserver(page) {
         if (body) {
           const head = body.inverse().transformPoint(new DOMPoint(headTransform.e, headTransform.f))
           window.dispatchEvent(new CustomEvent('jumping-athlete-head', {
-            detail: { canvas, body, head: [head.x, head.y], alpha: this.globalAlpha },
+            detail: { canvas, body, head: [head.x, head.y], alpha: this.globalAlpha, ink: this.fillStyle },
           }))
         }
       }
       return result
     }
-  }, { faces: ['#686b6e', '#e5e7e6'].map(ink => androidMaterials(ink).face) })
+  }, { faces: inks.map(ink => androidMaterials(ink).face) })
 }

@@ -182,7 +182,15 @@
       "mode": "touch"
     }
   ],
-  "robots": [],
+  "robots": [
+    {
+      "x": 700,
+      "y": 920,
+      "left": 26,
+      "right": 1774,
+      "kind": "repulsor"
+    }
+  ],
   "timers": [],
   "pickups": [],
   "texts": [],

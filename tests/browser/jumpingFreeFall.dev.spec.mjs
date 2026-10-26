@@ -16,7 +16,7 @@ test('walking off a high platform falls prone, lands flat and gets up with norma
   await page.clock.runFor(64)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   const read = () => page.evaluate(() => window.jumpingMotion.read())
-  const sample = async () => (await read()).recent.at(-1)
+  const sample = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   // Walk off and release early enough to stop in the air. Running until the
   // prone phase retains forward momentum at impact and now correctly starts
   // the moving recovery, which has its own supported-running browser check.

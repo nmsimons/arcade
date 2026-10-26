@@ -77,6 +77,17 @@ open horizon, and playable natural ground for the
 [escape reveal](jumping-outdoors.md). The player needs time and control to
 experience that payoff.
 
+Underground is a place, not a global time of day. Use authored cave back walls
+below the surface and open daylight above them, so climbing out reveals an
+actual change of enclosure. Preserve broad sky and playable natural ground for
+the final emergence. Keep an outdoor finish far enough from the enclosing level
+frame that normal landscape and portrait views show continuing ground and sky.
+Use the standard cavern back wall. Keep outdoors equally simple: flat blue sky
+and sparse clouds, with the playable terrain supplying the landscape. Light the
+terrain according to its exposed surfaces, so a sunlit roof does not make its
+deep cave wall glow. Review the robot's silhouette on both sides using its
+normal day/night material palettes, preserving the shell, face, joints and markings.
+
 ## 1. Give the place a purpose
 
 Before placing obstacles, describe the level in one sentence: “A delivery lift

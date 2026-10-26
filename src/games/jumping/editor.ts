@@ -152,13 +152,19 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     const clearance = s.kind === 'checkpoint' ? TUNING.height : 0
     return b.y - clearance
   })
-  const terminalTops = wallWiringItems(level).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.y - 4] : [])
+  const terminalTops = [...wallWiringItems(level).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.y - 4] : []),
+    ...(level.environment ? [level.environment.horizon, ...level.environment.walls.map(w => w.y), ...level.environment.groundCover?.map(c => c.y - 8) ?? []] : [])]
   const height = clamp(requested, Math.ceil(Math.max(400, ...[...tops, ...terminalTops].map(y => before - y))), 6000)
   const dy = height - before
   if (!dy) return level
   const next = copyLevel(level)
   next.height = height
   if (next.floor !== undefined) next.floor = height
+  if (next.environment) {
+    next.environment.horizon += dy
+    for (const wall of next.environment.walls) wall.y += dy
+    for (const cover of next.environment.groundCover ?? []) cover.y += dy
+  }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
     ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }

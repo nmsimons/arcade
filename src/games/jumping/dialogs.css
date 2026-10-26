@@ -80,6 +80,8 @@
 .jumping-controls-actions { margin-top: auto; }
 /* Results read top to bottom: outcome, targets, another run, other destinations. */
 .jumping-dialog-panel.jumping-result { height: auto; }
+.jumping-game .jumping-dialog-overlay.jumping-ending { background: transparent; align-items: flex-end; justify-content: flex-start; }
+.jumping-ending .jumping-dialog-panel { margin: auto 0 0; width: min(23em, 100%); }
 .jumping-result > * { flex: none; }
 .jumping-result .jumping-result-heading { margin: 0 0 12px; font: 600 var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif; }
 .jumping-result .jumping-result-time { margin: 0; font: 600 var(--jumping-type-large)/1.15 ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.065em; color: var(--jumping-ink); }

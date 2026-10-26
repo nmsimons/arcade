@@ -78,14 +78,15 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
   level: PuzzleLevel; elapsed: number; grade: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
   onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
-  const primary = testing && canEdit ? onBuilder : onNext ?? onRetry
-  const primaryLabel = testing && canEdit ? 'Return to builder' : onNext ? 'Next level' : 'Try again'
+  const ending = level.goal.kind === 'overlook'
+  const primary = testing && canEdit ? onBuilder : ending ? onLevels : onNext ?? onRetry
+  const primaryLabel = testing && canEdit ? 'Return to builder' : ending ? 'Level menu' : onNext ? 'Next level' : 'Try again'
   const time = formatTime(elapsed), [wholeTime, fraction] = time.split('.')
-  return <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={onRetry} className="jumping-overlay jumping-dialog-overlay">
+  return <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={ending ? onLevels : onRetry} className={`jumping-overlay jumping-dialog-overlay${ending ? ' jumping-ending' : ''}`}>
     <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
       <header className="jumping-dialog-heading">
         <p className="jumping-eyebrow">{level.name}</p>
-        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : grade === 'F' ? 'Run finished.' : 'Level complete.'}</h2>
+        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : ending ? 'You’re outside.' : grade === 'F' ? 'Run finished.' : 'Level complete.'}</h2>
         {level.timing !== 'untimed' && <p className="jumping-result-time" aria-label={`Finish time ${time}`}>{wholeTime}<wbr /><span className="jumping-result-fraction">.{fraction}</span></p>}
         {level.timing !== 'untimed' && <div className="jumping-result-summary">
           <p className="jumping-result-award">
@@ -101,12 +102,12 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
         </div>)}
       </dl>}
       <nav className="jumping-dialog-actions jumping-result-actions" aria-label="Completion actions">
-        <button data-initial-focus onClick={primary}>{primaryLabel}{!testing && !onNext && <RestartIcon />}</button>
-        {(testing || onNext) && <button onClick={onRetry}>Try again <RestartIcon /></button>}
+        <button data-initial-focus onClick={primary}>{primaryLabel}{!testing && !onNext && !ending && <RestartIcon />}</button>
+        {(testing || onNext || ending) && <button onClick={onRetry}>{ending ? 'Play again' : 'Try again'} <RestartIcon /></button>}
       </nav>
       <footer className="jumping-result-destinations">
         <nav className="jumping-dialog-actions" aria-label="Other destinations">
-          <button onClick={onLevels}>Level menu</button>
+          {!ending && <button onClick={onLevels}>Level menu</button>}
           <button onClick={onExit}>Back to arcade</button>
         </nav>
         {saveError && <p className="jumping-result-storage" role="status">{level.timing === 'untimed' ? 'Your completion is kept' : 'Your time is kept'} for this visit. Browser storage is unavailable.</p>}

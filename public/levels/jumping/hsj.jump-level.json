@@ -1,7 +1,7 @@
 {
   "version": 1,
   "id": "ff487efc-cbdb-42f0-85c0-8df2b69532b4",
-  "name": "Here There Everywhere",
+  "name": "Hop Skip Jump I",
   "width": 2100,
   "height": 1200,
   "platforms": [
@@ -98,7 +98,7 @@
       },
       {
         "name": "Third landing return",
-        "x": 1450,
+        "x": 1430,
         "top": 475,
         "bottom": 850,
         "platform": -1,
@@ -106,7 +106,7 @@
       },
       {
         "name": "Ordinary exit access",
-        "x": 1950,
+        "x": 1940,
         "top": 650,
         "bottom": 850,
         "platform": -1,

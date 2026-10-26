@@ -39,6 +39,8 @@ import { defaultObjectLabel, objectLabel } from './objectLabels'
 import { TerrainMaterialPicker } from './TerrainMaterialPicker'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
+import { EnvironmentFields } from './EnvironmentFields'
+import { backWallPoints, backWallPointAt, backWallEdgeAt, moveBackWallPoint, insertBackWallPoint, deleteBackWallPoint, drawBackWallOutline } from './backWallEditing'
 import { BuilderLibrary } from './BuilderLibrary'
 import { SaveFailureDialog } from './LevelFileActions'
 import { BuilderHelp } from './BuilderHelp'
@@ -99,7 +101,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
   return selection.kind === 'text' ? handles.map(p => ({ ...p, ...wallTextPoint(level.texts![selection.index], p.x - bounds.x, p.y - bounds.y) })) : handles
 }
-type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'bezier' | 'wire-terminal' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; tangent?: 'in' | 'out'; terminal?: Point; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean; drill?: boolean; cycle?: Selection; overlap?: boolean }
+type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'back-wall' | 'bezier' | 'wire-terminal' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; wall?: number; point?: number; tangent?: 'in' | 'out'; terminal?: Point; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean; drill?: boolean; cycle?: Selection; overlap?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
   { id: 'node', group: 'Editing', label: 'Node', help: 'Drag a node to reshape terrain, or click an edge to add one. Select a node and choose Bézier handles in the inspector to curve its edges. N activates this tool.' },
@@ -165,6 +167,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   useEffect(() => () => lightingRenderer.dispose(), [lightingRenderer])
   useEffect(() => { if (!active) lightingRenderer.release() }, [active, lightingRenderer])
   const [lightingPreview, setLightingPreview] = useState(true)
+  const [environmentGrid, setEnvironmentGrid] = useState(true)
+  const [wallEdit, setWallEdit] = useState<number | null>(null)
+  const [wallNode, setWallNode] = useState<number | null>(null)
+  const editingWall = wallEdit === null ? undefined : level.environment?.walls[wallEdit]
   const [previewLight, setPreviewLight] = useState<string | null>(null)
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
@@ -223,7 +229,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const builderRef = useRef<HTMLElement>(null)
   const [textEntry, setTextEntry] = useState<HTMLInputElement | HTMLTextAreaElement | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
-  const terrainDrag = !!drag && ['bezier', 'point', 'resize', 'move'].includes(drag.mode)
+  const terrainDrag = drag?.mode === 'back-wall' || !!drag && ['bezier', 'point', 'resize', 'move'].includes(drag.mode)
     && (drag.selection?.kind === 'platform' || drag.selections?.some(s => s.kind === 'platform'))
   // Do not restart workers or shade a whole scene for every handle movement.
   // Draw the live solid immediately; prepare lighting once the edit is released.
@@ -310,6 +316,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   }
   function chooseSelection(next: Selection | null) {
     lastClick.current = null
+    if (next) setWallEdit(null)
     if (next && inspectorTab !== 'object') chooseInspectorTab('object')
     if (next?.kind !== selection?.kind || next?.index !== selection?.index) inspectorRef.current?.scrollTo({ top: 0 })
     setSelectedItems(next ? [next] : []); setSelectedNode(null); setTerminalFocus(null); setPreviewLight(null)
@@ -393,13 +400,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     clipboardRequest.current.version++
     if (history.past.length) keepFloorInView(history.past.at(-1)!)
     setHistory(h => h.past.length ? { past: h.past.slice(0, -1), present: h.past.at(-1)!, future: [h.present, ...h.future] } : h)
-    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
+    chooseSelection(null); setWallNode(null); setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
   }
   function redo() {
     clipboardRequest.current.version++
     if (history.future.length) keepFloorInView(history.future[0])
     setHistory(h => h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h)
-    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
+    chooseSelection(null); setWallNode(null); setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
   }
   function keepFloorInView(next: JumpLevel, previous = history.present) {
     const dy = levelHeight(next) - levelHeight(previous)
@@ -433,7 +440,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     setHistory({ past: [], present: next, future: [] })
     setSaved({ level: editSignature(next), fileName: name })
     setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
-    chooseSelection(null); chooseInspectorTab('level'); setTool('select'); setView(homeView(next, size.height)); setMessage('')
+    chooseSelection(null); setWallEdit(null); setWallNode(null); chooseInspectorTab('level'); setTool('select'); setView(homeView(next, size.height)); setMessage('')
     onFileChange(file?.fileName)
   }
   function chooseLibraryItem(choice: LibraryChoice) {
@@ -454,6 +461,23 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     try {
       const next = deleteTerrainNode(history.present, selection.index, selectedNode)
       commit(next); setSelectedNode(Math.min(selectedNode, terrainNodes(next.platforms[selection.index]).length - 1))
+    } catch (error) { setMessage((error as Error).message) }
+  }
+  function editBackWall(index: number | null) {
+    setWallEdit(index); setWallNode(null); setTool('select'); chooseSelection(null)
+    setDrag(null); setPreview(null); latestPreview.current = null; setMessage('')
+    const wall = index === null ? undefined : level.environment?.walls[index]
+    if (wall) {
+      const zoom = clamp(Math.min(size.width / (wall.w + 120), size.height / (wall.h + 120)), .08, 2.5)
+      setView({ x: wall.x + wall.w / 2 - size.width / zoom / 2, y: wall.y + wall.h / 2 - size.height / zoom / 2, zoom })
+    }
+    canvasRef.current?.focus({ preventScroll: true })
+  }
+  function removeWallNode() {
+    if (wallEdit === null || wallNode === null) return
+    try {
+      const next = deleteBackWallPoint(history.present, wallEdit, wallNode)
+      commit(next); setWallNode(null)
     } catch (error) { setMessage((error as Error).message) }
   }
   function transformSelectedTerrain(transform: TerrainTransform) {
@@ -537,6 +561,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
+      if (level.environment && environmentGrid) {
+        const step = LEVEL_GRID_SIZE * 2 ** Math.max(0, Math.ceil(Math.log2(8 / (LEVEL_GRID_SIZE * view.zoom))))
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
+        ctx.strokeStyle = '#353f4820'; ctx.lineWidth = 1 / view.zoom; ctx.beginPath()
+        for (let x = Math.max(0, Math.floor(view.x / step) * step); x <= Math.min(level.width, view.x + size.width / view.zoom); x += step) { ctx.moveTo(x, view.y); ctx.lineTo(x, view.y + size.height / view.zoom) }
+        for (let y = Math.max(0, Math.floor(view.y / step) * step); y <= Math.min(levelHeight(level), view.y + size.height / view.zoom); y += step) { ctx.moveTo(view.x, y); ctx.lineTo(view.x + size.width / view.zoom, y) }
+        ctx.stroke(); ctx.restore()
+      }
       for (const relay of level.logicRelays ?? []) drawLogicRelay(ctx, relay, !!previewRun?.switchStates.get(relay.id))
       if (mechanism) {
         const open = mechanismOpenPosition(mechanism)
@@ -621,7 +653,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, curveHandles, mechanism, robot, terrainDrag, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, curveHandles, mechanism, robot, terrainDrag, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, environmentGrid, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
   useEffect(() => {
     if (!active || size.width <= 0 || size.height <= 0) return
     // Cursor movement must not restart lighting or redraw the authored world.
@@ -654,7 +686,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       ctx.beginPath(); ctx.moveTo(nodeTarget.x - cross, nodeTarget.y); ctx.lineTo(nodeTarget.x + cross, nodeTarget.y)
       ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
     }
-  }, [active, size, view, placement, marquee, wallTextFontReady, hoveredNode, nodeTarget, level, selectedItems, snap, pointer?.free, tool])
+    if (editingWall) drawBackWallOutline(ctx, editingWall, wallNode, view.zoom)
+  }, [active, size, view, placement, marquee, wallTextFontReady, hoveredNode, nodeTarget, level, selectedItems, snap, pointer?.free, tool, editingWall, wallNode])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -673,6 +706,21 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     hover(p, event.altKey)
     latestPreview.current = null
     if (panHeld.current || event.button === 1) { setDrag({ mode: 'pan', start: p, screen, base, view, selection: null }); return }
+    if (editingWall && wallEdit !== null) {
+      const point = backWallPointAt(editingWall, p.x, p.y, 10 / view.zoom)
+      if (point >= 0) {
+        setWallNode(point); setMessage('')
+        setDrag({ mode: 'back-wall', start: p, screen, base, view, selection: null, wall: wallEdit, point }); return
+      }
+      const edge = backWallEdgeAt(editingWall, p.x, p.y, 12 / view.zoom)
+      if (edge) try {
+        const next = insertBackWallPoint(base, wallEdit, edge.edge, edge.x, edge.y)
+        setWallNode(edge.edge + 1); setPreview(next); latestPreview.current = next; setMessage('')
+        setDrag({ mode: 'back-wall', start: p, screen, base: next, view, selection: null, wall: wallEdit, point: edge.edge + 1, inserted: true })
+      } catch (error) { setMessage((error as Error).message) }
+      else { setWallNode(null); setMessage('Drag an outline point, or click a blue edge to add one.') }
+      return
+    }
     if ((tool === 'node' || tool === 'select') && selection && selectedNode !== null) {
       const handle = curveHandles.find(h => Math.hypot(p.x - h.x, p.y - h.y) < 8 / view.zoom)
       if (handle) {
@@ -773,6 +821,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         const added = addItem(d.base, tool, d.start, { x: qx(p.x), y: qy(p.y) })
         next = added ? snap && !event.altKey ? placeOnSurface(added.level, added.selection, 12 / view.zoom) : added.level : null
       } catch { /* Explain invalid placement when released. */ }
+    } else if (d.mode === 'back-wall' && d.wall !== undefined) {
+      const point = backWallPoints(d.base.environment!.walls[d.wall])[d.point!]
+      try {
+        next = d.inserted && Math.hypot(dx, dy) * view.zoom < 3 ? d.base
+          : moveBackWallPoint(d.base, d.wall, d.point!, qx(point[0] + dx), qy(point[1] + dy))
+        setMessage('')
+      } catch (error) { setMessage((error as Error).message) }
     } else if (d.selection) {
       const rawBounds = itemBounds(d.base, d.selection)!
       const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] }
@@ -952,6 +1007,21 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     if (event.key === 'Alt') setPointer(previous => previous && { ...previous, free: true })
     if (event.key === 'F1') { event.preventDefault(); setHelpOpen(true); return }
     if (textEntryTarget(event.target)) return
+    if (editingWall && wallEdit !== null && event.target === canvasRef.current && !event.ctrlKey && !event.metaKey && event.code !== 'Space') {
+      if (event.key === 'Escape') { event.preventDefault(); editBackWall(null) }
+      else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); removeWallNode() }
+      else if (wallNode !== null && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        event.preventDefault()
+        const point = backWallPoints(editingWall)[wallNode], step = event.shiftKey ? 1 : gridSize
+        if (point) try {
+          const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
+          const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
+          const x = point[0] + dx, y = point[1] + dy
+          commit(moveBackWallPoint(history.present, wallEdit, wallNode, snap && !event.shiftKey && dx ? quantize(x, gridSize) : x, snap && !event.shiftKey && dy ? quantizeY(y, gridSize) : y))
+        } catch (error) { setMessage((error as Error).message) }
+      }
+      return
+    }
     if (event.code === 'Space' && event.target === canvasRef.current) { event.preventDefault(); panHeld.current = true }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicate() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'g') { event.preventDefault(); group(event.shiftKey) }
@@ -959,7 +1029,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a' && event.target === canvasRef.current) { event.preventDefault(); chooseSelections(allSelections(level)) }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save() }
-    else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); setDrag(null); setMarquee(null); setPreview(null); latestPreview.current = null }
+    else if (event.key === 'Escape') { setWallEdit(null); setTool('select'); chooseSelection(null); setDrag(null); setMarquee(null); setPreview(null); latestPreview.current = null }
     else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) }
     else if (event.target === canvasRef.current && selection && terminalFocus && terminalPosition) {
       if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -1010,7 +1080,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     </header>
     <div className="builder-view-controls" role="group" aria-label="Canvas controls">
       <div className="builder-control-group builder-mode-controls" role="group" aria-label="Editing tools">
-        {TOOLS.filter(item => item.group === 'Editing').map(item => <button key={item.id} aria-label={item.label} aria-pressed={tool === item.id} aria-keyshortcuts={item.id === 'select' ? 'V' : 'N'} title={item.id === 'select' ? 'Pointer (V): select, move, and resize objects' : 'Node (N): move terrain nodes or add them along an edge'} onClick={() => { setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /></button>)}
+        {TOOLS.filter(item => item.group === 'Editing').map(item => <button key={item.id} aria-label={item.label} aria-pressed={!editingWall && tool === item.id} aria-keyshortcuts={item.id === 'select' ? 'V' : 'N'} title={item.id === 'select' ? 'Pointer (V): select, move, and resize objects' : 'Node (N): move terrain nodes or add them along an edge'} onClick={() => { setWallEdit(null); setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /></button>)}
       </div>
       <div className="builder-control-group" role="group" aria-label="Terrain transforms">
         {([
@@ -1044,16 +1114,21 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         {['Terrain', 'Movement', 'Objects', 'Gadgets', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
           const items = TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level)))
           return items.length ? <div className="builder-tool-group" key={group}><h2>{group}</h2>
-            <div className="builder-tool-grid">{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div>
+            <div className="builder-tool-grid">{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setWallEdit(null); setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div>
           </div> : null
         })}
     </aside>
     <div className="builder-stage" data-placement-at-cursor={placementAtCursor || undefined}>
       <div ref={controllerCursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
       <canvas ref={placementCanvasRef} className="builder-placement-preview" aria-hidden="true" />
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' || drag?.mode === 'bezier' || drag?.mode === 'wire-terminal' ? 'grabbing' : hoveredNode || hoveredCurveHandle || hoveredTerminal ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' || drag?.mode === 'back-wall' || drag?.mode === 'bezier' || drag?.mode === 'wire-terminal' ? 'grabbing' : editingWall ? 'crosshair' : hoveredNode || hoveredCurveHandle || hoveredTerminal ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setMarquee(null); setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
+      {editingWall && <div className="builder-wall-edit" role="group" aria-label="Back wall outline editing">
+        <span><strong>Back wall {wallEdit! + 1} outline</strong><br />Drag points · Click an edge to add a point</span>
+        <button disabled={wallNode === null || !backWallPoints(editingWall)[wallNode] || backWallPoints(editingWall).length <= 3} onClick={removeWallNode}>Delete point</button>
+        <button onClick={() => editBackWall(null)}>Done</button>
+      </div>}
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={terrainDrag ? history.present : level} preview /><span>Overview</span></button>
     </div>
     <aside className="builder-inspector" aria-label="Inspector" ref={inspectorRef}>
@@ -1394,8 +1469,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
         <p className="builder-save-location">Built-in levels · Saved in this checkout</p>
         <BuilderInspectorSection title="World">
+          <EnvironmentFields level={level} onChange={commit} editingWall={editingWall ? wallEdit : null} onEditOutline={editBackWall} />
+          {level.environment && <label><input type="checkbox" checked={environmentGrid} onChange={e => setEnvironmentGrid(e.target.checked)} />Editor grid</label>}
           <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} {...numberEdit((base, value) => {
-            const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
+            const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.environment?.walls ?? []).map(w => w.x + w.w), ...(base.environment?.groundCover ?? []).map(c => c.x + c.w), ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
             return { ...base, width: clamp(value, extent, 20000) }
           })} /></label>
           <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>
@@ -1405,9 +1482,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
         </BuilderInspectorSection>
         {isPuzzleLevel(level) && <BuilderInspectorSection title="Timing">
+          {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }]} onChange={kind => {
+            const next = copyLevel(history.present)
+            if (!next.goal) return
+            if (kind === 'overlook') { next.goal.kind = 'overlook'; next.timing = 'untimed'; delete next.goal.power }
+            else delete next.goal.kind
+            commit(next)
+          }} />}
           {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
             const next = copyLevel(history.present)
-            if (e.target.checked) next.timing = 'untimed'; else delete next.timing
+            if (e.target.checked) next.timing = 'untimed'; else { delete next.timing; if (next.goal) delete next.goal.kind }
             commit(next)
           }} />Untimed level</label>}
           {isPuzzleLevel(level) && level.timing !== 'untimed' && <fieldset className="builder-grades"><legend>Grade times (seconds)</legend><div className="builder-grade-inputs">{GRADE_TARGETS.map((grade, index) => {

@@ -512,6 +512,13 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   run.failed ||= run.level.timing !== 'untimed' && run.elapsed > gradeTimes(run.level).d + 1e-7
   stepTriggers(run, 0)
   const p = run.player, door = goalDoor(run.level.goal)
+  if (run.level.goal.kind === 'overlook') {
+    if (input.climb && p.grounded && !p.hang && !p.climbing && Math.abs(p.x - run.level.goal.x) < 45 && Math.abs(p.y - run.level.goal.y) < 2) {
+      run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
+      cancelJumpInput(p)
+    }
+    return
+  }
   const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
   if (!p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4

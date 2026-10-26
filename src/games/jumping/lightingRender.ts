@@ -17,6 +17,8 @@ import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
 import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
+import { drawLandscape } from './environment.ts'
+import { EnvironmentLighting, environmentBufferBytes } from './environmentLighting.ts'
 import { drawWallWiring, hasWallWiring } from './wallWiring.ts'
 import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
@@ -75,6 +77,7 @@ function dayActorPatch(run: LightingWorld, view: LightingView) {
  * live game; Canvas remains available for previews and compatibility fallback.
  * Neither backend reads pixels or allocates a framebuffer per object. */
 export class LightingRenderer {
+  private environmentLighting = new EnvironmentLighting()
   readonly state = new LightingState()
   private structures = new MechanismLighting()
   private resting = new RestingCasters()
@@ -178,18 +181,25 @@ export class LightingRenderer {
     ctx.fillRect(0, 0, view.width, view.height); ctx.restore()
   }
   private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, nightMode: boolean, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
-    const ink = nightMode ? NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
+    const ink = nightMode ? run.level.environment ? this.environmentLighting.playerInk(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
     if (backdrop && layer !== 'objects') drawLevelBackdrop(ctx, run.level,
-      { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false)
+      { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false, paint === paintNormally)
+    if (run.level.environment && layer !== 'objects' && !backdrop) paint(ctx, 1, () => {
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, run.level.width, levelHeight(run.level)); ctx.clip()
+      drawLandscape(ctx, run.level.environment!, { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }); ctx.restore()
+    })
     const wiring = hasWallWiring(run.level)
     if (layer !== 'objects') drawWallWiring(ctx, run.level, 'elapsed' in run ? run : undefined, paint, nightMode)
     // Plain text may cover energized wires and must retain that draw order.
     // Message screens need the readable passes too. Replay the whole text order
     // when one is present, so overlapping signs still cover phosphor correctly.
-    if (layer !== 'objects' && (backdrop || layer === 'wall' || wiring || run.level.texts?.some(text => text.style === 'terminal')))
-      drawWallTexts(ctx, run.level.texts ?? [], nightMode, paint)
+    if (layer !== 'objects' && (backdrop || layer === 'wall' || wiring || run.level.texts?.some(text => text.style === 'terminal'))) {
+      if (nightMode && run.level.environment) for (const text of run.level.texts ?? [])
+        drawWallTexts(ctx, [text], this.environmentLighting.exposureAt(run, text.x + text.w / 2, text.y + text.h / 2) < .7, paint)
+      else drawWallTexts(ctx, run.level.texts ?? [], nightMode, paint)
+    }
     // The thin figure needs readable hands and feet in shadow at phone scale.
     // Reuse the existing artwork exposure pass; surrounding light is unchanged.
     const playerExposure = nightMode ? .65 : 0
@@ -244,6 +254,7 @@ export class LightingRenderer {
     const visibleSources = sources.filter(source => (!onlyLight || source.id === onlyLight) && lightReachesView(source, bounds))
     const activeSources = visibleSources.filter(source => source.fade > 0)
     const nightMode = nightModeEnabled(definition)
+    if (!nightMode || !run.level.environment) this.environmentLighting.release()
     if (fullBright) {
       if (this.buffers) this.release()
       this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
@@ -278,7 +289,7 @@ export class LightingRenderer {
       && width * height <= 2_000_000 && 'elapsed' in run && !run.mechanisms.length
     // Doorway edges and shading change during entry; cache the static world
     // only after they close, so no portal pixels survive into gameplay.
-    const cacheAmbientWorld = cacheDayField && 'elapsed' in run && !run.entrance && !hasWallWiring(run.level) && !run.pickups.length && !run.triggers.length
+    const cacheAmbientWorld = cacheDayField && !run.level.environment && 'elapsed' in run && !run.entrance && !hasWallWiring(run.level) && !run.pickups.length && !run.triggers.length
       && !run.level.timers?.length && !run.level.wallLights?.length && !run.level.gravityPlates?.length && !run.forceFields.length
       && !run.level.climbables?.ladders?.length && !run.level.climbables?.ropes?.length
       && airBoostStrength(run.player) < .01
@@ -288,7 +299,7 @@ export class LightingRenderer {
       try {
         const gpu = this.gpu
         const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level), !nightMode)
-        const bufferBytes = stats.bufferBytes + width * height * 16
+        const bufferBytes = stats.bufferBytes + width * height * 16 + (nightMode && run.level.environment ? environmentBufferBytes(view, true) : 0)
         if (bufferBytes > BUFFER_BUDGET) throw new Error('GPU lighting exceeds its buffer budget.')
         lighting = { ...stats, bufferBytes, backend: 'gpu', drawField: target => target.drawImage(gpu.canvas, 0, 0, width, height, 0, 0, width, height) }
       } catch {
@@ -302,7 +313,8 @@ export class LightingRenderer {
       const resting = this.resting.update(moving)
       // Small viewports can retain more stationary lights within the same 64 MiB
       // budget. At the maximum render size this still permits only two fields.
-      const cacheLimit = Math.max(0, Math.floor(BUFFER_BUDGET / (width * height * 4)) - 6 - Number(!nightMode))
+      const environmentBytes = nightMode && run.level.environment ? environmentBufferBytes(view) : 0
+      const cacheLimit = Math.max(0, Math.floor((BUFFER_BUDGET - environmentBytes) / (width * height * 4)) - 6 - Number(!nightMode))
       const cacheable = new Set(visibleSources.filter(l => (l.fade === 1 || l.flicker) && l.robot === undefined).slice(0, cacheLimit).map(l => l.id))
       for (const [id, cached] of this.staticFields) {
         // Covered lamps may skip rendering, so evict old-size fields now rather
@@ -439,8 +451,18 @@ export class LightingRenderer {
       // Lamp fields are complete. Keep source glow in their now-free scratch
       // canvas while the emission surface handles exposure masks.
       if (nightMode) { clear(lamp, width, height); lamp.ctx.drawImage(emission.canvas, 0, 0) }
-      lighting = { lights, edges, bufferBytes: width * height * 4 * (6 + Number(!nightMode) + this.staticFields.size), backend: 'canvas',
+      lighting = { lights, edges, bufferBytes: width * height * 4 * (6 + Number(!nightMode) + this.staticFields.size) + environmentBytes, backend: 'canvas',
         drawField: target => target.drawImage(cacheDayField ? this.daylight!.buffer.canvas : field.canvas, 0, 0) }
+    }
+    const environmentFields = nightMode && run.level.environment ? this.environmentLighting.render(run, view) : undefined
+    if (environmentFields) {
+      if (lighting.backend === 'canvas') {
+        this.canvasFields!.field.ctx.globalCompositeOperation = 'lighten'
+        this.canvasFields!.field.ctx.drawImage(environmentFields.ambient.canvas, 0, 0, width, height)
+      } else {
+        const combined = this.environmentLighting.resolve(view, lighting.drawField)
+        lighting = { ...lighting, drawField: target => target.drawImage(combined, 0, 0) }
+      }
     }
     const { lights, edges, bufferBytes, backend, drawField } = lighting
     // Night replays the terrain through several exposure and occlusion masks.
@@ -451,6 +473,7 @@ export class LightingRenderer {
       const terrain = 'terrain' in run ? run.terrain : levelTerrain(run.level)
       const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${run.level.width}:${levelHeight(run.level)}:`
         + terrain.map(b => `${b.x},${b.y},${b.w},${b.h},${b.material},${b.zIndex}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
+        + JSON.stringify(run.level.environment?.groundCover ?? [])
       if (this.terrainRaster?.key !== key || this.terrainRaster.buffer !== haze) {
         clear(haze, width, height); transform(haze.ctx, view)
         drawTerrain(haze.ctx, terrain, run.level.platforms, run.level)
@@ -573,8 +596,9 @@ export class LightingRenderer {
       } else if (!cacheCorrections) {
         clear(correction, width, height); drawField(correction.ctx)
         if (floor) { correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height) }
-        correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambient))
-        correction.ctx.fillRect(0, 0, width, height)
+        correction.ctx.globalCompositeOperation = 'difference'
+        if (environmentFields) correction.ctx.drawImage((floor ? environmentFields.readable : environmentFields.ambient).canvas, 0, 0, width, height)
+        else { correction.ctx.fillStyle = gray(Math.max(floor, ambient)); correction.ctx.fillRect(0, 0, width, height) }
       }
       if (cacheAmbient) {
         const key = dayKey
@@ -659,8 +683,9 @@ export class LightingRenderer {
       // Reuse the resolved max light field: real occlusion, narrow cone edges,
       // power fades and room clipping, without another light pass or buffer.
       clear(correction, width, height); drawField(correction.ctx)
-      correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = ambientColor
-      correction.ctx.fillRect(0, 0, width, height)
+      correction.ctx.globalCompositeOperation = 'difference'
+      if (environmentFields) correction.ctx.drawImage(environmentFields.ambient.canvas, 0, 0, width, height)
+      else { correction.ctx.fillStyle = ambientColor; correction.ctx.fillRect(0, 0, width, height) }
       correction.ctx.globalCompositeOperation = 'multiply'; correction.ctx.fillStyle = '#f4f2e9'
       correction.ctx.fillRect(0, 0, width, height)
       correction.ctx.globalCompositeOperation = 'destination-out'; correction.ctx.drawImage(shadow.canvas, 0, 0)
@@ -692,6 +717,7 @@ export class LightingRenderer {
       dayBackgroundCached: !!background }
   }
   release() {
+    this.environmentLighting.release()
     this.gpu?.dispose(); this.gpu = undefined
     for (const { canvas } of Object.values(this.canvasFields ?? {})) canvas.width = canvas.height = 0
     this.canvasFields = undefined

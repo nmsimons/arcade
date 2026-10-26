@@ -4024,6 +4024,79 @@
           }
         }
       ]
+    },
+    {
+      "file": "spelunk2.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 6.58333333333345,
+      "activeTime": 7.441666666666666,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 47,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 36,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 16,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 65,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 0.4
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 105,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 420,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
     }
   ],
   "jumpModel": "recorded-impulses",

@@ -10,8 +10,8 @@ Bounds). Read it with [Making a fun jumping level](jumping-level-design.md),
 [level files](jumping-levels.md), and [the outdoor finale brief](jumping-outdoors.md).
 The canon and rules below are adopted. The built-in untimed opening, Wake,
 implements the charging-bay awakening. The ordered picker now uses D-or-better
-progression; optional certification gates and the outdoor ending still need
-implementation and playtesting.
+progression. The final Spelunk sequence now supplies the outdoor ending;
+optional certification gates and independent campaign-wide playtesting remain.
 
 ## Canon
 
@@ -284,7 +284,18 @@ complete only at the authored outdoor endpoint. The endpoint needs an explicit
 finish presentation, without putting another training door in the meadow.
 Provide a clear finish action or boundary, allow the player to linger before
 it, and retain the last safe exterior checkpoint when resuming the coda.
-These capabilities require implementation; current JSON does not supply them.
+Version-2 landscapes and the untimed `overlook` finish now provide this path.
+The authored finale is untimed throughout, so there is no score to latch at
+the threshold. Timed approaches with a separately latched coda score remain
+future work. Outdoor footing and completed latching switches resume after
+reload; completion is recorded only when the player holds Up at the overlook.
+
+The closing sequence is **Ascent I → Ascent II → Spelunk I → Spelunk II →
+Spelunk III**. Preserve the Ascent levels' intended climb toward escape. The
+caves supply the last detour beneath the blocked surface route: Spelunk I
+descends, II crosses the abandoned survey gallery, and III reverses the descent
+into a final climb, emergence and overworld journey. See the
+[escape route evidence and remaining review](jumping-escape-review.md).
 
 ## Delivery and review
 

@@ -1,0 +1,495 @@
+{
+  "version": 2,
+  "id": "lab-spelunk-ii",
+  "name": "Spelunk II",
+  "width": 3000,
+  "height": 1700,
+  "floor": 1700,
+  "entrance": {
+    "x": 180,
+    "y": 700
+  },
+  "checkpoints": [],
+  "platforms": [
+    {
+      "name": "Entry landing",
+      "x": 60,
+      "y": 700,
+      "w": 320,
+      "h": 35,
+      "material": "steel"
+    },
+    {
+      "name": "Gallery roof",
+      "x": 0,
+      "y": 0,
+      "w": 3000,
+      "h": 330,
+      "material": "earth",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          3000,
+          0
+        ],
+        [
+          3000,
+          180
+        ],
+        [
+          2630,
+          210
+        ],
+        [
+          2140,
+          160
+        ],
+        [
+          1760,
+          280
+        ],
+        [
+          1300,
+          200
+        ],
+        [
+          850,
+          330
+        ],
+        [
+          420,
+          240
+        ],
+        [
+          0,
+          300
+        ]
+      ]
+    },
+    {
+      "name": "Chute",
+      "x": 340,
+      "y": 700,
+      "w": 610,
+      "h": 460,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          100,
+          0
+        ],
+        [
+          550,
+          400
+        ],
+        [
+          610,
+          400
+        ],
+        [
+          610,
+          460
+        ],
+        [
+          520,
+          460
+        ],
+        [
+          70,
+          60
+        ],
+        [
+          0,
+          60
+        ]
+      ]
+    },
+    {
+      "name": "Ball receiver",
+      "x": 880,
+      "y": 1100,
+      "w": 300,
+      "h": 35,
+      "material": "steel"
+    },
+    {
+      "name": "Receiver end stop",
+      "x": 1160,
+      "y": 1020,
+      "w": 20,
+      "h": 80,
+      "material": "steel"
+    },
+    {
+      "name": "Gallery base",
+      "x": 0,
+      "y": 1400,
+      "w": 3000,
+      "h": 300,
+      "material": "earth"
+    },
+    {
+      "name": "Lower ladder landing",
+      "x": 420,
+      "y": 1050,
+      "w": 280,
+      "h": 30,
+      "material": "steel"
+    },
+    {
+      "name": "Middle outcrop",
+      "x": 850,
+      "y": 650,
+      "w": 250,
+      "h": 100,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          50
+        ],
+        [
+          50,
+          0
+        ],
+        [
+          220,
+          0
+        ],
+        [
+          250,
+          70
+        ],
+        [
+          0,
+          100
+        ]
+      ]
+    },
+    {
+      "name": "Upper outcrop",
+      "x": 1110,
+      "y": 700,
+      "w": 260,
+      "h": 200,
+      "material": "chalk",
+      "polygon": [
+        [
+          0,
+          50
+        ],
+        [
+          40,
+          0
+        ],
+        [
+          220,
+          0
+        ],
+        [
+          260,
+          160
+        ],
+        [
+          140,
+          200
+        ],
+        [
+          0,
+          140
+        ]
+      ]
+    },
+    {
+      "name": "Exit gallery",
+      "x": 1570,
+      "y": 520,
+      "w": 1430,
+      "h": 40,
+      "material": "steel"
+    },
+    {
+      "name": "East wall",
+      "x": 2890,
+      "y": 560,
+      "w": 110,
+      "h": 1140,
+      "material": "earth",
+      "polygon": [
+        [
+          40,
+          0
+        ],
+        [
+          110,
+          0
+        ],
+        [
+          110,
+          1140
+        ],
+        [
+          0,
+          1140
+        ],
+        [
+          30,
+          800
+        ],
+        [
+          0,
+          500
+        ]
+      ]
+    },
+    {
+      "name": "High-route ledge",
+      "x": 520,
+      "y": 520,
+      "w": 220,
+      "h": 25,
+      "material": "steel"
+    },
+    {
+      "name": "Upper ladder landing",
+      "x": 1190,
+      "y": 520,
+      "w": 200,
+      "h": 25,
+      "material": "steel"
+    }
+  ],
+  "climbables": {
+    "ladders": [
+      {
+        "name": "Return to chute",
+        "x": 540,
+        "top": 1050,
+        "bottom": 1440
+      },
+      {
+        "name": "Restore ballast",
+        "x": 980,
+        "top": 1100,
+        "bottom": 1450
+      },
+      {
+        "name": "High-route access",
+        "x": 650,
+        "top": 520,
+        "bottom": 1050
+      },
+      {
+        "name": "Exit shelf access",
+        "x": 1280,
+        "top": 520,
+        "bottom": 700
+      }
+    ],
+    "ropes": []
+  },
+  "goal": {
+    "x": 2710,
+    "y": 520,
+    "id": "gallery-exit",
+    "power": "switched"
+  },
+  "times": {
+    "a": 10,
+    "b": 22,
+    "c": 45,
+    "d": 100
+  },
+  "props": [
+    {
+      "kind": "ball",
+      "name": "Survey ballast",
+      "x": 420,
+      "y": 700,
+      "size": 60
+    }
+  ],
+  "mechanisms": [
+    {
+      "id": "gallery-lift",
+      "name": "Ballast lift",
+      "kind": "lift",
+      "x": 1430,
+      "y": 1380,
+      "w": 140,
+      "h": 20,
+      "travel": 860,
+      "power": "switched",
+      "switchLogic": "and"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Ball receiver plate",
+      "x": 1000,
+      "y": 1100,
+      "w": 160,
+      "mode": "weight",
+      "targets": [
+        "gallery-lift",
+        "gallery-exit"
+      ]
+    },
+    {
+      "name": "Manual release",
+      "x": 2370,
+      "y": 520,
+      "w": 100,
+      "mode": "touch",
+      "behavior": "switch",
+      "targets": [
+        "gallery-exit"
+      ]
+    },
+    {
+      "name": "Board to start the lift",
+      "x": 1450,
+      "y": 1380,
+      "w": 100,
+      "mode": "weight",
+      "mount": {
+        "mechanism": "gallery-lift",
+        "x": 20
+      },
+      "targets": [
+        "gallery-lift"
+      ]
+    }
+  ],
+  "robots": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "ii-chute",
+        "x": 400,
+        "y": 350,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 90,
+        "power": "always"
+      },
+      {
+        "id": "ii-receiver",
+        "x": 1030,
+        "y": 790,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 100,
+        "power": "always"
+      },
+      {
+        "id": "ii-lower",
+        "x": 560,
+        "y": 1150,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 100,
+        "power": "always"
+      },
+      {
+        "id": "ii-lift",
+        "x": 1500,
+        "y": 330,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "ii-exit",
+        "x": 2570,
+        "y": 250,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 115,
+        "power": "always"
+      }
+    ]
+  },
+  "texts": [
+    {
+      "text": "SURVEY GALLERY",
+      "x": 120,
+      "y": 560,
+      "w": 360,
+      "h": 60,
+      "fontSize": 22,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "text": "send the ballast down",
+      "x": 320,
+      "y": 600,
+      "w": 340,
+      "h": 60,
+      "fontSize": 22,
+      "align": "left",
+      "style": "graffiti"
+    },
+    {
+      "text": "leave it in the cradle",
+      "x": 900,
+      "y": 990,
+      "w": 310,
+      "h": 60,
+      "fontSize": 22,
+      "align": "left",
+      "style": "graffiti"
+    },
+    {
+      "text": "or take the old ladders",
+      "x": 430,
+      "y": 1270,
+      "w": 330,
+      "h": 60,
+      "fontSize": 22,
+      "align": "left",
+      "style": "graffiti"
+    },
+    {
+      "text": "SURFACE ROUTE",
+      "x": 2310,
+      "y": 400,
+      "w": 300,
+      "h": 60,
+      "fontSize": 22,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "text": "step aboard",
+      "x": 1280,
+      "y": 1270,
+      "w": 250,
+      "h": 60,
+      "fontSize": 22,
+      "align": "left",
+      "style": "graffiti"
+    }
+  ],
+  "timers": [
+    {
+      "x": 150,
+      "y": 470
+    },
+    {
+      "x": 2670,
+      "y": 300
+    }
+  ]
+}

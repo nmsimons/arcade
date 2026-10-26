@@ -4,8 +4,9 @@
 
 The escape is the visual and emotional payoff of the
 [L.A.B. campaign](jumping-campaign.md). This specifies an outdoor environment and
-its playable reveal. It is a design, not a shipped background mode or a
-playtested final map. Read alongside [level design](jumping-level-design.md),
+its playable reveal. Version-2 landscapes and Spelunk III now implement the
+initial playable escape; the review limits are recorded in
+[escape review](jumping-escape-review.md). Read alongside [level design](jumping-level-design.md),
 [the current schema](jumping-levels.md), [contacts](jumping-physics.md), and
 [lighting](jumping-lighting.md).
 
@@ -13,14 +14,16 @@ playtested final map. Read alongside [level design](jumping-level-design.md),
 
 The concept is an art and composition study. Distances, slope angles, and jump
 gaps in it are not a validated level layout. Its stage labels are documentation,
-not text to put across the playable landscape.
+not text to put across the playable landscape. The October 26 in-game review
+simplifies its background to flat blue sky and sparse clouds. That direction
+supersedes the concept's distant ridges, transport span and layered atmosphere;
+the game's core aesthetic remains simple and two dimensional.
 
 ## The payoff
 
 After a campaign of enclosed courses, let the player emerge into a world with
 depth and room to breathe. The familiar robot should feel small within it.
-Natural ground continues beyond the facility, plants are alive, and abandoned
-human structures sit far away. The robot has escaped; the landscape offers a
+Natural ground continues beyond the facility and plants are alive. The robot has escaped; the landscape offers a
 future without explaining everything that happened.
 
 The scale comes from framing, distance, sound, and a meaningful change of place.
@@ -42,7 +45,7 @@ anticipation, but save the open horizon and full landscape for escape.
 | Threshold | A real exterior opening with a flat landing. The roof and wall end. Sky and a distant horizon enter the normal camera view while the player walks. | The opening leads out of the building. |
 | First open ground | Worn apron gives way to soil, low plants, and irregular rock. The robot remains at its established gameplay scale. | This is a continuing place the player can move through. |
 | Small outdoor journey | A gentle rise and a contained shallow channel offer an ordinary route, a playful shortcut, and local recovery. The facility recedes behind. | The robot can use its training freely. |
-| Overlook | Safe standing ground opens a large view toward distant hills and a faint abandoned settlement or transport structure. Let the player look back and choose when to finish. | Escape is complete; the world extends beyond the campaign. |
+| Overlook | Safe standing ground opens a broad view of sky and continuing playable terrain. Let the player look back and choose when to finish. | Escape is complete; the world extends beyond the campaign. |
 
 Use continuous movement for the reveal. Avoid a hard cut, a compulsory camera
 pan, or a result overlay at the threshold. Compose the view for the existing
@@ -100,11 +103,8 @@ in the image; detail stays subordinate to the robot and the supporting ground.
 
 | Element | Starting palette | Treatment |
 | --- | --- | --- |
-| Upper sky | `#b8cdd2` | Pale, low saturation; the largest open area. |
-| Horizon | `#eee9d7` | Soft warmth through a broad, subtle sky gradient. |
-| Clouds | `#f1f1ed` | A few long, simple shapes; no outlined cartoon puffs. |
-| Farthest ridge | `#b5c2bc` | Low contrast, broad outline, little detail. |
-| Near distant ridge | `#95a89b` | A slightly stronger silhouette with irregular spacing. |
+| Sky | `#bddbea` | Flat pale blue; the largest open area. |
+| Clouds | `#f6f8f6` | A few long, simple shapes; no outlines or shading. |
 | Ground cover | `#879579` | Sparse sage clumps outside the collision edge. |
 | Soil / rock / steel | Existing terrain colors | Reuse the game's material fills and restrained relief. |
 
@@ -114,18 +114,15 @@ Keep the fixed daylight direction consistent with the current source above and
 to the left. A visible sun disk is unnecessary. Avoid bloom, glare, lens flare,
 dynamic exposure, colored local lights, or simulated atmospheric scattering.
 
-Place one modest, distant sign of the old world: a broken transport span or
-quiet settlement silhouette. Its shape should suggest human absence without
-dominating the landscape or promising a destination the player can reach in
-this level. Living vegetation supplies hope; explicit survivors and the cause
-of collapse remain unresolved.
+Use the surviving service structures in the playable plane to suggest the old
+world. Keep the sky quiet. Living vegetation supplies hope; explicit survivors
+and the cause of collapse remain unresolved.
 
 ## Depth, indoor transition, and lighting
 
-Render sky and distant landscape behind playable geometry. They have no
+Render blue sky and sparse clouds behind playable geometry. They have no
 collision, grip, collectible role, pressure load, shovebot cover, or shadow
-caster geometry. A distant cliff must have lower contrast and detail than a
-cliff the player can touch. Reserve the crispest edges for the playable plane.
+caster geometry. Playable terrain supplies the landscape.
 
 The sky is not an illuminated wall. Do not project the facility's terrain
 shadows, contact-attachment halos, panel joints, or course grid onto clouds,
@@ -134,17 +131,16 @@ where the building actually exists. The outdoor environment replaces the
 backdrop only in authored exterior space; it must not turn every earlier level
 or the enclosed service approach into a sky scene.
 
-Keep sky, wall receivers, non-colliding scenery, and playable geometry distinct
-in draw order and lighting composition. A sky gradient changes background
-artwork only; it does not change illumination of terrain or actors. Preserve
-the existing Day-mode material treatment and contact rules. Any additional
+Keep sky, wall receivers, and playable geometry distinct in draw order and
+lighting composition. Sky artwork does not change illumination of terrain or
+actors. Caverns use the standard course back wall; nearby exposed surfaces
+determine terrain shading, so deep rock stays dark even where it joins a
+sunlit roof. Preserve the existing Day-mode material treatment and contact rules. Any additional
 outdoor ground treatment must remain inside the terrain silhouette and must
 not invent drop shadows onto empty air.
 
-Anchor the horizon so it does not follow every vertical step like nearby wall
-art. Start with a stable sky and authored distant silhouettes. Optional subtle
-parallax can reinforce distance after framing review; reduced-motion mode uses
-the same composition with fixed distant layers. No cloud drift, foliage sway,
+Anchor clouds in world space so they do not follow every vertical step like
+nearby wall art. Keep the sky flat, with no scenery layers or parallax. No cloud drift, foliage sway,
 birds, or particle system is required to deliver the initial landscape. If
 ambient motion is later added, make it deterministic in previews and optional
 for reduced motion, with no effect on simulation or visibility rules.
@@ -160,26 +156,26 @@ throughout. Avoid mandatory speech or explanatory ending text over the horizon.
 
 ## Implementation boundaries
 
-Current terrain polygons and stone, earth, chalk, and steel materials support
-the ground blockout. The renderer currently fills playable space with the
-off-white course wall, grid, and wall panels. Day mode supplies illumination;
-it does not create a sky, remove that wall, or provide an exterior region.
-The ordinary goal records a doorway finish and opens a result dialog. None of
-these current contracts alone implements this finale.
+Terrain polygons and stone, earth, chalk, and steel materials supply the ground.
+The default renderer still fills interior levels with the off-white course wall,
+grid, and panels. An optional authored `environment` now supplies the landscape
+and explicit cave/facility wall coverage. Ordinary goals retain doorway entry;
+an untimed `overlook` goal supplies the exterior endpoint and retained final view.
 
-Before final-map authoring, add and document the following reusable support:
+The initial implementation supplies the following reusable support:
 
 - An authored environment/background choice with an interior default and a
   deliberate interior-to-exterior boundary, preserving existing files.
-- Sky and distant-scene layers, explicit wall coverage, correct lighting
+- Blue sky and sparse clouds, explicit wall coverage, correct lighting
   receivers, and artwork for sparse outdoor ground cover.
 - A consistent scene in play, studio, saved files, and thumbnails, with the
   editor grid available as an editing overlay rather than a wall painted in sky.
-- A supported threshold between any timed approach and the untimed playable
-  coda, plus an outdoor finish and resumable exterior progress.
+- An untimed outdoor finish and resumable exterior progress. Spelunk III is
+  untimed throughout; a separate threshold that latches a timed approach's score
+  is still future work.
 
-Choose the actual schema and compatibility strategy during implementation;
-this brief does not authorize inventing unknown JSON fields in shipped maps.
+The supported schema and compatibility strategy are documented in
+[level files](jumping-levels.md#landscapes-caves-and-outdoor-finishes-version-2).
 Keep environment settings in authored data, not a special case for a finale
 filename or a global renderer theme change. Validate parsing, round trips,
 editor controls, thumbnails, lighting, and existing-file defaults together.

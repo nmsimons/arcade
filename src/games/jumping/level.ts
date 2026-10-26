@@ -50,6 +50,8 @@ import { parseEditorGroups } from './editorGroups.ts'
 import type { EditorGroup } from './editorGroups.ts'
 import { parseToggleGroups } from './toggleGroups.ts'
 import type { ToggleGroup } from './toggleGroups.ts'
+import { parseEnvironment } from './environment.ts'
+import type { LevelEnvironment } from './environment.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
@@ -67,6 +69,7 @@ export interface JumpLevel {
   editorGroups?: EditorGroup[]
   toggleGroups?: ToggleGroup[]
   lighting?: LightingDefinition
+  environment?: LevelEnvironment
   entrance: Entrance; checkpoints: Checkpoint[]; platforms: Platform[]
   timing?: 'untimed'
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
@@ -146,6 +149,7 @@ export function spawnProblem(level: JumpLevel): string | null {
 }
 export function levelProblems(level: JumpLevel): string[] {
   const issues: string[] = [], spawn = spawnProblem(level)
+  if (level.environment) try { parseEnvironment(level.environment, level.width, levelHeight(level)) } catch (error) { issues.push((error as Error).message) }
   if (!level.name.trim()) issues.push('Give the level a name.')
   if (spawn) issues.push(spawn)
   for (const [i, b] of level.platforms.entries()) if (b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'platform', i)} inside the level rectangle.`)
@@ -172,8 +176,9 @@ export function levelProblems(level: JumpLevel): string[] {
     if (field.x < 0 || field.y < 0 || field.x + field.w > level.width || field.y + field.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'force-field', i)} inside the level rectangle.`)
   }
   if (isPuzzleLevel(level)) {
-    const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
-    const left = Math.min(goalPoleX(level.goal) - 2, door.x), right = Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
+    const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = level.goal.kind === 'overlook' ? bounds : goalDoor(level.goal)
+    const left = level.goal.kind === 'overlook' ? level.goal.x - 30 : Math.min(goalPoleX(level.goal) - 2, door.x)
+    const right = level.goal.kind === 'overlook' ? level.goal.x + 30 : Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
     const count = Math.ceil((right - left) / 8)
     const supported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
       const support = groundAt(terrain, x, level.goal.y, .15)
@@ -344,7 +349,10 @@ export function parseLevel(value: unknown): JumpLevel {
     if (g.power !== undefined && g.power !== 'always' && g.power !== 'switched') fail()
     if (g.id !== undefined && (typeof g.id !== 'string' || !g.id.trim() || g.id.length > 100)) fail()
     if (g.power === 'switched' && g.id === undefined) fail()
+    if (g.kind !== undefined && g.kind !== 'overlook') fail()
+    if (g.kind === 'overlook' && (v.timing !== 'untimed' || g.power === 'switched')) fail()
     level.goal = { ...objectName(g), ...parseSwitchSettings(g, fail), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }),
+      ...(g.kind === 'overlook' ? { kind: 'overlook' as const } : {}),
       ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }) }; if (level.goal.x > width) fail()
     const times = object(v.times), legacy = times.a === undefined && times.gold !== undefined
     const a = num(legacy ? times.gold : times.a, .1, 3600), b = num(legacy ? times.silver : times.b, .1, 3600)
@@ -538,6 +546,10 @@ export function parseLevel(value: unknown): JumpLevel {
       x: num(relay.x, LOGIC_RELAY_WIDTH / 2, width - LOGIC_RELAY_WIDTH / 2),
       y: num(relay.y, LOGIC_RELAY_HEIGHT / 2, levelHeight(level) - LOGIC_RELAY_HEIGHT / 2) }
   })
+  if (v.environment !== undefined) {
+    if (level.version !== 2) throw new Error('Landscapes require a version 2 level file.')
+    level.environment = parseEnvironment(v.environment, width, levelHeight(level))
+  }
   if (level.version === 2) level.lighting = parseLighting(v.lighting)
   if (v.editorGroups !== undefined) level.editorGroups = parseEditorGroups(v.editorGroups, level)
   // Older pools were wired like gravity devices. Water is now a passive region;

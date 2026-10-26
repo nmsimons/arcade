@@ -15,12 +15,11 @@ Read alongside [Making a fun jumping level](jumping-level-design.md),
 [the movement and mechanism contract](jumping-physics.md). Lighting must preserve
 the latter's physics, timing, input, and scoring rules.
 
-The [outdoor finale brief](jumping-outdoors.md#depth-indoor-transition-and-lighting)
-specifies a future sky and landscape backdrop. Its sky and distant scenery are
-not wall receivers and must not acquire projected wall shadows or panel grids.
-That environment support is pending implementation; existing Day mode alone
-does not create an outdoor background. Preserve this document's current indoor
-lighting contract while adding it.
+Version-2 [landscapes](jumping-levels.md#landscapes-caves-and-outdoor-finishes-version-2)
+support daylight above authored cave/facility back walls. Flat blue sky and
+sparse clouds are background artwork, with no projected wall shadows or panel
+grids. The cave back wall uses the same course wall treatment as other levels.
+Existing indoor levels retain the lighting contract below.
 
 Charging bays and optional switch wiring are supported back-wall artwork.
 Charging bays, inactive wires, and jack housings receive ordinary illumination
@@ -94,6 +93,31 @@ level. Daytime retains its existing dark player ink. Displays and the thin
 night player retain their separate minimum exposures.
 
 ### Daylight
+
+In an authored landscape with Night mode enabled, open air uses 95% daylight
+while enclosed space retains the 35% night baseline. Actual unblocked cave
+openings contribute a bounded, smooth daylight transition into the cave. This
+is a sky ambient field, separate from powered spotlights and their haze.
+It has no switch, EMP response, or effect on movement or detection.
+
+Landscape terrain interpolates the exposure beside its actual exposed outlines.
+Sunlit roof tops stay bright, cave undersides stay shaded, and deep rock retains
+night exposure even when its upper end reaches daylight. Do not assign a day
+baseline to an entire connected rock mass or project the back-wall polygon as
+a hard stripe across its front. Keep the shared material fills and restrained
+grain. Player contrast uses the canonical day/night android material palettes;
+an arbitrary ink color selects a diagnostic mask and loses the normal materials.
+Day mode retains the ordinary uniform daylight treatment described next.
+
+The enclosing frame keeps its terrain material and mirrors environmental
+exposure from the corresponding point inside each boundary. Reflect lighting
+only, never final scene pixels, actors, wall art or textures. Resolve the small
+ambient field at the real room boundary before compositing; filtering a clipped
+low-resolution field must not produce a glowing rectangular outline. Retained
+ambient fields and the GPU resolve count toward the shared buffer budget.
+Where terrain touches the frame, carry the same lighting field through the join
+by its filtering footprint. Two antialiased masks meeting on that shared edge
+must not leave a dark pixel column through continuous solid terrain.
 
 The sun is a directional source above and to the left of the level: its rays
 travel down and right, 25 degrees from vertical, without divergence or distance

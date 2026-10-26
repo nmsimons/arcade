@@ -10,8 +10,8 @@ The [campaign canon](jumping-campaign.md) defines the approved required-level
 sequence rules and optional B-average certification. The
 [outdoor finale brief](jumping-outdoors.md) specifies the escape environment.
 D-or-better campaign progression and locked picker slots are implemented.
-Exterior backgrounds and the outdoor ending remain design requirements pending
-implementation. The untimed opening, charging-bay entrance, and optional wall
+Version-2 landscapes support daylight above authored cave or facility back walls,
+and an untimed outdoor overlook finish. The untimed opening, charging-bay entrance, and optional wall
 wiring described below are supported authoring features.
 
 Version 1 remains supported unchanged. Version 2 adds authored lighting, described
@@ -1527,6 +1527,80 @@ A bright blue or red beam with a soft glow, slow ripples and sparse fading spark
 shows an active field. Disabled beams
 retain their end emitters; the studio also shows a dashed guide. The effect pauses
 with the game and remains readable at night without casting light or shadows.
+
+## Landscapes, caves, and outdoor finishes (version 2)
+
+Omitting `environment` preserves the existing indoor wall, grid and panels. A
+landscape replaces that default wall with open air, then restores back walls
+only inside explicit authored coverage:
+
+```json
+"environment": {
+  "kind": "landscape",
+  "horizon": 620,
+  "walls": [
+    { "kind": "cave", "x": 0, "y": 420, "w": 1850, "h": 2180,
+      "polygon": [[0,0],[500,60],[1850,220],[1850,2180],[0,2180]] }
+  ],
+  "groundCover": [{ "x": 2050, "y": 1000, "w": 100 }]
+}
+```
+
+Coordinates use the same top-left origin as terrain. Horizon is a stable world
+Y coordinate anchoring sparse clouds against a flat blue sky. Keep this backdrop
+as simple and two dimensional as the rest of the game; it has no distant ridges,
+structures or parallax. Back walls are rectangles or simple local polygons with
+3–64 vertices; up to 40 walls may overlap. Both `facility` and `cave` retain the
+standard course wall and grid treatment; the kind describes the authored place.
+Neither creates collision, grip, robot cover or shadow casters. Author actual
+terrain for roofs, banks and playable supporting surfaces.
+
+With Night mode enabled, authored walls and enclosed actors use the existing
+night treatment and spotlights. Open air and exposed actors receive daylight
+in that same scene. Daylight fades into actual cave openings and is blocked by
+terrain. Terrain shading follows nearby exposed surfaces: sunlit tops and
+shaded cave undersides can belong to the same solid. A sunlit upper edge must
+not brighten its deep underground continuation. Sky retains its own colors and receives no wall shadows,
+grid, panels or contact relief. Day mode keeps all enclosed areas fully lit as
+before. There is no per-level ambient brightness or new movement rule.
+Player contrast selects the normal day/night material palettes; it must not
+replace the robot's shell, face and joints with a monochrome mask.
+
+Optional ground cover contains at most 80 `{x,y,w}` spans (width 10–600). These
+draw sparse sage blades rooted at the supplied Y, without collision. Put them
+on flat supporting edges and leave takeoffs and machinery clear. Scene artwork
+is shared by gameplay, Studio, and thumbnails. **Level → World → Environment**
+selects Interior or Landscape / caves, edits the horizon and back-wall bounds,
+and provides **Edit outline on canvas** for each back wall. This frames that
+wall and draws its outline above terrain. Drag its points, click a blue edge to
+insert a point, and use **Delete point** or Delete/Backspace to remove the selected
+point. Arrow keys nudge by the grid step; Shift nudges by one unit. Snap and Alt
+behave as for terrain. Bounds follow the edited outline automatically, within
+the level, and crossing edges are rejected. Space + drag and the middle mouse
+button pan; wheel zoom remains available. **Done** or Esc exits outline editing.
+Each drag is one undoable edit. Save level persists the shape. Exact bounds and
+local polygon JSON remain under **Back wall coordinates**. **Editor grid** overlays an editing
+lattice in Studio only. Environment edits upgrade version-1 files to version 2
+with explicit daylight lighting settings; simply opening an old file does not.
+Resizing height moves the environment with the floor, including the horizon.
+
+An untimed trial can use `goal: { "kind": "overlook", "x": 5700, "y": 760 }`.
+The coordinates mark the center of a small viewpoint marker. Provide a flat,
+clear 60-unit landing and 80 units of headroom. Hold Up while standing within
+45 units to finish; walking to the marker alone leaves control available. An
+overlook cannot be timed or use switched exit power. It has no doorway or exit
+walk animation. Completion retains the standing robot and panorama behind a
+small ending panel, and saves the existing untimed completion flag.
+
+Outside checkpoints use `arcade.jumping.exterior.v1`. An untimed overlook level
+saves the last safe static outdoor footing once per second, on pause/menu, and
+on page exit. Reload validates the level identity, support, clearance and open
+air before resuming, and retains latching Switch plates. Midair movement and
+moving supports cannot replace that checkpoint. Restart clears it and returns
+to the authored entrance; completion clears it too. Studio playtests never read
+or write campaign checkpoints. This is exterior resume, not a general puzzle
+save system. A timed approach with a separately latched coda score is not yet
+supported; Spelunk III is untimed throughout.
 
 ## Lighting (version 2)
 

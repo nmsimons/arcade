@@ -100,6 +100,10 @@
 .jumping-game .jumping-builder .builder-minimap { position: absolute; right: 16px; bottom: 16px; width: 148px; padding: 8px; background: var(--jumping-paper); box-shadow: var(--ui-shadow-card); }
 .builder-minimap .level-thumbnail { height: 56px; }
 .builder-minimap > span { display: block; margin-top: 6px; font-size: var(--jumping-type-small); font-weight: 400; }
+.builder-wall-edit { position: absolute; bottom: 12px; left: 12px; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: fit-content; max-width: calc(100% - 190px); padding: 10px 12px; background: var(--jumping-paper); box-shadow: var(--ui-shadow-card); font-size: var(--jumping-type-small); }
+.builder-wall-edit > span { flex: 1; }
+.jumping-game .builder-wall-edit button { flex: none; min-height: 40px; padding: 8px 12px; }
+@media (max-width: 600px) { .builder-wall-edit { flex-wrap: wrap; } .builder-wall-edit > span { flex-basis: 100%; } }
 
 /* A single field rhythm throughout the inspector: normal labels, filled controls. */
 .builder-inspector { background: var(--jumping-paper); scroll-padding-top: 52px; }

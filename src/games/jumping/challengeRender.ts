@@ -142,6 +142,18 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
   ctx.restore()
 }
 export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, paint: WorldPaint = paintNormally) {
+  if (goal.kind === 'overlook') {
+    paint(ctx, 0, () => {
+      ctx.save()
+      ctx.fillStyle = '#8b9687'; ctx.fillRect(goal.x - 3, goal.y - 34, 6, 34)
+      ctx.fillStyle = '#bbc1ac'; ctx.beginPath(); ctx.moveTo(goal.x - 15, goal.y - 34)
+      ctx.lineTo(goal.x + 15, goal.y - 34); ctx.lineTo(goal.x + 11, goal.y - 26); ctx.lineTo(goal.x - 11, goal.y - 26); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#4c5e50'; ctx.font = '22px sans-serif'; ctx.textAlign = 'center'
+      ctx.fillText('HOLD UP TO FINISH', goal.x, goal.y - 54)
+      ctx.restore()
+    })
+    return
+  }
   const pole = goalPoleX(goal), lamp = goal.y - GOAL_LIGHT_HEIGHT
   paint(ctx, 0, () => {
     ctx.fillStyle = '#738575'
@@ -153,6 +165,7 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
   }, true, { x: pole - 11, y: lamp - 11, w: 22, h: 22 })
 }
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
+  if (goal.kind === 'overlook') return
   drawDoorway(ctx, goalDoor(goal), opening, editor)
 }
 /** Editor and placement show the full doorway, including starts awaiting manual repair. */

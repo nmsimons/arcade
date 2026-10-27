@@ -18,7 +18,8 @@ import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { backWallPath, drawLandscape } from './environment.ts'
-import { drawTerrainGroundCover } from './terrainGroundCover.ts'
+import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
+import { drawCaveWall } from './caveWall.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -54,7 +55,8 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
     if (includeSky) drawLandscape(ctx, level.environment, view)
     for (const wall of level.environment.walls) {
       ctx.save(); ctx.beginPath(); backWallPath(ctx, wall); ctx.clip()
-      drawCourseWall(ctx, level, view, zoom)
+      if (wall.kind === 'cave') drawCaveWall(ctx, view)
+      else drawCourseWall(ctx, level, view, zoom)
       ctx.restore()
     }
   } else drawCourseWall(ctx, level, view, zoom)
@@ -115,6 +117,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
     }
   }
   if (started) ctx.fill()
+  if (level) drawTerrainGroundCoverSurface(ctx, level)
   if (level) drawTerrainEdges(ctx, platforms, level)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {

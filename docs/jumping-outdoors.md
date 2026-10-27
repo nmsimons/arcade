@@ -133,9 +133,15 @@ or the enclosed service approach into a sky scene.
 
 Keep sky, wall receivers, and playable geometry distinct in draw order and
 lighting composition. Sky artwork does not change illumination of terrain or
-actors. Caverns use the standard course back wall; nearby exposed surfaces
-determine terrain shading, so deep rock stays dark even where it joins a
-sunlit roof. Preserve the existing Day-mode material treatment and contact rules. Any additional
+actors. Cave back walls against the sky use light gray stone with a faint,
+world-anchored texture and no grid or panel joints. Facility back walls retain
+the standard course wall; the Indoor wall background also keeps its familiar
+treatment. A small shared stone tile supplies the texture without per-frame
+generation. Each terrain piece that
+overlaps a Night region keeps the darker color throughout, including any part
+extending into Day; pieces entirely in Day keep the lighter color. Daylight
+spill lights the back wall and open space independently. Mixed-light levels
+use a constant dark enclosing frame. Preserve the existing Day-mode material treatment and contact rules. Any additional
 outdoor ground treatment must remain inside the terrain silhouette and must
 not invent drop shadows onto empty air.
 

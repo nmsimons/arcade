@@ -156,6 +156,14 @@ author. Built-in recovery copies live in ignored `.local/jumping-recycle-bin/`,
 outside the published assets. Unfinished maps remain editable after restarting
 the dev server; build/publish validation requires ready-to-play maps.
 
+Built-in saves normally replace files atomically. Windows sharing locks receive
+bounded retries. If a reader permits writing but prevents replacement, the
+writer checks the expected contents again and updates the existing file through
+a verified handle. It keeps an original-content backup in `.local/` until that
+write succeeds or rollback finishes. If rollback also fails, the save error
+identifies the retained recovery copy. External edits, links, and denied writes
+still fail without being treated as successful saves.
+
 Use `npm run prod` to build and preview the player experience, normally on port
 4173 alongside development on port 5173. Restart it to rebuild after changes.
 
@@ -858,7 +866,10 @@ Materials are saved in the JSON and appear in the game, editor and thumbnails.
 Terrain also accepts `groundCover: "none"`, `"grass"`, `"scrub"`, or `"moss"`.
 Choose **Object → Appearance → Ground cover** to add fine grass blades, sparse
 scrub, or short moss along a terrain piece's exposed tops and slopes. None leaves
-it bare. Cover follows the shape through moving, resizing and node edits, and
+it bare. A shallow colored surface strip anchors the growth to the rock; spacing,
+height, shape and green or olive tones vary deterministically. The existing
+ambient lighting darkens these colors at night without an extra lighting pass.
+Cover follows the shape through moving, resizing and node edits, and
 works with either background and every lighting mode. Neighboring solid terrain
 hides it. It is decoration: collision, friction, climbing and shadows are unchanged.
 The choice survives duplication, clipboard, Undo/Redo and save/reopen. Missing
@@ -1580,11 +1591,18 @@ disabled. No existing file is upgraded merely by opening it.
 Back walls are rectangles or simple local polygons with 3–64 vertices. Up to 40
 walls may overlap; optional names have the same 80-character limit as other
 objects. Coordinates use the same top-left origin as terrain. The retained
-`facility` and `cave` kinds both use the standard course wall and grid treatment;
-new authoring chooses the kind from the background. Back walls never supply
+`facility` kind uses the standard course wall and grid. With Blue sky selected,
+`cave` walls use light gray stone with subtle texture and no grid or panel joints.
+The Indoor wall background retains the standard course wall treatment.
+New authoring chooses the kind from the background. Back walls never supply
 collision, grip, robot cover, pressure load or shadow casters. Author physical
-terrain separately. Terrain lighting follows its exposed surfaces, keeping roof
-tops bright and cave undersides shaded. Player contrast uses the normal day/night
+terrain separately. Each terrain piece uses one fixed shade: light when its
+entire outline belongs to Day, dark if any area overlaps a visible Night region.
+Layered Day overrides apply before this classification. Split a rock into
+separate pieces when its Day and Night portions should have different shades;
+daylight spill and lamps do not recolor terrain. A layout containing Night uses
+a constant dark enclosing frame; entirely Day layouts keep a light frame.
+Player contrast uses the normal day/night
 material palettes, preserving the robot's shell, face, joints and markings.
 These materials blend gradually as the player moves between lit and dark areas.
 

@@ -17,6 +17,10 @@ interface CoverPlan {
   order: readonly number[]; legacy: string; roots: CoverRoot[]
 }
 const plans = new WeakMap<JumpLevel, CoverPlan>()
+const noise = (x: number, y: number) => {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+  return n - Math.floor(n)
+}
 const contains = (p: Platform, x: number, y: number) => x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h && pointInside(p, x, y)
 
 /** Only the visible supporting top owns a root, including coincident layers. */
@@ -45,7 +49,8 @@ export function groundCoverRoots(level: JumpLevel): readonly CoverRoot[] {
       if (dx <= 0 || Math.abs(dy) > dx) continue
       const slope = dy / dx, small = platforms[index].w < 18
       const first = small ? platforms[index].x + platforms[index].w / 2 : Math.ceil((a[0] - 8) / 18) * 18 + 8
-      for (let x = first; x >= a[0] && x < b[0] - .01; x += small ? platforms[index].w : 18) {
+      for (let gridX = first; gridX >= a[0] && gridX < b[0] - .01; gridX += small ? platforms[index].w : 18) {
+        const x = Math.max(a[0], Math.min(b[0] - .01, gridX + (small ? 0 : (noise(gridX, a[1]) - .5) * 9)))
         const y = a[1] + (x - a[0]) * slope
         if (rootOwner(platforms, order, x, y) === index) roots.push({ x, y, slope, type, terrain: index })
       }
@@ -68,37 +73,101 @@ export function terrainGroundCover(level: JumpLevel, index: number): GroundCover
   return level.platforms[index].groundCover ?? (groundCoverRoots(level).some(root => root.terrain === index && root.legacy) ? 'scrub' : 'none')
 }
 
-/** Draw before solid terrain, so blades cannot paint through neighboring rock. */
-export function drawTerrainGroundCover(ctx: CanvasRenderingContext2D, level: JumpLevel) {
-  const roots = groundCoverRoots(level)
-  if (!roots.length) return
-  const t = ctx.getTransform(), left = -t.e / t.a - 20, right = (ctx.canvas.width - t.e) / t.a + 20
-  const top = -t.f / t.d - 20, bottom = (ctx.canvas.height - t.f) / t.d + 20
-  ctx.save(); ctx.lineCap = 'round'
-  for (const type of ['grass', 'scrub', 'moss'] as const) {
-    ctx.strokeStyle = type === 'grass' ? '#7e966d' : type === 'scrub' ? '#879579' : '#7c8c70'
-    ctx.lineWidth = type === 'moss' ? 2.5 : 1.4; ctx.beginPath()
-    for (const root of roots) {
-      if (root.type !== type || root.x < left || root.x > right || root.y < top || root.y > bottom) continue
-      const seed = Math.abs(Math.floor(root.x * 7 + root.y * 3)) % 5
-      ctx.save(); ctx.translate(root.x, root.y); ctx.rotate(Math.atan(root.slope))
+type CoverType = Exclude<GroundCover, 'none'>
+// These are artwork colors. The ordinary ambient passes darken the same ink
+// at night, including the whole-piece terrain shade in regional lighting.
+const colors: Record<CoverType, readonly string[]> = {
+  grass: ['#6c8246', '#809651', '#95a963'],
+  scrub: ['#7b8053', '#929264', '#a3a16f'],
+  moss: ['#57794f', '#698c5e', '#7b9b6e'],
+}
+interface CoverArtwork {
+  tufts: { type: CoverType; paths: Path2D[] }[]
+  surfaces: { type: CoverType; paths: Path2D[]; clip: Path2D; occluders: Path2D[] }[]
+}
+const artwork = new WeakMap<readonly CoverRoot[], CoverArtwork>()
+const outlinePath = (points: readonly Vec[]) => {
+  const path = new Path2D()
+  points.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath()
+  return path
+}
+function coverArtwork(level: JumpLevel): CoverArtwork {
+  const roots = groundCoverRoots(level), saved = artwork.get(roots)
+  if (saved) return saved
+  const tufts = (['grass', 'scrub', 'moss'] as const).map(type => ({ type, paths: colors[type].map(() => new Path2D()) }))
+  const surfaces: CoverArtwork['surfaces'] = [], order = terrainDrawOrder(level.platforms)
+  for (const terrain of order) {
+    const owned = roots.filter(root => root.terrain === terrain)
+    if (!owned.length) continue
+    const type = owned[0].type, platform = level.platforms[terrain]
+    const paths = colors[type].map(() => new Path2D())
+    const clip = outlinePath(platformOutline(platform))
+    const occluders = order.slice(order.indexOf(terrain) + 1).flatMap(index => {
+      const other = level.platforms[index]
+      if (other.x > platform.x + platform.w || other.x + other.w < platform.x
+        || other.y > platform.y + platform.h || other.y + other.h < platform.y) return []
+      // Successive outside clips subtract the union, including nested overlaps.
+      const outside = new Path2D(); outside.rect(platform.x - 20, platform.y - 20, platform.w + 40, platform.h + 40)
+      outside.addPath(outlinePath(platformOutline(other)))
+      return [outside]
+    })
+    for (const root of owned) {
+      const seed = noise(root.x, root.y), detail = noise(root.y + 19, root.x)
+      const tone = Math.floor(seed * 3), height = 4 + detail * 9, lean = (seed - .5) * 5
+      const matrix = new DOMMatrix().translate(root.x, root.y).rotate(Math.atan(root.slope) * 180 / Math.PI)
+      const tuft = new Path2D()
       if (type === 'grass') {
-        ctx.moveTo(-4, -5 - seed); ctx.lineTo(0, 0); ctx.lineTo(2, -8 - seed)
-        ctx.moveTo(0, 0); ctx.lineTo(6, -4 - seed)
+        tuft.moveTo(-4 - seed * 2, -height * .65); tuft.quadraticCurveTo(-1, -height * .4, 0, 0)
+        tuft.quadraticCurveTo(lean, -height * .5, 2 + lean, -height)
+        tuft.moveTo(0, 0); tuft.quadraticCurveTo(4, -height * .3, 5 + detail * 3, -height * .55)
+        if (detail > .65) { tuft.moveTo(0, 0); tuft.lineTo(-2 + lean, -height * 1.15) }
       } else if (type === 'moss') {
-        ctx.moveTo(-7, -.5); ctx.quadraticCurveTo(-3, -3 - seed / 3, 0, -1)
-        ctx.quadraticCurveTo(3, -3, 7, -.5)
+        tuft.moveTo(-8, 0); tuft.quadraticCurveTo(-5, -2 - seed * 3, -1, -1)
+        tuft.quadraticCurveTo(3, -3 - detail * 2, 8, 0)
       } else {
-        ctx.moveTo(-2, -3 - seed); ctx.lineTo(0, 0); ctx.lineTo(3, -4 - seed)
-        if (Math.floor(root.x / 19) % 3 === 0) {
-          ctx.moveTo(-7, -7); ctx.quadraticCurveTo(-2, -6, 0, 0)
-          ctx.quadraticCurveTo(2, -12, 5, -15)
-          ctx.moveTo(0, 0); ctx.quadraticCurveTo(7, -5, 11, -6)
+        tuft.moveTo(-3, -height * .4); tuft.lineTo(0, 0); tuft.lineTo(3 + lean, -height * .55)
+        if (detail > .58) {
+          tuft.moveTo(-6 - seed * 3, -height * .7); tuft.quadraticCurveTo(-2, -4, 0, 0)
+          tuft.quadraticCurveTo(lean, -height, 3 + lean, -height * 1.4)
+          tuft.moveTo(0, 0); tuft.quadraticCurveTo(5, -4, 9, -height * .5)
         }
       }
-      ctx.restore()
+      tufts.find(group => group.type === type)!.paths[tone].addPath(tuft, matrix)
+      const width = type === 'scrub' ? 7 + seed * 3 : 10 + seed * 3
+      const depth = type === 'moss' ? 3 + detail * 4 : type === 'grass' ? 2 + detail * 3 : 1.5 + detail * 2
+      const band = new Path2D()
+      band.moveTo(-width, -1); band.lineTo(width, -1); band.lineTo(width, depth * .45)
+      band.quadraticCurveTo(width * .4, depth * .6, 1, depth)
+      band.quadraticCurveTo(-width * .4, depth * .55, -width, depth * .35); band.closePath()
+      paths[tone].addPath(band, matrix)
     }
-    ctx.stroke()
+    surfaces.push({ type, paths, clip, occluders })
+  }
+  const result = { tufts, surfaces }; artwork.set(roots, result); return result
+}
+
+/** Blades stay behind rock. Cached world-space paths never shimmer with time
+ * or camera movement and reuse the existing terrain artwork caches. */
+export function drawTerrainGroundCover(ctx: CanvasRenderingContext2D, level: JumpLevel) {
+  if (!groundCoverRoots(level).length) return
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  for (const { type, paths } of coverArtwork(level).tufts) {
+    ctx.lineWidth = type === 'moss' ? 2.5 : 1.4
+    paths.forEach((path, tone) => { ctx.strokeStyle = colors[type][tone]; ctx.stroke(path) })
+  }
+  ctx.restore()
+}
+
+/** Color sits inside the supporting rock, never on a cliff or underside.
+ * Foreground terrain and enclosing solids still hide the planted surface. */
+export function drawTerrainGroundCoverSurface(ctx: CanvasRenderingContext2D, level: JumpLevel) {
+  if (!groundCoverRoots(level).length) return
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, level.floor ?? level.height ?? 1020); ctx.clip()
+  for (const { type, paths, clip, occluders } of coverArtwork(level).surfaces) {
+    ctx.save(); ctx.clip(clip)
+    for (const outside of occluders) ctx.clip(outside, 'evenodd')
+    paths.forEach((path, tone) => { ctx.fillStyle = colors[type][tone]; ctx.fill(path) })
+    ctx.restore()
   }
   ctx.restore()
 }

@@ -19,8 +19,10 @@ Version-2 [backgrounds and regions](jumping-levels.md#landscapes-caves-and-outdo
 support Day and Night areas with either the indoor course wall or blue sky.
 Flat blue sky and
 sparse clouds are background artwork, with no projected wall shadows or panel
-grids. The cave back wall uses the same course wall treatment as other levels.
-Existing indoor levels retain the lighting contract below.
+grids. Against blue sky, cave back walls use light gray stone with a subtle,
+world-anchored texture and no grid or panel joints. Facility back walls retain
+the course wall treatment, as does the Indoor wall background. Existing indoor
+levels retain the lighting contract below.
 
 Charging bays and optional switch wiring are supported back-wall artwork.
 Charging bays, inactive wires, and jack housings receive ordinary illumination
@@ -107,10 +109,11 @@ falloff that eases away from the boundary. Visibility samples handle rock
 occlusion; they do not produce separate circular brightness lobes. Offscreen
 openings are culled by their full extent, without dropping other authored
 openings from the level. This ambient field is separate from powered spotlights and their haze.
-The small air field retains an overscan margin for camera movement; terrain
-exposure uses a bounded window of world-aligned samples. Moving the camera
-reuses both fields without reducing their sampling resolution. Relevant moving
-occluders, level edits, zoom and size changes invalidate them.
+The small air field retains an overscan margin for camera movement. Terrain
+shades are classified once per level revision and painted through retained
+native-resolution paths in terrain layer order. Camera movement and moving
+occluders do not repeat that classification. Relevant moving occluders, level
+edits, zoom and size changes still invalidate the air field as needed.
 
 The retained air field includes a faint, world-anchored dither to break up
 8-bit brightness bands. Apply it in place only when rebuilding that small
@@ -123,8 +126,9 @@ up to 1.5 million viewport pixels. Overview and larger views retain the original
 mask and buffer budget; leaving either limit releases the noise tile and
 invalidates the cached air field so noise cannot survive in the fallback.
 See the [gradient smoothing measurements](jumping-performance.md#october-27-2026-regional-gradient-smoothing).
-Terrain exposure is clipped after upscaling, at the final silhouette, so it
-cannot glow onto the back wall beneath a rock. See [performance measurements](jumping-performance.md#october-27-2026-spelunk-ib-regional-lighting-and-camera-movement).
+Terrain exposure is painted at its final silhouette, so it cannot glow onto
+the back wall beneath a rock. The earlier interpolated terrain field is recorded
+in [performance measurements](jumping-performance.md#october-27-2026-spelunk-ib-regional-lighting-and-camera-movement).
 Each solid and its projected shadows also share one opaque mask with consistent
 winding. Separately antialiased masks can leave a partly lit line along a dark
 pocket's ceiling or walls even when the terrain field itself is clipped correctly.
@@ -132,27 +136,28 @@ It has no switch, EMP response, or effect on movement or detection. Uniform
 lighting retains ordinary whole-level Day/Night behavior and ignores regional
 overrides without deleting the regions.
 
-Regional terrain interpolates the exposure beside its actual exposed outlines.
-Sunlit roof tops stay bright, cave undersides stay shaded, and deep rock retains
-night exposure even when its upper end reaches daylight. Do not assign a day
-baseline to an entire connected rock mass or project the back-wall polygon as
-a hard stripe across its front. Keep the shared material fills and restrained
-grain. Player contrast uses the canonical day/night android material palettes;
+Each authored terrain piece has one fixed regional shade. A piece entirely
+in Day uses 95% exposure; any positive-area overlap with a visible Night region
+makes the whole piece use 35%. Actual polygon, profile and curved outlines
+determine overlap, including small regions enclosed by a large rock. Frontmost
+Day regions can cover earlier Night regions, following the same wall-layer rule
+as the back wall. Daylight spill and local lamps do not change terrain shade.
+Separate pieces can keep different shades; do not propagate the choice through
+every connected rock or cut a lighting stripe across a piece. Keep the shared
+material fills and restrained grain. Player contrast uses the canonical day/night android material palettes;
 an arbitrary ink color selects a diagnostic mask and loses the normal materials.
 Regional lighting blends the shell, face, joints and markings gradually with
 local brightness, instead of switching palettes at a threshold. The bounded
 palette cache is shared by all composition passes and adds no rendering passes.
 Day mode retains the ordinary uniform daylight treatment described next.
 
-The enclosing frame keeps its terrain material and mirrors environmental
-exposure from the corresponding point inside each boundary. Reflect lighting
-only, never final scene pixels, actors, wall art or textures. Resolve the small
-ambient field at the real room boundary before compositing; filtering a clipped
-low-resolution field must not produce a glowing rectangular outline. Retained
-ambient fields and the GPU resolve count toward the shared buffer budget.
-Where terrain touches the frame, carry the same lighting field through the join
-by its filtering footprint. Two antialiased masks meeting on that shared edge
-must not leave a dark pixel column through continuous solid terrain.
+The enclosing frame keeps its terrain material and one constant shade. Any
+visible Night area makes it dark; an entirely Day layout keeps a light frame.
+The frame does not sample neighboring air, daylight spill or lamps. Resolve
+the small air field inside the real room boundary before compositing; filtering
+a clipped low-resolution field must not produce a glowing rectangular outline.
+Native terrain paths retain the exact joins with the frame. Retained ambient
+fields and the GPU resolve count toward the shared buffer budget.
 
 The sun is a directional source above and to the left of the level: its rays
 travel down and right, 25 degrees from vertical, without divergence or distance

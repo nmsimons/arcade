@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink, link } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -60,18 +60,36 @@ test('development edits, renames, order and recovery update real Git-tracked ass
   assert.equal(JSON.parse(await readFile(join(f.assets, 'restored.json'), 'utf8')).name, 'Edited built-in')
 })
 
-test('dev file operations preserve external edits and reject traversal and symlinks', async t => {
+test('dev file operations preserve external edits and reject traversal', async t => {
   const f = await fixture(t), before = (await f.call('read')).data.files[0].sourceText
   await writeFile(join(f.assets, 'first.json'), JSON.stringify({ ...FIRST_LEVEL, name: 'External change' }))
   assert.equal((await f.call('save', 'first.json', FIRST_LEVEL, before)).status, 400)
   for (const name of ['../outside.json', '/outside.json', 'x\\outside.json', 'index.json']) assert.equal((await f.call('save', name, FIRST_LEVEL)).status, 400)
-  const outside = join(f.root, 'outside.json')
+  assert.equal(JSON.parse(await readFile(join(f.assets, 'first.json'), 'utf8')).name, 'External change')
+})
+
+test('dev file operations reject symbolic links without touching their destination', async t => {
+  const f = await fixture(t), outside = join(f.root, 'outside.json')
   await writeFile(outside, 'private')
-  await symlink(outside, join(f.assets, 'linked.json'))
+  try { await symlink(outside, join(f.assets, 'linked.json')) }
+  catch (error) {
+    if (process.platform === 'win32' && error.code === 'EPERM') {
+      t.skip('Creating Windows symlinks requires Developer Mode or administrator privileges.'); return
+    }
+    throw error
+  }
   assert.equal((await f.call('read')).status, 400)
   assert.equal((await f.call('save', 'linked.json', FIRST_LEVEL, 'private')).status, 400)
   assert.equal(await readFile(outside, 'utf8'), 'private')
-  assert.equal(JSON.parse(await readFile(join(f.assets, 'first.json'), 'utf8')).name, 'External change')
+})
+
+test('dev file operations reject hard links without touching their destination', async t => {
+  const f = await fixture(t), outside = join(f.root, 'outside.json')
+  await writeFile(outside, 'private')
+  await link(outside, join(f.assets, 'linked.json'))
+  assert.equal((await f.call('read')).status, 400)
+  assert.equal((await f.call('save', 'linked.json', FIRST_LEVEL, 'private')).status, 400)
+  assert.equal(await readFile(outside, 'utf8'), 'private')
 })
 
 test('dev API requires a loopback connection, matching origin, JSON and a per-server token', async t => {

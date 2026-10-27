@@ -43,7 +43,7 @@ test('resizing follows the floor for the horizon, cave outlines and ground cover
   assert.deepEqual(levelProblems(parseLevel(next)), [])
 })
 
-test('daylight enters the actual cave mouth, is blocked by rock, and does not stripe the exposed cut faces', () => {
+test('daylight enters the actual cave mouth while each terrain piece keeps its regional shade', () => {
   const level = ending(), run = createRun(level), light = new EnvironmentLighting()
   const portals = daylightPortals(level)
   assert.equal(portals.length, 3)
@@ -52,7 +52,7 @@ test('daylight enters the actual cave mouth, is blocked by rock, and does not st
   assert.ok(exposures.every((v, i) => i === 0 || v > exposures[i - 1]))
   assert.equal(light.exposureAt(run, 300, 2100), .35)
   assert.equal(exposures.at(-1), .95)
-  assert.ok(light.terrainExposureAt(run, 1000, 465) > .9, 'the exposed roof top keeps daylight')
+  assert.equal(light.terrainExposureAt(run, 1000, 465), .35, 'the roof belongs to a piece that also enters Night')
   assert.ok(light.terrainExposureAt(run, 1000, 1030) < .45, 'the underside of that same rock mass is shaded')
   assert.ok(light.terrainExposureAt(run, 100, 2200) < .45, 'an exposed upper edge cannot brighten the deep cavern wall')
   for (const [x, y] of [[3, 2497], [50, 1800], [103, 2400], [800, 2200], [1500, 1900]])
@@ -67,18 +67,13 @@ test('daylight enters the actual cave mouth, is blocked by rock, and does not st
   }
 })
 
-test('the enclosing frame mirrors lighting without depending on actors or changing materials', () => {
+test('the enclosing frame keeps its dark regional shade independently of nearby light and actors', () => {
   const run = createRun(ending()), light = new EnvironmentLighting()
-  for (const [outside, inside] of [
-    [[1000, -100], [1000, 100]], [[-50, 2200], [50, 2200]],
-    [[8100, 1500], [7900, 1500]], [[1000, 2650], [1000, 2550]],
-    [[-50, -100], [50, 100]], [[16100, 5300], [100, 100]],
-  ]) assert.equal(light.frameExposureAt(run, ...outside), light.frameExposureAt(run, ...inside))
-  assert.equal(light.frameExposureAt(run, 1000, -100), .95)
-  assert.ok(light.frameExposureAt(run, -50, 2200) < .37)
-  const before = light.frameExposureAt(run, 1000, 2650)
+  assert.equal(light.frameExposureAt(run), .35)
+  assert.equal(light.exposureAt(run, 2500, 950), .95, 'a bright exterior does not brighten the frame')
+  const before = light.frameExposureAt(run)
   run.player.x = 1000; run.player.y = 2600
-  assert.equal(light.frameExposureAt(run, 1000, 2650), before)
+  assert.equal(light.frameExposureAt(run), before)
 })
 
 for (const recording of fixture.runs) test(`captured ${recording.file} ${recording.variant} completes using ordinary inputs`, () => {
@@ -98,7 +93,7 @@ for (const recording of fixture.runs) test(`captured ${recording.file} ${recordi
   }
 })
 
-test('current shipped escape levels retain their completed routes and the cave sequence closes the catalog', () => {
+test('current shipped escape levels retain their completed routes and finale ordering', () => {
   for (const name of ['spelunk2.jump-level.json', 'spelunk3.jump-level.json']) {
     const level = read(name)
     assert.deepEqual(levelProblems(level), [])
@@ -106,7 +101,11 @@ test('current shipped escape levels retain their completed routes and the cave s
     assert.equal(replay(createRun(level), recording).finished, true)
   }
   const catalog = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url)))
-  const closing = catalog.levels.slice(-5)
+  // Studio appends author-created copies; keep the canonical finale consecutive
+  // without treating a saved working copy as a new campaign finale.
+  const start = catalog.levels.indexOf('Ascent.jump-level.json')
+  assert.ok(start >= 0)
+  const closing = catalog.levels.slice(start, start + 5)
   assert.deepEqual(closing.slice(0, 2), ['Ascent.jump-level.json', 'ascent2.jump-level.json'])
   assert.equal(read(closing[2]).id, '13b9b9d7-7937-4989-bc03-21238e7e58f2', 'Spelunk I keeps its place when the author renames its file')
   assert.deepEqual(closing.slice(3), ['spelunk2.jump-level.json', 'spelunk3.jump-level.json'])

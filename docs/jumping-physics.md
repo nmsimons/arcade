@@ -169,7 +169,13 @@ short jumps under low ceilings as well as full-height reaches. Takeoff approach
 speed follows the planned arc; high jumps steer toward the outside handhold
 before pulling onto the surface. Takeoff waits for sufficient ground speed when
 there is still footing; near-apex grips use the controller's existing hand-reach
-window. Planned rope exits issue the ordinary jump
+window. Exposed lips also supply standing samples on irregular terrain that
+uniform sampling can miss. When a normal landing arc is blocked or too short,
+moderate rises can use the same ordinary hand catch; live barriers check that
+catch arc too. Planned jumps retain running-speed air control during patrol as
+well as pursuit, and passing above a setup cannot skip a required landing.
+Patrol destinations share one reachability search rather than searching again
+for each inaccessible shelf. Planned rope exits issue the ordinary jump
 control instead of continuing to hold the rope.
 Ground launches check the rising body from its actual position and momentum,
 including terrain, red fields, mechanisms and loose obstacles. A blocked arc

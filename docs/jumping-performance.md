@@ -169,6 +169,89 @@ frozen level hash, original/optimized geometry hashes, all episode statistics an
 the exact numeric trajectory hashes. CPU drawing spans exclude asynchronous GPU
 completion, React UI, audio and input latency.
 
+## October 26, 2026: Ascent I on Windows, shorter ropes
+
+The user's shorter-rope revision improves Ascent I's simulation headroom. Three
+alternating comparisons on Snapdragon X Elite / Adreno X1-85, using hardware
+Edge 156.0.4314.42, held 60 FPS in every revised seven-rope stress arm. The
+earlier revision's median was 50.4 FPS. This investigation changed no runtime or
+authored level files; the user's edits were frozen into separate profiling copies.
+
+The [retained report](performance/2026-10-26-ascent-windows-profile.json) records
+both level hashes, rope definitions, the concurrent chimney-wall edit, all paired
+statistics, sustained-run history, source hashes and sampling-profile summaries.
+The earlier snapshot has seven ropes, including the 650-unit first rope and a
+702-unit left rope; it differs from October 25's eight-rope Mac workload.
+
+### Measurements
+
+Each before/after arm uses a fresh isolated Edge process and production simulation,
+camera and renderer bundle at 1280x800 CSS / DPR 1, full-quality GPU lighting and
+water, 60 warmup frames and six measured seconds. The normal 120 Hz accumulator
+and 50 ms frame-delta cap remain active. Measurements ran sequentially, without
+concurrent tests or other benchmarks. Motion diagnostics and adaptive quality
+were disabled. Values below are medians of three episode means, in **CPU
+milliseconds per displayed frame**, including that frame's actual physics ticks.
+
+| Workload | Update before | Update after | FPS before / after |
+| --- | ---: | ---: | ---: |
+| Player holding and swinging on first rope | 6.19 | 4.82 | 60.0 / 60.0 |
+| All seven ropes disturbed, player at entrance | 15.59 | 8.87 | 50.4 / 60.0 |
+
+The first-rope update mean falls 22%. The stressed per-frame update mean falls
+43%, including less catch-up work: median ticks/frame falls from 2.37 to 2.00.
+Normalized update CPU per physics tick falls from 6.58 to 4.43 ms (33%). Stress
+arms recorded 114 frame intervals above 25 ms before, zero after; the revised
+arms' maximum interval was 18.8 ms. Drawing remains around 2.3 ms per frame.
+
+Six shortened ropes reduce particles from 496 to 366 (26%). When all ropes are
+active, the solver's unchanged pass formula now performs 21,696 segment-pair
+relaxations per tick instead of 38,240 (43% less). The first rope changes from
+650 to 405 units. The upper chimney right-wall polygon also changes, so this is
+a comparison of the two authored revisions, not a pure isolation of rope length.
+
+### Activity that builds during play
+
+Two separate 60-second entrance runs leave the player under ordinary neutral
+input while the Rbot operates normally. Both average approximately 60 FPS.
+Before shortening, update CPU rises from 3.14 ms/frame in the first five-second
+window to 9.53 in the last; five ropes remain moving. After the revision, those
+windows are 3.19 and 6.27 ms/frame, with four ropes still moving. Whole-run update
+means are 7.14 and 5.14 ms/frame. The different Rbot trajectory and active-rope
+count also contribute; these single sustained runs are not isolated solver tests.
+
+Separate pre-edit CPU sampling puts about 71% of non-idle samples under the rope
+solver in the seven-rope stress case and 77% after ordinary Rbot activity wakes
+five ropes. The largest self-sample costs are `solveRope`, `findBoundary`,
+`pointInside`, and `segmentPenetration`. These profiles support prioritizing rope
+constraint and terrain-contact work. Inclusive categories overlap; sampling
+perturbs execution and its FPS is excluded from the timing comparison.
+
+### Limits and reproduction
+
+An earlier unpaired scan varied substantially: even the first-rope probe ranged
+from about 53 to 60 FPS. A subsequent host snapshot showed 30% total CPU use,
+including other Chrome and SenseCE activity. No unrelated process was changed or
+terminated. The alternating pairs provide a stronger comparison; their results
+do not establish universal 60 FPS under other viewport sizes or machine load.
+
+These probes use collision-free diagnostic placements followed by ordinary
+controller inputs. The stress probe applies one 80-unit/sec horizontal impulse
+at 70% material distance to each rope. It is not a recorded normal-control route.
+The harness excludes React UI, accounts, audio, hardware input latency and
+asynchronous GPU completion. Level completion, medal times, readability and feel
+were not reviewed. All 38 unprofiled browser measurements and four sampling
+captures completed without page errors; renderer checks confirmed hardware GPU
+use. The production runtime sources remained unchanged during the comparisons.
+
+Raw snapshots, harnesses, per-frame samples, screenshots and CPU profiles are
+retained locally in `.local/ascent-perf-2026-10-26/`. Run `node` on its
+`browser-run.mjs`, setting `ASCENT_LEVEL=level.json` or `level-after.json` to
+select the frozen revision, `ASCENT_CASES=first-rope,disturbed-entrance`, and
+`ASCENT_SECONDS=6`. Use distinct `ASCENT_REPORT` filenames for each arm. Run
+comparisons sequentially. `node-scan.mjs` provides simulation-only probes; its
+per-tick CPU timings are not browser FPS measurements.
+
 ## October 25, 2026: rope solver optimization
 
 Rope solves now share validated terrain geometry across all constraint sweeps.

@@ -17,7 +17,8 @@ import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
-import { backWallPath, drawGroundCover, drawLandscape } from './environment.ts'
+import { backWallPath, drawLandscape } from './environment.ts'
+import { drawTerrainGroundCover } from './terrainGroundCover.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -49,7 +50,7 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   }
   ctx.fillStyle = TERRAIN_COLOR; ctx.fillRect(view.x, view.y, view.w, view.h); ctx.restore()
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
-  if (level.environment) {
+  if (level.environment?.kind === 'landscape') {
     if (includeSky) drawLandscape(ctx, level.environment, view)
     for (const wall of level.environment.walls) {
       ctx.save(); ctx.beginPath(); backWallPath(ctx, wall); ctx.clip()
@@ -77,6 +78,7 @@ function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: {
     h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) })
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
+  if (level) drawTerrainGroundCover(ctx, level)
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
@@ -114,7 +116,6 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
   }
   if (started) ctx.fill()
   if (level) drawTerrainEdges(ctx, platforms, level)
-  if (level?.environment) drawGroundCover(ctx, level.environment, level.platforms)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {
   if (airBoostStrength(p) >= .01) paint(ctx, 1, () => drawFootBoosters(ctx, p))

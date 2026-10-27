@@ -144,7 +144,9 @@ With `npm run dev` open on localhost, select **Edit** on a built-in tile, or
 **Level studio → Library → New level** to add a level. **Library** contains one
 built-in collection. New levels and templates save directly to
 `public/levels/jumping/` in this checkout and appear in Git. **Save and Test** saves
-before playing; **Return to builder** preserves the draft and undo history.
+new or edited levels before playing. An unchanged saved level starts its test
+without writing or renaming any file. **Return to builder** preserves the draft
+and undo history.
 No browser folder permissions, account level library, or cloud level import is
 involved. **Refresh built-in levels** picks up edits made outside the studio.
 
@@ -355,7 +357,8 @@ In the studio, **Library** provides **New level**, built-in files, templates,
 ordering and a recycle bin. Opening another level prompts about unsaved changes.
 **Use as template** creates an independent draft with new IDs and remapped
 connections. **Save level** writes to the built-in collection; **Save and Test**
-waits for a successful write before playing. Renames keep level identity and
+waits for a successful write when the draft has changes, and directly tests an
+unchanged saved level without a write. Renames keep level identity and
 update the manifest. External-edit checks protect changes made outside the
 studio; a failed write leaves the current draft editable.
 
@@ -851,6 +854,15 @@ to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a
 terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.
 Materials are saved in the JSON and appear in the game, editor and thumbnails.
+
+Terrain also accepts `groundCover: "none"`, `"grass"`, `"scrub"`, or `"moss"`.
+Choose **Object → Appearance → Ground cover** to add fine grass blades, sparse
+scrub, or short moss along a terrain piece's exposed tops and slopes. None leaves
+it bare. Cover follows the shape through moving, resizing and node edits, and
+works with either background and every lighting mode. Neighboring solid terrain
+hides it. It is decoration: collision, friction, climbing and shadows are unchanged.
+The choice survives duplication, clipboard, Undo/Redo and save/reopen. Missing
+values mean no cover, except for legacy landscape spans described below.
 
 Optional integer `zIndex` (−10000 to 10000, default 0) controls terrain's draw
 order. Higher values draw in front; equal values retain their order in
@@ -1530,59 +1542,82 @@ with the game and remains readable at night without casting light or shadows.
 
 ## Landscapes, caves, and outdoor finishes (version 2)
 
-Omitting `environment` preserves the existing indoor wall, grid and panels. A
-landscape replaces that default wall with open air, then restores back walls
-only inside explicit authored coverage:
+Background artwork and lighting regions are independent. Omitting `environment`
+preserves existing indoor walls, grids, panels and whole-level Day/Night lighting.
+New version-2 scenes can use the same indoor wall throughout, with a day-lit
+upper area and dark lower caverns, or blue sky above those caverns.
+
+For an indoor day/night scene:
 
 ```json
 "environment": {
-  "kind": "landscape",
-  "horizon": 620,
+  "kind": "interior",
+  "lighting": "regions",
+  "baseLighting": "day",
   "walls": [
-    { "kind": "cave", "x": 0, "y": 420, "w": 1850, "h": 2180,
+    { "kind": "facility", "name": "Lower cavern", "lighting": "night",
+      "x": 0, "y": 420, "w": 1850, "h": 2180,
       "polygon": [[0,0],[500,60],[1850,220],[1850,2180],[0,2180]] }
-  ],
-  "groundCover": [{ "x": 2050, "y": 1000, "w": 100 }]
+  ]
 }
 ```
 
-Coordinates use the same top-left origin as terrain. Horizon is a stable world
-Y coordinate anchoring sparse clouds against a flat blue sky. Keep this backdrop
-as simple and two dimensional as the rest of the game; it has no distant ridges,
-structures or parallax. Back walls are rectangles or simple local polygons with
-3–64 vertices; up to 40 walls may overlap. Both `facility` and `cave` retain the
-standard course wall and grid treatment; the kind describes the authored place.
-Neither creates collision, grip, robot cover or shadow casters. Author actual
-terrain for roofs, banks and playable supporting surfaces.
+Use `kind: "landscape"` and a `horizon` Y coordinate for blue sky and sparse
+clouds instead. Indoor environments do not require a horizon. Both backgrounds
+use exactly the same lighting-region model. `baseLighting` is `day` or `night`;
+each wall's `lighting` is `day` or `night`. Later/frontmost walls take precedence
+on overlaps, allowing a bright service bay inside a dark cave. Bright areas
+contribute a smooth ambient transition through actual openings; terrain blocks
+that light. There is no new movement, detection, collision or switch rule.
 
-With Night mode enabled, authored walls and enclosed actors use the existing
-night treatment and spotlights. Open air and exposed actors receive daylight
-in that same scene. Daylight fades into actual cave openings and is blocked by
-terrain. Terrain shading follows nearby exposed surfaces: sunlit tops and
-shaded cave undersides can belong to the same solid. A sunlit upper edge must
-not brighten its deep underground continuation. Sky retains its own colors and receives no wall shadows,
-grid, panels or contact relief. Day mode keeps all enclosed areas fully lit as
-before. There is no per-level ambient brightness or new movement rule.
-Player contrast selects the normal day/night material palettes; it must not
-replace the robot's shell, face and joints with a monochrome mask.
+`lighting: "uniform"` retains whole-level Day/Night behavior and ignores regional
+overrides without deleting the walls. Regions use the version-2
+`lighting.nightMode: true` flag to activate mixed illumination. Existing landscape
+files without an environment lighting layout retain their old behavior: Day
+outside, Night walls by default when Night mode is enabled; fully Day when it is
+disabled. No existing file is upgraded merely by opening it.
 
-Optional ground cover contains at most 80 `{x,y,w}` spans (width 10–600). These
-draw sparse sage blades rooted at the supplied Y, without collision. Put them
-on flat supporting edges and leave takeoffs and machinery clear. Scene artwork
-is shared by gameplay, Studio, and thumbnails. **Level → World → Environment**
-selects Interior or Landscape / caves, edits the horizon and back-wall bounds,
-and provides **Edit outline on canvas** for each back wall. This frames that
-wall and draws its outline above terrain. Drag its points, click a blue edge to
-insert a point, and use **Delete point** or Delete/Backspace to remove the selected
-point. Arrow keys nudge by the grid step; Shift nudges by one unit. Snap and Alt
-behave as for terrain. Bounds follow the edited outline automatically, within
-the level, and crossing edges are rejected. Space + drag and the middle mouse
-button pan; wheel zoom remains available. **Done** or Esc exits outline editing.
-Each drag is one undoable edit. Save level persists the shape. Exact bounds and
-local polygon JSON remain under **Back wall coordinates**. **Editor grid** overlays an editing
-lattice in Studio only. Environment edits upgrade version-1 files to version 2
-with explicit daylight lighting settings; simply opening an old file does not.
-Resizing height moves the environment with the floor, including the horizon.
+Back walls are rectangles or simple local polygons with 3–64 vertices. Up to 40
+walls may overlap; optional names have the same 80-character limit as other
+objects. Coordinates use the same top-left origin as terrain. The retained
+`facility` and `cave` kinds both use the standard course wall and grid treatment;
+new authoring chooses the kind from the background. Back walls never supply
+collision, grip, robot cover, pressure load or shadow casters. Author physical
+terrain separately. Terrain lighting follows its exposed surfaces, keeping roof
+tops bright and cave undersides shaded. Player contrast uses the normal day/night
+material palettes, preserving the robot's shell, face, joints and markings.
+
+**Level → World** provides **Background** (Indoor wall / Blue sky) and
+**Lighting layout** (Whole level / Day and night regions). Whole level keeps the
+familiar **Night mode** toggle. Regional lighting adds **Outside regions** to
+choose the default Day or Night light. Switching backgrounds and lighting layouts
+preserves authored walls and lamps.
+
+Use **Scenery → Back wall** or **Draw back wall** in World to place a rectangle.
+Select its outline or choose it in the World **Back walls** list. The normal
+Object inspector supplies its name, **Region lighting**, position, size and layer
+order. Drag inside a selected wall to move it; square handles resize it. Use
+round nodes to reshape, or **Node** / **Add node** to insert points on an edge.
+Selected nodes have X/Y fields; Delete/Backspace removes the selected node.
+Arrow keys nudge by the grid step and Shift moves by one unit. Snap, Alt, panning
+and zoom work as for terrain. Bounds follow node edits automatically, within the
+level, and crossing edges are rejected.
+
+Back walls support ordinary Duplicate, Delete, clipboard, groups, rotate/flip,
+Undo/Redo, Save and Test, and save/reopen. They remain behind gameplay objects
+when hit testing. A marquee selects a background region only when it contains
+the entire region, keeping small object selections usable. Layer controls preserve
+group references and determine which regional light takes precedence. There is
+no separate outline-editing mode or raw point JSON in the normal authoring flow.
+
+Sky remains flat blue with a few fixed clouds, and receives no wall shadows,
+grid, panels or contact relief. The **Editor grid** is a Studio-only overlay.
+**Sky** holds the cloud baseline (saved as `horizon`). Ground cover belongs to
+terrain's Appearance settings. Old `environment.groundCover` spans still load:
+at most 80 `{x,y,w}` entries of width 10–600, shown as scrub on their supporting
+terrain with a sky background. An explicit terrain `groundCover` choice, including
+`"none"`, overrides these spans. No spans are rewritten on load. Resizing level
+height moves regions, the horizon when present, and legacy spans with the floor.
 
 An untimed trial can use `goal: { "kind": "overlook", "x": 5700, "y": 760 }`.
 The coordinates mark the center of a small viewpoint marker. Provide a flat,

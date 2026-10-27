@@ -17,7 +17,7 @@ import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
 import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
-import { drawLandscape } from './environment.ts'
+import { drawLandscape, hasRegionLighting } from './environment.ts'
 import { EnvironmentLighting, environmentBufferBytes } from './environmentLighting.ts'
 import { drawWallWiring, hasWallWiring } from './wallWiring.ts'
 import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from './worldPaint.ts'
@@ -181,12 +181,12 @@ export class LightingRenderer {
     ctx.fillRect(0, 0, view.width, view.height); ctx.restore()
   }
   private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, nightMode: boolean, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
-    const ink = nightMode ? run.level.environment ? this.environmentLighting.playerInk(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
+    const ink = nightMode ? hasRegionLighting(run.level.environment) ? this.environmentLighting.playerInk(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
     if (backdrop && layer !== 'objects') drawLevelBackdrop(ctx, run.level,
       { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false, paint === paintNormally)
-    if (run.level.environment && layer !== 'objects' && !backdrop) paint(ctx, 1, () => {
+    if (run.level.environment?.kind === 'landscape' && layer !== 'objects' && !backdrop) paint(ctx, 1, () => {
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, run.level.width, levelHeight(run.level)); ctx.clip()
       drawLandscape(ctx, run.level.environment!, { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }); ctx.restore()
     })
@@ -196,7 +196,7 @@ export class LightingRenderer {
     // Message screens need the readable passes too. Replay the whole text order
     // when one is present, so overlapping signs still cover phosphor correctly.
     if (layer !== 'objects' && (backdrop || layer === 'wall' || wiring || run.level.texts?.some(text => text.style === 'terminal'))) {
-      if (nightMode && run.level.environment) for (const text of run.level.texts ?? [])
+      if (nightMode && hasRegionLighting(run.level.environment)) for (const text of run.level.texts ?? [])
         drawWallTexts(ctx, [text], this.environmentLighting.exposureAt(run, text.x + text.w / 2, text.y + text.h / 2) < .7, paint)
       else drawWallTexts(ctx, run.level.texts ?? [], nightMode, paint)
     }
@@ -254,7 +254,8 @@ export class LightingRenderer {
     const visibleSources = sources.filter(source => (!onlyLight || source.id === onlyLight) && lightReachesView(source, bounds))
     const activeSources = visibleSources.filter(source => source.fade > 0)
     const nightMode = nightModeEnabled(definition)
-    if (!nightMode || !run.level.environment) this.environmentLighting.release()
+    const regionLighting = nightMode && hasRegionLighting(run.level.environment)
+    if (!regionLighting) this.environmentLighting.release()
     if (fullBright) {
       if (this.buffers) this.release()
       this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
@@ -299,7 +300,7 @@ export class LightingRenderer {
       try {
         const gpu = this.gpu
         const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level), !nightMode)
-        const bufferBytes = stats.bufferBytes + width * height * 16 + (nightMode && run.level.environment ? environmentBufferBytes(view, true) : 0)
+        const bufferBytes = stats.bufferBytes + width * height * 16 + (regionLighting ? environmentBufferBytes(view, true) : 0)
         if (bufferBytes > BUFFER_BUDGET) throw new Error('GPU lighting exceeds its buffer budget.')
         lighting = { ...stats, bufferBytes, backend: 'gpu', drawField: target => target.drawImage(gpu.canvas, 0, 0, width, height, 0, 0, width, height) }
       } catch {
@@ -313,7 +314,7 @@ export class LightingRenderer {
       const resting = this.resting.update(moving)
       // Small viewports can retain more stationary lights within the same 64 MiB
       // budget. At the maximum render size this still permits only two fields.
-      const environmentBytes = nightMode && run.level.environment ? environmentBufferBytes(view) : 0
+      const environmentBytes = regionLighting ? environmentBufferBytes(view) : 0
       const cacheLimit = Math.max(0, Math.floor((BUFFER_BUDGET - environmentBytes) / (width * height * 4)) - 6 - Number(!nightMode))
       const cacheable = new Set(visibleSources.filter(l => (l.fade === 1 || l.flicker) && l.robot === undefined).slice(0, cacheLimit).map(l => l.id))
       for (const [id, cached] of this.staticFields) {
@@ -454,7 +455,7 @@ export class LightingRenderer {
       lighting = { lights, edges, bufferBytes: width * height * 4 * (6 + Number(!nightMode) + this.staticFields.size) + environmentBytes, backend: 'canvas',
         drawField: target => target.drawImage(cacheDayField ? this.daylight!.buffer.canvas : field.canvas, 0, 0) }
     }
-    const environmentFields = nightMode && run.level.environment ? this.environmentLighting.render(run, view) : undefined
+    const environmentFields = regionLighting ? this.environmentLighting.render(run, view, readback) : undefined
     if (environmentFields) {
       if (lighting.backend === 'canvas') {
         this.canvasFields!.field.ctx.globalCompositeOperation = 'lighten'
@@ -472,8 +473,8 @@ export class LightingRenderer {
     if (nightMode && this.reuseTerrainArtwork && ctx.globalAlpha === 1 && ctx.globalCompositeOperation === 'source-over') {
       const terrain = 'terrain' in run ? run.terrain : levelTerrain(run.level)
       const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${run.level.width}:${levelHeight(run.level)}:`
-        + terrain.map(b => `${b.x},${b.y},${b.w},${b.h},${b.material},${b.zIndex}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
-        + JSON.stringify(run.level.environment?.groundCover ?? [])
+        + terrain.map(b => `${b.x},${b.y},${b.w},${b.h},${b.material},${b.groundCover},${b.zIndex}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
+        + run.level.platforms.map(p => p.groundCover).join(',') + run.level.environment?.kind + JSON.stringify(run.level.environment?.groundCover ?? [])
       if (this.terrainRaster?.key !== key || this.terrainRaster.buffer !== haze) {
         clear(haze, width, height); transform(haze.ctx, view)
         drawTerrain(haze.ctx, terrain, run.level.platforms, run.level)
@@ -495,7 +496,7 @@ export class LightingRenderer {
         for (const material of new Set(run.terrain.map(shape => shape.material ?? 'stone'))) terrainFill(correction.ctx, material)
       }
     }
-    const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}`
+    const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}:${run.level.platforms.map(p => p.groundCover).join(',')}`
     const backgroundKey = `${dayKey}:${document.fonts.status}`
     const stableDayView = cacheAmbient && this.dayBackgroundCandidate === backgroundKey
     this.dayBackgroundCandidate = cacheAmbient ? backgroundKey : undefined
@@ -597,7 +598,12 @@ export class LightingRenderer {
         clear(correction, width, height); drawField(correction.ctx)
         if (floor) { correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height) }
         correction.ctx.globalCompositeOperation = 'difference'
-        if (environmentFields) correction.ctx.drawImage((floor ? environmentFields.readable : environmentFields.ambient).canvas, 0, 0, width, height)
+        if (environmentFields) {
+          if (floor) {
+            const crop = environmentFields.readableCrop
+            correction.ctx.drawImage(environmentFields.readable.canvas, crop.x, crop.y, crop.w, crop.h, 0, 0, width, height)
+          } else correction.ctx.drawImage(environmentFields.ambient.canvas, 0, 0, width, height)
+        }
         else { correction.ctx.fillStyle = gray(Math.max(floor, ambient)); correction.ctx.fillRect(0, 0, width, height) }
       }
       if (cacheAmbient) {

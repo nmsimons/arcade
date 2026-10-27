@@ -1522,7 +1522,7 @@
     }
   ],
   "environment": {
-    "kind": "landscape",
+    "kind": "interior",
     "horizon": 280,
     "walls": [
       {

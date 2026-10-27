@@ -15,8 +15,9 @@ Read alongside [Making a fun jumping level](jumping-level-design.md),
 [the movement and mechanism contract](jumping-physics.md). Lighting must preserve
 the latter's physics, timing, input, and scoring rules.
 
-Version-2 [landscapes](jumping-levels.md#landscapes-caves-and-outdoor-finishes-version-2)
-support daylight above authored cave/facility back walls. Flat blue sky and
+Version-2 [backgrounds and regions](jumping-levels.md#landscapes-caves-and-outdoor-finishes-version-2)
+support Day and Night areas with either the indoor course wall or blue sky.
+Flat blue sky and
 sparse clouds are background artwork, with no projected wall shadows or panel
 grids. The cave back wall uses the same course wall treatment as other levels.
 Existing indoor levels retain the lighting contract below.
@@ -94,13 +95,32 @@ night player retain their separate minimum exposures.
 
 ### Daylight
 
-In an authored landscape with Night mode enabled, open air uses 95% daylight
-while enclosed space retains the 35% night baseline. Actual unblocked cave
-openings contribute a bounded, smooth daylight transition into the cave. This
-is a sky ambient field, separate from powered spotlights and their haze.
-It has no switch, EMP response, or effect on movement or detection.
+Background choice and regional lighting are independent. A version-2
+`environment` can use an indoor course wall or blue sky. In region lighting,
+`baseLighting` selects Day (95%) or Night (35%) outside authored regions;
+each back wall selects Day or Night, with the last/frontmost wall taking
+precedence on overlaps. Existing landscape files default to Day outside and
+Night inside their walls. Bright areas contribute a bounded, smooth transition
+through actual unobstructed openings, including a bright indoor room inside a
+dark one. Each opening emits across its full width, with a continuous distance
+falloff that eases away from the boundary. Visibility samples handle rock
+occlusion; they do not produce separate circular brightness lobes. Offscreen
+openings are culled by their full extent, without dropping other authored
+openings from the level. This ambient field is separate from powered spotlights and their haze.
+The small air field retains an overscan margin for camera movement; terrain
+exposure uses a bounded window of world-aligned samples. Moving the camera
+reuses both fields without reducing their sampling resolution. Relevant moving
+occluders, level edits, zoom and size changes invalidate them. Terrain exposure
+is clipped after upscaling, at the final silhouette, so it cannot glow onto the
+back wall beneath a rock. See [performance measurements](jumping-performance.md#october-27-2026-spelunk-ib-regional-lighting-and-camera-movement).
+Each solid and its projected shadows also share one opaque mask with consistent
+winding. Separately antialiased masks can leave a partly lit line along a dark
+pocket's ceiling or walls even when the terrain field itself is clipped correctly.
+It has no switch, EMP response, or effect on movement or detection. Uniform
+lighting retains ordinary whole-level Day/Night behavior and ignores regional
+overrides without deleting the regions.
 
-Landscape terrain interpolates the exposure beside its actual exposed outlines.
+Regional terrain interpolates the exposure beside its actual exposed outlines.
 Sunlit roof tops stay bright, cave undersides stay shaded, and deep rock retains
 night exposure even when its upper end reaches daylight. Do not assign a day
 baseline to an entire connected rock mass or project the back-wall polygon as

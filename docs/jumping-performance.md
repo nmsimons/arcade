@@ -1,5 +1,82 @@
 # LAB performance notes
 
+## October 27, 2026: Spelunk Ib regional lighting and camera movement
+
+Regional lighting no longer rebuilds the terrain-light field or blends every
+opening from scratch on each camera frame. Terrain samples use a bounded,
+world-aligned sliding window: unchanged cells survive a pan, and only entering
+rows and columns are evaluated. A 64-pixel margin around the small air-light
+field lets the camera crop its existing texture until it needs to recenter.
+Occluder or level changes invalidate the affected field; mechanisms outside
+every opening's bounded reach do not invalidate daylight. The map's deep exit
+gate is one such mechanism. Ordinary spotlight shadows still use all relevant
+mechanisms through the existing renderer.
+
+Light-field blends stay on GPU-backed canvases on the hardware path. Software
+targets retain software masks. The small CPU-authored terrain grid is uploaded
+only when its window changes. Resolution, exposure curves and gameplay rules
+are unchanged. Both sample windows are bounded; lighting buffers increase from
+about 41.3 to 42.3 MiB at the measured resolution, below the 64 MiB budget.
+
+Terrain exposure is filtered first and clipped at the final pixel silhouette.
+Clipping before enlarging the small mask let bright rock pixels bleed onto the
+back wall under slopes and overhangs. The regression covers four zoom levels;
+an additional hardware review of the actual Spelunk Ib scene found zero added
+brightness at 110 sampled points two display pixels outside its undersides.
+An additional pocket-edge regression catches the remaining thin rim where an
+antialiased solid met its antialiased daylight shadow. Their geometry now shares
+one opaque union, prepared once per lighting-geometry revision. The ceiling-edge
+brightness spike falls from up to 19 gray values to zero in the hardware probe.
+
+The [retained report](performance/2026-10-27-spelunk1b-windows-profile.json)
+uses the user's frozen `spelunk1b.jump-level.json`: 17 terrain shapes, two ropes,
+seven lights, one regional outline, and its existing gate and Rbot. No authored
+level was changed for this investigation. Measurements use hardware Edge
+156.0.4314.42 on Snapdragon X Elite / Adreno X1-85, at 1280×800 CSS and DPR 1.
+Three alternating before/after pairs use fresh isolated browser processes,
+30 warmup frames and six measured seconds per case, with full-quality lighting
+and adaptive reduction disabled. No other tests or benchmarks ran concurrently.
+
+| Workload | FPS before → after | Drawing CPU/frame before → after |
+| --- | ---: | ---: |
+| Cave-mouth camera pan | 13.6 → 54.5 | 72.7 → 4.4 ms |
+| Longer camera travel through the cave | 13.0 → 54.0 | 75.6 → 4.5 ms |
+| Existing deep gate moving | 13.0 → 60.0 | 76.4 → 3.9 ms |
+| Normal neutral-input simulation at the entrance | 59.7 → 59.7 | 5.4 → 5.3 ms |
+| Full-level overview | 40.4 → 38.0 | 4.9 → 5.0 ms |
+
+Values are medians of three episode means. Camera-pan drawing CPU falls about
+94%; its median 95th-percentile frame interval falls from 100 to 33.4 ms.
+After the final pocket-rim correction, two additional unpaired spot checks record
+52.8 FPS / 5.5 ms drawing CPU for the pan and 48.1 FPS / 5.5 ms for longer travel.
+They retain the large improvement and are recorded separately from the paired
+medians, with the final source hash.
+The result is a large improvement, not a locked 60 FPS claim. Overview remains
+below 60 FPS and is slightly slower in these comparisons. The initial scan also
+puts uniform Night overview near 38 FPS, so regional sampling is not its only
+limit. CPU submission time does not measure asynchronous GPU completion.
+
+A separate DPR 1.5 probe reaches the renderer's roughly two-million-pixel cap.
+Regional lighting exceeds the GPU path's buffer allowance and takes the Canvas
+fallback: about 29 FPS and 63.3 MiB. Uniform Night remains on GPU at about
+40 FPS and 62.9 MiB. These probes deliberately disable adaptive reduction;
+high-DPI full-quality rendering remains a limitation.
+
+Separate CPU sampling identifies native image blends and terrain-boundary
+queries as the original hotspot. After optimization, these queries leave the
+top self-sample costs. Profiled FPS is excluded from the timing comparison.
+Raw snapshots, per-frame samples, screenshots, CPU profiles and reproduction
+harnesses remain in `.local/spelunk1b-perf-2026-10-27/`. Run its `paired.mjs`
+with Node for the alternating comparison. The frozen reference adds only crop
+metadata to its return value to work with the current consumer.
+
+Rendering probes animate presentation time and use diagnostic camera views;
+they are not a completed normal-control Spelunk Ib route. The entrance simulation
+uses the normal 120 Hz accumulator and 50 ms elapsed-time cap. Measurements
+exclude React UI, accounts, audio and input latency. Other user applications were
+left running. The report records the map hash, runtime hashes, graphics status,
+all thirty paired episodes, sampling summaries and the high-DPI probe.
+
 ## October 26, 2026: exact rope terrain-query optimization
 
 Repeated rope contact queries now reuse prepared edge bounds for point-on-edge

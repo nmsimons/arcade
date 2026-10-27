@@ -28,6 +28,7 @@ import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from 
 import type { CoinSwitchOrientation } from './coins.ts'
 import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 import { isTerrainMaterial } from './terrainMaterials.ts'
+import { isGroundCover } from './terrainGroundCover.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { lightingProblems, MAX_LIGHTS, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
@@ -236,6 +237,10 @@ export function parseLevel(value: unknown): JumpLevel {
     if (b.material !== undefined) {
       if (!isTerrainMaterial(b.material)) return fail()
       platform.material = b.material
+    }
+    if (b.groundCover !== undefined) {
+      if (!isGroundCover(b.groundCover)) return fail()
+      platform.groundCover = b.groundCover
     }
     if (b.profile !== undefined) {
       const profile = list(b.profile, 100).map(item => {

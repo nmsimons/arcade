@@ -29,7 +29,7 @@ test('landscape schema preserves authored outlines and rejects malformed or unbo
   for (const patch of [{ horizon: NaN }, { horizon: 2601 }, { walls: Array(41).fill(level.environment.walls[0]) },
     { walls: [{ kind: 'cave', x: 0, y: 0, w: 6201, h: 100 }] },
     { walls: [{ kind: 'facility', x: 0, y: 0, w: 100, h: 100, polygon: [[0, 0], [100, 100], [100, 0], [0, 100]] }] }])
-    assert.throws(() => parseEnvironment({ ...level.environment, ...patch }, 6200, 2600), /Invalid landscape/)
+    assert.throws(() => parseEnvironment({ ...level.environment, ...patch }, 6200, 2600), /Invalid environment/)
   assert.throws(() => parseLevel({ ...level, timing: undefined }), /valid jumping level/)
   assert.throws(() => parseLevel({ ...level, goal: { ...level.goal, id: 'locked', power: 'switched' } }), /valid jumping level/)
 })

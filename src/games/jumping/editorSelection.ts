@@ -12,6 +12,8 @@ import { waterControlId } from './waterLevel.ts'
 import { goalBounds } from './goal.ts'
 import { attachPressurePlateOnSurface, syncPressurePlateMounts } from './pressurePlateMount.ts'
 import { MAX_TOGGLE_GROUPS } from './toggleGroups.ts'
+import { prepareBackWall } from './environmentEditor.ts'
+import { transformBackWall } from './backWallEditing.ts'
 
 type Rect = { x: number; y: number; w: number; h: number }
 type Item = Record<string, unknown>
@@ -47,6 +49,10 @@ export function selectionBounds(level: JumpLevel, selections: readonly Selection
 export function selectionsInRect(level: JumpLevel, rect: Rect): Selection[] {
   const overlaps = (b: Rect) => b.x <= rect.x + rect.w && b.x + b.w >= rect.x && b.y <= rect.y + rect.h && b.y + b.h >= rect.y
   return allSelections(level).filter(s => {
+    if (s.kind === 'back-wall') {
+      const b = level.environment!.walls[s.index]
+      return b.x >= rect.x && b.y >= rect.y && b.x + b.w <= rect.x + rect.w && b.y + b.h <= rect.y + rect.h
+    }
     if (s.kind === 'platform') return polygonIntersects(polygonPoints(level.platforms[s.index]), rect)
     if (s.kind === 'gravity-plate') {
       const p = level.gravityPlates![s.index]
@@ -68,6 +74,7 @@ export function selectionsInRect(level: JumpLevel, rect: Rect): Selection[] {
 /** Internal heterogeneous collections; all records come from validated level data. */
 function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'platform') return level.platforms as unknown as Item[]
+  if (kind === 'back-wall') return level.environment!.walls as unknown as Item[]
   if (kind === 'rope') return level.climbables.ropes as unknown as Item[]
   if (kind === 'ladder') return level.climbables.ladders as unknown as Item[]
   if (kind === 'light') return level.lighting!.lights as unknown as Item[]
@@ -159,8 +166,9 @@ export function deleteSelections(level: JumpLevel, selections: readonly Selectio
 /** Rotate or reflect the layout around the group's center, then fit it as one unit. */
 export function transformSelections(level: JumpLevel, selections: readonly Selection[], transform: TerrainTransform): JumpLevel {
   const items = validSelections(level, selections)
-  if (!items.length || items.some(s => s.kind !== 'platform')) return level
-  if (items.length === 1) return transformTerrain(level, items[0].index, transform)
+  if (!items.length || items.some(s => s.kind !== 'platform' && s.kind !== 'back-wall')) return level
+  const transformItem = (next: JumpLevel, s: Selection) => s.kind === 'platform' ? transformTerrain(next, s.index, transform) : transformBackWall(next, s.index, transform)
+  if (items.length === 1) return transformItem(level, items[0])
   const bounds = selectionBounds(level, items)!, cx = bounds.x + bounds.w / 2, cy = bounds.y + bounds.h / 2
   const rotate = transform.startsWith('rotate'), w = rotate ? bounds.h : bounds.w, h = rotate ? bounds.w : bounds.h
   if (w > level.width || h > levelHeight(level)) throw new Error('The terrain group is too large to transform inside the level.')
@@ -168,17 +176,17 @@ export function transformSelections(level: JumpLevel, selections: readonly Selec
   const shiftY = clamp(cy - h / 2, 0, levelHeight(level) - h) - (cy - h / 2)
   let next = level
   for (const s of items) {
-    const b = level.platforms[s.index], x = b.x + b.w / 2 - cx, y = b.y + b.h / 2 - cy
+    const b = itemBounds(level, s)!, x = b.x + b.w / 2 - cx, y = b.y + b.h / 2 - cy
     const tx = transform === 'rotate-right' ? -y : transform === 'rotate-left' ? y : transform === 'flip-horizontal' ? -x : x
     const ty = transform === 'rotate-right' ? x : transform === 'rotate-left' ? -x : transform === 'flip-vertical' ? -y : y
-    next = transformTerrain(next, s.index, transform)
-    const changed = next.platforms[s.index]
+    next = transformItem(next, s)
+    const changed = s.kind === 'platform' ? next.platforms[s.index] : next.environment!.walls[s.index]
     changed.x = cx + tx - changed.w / 2 + shiftX; changed.y = cy + ty - changed.h / 2 + shiftY
-    for (const ladder of next.climbables.ladders) if (ladder.platform === s.index) {
+    for (const ladder of next.climbables.ladders) if (s.kind === 'platform' && ladder.platform === s.index) {
       ladder.x = ladder.side === 1 ? changed.x - 16 : changed.x + changed.w + 16
       ladder.bottom += changed.y - b.y; ladder.top = changed.y
     }
-    for (const rope of next.climbables.ropes) if (rope.anchor?.platform === s.index) {
+    for (const rope of next.climbables.ropes) if (s.kind === 'platform' && rope.anchor?.platform === s.index) {
       rope.x = changed.x + rope.anchor.x; rope.y = changed.y + rope.anchor.y
     }
   }
@@ -189,12 +197,13 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
   return { level: copyLevel(level), selections: validSelections(level, selections).filter(copyableSelection) }
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
-  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40 }
+  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40 }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
   const source = clipboard.level, originals = validSelections(source, clipboard.selections).filter(copyableSelection)
   if (!originals.length) return { level, selections: [] }
   let next = copyLevel(level)
+  if (originals.some(s => s.kind === 'back-wall')) next = prepareBackWall(next)
   if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'logic-relay', 'float-switch', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)
   if (originals.some(s => s.kind === 'light')) { next.version = 2; next.lighting ??= { nightMode: false, ambient: 0, lights: [] } }
   const indices = new Map<string, number>(), ids = new Map<string, string>(), pasted: Selection[] = []

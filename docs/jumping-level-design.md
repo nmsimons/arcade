@@ -88,6 +88,12 @@ terrain according to its exposed surfaces, so a sunlit roof does not make its
 deep cave wall glow. Review the robot's silhouette on both sides using its
 normal day/night material palettes, preserving the shell, face, joints and markings.
 
+Choose enclosure artwork separately from lighting. An indoor course may have a
+day-lit upper area and a dark lower cave using the same course wall throughout;
+mixed light does not require sky. Back walls are named background regions edited
+with ordinary object and node tools. They must never introduce collision, cover,
+or a level-specific movement rule.
+
 ## 1. Give the place a purpose
 
 Before placing obstacles, describe the level in one sentence: “A delivery lift

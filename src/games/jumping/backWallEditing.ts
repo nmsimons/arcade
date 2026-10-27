@@ -3,6 +3,8 @@ import type { Vec } from './geometry.ts'
 import type { BackWall } from './environment.ts'
 import { copyLevel, levelHeight } from './level.ts'
 import type { JumpLevel } from './level.ts'
+import type { TerrainTransform } from './editor.ts'
+import { remapEditorGroups } from './editorGroups.ts'
 
 export const backWallPoints = (wall: BackWall): Vec[] => polygonPoints(wall).map(([x, y]) => [x, y])
 
@@ -45,6 +47,30 @@ export function deleteBackWallPoint(level: JumpLevel, wall: number, point: numbe
   if (!points[point]) return level
   points.splice(point, 1)
   return setPoints(level, wall, points)
+}
+
+export function transformBackWall(level: JumpLevel, index: number, transform: TerrainTransform) {
+  const before = level.environment?.walls[index]
+  if (!before) return level
+  const rotate = transform.startsWith('rotate'), w = rotate ? before.h : before.w, h = rotate ? before.w : before.h
+  if (w > level.width || h > levelHeight(level)) throw new Error('The back wall is too large to rotate inside this level.')
+  const x = Math.max(0, Math.min(level.width - w, before.x + (before.w - w) / 2))
+  const y = Math.max(0, Math.min(levelHeight(level) - h, before.y + (before.h - h) / 2))
+  const points = backWallPoints(before).map(([px, py]): Vec => {
+    const a = px - before.x, b = py - before.y
+    return transform === 'rotate-left' ? [x + b, y + before.w - a] : transform === 'rotate-right' ? [x + before.h - b, y + a]
+      : transform === 'flip-horizontal' ? [x + before.w - a, y + b] : [x + a, y + before.h - b]
+  })
+  return setPoints(level, index, points)
+}
+
+export function reorderBackWall(level: JumpLevel, index: number, front: boolean) {
+  const next = copyLevel(level), walls = next.environment!.walls, target = front ? walls.length - 1 : 0
+  if (index === target) return { level, index }
+  const order = walls.map((_, i) => i), [moved] = order.splice(index, 1); order.splice(target, 0, moved)
+  next.environment!.walls = order.map(i => walls[i])
+  remapEditorGroups(next, s => [s.kind === 'back-wall' ? { ...s, index: order.indexOf(s.index) } : s])
+  return { level: next, index: target }
 }
 
 export function backWallPointAt(wall: BackWall, x: number, y: number, radius: number) {

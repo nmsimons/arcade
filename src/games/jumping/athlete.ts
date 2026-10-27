@@ -15,7 +15,7 @@ import { BOX_RESTING_ANGLE_TOLERANCE, propPushHands } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
 import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
-import type { AndroidMaterials } from './androidArtwork.ts'
+import type { AndroidAppearance, AndroidMaterials } from './androidArtwork.ts'
 import { limbOnBend, limbReach, limitLimbBend } from './limbPose.ts'
 import type { Limb, Point } from './limbPose.ts'
 import { drawSleeve } from './sleeveArtwork.ts'
@@ -2976,7 +2976,7 @@ export function awakeningPose(p: Player, progress: number): AthletePose {
   return transferPose(from, target, [0, 0], Math.max(0, progress))
 }
 /** The android shell follows the original solved joints and contact rig. */
-export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e', pose = presentedAthletePose(p)) {
+export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: AndroidAppearance = '#686b6e', pose = presentedAthletePose(p)) {
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, p.inverted ? -1 : 1)
   const materials = androidMaterials(body), shell = materials.shell

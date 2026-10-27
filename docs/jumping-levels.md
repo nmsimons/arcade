@@ -1586,6 +1586,7 @@ collision, grip, robot cover, pressure load or shadow casters. Author physical
 terrain separately. Terrain lighting follows its exposed surfaces, keeping roof
 tops bright and cave undersides shaded. Player contrast uses the normal day/night
 material palettes, preserving the robot's shell, face, joints and markings.
+These materials blend gradually as the player moves between lit and dark areas.
 
 **Level → World** provides **Background** (Indoor wall / Blue sky) and
 **Lighting layout** (Whole level / Day and night regions). Whole level keeps the

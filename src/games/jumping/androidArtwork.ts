@@ -5,6 +5,7 @@ type Limb = { root: Point; joint: Point; end: Point }
 export interface AndroidMaterials {
   shell: string; rear: string; joint: string; grip: string; mark: string; cranial: string; face: string
 }
+export type AndroidAppearance = string | AndroidMaterials
 const day: AndroidMaterials = {
   shell: '#b5bdb2', rear: '#a9b7ad', joint: '#657a70',
   grip: '#697d70', mark: '#8ba58e', cranial: '#a9b7ad', face: '#b8c0b5',
@@ -17,13 +18,35 @@ const night: AndroidMaterials = {
 }
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */
-export function androidMaterials(ink: string): AndroidMaterials {
+export function androidMaterials(ink: AndroidAppearance): AndroidMaterials {
+  if (typeof ink !== 'string') return ink
   // The back wall remains at ambient exposure inside a spotlight. Mid-tone
   // metal disappears against it when the robot receives full light.
   if (ink === '#b66d65') return { shell: ink, rear: '#925f59', joint: '#26322c', grip: '#344237', mark: '#ccad72', cranial: '#9b625b', face: '#d0c6af' }
   if (ink === '#e5e7e6') return night
   if (ink === '#686b6e' || ink === '#303c36') return day
   return { shell: ink, rear: ink, joint: ink, grip: ink, mark: ink, cranial: ink, face: ink }
+}
+
+const daylightMaterials: (AndroidMaterials | undefined)[] = []
+/** Preserve each material while easing between the established night/day
+ * palettes. Reuse the finite set of colors across every lighting replay. */
+export function androidDaylightMaterials(daylight: number): AndroidMaterials {
+  const t = Math.max(0, Math.min(1, daylight)), index = Math.round(t * t * (3 - 2 * t) * 255)
+  if (index === 0) return night
+  if (index === 255) return day
+  const saved = daylightMaterials[index]
+  if (saved) return saved
+  const amount = index / 255, materials = {} as AndroidMaterials
+  for (const key of Object.keys(day) as (keyof AndroidMaterials)[]) {
+    const from = parseInt(night[key].slice(1), 16), to = parseInt(day[key].slice(1), 16)
+    materials[key] = '#' + [16, 8, 0].map(shift => {
+      const a = from >> shift & 255, b = to >> shift & 255
+      return Math.round(a + (b - a) * amount).toString(16).padStart(2, '0')
+    }).join('')
+  }
+  daylightMaterials[index] = materials
+  return materials
 }
 const along = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
 

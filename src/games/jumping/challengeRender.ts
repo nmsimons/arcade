@@ -9,6 +9,7 @@ import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
+import type { AndroidAppearance } from './androidArtwork.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { gradeClock } from './grading.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
@@ -174,7 +175,7 @@ export function drawRobotPortal(ctx: CanvasRenderingContext2D, robot: RobotState
   ambientPaint(paint)(ctx, 0, () => drawDoorway(ctx, entranceDoor(robot.definition), editor ? 1 : entranceOpening(robot.entrance!.elapsed)))
 }
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
-export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
+export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: AndroidAppearance, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)

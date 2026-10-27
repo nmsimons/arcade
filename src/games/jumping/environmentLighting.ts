@@ -8,6 +8,8 @@ import type { LightingWorld } from './lightingModel.ts'
 import type { LightingView } from './lightingRender.ts'
 import type { JumpLevel } from './level.ts'
 import { EnvironmentTerrainField } from './environmentTerrainField.ts'
+import { androidDaylightMaterials } from './androidArtwork.ts'
+import type { AndroidMaterials } from './androidArtwork.ts'
 
 const DARK = .35, DAY = .95, REACH = 600
 const FIELD_MARGIN = 64
@@ -102,6 +104,7 @@ export class EnvironmentLighting {
   private air?: { scene: Scene; zoom: number; width: number; height: number; bounds: Box }
   private readableCrop!: Box
   private software = false
+  private playerAppearance?: { scene: Scene; x: number; y: number; materials: AndroidMaterials }
   private boundedAmbient?: Surface
   private resolved?: Surface
   private key = ''
@@ -163,11 +166,14 @@ export class EnvironmentLighting {
     const scene = this.scene(run), mx = mirror(x, run.level.width), my = mirror(y, run.level.floor ?? run.level.height ?? 1020)
     return this.terrainValue(scene, mx, my) ?? airExposure(run.level, scene.portals, scene.edges, mx, my)
   }
-  playerInk(run: LightingWorld) {
-    const exposure = this.exposureAt(run, run.player.x, run.player.y - 31)
-    // These keys select the actual android materials. Arbitrary CSS colors
-    // intentionally select a monochrome diagnostic mask in androidArtwork.
-    return exposure >= .7 ? '#303c36' : '#e5e7e6'
+  playerMaterials(run: LightingWorld) {
+    const scene = this.scene(run), x = run.player.x, y = run.player.y - (run.player.inverted ? -31 : 31)
+    const saved = this.playerAppearance
+    if (saved?.scene === scene && saved.x === x && saved.y === y) return saved.materials
+    const exposure = airExposure(run.level, scene.portals, scene.edges, x, y)
+    const materials = androidDaylightMaterials((exposure - DARK) / (DAY - DARK))
+    this.playerAppearance = { scene, x, y, materials }
+    return materials
   }
   render(run: LightingWorld, view: LightingView, software = false) {
     if (this.software !== software) { this.release(); this.software = software }
@@ -333,6 +339,7 @@ export class EnvironmentLighting {
     if (this.boundedAmbient) this.boundedAmbient.canvas.width = this.boundedAmbient.canvas.height = 0
     this.terrainGrid.clear(); this.terrainGridPixels = undefined; this.terrainPath = undefined
     this.shadowPaths = undefined
+    this.playerAppearance = undefined
     this.air = undefined
     this.boundedAmbient = undefined
     this.resolved = undefined

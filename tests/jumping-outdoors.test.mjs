@@ -61,9 +61,9 @@ test('daylight enters the actual cave mouth, is blocked by rock, and does not st
   const blocked = createRun({ ...level, platforms: [...level.platforms, { x: 1730, y: 780, w: 30, h: 240 }] })
   assert.equal(new EnvironmentLighting().exposureAt(blocked, 1700, 950), .35)
   for (const x of [300, 1600, 1700, 1900]) {
-    const ink = light.playerInk({ ...run, player: { ...run.player, x, y: 981 } })
-    assert.ok(['#e5e7e6', '#303c36'].includes(ink))
-    assert.ok(new Set(Object.values(androidMaterials(ink))).size > 3, 'retain shell, face, joint and marking materials; never select the diagnostic mask')
+    const materials = light.playerMaterials({ ...run, player: { ...run.player, x, y: 981 } })
+    assert.equal(androidMaterials(materials), materials)
+    assert.ok(new Set(Object.values(materials)).size > 3, 'retain shell, face, joint and marking materials; never select the diagnostic mask')
   }
 })
 

@@ -181,7 +181,7 @@ export class LightingRenderer {
     ctx.fillRect(0, 0, view.width, view.height); ctx.restore()
   }
   private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, nightMode: boolean, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
-    const ink = nightMode ? hasRegionLighting(run.level.environment) ? this.environmentLighting.playerInk(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
+    const ink = nightMode ? hasRegionLighting(run.level.environment) ? this.environmentLighting.playerMaterials(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
     if (backdrop && layer !== 'objects') drawLevelBackdrop(ctx, run.level,

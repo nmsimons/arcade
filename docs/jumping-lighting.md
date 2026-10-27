@@ -127,6 +127,9 @@ baseline to an entire connected rock mass or project the back-wall polygon as
 a hard stripe across its front. Keep the shared material fills and restrained
 grain. Player contrast uses the canonical day/night android material palettes;
 an arbitrary ink color selects a diagnostic mask and loses the normal materials.
+Regional lighting blends the shell, face, joints and markings gradually with
+local brightness, instead of switching palettes at a threshold. The bounded
+palette cache is shared by all composition passes and adds no rendering passes.
 Day mode retains the ordinary uniform daylight treatment described next.
 
 The enclosing frame keeps its terrain material and mirrors environmental

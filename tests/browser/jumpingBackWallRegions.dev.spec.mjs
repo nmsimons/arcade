@@ -76,8 +76,10 @@ test('wide cave mouths fade continuously without point-source interference at ov
     lighting.release(); renderer.dispose(); return profiles
   })
   for (const profile of profiles) {
-    for (const delta of profile.boundary) expect(delta).toBeLessThanOrEqual(1)
-    for (const row of profile.rows) expect(Math.max(...row) - Math.min(...row)).toBeLessThanOrEqual(1)
+    // Two independent samples can span two gray values with the one-level
+    // dither. Larger variation still indicates a seam or source lobes.
+    for (const delta of profile.boundary) expect(delta).toBeLessThanOrEqual(2)
+    for (const row of profile.rows) expect(Math.max(...row) - Math.min(...row)).toBeLessThanOrEqual(2)
     expect(profile.rows[0][3]).toBeGreaterThan(profile.rows[1][3])
     expect(profile.rows[1][3]).toBeGreaterThan(profile.rows[2][3])
   }

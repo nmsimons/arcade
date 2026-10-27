@@ -13,6 +13,8 @@ import type { AndroidMaterials } from './androidArtwork.ts'
 
 const DARK = .35, DAY = .95, REACH = 600
 const FIELD_MARGIN = 64
+const NOISE_SIZE = 64
+const ditherEnabled = (view: LightingView) => view.zoom >= .5 && view.width * view.height <= 1_500_000
 type Box = { x: number; y: number; w: number; h: number }
 const mirror = (value: number, extent: number) => {
   const period = extent * 2, offset = (value % period + period) % period
@@ -25,12 +27,12 @@ type Portal = { x: number; y: number; a: readonly [number, number]; b: readonly 
 type TerrainBand = { a: readonly [number, number]; b: readonly [number, number]; nx: number; ny: number; host: JumpLevel['platforms'][number]; samples: number[] }
 type Scene = { level: JumpLevel; mechanisms: string; portals: Portal[]; edges: TerrainEdge[]; bands: TerrainBand[]; platforms: JumpLevel['platforms']; solids: JumpLevel['platforms'] }
 
-/** Two small light fields, the terrain grid, the bounded ambient field, and the
- * GPU-only resolved field. Include small viewports where all fields are native. */
+/** Two small light fields, the terrain grid, the noise tile, the bounded ambient
+ * field, and GPU-only resolve. Include viewports where all fields are native. */
 export function environmentBufferBytes(view: LightingView, gpu = false) {
   const scale = Math.min(1, 512 / Math.max(view.width, view.height))
   const width = Math.max(1, Math.ceil(view.width * scale)), height = Math.max(1, Math.ceil(view.height * scale))
-  return 4 * (2 * (width + FIELD_MARGIN * 2) * (height + FIELD_MARGIN * 2) + (Math.ceil(width / 4) + 2) * (Math.ceil(height / 4) + 2) + view.width * view.height * (gpu ? 2 : 1))
+  return 4 * (2 * (width + FIELD_MARGIN * 2) * (height + FIELD_MARGIN * 2) + (Math.ceil(width / 4) + 2) * (Math.ceil(height / 4) + 2) + view.width * view.height * (gpu ? 2 : 1) + (ditherEnabled(view) ? NOISE_SIZE * NOISE_SIZE : 0))
 }
 
 /** Bright-region ambient enters through actual gaps in the rock, rather than
@@ -101,13 +103,40 @@ export class EnvironmentLighting {
   private terrainGridPixels?: Uint8ClampedArray
   private terrainPath?: { scene: Scene; path: Path2D }
   private shadowPaths?: { scene: Scene; paths: Path2D[] }
-  private air?: { scene: Scene; zoom: number; width: number; height: number; bounds: Box }
+  private air?: { scene: Scene; zoom: number; width: number; height: number; bounds: Box; smoothBands: boolean }
   private readableCrop!: Box
   private software = false
   private playerAppearance?: { scene: Scene; x: number; y: number; materials: AndroidMaterials }
   private boundedAmbient?: Surface
   private resolved?: Surface
+  private noise?: { canvas: HTMLCanvasElement; pattern: CanvasPattern; transform: DOMMatrix }
   private key = ''
+  private dither(target: Surface, bounds: Box, zoom: number) {
+    if (!this.noise) {
+      const tile = buffer(false), pixels = tile.ctx.createImageData(NOISE_SIZE, NOISE_SIZE)
+      tile.canvas.width = tile.canvas.height = NOISE_SIZE
+      for (let i = 0; i < NOISE_SIZE * NOISE_SIZE; i++) {
+        let n = Math.imul(i ^ 0x9e3779b9, 0x85ebca6b); n = Math.imul(n ^ n >>> 16, 0xc2b2ae35); n ^= n >>> 16
+        const value = n & 255, p = i * 4
+        pixels.data[p] = pixels.data[p + 1] = pixels.data[p + 2] = value; pixels.data[p + 3] = 255
+      }
+      tile.ctx.putImageData(pixels, 0, 0)
+      this.noise = { canvas: tile.canvas, pattern: target.ctx.createPattern(tile.canvas, 'repeat')!, transform: new DOMMatrix() }
+    }
+    this.noise.transform.e = -bounds.x * zoom; this.noise.transform.f = -bounds.y * zoom
+    this.noise.pattern.setTransform(this.noise.transform)
+    // Add 0..2 gray values, then subtract one: unlike a translucent noise
+    // overlay, this does not pull the fade toward middle gray. Only rebuilds
+    // of the small retained field pay for these fills. Camera frames keep
+    // their original opaque upscale, and the night ambient remains a floor.
+    const ctx = target.ctx, { width, height } = target.canvas
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 2 / 255
+    ctx.fillStyle = this.noise.pattern; ctx.fillRect(0, 0, width, height)
+    ctx.globalCompositeOperation = 'difference'; ctx.globalAlpha = 1
+    ctx.fillStyle = '#010101'; ctx.fillRect(0, 0, width, height)
+    ctx.globalCompositeOperation = 'lighten'; ctx.fillStyle = gray(DARK); ctx.fillRect(0, 0, width, height)
+    ctx.globalCompositeOperation = 'source-over'
+  }
   private scene(run: LightingWorld) {
     const portals = this.geometry?.level === run.level ? this.geometry.portals : daylightPortals(run.level)
     // A blocker outside every opening's bounded reach cannot intersect a ray
@@ -178,6 +207,12 @@ export class EnvironmentLighting {
   render(run: LightingWorld, view: LightingView, software = false) {
     if (this.software !== software) { this.release(); this.software = software }
     const scene = this.scene(run)
+    // Overview and large/fallback views keep the original mask and its budget.
+    // Their bandwidth is more sensitive and the added grain has less benefit.
+    const smoothBands = ditherEnabled(view)
+    if (!smoothBands && this.noise) {
+      this.noise.canvas.width = this.noise.canvas.height = 0; this.noise = undefined
+    }
     const key = `${view.x}:${view.y}:${view.zoom}:${view.width}:${view.height}`
     const fields = this.fields ??= { ambient: buffer(software), readable: buffer(software), terrain: buffer() }
     // Build each portal in the second retained field, then reuse it for the
@@ -189,10 +224,10 @@ export class EnvironmentLighting {
     const zoom = view.zoom * scale
     const bounds = { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }
     const fieldWidth = width + FIELD_MARGIN * 2, fieldHeight = height + FIELD_MARGIN * 2, border = 2 / zoom
-    const rebuildAir = this.air?.scene !== scene || this.air.zoom !== zoom || this.air.width !== fieldWidth || this.air.height !== fieldHeight
+    const rebuildAir = this.air?.scene !== scene || this.air.zoom !== zoom || this.air.width !== fieldWidth || this.air.height !== fieldHeight || this.air.smoothBands !== smoothBands
       || bounds.x < this.air.bounds.x + border || bounds.y < this.air.bounds.y + border
       || bounds.x + bounds.w > this.air.bounds.x + this.air.bounds.w - border || bounds.y + bounds.h > this.air.bounds.y + this.air.bounds.h - border
-    if (rebuildAir) this.air = { scene, zoom, width: fieldWidth, height: fieldHeight,
+    if (rebuildAir) this.air = { scene, zoom, width: fieldWidth, height: fieldHeight, smoothBands,
       bounds: { x: (Math.floor(bounds.x * zoom) - FIELD_MARGIN) / zoom, y: (Math.floor(bounds.y * zoom) - FIELD_MARGIN) / zoom, w: fieldWidth / zoom, h: fieldHeight / zoom } }
     const fieldBounds = this.air!.bounds
     const readableCrop = { x: (bounds.x - fieldBounds.x) * zoom, y: (bounds.y - fieldBounds.y) * zoom, w: view.width * scale, h: view.height * scale }
@@ -240,9 +275,11 @@ export class EnvironmentLighting {
       }
       if (pending) ctx.fill()
       ctx.restore()
+      let spill = false
       for (const [index, light] of scene.portals.entries()) {
         if (Math.max(light.a[0], light.b[0]) + REACH < fieldBounds.x || Math.min(light.a[0], light.b[0]) - REACH > fieldBounds.x + fieldBounds.w
           || Math.max(light.a[1], light.b[1]) + REACH < fieldBounds.y || Math.min(light.a[1], light.b[1]) - REACH > fieldBounds.y + fieldBounds.h) continue
+        spill = true
         reset(scratch)
         const target = scratch.ctx
         target.fillStyle = gray(DARK); target.fillRect(0, 0, fieldWidth, fieldHeight)
@@ -252,6 +289,9 @@ export class EnvironmentLighting {
         // antialiased edges leave a partly unshadowed line at cave ceilings.
         target.fillStyle = gray(DARK); target.fill(this.shadowPaths.paths[index]); target.resetTransform()
         ctx.globalCompositeOperation = 'lighten'; ctx.drawImage(scratch.canvas, 0, 0)
+      }
+      if (spill && smoothBands) {
+        this.dither(fields.ambient, fieldBounds, zoom)
       }
     }
     // One small interpolated scalar field joins the surface contributions.
@@ -337,12 +377,14 @@ export class EnvironmentLighting {
     if (this.fields) for (const surface of Object.values(this.fields)) surface.canvas.width = surface.canvas.height = 0
     if (this.resolved) this.resolved.canvas.width = this.resolved.canvas.height = 0
     if (this.boundedAmbient) this.boundedAmbient.canvas.width = this.boundedAmbient.canvas.height = 0
+    if (this.noise) this.noise.canvas.width = this.noise.canvas.height = 0
     this.terrainGrid.clear(); this.terrainGridPixels = undefined; this.terrainPath = undefined
     this.shadowPaths = undefined
     this.playerAppearance = undefined
     this.air = undefined
     this.boundedAmbient = undefined
     this.resolved = undefined
+    this.noise = undefined
     this.fields = undefined; this.geometry = undefined; this.terrainPixels = undefined; this.key = ''
   }
 }

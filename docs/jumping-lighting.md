@@ -110,9 +110,21 @@ openings from the level. This ambient field is separate from powered spotlights 
 The small air field retains an overscan margin for camera movement; terrain
 exposure uses a bounded window of world-aligned samples. Moving the camera
 reuses both fields without reducing their sampling resolution. Relevant moving
-occluders, level edits, zoom and size changes invalidate them. Terrain exposure
-is clipped after upscaling, at the final silhouette, so it cannot glow onto the
-back wall beneath a rock. See [performance measurements](jumping-performance.md#october-27-2026-spelunk-ib-regional-lighting-and-camera-movement).
+occluders, level edits, zoom and size changes invalidate them.
+
+The retained air field includes a faint, world-anchored dither to break up
+8-bit brightness bands. Apply it in place only when rebuilding that small
+field, using a retained 64-by-64 GPU-backed noise tile (16 KiB). Camera frames
+keep their ordinary opaque upscale, with no new passes or readbacks. Keep the
+ordinary fast filter and preserve the gradual falloff, field resolution, cache
+reuse and final terrain silhouette.
+Enable this only at close zoom (at least 0.5 native pixels per world unit) and
+up to 1.5 million viewport pixels. Overview and larger views retain the original
+mask and buffer budget; leaving either limit releases the noise tile and
+invalidates the cached air field so noise cannot survive in the fallback.
+See the [gradient smoothing measurements](jumping-performance.md#october-27-2026-regional-gradient-smoothing).
+Terrain exposure is clipped after upscaling, at the final silhouette, so it
+cannot glow onto the back wall beneath a rock. See [performance measurements](jumping-performance.md#october-27-2026-spelunk-ib-regional-lighting-and-camera-movement).
 Each solid and its projected shadows also share one opaque mask with consistent
 winding. Separately antialiased masks can leave a partly lit line along a dark
 pocket's ceiling or walls even when the terrain field itself is clipped correctly.

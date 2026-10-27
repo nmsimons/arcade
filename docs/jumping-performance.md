@@ -1,5 +1,45 @@
 # LAB performance notes
 
+## October 27, 2026: regional gradient smoothing
+
+The gradual cave lighting now includes a subtle, world-anchored dither in its
+retained air field. Small brightness steps become irregular instead of forming
+continuous bands. Exposure curves, the 512-pixel field limit, terrain clipping,
+player materials and world-aligned caches are unchanged. The retained 64x64
+GPU-backed tile adds 16 KiB. Three small fills run when the air field rebuilds;
+ordinary moving frames keep the existing opaque upscale and perform no new
+readbacks or full-viewport passes.
+
+The [retained comparison](performance/2026-10-27-regional-gradient-smoothing-windows.json)
+uses the same frozen Spelunk Ib map, hardware Edge 156.0.4314.42 and Snapdragon
+X Elite / Adreno X1-85. Three alternating before/after pairs use fresh browser
+processes, a production renderer, 1280x800 CSS / DPR 1, 30 warmup frames and six
+measured seconds per workload. Full lighting stays enabled and adaptive quality
+is disabled. No tests or benchmarks run concurrently. Values are medians of
+three episode means; CPU timings measure submission, not GPU completion.
+
+| Workload | FPS before / after | Drawing CPU/frame before / after | Frame interval p95 before / after |
+| --- | ---: | ---: | ---: |
+| Cave-mouth camera pan | 60.0 / 60.0 | 3.96 / 4.09 ms | 16.9 / 17.3 ms |
+| Travel through the cave | 60.0 / 60.0 | 4.23 / 4.34 ms | 17.2 / 17.1 ms |
+
+Neither arm records a frame interval above 25 ms. Dither runs once during each
+pan episode, including its cold frame, and eight times during each travel
+episode. The observed FPS is unchanged; median drawing CPU increases by about
+0.1 ms. These capped, short runs do not establish zero overhead on every device.
+Raw per-frame data, the frozen reference and the reproduction harness remain in
+`.local/lighting-aa-2026-10-27/`.
+
+Smoothing is limited to close zoom (at least 0.5 native pixels per world unit)
+and viewports up to 1.5 million pixels. Earlier experiments showed that an
+extra pass each camera frame, high-quality filtering, or noise in the overview
+could cost performance. Overview and larger/fallback views keep the original
+mask and buffer budget: final pixel comparisons find zero differences there.
+The close-view comparison changes the grayscale lighting mask by at most two
+display gray values, without changing the fade's shape. Regressions cover the
+curve, cache reuse, stationary world anchoring, leaving either smoothing limit,
+player colors, cave-edge halos, and Canvas/GPU composition.
+
 ## October 27, 2026: Spelunk Ib regional lighting and camera movement
 
 Regional lighting no longer rebuilds the terrain-light field or blends every

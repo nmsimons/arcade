@@ -1,0 +1,1242 @@
+{
+  "date": "2026-10-27T18:55:46.394Z",
+  "machine": "Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz",
+  "browser": "156.0.4314.42",
+  "gpu": {
+    "devices": [
+      {
+        "vendorId": 1297040209,
+        "deviceId": 909329200,
+        "subSysId": 808989496,
+        "revision": 136,
+        "vendorString": "",
+        "deviceString": "Qualcomm(R) Adreno(TM) X1-85 GPU",
+        "driverVendor": "Qualcomm",
+        "driverVersion": "31.0.133.1"
+      },
+      {
+        "vendorId": 5140,
+        "deviceId": 140,
+        "subSysId": 0,
+        "revision": 0,
+        "vendorString": "",
+        "deviceString": "Microsoft Basic Render Driver",
+        "driverVendor": "",
+        "driverVersion": "10.0.26100.9711"
+      }
+    ],
+    "auxAttributes": {
+      "amdSwitchable": false,
+      "bgra8OverlaySupport": "SOFTWARE",
+      "canSupportThreadedTextureMailbox": false,
+      "directComposition": true,
+      "directMLFeatureLevel": "Not supported",
+      "directRenderingVersion": "",
+      "displayType": "ANGLE_D3D11",
+      "dx12FeatureLevel": "Not supported",
+      "glExtensions": "GL_AMD_performance_monitor GL_ANGLE_base_vertex_base_instance_shader_builtin GL_ANGLE_blob_cache GL_ANGLE_client_arrays GL_ANGLE_clip_cull_distance GL_ANGLE_copy_texture_3d GL_ANGLE_depth_texture GL_ANGLE_framebuffer_blit GL_ANGLE_framebuffer_multisample GL_ANGLE_get_serialized_context_string GL_ANGLE_get_tex_level_parameter GL_ANGLE_instanced_arrays GL_ANGLE_memory_size GL_ANGLE_multiview_multisample GL_ANGLE_pack_reverse_row_order GL_ANGLE_polygon_mode GL_ANGLE_program_binary_readiness_query GL_ANGLE_program_cache_control GL_ANGLE_provoking_vertex GL_ANGLE_renderability_validation GL_ANGLE_request_extension GL_ANGLE_robust_client_memory GL_ANGLE_shader_pixel_local_storage GL_ANGLE_stencil_texturing GL_ANGLE_texture_compression_dxt3 GL_ANGLE_texture_compression_dxt5 GL_ANGLE_texture_multisample GL_ANGLE_texture_usage GL_ANGLE_translated_shader_source GL_APPLE_clip_distance GL_ARM_rgba8 GL_CHROMIUM_bind_generates_resource GL_CHROMIUM_bind_uniform_location GL_CHROMIUM_copy_compressed_texture GL_CHROMIUM_copy_texture GL_CHROMIUM_lose_context GL_EXT_EGL_image_external_wrap_modes GL_EXT_base_instance GL_EXT_blend_func_extended GL_EXT_blend_minmax GL_EXT_clip_control GL_EXT_clip_cull_distance GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_conservative_depth GL_EXT_debug_label GL_EXT_debug_marker GL_EXT_depth_clamp GL_EXT_discard_framebuffer GL_EXT_disjoint_timer_query GL_EXT_draw_buffers GL_EXT_draw_buffers_indexed GL_EXT_draw_elements_base_vertex GL_EXT_float_blend GL_EXT_frag_depth GL_EXT_instanced_arrays GL_EXT_map_buffer_range GL_EXT_occlusion_query_boolean GL_EXT_polygon_offset_clamp GL_EXT_read_format_bgra GL_EXT_render_snorm GL_EXT_robustness GL_EXT_sRGB GL_EXT_shader_texture_lod GL_EXT_texture_border_clamp GL_EXT_texture_compression_bptc GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_rgtc GL_EXT_texture_compression_s3tc_srgb GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 GL_EXT_texture_mirror_clamp_to_edge GL_EXT_texture_norm16 GL_EXT_texture_rg GL_EXT_texture_storage GL_EXT_texture_type_2_10_10_10_REV GL_EXT_unpack_subimage GL_KHR_debug GL_KHR_parallel_shader_compile GL_KHR_robustness GL_NV_EGL_stream_consumer_external GL_NV_fence GL_NV_framebuffer_blit GL_NV_pack_subimage GL_NV_pixel_buffer_object GL_NV_shader_noperspective_interpolation GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_image_external_essl3 GL_OES_depth24 GL_OES_depth32 GL_OES_draw_buffers_indexed GL_OES_draw_elements_base_vertex GL_OES_element_index_uint GL_OES_fbo_render_mipmap GL_OES_get_program_binary GL_OES_mapbuffer GL_OES_packed_depth_stencil GL_OES_required_internalformat GL_OES_rgb8_rgba8 GL_OES_sample_variables GL_OES_shader_multisample_interpolation GL_OES_standard_derivatives GL_OES_surfaceless_context GL_OES_texture_border_clamp GL_OES_texture_float GL_OES_texture_float_linear GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_texture_npot GL_OES_texture_stencil8 GL_OES_texture_storage_multisample_2d_array GL_OES_vertex_array_object GL_OVR_multiview GL_OVR_multiview2 ",
+      "glImplementationParts": "(gl=egl-angle,angle=d3d11)",
+      "glRenderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11-31.0.133.1)",
+      "glResetNotificationStrategy": 33362,
+      "glVendor": "Google Inc. (Qualcomm)",
+      "glVersion": "OpenGL ES 3.0 (ANGLE 2.1.48495 git hash: 09dc4bea9c40)",
+      "glWsExtensions": "EGL_EXT_create_context_robustness EGL_ANGLE_d3d_share_handle_client_buffer EGL_ANGLE_d3d_texture_client_buffer EGL_ANGLE_surface_d3d_texture_2d_share_handle EGL_ANGLE_query_surface_pointer EGL_ANGLE_window_fixed_size EGL_ANGLE_keyed_mutex EGL_ANGLE_surface_orientation EGL_ANGLE_direct_composition EGL_NV_post_sub_buffer EGL_KHR_create_context EGL_KHR_image EGL_KHR_image_base EGL_KHR_gl_texture_2D_image EGL_KHR_gl_texture_cubemap_image EGL_KHR_gl_renderbuffer_image EGL_KHR_get_all_proc_addresses EGL_KHR_stream EGL_KHR_stream_consumer_gltexture EGL_NV_stream_consumer_gltexture_yuv EGL_ANGLE_stream_producer_d3d_texture EGL_ANGLE_create_context_webgl_compatibility EGL_CHROMIUM_create_context_bind_generates_resource EGL_CHROMIUM_sync_control EGL_EXT_pixel_format_float EGL_KHR_surfaceless_context EGL_ANGLE_display_texture_share_group EGL_ANGLE_display_semaphore_share_group EGL_ANGLE_create_context_client_arrays EGL_ANGLE_program_cache_control EGL_ANGLE_robust_resource_initialization EGL_ANGLE_create_context_extensions_enabled EGL_ANDROID_blob_cache EGL_ANDROID_recordable EGL_ANGLE_image_d3d11_texture EGL_ANGLE_create_context_backwards_compatible EGL_KHR_no_config_context EGL_KHR_create_context_no_error EGL_KHR_reusable_sync EGL_ANGLE_memory_usage_report ",
+      "glWsVendor": "Google Inc. (Qualcomm)",
+      "glWsVersion": "1.5 (ANGLE 2.1.48495 git hash: 09dc4bea9c40)",
+      "inProcessGpu": false,
+      "initializationTime": 0.063416,
+      "isAsan": false,
+      "isClangCoverage": false,
+      "jpegDecodeAcceleratorSupported": false,
+      "maxMsaaSamples": "8",
+      "nv12OverlaySupport": "SCALING",
+      "optimus": false,
+      "p010OverlaySupport": "SOFTWARE",
+      "passthroughCmdDecoder": true,
+      "pixelShaderVersion": "5.0",
+      "playreadyHardwareDrmSupport": false,
+      "processCrashCount": 0,
+      "rgb10a2OverlaySupport": "SOFTWARE",
+      "sandboxed": false,
+      "skiaBackendType": "GaneshGL",
+      "subpixelFontRendering": true,
+      "supportsD3dSharedImages": true,
+      "supportsDirectML": false,
+      "supportsDx12": false,
+      "supportsOverlays": true,
+      "supportsVulkan": false,
+      "targetCpuBits": 64,
+      "vertexShaderVersion": "5.0",
+      "visibilityCallbackCallCount": 0,
+      "vulkanVersion": "Not supported",
+      "yuy2OverlaySupport": "SOFTWARE"
+    },
+    "featureStatus": {
+      "2d_canvas": "enabled",
+      "direct_rendering_display_compositor": "disabled_off_ok",
+      "gpu_compositing": "enabled",
+      "multiple_raster_threads": "enabled_on",
+      "opengl": "enabled_on",
+      "rasterization": "enabled",
+      "raw_draw": "disabled_off_ok",
+      "skia_graphite": "unavailable_off",
+      "trees_in_viz": "disabled_off",
+      "video_decode": "enabled",
+      "video_encode": "enabled",
+      "webgl": "enabled",
+      "webgpu": "enabled",
+      "webnn": "disabled_off"
+    },
+    "driverBugWorkarounds": [
+      "disable_d3d11_vp9_ksvc_decoding",
+      "disable_d3d12_video_encoder",
+      "disable_h264_accelerator_sw_brc",
+      "disable_media_foundation_d3d_video_processing",
+      "disable_ms_video_super_resolution",
+      "disable_video_overlay_if_moving",
+      "disable_vp_auto_hdr",
+      "disable_vp_scaling",
+      "disable_vp_super_resolution",
+      "disable_webnn_for_gpu",
+      "enable_webgl_timer_query_extensions",
+      "exit_on_context_lost",
+      "lose_gl_context_when_increase_texture_3d_depth",
+      "reattach_fbo_depth_stencil_on_reallocation",
+      "disabled_extension_GL_KHR_blend_equation_advanced",
+      "disabled_extension_GL_KHR_blend_equation_advanced_coherent"
+    ],
+    "videoDecoding": [],
+    "videoEncoding": []
+  },
+  "baselineCommit": "64d5224fa56fcae1c3ab0382a4e3a1ea68b525b0",
+  "sources": {
+    "before": "6571f06526ad6aaac93aaf3aaaa67072f8f067f12fccc618360c35c375dee13f",
+    "after": "edd77d09ad522427393625bd707163f1cdf19d8d15c6edb1eb66cae535f0fa34",
+    "level": "8ccc310f9f30a37ff4d1caa50a8b9a75da8af6df11408a687ed7a461f0d73163"
+  },
+  "levelFile": "public/levels/jumping/spelunk1b.jump-level.json",
+  "method": "Three alternating before/after pairs in fresh hardware Edge processes. Frozen Spelunk Ib; production renderer; full quality; 30 warmup frames; six seconds per scene. Camera motion, presentation time and authored lamps retained; no adaptive reduction. No concurrent tests or benchmarks. CPU timings exclude asynchronous GPU completion.",
+  "scope": "Close zoom at 1280x800 CSS / DPR 1; full-quality GPU lighting, fixed authored Spelunk Ib snapshot. Smoothing is disabled below 0.5 native pixels/world unit or above 1,500,000 viewport pixels. Those fields were also compared pixel-for-pixel with the baseline.",
+  "limits": "FPS is capped near 60 Hz; this is not a universal no-overhead guarantee. CPU submission excludes asynchronous GPU completion. Other user applications remain open. The before/after drawing-time ranges overlap; report the small median CPU change as well as the unchanged measured FPS.",
+  "visual": {
+    "fullFieldDifference": {
+      "max": 2,
+      "mean": 0.1860984126984127,
+      "changed": 117237
+    },
+    "composedImageDifference": {
+      "max": 2,
+      "mean": 0.1768809523809524,
+      "changed": 111431
+    },
+    "excluded": [
+      {
+        "view": {
+          "x": -60,
+          "y": -60,
+          "zoom": 0.35,
+          "width": 1000,
+          "height": 800
+        },
+        "max": 0,
+        "mean": 0,
+        "changed": 0,
+        "noiseAbsent": true
+      },
+      {
+        "view": {
+          "x": 250,
+          "y": 650,
+          "zoom": 1.65,
+          "width": 1600,
+          "height": 1000
+        },
+        "max": 0,
+        "mean": 0,
+        "changed": 0,
+        "noiseAbsent": true
+      }
+    ]
+  },
+  "noiseTileBytes": 16384,
+  "workloads": [
+    {
+      "id": "panning-mouth",
+      "before": {
+        "episodes": 3,
+        "fps": 60.00033426370064,
+        "drawCpuMs": 3.9562674096284804,
+        "frameP95Ms": 16.900000000000546,
+        "bufferBytes": 44320760,
+        "ditherCalls": [
+          0,
+          0,
+          0
+        ],
+        "over25": 0,
+        "backend": [
+          "gpu",
+          "gpu",
+          "gpu"
+        ]
+      },
+      "after": {
+        "episodes": 3,
+        "fps": 59.99999999999999,
+        "drawCpuMs": 4.090529248076893,
+        "frameP95Ms": 17.300000000000182,
+        "bufferBytes": 44337144,
+        "ditherCalls": [
+          1,
+          1,
+          1
+        ],
+        "over25": 0,
+        "backend": [
+          "gpu",
+          "gpu",
+          "gpu"
+        ]
+      }
+    },
+    {
+      "id": "traversing-cave",
+      "before": {
+        "episodes": 3,
+        "fps": 59.99933148377177,
+        "drawCpuMs": 4.231754875158201,
+        "frameP95Ms": 17.199999999999818,
+        "bufferBytes": 44322464,
+        "ditherCalls": [
+          0,
+          0,
+          0
+        ],
+        "over25": 0,
+        "backend": [
+          "gpu",
+          "gpu",
+          "gpu"
+        ]
+      },
+      "after": {
+        "episodes": 3,
+        "fps": 60.00033426370064,
+        "drawCpuMs": 4.337500000082784,
+        "frameP95Ms": 17.100000000000364,
+        "bufferBytes": 44338848,
+        "ditherCalls": [
+          8,
+          8,
+          8
+        ],
+        "over25": 0,
+        "backend": [
+          "gpu",
+          "gpu",
+          "gpu"
+        ]
+      }
+    }
+  ],
+  "episodes": [
+    {
+      "pair": 1,
+      "arm": "before",
+      "scenario": {
+        "id": "panning-mouth",
+        "center": [
+          1400,
+          950
+        ],
+        "pan": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 18.599999994039536,
+      "coldDrawMs": 81.1000000089407,
+      "ditherCalls": 0,
+      "frames": 359,
+      "wallSeconds": 6,
+      "fps": 60.00033426370064,
+      "draw": {
+        "mean": 3.9562674096284804,
+        "p50": 3.7999999970197678,
+        "p95": 5.799999997019768,
+        "max": 8.700000002980232
+      },
+      "update": {
+        "mean": 0.0038997214650709315,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.3999999910593033
+      },
+      "cpu": {
+        "mean": 3.9601671310935513,
+        "p50": 3.7999999970197678,
+        "p95": 5.799999997019768,
+        "max": 8.700000002980232
+      },
+      "intervals": {
+        "mean": 16.66657381615599,
+        "p50": 16.699999999999818,
+        "p95": 16.899999999999636,
+        "max": 18.699999999999818
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44320760,
+        "lights": 3,
+        "edges": 7,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.516738000000009
+      }
+    },
+    {
+      "pair": 1,
+      "arm": "before",
+      "scenario": {
+        "id": "traversing-cave",
+        "center": [
+          1000,
+          1100
+        ],
+        "travel": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 20,
+      "coldDrawMs": 75.3999999910593,
+      "ditherCalls": 0,
+      "frames": 360,
+      "wallSeconds": 6.0165999999999995,
+      "fps": 59.99900001666638,
+      "draw": {
+        "mean": 4.089444444287154,
+        "p50": 3.9000000059604645,
+        "p95": 5.9000000059604645,
+        "max": 10.700000002980232
+      },
+      "update": {
+        "mean": 0.0033333333002196416,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.3999999910593033
+      },
+      "cpu": {
+        "mean": 4.092777777587374,
+        "p50": 3.9000000059604645,
+        "p95": 5.9000000059604645,
+        "max": 10.700000002980232
+      },
+      "intervals": {
+        "mean": 16.666944444444447,
+        "p50": 16.699999999999818,
+        "p95": 17,
+        "max": 18.600000000000364
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44322464,
+        "lights": 4,
+        "edges": 37,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.483304000000018
+      }
+    },
+    {
+      "pair": 1,
+      "arm": "after",
+      "scenario": {
+        "id": "panning-mouth",
+        "center": [
+          1400,
+          950
+        ],
+        "pan": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 19.700000002980232,
+      "coldDrawMs": 76.1000000089407,
+      "ditherCalls": 1,
+      "frames": 360,
+      "wallSeconds": 6.0167,
+      "fps": 59.998000066664446,
+      "draw": {
+        "mean": 4.088888888930281,
+        "p50": 3.8999999910593033,
+        "p95": 5.799999997019768,
+        "max": 11.5
+      },
+      "update": {
+        "mean": 0.0016666667328940497,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.10000000894069672
+      },
+      "cpu": {
+        "mean": 4.090555555663175,
+        "p50": 3.8999999910593033,
+        "p95": 5.799999997019768,
+        "max": 11.5
+      },
+      "intervals": {
+        "mean": 16.66722222222222,
+        "p50": 16.699999999999818,
+        "p95": 16.800000000000182,
+        "max": 18.600000000000364
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44337144,
+        "lights": 3,
+        "edges": 7,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.533238000000011
+      }
+    },
+    {
+      "pair": 1,
+      "arm": "after",
+      "scenario": {
+        "id": "traversing-cave",
+        "center": [
+          1000,
+          1100
+        ],
+        "travel": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 19.599999994039536,
+      "coldDrawMs": 77.29999999701977,
+      "ditherCalls": 8,
+      "frames": 360,
+      "wallSeconds": 6.0166,
+      "fps": 59.99999999999999,
+      "draw": {
+        "mean": 4.337500000082784,
+        "p50": 4.100000008940697,
+        "p95": 6.700000002980232,
+        "max": 8.400000005960464
+      },
+      "update": {
+        "mean": 0.00305555553899871,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.20000000298023224
+      },
+      "cpu": {
+        "mean": 4.3405555556217825,
+        "p50": 4.100000008940697,
+        "p95": 6.700000002980232,
+        "max": 8.400000005960464
+      },
+      "intervals": {
+        "mean": 16.666666666666668,
+        "p50": 16.699999999999818,
+        "p95": 16.800000000000182,
+        "max": 18.800000000000182
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44338848,
+        "lights": 4,
+        "edges": 37,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.48320400000001
+      }
+    },
+    {
+      "pair": 2,
+      "arm": "after",
+      "scenario": {
+        "id": "panning-mouth",
+        "center": [
+          1400,
+          950
+        ],
+        "pan": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 20.600000008940697,
+      "coldDrawMs": 83.59999999403954,
+      "ditherCalls": 1,
+      "frames": 359,
+      "wallSeconds": 6.000100000000001,
+      "fps": 60.00033426370064,
+      "draw": {
+        "mean": 4.090529248076893,
+        "p50": 3.8999999910593033,
+        "p95": 6.100000008940697,
+        "max": 8.5
+      },
+      "update": {
+        "mean": 0.0038997214650709315,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.29999999701976776
+      },
+      "cpu": {
+        "mean": 4.094428969541964,
+        "p50": 3.8999999910593033,
+        "p95": 6.100000008940697,
+        "max": 8.5
+      },
+      "intervals": {
+        "mean": 16.66657381615599,
+        "p50": 16.699999999999818,
+        "p95": 17.300000000000182,
+        "max": 18.799999999999955
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44337144,
+        "lights": 3,
+        "edges": 7,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.516738000000019
+      }
+    },
+    {
+      "pair": 2,
+      "arm": "after",
+      "scenario": {
+        "id": "traversing-cave",
+        "center": [
+          1000,
+          1100
+        ],
+        "travel": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 19.30000001192093,
+      "coldDrawMs": 77.59999999403954,
+      "ditherCalls": 8,
+      "frames": 359,
+      "wallSeconds": 6,
+      "fps": 60.00033426370064,
+      "draw": {
+        "mean": 4.442339832777765,
+        "p50": 4.100000008940697,
+        "p95": 6.9000000059604645,
+        "max": 9.200000002980232
+      },
+      "update": {
+        "mean": 0.0022284122064585143,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.10000000894069672
+      },
+      "cpu": {
+        "mean": 4.444568244984223,
+        "p50": 4.100000008940697,
+        "p95": 6.9000000059604645,
+        "max": 9.200000002980232
+      },
+      "intervals": {
+        "mean": 16.66657381615599,
+        "p50": 16.699999999999818,
+        "p95": 17.600000000000364,
+        "max": 18.599999999999454
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44338848,
+        "lights": 4,
+        "edges": 37,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.46670400000002
+      }
+    },
+    {
+      "pair": 2,
+      "arm": "before",
+      "scenario": {
+        "id": "panning-mouth",
+        "center": [
+          1400,
+          950
+        ],
+        "pan": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 19.5,
+      "coldDrawMs": 77.6000000089407,
+      "ditherCalls": 0,
+      "frames": 359,
+      "wallSeconds": 6,
+      "fps": 60.00033426370064,
+      "draw": {
+        "mean": 3.9094707525042107,
+        "p50": 3.699999988079071,
+        "p95": 6.0999999940395355,
+        "max": 7.5
+      },
+      "update": {
+        "mean": 0.0008356546293062088,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.10000000894069672
+      },
+      "cpu": {
+        "mean": 3.910306407133517,
+        "p50": 3.699999988079071,
+        "p95": 6.0999999940395355,
+        "max": 7.5
+      },
+      "intervals": {
+        "mean": 16.66657381615599,
+        "p50": 16.699999999999818,
+        "p95": 17,
+        "max": 18.300000000000182
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44320760,
+        "lights": 3,
+        "edges": 7,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.499972000000015
+      }
+    },
+    {
+      "pair": 2,
+      "arm": "before",
+      "scenario": {
+        "id": "traversing-cave",
+        "center": [
+          1000,
+          1100
+        ],
+        "travel": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 20.299999997019768,
+      "coldDrawMs": 76.5,
+      "ditherCalls": 0,
+      "frames": 359,
+      "wallSeconds": 6,
+      "fps": 60.002339924119596,
+      "draw": {
+        "mean": 4.231754875158201,
+        "p50": 4,
+        "p95": 6.399999991059303,
+        "max": 7.899999991059303
+      },
+      "update": {
+        "mean": 0.003899721382056106,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.10000000894069672
+      },
+      "cpu": {
+        "mean": 4.235654596540257,
+        "p50": 4,
+        "p95": 6.399999991059303,
+        "max": 7.899999991059303
+      },
+      "intervals": {
+        "mean": 16.666016713091924,
+        "p50": 16.699999999999818,
+        "p95": 17.199999999999818,
+        "max": 18.700000000000273
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44322464,
+        "lights": 4,
+        "edges": 37,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.4833700000000185
+      }
+    },
+    {
+      "pair": 3,
+      "arm": "before",
+      "scenario": {
+        "id": "panning-mouth",
+        "center": [
+          1400,
+          950
+        ],
+        "pan": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 19.099999994039536,
+      "coldDrawMs": 82.59999999403954,
+      "ditherCalls": 0,
+      "frames": 359,
+      "wallSeconds": 6.000100000000001,
+      "fps": 59.99933148377177,
+      "draw": {
+        "mean": 4.216713092162749,
+        "p50": 3.9000000059604645,
+        "p95": 6.4000000059604645,
+        "max": 10.100000008940697
+      },
+      "update": {
+        "mean": 0.0013927576186597182,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.10000000894069672
+      },
+      "cpu": {
+        "mean": 4.218105849781408,
+        "p50": 3.9000000059604645,
+        "p95": 6.4000000059604645,
+        "max": 10.100000008940697
+      },
+      "intervals": {
+        "mean": 16.666852367688023,
+        "p50": 16.699999999999818,
+        "p95": 16.900000000000546,
+        "max": 18.600000000000364
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44320760,
+        "lights": 3,
+        "edges": 7,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.499838000000015
+      }
+    },
+    {
+      "pair": 3,
+      "arm": "before",
+      "scenario": {
+        "id": "traversing-cave",
+        "center": [
+          1000,
+          1100
+        ],
+        "travel": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 19.200000002980232,
+      "coldDrawMs": 77.1000000089407,
+      "ditherCalls": 0,
+      "frames": 359,
+      "wallSeconds": 6,
+      "fps": 59.99933148377177,
+      "draw": {
+        "mean": 4.38412256298125,
+        "p50": 4.100000008940697,
+        "p95": 6.5999999940395355,
+        "max": 9.5
+      },
+      "update": {
+        "mean": 0.003064066835764723,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.10000000894069672
+      },
+      "cpu": {
+        "mean": 4.387186629817014,
+        "p50": 4.100000008940697,
+        "p95": 6.5999999940395355,
+        "max": 9.5
+      },
+      "intervals": {
+        "mean": 16.666852367688023,
+        "p50": 16.699999999999818,
+        "p95": 17.5,
+        "max": 18.699999999999818
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44322464,
+        "lights": 4,
+        "edges": 37,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.483370000000017
+      }
+    },
+    {
+      "pair": 3,
+      "arm": "after",
+      "scenario": {
+        "id": "panning-mouth",
+        "center": [
+          1400,
+          950
+        ],
+        "pan": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 19.200000002980232,
+      "coldDrawMs": 81.90000000596046,
+      "ditherCalls": 1,
+      "frames": 360,
+      "wallSeconds": 6.0167,
+      "fps": 59.99999999999999,
+      "draw": {
+        "mean": 4.202499999768204,
+        "p50": 3.9000000059604645,
+        "p95": 6.600000008940697,
+        "max": 7.9000000059604645
+      },
+      "update": {
+        "mean": 0.003888888822661506,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.3999999910593033
+      },
+      "cpu": {
+        "mean": 4.206388888590865,
+        "p50": 3.9000000059604645,
+        "p95": 6.600000008940697,
+        "max": 7.9000000059604645
+      },
+      "intervals": {
+        "mean": 16.666666666666668,
+        "p50": 16.699999999999818,
+        "p95": 17.5,
+        "max": 18.699999999999818
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44337144,
+        "lights": 3,
+        "edges": 7,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.5332380000000265
+      }
+    },
+    {
+      "pair": 3,
+      "arm": "after",
+      "scenario": {
+        "id": "traversing-cave",
+        "center": [
+          1000,
+          1100
+        ],
+        "travel": true,
+        "mode": "regional",
+        "seconds": 6,
+        "warmup": 30,
+        "width": 1280,
+        "height": 800
+      },
+      "setupMs": 21.700000002980232,
+      "coldDrawMs": 85.70000000298023,
+      "ditherCalls": 8,
+      "frames": 359,
+      "wallSeconds": 6,
+      "fps": 60.00133707714935,
+      "draw": {
+        "mean": 4.326183843870017,
+        "p50": 4.0999999940395355,
+        "p95": 6.600000008940697,
+        "max": 10.600000008940697
+      },
+      "update": {
+        "mean": 0.002785515361841675,
+        "p50": 0,
+        "p95": 0,
+        "max": 0.20000000298023224
+      },
+      "cpu": {
+        "mean": 4.328969359231858,
+        "p50": 4.0999999940395355,
+        "p95": 6.600000008940697,
+        "max": 10.600000008940697
+      },
+      "intervals": {
+        "mean": 16.666295264623955,
+        "p50": 16.699999999999818,
+        "p95": 17.100000000000364,
+        "max": 19
+      },
+      "steps": {
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "updatePerTick": null,
+      "over25": 0,
+      "over33": 0,
+      "renderer": {
+        "backend": "gpu",
+        "bufferBytes": 44338848,
+        "lights": 4,
+        "edges": 37,
+        "ratio": 1,
+        "width": 1280,
+        "height": 800,
+        "attributes": {
+          "alpha": true,
+          "colorSpace": "srgb",
+          "colorType": "unorm8",
+          "desynchronized": false,
+          "toneMapping": {
+            "mode": "standard"
+          },
+          "willReadFrequently": false
+        }
+      },
+      "final": {
+        "player": [
+          190,
+          705
+        ],
+        "elapsed": 0,
+        "activeTime": 6.4833040000000155
+      }
+    }
+  ],
+  "reproduction": "Raw frames, frozen baseline, browser entry, paired.mjs and comparison screenshots remain in .local/lighting-aa-2026-10-27/. Final measurements: AA_CASES=panning-mouth,traversing-cave node .local/lighting-aa-2026-10-27/paired.mjs",
+  "complete": true
+}

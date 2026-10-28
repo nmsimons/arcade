@@ -22,7 +22,7 @@ import type { GroundCover } from './terrainGroundCover.ts'
 import { TUNING } from './movementTuning.ts'
 import { carryWithRisingWater } from './waterTransport.ts'
 import type { WaterLevels } from './waterLevel.ts'
-import { advanceReturningStepPreparation, advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, athletePose, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, startImpactRagdoll, swimmingLedgeReach } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, athletePose, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, startImpactRagdoll, swimmingLedgeReach } from './athlete.ts'
 import type { ImpactRagdoll } from './impactRagdoll.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
@@ -93,7 +93,7 @@ export interface Player {
   waterPushOff?: boolean
   waterBob?: WaterBob
   waterCamera?: WaterCamera
-  waterMotion?: { amount: number; dive: number; phase: number; effort?: number; underwater?: boolean; steering?: number; bend?: number; leadHeading?: number; scull?: number; bottom?: number; gather?: number; floatCurl?: number; heading?: number; bodyOffset?: [number, number]; wall?: { x: number; amount: number };
+  waterMotion?: { amount: number; dive: number; phase: number; effort?: number; underwater?: boolean; steering?: number; bend?: number; leadHeading?: number; scull?: number; bottom?: number; gather?: number; floatCurl?: number; heading?: number; propLean?: number; bodyOffset?: [number, number]; wall?: { x: number; amount: number };
     ceiling?: { collider: string; amount: number; load: number; nx: number; ny: number; hands: { x: number; y: number; nx: number; ny: number }[] };
     floor?: { y: number; angle: number; reach: number };
     landing?: { pose: AthletePose; y: number; facing: number; time: number; load: number; hand: { x: number; y: number; angle: number }; leaving?: boolean } }
@@ -583,6 +583,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       constrainWaterPosture(p, previousWaterMotion, previousWaterCenter, world)
       p.y += previousWaterCenter - playerWaterCenterOffset(p)
     }
+    advanceWaterPropReach(p, input, dt, world)
   } else delete p.waterMotion
   const verticalUsed = !!(p.climbing || p.hang || p.mantle)
   const initialContacts = playerContacts(p, input, world, dt), previousGround = initialContacts.support

@@ -1229,11 +1229,17 @@ Swimming toward a loose prop keeps the body mostly prone, lifts the face clear
 and presses both palms against its visible surface when that surface lies within
 22 units of the visible shoulders and ahead of the torso. The reach eases in,
 and preserves the arm's depth bend while releasing into the free stroke.
-Underwater, only a real side body contact engages the palms; an overhead ball
-does not attract a reach from a distance. The frog kick continues
+Underwater, floating and overhead props require a real side body contact.
+For fully submerged, supported props up to 60 units wide, a shallow downward
+reach keeps nearby palms useful through the standing-to-swimming transition.
+Both palms must remain within their normal 22-unit reach with a clear path to
+the surface. Working hands limit the forward stroke and push at a slower
+54-unit pace, retaining the prop's weight and the existing push force limits.
+This contact cannot pull an escaping prop; vertical steering, reversal or
+releasing movement gives back ordinary swimming. The frog kick continues
 under pushing effort even when a prop is blocked; the arms hold contact instead
-of replaying the breaststroke pull. Approaching hands do not supply a grounded
-shove from a distance: shared body contacts supply the physical force and torque.
+of replaying the breaststroke pull. Unloaded preparation supplies no force;
+other swimming pushes retain shared body contact force and torque.
 Sideways swimming does not automatically catch a loose prop's ledge. Only a
 stable, flat-supported crate at least 78 units tall offers a grip, as on dry
 ground; floating/unstable crates and balls have no grabbable ledge. Up requests

@@ -11,7 +11,7 @@ import { keepRopeGrip } from './ropeGravity.ts'
 import { stepFootOffsets } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
 import { canGrip } from './friction.ts'
-import { BOX_RESTING_ANGLE_TOLERANCE, propPushHands } from './propGeometry.ts'
+import { BOX_RESTING_ANGLE_TOLERANCE, propPushHands, smallSubmergedProp } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
 import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
@@ -1636,10 +1636,12 @@ function waterPose(p: Player): AthletePose {
       gait: { ...(p.gait ?? gaitPose(p.vx)), air: 0 } })
     pose = motion.bottom >= 1 ? planted : transferPose(pose, planted, [0, 0], motion.bottom, [0, 0], 0, true)
   }
-  if (pushing && p.pushing?.palms) {
-    // Lift the face a little while the torso and kicking legs trail behind the
-    // palms. Shift the whole rig to clear the prop, keeping the spine intact.
-    pose = rotatePose(pose, -.22 * pushing, 1, pose.hip)
+  const propLean = motion.propLean ?? 0
+  if (propLean || pushing && p.pushing?.palms) {
+    // Aim down toward a small floor prop, or lift the face during an ordinary
+    // prone push. Rotate the whole fixed-length rig around the hips.
+    const tilt = propLean * (1 + 2 * (1 - smooth(motion.amount / .75)))
+    pose = rotatePose(pose, tilt - .22 * pushing * (1 - smooth(propLean / .2)), 1, pose.hip)
   }
   if (!p.grounded) {
     // Turn through depth while gathered instead of mirroring the extended body
@@ -1834,6 +1836,32 @@ export function dryLedgeReach(p: Player, edgeX: number, edgeY: number, pose: Ath
   return amount
 }
 
+/** Prepare a shallow downward reach before swimming past a small floor prop. */
+export function advanceWaterPropReach(p: Player, input: JumpInput, dt: number, world: ContactWorld) {
+  const motion = p.waterMotion
+  if (!motion) return
+  const direction = Math.sign(input.move)
+  let wanted = 0
+  if (motion.underwater && !p.grounded && direction && !input.jump && !input.climb && !input.descend && !input.drop
+    && Math.abs(input.swimVertical ?? 0) < .01 && (motion.leadHeading ?? motion.heading ?? p.facing) * direction > .5) {
+    const candidates = world.colliders.filter(c => c.prop && smallSubmergedProp(c.prop)
+      && (c.prop.x - p.x) * direction > 8 && (c.prop.x - p.x) * direction < 90 && Math.abs(c.prop.y - p.y) < 80)
+    if (candidates.length) {
+      const pose = waterPose({ ...p, terrain: undefined, pushing: null, waterMotion: { ...motion, propLean: 0 } })
+      const shoulder: Point = [p.x + pose.shoulder[0] * p.facing, p.y + pose.shoulder[1]]
+      for (const c of candidates) {
+        const hands = propPushHands(c.prop!, p.x, p.y, direction, -pose.shoulder[1], 70)
+        if (!hands?.palms || hands.palms.some(palm => lineBlocked(shoulder, [palm.x, palm.y], world.platforms.filter(b => b !== c.platform)))) continue
+        const below = hands.palms[0].y - shoulder[1], gap = (hands.wallX - shoulder[0]) * direction
+        if (below < 0 || below > 34) continue
+        wanted = Math.max(wanted, .45 * smooth((below - 10) / 14) * smooth((60 - gap) / 25))
+      }
+    }
+  }
+  motion.propLean = (motion.propLean ?? 0) + Math.max(-dt * 3, Math.min(dt * 3, wanted - (motion.propLean ?? 0)))
+  if (!motion.propLean) delete motion.propLean
+}
+
 /** Fit swimming palms to the visible shoulder, rather than the standing hull.
  * Passing below a float leaves the stroke free until its side is within reach. */
 export function swimmingPushHands(p: Player, prop: Prop, direction: number) {
@@ -1854,7 +1882,8 @@ export function swimmingPushHands(p: Player, prop: Prop, direction: number) {
     distance = Math.max(distance, Math.hypot(dx, dy))
   }
   if (distance >= 22) return null
-  return { hands, reach: smooth((22 - distance) / 2) }
+  const shoulders = [pose.frontArm, pose.backArm].map(arm => [p.x + arm.root[0] * p.facing, p.y + arm.root[1]] as Point)
+  return { hands, shoulders, reach: smooth((22 - distance) / 2) }
 }
 
 /** Terrain ceilings receive a hand brace. Loose floats use ordinary bumps,

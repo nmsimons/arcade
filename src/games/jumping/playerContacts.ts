@@ -5,9 +5,9 @@ import { cancelJumpInput, STEP, TUNING } from './model.ts'
 import type { GroundSurface } from './terrain.ts'
 import { exposedWallFaces, groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { boxPushFace, propBounds, propPushHands, PROP_APPROACH_GAP } from './propGeometry.ts'
+import { boxPushFace, propBounds, propPushHands, PROP_APPROACH_GAP, smallSubmergedProp } from './propGeometry.ts'
 import type { PushHands } from './propGeometry.ts'
-import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
+import { bodyContact, bodyIntersects, lineBlocked, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
@@ -36,8 +36,10 @@ export interface PushContact {
   effort: number
   wallX: number
   hands: PushHands | null
-  /** A swimmer supplies the existing body load rather than a grounded shove. */
+  /** A swimmer keeps the kicking pose and uses water pushing controls. */
   swimming?: boolean
+  /** Reachable palms working a small supported prop near the submerged floor. */
+  lowSwimming?: boolean
   /** A swimming palm eases into its comfortable reach without stretching the trunk. */
   reach?: number
   /** A visible approach reach; never consumed by the motor or prop solver. */
@@ -306,12 +308,34 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
   if (!support && p.waterMotion && free && direction && !departing && hasProps) {
     // Reach toward the first side face in the same solid sweep, so palms lead
     // the head and remain on a slowly moving float between body contacts.
-    // Only the actual body load above drives the prop and supplies torque.
+    // Free floats use the actual body load above. Small supported props may
+    // also receive a short, reachable palm contact near the pool floor.
+    const horizontal = !input.jump && !input.climb && !input.descend && !input.drop && Math.abs(input.swimVertical ?? 0) < .01
     let collider: PlayerCollider | undefined
     if (p.waterMotion.underwater) {
-      // Below the surface, only a real side bump engages the palms. Nearby
-      // overhead floats must never attract a reaching/gripping animation.
+      // Overhead and freely floating props still require a real side bump.
       collider = body.find(c => c.normal[0] * direction < -.7)?.collider
+      if (!collider && horizontal) {
+        // A low settled prop can remain inside actual palm reach as the
+        // torso becomes prone. Its working palms carry a slower water push.
+        const candidates = world.colliders.filter(c => c.prop && smallSubmergedProp(c.prop)
+          && (c.prop.x - p.x) * direction > 0 && Math.abs(c.prop.x - p.x) < 70)
+          .sort((a, b) => (a.prop!.x - b.prop!.x) * direction)
+        for (const c of candidates) {
+          const grip = swimmingPushHands(p, c.prop!, direction)
+          const palms = grip?.hands.palms
+          if (!palms || palms.some((palm, i) => lineBlocked(grip!.shoulders[i], [palm.x, palm.y], world.platforms.filter(b => b !== c.platform)))) continue
+          collider = c
+          if (!body.some(contact => contact.collider === c)) {
+            const nx = (palms[0].nx + palms[1].nx) / 2, ny = (palms[0].ny + palms[1].ny) / 2, length = Math.hypot(nx, ny)
+            const normal: Vec = [nx / length, ny / length]
+            const amount = p.pushing?.colliderId === c.id ? p.pushing.amount : 0
+            const load = Math.max(0, -normal[0] * input.move * TUNING.airAcceleration) * Math.min(1, amount + dt / .14)
+            body.push({ collider: c, normal, point: [palms[0].x, palms[0].y], load })
+          }
+          break
+        }
+      }
     } else {
       const hull = propBody()
       const reach = moveBody([hull.x, hull.y], [hull.x + direction * 38, hull.y], world.platforms, hull.height, 1, playerTurnAngle(p), playerCollisionOutline(p, world, hull))
@@ -320,15 +344,25 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     }
     if (collider?.prop) {
       const grip = swimmingPushHands({ ...p, terrain: world.platforms }, collider.prop, direction)
-      if (grip) push = { collider, direction, effort: Math.min(1, Math.abs(input.move)), wallX: grip.hands.wallX, hands: grip.hands, swimming: true, reach: grip.reach }
+      const lowSwimming = smallSubmergedProp(collider.prop) && horizontal
+      const blocked = lowSwimming && grip?.hands.palms?.some((palm, i) =>
+        lineBlocked(grip.shoulders[i], [palm.x, palm.y], world.platforms.filter(b => b !== collider!.platform)))
+      if (grip && !blocked) push = { collider, direction, effort: Math.min(1, Math.abs(input.move)), wallX: grip.hands.wallX, hands: grip.hands,
+        swimming: true, reach: grip.reach, lowSwimming }
     }
   }
   return { support, push, body, motion: { x: 0, y: 0, speed: 0 } }
 }
 
-/** Constrain the walking motor before integration instead of undoing its work
- * afterward. Solve the hand face and footing together on a tilted box. */
+/** Constrain a working stroke or walking motor before integration. Walking
+ * solves the hand face and footing together on a tilted box. */
 export function pushingVelocity(p: Player, contact: PushContact | null, world: ContactWorld, dt: number, requestedVelocity = p.vx): number | null {
+  if (contact?.lowSwimming && contact.collider.prop) {
+    // A working palm blocks the forward stroke just like the torso would.
+    // A departing/faster prop is free to leave; the hands never pull it back.
+    const approach = (1 - (contact.reach ?? 1)) * 20
+    return contact.direction * Math.min(requestedVelocity * contact.direction, Math.max(0, contact.collider.prop.vx * contact.direction) + approach)
+  }
   if (!contact?.hands || !p.grounded) return null
   const { hands, direction } = contact
   let target = hands.wallX - direction * 25.5

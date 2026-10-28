@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "small-water-prop",
+  "name": "Small submerged prop",
+  "width": 1800,
+  "height": 920,
+  "floor": 920,
+  "entrance": { "x": 480, "y": 920 },
+  "goal": { "x": 1600, "y": 920, "id": "closed", "power": "switched" },
+  "times": { "a": 10, "b": 20, "c": 30, "d": 60 },
+  "checkpoints": [], "platforms": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [{ "kind": "ball", "x": 600, "y": 920, "size": 30, "weight": "heavy" }],
+  "mechanisms": [], "triggers": [], "robots": [],
+  "gravityPlates": [{ "id": "water", "x": 0, "y": 400, "w": 1800, "h": 520, "effect": "water", "gravity": -1 }],
+  "lighting": { "ambient": 0, "nightMode": false, "lights": [] }
+}

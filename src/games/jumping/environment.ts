@@ -76,19 +76,46 @@ export function clipOpenAir(ctx: CanvasRenderingContext2D, environment: LevelEnv
   }
 }
 
+// A few quiet silhouettes, with rounded ends and uneven lobes. Retain the
+// native paths across paints; clouds have no shading or animation to resolve.
+const cloudContours = [
+  'M -24 28 C -24 13 -9 2 9 5 C 13 -13 29 -25 49 -23 C 60 -23 70 -18 77 -11 '
+    + 'C 88 -40 113 -51 139 -45 C 166 -41 184 -22 188 -2 C 202 -15 223 -15 238 -4 '
+    + 'C 249 4 254 15 254 24 C 275 21 295 29 297 40 C 300 52 277 57 249 56 '
+    + 'C 188 55 89 59 26 54 C -3 52 -24 45 -24 28 Z',
+  'M -22 28 C -10 10 11 8 34 13 C 44 -7 68 -16 91 -7 C 102 -27 126 -34 149 -22 '
+    + 'C 163 -14 171 -4 175 7 C 204 -3 235 6 246 22 C 274 16 307 23 322 37 '
+    + 'C 315 47 273 48 232 46 C 168 49 88 46 35 48 C 7 48 -29 42 -22 28 Z',
+  'M -18 29 C -20 15 -7 4 9 5 C 11 -18 31 -34 55 -31 C 73 -29 84 -18 89 -4 '
+    + 'C 99 -13 112 -16 124 -10 C 137 -30 161 -34 180 -22 C 194 -13 199 0 198 13 '
+    + 'C 218 9 238 19 239 33 C 241 47 223 52 202 51 C 148 54 80 51 29 51 '
+    + 'C 1 50 -17 44 -18 29 Z',
+]
+let cloudPaths: Path2D[] | undefined
+const CLOUD_SPAN = 8000
+const CLOUD_SCROLL = .9
+const cloudLayout = [[800, -480, 1, 0], [2550, -510, 1.5, 1], [3900, -350, .9, 2],
+  [5250, -610, 1.25, 0], [7000, -440, 1.4, 2]] as const
+
 export function drawLandscape(ctx: CanvasRenderingContext2D, environment: LevelEnvironment, view: { x: number; y: number; w: number; h: number }) {
   if (environment.kind !== 'landscape') return
   ctx.save(); ctx.beginPath(); ctx.rect(view.x, view.y, view.w, view.h); ctx.clip(); clipOpenAir(ctx, environment, view)
   const horizon = environment.horizon
   ctx.fillStyle = '#bddbea'; ctx.fillRect(view.x, view.y, view.w, view.h)
-  // Keep the same flat, simple treatment as the rest of the game. Clouds are
-  // sparse world-anchored shapes, with no distant scenery or parallax layers.
-  ctx.fillStyle = '#f6f8f6'
-  for (const [x, y, scale] of [[800, -480, 1], [2550, -510, 1.5], [3900, -350, .9], [5250, -610, 1.25], [7000, -440, 1.4]]) {
-    ctx.save(); ctx.translate(x, horizon + y); ctx.scale(scale, scale); ctx.beginPath()
-    ctx.moveTo(0, 24); ctx.bezierCurveTo(48, 11, 98, 11, 130, 15)
-    ctx.bezierCurveTo(157, -9, 208, -10, 241, 4); ctx.bezierCurveTo(261, 11, 273, 20, 275, 27)
-    ctx.bezierCurveTo(332, 23, 383, 28, 425, 38); ctx.lineTo(-30, 36); ctx.closePath(); ctx.fill(); ctx.restore()
+  // Sparse flat silhouettes share one subtle horizontal parallax layer. Their
+  // height follows the authored baseline; motion depends only on the camera.
+  ctx.fillStyle = '#e8f1f3'
+  cloudPaths ??= cloudContours.map(contour => new Path2D(contour))
+  // Cull in the cloud layer's frame, then translate into the existing world
+  // transform. The sky and cave clips above stay in the terrain's frame.
+  const cloudX = view.x * CLOUD_SCROLL, offsetX = view.x - cloudX
+  const first = Math.floor((cloudX - 500) / CLOUD_SPAN), last = Math.floor((cloudX + view.w + 40) / CLOUD_SPAN)
+  for (let span = first; span <= last; span++) for (const [offset, y, scale, shape] of cloudLayout) {
+    const x = span * CLOUD_SPAN + offset, top = horizon + y
+    if (x + 325 * scale < cloudX || x - 40 * scale > cloudX + view.w
+      || top + 60 * scale < view.y || top - 55 * scale > view.y + view.h) continue
+    ctx.save(); ctx.translate(x + offsetX, top); ctx.scale(scale, scale)
+    ctx.fill(cloudPaths[shape]); ctx.restore()
   }
   ctx.restore()
 }

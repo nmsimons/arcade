@@ -19,7 +19,10 @@ Version-2 [backgrounds and regions](jumping-levels.md#landscapes-caves-and-outdo
 support Day and Night areas with either the indoor course wall or blue sky.
 Flat blue sky and
 sparse clouds are background artwork, with no projected wall shadows or panel
-grids. Against blue sky, cave back walls use light gray stone with a subtle,
+grids. Clouds scroll horizontally at 90% of the terrain's camera movement, with
+no independent drift. Their height follows the cloud baseline; cave openings
+remain in the terrain's frame. Against blue sky, cave back walls use light gray
+stone with a subtle,
 world-anchored texture and no grid or panel joints. Its pale gray separates the
 mid-tone day player and foreground materials; ambient exposure preserves that
 separation at night. Facility back walls retain

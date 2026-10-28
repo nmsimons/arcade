@@ -10,6 +10,46 @@ const finale = escapeFixtures.levels['spelunk3.jump-level.json']
 const catalog = JSON.parse(readFileSync(new URL('index.json', root), 'utf8'))
 const spelunkIFile = catalog.levels.find(file => JSON.parse(readFileSync(new URL(file, root), 'utf8')).id === '13b9b9d7-7937-4989-bc03-21238e7e58f2')
 
+test('clouds span wide maps and scroll at 90 percent without drifting or popping', async ({ page }, info) => {
+  await page.goto('/lab')
+  const result = await page.evaluate(async () => {
+    const { drawLandscape } = await import('/src/games/jumping/environment.ts')
+    const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 400
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    const environment = { kind: 'landscape', horizon: 620, walls: [] }
+    const render = x => {
+      ctx.setTransform(1, 0, 0, 1, -x, 0)
+      drawLandscape(ctx, environment, { x, y: 0, w: canvas.width, h: canvas.height })
+      return ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    }
+    canvas.width = 2000
+    const counts = [0, 8000, 16000, 19200, 32000].map(x => {
+      const pixels = render(x); let count = 0
+      for (let i = 0; i < pixels.length; i += 4) if (pixels[i] > 200) count++
+      return count
+    })
+    canvas.width = 1280
+    // An 80-unit terrain pan moves clouds 72 pixels: eight pixels of relative motion.
+    const before = render(16000), after = render(16080); let panError = 0
+    for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width - 72; x++) for (let c = 0; c < 4; c++) {
+      panError = Math.max(panError, Math.abs(before[(y * canvas.width + x + 72) * 4 + c] - after[(y * canvas.width + x) * 4 + c]))
+    }
+    // Cross the repeating layout boundary in the cloud layer's own frame.
+    const boundaryBefore = render(8880), boundaryAfter = render(8960)
+    for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width - 72; x++) for (let c = 0; c < 4; c++) {
+      panError = Math.max(panError, Math.abs(boundaryBefore[(y * canvas.width + x + 72) * 4 + c] - boundaryAfter[(y * canvas.width + x) * 4 + c]))
+    }
+    const still = render(19200), repeated = render(19200)
+    const stillError = still.reduce((max, value, i) => Math.max(max, Math.abs(value - repeated[i])), 0)
+    document.body.replaceChildren(canvas); document.body.style.margin = '0'
+    return { counts, panError, stillError }
+  })
+  for (const count of result.counts) expect(count).toBeGreaterThan(1000)
+  expect(result.panError).toBe(0)
+  expect(result.stillError).toBe(0)
+  await page.locator('canvas').screenshot({ path: info.outputPath('far-right-clouds.png') })
+})
+
 for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall shadows; cave night and exterior daylight share one scene`, async ({ page }, info) => {
   await page.goto('/lab')
   const result = await page.evaluate(async backend => {

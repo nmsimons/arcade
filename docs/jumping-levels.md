@@ -1629,9 +1629,11 @@ the entire region, keeping small object selections usable. Layer controls preser
 group references and determine which regional light takes precedence. There is
 no separate outline-editing mode or raw point JSON in the normal authoring flow.
 
-Sky remains flat blue with a few fixed clouds, and receives no wall shadows,
-grid, panels or contact relief. The **Editor grid** is a Studio-only overlay.
-**Sky** holds the cloud baseline (saved as `horizon`). Ground cover belongs to
+Sky remains flat blue with sparse clouds across the level's width, and receives
+no wall shadows, grid, panels or contact relief. Clouds scroll horizontally at
+90% of the terrain's speed as the camera moves, with no independent drift.
+The **Editor grid** is a Studio-only overlay. **Sky** holds the cloud baseline
+(saved as `horizon`), which controls their height. Ground cover belongs to
 terrain's Appearance settings. Old `environment.groundCover` spans still load:
 at most 80 `{x,y,w}` entries of width 10–600, shown as scrub on their supporting
 terrain with a sky background. An explicit terrain `groundCover` choice, including

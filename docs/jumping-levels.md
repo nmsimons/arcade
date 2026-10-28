@@ -1648,7 +1648,18 @@ overlook cannot be timed or use switched exit power. It has no doorway or exit
 walk animation. Completion retains the standing robot and panorama behind a
 small ending panel, and saves the existing untimed completion flag.
 
-Outside checkpoints use `arcade.jumping.exterior.v1`. An untimed overlook level
+For an open-ended departure, choose **Level → Timing → Finish → Run off right
+edge (untimed)**. Save `goal: { "kind": "walk-off", "x": <level width>, "y": <ground height> }`.
+The last 64 units need continuous flat ground and 100 units of clear headroom.
+The right boundary opens above that ground, which continues offscreen for the
+last stride. Running or jumping completely past the right edge completes the
+level automatically. There is no doorway, indicator, or finish button. The
+camera stops at the edge and the ending panel preserves the final landscape.
+The studio-only guide stays attached to the right edge as the level is resized;
+move it vertically or use Place on surface to set its ground height. Exit uses
+this finish after its outdoor journey.
+
+Outside checkpoints use `arcade.jumping.exterior.v1`. An untimed outdoor ending
 saves the last safe static outdoor footing once per second, on pause/menu, and
 on page exit. Reload validates the level identity, support, clearance and open
 air before resuming, and retains latching Switch plates. Midair movement and
@@ -1656,7 +1667,7 @@ moving supports cannot replace that checkpoint. Restart clears it and returns
 to the authored entrance; completion clears it too. Studio playtests never read
 or write campaign checkpoints. This is exterior resume, not a general puzzle
 save system. A timed approach with a separately latched coda score is not yet
-supported; Spelunk III is untimed throughout.
+supported; Exit is untimed throughout.
 
 ## Lighting (version 2)
 

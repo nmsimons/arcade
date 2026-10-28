@@ -4,8 +4,8 @@
 
 The escape is the visual and emotional payoff of the
 [L.A.B. campaign](jumping-campaign.md). This specifies an outdoor environment and
-its playable reveal. Version-2 landscapes and Spelunk III now implement the
-initial playable escape; the review limits are recorded in
+its playable reveal. Version-2 landscapes and Exit implement the playable escape;
+the earlier Spelunk III route evidence and review limits are recorded in
 [escape review](jumping-escape-review.md). Read alongside [level design](jumping-level-design.md),
 [the current schema](jumping-levels.md), [contacts](jumping-physics.md), and
 [lighting](jumping-lighting.md).
@@ -45,7 +45,7 @@ anticipation, but save the open horizon and full landscape for escape.
 | Threshold | A real exterior opening with a flat landing. The roof and wall end. Sky and a distant horizon enter the normal camera view while the player walks. | The opening leads out of the building. |
 | First open ground | Worn apron gives way to soil, low plants, and irregular rock. The robot remains at its established gameplay scale. | This is a continuing place the player can move through. |
 | Small outdoor journey | A gentle rise and a contained shallow channel offer an ordinary route, a playful shortcut, and local recovery. The facility recedes behind. | The robot can use its training freely. |
-| Overlook | Safe standing ground opens a broad view of sky and continuing playable terrain. Let the player look back and choose when to finish. | Escape is complete; the world extends beyond the campaign. |
+| Departure | Safe ground and open sky continue to the right edge. Let the player linger or run offscreen to finish. | Escape is complete; the world extends beyond the campaign. |
 
 Use continuous movement for the reveal. Avoid a hard cut, a compulsory camera
 pan, or a result overlay at the threshold. Compose the view for the existing
@@ -145,8 +145,8 @@ use a constant dark enclosing frame. Preserve the existing Day-mode material tre
 outdoor ground treatment must remain inside the terrain silhouette and must
 not invent drop shadows onto empty air.
 
-Anchor clouds in world space so they do not follow every vertical step like
-nearby wall art. Keep the sky flat, with no scenery layers or parallax. No cloud drift, foliage sway,
+Keep the sky flat. Sparse cloud silhouettes scroll horizontally at 90% of the
+terrain's speed, with their height controlled by the cloud baseline. No cloud drift, foliage sway,
 birds, or particle system is required to deliver the initial landscape. If
 ambient motion is later added, make it deterministic in previews and optional
 for reduced motion, with no effect on simulation or visibility rules.
@@ -166,7 +166,8 @@ Terrain polygons and stone, earth, chalk, and steel materials supply the ground.
 The default renderer still fills interior levels with the off-white course wall,
 grid, and panels. An optional authored `environment` now supplies the landscape
 and explicit cave/facility wall coverage. Ordinary goals retain doorway entry;
-an untimed `overlook` goal supplies the exterior endpoint and retained final view.
+untimed `walk-off` and `overlook` goals supply exterior endpoints and a retained
+final view. Exit uses the run-off finish: it has no training door or finish marker.
 
 The initial implementation supplies the following reusable support:
 

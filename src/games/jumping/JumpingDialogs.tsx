@@ -78,7 +78,7 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
   level: PuzzleLevel; elapsed: number; grade: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
   onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
-  const ending = level.goal.kind === 'overlook'
+  const ending = level.goal.kind === 'overlook' || level.goal.kind === 'walk-off'
   const primary = testing && canEdit ? onBuilder : ending ? onLevels : onNext ?? onRetry
   const primaryLabel = testing && canEdit ? 'Return to builder' : ending ? 'Level menu' : onNext ? 'Next level' : 'Try again'
   const time = formatTime(elapsed), [wholeTime, fraction] = time.split('.')

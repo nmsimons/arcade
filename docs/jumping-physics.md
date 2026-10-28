@@ -430,6 +430,13 @@ the real game adapter; an actual iPhone playtest is still needed to tune feel.
 
 ## Step order
 
+An untimed `goal.kind: "walk-off"` opens the right boundary above the authored
+goal ground. That ground continues beyond the rectangle for the player's last
+stride. Ordinary running or jumping completes only after the player passes the
+edge by one body width; props cannot complete it. The camera's right edge stays
+at the map boundary, with no automatic doorway step or player fade. Other level
+boundaries and normal movement contacts keep their existing rules.
+
 Levels begin through a 40-by-80 entrance door, without the exit's indicator.
 Its sill needs continuous flat terrain and an unobstructed doorway. During
 the 1.35-second entrance, a separate presentation actor emerges using the ordinary

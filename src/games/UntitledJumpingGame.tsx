@@ -222,7 +222,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
   }, [screen])
   function resetPosition() {
-    if (!testing && run.current?.level.goal.kind === 'overlook') try { clearExteriorProgress(playerStorage) } catch { /* Storage is optional. */ }
+    if (!testing && (run.current?.level.goal.kind === 'overlook' || run.current?.level.goal.kind === 'walk-off')) try { clearExteriorProgress(playerStorage) } catch { /* Storage is optional. */ }
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
     adaptiveLighting?.reset(); setLightingReduced(false)
     if (preparedStart.current?.run) {
@@ -393,7 +393,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       if (!run.current.failed) setCompletedLevels(previous => ({ ...previous, [recordKey]: true }))
       try {
         if (!run.current.failed) saveCompleted(playerStorage, recordKey)
-        if (run.current.level.goal.kind === 'overlook') clearExteriorProgress(playerStorage)
+        if (run.current.level.goal.kind === 'overlook' || run.current.level.goal.kind === 'walk-off') clearExteriorProgress(playerStorage)
         if (run.current.level.timing !== 'untimed') {
           saveBest(playerStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: null }))
         }

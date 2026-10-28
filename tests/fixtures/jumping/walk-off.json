@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "id": "walk-off-fixture",
+  "name": "Run-off ending",
+  "width": 1200,
+  "height": 800,
+  "floor": 800,
+  "timing": "untimed",
+  "entrance": { "x": 120, "y": 400 },
+  "goal": { "kind": "walk-off", "x": 1200, "y": 400 },
+  "times": { "a": 5, "b": 10, "c": 15, "d": 20 },
+  "checkpoints": [],
+  "platforms": [{ "x": 0, "y": 400, "w": 1200, "h": 400, "material": "earth", "groundCover": "grass" }],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "environment": { "kind": "landscape", "horizon": 500, "walls": [] },
+  "lighting": { "nightMode": false, "ambient": 0, "lights": [] }
+}

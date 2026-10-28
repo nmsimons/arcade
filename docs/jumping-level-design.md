@@ -80,8 +80,10 @@ experience that payoff.
 Underground is a place, not a global time of day. Use authored cave back walls
 below the surface and open daylight above them, so climbing out reveals an
 actual change of enclosure. Preserve broad sky and playable natural ground for
-the final emergence. Keep an outdoor finish far enough from the enclosing level
-frame that normal landscape and portrait views show continuing ground and sky.
+the final emergence. Exit ends by running off the right edge into continuing
+ground and sky. Keep that final approach open and readable in landscape and
+portrait views; it needs no training door, indicator, or separate finish action.
+An optional overlook finish can still offer a place to linger in other levels.
 Use the standard cavern back wall. Keep outdoors equally simple: flat blue sky
 and sparse clouds, with the playable terrain supplying the landscape. Light the
 terrain according to its exposed surfaces, so a sunlit roof does not make its

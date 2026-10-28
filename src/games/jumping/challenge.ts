@@ -511,7 +511,14 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   collectPickups(run, dt)
   run.failed ||= run.level.timing !== 'untimed' && run.elapsed > gradeTimes(run.level).d + 1e-7
   stepTriggers(run, 0)
-  const p = run.player, door = goalDoor(run.level.goal)
+  const p = run.player
+  if (run.level.goal.kind === 'walk-off') {
+    if (!p.inverted && p.x >= run.level.width + TUNING.width && p.y <= run.level.goal.y + .15 && !p.hang && !p.mantle && !p.climbing) {
+      run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
+      cancelJumpInput(p)
+    }
+    return
+  }
   if (run.level.goal.kind === 'overlook') {
     if (input.climb && p.grounded && !p.hang && !p.climbing && Math.abs(p.x - run.level.goal.x) < 45 && Math.abs(p.y - run.level.goal.y) < 2) {
       run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
@@ -520,6 +527,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     return
   }
   const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
+  const door = goalDoor(run.level.goal)
   if (!p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
     && !exitObstacles.some(b => bodyOverlap(p, b))) {

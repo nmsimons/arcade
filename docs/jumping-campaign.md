@@ -269,7 +269,7 @@ It introduces no mandatory new mechanic or unusually severe precision test.
 The final exterior threshold reveals a broad sky and natural landscape. After
 crossing it, the player gets a short, untimed outdoor journey with room to stop,
 look back, and continue. An ordinary accessible line and a playful faster line
-can share this ground. The final overlook establishes that the facility has
+can share this ground. The final departure establishes that the facility has
 been left behind and a larger world lies ahead.
 
 Follow the [outdoor terrain, sky, staging, and acceptance brief](jumping-outdoors.md).
@@ -284,18 +284,19 @@ complete only at the authored outdoor endpoint. The endpoint needs an explicit
 finish presentation, without putting another training door in the meadow.
 Provide a clear finish action or boundary, allow the player to linger before
 it, and retain the last safe exterior checkpoint when resuming the coda.
-Version-2 landscapes and the untimed `overlook` finish now provide this path.
+Version-2 landscapes and the untimed `walk-off` finish now provide this path.
 The authored finale is untimed throughout, so there is no score to latch at
 the threshold. Timed approaches with a separately latched coda score remain
 future work. Outdoor footing and completed latching switches resume after
-reload; completion is recorded only when the player holds Up at the overlook.
+reload. Exit completes when the player runs or jumps off the right edge, with
+no door, indicator, or separate finish action. The last landscape remains visible
+behind the ending panel. Overlook finishes remain available for other levels.
 
-The closing sequence is **Ascent I → Ascent II → Spelunk I → Spelunk II →
-Spelunk III**. Preserve the Ascent levels' intended climb toward escape. The
-caves supply the last detour beneath the blocked surface route: Spelunk I
-descends, II crosses the abandoned survey gallery, and III reverses the descent
-into a final climb, emergence and overworld journey. See the
-[escape route evidence and remaining review](jumping-escape-review.md).
+The current closing sequence is **Ascent I → Ascent II → Spelunk → Exit**.
+Preserve the Ascent levels' climb toward escape. The caves supply the last
+detour beneath the blocked surface route; Exit leads through the final climb,
+emergence and overworld journey. The [earlier escape route evidence and remaining
+review](jumping-escape-review.md) retain the previous Spelunk II/III layouts.
 
 ## Delivery and review
 

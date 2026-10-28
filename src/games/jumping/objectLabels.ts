@@ -17,6 +17,7 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
 }
 
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
+  if (s.kind === 'goal' && level.goal?.kind === 'walk-off') return 'Run-off finish'
   if (s.kind === 'back-wall') return `Back wall ${s.index + 1}`
   if (s.kind === 'robot' && level.robots?.[s.index].kind === 'repulsor') return `Repulsorbot ${s.index + 1}`
   if (s.kind === 'robot' && level.robots?.[s.index].mode === 'emp') return `EMP shovebot ${s.index + 1}`

@@ -143,6 +143,7 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
   ctx.restore()
 }
 export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, paint: WorldPaint = paintNormally) {
+  if (goal.kind === 'walk-off') return
   if (goal.kind === 'overlook') {
     paint(ctx, 0, () => {
       ctx.save()
@@ -166,6 +167,15 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
   }, true, { x: pole - 11, y: lamp - 11, w: 22, h: 22 })
 }
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
+  if (goal.kind === 'walk-off') {
+    if (editor) {
+      ctx.save(); ctx.strokeStyle = '#8a938b'; ctx.lineWidth = 1; ctx.setLineDash([4, 4])
+      ctx.strokeRect(goal.x - 40, goal.y - 100, 40, 100)
+      ctx.fillStyle = '#4c5e50'; ctx.font = '14px sans-serif'; ctx.textAlign = 'right'
+      ctx.fillText('RUN OFF →', goal.x - 8, goal.y - 108); ctx.restore()
+    }
+    return
+  }
   if (goal.kind === 'overlook') return
   drawDoorway(ctx, goalDoor(goal), opening, editor)
 }

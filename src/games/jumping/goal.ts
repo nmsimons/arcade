@@ -10,7 +10,8 @@ import type { ContactWorld } from './playerContacts.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 /** Retain the legacy assembly origin so existing doors and indicators never move. */
-export interface Goal extends NamedObject, SwitchSettings { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode; kind?: 'overlook' }
+export interface Goal extends NamedObject, SwitchSettings { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode; kind?: 'overlook' | 'walk-off' }
+export const isOutdoorGoal = (goal?: Goal) => goal?.kind === 'overlook' || goal?.kind === 'walk-off'
 export const GOAL_POLE_OFFSET = 44
 export const GOAL_LIGHT_HEIGHT = 96
 export const GOAL_DOOR_WIDTH = 40
@@ -153,6 +154,7 @@ export function goalExitPosition(exit: GoalExit) {
 }
 
 export function goalBounds(goal: Goal) {
+  if (goal.kind === 'walk-off') return { x: goal.x - 40, y: goal.y - 100, w: 40, h: 100 }
   if (goal.kind === 'overlook') return { x: goal.x - 30, y: goal.y - 80, w: 60, h: 80 }
   const near = GOAL_POLE_OFFSET - 14, far = GOAL_DOOR_OFFSET + GOAL_DOOR_WIDTH / 2 + 3
   return { x: goal.x + (goal.flipX ? -far : near), y: goal.y - GOAL_LIGHT_HEIGHT - 14,

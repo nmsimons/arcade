@@ -11,7 +11,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { moveTerrainHandle, setTerrainNodeMode } from './editor'
+import { moveTerrainHandle, setTerrainNodeMode, setFinish } from './editor'
 import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
@@ -275,7 +275,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
   const floatSwitch = selection?.kind === 'float-switch' ? level.floatSwitches?.[selection.index] : null
   const logicRelay = selection?.kind === 'logic-relay' ? level.logicRelays?.[selection.index] : null
-  const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
+  const switchable = (goal && !goal.kind ? goal : null) ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
   const objectPower = switchable ? switchable.power ?? (goal || forceField ? 'always' : 'switched') : null
   const targets = switchedItems(level)
   const switchedObject = targets.find(item => !('waterAction' in item) && item.kind === selection?.kind && item.index === selection.index)
@@ -1301,7 +1301,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           </>}
           {facingPlate && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
             onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</button>}
-          {selection.kind === 'goal' && level.goal && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
+          {selection.kind === 'goal' && level.goal && !level.goal.kind && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
             const next = copyLevel(history.present)
             if (next.goal) { if (next.goal.flipX) delete next.goal.flipX; else next.goal.flipX = true }
             commit(next)
@@ -1467,8 +1467,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             onCreateWall={() => { chooseSelection(null); setTool('back-wall'); canvasRef.current?.focus() }} />
           {level.environment && <label><input type="checkbox" checked={environmentGrid} onChange={e => setEnvironmentGrid(e.target.checked)} />Editor grid</label>}
           <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} {...numberEdit((base, value) => {
-            const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.environment?.walls ?? []).map(w => w.x + w.w), ...(base.environment?.groundCover ?? []).map(c => c.x + c.w), ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
-            return { ...base, width: clamp(value, extent, 20000) }
+            const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.environment?.walls ?? []).map(w => w.x + w.w), ...(base.environment?.groundCover ?? []).map(c => c.x + c.w), ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).filter(s => s.kind !== 'goal' || base.goal?.kind !== 'walk-off').map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
+            const width = clamp(value, extent, 20000)
+            return { ...base, width, ...(base.goal?.kind === 'walk-off' ? { goal: { ...base.goal, x: width } } : {}) }
           })} /></label>
           <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>
           {!usesRegionLighting(level) && <div className="builder-lighting-settings" role="group" aria-label="Level lighting">
@@ -1477,16 +1478,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
         </BuilderInspectorSection>
         {isPuzzleLevel(level) && <BuilderInspectorSection title="Timing">
-          {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }]} onChange={kind => {
-            const next = copyLevel(history.present)
-            if (!next.goal) return
-            if (kind === 'overlook') { next.goal.kind = 'overlook'; next.timing = 'untimed'; delete next.goal.power }
-            else delete next.goal.kind
-            commit(next)
-          }} />}
+          {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }, { value: 'walk-off', label: 'Run off right edge (untimed)' }]}
+            onChange={kind => commit(setFinish(history.present, kind as 'doorway' | 'overlook' | 'walk-off'))} />}
+          {level.goal.kind === 'walk-off' && <p className="builder-hint">Continue flat ground to the right edge. Running or jumping completely off that edge finishes the level. The guide is visible only in the studio.</p>}
           {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
-            const next = copyLevel(history.present)
-            if (e.target.checked) next.timing = 'untimed'; else { delete next.timing; if (next.goal) delete next.goal.kind }
+            const next = e.target.checked ? copyLevel(history.present) : setFinish(history.present, 'doorway')
+            if (e.target.checked) next.timing = 'untimed'; else delete next.timing
             commit(next)
           }} />Untimed level</label>}
           {isPuzzleLevel(level) && level.timing !== 'untimed' && <fieldset className="builder-grades"><legend>Grade times (seconds)</legend><div className="builder-grade-inputs">{GRADE_TARGETS.map((grade, index) => {

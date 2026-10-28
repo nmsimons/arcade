@@ -7,7 +7,7 @@ import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
 import { itemDefinition, objectReference } from './objectLabels.ts'
 export { itemDefinition } from './objectLabels.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
-import { platformSurface } from './terrain.ts'
+import { groundAt, platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { MAX_CURVE_POINTS, cubicPoint, relativePoint, splitCubic, terrainCubic, terrainCurveOutline, terrainCurveSamples, terrainNodes } from './terrainCurves.ts'
@@ -49,6 +49,24 @@ export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-ri
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+
+/** Ending styles stay authored data, with a selectable edge guide in the studio. */
+export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk-off'): JumpLevel {
+  const next = copyLevel(level)
+  if (!next.goal) return level
+  if (kind === 'walk-off') {
+    const y = groundAt(levelTerrain(next), next.width - 32, next.goal.y, levelHeight(next))?.y ?? next.goal.y
+    if (next.goal.id) removeSwitchTarget(next, next.goal.id)
+    next.goal = { x: next.width, y, kind, ...(next.goal.name ? { name: next.goal.name } : {}) }
+    next.timing = 'untimed'
+  } else {
+    if (kind === 'overlook') { next.goal.kind = kind; next.timing = 'untimed'; delete next.goal.power }
+    else delete next.goal.kind
+    const bounds = goalBounds({ ...next.goal, x: 0, y: 0 })
+    next.goal.x = clamp(next.goal.x, Math.max(0, -bounds.x), next.width - bounds.x - bounds.w)
+  }
+  return next
+}
 
 /** Carry custom wall points with authored edits, never with runtime mechanism motion. */
 export function carryWallTerminals(before: JumpLevel, next: JumpLevel): JumpLevel {
@@ -578,7 +596,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
-    next.goal = { ...next.goal, x: clamp(x, Math.max(0, -b.x), Math.min(level.width, level.width - b.x - b.w)), y }
+    next.goal = { ...next.goal, x: next.goal?.kind === 'walk-off' ? level.width : clamp(x, Math.max(0, -b.x), Math.min(level.width, level.width - b.x - b.w)), y }
   }
   if (selection.kind === 'timer') Object.assign(next.timers![selection.index], { x, y })
   if (selection.kind === 'text') next.texts![selection.index] = fitWallText({ ...next.texts![selection.index], x: b.x + dx, y: b.y + dy }, next.width, levelHeight(next))
@@ -910,7 +928,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
     if (tool === 'goal') {
       const bounds = goalBounds({ ...trial.goal, x: 0, y: 0 })
-      trial.goal = { ...trial.goal, ...point, x: clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
+      trial.goal = { ...trial.goal, ...point, x: trial.goal?.kind === 'walk-off' ? trial.width : clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
       return { level: trial, selection: { kind: 'goal', index: 0 } }
     }
     if (tool === 'box' || tool === 'branded-box' || tool === 'ball' || tool === 'carried-emp' || tool === 'repulsor') {

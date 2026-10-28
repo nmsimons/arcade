@@ -4,12 +4,14 @@ import { bodyIntersects, pointInside } from './geometry.ts'
 import { advanceFootwork } from './footwork.ts'
 import { translatePlayer } from './playerContacts.ts'
 import type { Run } from './challenge.ts'
+import { isOutdoorGoal } from './goal.ts'
 
 const KEY = 'arcade.jumping.exterior.v1'
 /** Only an untimed outdoor ending resumes, never a timed course or live puzzle. */
 export function saveExteriorProgress(storage: Pick<Storage, 'setItem'>, run: Run) {
   const p = run.player
-  if (run.level.goal.kind !== 'overlook' || run.level.environment?.kind !== 'landscape' || !p.grounded || p.hang || p.climbing || p.mantle || run.finished) return
+  if (!isOutdoorGoal(run.level.goal) || run.level.environment?.kind !== 'landscape' || !p.grounded || p.hang || p.climbing || p.mantle || run.finished) return
+  if (p.x < 30 || p.x > run.level.width - 30) return
   const support = groundAt(run.terrain, p.x, p.y, .15)
   if (!support || Math.abs(support.angle) > .5) return
   // Resume starts from authored machine positions. Keep the previous checkpoint
@@ -21,7 +23,7 @@ export function saveExteriorProgress(storage: Pick<Storage, 'setItem'>, run: Run
     switches: run.level.triggers.map((t, i) => t.mode !== 'coins' && t.behavior === 'switch' ? run.triggers[i].active : null) }))
 }
 export function restoreExteriorProgress(storage: Pick<Storage, 'getItem'>, run: Run) {
-  if (run.level.goal.kind !== 'overlook' || run.level.environment?.kind !== 'landscape') return false
+  if (!isOutdoorGoal(run.level.goal) || run.level.environment?.kind !== 'landscape') return false
   try {
     const point = JSON.parse(storage.getItem(KEY) ?? 'null')
     if (!point || point.id !== run.level.id || !Number.isFinite(point.x) || !Number.isFinite(point.y)

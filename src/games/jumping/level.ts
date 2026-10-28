@@ -94,13 +94,15 @@ export interface PuzzleLevel extends JumpLevel {
 export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.goal !== undefined && level.floor !== undefined && level.times !== undefined
 /** Legacy floor values are the bottom of the playable rectangle. */
 export const levelHeight = (level: JumpLevel) => level.floor ?? level.height ?? 1020
-/** Four solid half-spaces enclose the level. The renderer fills the entire outside viewport. */
+/** Enclose the level; a walk-off finish continues its ground through the right boundary. */
 export function levelTerrain(level: JumpLevel): Platform[] {
   const extent = 1e7, h = levelHeight(level)
   return [...level.platforms,
     { x: -extent, y: h, w: extent * 2, h: extent, ...(level.floorMaterial ? { material: level.floorMaterial } : {}) },
     { x: -extent, y: -extent, w: extent * 2, h: extent },
-    { x: -extent, y: 0, w: extent, h }, { x: level.width, y: 0, w: extent, h }]
+    { x: -extent, y: 0, w: extent, h },
+    level.goal?.kind === 'walk-off' ? { x: level.width, y: level.goal.y, w: extent, h: extent }
+      : { x: level.width, y: 0, w: extent, h }]
 }
 export const copyLevel = <T extends JumpLevel>(level: T): T => structuredClone(level)
 export const newLevelId = () => globalThis.crypto.randomUUID()
@@ -177,18 +179,29 @@ export function levelProblems(level: JumpLevel): string[] {
     if (field.x < 0 || field.y < 0 || field.x + field.w > level.width || field.y + field.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'force-field', i)} inside the level rectangle.`)
   }
   if (isPuzzleLevel(level)) {
-    const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = level.goal.kind === 'overlook' ? bounds : goalDoor(level.goal)
-    const left = level.goal.kind === 'overlook' ? level.goal.x - 30 : Math.min(goalPoleX(level.goal) - 2, door.x)
-    const right = level.goal.kind === 'overlook' ? level.goal.x + 30 : Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
-    const count = Math.ceil((right - left) / 8)
-    const supported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
-      const support = groundAt(terrain, x, level.goal.y, .15)
-      return support && Math.abs(support.angle) < .02
-    })
-    const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
-      [door.x + door.w, door.y + door.h], [door.x, door.y + door.h]], b))
-    if (!supported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
-      issues.push(`Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
+    const terrain = levelTerrain(level)
+    if (level.goal.kind === 'walk-off') {
+      const goal = level.goal, bounds = goalBounds(goal)
+      const supported = Array.from({ length: 9 }, (_, i) => groundAt(terrain, level.width - 64 + i * 8, goal.y, .15))
+      if (goal.x !== level.width || goal.y < 100 || goal.y > levelHeight(level)
+        || supported.some(surface => !surface || Math.abs(surface.angle) >= .02)
+        || terrain.some(b => polygonIntersects([[bounds.x, bounds.y], [goal.x, bounds.y], [goal.x, goal.y], [bounds.x, goal.y]], b))) {
+        issues.push('Give the run-off finish clear headroom and continuous flat ground at the right edge.')
+      }
+    } else {
+      const bounds = goalBounds(level.goal), door = level.goal.kind === 'overlook' ? bounds : goalDoor(level.goal)
+      const left = level.goal.kind === 'overlook' ? level.goal.x - 30 : Math.min(goalPoleX(level.goal) - 2, door.x)
+      const right = level.goal.kind === 'overlook' ? level.goal.x + 30 : Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
+      const count = Math.ceil((right - left) / 8)
+      const supported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
+        const support = groundAt(terrain, x, level.goal.y, .15)
+        return support && Math.abs(support.angle) < .02
+      })
+      const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
+        [door.x + door.w, door.y + door.h], [door.x, door.y + door.h]], b))
+      if (!supported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
+        issues.push(`Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
+      }
     }
     const times = gradeTimes(level)
     if (!(times.a > 0 && times.a < times.b && times.b < times.c && times.c < times.d)) issues.push('Grade times must increase from A to B to C to D.')
@@ -354,10 +367,11 @@ export function parseLevel(value: unknown): JumpLevel {
     if (g.power !== undefined && g.power !== 'always' && g.power !== 'switched') fail()
     if (g.id !== undefined && (typeof g.id !== 'string' || !g.id.trim() || g.id.length > 100)) fail()
     if (g.power === 'switched' && g.id === undefined) fail()
-    if (g.kind !== undefined && g.kind !== 'overlook') fail()
-    if (g.kind === 'overlook' && (v.timing !== 'untimed' || g.power === 'switched')) fail()
+    if (g.kind !== undefined && g.kind !== 'overlook' && g.kind !== 'walk-off') fail()
+    if (g.kind && (v.timing !== 'untimed' || g.power === 'switched')) fail()
+    if (g.kind === 'walk-off' && (location.x !== width || flipX)) fail()
     level.goal = { ...objectName(g), ...parseSwitchSettings(g, fail), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }),
-      ...(g.kind === 'overlook' ? { kind: 'overlook' as const } : {}),
+      ...(g.kind ? { kind: g.kind as Goal['kind'] } : {}),
       ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }) }; if (level.goal.x > width) fail()
     const times = object(v.times), legacy = times.a === undefined && times.gold !== undefined
     const a = num(legacy ? times.gold : times.a, .1, 3600), b = num(legacy ? times.silver : times.b, .1, 3600)

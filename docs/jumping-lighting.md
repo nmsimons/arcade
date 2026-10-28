@@ -20,7 +20,9 @@ support Day and Night areas with either the indoor course wall or blue sky.
 Flat blue sky and
 sparse clouds are background artwork, with no projected wall shadows or panel
 grids. Against blue sky, cave back walls use light gray stone with a subtle,
-world-anchored texture and no grid or panel joints. Facility back walls retain
+world-anchored texture and no grid or panel joints. Its pale gray separates the
+mid-tone day player and foreground materials; ambient exposure preserves that
+separation at night. Facility back walls retain
 the course wall treatment, as does the Indoor wall background. Existing indoor
 levels retain the lighting contract below.
 
@@ -150,6 +152,13 @@ Regional lighting blends the shell, face, joints and markings gradually with
 local brightness, instead of switching palettes at a threshold. The bounded
 palette cache is shared by all composition passes and adds no rendering passes.
 Day mode retains the ordinary uniform daylight treatment described next.
+
+Landscape water has a continuous pale blue background beneath its transparent
+tint, wall artwork and actors. Sky/cave boundaries cannot form a hard color seam
+inside one pool: the shared regional ambient field supplies the gradual Day to
+Night transition. The background shares the water's clipped, rippling outline;
+Indoor water retains its course-wall backdrop. This adds artwork fills to the
+existing passes, with no new lighting field or framebuffer.
 
 The enclosing frame keeps its terrain material and one constant shade. Any
 visible Night area makes it dark; an entirely Day layout keeps a light frame.

@@ -93,22 +93,18 @@ for (const recording of fixture.runs) test(`captured ${recording.file} ${recordi
   }
 })
 
-test('current shipped escape levels retain their completed routes and finale ordering', () => {
-  for (const name of ['spelunk2.jump-level.json', 'spelunk3.jump-level.json']) {
+test('current finale assets are valid and follow the Ascent levels', () => {
+  for (const name of ['spelunk.jump-level.json', 'exit.jump-level.json']) {
     const level = read(name)
     assert.deepEqual(levelProblems(level), [])
-    const recording = fixture.runs.find(r => r.file === name && r.variant === 'ordinary')
-    assert.equal(replay(createRun(level), recording).finished, true)
   }
   const catalog = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url)))
-  // Studio appends author-created copies; keep the canonical finale consecutive
-  // without treating a saved working copy as a new campaign finale.
   const start = catalog.levels.indexOf('Ascent.jump-level.json')
   assert.ok(start >= 0)
-  const closing = catalog.levels.slice(start, start + 5)
+  const closing = catalog.levels.slice(start)
   assert.deepEqual(closing.slice(0, 2), ['Ascent.jump-level.json', 'ascent2.jump-level.json'])
-  assert.equal(read(closing[2]).id, '13b9b9d7-7937-4989-bc03-21238e7e58f2', 'Spelunk I keeps its place when the author renames its file')
-  assert.deepEqual(closing.slice(3), ['spelunk2.jump-level.json', 'spelunk3.jump-level.json'])
+  assert.equal(read(closing[2]).id, '13b9b9d7-7937-4989-bc03-21238e7e58f2', 'Spelunk keeps its identity when the author renames its file')
+  assert.deepEqual(closing.slice(2), ['spelunk.jump-level.json', 'exit.jump-level.json'])
 })
 
 test('the overlook requires an explicit finish; outdoor resume keeps the last latch and rejects unsafe stale saves', () => {

@@ -9,7 +9,9 @@ function stonePattern(ctx: CanvasRenderingContext2D) {
   if (!tile) {
     tile = document.createElement('canvas'); tile.width = tile.height = 256
     const paint = tile.getContext('2d')!
-    paint.scale(2, 2); paint.fillStyle = '#c8cbc7'; paint.fillRect(0, 0, 128, 128)
+    // A pale wall separates the day player's mid-tone shell from foreground
+    // stone, while the ordinary night exposure still gives caves their depth.
+    paint.scale(2, 2); paint.fillStyle = '#e5e7e2'; paint.fillRect(0, 0, 128, 128)
     // Short, irregular chips keep the same simple drawing language as terrain.
     paint.strokeStyle = '#68756716'; paint.lineWidth = .8
     for (const [x,y,length,rise] of [[12,17,13,-1],[77,31,19,2],[36,71,10,1],[91,103,17,-2],[9,114,8,1]]) {

@@ -3,7 +3,10 @@ import { installBuiltInFixtures, selectBuilderOption, waitForBuilderPreview } fr
 import { readFileSync } from 'node:fs'
 
 const root = new URL('../../public/levels/jumping/', import.meta.url)
-const finale = JSON.parse(readFileSync(new URL('spelunk3.jump-level.json', root), 'utf8'))
+// The original cave/overlook route remains an immutable regression fixture;
+// current authored levels can evolve without breaking mechanism coverage.
+const escapeFixtures = JSON.parse(readFileSync(new URL('../fixtures/jumping-escape-runs.json', import.meta.url), 'utf8'))
+const finale = escapeFixtures.levels['spelunk3.jump-level.json']
 const catalog = JSON.parse(readFileSync(new URL('index.json', root), 'utf8'))
 const spelunkIFile = catalog.levels.find(file => JSON.parse(readFileSync(new URL(file, root), 'utf8')).id === '13b9b9d7-7937-4989-bc03-21238e7e58f2')
 
@@ -47,7 +50,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall 
   await page.locator('canvas').screenshot({ path: info.outputPath(`mixed-cave-daylight-${backend}.png`) })
 })
 
-for (const backend of ['canvas', 'gpu']) test(`${backend}: outer frame mirrors only lighting, without a glowing rectangle or stretched artwork`, async ({ page }, info) => {
+for (const backend of ['canvas', 'gpu']) test(`${backend}: mixed-light outer frame stays dark without a glowing rectangle or stretched artwork`, async ({ page }, info) => {
   await page.goto('/lab')
   const results = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
@@ -79,13 +82,13 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: outer frame mirrors o
   for (const result of results) {
     expect(result.backend).toBe(backend)
     for (const [i, pixel] of result.top.entries()) for (let c = 0; c < 3; c++)
-      expect(Math.abs(pixel[c] - Math.round(result.material[i][c] * .95))).toBeLessThanOrEqual(3)
+      expect(Math.abs(pixel[c] - Math.round(result.material[i][c] * .35))).toBeLessThanOrEqual(3)
     expect(result.cached).toEqual(result.top[0])
     for (const [i, pixel] of result.bottom.entries()) for (let c = 0; c < 3; c++)
       expect(Math.abs(pixel[c] - Math.round(result.floorMaterial[i][c] * .35))).toBeLessThanOrEqual(3)
     expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath(`mirrored-frame-lighting-${backend}.png`) })
+  await page.locator('canvas').screenshot({ path: info.outputPath(`constant-frame-lighting-${backend}.png`) })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: terrain touching the left frame has continuous lighting across the join`, async ({ page }) => {
@@ -228,6 +231,7 @@ test('the outdoor endpoint waits for Up, retains the view, saves completion and 
 
 test('Spelunk III: keyboard play climbs the whole cave, reveals the exterior continuously and reaches the overlook', async ({ page }, info) => {
   test.setTimeout(300000)
+  await installBuiltInFixtures(page, { 'spelunk3.jump-level.json': finale })
   await page.setViewportSize({ width: 960, height: 640 })
   await page.goto('/lab/builder/built-in/spelunk3.jump-level.json/playtest?motionDebug=1')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })

@@ -174,6 +174,14 @@ export function drawRobotPortal(ctx: CanvasRenderingContext2D, robot: RobotState
   if (robot.definition.kind !== 'repulsor' || robot.definition.chargingBay || !editor && !robot.entrance) return
   ambientPaint(paint)(ctx, 0, () => drawDoorway(ctx, entranceDoor(robot.definition), editor ? 1 : entranceOpening(robot.entrance!.elapsed)))
 }
+/** Air and water need different depth layers: a transparent water tint alone
+ * exposes the hard sky/cave wall boundary beneath a continuous pool. */
+export function drawWaterBackdrop(ctx: CanvasRenderingContext2D, run: Run, paint: WorldPaint = paintNormally) {
+  if (run.level.environment?.kind !== 'landscape') return
+  const surface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
+  for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, surface, run.waterSpaces.get(plate), 'background')
+}
+
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
 export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: AndroidAppearance, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
   const { level, player: p } = run
@@ -251,6 +259,7 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   const { zoom, x: left, y: top } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-left, -top)
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom, false)
+  drawWaterBackdrop(ctx, run)
   drawWallWiring(ctx, level, run)
   drawWallTexts(ctx, level.texts ?? [])
   drawPuzzleWorld(ctx, run)

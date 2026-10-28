@@ -1,7 +1,7 @@
 import { GpuLightingField } from './lightingGpuField.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { DAY_AMBIENT_EXPOSURE, daylightShadowPolygons } from './daylight.ts'
-import { drawPuzzleWorld } from './challengeRender.ts'
+import { drawPuzzleWorld, drawWaterBackdrop } from './challengeRender.ts'
 import { NIGHT_PLAYER_COLOR, withAthletePose } from './athlete.ts'
 import { awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
@@ -190,6 +190,7 @@ export class LightingRenderer {
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, run.level.width, levelHeight(run.level)); ctx.clip()
       drawLandscape(ctx, run.level.environment!, { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }); ctx.restore()
     })
+    if (layer === 'all' && 'elapsed' in run) drawWaterBackdrop(ctx, run, paint)
     const wiring = hasWallWiring(run.level)
     if (layer !== 'objects') drawWallWiring(ctx, run.level, 'elapsed' in run ? run : undefined, paint, nightMode)
     // Plain text may cover energized wires and must retain that draw order.

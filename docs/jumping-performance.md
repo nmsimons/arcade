@@ -1,5 +1,180 @@
 # LAB performance notes
 
+## October 28, 2026: Exit GPU budget and repeated artwork
+
+Live regional lighting now selects the largest backing dimensions that fit the
+GPU's 64 MiB allowance, including regional fields, four Canvas scratch surfaces,
+four-sample shadow attachments and 1 MiB of vertex headroom. The check uses rounded
+dimensions. At 1280×800 CSS / DPR 1.5, Exit changes from 1789×1118 on Canvas to
+1577×986 on GPU. DPR 1 remains 1280×800. This is a backing-resolution tradeoff;
+the displayed layout, palette, light curves, haze and shadow sampling are retained.
+Uniform lighting and Canvas previews retain their existing pixel cap.
+
+An oversized direct renderer viewport is rejected before allocating its GPU
+field, without permanently marking GPU support unavailable. Resizing back into
+budget restores GPU rendering. Inactive Canvas light caches and the GPU-only
+regional resolve are released on backend transitions, so abandoned surfaces do
+not remain outside the active backend's reported allowance.
+
+Night rendering reuses the existing foreground occlusion artwork in the visible
+frame when context state and raster backends permit. Terrain, mechanisms, props,
+the player and water keep their painter order, and no new image buffer is added.
+The ordinary traversal also records whether any ambient-only readable ink exists.
+An empty readable-ambient correction replay is omitted; charging-bay lights keep
+their correction. The reference composition remains available through renderer
+options for visual regression checks.
+
+The [retained comparison](performance/2026-10-28-exit-render-optimization.json)
+uses the same frozen Exit snapshot for both source versions: 63 terrain pieces,
+13 props, one water region and 11 lights. Thirty-six uninstrumented episodes use
+hardware Edge 156.0.4314.42 on Snapdragon X Elite / Adreno X1-85, production bundles,
+normal structural shadows and no adaptive reduction. Each case has three matched
+before/after episodes, alternating arm order, 30 warmup frames and five measured
+seconds. The table gives medians of episode means.
+
+| Workload | DPR | FPS before → after | Draw CPU/frame before → after |
+| --- | ---: | ---: | ---: |
+| Cave-mouth camera pan | 1 | 36.3 → 42.3 | 6.42 → 5.63 ms |
+| Tower camera pan | 1 | 43.0 → 45.0 | 6.78 → 5.65 ms |
+| Swimming with camera follow | 1 | 33.4 → 37.1 | 5.64 → 4.92 ms |
+| Cave-mouth camera pan | 1.5 | 19.3 → 32.6 | 7.81 → 6.05 ms |
+| Tower camera pan | 1.5 | 19.0 → 36.8 | 8.39 → 6.23 ms |
+| Swimming with camera follow | 1.5 | 18.3 → 26.4 | 7.29 → 5.32 ms |
+
+All high-DPI optimized episodes remain on GPU, at about 63.0 MiB of reported
+buffers; the original episodes use Canvas at about 63.2 MiB. At DPR 1, drawing CPU
+falls about 12–17% with the same backing resolution and about 42.2 MiB of buffers.
+High-DPI camera-pan medians improve about 69–94%. This is not a steady 60 FPS
+result: episode ranges are retained, and swimming still has substantial simulation
+cost. Fewer catch-up ticks per rendered frame can lower its reported update time;
+the physics algorithm and movement rules were not changed.
+
+Sixteen fixed-state Exit comparisons at matching GPU resolutions cover cave,
+mouth, tower and water views, subpixel camera movement, props and player poses.
+The maximum channel difference from the original composition is 3/255, with a
+worst frame mean below 0.0012/255. Differences are limited to small 8-bit compositing
+rounding. This comparison does not imply identical sharpness at different backing
+resolutions. Separate checks cover both field backends, water ripples, exit fades,
+EMP, charging bays, inherited alpha, context loss, unavailable/software WebGL,
+regional gradient smoothing and player palettes. All 17 selected browser tests,
+28 focused Node tests, TypeScript, the production build and lint for touched
+source/tests passed. The build also validated all 45 built-in levels.
+
+Raw samples, frozen source modules and map, screenshots, visual metrics and the
+production-bundle harness live in `.local/exit-optimization-2026-10-28/`.
+Run `paired.mjs` with Node for the alternating comparison, `visual.mjs` for the
+matching-resolution pixel check and `retain-report.mjs` to validate source hashes
+and retain results. No other tests or benchmarks ran during timing; other user
+applications stayed open. CPU submission excludes asynchronous GPU completion,
+and buffer counters exclude driver/browser copies. Probes exclude React UI, audio
+and input latency and do not establish a completed normal-control Exit route.
+The user's ongoing level edits were preserved separately from the frozen input.
+
+## October 27, 2026: Exit camera movement and swimming
+
+The [retained Exit report](performance/2026-10-27-exit-windows-profile.json)
+contains 77 uninstrumented episodes and two separate CPU/graphics sampling runs
+on hardware Edge 156.0.4314.42, Snapdragon X Elite / Adreno X1-85. Runtime source
+is `d32742e`; no renderer, physics or authored-level changes were made for this
+investigation. All comparisons use a frozen map, 1280×800 CSS, normal structural
+shadows, 30 warmup frames and five measured seconds. Adaptive quality is disabled.
+The initial snapshot has 63 terrain pieces, 12 props, three ropes, 11 lights,
+three back walls, two water regions and 17 mechanisms, with no robots.
+
+The three-repeat regional-lighting scan shows both good warm runs and meaningful
+variation. Values below are medians of episode means; the full ranges and frames
+over 25 ms are retained rather than treating one 60 FPS run as a guarantee.
+
+| View | Stationary FPS | Camera-pan FPS | Pan FPS range |
+| --- | ---: | ---: | ---: |
+| Deep cave | 60.1 | 60.1 | 46.0–60.4 |
+| Cave mouth / water transition | 60.0 | 58.3 | 37.0–59.6 |
+| Open water | 60.2 | 60.2 | 60.1–60.2 |
+| Tower | 60.0 | 60.0 | 47.5–60.3 |
+| Late overworld | 60.1 | 60.5 | 60.2–60.5 |
+
+Separate browser-process controls reproduce slower panning: 38.8 FPS at the
+mouth and 47.7 FPS at the tower. Uniform Night gives 39.3 and 54.2 FPS;
+omitting the lighting pipeline gives approximately 60 FPS in both places.
+These controls deliberately change the image and are diagnostic, not proposed
+quality modes. Regional spill alone does not explain the whole slowdown.
+Longer, continuously traveling cameras record 40.1 FPS through the cave mouth
+and 46.3 FPS through the tower in single episodes. A separate finish-area pan
+reaches 60 FPS. The full-level overview remains around 43.5 FPS.
+
+### High DPI and the existing quality reduction
+
+At DPR 1.5, the normal pixel cap produces 1789×1118 rendered pixels. Regional
+lighting cannot stay within the GPU path's 64 MiB estimate at that size and
+selects Canvas, with about 63.2 MiB of reported buffers. The existing reduced
+resolution produces 1265×791 pixels and keeps the GPU path at about 41.3 MiB.
+These counters exclude driver/browser copies. Each result below summarizes
+two episodes with the same frozen map.
+
+| Probe | Full-resolution FPS, Canvas | Reduced-resolution FPS, GPU |
+| --- | ---: | ---: |
+| Cave-mouth pan | 19.5 | 37.7 |
+| Tower pan | 17.6 | 47.2 |
+| Swimming and camera movement | 17.9 | 36.3 |
+
+The reduction substantially helps, but does not establish steady 60 FPS.
+These are forced, fixed quality probes, not a measurement of the live game's
+automatic transition into or out of performance mode. A useful first follow-up
+is choosing a pixel ratio that respects the regional GPU budget before rendering,
+instead of reaching the nominal pixel cap and taking the Canvas fallback.
+
+### Where the work goes
+
+The cave-mouth sampling run replays world artwork seven times per frame.
+Those calls take about 3.37 ms of CPU submission time per frame; the GPU light
+field and regional-field calls take about 0.35 and 0.22 ms. Native `drawImage`,
+clipping, fills and garbage collection appear among the largest self-sampled
+costs. The graphics trace records 4,303 raster submissions in 214 frames, about
+20 per frame, with substantial GPU-service raster/flush activity. These are
+Chromium service-thread event durations, including nested work and possible
+waits, not hardware GPU timer measurements. They support investigating retained
+artwork and repeated Canvas composition; CPU field timings alone cannot isolate
+each field's asynchronous GPU cost.
+
+Normal neutral-input simulation at the entrance reaches 58.9 FPS. A diagnostic
+swimmer using ordinary Right input reaches 40.5 FPS, with about 11.8 ms of
+simulation CPU per rendered frame and 4.0 ms per simulation tick. The separate
+swimming sample attributes about 59% of active sampled time to `stepRun`,
+including about 29% in prop physics and 24% in player updates. Those inclusive
+percentages overlap their parent; they must not be added. Collision detection,
+nearby penetration queries, swimming-pose work and garbage collection are useful
+follow-up targets. Uniform Night barely changes this probe; omitting lighting
+reaches 60.2 FPS while simulation still costs about 4 ms per tick.
+
+### Latest-save check and limits
+
+The author changed Exit during the frozen comparison. Its later snapshot keeps
+63 terrain pieces, three ropes, 11 lights and 17 mechanisms, with 13 props and
+one water region. Two further uninstrumented episodes per probe record
+35.7–36.6 FPS for cave-mouth panning and 35.9–36.9 FPS for swimming with camera
+movement, still on GPU at DPR 1. Simulation costs about 15 ms per rendered
+swimming frame. This check supports the same bottlenecks; it does not establish
+which individual map edit changed the timings. Both map hashes and all runtime
+hashes are retained in the report.
+
+Renderer probes hold the authored world at its initial state while animating
+presentation time. Pans follow a fixed wall-time path, not a completed route.
+The swimming probe uses an in-memory entrance in the water and ordinary controls;
+it does not demonstrate reachability from the real start. Gameplay uses the
+normal 120 Hz accumulator and 50 ms elapsed-time cap. CPU submission timings
+exclude asynchronous GPU completion. React UI, audio, persistence and input
+latency are excluded. Other user applications stayed open; no tests or other
+benchmarks ran concurrently. Results vary across episodes and browser processes,
+and are not a claim about every machine or the in-app browser's compositor.
+
+Raw snapshots, frame samples, screenshots, CPU profiles, graphics traces and
+reproduction harnesses are retained in `.local/exit-perf-2026-10-27/`. Run
+`node .local/exit-perf-2026-10-27/browser-run.mjs` for the default scan; use
+`EXIT_CASES`, `EXIT_MODES`, `EXIT_REPEATS`, `EXIT_DPR`, `EXIT_REDUCED`,
+`EXIT_PROFILE`, `EXIT_TRACE` and `EXIT_REPORT` for the recorded follow-ups.
+`latest-run.mjs` preserves the initial snapshot while checking the latest save;
+`retain-report.mjs` validates matching runtime hashes and compacts the results.
+
 ## October 27, 2026: regional gradient smoothing
 
 The gradual cave lighting now includes a subtle, world-anchored dither in its

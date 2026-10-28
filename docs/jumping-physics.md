@@ -586,6 +586,27 @@ slanted face, including flush joined pieces; a leaning bank's own wedge does not
 block its pull-up. Steeper outward banks, shallow hill crests and concave
 recesses do not gain ledge grips.
 
+Hanging follows an eligible wall's lean instead of requiring the vertical-wall
+body envelope to fit there. The pose and collision hull lean together below the
+hands, keeping the lip fixed. Feet brace on the actual face when it continues
+below the grip, including across flush joins. In every braced hang a visible
+forefoot pad lies flat along the wall, with the heel back and lower than the
+contact. Keep the normal heel, instep and toe proportions; only rotate the native
+forefoot at its toe joint, without stretching or scaling either section. Place
+the ankle using that native reach. Drawing and clearance samples share the same
+joint bend. It blends in on a catch and releases smoothly as the pull-up begins;
+the original close leg placement remains. Air gaps, receding faces and real obstructions still determine
+whether bracing is possible.
+
+A top that slopes downhill inward from the lip can offer a hand grip down to
+sixty degrees below horizontal, independently of standing traction. Uphill tops
+keep the ordinary foot-grip limit. This still requires a convex, exposed corner
+and the same reachable hands, catch sweep and clear hanging space. Pull-ups use
+the actual sloping top and complete body-clearance checks. When a clear landing
+is too steep for traction, ordinary sliding takes over after the pull-up;
+otherwise the player keeps hanging and can jump or drop away. This does not
+make steep tops walkable or change a shallow crest into a ledge.
+
 Running off a lip retains the departing surface velocity. A trailing foot may
 briefly touch an outward-sloping bank, but a contact the player is moving away
 from cannot redirect that momentum into a downhill slide.
@@ -908,6 +929,13 @@ repeatedly touches a ball as it rolls away: real contact gaps can occur without
 the limbs snapping back and forth. A separate wall brace keeps its own contact
 and release blend when a slope contact starts, and both poses compose through
 their existing weights.
+
+The blended slide trunk clears the actual terrain before the arms and legs are
+solved to their targets. A nearly vertical slip must not pull the head or torso
+through a wall that the motor hull already cleared. This correction changes
+only the visible pose and retains the limb lengths and contact targets.
+`tests/jumping-wall-slide-clearance.test.mjs` freezes Exit's two-column encounter
+and checks both directions at 120/30 Hz.
 
 When the brace and slip describe the same canted face, the loaded palms keep
 their wall targets. Gravity-field bobbing can start and stop the downhill slip

@@ -11,11 +11,10 @@ import { terrainRegionLighting } from './terrainRegionLighting.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { androidDaylightMaterials } from './androidArtwork.ts'
 import type { AndroidMaterials } from './androidArtwork.ts'
+import { environmentDitherEnabled as ditherEnabled, ENVIRONMENT_FIELD_MARGIN as FIELD_MARGIN, ENVIRONMENT_NOISE_SIZE as NOISE_SIZE } from './lightingBudget.ts'
+export { environmentBufferBytes } from './lightingBudget.ts'
 
 const DARK = .35, DAY = .95, REACH = 600
-const FIELD_MARGIN = 64
-const NOISE_SIZE = 64
-const ditherEnabled = (view: LightingView) => view.zoom >= .5 && view.width * view.height <= 1_500_000
 type Box = { x: number; y: number; w: number; h: number }
 const gray = (n: number) => { const v = Math.round(n * 255); return `rgb(${v},${v},${v})` }
 const buffer = (software = true) => { const canvas = document.createElement('canvas'); return { canvas, ctx: canvas.getContext('2d', { willReadFrequently: software })! } }
@@ -24,14 +23,6 @@ type Portal = { x: number; y: number; a: readonly [number, number]; b: readonly 
 type Appearance = { terrain: ReadonlyMap<JumpLevel['platforms'][number], number>; frame: number }
 type Scene = { level: JumpLevel; mechanisms: string; portals: Portal[]; edges: TerrainEdge[]; appearance: Appearance; platforms: JumpLevel['platforms']; solids: JumpLevel['platforms'] }
 type TerrainBatch = { exposure: number; path: Path2D; joins: TerrainEdge[] }
-
-/** Two small light fields, the noise tile, the bounded ambient
- * field, and GPU-only resolve. Include viewports where all fields are native. */
-export function environmentBufferBytes(view: LightingView, gpu = false) {
-  const scale = Math.min(1, 512 / Math.max(view.width, view.height))
-  const width = Math.max(1, Math.ceil(view.width * scale)), height = Math.max(1, Math.ceil(view.height * scale))
-  return 4 * (2 * (width + FIELD_MARGIN * 2) * (height + FIELD_MARGIN * 2) + view.width * view.height * (gpu ? 2 : 1) + (ditherEnabled(view) ? NOISE_SIZE * NOISE_SIZE : 0))
-}
 
 /** Bright-region ambient enters through actual gaps in the rock, rather than
  * stopping at a back-wall polygon. It works with either background. */
@@ -321,6 +312,10 @@ export class EnvironmentLighting {
     surface.ctx.resetTransform(); surface.ctx.globalCompositeOperation = 'source-over'; drawField(surface.ctx)
     surface.ctx.globalCompositeOperation = 'lighten'; surface.ctx.drawImage(this.boundedAmbient!.canvas, 0, 0, view.width, view.height)
     return surface.canvas
+  }
+  releaseResolve() {
+    if (this.resolved) this.resolved.canvas.width = this.resolved.canvas.height = 0
+    this.resolved = undefined
   }
   release() {
     if (this.fields) for (const surface of Object.values(this.fields)) surface.canvas.width = surface.canvas.height = 0

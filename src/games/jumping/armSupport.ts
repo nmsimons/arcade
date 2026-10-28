@@ -22,7 +22,7 @@ export function rightArmSupporting(p: Player): boolean {
         return step.rise > 20 && t > 0 && t < .48 || !!step.climbing && t < .18
       }
     }
-    const frame = climbFrame(progress, m.braced, m.slope, m.crouched, m.inset)
+    const frame = climbFrame(progress, m.braced, m.slope, m.crouched, m.inset, m.outwardSlope)
     return (hand ? frame.backRelease : frame.frontRelease) < .999
   }
   if (p.climbing) {

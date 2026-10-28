@@ -9,7 +9,7 @@ import { boxPushFace, propBounds, propPushHands, PROP_APPROACH_GAP } from './pro
 import type { PushHands } from './propGeometry.ts'
 import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
-import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
+import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless, playerWaterCenterOffset } from './gravity.ts'
@@ -80,19 +80,24 @@ export function playerContactBody(p: Player, swimmingOutline = false): { x: numb
   if (!grip) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
   const progress = m ? Math.max(0, Math.min(1, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME)) : 0
   const t = m?.ladder ? ladderMantleProgress(m.time, m.ladder.entry) : m?.descending ? 1 - progress : progress, crouched = !!m?.crouched
-  const pose = climbFrame(t, grip.braced, grip.slope, crouched, m?.inset)
-  const root = climbContactRoot(t, grip.braced, grip.slope, crouched, m?.inset)
+  const pose = climbFrame(t, grip.braced, grip.slope, crouched, m?.inset, grip.outwardSlope)
+  const root = climbContactRoot(t, grip.braced, grip.slope, crouched, m?.inset, grip.outwardSlope, pose)
   if (m?.ladder) return { x: p.x, y: p.y + (root[1] - pose.root[1]) * ledgeEase((m.time + LEDGE_CATCH_TIME) / LEDGE_CATCH_TIME),
     height: climbBodyHeight(t) }
   const blend = h ? ledgeEase(h.time / (h.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME))
     : m?.descending ? ledgeEase(m.time / LEDGE_CATCH_TIME) : 1
-  return { x: p.x + (root[0] - pose.root[0]) * grip.side * blend,
-    y: p.y + (root[1] - pose.root[1]) * blend, height: climbBodyHeight(t, crouched) }
+  const x = p.x + (root[0] - pose.root[0]) * grip.side * blend
+  const y = p.y + (root[1] - pose.root[1]) * blend, height = climbBodyHeight(t, crouched)
+  return { x, y, height, outline: ledgeBodyOutline(y - grip.edgeY, height, grip.side, ledgeLean(t, grip.outwardSlope) * blend) }
 }
 
 /** Submerged terrain and loose objects meet the swimming body. Surface banks
  * retain their upright catch envelope; terrain keeps the foot-root floor contact. */
 export function playerCollisionOutline(p: Player, world: ContactWorld, body?: ReturnType<typeof playerContactBody>) {
+  if (p.hang?.outwardSlope || p.mantle?.outwardSlope) {
+    const outline = (body ?? playerContactBody(p)).outline
+    if (outline) return () => outline
+  }
   if (!p.waterMotion?.amount || p.grounded) return undefined
   const submerged = p.waterMotion.underwater
   const props = new Set(world.colliders.filter(c => c.prop).map(c => c.platform))
@@ -142,11 +147,13 @@ export function constrainWaterPosture(p: Player, previous: Player['waterMotion']
 /** The climb motor and prop forces use the same next-pose contact. */
 export function mantleContact(m: NonNullable<Player['mantle']>, world: ContactWorld, dt = STEP, inset = m.inset ?? 20) {
   const progress = Math.min(1, (m.time + dt) / LEDGE_CLIMB_TIME)
-  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced, m.slope, m.crouched, m.inset)
-  const next = climbContactRoot(progress, m.braced, m.slope, m.crouched, inset)
+  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced, m.slope, m.crouched, m.inset, m.outwardSlope)
+  const next = climbContactRoot(progress, m.braced, m.slope, m.crouched, inset, m.outwardSlope)
   const from: Vec = [m.edgeX + before[0] * m.side, m.edgeY + before[1]]
   const target: Vec = [m.edgeX + next[0] * m.side, m.edgeY + next[1]]
-  const sweep = moveBody(from, target, ledgeObstacles(world.colliders.filter(c => c.prop || c.robot).map(c => c.platform), m), climbBodyHeight(progress, m.crouched))
+  const height = climbBodyHeight(progress, m.crouched)
+  const outline = ledgeBodyOutline(next[1], height, m.side, ledgeLean(progress, m.outwardSlope))
+  const sweep = moveBody(from, target, ledgeObstacles(world.colliders.filter(c => c.prop || c.robot).map(c => c.platform), m), height, 1, 0, outline)
   return { from, target, sweep }
 }
 
@@ -499,6 +506,7 @@ export function followPropGrip(p: Player, world: ContactWorld) {
   }
   translatePlayer(p, edge.edgeX - grip.edgeX, (p.inverted ? -edge.edgeY : edge.edgeY) - grip.edgeY)
   grip.slope = edge.slope === undefined ? undefined : p.inverted ? -edge.slope : edge.slope
+  grip.outwardSlope = edge.outwardSlope
   if (p.mantle === grip) p.mantle.toY = grip.edgeY + (p.mantle.toX - grip.edgeX) * grip.side * (grip.slope ?? 0)
 }
 

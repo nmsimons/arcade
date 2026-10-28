@@ -1,7 +1,7 @@
 import { mirrorPlatform, mirrorPlayerState } from './gravityFrame.ts'
 import { gaitPose } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
+import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend, wallToeBrace } from './footwork.ts'
 import { groundAt } from './terrain.ts'
 import { bodyPolygon, lineBlocked, moveBody, nearbyBoundary, nearestBoundary, pointInside, platformOutline, withTerrainQueries } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, ladderMantleProgress, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
@@ -620,13 +620,14 @@ function ledgePose(p: Player): AthletePose {
     const target = ledgePose({ ...p, hang: { ...h, time: catchTime } })
     const blend = smooth(h.time / catchTime)
     // The body follows the collision-safe outward arc when the rope is directly under the lip.
-    const offset: Point = [(p.x - lerp(h.caught.x, h.edgeX - h.side * 14, blend)) * p.facing,
-      p.y - lerp(h.caught.y, h.edgeY + 74, blend)]
+    const root = climbFrame(0, h.braced, h.slope, false, 20, h.outwardSlope).root
+    const offset: Point = [(p.x - lerp(h.caught.x, h.edgeX + h.side * root[0], blend)) * p.facing,
+      p.y - lerp(h.caught.y, h.edgeY + root[1], blend)]
     return transferPose(source, target, [(h.caught.x - p.x) * p.facing, h.caught.y - p.y], blend, offset, h.caught.climbing?.rope ? 6 : 0)
   }
   const edge = p.mantle ?? p.hang!
   const t = p.mantle ? p.mantle.descending ? 1 - clamp((p.mantle.time - LEDGE_CATCH_TIME) / LEDGE_CLIMB_TIME) : clamp(p.mantle.time / LEDGE_CLIMB_TIME) : 0
-  const crouched = !!p.mantle?.crouched, frame = climbFrame(t, edge.braced, edge.slope, crouched, p.mantle?.inset)
+  const crouched = !!p.mantle?.crouched, frame = climbFrame(t, edge.braced, edge.slope, crouched, p.mantle?.inset, edge.outwardSlope)
   const origin: Point = [(edge.edgeX - p.x) * p.facing, edge.edgeY - p.y]
   const at = (point: Point) => add(origin, point)
   let hip = at(frame.hip), waist = at(frame.waist), shoulder = at(frame.shoulder), head = at(frame.head)
@@ -678,12 +679,17 @@ function ledgePose(p: Player): AthletePose {
   // Soften ankle flex before contact; the support foot then remains exactly flat.
   const flatten = (leg: Leg, weight: number) => { leg.footAngle = lerp(leg.footAngle, Math.atan(edge.slope ?? 0), weight); leg.toeAngle *= 1 - weight }
   flatten(frontLeg, smooth((t - .86) / .1)); flatten(backLeg, smooth((t - .56) / .07))
+  const toeBrace = edge.braced ? wallToeBrace(edge.outwardSlope) : null
   for (const [i, leg] of [frontLeg, backLeg].entries()) {
-    if (edge.braced) {
+    if (toeBrace) {
       const release = smooth((t - .04) / .2)
-      leg.footAngle = lerp(-Math.PI / 2, leg.footAngle, release); leg.toeAngle *= release
+      leg.footAngle = lerp(toeBrace.footAngle, leg.footAngle, release)
+      leg.toeAngle = lerp(toeBrace.toeAngle, leg.toeAngle, release)
     }
-    if (catchFeet) { leg.footAngle = lerp(catchFeet[i].footAngle, leg.footAngle, catchWeight); leg.toeAngle = lerp(catchFeet[i].toeAngle, leg.toeAngle, catchWeight) }
+    if (catchFeet) {
+      leg.footAngle = lerp(catchFeet[i].footAngle, leg.footAngle, catchWeight)
+      leg.toeAngle = lerp(catchFeet[i].toeAngle, leg.toeAngle, catchWeight)
+    }
   }
   return { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
 }
@@ -2862,9 +2868,15 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
   }
   const effort = smooth((Math.abs(velocity) - 130) / 420)
   const lean = -balance * (1.5 + speed + effort * 3) + correction * .4
-  const hip = mix(free.hip, hipTarget, weight), waist = mix(free.waist, add(hipTarget, [lean * .3, -6.5]), weight)
-  const shoulder = mix(free.shoulder, add(hipTarget, [lean, -16.4]), weight)
-  const head = mix(free.head, add(hipTarget, [lean + .45 - balance * effort * .8, -23.7]), weight)
+  // A nearly vertical slip can blend over a wall brace. Its balance target
+  // puts the torso over the feet, which can pull the head through that face.
+  // Clear the blended trunk before solving limbs, so palms and feet keep
+  // their own targets and the visual correction never moves the motor hull.
+  const { hip, waist, shoulder, head } = clearBody(p, { ...free,
+    hip: mix(free.hip, hipTarget, weight), waist: mix(free.waist, add(hipTarget, [lean * .3, -6.5]), weight),
+    shoulder: mix(free.shoulder, add(hipTarget, [lean, -16.4]), weight),
+    head: mix(free.head, add(hipTarget, [lean + .45 - balance * effort * .8, -23.7]), weight),
+  }).pose
   const leg = (original: Leg, foot: Point): Leg => {
     const target = mix(original.end, foot, weight), origin = at(0, 0)
     const above = (target[0] - origin[0]) * nx * p.facing + (target[1] - origin[1]) * ny

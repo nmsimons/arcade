@@ -6,7 +6,7 @@ import { parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 
-const spelunk = JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk1.jump-level.json', import.meta.url)))
+const spelunk = JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk.jump-level.json', import.meta.url)))
 
 test('Spelunk downhill running completes descending-foot landings instead of restarting and dragging a leg', () => {
   // Retain the reported polygon and actual ball; place this isolated encounter

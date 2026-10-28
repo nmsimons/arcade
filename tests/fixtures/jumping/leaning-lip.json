@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "leaning-lip",
+  "name": "Leaning lip",
+  "width": 2200,
+  "height": 920,
+  "floor": 920,
+  "entrance": { "x": 560, "y": 460 },
+  "goal": { "x": 1950, "y": 460 },
+  "checkpoints": [],
+  "platforms": [
+    { "x": 580, "y": 205, "w": 1195, "h": 380,
+      "polygon": [[20,75],[295,30],[575,20],[800,30],[1015,0],[1180,55],[1195,185],[1140,315],[840,355],[550,380],[245,350],[0,305]] },
+    { "x": 24, "y": 460, "w": 2152, "h": 460 }
+  ],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "times": { "gold": 6, "silver": 10, "bronze": 20 }
+}

@@ -30,7 +30,7 @@ export function toeBend(angle: number, load = 1) {
   const pitch = Math.atan2(Math.sin(angle), Math.cos(angle))
   return -Math.max(0, Math.min(1.05, pitch)) * lerp(.15, 1, clamp(load))
 }
-/** The forefoot rotates independently around the ball; the heel stays with the ankle. */
+/** Bend the native forefoot around the ball without stretching either section. */
 export function footPoint(point: Point, angle: number, toeAngle: number, toe = point[0] > FOOT_BALL[0]): Point {
   let [x, y] = point
   if (toe) {
@@ -42,6 +42,17 @@ export function footPoint(point: Point, angle: number, toeAngle: number, toe = p
 }
 export function soleContact(angle: number, toeAngle = toeBend(angle)): Point {
   return FOOT_CONTACT.map(point => footPoint(point, angle, toeAngle)).reduce((a, b) => a[1] > b[1] ? a : b)
+}
+
+const WALL_BRACE_FOOT_ANGLE = -.2, WALL_BRACE_TOE_ANGLE = -Math.PI / 2 - WALL_BRACE_FOOT_ANGLE
+// Rotate the native forefoot flat against the face. Cache its unscaled reach.
+const WALL_BRACE_REACH = Math.max(...FOOT_CONTACT.map(point =>
+  footPoint(point, WALL_BRACE_FOOT_ANGLE, WALL_BRACE_TOE_ANGLE)[0])) + .05
+
+/** Plant the straight toe pad on the face while the arch bends and heel stays back. */
+export function wallToeBrace(outwardSlope = 0) {
+  return { footAngle: Math.atan(outwardSlope) + WALL_BRACE_FOOT_ANGLE, toeAngle: WALL_BRACE_TOE_ANGLE,
+    inset: WALL_BRACE_REACH * Math.hypot(1, outwardSlope) }
 }
 export function footRoll(angle: number): Point {
   if (angle >= 0) {

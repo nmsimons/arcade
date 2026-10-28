@@ -24,12 +24,11 @@ import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from 
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { ambientExposure, angularFalloff, betweenLightAndView, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
+import { LIGHTING_BUFFER_BUDGET as BUFFER_BUDGET, gpuLightingBufferBytes } from './lightingBudget.ts'
+export { lightingPixelRatio } from './lightingBudget.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
 export type LightingShadows = 'full' | 'structural'
-const BUFFER_BUDGET = 64 * 1024 * 1024
-export const lightingPixelRatio = (width: number, height: number, dpr = 1, reduced = false) =>
-  Math.min(dpr, reduced ? 1 : 2, Math.sqrt((reduced ? 1_000_000 : 2_000_000) / Math.max(1, width * height)))
 const gray = (value: number) => { const c = Math.round(value * 255); return `rgb(${c},${c},${c})` }
 const surface = (willReadFrequently = false) => {
   const canvas = document.createElement('canvas')
@@ -37,6 +36,8 @@ const surface = (willReadFrequently = false) => {
   return { canvas, ctx }
 }
 type Surface = ReturnType<typeof surface>
+type PaintCoverage = { ambientReadable: boolean }
+const sameView = (a: LightingView, b: LightingView) => a.x === b.x && a.y === b.y && a.zoom === b.zoom && a.width === b.width && a.height === b.height
 function clear(buffer: Surface, width: number, height: number) {
   if (buffer.canvas.width !== width || buffer.canvas.height !== height) { buffer.canvas.width = width; buffer.canvas.height = height }
   buffer.ctx.resetTransform(); buffer.ctx.globalCompositeOperation = 'source-over'; buffer.ctx.globalAlpha = 1
@@ -96,11 +97,14 @@ export class LightingRenderer {
   private cacheDayBackground: boolean
   private reuseAthletePose: boolean
   private reuseTerrainArtwork: boolean
+  private reuseObjectArtwork: boolean
+  private skipEmptyAmbientPass: boolean
   private terrainArtwork?: { buffer: Surface; view: LightingView }
+  private objectArtwork?: { buffer: Surface; view: LightingView }
   private terrainRaster?: { key: string; buffer: Surface }
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean; reuseAthletePose?: boolean; reuseTerrainArtwork?: boolean } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean; reuseAthletePose?: boolean; reuseTerrainArtwork?: boolean; reuseObjectArtwork?: boolean; skipEmptyAmbientPass?: boolean } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
     // The full composition remains available as a pixel/performance reference.
@@ -112,6 +116,8 @@ export class LightingRenderer {
     this.cacheDayBackground = options.cacheDayBackground !== false
     this.reuseAthletePose = options.reuseAthletePose !== false
     this.reuseTerrainArtwork = options.reuseTerrainArtwork !== false
+    this.reuseObjectArtwork = options.reuseObjectArtwork !== false
+    this.skipEmptyAmbientPass = options.skipEmptyAmbientPass !== false
   }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
@@ -126,6 +132,13 @@ export class LightingRenderer {
     if (!this.preferGpu || this.gpuUnavailable || this.gpu) return
     this.gpu = GpuLightingField.create(this.allowSoftware, () => { this.softwareCanvas = true }) ?? undefined
     if (!this.gpu) this.gpuUnavailable = true
+  }
+  private releaseCanvasFields() {
+    if (!this.canvasFields && !this.daylight && !this.staticFields.size) return
+    for (const surface of Object.values(this.canvasFields ?? {})) surface.canvas.width = surface.canvas.height = 0
+    for (const cached of this.staticFields.values()) cached.buffer.canvas.width = cached.buffer.canvas.height = 0
+    if (this.daylight) this.daylight.buffer.canvas.width = this.daylight.buffer.canvas.height = 0
+    this.canvasFields = undefined; this.staticFields.clear(); this.daylight = undefined; this.dayCorrections = undefined
   }
   drawingContext(canvas: HTMLCanvasElement) {
     this.initializeGpu()
@@ -180,7 +193,8 @@ export class LightingRenderer {
     })
     ctx.fillRect(0, 0, view.width, view.height); ctx.restore()
   }
-  private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, nightMode: boolean, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
+  private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, nightMode: boolean, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally, coverage?: PaintCoverage) {
+    const ordinary = paint === paintNormally
     const ink = nightMode ? hasRegionLighting(run.level.environment) ? this.environmentLighting.playerMaterials(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
@@ -191,6 +205,13 @@ export class LightingRenderer {
       drawLandscape(ctx, run.level.environment!, { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }); ctx.restore()
     })
     if (layer === 'all' && 'elapsed' in run) drawWaterBackdrop(ctx, run, paint)
+    if (coverage) {
+      const original = paint
+      paint = (target, exposure, draw, receivesLight = true, bounds) => {
+        if (exposure === .65 && !receivesLight) coverage.ambientReadable = true
+        original(target, exposure, draw, receivesLight, bounds)
+      }
+    }
     const wiring = hasWallWiring(run.level)
     if (layer !== 'objects') drawWallWiring(ctx, run.level, 'elapsed' in run ? run : undefined, paint, nightMode)
     // Plain text may cover energized wires and must retain that draw order.
@@ -204,7 +225,11 @@ export class LightingRenderer {
     // The thin figure needs readable hands and feet in shadow at phone scale.
     // Reuse the existing artwork exposure pass; surrounding light is unchanged.
     const playerExposure = nightMode ? .65 : 0
-    if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer, playerExposure, target => this.paintTerrain(target, run, view))
+    if ('elapsed' in run) {
+      const retained = ordinary && layer === 'all' && this.objectArtwork && sameView(this.objectArtwork.view, view) ? this.objectArtwork : undefined
+      drawPuzzleWorld(ctx, run, editor, paint, ink, sources, retained ? 'wall' : layer, playerExposure, target => this.paintTerrain(target, run, view))
+      if (retained) { ctx.save(); ctx.resetTransform(); ctx.drawImage(retained.buffer.canvas, 0, 0); ctx.restore() }
+    }
     else {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
       if (layer !== 'objects' && run.level.entrance.kind !== 'charging-bay' && (editor || run.entrance)) ambientPaint(paint)(ctx, 0, () =>
@@ -233,15 +258,14 @@ export class LightingRenderer {
   }
   private paintTerrain(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView) {
     const artwork = this.terrainArtwork
-    if (artwork && artwork.view.x === view.x && artwork.view.y === view.y && artwork.view.zoom === view.zoom
-      && artwork.view.width === view.width && artwork.view.height === view.height) {
+    if (artwork && sameView(artwork.view, view)) {
       ctx.save(); ctx.resetTransform(); ctx.drawImage(artwork.buffer.canvas, 0, 0); ctx.restore()
     } else drawTerrain(ctx, 'terrain' in run ? run.terrain : levelTerrain(run.level), run.level.platforms, run.level)
   }
   render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
     const render = () => this.renderFrame(ctx, run, definition, view, dt, onlyLight, editor, shadows, fullBright)
     try { return this.reuseAthletePose ? withAthletePose(run.player, render) : render() }
-    finally { this.terrainArtwork = undefined }
+    finally { this.terrainArtwork = undefined; this.objectArtwork = undefined }
   }
   private renderFrame(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
     const sources = this.state.sources(definition, run, dt)
@@ -296,7 +320,14 @@ export class LightingRenderer {
       && !run.level.climbables?.ladders?.length && !run.level.climbables?.ropes?.length
       && airBoostStrength(run.player) < .01
     let lighting: { lights: number; edges: number; bufferBytes: number; backend: 'gpu' | 'canvas'; drawField: (target: CanvasRenderingContext2D) => void } | undefined
-    this.initializeGpu()
+    // Do not allocate an oversized GPU field and permanently disable GPU
+    // rendering because one viewport exceeds its budget. Smaller views recover.
+    const gpuFits = gpuLightingBufferBytes(view, regionLighting, Math.max(this.gpu?.shadows.vertexBytes ?? 0, 1024 * 1024)) <= BUFFER_BUDGET
+    if (gpuFits) {
+      if (this.preferGpu && !this.gpuUnavailable) this.releaseCanvasFields()
+      this.initializeGpu()
+    }
+    else if (this.gpu) { this.gpu.dispose(); this.gpu = undefined }
     if (this.gpu) {
       try {
         const gpu = this.gpu
@@ -311,6 +342,7 @@ export class LightingRenderer {
       }
     }
     if (!lighting) {
+      this.environmentLighting.releaseResolve()
       const { field, lamp } = this.canvasFields ??= { field: surface(), lamp: surface() }
       const resting = this.resting.update(moving)
       // Small viewports can retain more stationary lights within the same 64 MiB
@@ -509,6 +541,18 @@ export class LightingRenderer {
     // A night field without an active light is constant ambient. Both ambient
     // correction masks are exactly black; no beam or source haze is present.
     const emptyNight = this.skipEmptyNightPasses && nightMode && activeSources.length === 0
+    const coverage: PaintCoverage = { ambientReadable: false }
+    // This existing surface already holds the foreground's exact artwork for
+    // airborne-light occlusion. Build it first and reuse its colors in the base
+    // frame as well. Water, props, terrain and the player retain their order.
+    const objectArtworkReused = this.reuseObjectArtwork && nightMode && !emptyNight && 'elapsed' in run
+      && ctx.globalAlpha === 1 && ctx.globalCompositeOperation === 'source-over' && ctx.filter === 'none' && ctx.shadowBlur === 0
+      && shadow.ctx.getContextAttributes().willReadFrequently === readback
+    if (objectArtworkReused) {
+      clear(shadow, width, height)
+      this.world(shadow.ctx, run, view, nightMode, paintNormally, sources, editor, 'objects', false, coverage)
+      this.objectArtwork = { buffer: shadow, view }
+    }
     if (background && dayPatch) {
       ctx.save(); ctx.resetTransform(); ctx.globalCompositeOperation = 'source-over'
       ctx.drawImage(background.canvas, 0, 0)
@@ -516,7 +560,8 @@ export class LightingRenderer {
       // the complete ordinary composition only around foreground artwork.
       ctx.beginPath(); ctx.rect(dayPatch.x, dayPatch.y, dayPatch.w, dayPatch.h); ctx.clip()
     }
-    this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
+    this.world(ctx, run, view, nightMode, paintNormally, sources, editor, 'all', true, coverage)
+    this.objectArtwork = undefined
     ctx.save(); ctx.resetTransform(); ctx.globalCompositeOperation = 'multiply'; drawField(ctx)
     // Day's ambient exceeds the 65% readability floor. An unlit movement
     // playground has no full-exposure artwork to restore, either.
@@ -579,14 +624,15 @@ export class LightingRenderer {
     }
     // Foreground coverage keeps both airborne light effects behind solid art.
     // Draw it once per frame; only alpha is used, including the player's fade.
-    if (nightMode && !emptyNight) {
+    if (nightMode && !emptyNight && !objectArtworkReused) {
       clear(shadow, width, height)
       this.world(shadow.ctx, run, view, nightMode, paintNormally, sources, editor, 'objects')
     }
     // Structural solids (and the back wall at night) receive ambient only. Replay the
     // full artwork order to remove direct light from their visible pixels,
     // preserving objects, emissions and translucent silhouettes in front.
-    const ambientFloors: readonly (0 | .65)[] = emptyNight ? [] : nightMode ? [0, .65] : [0]
+    const ambientReadableSkipped = this.skipEmptyAmbientPass && !coverage.ambientReadable
+    const ambientFloors: readonly (0 | .65)[] = emptyNight ? [] : nightMode ? ambientReadableSkipped ? [0] : [0, .65] : [0]
     for (const floor of ambientFloors) {
       const ambientCorrection = cacheCorrections ? this.dayCorrections!.ambient : correction
       if (!cacheCorrections && this.reuseExposureCorrection && !nightMode && readableFloors.includes(1)) {
@@ -721,7 +767,7 @@ export class LightingRenderer {
     ctx.restore()
     if (background) ctx.restore()
     return { lights, edges, bufferBytes, backend, sources, dayAmbientCached: cacheAmbient, dayCorrectionsCached: cacheCorrections,
-      dayBackgroundCached: !!background }
+      dayBackgroundCached: !!background, objectArtworkReused, ambientReadableSkipped }
   }
   release() {
     this.environmentLighting.release()
@@ -732,7 +778,7 @@ export class LightingRenderer {
     for (const { buffer } of this.staticFields.values()) buffer.canvas.width = buffer.canvas.height = 0
     this.staticFields.clear(); this.resting.reset()
     this.buffers = undefined; this.gradients.clear()
-    this.terrainArtwork = undefined; this.terrainRaster = undefined
+    this.terrainArtwork = undefined; this.terrainRaster = undefined; this.objectArtwork = undefined
     this.dayAmbient = undefined; this.dayCorrections = undefined; this.dayBackground = undefined; this.dayBackgroundCandidate = undefined
     if (this.daylight) this.daylight.buffer.canvas.width = this.daylight.buffer.canvas.height = 0
     this.daylight = undefined

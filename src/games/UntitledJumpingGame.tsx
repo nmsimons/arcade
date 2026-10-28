@@ -2,6 +2,7 @@ import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
 import { LabLogo } from '../branding/LabLogo'
 import { LAB_NAME } from '../branding/lab'
 import { lightingForLevel } from './jumping/lightingDefinition'
+import { usesRegionLighting } from './jumping/environment'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
 import { playgroundLightingWorld } from './jumping/lightingModel'
@@ -507,7 +508,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     const paint = (dt = 0) => {
       if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
       const level = run.current?.level ?? activeLevel.current
-      const nextRatio = lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.reduced)
+      const nextRatio = lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.reduced, usesRegionLighting(level))
       if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       // Fractional render scales round the backing dimensions to whole pixels.

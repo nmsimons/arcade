@@ -803,6 +803,14 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
   Lighting is render work, independent of the simulation's step frequency.
 - Reuse scratch buffers and bound the number of full-resolution stationary-light
   caches by viewport size; cap complete lighting buffers at 64 MiB with eviction.
+  Live regional lighting chooses rounded backing dimensions against the GPU's
+  complete buffer estimate, including regional fields and vertex headroom.
+  Budget fallback must permit GPU recovery after resizing and release inactive
+  backend surfaces. Keep the same exposure, palette, haze and shadow sampling.
+  The existing foreground-occlusion surface can supply the visible foreground
+  as well, preserving painter order without another buffer. Omit readable-ambient
+  correction only when the paint traversal finds no applicable ink; charging bays
+  still require it. Retain reference composition options and pixel regressions.
   Avoid canvas readback in the frame loop.
 - Night composition retains static terrain artwork in the existing haze
   surface, keyed by exact camera, size, materials, and geometry. Exposure masks

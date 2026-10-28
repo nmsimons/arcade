@@ -11,7 +11,9 @@ for (const side of [-1, 1]) for (const inverted of [false, true]) {
     Object.assign(p, { grounded: false, facing: side, vy: 400, gait: gaitPose(200, true), terrain: [wall] })
     if (inverted) { mirrorPlayerState(p); p.inverted = true; p.terrain = [mirrorPlatform(wall)] }
     const free = athletePose(p)
-    assert.ok(free.frontArm.jointDepth > 3, 'the clear arm is genuinely folded through depth beside the lip')
+    // The approved larger palm needs a slightly different bend beside the lip;
+    // retain a substantial depth fold, rather than prescribing its old angle.
+    assert.ok(free.frontArm.jointDepth > 2.5, 'the clear arm is genuinely folded through depth beside the lip')
     p.ledgeReach = { x: side > 0 ? 500 : 1200, y: inverted ? -400 : 400, amount: 0 }
     let previous
     for (let frame = 0; frame <= 100; frame++) {

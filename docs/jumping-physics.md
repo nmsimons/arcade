@@ -605,6 +605,16 @@ joint bend. It blends in on a catch and releases smoothly as the pull-up begins;
 the original close leg placement remains. Air gaps, receding faces and real obstructions still determine
 whether bracing is possible.
 
+Final ankle articulation follows the solved shin after clearance and pose
+transfers. Free shoes rotate toward that shin only as far as the terrain and
+ledge corner permit. Supported soles keep their ankle, angle and toe contact;
+the knee opens through depth with fixed thigh and shin lengths. The bend eases
+into its limit so a foot-facing reversal cannot introduce an abrupt depth
+change. A long leg against a steep wall uses its best reachable knee bend while
+retaining its sole contact. The native foot dimensions and braced toe pad stay
+unchanged. During pull-up the free trailing shoe lifts above the lip before
+planting, and foot-angle blends take the short path across the angle boundary.
+
 A top that slopes downhill inward from the lip can offer a hand grip down to
 sixty degrees below horizontal, independently of standing traction. Uphill tops
 keep the ordinary foot-grip limit. This still requires a convex, exposed corner
@@ -1268,8 +1278,14 @@ each moving object. A retained
 clearance offset relaxes gradually so adjacent corner faces cannot snap the
 torso back and forth during a slow start or stop.
 Working-hand clearance includes the full drawn palm. Unanchored swimming hands
-use one enclosing 2.1-unit circle, avoiding repeated silhouette queries while
+use one enclosing 2.352-unit circle, avoiding repeated silhouette queries while
 keeping the whole palm clear of terrain.
+Closed, relaxed and open hands share that clearance. Flat palm planes are
+sampled between their vertices so they cannot cross a prop corner unnoticed.
+Working push palms retain their 1.6-unit surface offset while the fingers point
+up the face and the wrist meets the heel of the hand. Crouching relaxes the
+unloaded wrist and finger shape; loading and release blend that articulation
+without changing the arm lengths or the approved hand size.
 When a blocked wrist retracts, its contact palm follows it; deliberate pushing
 palms meet the prop surface while free sculls retain their stroke.
 

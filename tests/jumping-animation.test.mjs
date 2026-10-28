@@ -212,8 +212,8 @@ test('higher falls produce deeper knee flex and longer recovery with fixed feet 
           const foot = worldFoot(p, leg)
           assert.ok(foot.planted && Math.abs(foot.ground - 620) < 1e-6)
           assert.ok(Math.abs(foot.anchor - anchors[j]) < 1e-6, 'impact absorption must not drag the feet')
-          assert.ok(Math.abs(distance(leg.root, leg.joint) - 15) < 1e-6)
-          assert.ok(Math.abs(distance(leg.joint, leg.end) - 14.5) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...leg.joint.map((v, axis) => v - leg.root[axis]), leg.jointDepth ?? 0) - 15) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...leg.end.map((v, axis) => v - leg.joint[axis]), (leg.endDepth ?? 0) - (leg.jointDepth ?? 0)) - 14.5) < 1e-6)
           knee = Math.min(knee, Math.acos((15 ** 2 + 14.5 ** 2 - distance(leg.root, leg.end) ** 2) / (2 * 15 * 14.5)))
         }
         const before = points(previous), after = points(pose)
@@ -321,8 +321,8 @@ test('sliding keeps an upright counterbalanced torso, calm slow arms, and both s
     assert.ok(Math.abs(pose.shoulder[0] - pose.hip[0]) < (Math.abs(speed) <= 120 ? 4 : 7) && pose.hip[1] - pose.shoulder[1] > 16)
     for (const limb of [pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg]) {
       const leg = 'footAngle' in limb
-      assert.ok(Math.abs(distance(limb.root, limb.joint) - (leg ? 15 : 10)) < 1e-6)
-      assert.ok(Math.abs(distance(limb.joint, limb.end) - (leg ? 14.5 : 9)) < 1e-6)
+      assert.ok(Math.abs(Math.hypot(...limb.joint.map((v, axis) => v - limb.root[axis]), limb.jointDepth ?? 0) - (leg ? 15 : 10)) < 1e-6)
+      assert.ok(Math.abs(Math.hypot(...limb.end.map((v, axis) => v - limb.joint[axis]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - (leg ? 14.5 : 9)) < 1e-6)
       if (!leg && Math.abs(speed) <= 120) {
         assert.ok(limb.joint[1] > pose.shoulder[1] + 9, 'elbows stay down beside the torso')
         assert.ok(limb.end[1] > pose.hip[1] - 3, 'hands stay low instead of spreading at chest height')

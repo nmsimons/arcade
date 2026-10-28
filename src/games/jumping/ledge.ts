@@ -23,8 +23,10 @@ const frames: LedgeFrame[] = [
   { time: .54, root: [-5, 21], hip: [-7.5, -17.5], waist: [-2, -17.5], shoulder: [6, -17.4], head: [9, -24.9], frontFoot: [-16, 3], backFoot: [-23, 6] },
   { time: .56, root: [-4, 21], hip: [-7, -14.7], waist: [-1, -17], shoulder: [7, -17.7], head: [10, -25.2], frontFoot: kneeAnkle, backFoot: [-23, 4] },
   { time: .6, root: [-2, 20], hip: [-1, -2.7 - Math.sqrt(216)], waist: [5, -19], shoulder: [13, -21], head: [16, -28.5], frontFoot: kneeAnkle, backFoot: [-23, -5] },
-  { time: .62, root: [-1, 19.5], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -22], head: [19, -29.5], frontFoot: kneeAnkle, backFoot: [-20, -4.5] },
-  { time: .64, root: [0, 19], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -23], head: [19, -30.5], frontFoot: kneeAnkle, backFoot: [-12, -3.5] },
+  // Carry the free shoe above the lip before planting it. Skimming the ankle
+  // at sole height forced the foot to fold back against the trailing shin.
+  { time: .62, root: [-1, 19.5], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -22], head: [19, -29.5], frontFoot: kneeAnkle, backFoot: [-20, -8] },
+  { time: .64, root: [0, 19], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -23], head: [19, -30.5], frontFoot: kneeAnkle, backFoot: [-12, -9] },
   { time: .73, root: [5, 17], hip: [2, -17.7], waist: [7, -22.5], shoulder: [14, -29], head: [15, -36.3], frontFoot: kneeAnkle, backFoot: [18, -2.8] },
   { time: .81, root: [12, 9], hip: [5, -25], waist: [7.5, -30.3], shoulder: [12, -39], head: [13, -46.3], frontFoot: [-9, -9], backFoot: [18, -2.8] },
   { time: .9, root: [18, 3], hip: [15, -31], waist: [15.8, -37.4], shoulder: [17, -47], head: [17.5, -54.5], frontFoot: [22, -9], backFoot: [18, -2.8] },

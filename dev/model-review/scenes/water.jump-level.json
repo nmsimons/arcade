@@ -1,0 +1,11 @@
+{
+  "version": 2, "id": "model-review-water", "name": "Model review water",
+  "width": 1800, "height": 920, "floor": 920,
+  "entrance": { "x": 600, "y": 920 },
+  "goal": { "x": 1500, "y": 920, "power": "switched", "id": "closed" },
+  "timing": "untimed", "times": { "a": 10, "b": 20, "c": 30, "d": 60 },
+  "platforms": [], "checkpoints": [], "climbables": { "ladders": [], "ropes": [] },
+  "props": [], "mechanisms": [], "triggers": [], "robots": [],
+  "gravityPlates": [{ "id": "water", "x": 0, "y": 400, "w": 1800, "h": 520, "effect": "water", "gravity": -1 }],
+  "lighting": { "ambient": 0, "nightMode": false, "lights": [] }
+}

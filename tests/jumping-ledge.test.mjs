@@ -41,8 +41,8 @@ test('compact pull-up poses keep their supports, limb lengths and corner clearan
       for (const [j, prefix] of ['front', 'back'].entries()) {
         const arm = pose[`${prefix}Arm`], leg = pose[`${prefix}Leg`]
         for (const [limb, upper, lower] of [[arm, 10, 9], [leg, 15, 14.5]]) {
-          assert.ok(Math.abs(distance(limb.root, limb.joint) - upper) < 1e-6)
-          assert.ok(Math.abs(distance(limb.joint, limb.end) - lower) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.joint.map((v, axis) => v - limb.root[axis]), limb.jointDepth ?? 0) - upper) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.end.map((v, axis) => v - limb.joint[axis]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - lower) < 1e-6)
         }
         if (frame[`${prefix}Release`] === 0) close(edge(arm.hand), j ? BACK_GRIP : FRONT_GRIP)
         close(edge(leg.end), frame[`${prefix}Foot`], 'the foot target remains reachable')
@@ -72,8 +72,8 @@ test('the climb preserves limb lengths, ledge supports and clearance on either s
       for (const [index, prefix] of ['front', 'back'].entries()) {
         const arm = pose[`${prefix}Arm`], leg = pose[`${prefix}Leg`]
         for (const [limb, lengths] of [[arm, [10, 9]], [leg, [15, 14.5]]]) {
-          assert.ok(Math.abs(distance(limb.root, limb.joint) - lengths[0]) < 1e-6)
-          assert.ok(Math.abs(distance(limb.joint, limb.end) - lengths[1]) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.joint.map((v, axis) => v - limb.root[axis]), limb.jointDepth ?? 0) - lengths[0]) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.end.map((v, axis) => v - limb.joint[axis]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - lengths[1]) < 1e-6)
         }
         if (frame[`${prefix}Release`] === 0) close(edge(arm.hand), index ? BACK_GRIP : FRONT_GRIP, 'a supporting hand must remain fixed')
         for (const point of [arm.joint, arm.end, arm.hand]) {

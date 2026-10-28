@@ -1,0 +1,11 @@
+{
+  "version": 2, "id": "model-review-floor", "name": "Model review floor",
+  "width": 3000, "height": 920, "floor": 920,
+  "entrance": { "x": 600, "y": 600 },
+  "goal": { "x": 2700, "y": 600, "power": "switched", "id": "closed" },
+  "timing": "untimed", "times": { "a": 10, "b": 20, "c": 30, "d": 60 },
+  "platforms": [{ "x": 0, "y": 600, "w": 3000, "h": 320 }],
+  "checkpoints": [], "climbables": { "ladders": [], "ropes": [] },
+  "props": [], "mechanisms": [], "triggers": [], "robots": [],
+  "lighting": { "ambient": 0, "nightMode": false, "lights": [] }
+}

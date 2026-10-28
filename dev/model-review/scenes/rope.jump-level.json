@@ -1,0 +1,11 @@
+{
+  "version": 2, "id": "model-review-rope", "name": "Model review rope",
+  "width": 1800, "height": 920, "floor": 920,
+  "entrance": { "x": 600, "y": 600 },
+  "goal": { "x": 1500, "y": 600, "power": "switched", "id": "closed" },
+  "timing": "untimed", "times": { "a": 10, "b": 20, "c": 30, "d": 60 },
+  "platforms": [{ "x": 0, "y": 600, "w": 1800, "h": 320 }],
+  "checkpoints": [], "climbables": { "ladders": [], "ropes": [{ "x": 600, "y": 180, "length": 420, "segments": 30 }] },
+  "props": [], "mechanisms": [], "triggers": [], "robots": [],
+  "lighting": { "ambient": 0, "nightMode": false, "lights": [] }
+}

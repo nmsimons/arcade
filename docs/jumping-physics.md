@@ -579,8 +579,10 @@ the rider inside terrain. Ladder geometry remains exactly as authored. At the
 upper deck, the hands transfer to its lip and start the existing ledge mantle
 viewed from behind: pull, knee support, trailing foot, then stand. Forward reach
 projects into depth rather than shifting sideways. The shared mantle timing
-also determines when the equipped arm becomes free. Down reverses the pull-up
-onto the ladder; moving mechanisms and forcefields can stop it without dropping
+also determines when the equipped arm becomes free. Direct downward boarding
+at a flush top gathers the stance and reaches down to the first real rung;
+the visible rung cycle cannot extend above the authored ladder. Side-mounted
+exits reverse the pull-up onto the ladder. Moving mechanisms and forcefields can stop it without dropping
 the rider inside terrain.
 Intermediate floors support sideways departure. The bot graph includes these
 boarding/exit points and checks active mechanism/field barriers on ladder legs.

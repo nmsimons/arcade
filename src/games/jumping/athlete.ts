@@ -14,7 +14,7 @@ import { canGrip } from './friction.ts'
 import { BOX_RESTING_ANGLE_TOLERANCE, propPushHands, smallSubmergedProp } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
-import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
+import { androidMaterials, androidRearArmColor, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
 import type { AndroidAppearance, AndroidMaterials } from './androidArtwork.ts'
 import { drawAndroidPalmPlate, handGeometry, HAND_CLEARANCE_REACH, pushPalmFrame, traceAndroidHand } from './androidHand.ts'
 import { ANKLE_FLEX_LIMIT, limbOnBend, limbReach, limitLimbBend, openAnkle } from './limbPose.ts'
@@ -340,14 +340,14 @@ export function handOutline(limb: Limb): Point[] {
     return [palm[0] + x * cos - y * sin, palm[1] + x * sin + y * cos]
   })
 }
-function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1, handScale = 1, shellWidth = 1) {
+function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1, handScale = 1, shellWidth = 1, rear = false) {
   const { palm } = handGeometry(limb), hand = new Path2D()
   traceAndroidHand(hand, limb, handScale)
   const wrist = Math.hypot(palm[0] - limb.end[0], palm[1] - limb.end[1]) > .01 ? [segmentPath(limb.end, palm, .75, .65, .75)] : []
   const path = joined([roundPath(limb.root, 1.65), segmentPath(limb.root, limb.joint, 1.6, 1.35, 1.6), roundPath(limb.joint, 1.4),
     segmentPath(limb.joint, limb.end, 1.4, .75, 1.3), ...wrist, hand])
   fillShape(ctx, path, materials.joint)
-  drawAndroidArm(ctx, limb, color, forearmScale, shellWidth)
+  drawAndroidArm(ctx, limb, rear ? androidRearArmColor(materials) : color, forearmScale, shellWidth)
   fillShape(ctx, hand, materials.grip)
   drawAndroidPalmPlate(ctx, limb, color, handScale)
 }
@@ -765,6 +765,7 @@ function rearLedgePose(p: Player): AthletePose {
   }
   return pose
 }
+
 function climbingPose(p: Player, turnAngle = 0): AthletePose {
   const c = p.climbing!, blend = smooth(c.time / .16)
   const d = c.distance
@@ -788,6 +789,7 @@ function climbingPose(p: Player, turnAngle = 0): AthletePose {
     return transferPose(source, target, [(c.caught.x - p.x) * p.facing, c.caught.y - p.y], blend)
   }
   const gait = climbGait(d, c.rope?.definition.length, c.ladder ? c.ladder.bottom - c.ladder.top : undefined)
+  const boarding = !!c.ladder && c.caught.grounded && p.y - c.ladder.top < climbGait(0).root
   const local = (point: Point): Point => [(point[0] - p.x) * p.facing, point[1] - p.y]
   const body = (distance: number, away: number) => local(climbBody(c, distance, away, p.facing))
   const phase = d / 28 * Math.PI * 2, sway = Math.sin(phase) * 1.4
@@ -799,10 +801,16 @@ function climbingPose(p: Player, turnAngle = 0): AthletePose {
   let waist = body(gait.waist, -sway * .65 + c.swing * p.facing)
   let shoulder = body(gait.shoulder, sway * .3 + c.swing * .4 * p.facing)
   let head = body(gait.head + Math.sin(phase - .7) * .35, -c.swing * .3 * p.facing)
+  if (boarding) {
+    // Reach down to the top rung from a gathered stance. The gait's negative
+    // distances preserve continuous movement; they are not rungs in midair.
+    const tuck = 14 * (1 - smooth((p.y - c.ladder!.top) / climbGait(0).root))
+    for (const point of [hip, waist, shoulder, head]) point[1] += tuck
+  }
   const contact = (step: ReturnType<typeof climbGait>['hands'][number], foot: boolean, side: number) => {
     const limit = c.rope?.definition.length ?? Infinity
     const supported = !foot || step.distance <= limit
-    const distance = Math.min(step.distance, limit)
+    const distance = boarding ? Math.max(0, Math.min(step.distance, limit)) : Math.min(step.distance, limit)
     const point = supported ? climbPoint(c, distance) : climbBody(c, gait.hip + (side < 0 ? 29.4 : 27.5), -side * 2, p.facing)
     const normal = climbNormal(c, distance)
     if (supported) {
@@ -860,8 +868,11 @@ function climbingPose(p: Player, turnAngle = 0): AthletePose {
   }
   const arms = hands.map((hand, i) => {
     const side = i ? 1 : -1, root = add(shoulder, [side * 3.9 * blend * (1 - sideView), .7])
-    return { ...solveRear(root, hand.point, UPPER_ARM, FOREARM, 1, lerp(side * .6, facing, sideView), 3,
-      bracing * smooth(c.rappelPull ?? 0)), hand: hand.point }
+    const solved = solveRear(root, hand.point, UPPER_ARM, FOREARM, 1, lerp(side * .6, facing, sideView), 3,
+      bracing * smooth(c.rappelPull ?? 0))
+    // Until the top rung is within reach, keep the palm on its wrist instead
+    // of stretching the hand artwork to an unreachable support.
+    return { ...solved, hand: boarding ? solved.end : hand.point }
   })
   const legs = feet.map((foot, i) => {
     const side = i ? 1 : -1
@@ -3143,7 +3154,7 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
   }
   const backPose = !!p.climbing || backView > 0
   drawLeg(ctx, backLeg, materials.rear, materials, pose.calfScale, pose.footScale, pose.shellWidth)
-  drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
+  drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale, pose.handScale, pose.shellWidth, true)
   if (p.facing < 0) sleeve(backArm)
   if (backPose) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)

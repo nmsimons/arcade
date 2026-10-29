@@ -72,6 +72,40 @@ test('descending through the upper and intermediate decks preserves every frame 
   assert.ok(crossed); assert.equal(s.p.y, 800); assert.ok(s.p.grounded)
 })
 
+test('boarding downward lowers onto the real top rung instead of climbing above the ladder', () => {
+  for (const facing of [-1, 1]) {
+    const s = scene(); Object.assign(s.p, { y: 200, facing })
+    let previous, maxStep = 0, contacts = 0
+    advance(s, 1, { descend: true }, p => {
+      const before = structuredClone(p), pose = athletePose(p)
+      assert.deepEqual(p, before, 'posing must not change the ladder or controller')
+      const points = [pose.head, pose.shoulder, pose.hip,
+        ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(l => [l.root, l.joint, l.end])]
+        .map(([x, y]) => [p.x + x * p.facing, p.y + y])
+      if (previous) points.forEach((a, i) => { maxStep = Math.max(maxStep, Math.hypot(a[0] - previous[i][0], a[1] - previous[i][1])) })
+      previous = points
+      for (const [limb, upper, lower] of [[pose.frontArm, 10, 9], [pose.backArm, 10, 9], [pose.frontLeg, 15, 14.5], [pose.backLeg, 15, 14.5]]) {
+        assert.ok(Math.abs(Math.hypot(limb.joint[0] - limb.root[0], limb.joint[1] - limb.root[1], limb.jointDepth ?? 0) - upper) < 1e-6)
+        assert.ok(Math.abs(Math.hypot(limb.end[0] - limb.joint[0], limb.end[1] - limb.joint[1], (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - lower) < 1e-6)
+      }
+      if (p.climbing?.time >= .16 && p.y >= 223 && p.y < 280) {
+        for (const arm of [pose.frontArm, pose.backArm]) {
+          const palm = arm.hand ?? arm.end
+          assert.ok(p.y + palm[1] >= 198, `a loaded hand cannot grip an imaginary rung at ${p.y + palm[1]}`)
+        }
+        contacts++
+      }
+    })
+    assert.ok(contacts > 10, 'observe the full lowering and first strokes')
+    assert.ok(maxStep < 8, `boarding must ease into ordinary climbing, largest step ${maxStep}`)
+    assert.equal(s.p.climbing?.kind, 'ladder')
+    const y = s.p.y
+    advance(s, .25); assert.equal(s.p.y, y, 'letting go holds the lowering pose')
+    advance(s, 2, { climb: true })
+    assert.equal(s.p.y, 200); assert.ok(s.p.grounded); assert.equal(s.p.climbing, null)
+  }
+})
+
 test('an airborne Up catch works while Jump is held and consumes that press', () => {
   for (const vy of [-220, 180]) for (const side of [-1, 1]) {
     const s = scene()

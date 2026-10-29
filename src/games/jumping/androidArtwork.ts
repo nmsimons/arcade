@@ -48,6 +48,21 @@ export function androidDaylightMaterials(daylight: number): AndroidMaterials {
   daylightMaterials[index] = materials
   return materials
 }
+
+const rearArmColors = new WeakMap<AndroidMaterials, string>()
+/** Separate the far arm from the chest without changing hands or leg colors.
+ * Diagnostic monochrome inks stay monochrome; lighting palettes are cached. */
+export function androidRearArmColor(materials: AndroidMaterials): string {
+  const saved = rearArmColors.get(materials)
+  if (saved) return saved
+  const { rear, joint } = materials
+  if (rear === joint || !/^#[\da-f]{6}$/i.test(rear) || !/^#[\da-f]{6}$/i.test(joint)) return rear
+  const from = parseInt(rear.slice(1), 16), to = parseInt(joint.slice(1), 16)
+  const color = '#' + [16, 8, 0].map(shift => Math.round((from >> shift & 255) * .75 + (to >> shift & 255) * .25)
+    .toString(16).padStart(2, '0')).join('')
+  rearArmColors.set(materials, color)
+  return color
+}
 const along = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
 
 /** Shell plates follow the bones but have their own width. These paths are artwork
@@ -61,8 +76,10 @@ function panel(path: AthleteOutline, a: Point, b: Point, from: number, to: numbe
   path.quadraticCurveTo(a[0] - dx / length * from, a[1] - dy / length * from, ...at(a, from)); path.closePath()
 }
 function armShell(path: AthleteOutline, limb: Limb, forearmScale = 1, width = 1) {
-  panel(path, along(limb.root, limb.joint, .06), along(limb.root, limb.joint, .78), 2.5 * width, 1.95 * width)
-  panel(path, along(limb.joint, limb.end, .18), along(limb.joint, limb.end, .86), 2.15 * width, 1.6 * forearmScale * width)
+  // Leave the existing shoulder ball and elbow visible between the plates.
+  // Shell coverage changes; bone lengths, widths and working hands do not.
+  panel(path, along(limb.root, limb.joint, .24), along(limb.root, limb.joint, .74), 2.5 * width, 1.95 * width)
+  panel(path, along(limb.joint, limb.end, .22), along(limb.joint, limb.end, .86), 2.15 * width, 1.6 * forearmScale * width)
 }
 function legShell(path: AthleteOutline, limb: Limb, calfScale = 1, width = 1) {
   panel(path, along(limb.root, limb.joint, .04), along(limb.root, limb.joint, .8), 3 * width, 2.35 * width)
@@ -76,11 +93,14 @@ function torso(path: AthleteOutline, pose: AthletePose, back: boolean) {
     const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy) || 1
     return [p[0] + (dy * width + dx * offset) / length, p[1] + (dy * offset - dx * width) / length]
   }
-  const width = 3.8 + (back ? (pose.backView ?? 0) * 1.2 : 0)
-  path.moveTo(...at(shoulder, -width + .9, -1))
-  path.lineTo(...at(shoulder, -width, .6)); path.lineTo(...at(waist, -3.1, -.8))
+  const rear = back ? pose.backView ?? 0 : 0, width = 3.8 + rear * 1.2
+  // Seat the shoulder balls in angled collar openings. The maximum chest
+  // width is unchanged; the shell no longer paints across the rear sockets.
+  const inset = .9 + rear * .9, drop = .6 + rear * 1.8
+  path.moveTo(...at(shoulder, -width + inset, -1))
+  path.lineTo(...at(shoulder, -width, drop)); path.lineTo(...at(waist, -3.1, -.8))
   path.quadraticCurveTo(...at(waist, 0, .8), ...at(waist, 3.1, -.8))
-  path.lineTo(...at(shoulder, width, .6)); path.lineTo(...at(shoulder, width - .9, -1)); path.closePath()
+  path.lineTo(...at(shoulder, width, drop)); path.lineTo(...at(shoulder, width - inset, -1)); path.closePath()
   // Pelvis and chest articulate independently across the original waist.
   path.moveTo(...at(hip, -3.5, -1.6)); path.lineTo(...at(hip, -4.2, .1))
   path.lineTo(...at(hip, -2.7, 3.5)); path.quadraticCurveTo(...at(hip, 0, 4.2), ...at(hip, 2.7, 3.5))

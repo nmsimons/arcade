@@ -149,3 +149,21 @@ clears the lip before planting. Foot proportions, toe articulation and the
 approved braced hang are unchanged. Regression coverage includes all nine input
 tapes, both bone lengths, planted ankles and sole angles, the frozen braced
 toe pad, and reflected/rotated knee corrections.
+
+## Shoulder and upper-arm artwork
+
+The arm plates leave the shoulder ball and elbow visible while retaining their
+existing widths. Angled collar openings reveal the rear-view shoulder sockets,
+and the rear arm shell uses a slightly deeper shade derived from the
+existing materials. Hand plates and leg colors keep their existing palette.
+The sockets use the existing joints beneath the chest shell. Shell drawing and
+shadow tracing share the revised plate paths. The solved rig, proportions and hand anchors remain
+unchanged. Inspect ladder frames 30 and 98, rope frame 76, ledge frame 80 and
+swim recovery frame 154 at gameplay size as well as in the detail view.
+
+Direct descent from a deck flush with the ladder's top has a separate contact
+correction: gather the stance and reach down to the first real rung before
+alternating. Negative gait distances still preserve the motor's continuous
+travel, but do not extend visible supports above the ladder. Unreachable palms
+stay on their wrists during the reach. Normal ladder strokes, the nine existing
+review tapes and movement timings retain their existing rig positions.

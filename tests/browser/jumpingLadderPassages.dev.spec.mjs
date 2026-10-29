@@ -5,6 +5,36 @@ import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 
+test('a ladder flush with its deck lowers the player onto the first real rung', async ({ page }, info) => {
+  test.setTimeout(120000)
+  const file = { ...blankTrial(), id: 'top-rung-browser', name: 'Top rung descent',
+    width: 1000, height: 900, floor: 800, timing: 'untimed', entrance: { x: 400, y: 200 }, goal: { x: 900, y: 800, flipX: true },
+    platforms: [{ x: 250, y: 200, w: 300, h: 30 }],
+    climbables: { ladders: [{ x: 400, top: 200, bottom: 800, platform: -1, side: 1 }], ropes: [] } }
+  expect(levelProblems(file)).toEqual([])
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await useLevelFixtures(page, [file])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab?motionDebug=1')
+  await page.locator('.jumping-level-card[aria-pressed=true]').filter({ hasText: file.name }).click()
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await restartFromPause(page)
+  await page.keyboard.down('ArrowDown'); await page.clock.runFor(240); await page.keyboard.up('ArrowDown')
+  const lowering = await motion(page)
+  expect(lowering.signals.mode).toBe('ladder'); expect(lowering.y).toBeGreaterThan(220)
+  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('top-rung-lowering.png') })
+  await page.clock.runFor(250)
+  expect((await motion(page)).y).toBeCloseTo(lowering.y, 5)
+  await page.keyboard.down('ArrowDown'); await page.clock.runFor(500); await page.keyboard.up('ArrowDown')
+  expect((await motion(page)).y).toBeGreaterThan(270)
+  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('top-rung-climbing.png') })
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(2400); await page.keyboard.up('ArrowUp')
+  expect((await motion(page)).y).toBe(200); expect((await motion(page)).signals.grounded).toBe(true)
+  expect(errors).toEqual([])
+})
+
 test('normal controls climb through decks, stop on the upper landing and deliberately descend', async ({ page }, info) => {
   test.setTimeout(120000)
   const file = { ...blankTrial(), id: 'foreground-ladder-browser', name: 'Foreground ladder',

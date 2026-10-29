@@ -182,15 +182,7 @@
       "mode": "touch"
     }
   ],
-  "robots": [
-    {
-      "x": 700,
-      "y": 920,
-      "left": 26,
-      "right": 1774,
-      "kind": "repulsor"
-    }
-  ],
+  "robots": [],
   "timers": [],
   "pickups": [],
   "texts": [],
@@ -198,9 +190,9 @@
     {
       "id": "ee9b7f6b-f3fc-4398-8024-b184070f1f2b",
       "x": 0,
-      "y": 225,
+      "y": 215,
       "w": 1800,
-      "h": 695,
+      "h": 705,
       "gravity": -1,
       "effect": "water",
       "waterLevel": 5,

@@ -38,8 +38,8 @@
   "floor": 1000,
   "goal": {
     "wireTerminal": {
-      "x": 1280,
-      "y": 540
+      "x": 1200,
+      "y": 440
     },
     "x": 1300,
     "y": 600,
@@ -98,6 +98,17 @@
       "fontSize": 28,
       "align": "center",
       "style": "lab-stamp"
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "7a98fb71-2a6b-417b-b760-bcfb6cae28fe",
+      "x": 540,
+      "y": 960,
+      "w": 380,
+      "h": 40,
+      "gravity": -1,
+      "effect": "water"
     }
   ],
   "lighting": {

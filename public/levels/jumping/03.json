@@ -772,8 +772,8 @@
   ],
   "pickups": [
     {
-      "x": 1004,
-      "y": 1092,
+      "x": 994,
+      "y": 232,
       "kind": "time-bonus",
       "seconds": 9
     },
@@ -802,8 +802,8 @@
       "rotation": -30
     },
     {
-      "x": 1050,
-      "y": 1105,
+      "x": 1515,
+      "y": 450,
       "w": 300,
       "h": 24,
       "text": "<- Make time",
@@ -821,6 +821,17 @@
       "fontSize": 28,
       "align": "center",
       "style": "lab-stamp"
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "b95c01c1-dfb2-4ec2-a871-0288bf9c9a24",
+      "x": 540,
+      "y": 920,
+      "w": 920,
+      "h": 380,
+      "gravity": -1,
+      "effect": "water"
     }
   ],
   "lighting": {

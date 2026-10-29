@@ -76,9 +76,9 @@ function panel(path: AthleteOutline, a: Point, b: Point, from: number, to: numbe
   path.quadraticCurveTo(a[0] - dx / length * from, a[1] - dy / length * from, ...at(a, from)); path.closePath()
 }
 function armShell(path: AthleteOutline, limb: Limb, forearmScale = 1, width = 1) {
-  // Leave the existing shoulder ball and elbow visible between the plates.
-  // Shell coverage changes; bone lengths, widths and working hands do not.
-  panel(path, along(limb.root, limb.joint, .24), along(limb.root, limb.joint, .74), 2.5 * width, 1.95 * width)
+  // Cap the lower shoulder socket while leaving its articulation and the
+  // elbow visible. Bone lengths, plate widths and working hands stay fixed.
+  panel(path, along(limb.root, limb.joint, .16), along(limb.root, limb.joint, .74), 2.5 * width, 1.95 * width)
   panel(path, along(limb.joint, limb.end, .22), along(limb.joint, limb.end, .86), 2.15 * width, 1.6 * forearmScale * width)
 }
 function legShell(path: AthleteOutline, limb: Limb, calfScale = 1, width = 1) {
@@ -94,13 +94,14 @@ function torso(path: AthleteOutline, pose: AthletePose, back: boolean) {
     return [p[0] + (dy * width + dx * offset) / length, p[1] + (dy * offset - dx * width) / length]
   }
   const rear = back ? pose.backView ?? 0 : 0, width = 3.8 + rear * 1.2
-  // Seat the shoulder balls in angled collar openings. The maximum chest
-  // width is unchanged; the shell no longer paints across the rear sockets.
-  const inset = .9 + rear * .9, drop = .6 + rear * 1.8
-  path.moveTo(...at(shoulder, -width + inset, -1))
+  // Expose the neck above a soft chest edge in profile. The back view raises
+  // that edge to meet the wider shoulders without leaving a broad dark band.
+  const inset = .9 + rear * .9, collar = 1 - rear * 1.3, drop = 2 + rear * .1
+  path.moveTo(...at(shoulder, -width + inset, collar))
   path.lineTo(...at(shoulder, -width, drop)); path.lineTo(...at(waist, -3.1, -.8))
   path.quadraticCurveTo(...at(waist, 0, .8), ...at(waist, 3.1, -.8))
-  path.lineTo(...at(shoulder, width, drop)); path.lineTo(...at(shoulder, width - inset, -1)); path.closePath()
+  path.lineTo(...at(shoulder, width, drop)); path.lineTo(...at(shoulder, width - inset, collar))
+  path.quadraticCurveTo(...at(shoulder, 0, collar - .6), ...at(shoulder, -width + inset, collar)); path.closePath()
   // Pelvis and chest articulate independently across the original waist.
   path.moveTo(...at(hip, -3.5, -1.6)); path.lineTo(...at(hip, -4.2, .1))
   path.lineTo(...at(hip, -2.7, 3.5)); path.quadraticCurveTo(...at(hip, 0, 4.2), ...at(hip, 2.7, 3.5))

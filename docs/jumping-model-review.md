@@ -117,6 +117,11 @@ contact stays at the existing surface offset; the arm solves to the new heel
 attachment with its original bone lengths. These contacts are covered in both
 facings and gravity frames, including low and tall crates and water transitions.
 
+The ordinary crouch holds both forearms slightly raised, with the hands
+together in front of the knees. A small difference in bend keeps the far hand
+beside the near hand instead of dropping between the legs. Hand proportions,
+relaxed wrist bends and loaded contact poses retain their existing treatment.
+
 The approved palm uses 112% of the first variant's size in the actual game.
 Its contact clearance contains the original oval and the larger artwork's
 control-point hull for each hand shape, extending only where the new fingers
@@ -152,14 +157,22 @@ toe pad, and reflected/rotated knee corrections.
 
 ## Shoulder and upper-arm artwork
 
-The arm plates leave the shoulder ball and elbow visible while retaining their
-existing widths. Angled collar openings reveal the rear-view shoulder sockets,
-and the rear arm shell uses a slightly deeper shade derived from the
-existing materials. Hand plates and leg colors keep their existing palette.
+The arm plates cap the lower shoulder socket and keep the elbow visible while
+retaining their existing widths. A slimmer visible socket separates the arm
+from the neck. The shallow chest edge sits lower in profile to expose the neck,
+then rises across the back view to meet the wider shoulders. The rear arm shell
+uses a slightly deeper shade derived from the existing materials. Hand plates
+and leg colors keep their existing palette.
+
 The sockets use the existing joints beneath the chest shell. Shell drawing and
-shadow tracing share the revised plate paths. The solved rig, proportions and hand anchors remain
-unchanged. Inspect ladder frames 30 and 98, rope frame 76, ledge frame 80 and
-swim recovery frame 154 at gameplay size as well as in the detail view.
+shadow tracing share the revised plate paths and socket radius; physical
+clearance keeps its original shoulder skin. The visible neck is about 30% wider
+to support the head more clearly. Its base follows the chest angle and flares
+smoothly into the shoulders beneath the chest shell. Neck length, anchors and
+physical skin stay fixed, and shadows share the same flared contour. Head
+placement, the solved rig, proportions and hand anchors remain unchanged. Inspect standing and crouch
+frame 30, ladder frame 98, rope frame 76, ledge frame 80 and swim recovery
+frame 154 at gameplay size as well as in the detail view.
 
 Direct descent from a deck flush with the ladder's top has a separate contact
 correction: gather the stance and reach down to the first real rung before

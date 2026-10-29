@@ -49,6 +49,8 @@ const TAU = Math.PI * 2
 const HEAD_RADIUS = 6.2
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
 const UPPER_ARM = 10, FOREARM = 9
+const SHOULDER_SOCKET_RADIUS = 1.2
+const NECK_ART_RADIUS = 1.5
 const MIN_KNEE_OPENING = Math.PI / 4
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
@@ -344,7 +346,7 @@ function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, mater
   const { palm } = handGeometry(limb), hand = new Path2D()
   traceAndroidHand(hand, limb, handScale)
   const wrist = Math.hypot(palm[0] - limb.end[0], palm[1] - limb.end[1]) > .01 ? [segmentPath(limb.end, palm, .75, .65, .75)] : []
-  const path = joined([roundPath(limb.root, 1.65), segmentPath(limb.root, limb.joint, 1.6, 1.35, 1.6), roundPath(limb.joint, 1.4),
+  const path = joined([roundPath(limb.root, SHOULDER_SOCKET_RADIUS), segmentPath(limb.root, limb.joint, SHOULDER_SOCKET_RADIUS, 1.35, SHOULDER_SOCKET_RADIUS), roundPath(limb.joint, 1.4),
     segmentPath(limb.joint, limb.end, 1.4, .75, 1.3), ...wrist, hand])
   fillShape(ctx, path, materials.joint)
   drawAndroidArm(ctx, limb, rear ? androidRearArmColor(materials) : color, forearmScale, shellWidth)
@@ -372,6 +374,26 @@ function traceTorso(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Poi
 function neckPoints(shoulder: Point, head: Point, tilt = 0): [Point, Point] {
   const sin = Math.sin(tilt), cos = Math.cos(tilt)
   return [[shoulder[0] + sin, shoulder[1] - cos], [head[0] - sin * 4, head[1] + cos * 4]]
+}
+/** Keep the neck shaft fixed, then ease its base into the shoulder line. */
+function traceNeckArtwork(path: AthleteOutline, pose: AthletePose) {
+  const { shoulder, waist, head } = pose, [base, top] = neckPoints(shoulder, head, pose.headTilt)
+  const length = Math.hypot(top[0] - base[0], top[1] - base[1]) || 1
+  const axis: Point = [(top[0] - base[0]) / length, (top[1] - base[1]) / length], side: Point = [-axis[1], axis[0]]
+  const chest = Math.hypot(waist[0] - shoulder[0], waist[1] - shoulder[1]) || 1
+  const down: Point = [(waist[0] - shoulder[0]) / chest, (waist[1] - shoulder[1]) / chest]
+  const across: Point = [down[1], -down[0]]
+  if (across[0] * side[0] + across[1] * side[1] < 0) { across[0] *= -1; across[1] *= -1 }
+  const seat = add(shoulder, down), at = (point: Point, normal: Point, radius: number) => add(point, [normal[0] * radius, normal[1] * radius])
+  const right = at(base, side, NECK_ART_RADIUS), left = at(base, side, -NECK_ART_RADIUS)
+  const seatRight = at(seat, across, 2.2), seatLeft = at(seat, across, -2.2)
+  path.moveTo(...seatRight)
+  path.quadraticCurveTo(...add(right, [-axis[0] * 1.2, -axis[1] * 1.2]), ...right)
+  path.lineTo(...at(top, side, NECK_ART_RADIUS))
+  path.quadraticCurveTo(...add(top, [axis[0] * NECK_ART_RADIUS, axis[1] * NECK_ART_RADIUS]), ...at(top, side, -NECK_ART_RADIUS))
+  path.lineTo(...left)
+  path.quadraticCurveTo(...add(left, [-axis[0] * 1.2, -axis[1] * 1.2]), ...seatLeft)
+  path.quadraticCurveTo(...add(seat, [down[0] * .4, down[1] * .4]), ...seatRight); path.closePath()
 }
 function drawBack(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string, turn: number, facing = 1) {
   ctx.beginPath(); traceBack(ctx, hip, waist, shoulder, turn, facing); ctx.fillStyle = color; ctx.fill()
@@ -410,7 +432,10 @@ function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, in
   }
   for (const arm of [pose.backArm, pose.frontArm]) {
     const { palm } = handGeometry(arm)
-    round(arm.root, 1.65); traceSegment(path, arm.root, arm.joint, 1.6, 1.35, 1.6); round(arm.joint, 1.4)
+    // The slimmer visible socket must share its silhouette with shadows;
+    // physical clearance retains the existing shoulder and upper-arm skin.
+    const shoulderRadius = artwork ? SHOULDER_SOCKET_RADIUS : 1.65, upperRadius = artwork ? SHOULDER_SOCKET_RADIUS : 1.6
+    round(arm.root, shoulderRadius); traceSegment(path, arm.root, arm.joint, upperRadius, 1.35, upperRadius); round(arm.joint, 1.4)
     if (artwork) {
       traceSegment(path, arm.joint, arm.end, 1.4, .75, 1.3)
       if (Math.hypot(palm[0] - arm.end[0], palm[1] - arm.end[1]) > .01) traceSegment(path, arm.end, palm, .75, .65, .75)
@@ -423,8 +448,11 @@ function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, in
   }
   if (p.climbing || backView > 0) traceBack(path, hip, waist, shoulder, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else traceTorso(path, hip, waist, shoulder)
-  const [neck, nape] = neckPoints(shoulder, head, pose.headTilt)
-  traceSegment(path, neck, nape, 1.15, 1.15, 1.15)
+  if (artwork) traceNeckArtwork(path, pose)
+  else {
+    const [neck, nape] = neckPoints(shoulder, head, pose.headTilt)
+    traceSegment(path, neck, nape, 1.15, 1.15, 1.15)
+  }
   if (includeHead) round(head, HEAD_RADIUS)
 }
 
@@ -2659,10 +2687,10 @@ function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose
   let frontAngle = lerp(-swing - armCarry + relaxed * .24, -.65, squat), backAngle = lerp(swing - armCarry - relaxed * .24, -.75, squat)
   // The backward arm opens; the forward arm folds up toward the chest.
   let frontFlex = lerp(.1 + relaxed * .16 * (1 - pushing) + moving * lerp(.12 + (1 - Math.cos(armCycle)) * .14 * walk, 1.2 - Math.cos(armCycle - .12) * .5, run), 2.1, squat)
-  // At quiet crouched rest, let the rear forearm fall beside the knee instead
-  // of merging both hands into one. Travel and loaded palms keep their fold.
+  // Keep both forearms gently raised in a crouch. A small difference in bend
+  // separates the resting hands without dropping the far hand between the legs.
   const crouchRest = (1 - moving) * (1 - air) * (1 - pushing)
-  let backFlex = lerp(.1 + relaxed * .24 * (1 - pushing) + moving * lerp(.12 + (1 + Math.cos(armCycle)) * .14 * walk, 1.2 + Math.cos(armCycle - .12) * .5, run), 2.2 - 1.55 * crouchRest, squat)
+  let backFlex = lerp(.1 + relaxed * .24 * (1 - pushing) + moving * lerp(.12 + (1 + Math.cos(armCycle)) * .14 * walk, 1.2 + Math.cos(armCycle - .12) * .5, run), 2.2 - .15 * crouchRest, squat)
   if (air > 0) {
     // Stretch off the ground, gather through the apex, then open the arms for
     // balance. A real approaching support sweeps them back for the contact.
@@ -3163,10 +3191,9 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
 
   if (backPose) drawBack(ctx, hip, waist, shoulder, materials.joint, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else drawTorso(ctx, hip, waist, shoulder, materials.joint)
+  const neck = new Path2D(); traceNeckArtwork(neck, pose); fillShape(ctx, neck, materials.joint)
   drawAndroidTorso(ctx, pose, backPose, materials)
   drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale, pose.shellWidth)
-  const [neck, nape] = neckPoints(shoulder, head, headTilt)
-  fillShape(ctx, segmentPath(neck, nape, 1.15, 1.15, 1.15), materials.joint)
   drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth)
   if (!backPose) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)

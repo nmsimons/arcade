@@ -6,7 +6,6 @@ import { parseEnvironment } from '../src/games/jumping/environment.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { resizeLevelHeight } from '../src/games/jumping/editor.ts'
-import { clearExteriorProgress, restoreExteriorProgress, saveExteriorProgress } from '../src/games/jumping/exteriorProgress.ts'
 import { daylightPortals, EnvironmentLighting } from '../src/games/jumping/environmentLighting.ts'
 import { androidMaterials } from '../src/games/jumping/androidArtwork.ts'
 
@@ -107,27 +106,13 @@ test('current finale assets are valid and follow the Ascent levels', () => {
   assert.deepEqual(closing.slice(2), ['spelunk.jump-level.json', 'exit.jump-level.json'])
 })
 
-test('the overlook requires an explicit finish; outdoor resume keeps the last latch and rejects unsafe stale saves', () => {
+test('the overlook waits for an explicit finish while retaining the final latch', () => {
   const recording = fixture.runs.find(r => r.file.includes('3') && r.variant === 'ordinary')
-  const data = new Map(), storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) }
   const run = createRun(ending())
-  saveExteriorProgress(storage, run)
-  assert.equal(data.size, 0, 'cave progress cannot masquerade as the exterior checkpoint')
   replay(run, recording, false)
   for (let i = 0; i < 120; i++) stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.finished, false); assert.equal(run.elapsed, 0)
-  saveExteriorProgress(storage, run)
-  const resumed = createRun(ending())
-  assert.equal(restoreExteriorProgress(storage, resumed), true)
-  assert.ok(resumed.player.x > 5600); assert.equal(resumed.entrance, null)
-  stepRun(resumed, NEUTRAL_INPUT)
-  assert.equal(resumed.mechanisms[0].active, true)
-  assert.equal(resumed.finished, false)
-  stepRun(resumed, { ...NEUTRAL_INPUT, climb: true })
-  assert.equal(resumed.finished, true)
-  const key = [...data.keys()][0], saved = JSON.parse(data.get(key))
-  for (const point of [{ ...saved, x: NaN }, { ...saved, x: 200, y: 2380 }, { ...saved, x: 4000, y: 100 }, { ...saved, id: 'other' }]) {
-    data.set(key, JSON.stringify(point)); assert.equal(restoreExteriorProgress(storage, createRun(ending())), false)
-  }
-  clearExteriorProgress(storage); assert.equal(data.size, 0)
+  assert.equal(run.mechanisms[0].active, true)
+  stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+  assert.equal(run.finished, true)
 })

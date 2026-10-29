@@ -25,6 +25,48 @@ function advance(s, seconds, input = {}, observe = () => {}) {
   for (let i = 0; i < Math.ceil(seconds / STEP); i++) { tick(s, input); observe(s.p) }
 }
 
+test('a sideways ladder step can become a jump when direction leads Jump briefly', () => {
+  for (const direction of [-1, 1]) for (const delay of [1, 6, 10]) {
+    const s = scene()
+    advance(s, .8, { climb: true }); advance(s, .2)
+    assert.equal(s.p.climbing?.kind, 'ladder')
+    const y = s.p.y
+    advance(s, delay * STEP, { move: direction })
+    assert.equal(s.p.climbing, null); assert.equal(s.p.grounded, false)
+    tick(s, { move: direction, jump: true })
+    assert.ok(s.p.vy < -350, `direction ${direction}, ${delay} frames before Jump launches upward`)
+    assert.ok(s.p.vx * direction > 250, 'the jump pushes away from the ladder')
+    advance(s, .12, { move: direction, jump: true })
+    assert.ok(s.p.y < y - 35)
+    assert.ok(!s.world.platforms.some(b => bodyIntersects(s.p.x, s.p.y, b)))
+  }
+})
+
+test('ladder departure grace expires, excludes Drop, and requires a fresh Jump press', () => {
+  for (const departure of ['expired', 'drop', 'held']) {
+    const s = scene()
+    if (departure === 'held') {
+      Object.assign(s.p, { y: 690, vy: -220, grounded: false })
+      tick(s, { climb: true, jump: true }); advance(s, .2, { climb: true, jump: true })
+    } else { advance(s, .8, { climb: true }); advance(s, .2) }
+    tick(s, { move: 1, detach: departure === 'drop', jump: departure === 'held' })
+    assert.equal(s.p.climbing, null)
+    if (departure === 'expired') advance(s, .14, { move: 1 })
+    tick(s, { move: 1, jump: true })
+    assert.ok(s.p.vy >= 0, `${departure} must not create another jump`)
+  }
+})
+
+test('a ladder departure jump is single-use even if Jump is released and pressed again', () => {
+  const s = scene()
+  advance(s, .8, { climb: true }); advance(s, .2)
+  tick(s, { move: 1 }); tick(s, { move: 1, jump: true })
+  assert.ok(s.p.vy < -350)
+  const launched = s.p.vy
+  tick(s, { move: 1 }); tick(s, { move: 1, jump: true })
+  assert.ok(s.p.vy > launched, 'a second press cannot provide another impulse in midair')
+})
+
 test('foreground ladders cross thick and thin decks, hold inside them, and exit onto the top', () => {
   for (const thickness of [20, 180]) {
     const s = scene(thickness)

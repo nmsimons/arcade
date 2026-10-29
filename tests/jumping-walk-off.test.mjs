@@ -8,7 +8,6 @@ import { NEUTRAL_INPUT, TUNING, STEP } from '../src/games/jumping/model.ts'
 import { drawGoal, drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
 import { gameCamera } from '../src/games/jumping/camera.ts'
 import { moveItem, setFinish } from '../src/games/jumping/editor.ts'
-import { saveExteriorProgress, restoreExteriorProgress } from '../src/games/jumping/exteriorProgress.ts'
 
 const fixture = () => readLevelAsset('walk-off.json')
 
@@ -66,24 +65,4 @@ test('Exit ends on its continuous outdoor ground instead of its former door plat
   assert.deepEqual(level.goal, { kind: 'walk-off', x: level.width, y: 2320 })
   assert.equal(level.timing, 'untimed'); assert.deepEqual(levelProblems(level), [])
   assert.ok(!level.platforms.some(b => b.x === 19780 && b.y === 2245), 'the raised door plinth is removed')
-})
-
-test('run-off progress resumes safe outdoor footing and never replaces it with an off-map position', () => {
-  const data = new Map(), storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) }
-  const run = createRun(fixture())
-  for (let tick = 0; tick < 120; tick++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
-  saveExteriorProgress(storage, run)
-  assert.equal(data.size, 1)
-  const resumed = createRun(fixture()), saved = [...data.values()][0]
-  assert.equal(restoreExteriorProgress(storage, resumed), true)
-  assert.equal(resumed.player.x, run.player.x)
-  let departing = false
-  for (let tick = 0; tick < 8 / STEP && !resumed.finished; tick++) {
-    stepRun(resumed, { ...NEUTRAL_INPUT, move: 1 })
-    if (resumed.player.x > resumed.level.width - 30) {
-      departing = true; saveExteriorProgress(storage, resumed)
-      assert.equal([...data.values()][0], saved)
-    }
-  }
-  assert.ok(departing && resumed.finished)
 })

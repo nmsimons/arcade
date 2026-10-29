@@ -61,7 +61,7 @@ export interface Player {
   sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number } | null
   coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
   jumpLift: { elapsed: number; strength: number; entrySpeed: number; extraSpeed: number; fresh: boolean } | null
-  grabCooldown: number
+  grabCooldown: number; ladderJumpGrace: number
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
@@ -106,7 +106,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     shove: undefined, stagger: 0, shoves: 0, shoveDrift: false,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: undefined, jumpHeld: false, jumpLift: null,
-    grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
+    grabCooldown: 0, ladderJumpGrace: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     freeFall: null, ragdoll: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0, waterPushOff: false,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, airBoost: { x: 0, lift: 0, time: 0 }, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false, waterJump: false, swimAcceleration: 0 }
 }
@@ -141,6 +141,7 @@ export function cancelJumpInput(p: Player) {
   p.airBoost.x = 0; p.airBoost.lift = 0
   if (p.mantle?.step) p.mantle.step.jumpQueued = false
   p.stepIntent = null
+  p.ladderJumpGrace = 0
 }
 export function respawn(p: Player) {
   const { spawnX, spawnY, checkpoint, bestHeight } = p
@@ -160,8 +161,15 @@ function launch(p: Player, baseSpeed: number = TUNING.jumpSpeed, maxSpeed: numbe
     ? { elapsed: 0, strength: 0, entrySpeed: 0, extraSpeed, fresh: true } : null
   p.vy = -(baseSpeed + extraSpeed * (p.jumpStrength ?? 0))
   p.grounded = false; p.coyote = 0; p.buffer = 0; p.jumpStrength = undefined; p.wallJumpBuffer = 0
+  p.ladderJumpGrace = 0
   p.jumpStart = p.y; p.jumpHeight = 0
   if (p.sliding) p.sliding.active = false
+}
+function launchFromClimb(p: Player, move: number, gravity: number) {
+  const direction = gravity < -TUNING.gravity * .05 ? -1 : 1
+  const momentum = Math.min(p.vy * direction, 0)
+  launch(p); p.vy = (p.vy + momentum) * direction
+  p.vx = Math.max(-600, Math.min(600, p.vx + move * 180))
 }
 function sustainJump(p: Player, dt: number) {
   const lift = p.jumpLift
@@ -856,6 +864,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const bodyDrop = bodyDescend || input.detach || input.drop && !screenDown
   const bodyCrouch = frameDirection > 0 ? input.crouch || bodyDescend
     : bodyDescend || input.crouch && !screenDown && !input.drop
+  p.ladderJumpGrace = p.grounded || p.hang || p.mantle || p.climbing || input.detach
+    ? 0 : Math.max(0, p.ladderJumpGrace - dt)
   p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt
   const stepIntent = p.stepIntent; p.stepIntent = null
   const pressed = input.jump && !p.jumpHeld
@@ -1106,10 +1116,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
       const launchMove = c.rope && wall ? -wall.side : input.move
       if (jumping && !input.detach) {
-        const direction = orientationGravity < -TUNING.gravity * .05 ? -1 : 1
-        const momentum = Math.min(p.vy * direction, 0)
-        launch(p); p.vy = (p.vy + momentum) * direction
-        p.vx = Math.max(-600, Math.min(600, p.vx + launchMove * 180))
+        launchFromClimb(p, launchMove, orientationGravity)
       } else { if (!c.rope) p.vy = Math.max(0, p.vy) + 40; cancelJumpInput(p) }
       p.jumpStart = p.y; p.jumpHeight = 0; return
     }
@@ -1121,7 +1128,12 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const ground = exitGround ?? groundAt(platforms, p.x, p.y, 5, s => canGrip(s.angle))
       // Stepping onto a floor must fit at its actual height, including headroom.
       if (!ground || !platforms.some(b => overlaps(p.x, ground.y, b))) {
-        leaveLadder(p, ground); p.vx = input.move * TUNING.walkSpeed; return
+        leaveLadder(p, ground); p.vx = input.move * TUNING.walkSpeed
+        // Direction often arrives a few frames before Jump. Keep the immediate
+        // step-off, but let a fresh press turn that clear departure into a jump.
+        p.ladderJumpGrace = ground ? 0 : TUNING.coyoteTime
+        p.jumpHeld = input.jump
+        return
       }
     }
     const topFooting = c.ladder ? ladderFooting(c.ladder, platforms) : null
@@ -1273,6 +1285,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   p.reach = approach(p.reach, Number(input.reach && !p.crouching), dt * 10)
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const wasGrounded = p.grounded
+  if (p.ladderJumpGrace > 0 && p.buffer > 0) launchFromClimb(p, input.move, orientationGravity)
   tryWallJump(p, platforms)
   p.coyote = wasGrounded ? TUNING.coyoteTime : Math.max(0, p.coyote - dt)
   if (p.coyote > 0 && p.buffer > 0) {

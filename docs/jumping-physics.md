@@ -728,7 +728,11 @@ Up can catch a ladder while Jump is held; catching consumes that press until it
 is released and pressed again. Catch alignment checks the whole body against
 terrain and mechanisms, so a platform lip cannot be crossed sideways. Holding
 Up/Down keeps the ladder grip despite slight sideways steering; release vertical
-input to step off sideways. In a hang, explicit detach
+input to step off sideways. A clear sideways departure into the air allows a
+fresh Jump press for the next 0.1 seconds, so direction pressed slightly before
+Jump still pushes off the ladder. This grace expires after use; explicit detach,
+a consumed held Jump and a release blocked by terrain do not grant it.
+In a hang, explicit detach
 or an unlocked Down drop takes precedence over Jump.
 
 Down ignores a ladder whose lower end is buried in the floor already supporting

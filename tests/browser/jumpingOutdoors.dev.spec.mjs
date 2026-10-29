@@ -244,7 +244,7 @@ test('back walls use normal object selection, nodes, duplicate, delete, undo and
   expect(saved.climbables).toEqual(original.climbables)
 })
 
-test('the outdoor endpoint waits for Up, retains the view, saves completion and resumes the coda', async ({ page }, info) => {
+test('the outdoor endpoint waits for Up, retains the view and saves completion', async ({ page }, info) => {
   test.setTimeout(120000)
   // One short endpoint fixture exercises the actual keyboard and persistence UI;
   // the full authored routes have separate normal-input replays.
@@ -257,7 +257,6 @@ test('the outdoor endpoint waits for Up, retains the view, saves completion and 
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused', exact: true })).toBeVisible()
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.exterior.v1')).id)).toBe(level.id)
   await page.reload()
   await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
   await page.keyboard.down('ArrowUp')

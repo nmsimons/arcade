@@ -5,6 +5,52 @@ import { finishJumpingEntrance, installBuiltInFixtures, selectBuilderOption, use
 const exit = JSON.parse(readFileSync(new URL('../../public/levels/jumping/exit.jump-level.json', import.meta.url), 'utf8'))
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/jumping/walk-off.json', import.meta.url), 'utf8'))
 
+test('Play Exit uses the authored entrance despite an old outdoor checkpoint; Resume keeps the live run', async ({ page }) => {
+  test.setTimeout(120000)
+  await useLevelFixtures(page, [exit])
+  await page.addInitScript(level => {
+    localStorage.setItem('arcade.jumping.exterior.v1', JSON.stringify({
+      id: level.id, x: 19720, y: 2320, switches: level.triggers.map(() => null),
+    }))
+  }, exit)
+  await page.clock.install({ time: new Date('2026-10-29T12:00:00Z') })
+  await page.goto('/lab?motionDebug=1')
+  const play = page.getByRole('button', { name: 'Play Exit', exact: true })
+  await expect(play).toBeEnabled()
+  await page.clock.pauseAt(new Date('2026-10-29T13:00:00Z'))
+  const position = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  async function playFromEntrance() {
+    await play.click(); await finishJumpingEntrance(page)
+    const start = await position()
+    expect(start.x).toBeCloseTo(exit.entrance.x)
+    expect(start.y).toBeCloseTo(exit.entrance.y)
+  }
+  await playFromEntrance()
+  await page.keyboard.down('ArrowRight'); await page.clock.runFor(300); await page.keyboard.up('ArrowRight')
+  await page.clock.runFor(200)
+  const moved = await position()
+  expect(moved.x).toBeGreaterThan(exit.entrance.x + 40)
+  await page.keyboard.press('Escape')
+  const pause = page.getByRole('dialog', { name: 'Game paused', exact: true })
+  await pause.getByRole('button', { name: /^Resume/ }).click()
+  await page.clock.runFor(32)
+  expect((await position()).x).toBeCloseTo(moved.x)
+  await page.keyboard.press('Escape')
+  await pause.getByRole('button', { name: 'Level menu', exact: true }).click()
+  await playFromEntrance()
+  await page.clock.resume()
+  // Play navigates to the level route without the read-only diagnostic query.
+  const reload = new URL(page.url()); reload.searchParams.set('motionDebug', '1')
+  await page.goto(reload.toString())
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await page.clock.pauseAt(new Date('2026-10-29T14:00:00Z'))
+  await finishJumpingEntrance(page)
+  const reloaded = await position()
+  expect(reloaded.x).toBeCloseTo(exit.entrance.x)
+  expect(reloaded.y).toBeCloseTo(exit.entrance.y)
+})
+
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
   test(`Exit's final approach runs off the right edge at ${viewport.width}px`, async ({ page }, info) => {
     // A fresh entrance on the final flat approach tests the actual Exit geometry
@@ -33,7 +79,6 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await expect(ending.getByRole('button', { name: 'Level menu', exact: true })).toBeVisible()
     await expect(ending.getByRole('button', { name: 'Next level', exact: true })).toHaveCount(0)
     expect(await page.evaluate(id => JSON.parse(localStorage.getItem('arcade.jumping.completed.v1'))[id], level.id)).toBe(true)
-    expect(await page.evaluate(() => localStorage.getItem('arcade.jumping.exterior.v1'))).toBeNull()
     expect(errors).toEqual([])
     await page.screenshot({ path: info.outputPath('exit-escaped.png') })
     await ending.getByRole('button', { name: 'Play again', exact: false }).click()

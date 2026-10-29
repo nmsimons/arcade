@@ -1,9 +1,37 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+
+test('direction slightly before Space still jumps sideways off a ladder', async ({ page }, info) => {
+  test.setTimeout(120000)
+  const file = { ...blankTrial(), id: 'ladder-departure-browser', name: 'Ladder departure',
+    width: 1000, height: 900, floor: 800, timing: 'untimed', entrance: { x: 400, y: 800 }, goal: { x: 900, y: 800, flipX: true },
+    platforms: [{ x: 200, y: 200, w: 500, h: 50 }],
+    climbables: { ladders: [{ x: 400, top: 200, bottom: 800, platform: -1, side: 1 }], ropes: [] } }
+  expect(levelProblems(file)).toEqual([])
+  await useLevelFixtures(page, [file])
+  await page.clock.install({ time: new Date('2026-10-29T12:00:00Z') })
+  await page.goto('/lab?motionDebug=1')
+  const play = page.getByRole('button', { name: 'Play Ladder departure', exact: true })
+  await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-10-29T13:00:00Z'))
+  await play.click(); await finishJumpingEntrance(page)
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(800); await page.keyboard.up('ArrowUp')
+  await page.clock.runFor(200)
+  const grip = await motion(page)
+  expect(grip.signals.mode).toBe('ladder')
+  await page.keyboard.down('ArrowRight'); await page.clock.runFor(64)
+  expect((await motion(page)).signals.mode).toBe('free')
+  await page.keyboard.down('Space'); await page.clock.runFor(120)
+  await page.keyboard.up('Space'); await page.keyboard.up('ArrowRight')
+  const jumping = await motion(page)
+  expect(jumping.x).toBeGreaterThan(grip.x + 35)
+  expect(jumping.y).toBeLessThan(grip.y - 35)
+  expect(jumping.signals.mode).toBe('free')
+  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('ladder-sideways-jump.png') })
+})
 
 test('a ladder flush with its deck lowers the player onto the first real rung', async ({ page }, info) => {
   test.setTimeout(120000)

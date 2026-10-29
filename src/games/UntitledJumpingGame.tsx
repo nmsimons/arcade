@@ -20,7 +20,6 @@ import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumpi
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
-import { clearExteriorProgress, restoreExteriorProgress, saveExteriorProgress } from './jumping/exteriorProgress'
 import type { Run } from './jumping/challenge'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration } from './jumping/goal'
 import { COMPLETION_KEY, readCompleted, saveCompleted } from './jumping/completion'
@@ -187,9 +186,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0, grade: 'A', remaining: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
-    if (!testing && run.current && ['paused', 'menu', 'building'].includes(next)) {
-      try { saveExteriorProgress(playerStorage, run.current) } catch { /* Play remains available without storage. */ }
-    }
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
     if (next === 'menu' || next === 'building') {
       setPerformanceSnapshot(null); adaptiveLighting?.reset(); setLightingReduced(false)
@@ -222,7 +218,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
   }, [screen])
   function resetPosition() {
-    if (!testing && (run.current?.level.goal.kind === 'overlook' || run.current?.level.goal.kind === 'walk-off')) try { clearExteriorProgress(playerStorage) } catch { /* Storage is optional. */ }
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
     adaptiveLighting?.reset(); setLightingReduced(false)
     if (preparedStart.current?.run) {
@@ -247,7 +242,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       preparedStart.current = prepared
       const world = clonePreparedLevel(prepared)
       run.current = world.run; player.current = world.player!
-      if (!fromBuilder && world.run) restoreExteriorProgress(playerStorage, world.run)
       lightingRenderer.state.reset()
       if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
       activePlayKey.current = location.key
@@ -393,7 +387,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       if (!run.current.failed) setCompletedLevels(previous => ({ ...previous, [recordKey]: true }))
       try {
         if (!run.current.failed) saveCompleted(playerStorage, recordKey)
-        if (run.current.level.goal.kind === 'overlook' || run.current.level.goal.kind === 'walk-off') clearExteriorProgress(playerStorage)
         if (run.current.level.timing !== 'untimed') {
           saveBest(playerStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: null }))
         }
@@ -437,9 +430,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     keys.current.clear(); controller.reset(); touch.reset(); cancelJumpInput(player.current)
     jumpQueue.current = []; keyboardJump.current = false
     if (screenRef.current === 'playing') changeScreen('paused', 'Paused while the game was out of focus.')
-  })
-  const persistExterior = useEffectEvent(() => {
-    if (!testing && run.current) try { saveExteriorProgress(playerStorage, run.current) } catch { /* Storage is optional. */ }
   })
   const reorient = useEffectEvent(() => {
     touch.reset()
@@ -534,14 +524,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       keys.current.delete(event.code)
     }
     const visibility = () => { if (document.hidden) suspend() }
-    const saveExterior = () => persistExterior()
-    window.addEventListener('pagehide', saveExterior)
     window.addEventListener('keydown', handleKey); window.addEventListener('keyup', keyup)
     window.addEventListener('blur', suspend); document.addEventListener('visibilitychange', visibility)
     window.addEventListener('orientationchange', reorient)
-    let exteriorSavedAt = 0
     const tick = (now: number) => {
-      if (screenRef.current === 'playing' && now - exteriorSavedAt > 1000) { persistExterior(); exteriorSavedAt = now }
       const measuring = import.meta.env.DEV && performanceEnabled.current && !devOpenRef.current && screenRef.current === 'playing' && !document.hidden
       const started = measuring ? performance.now() : 0
       let steps = 0
@@ -615,7 +601,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', suspend); document.removeEventListener('visibilitychange', visibility)
       window.removeEventListener('orientationchange', reorient)
-      window.removeEventListener('pagehide', saveExterior)
     }
   }, [audioState, lightingRenderer, performanceMonitor, adaptiveLighting, touch])
 

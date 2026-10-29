@@ -1659,15 +1659,11 @@ The studio-only guide stays attached to the right edge as the level is resized;
 move it vertically or use Place on surface to set its ground height. Exit uses
 this finish after its outdoor journey.
 
-Outside checkpoints use `arcade.jumping.exterior.v1`. An untimed outdoor ending
-saves the last safe static outdoor footing once per second, on pause/menu, and
-on page exit. Reload validates the level identity, support, clearance and open
-air before resuming, and retains latching Switch plates. Midair movement and
-moving supports cannot replace that checkpoint. Restart clears it and returns
-to the authored entrance; completion clears it too. Studio playtests never read
-or write campaign checkpoints. This is exterior resume, not a general puzzle
-save system. A timed approach with a separately latched coda score is not yet
-supported; Exit is untimed throughout.
+Play, Play again, Restart and reloading a level start at its authored entrance,
+including outdoor endings such as Exit. Resume in the pause menu continues the
+current run in place. Older outdoor checkpoints are ignored; completed-level
+flags and best times still persist. A timed approach with a separately latched
+coda score is not yet supported; Exit is untimed throughout.
 
 ## Lighting (version 2)
 

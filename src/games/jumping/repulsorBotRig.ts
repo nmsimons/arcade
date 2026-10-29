@@ -41,6 +41,7 @@ export function repulsorBotPose(actor: Player, pose = presentedAthletePose(actor
   }
   return { ...pose, hip: trunk(pose.hip), waist: trunk(pose.waist), shoulder: trunk(pose.shoulder), head: trunk(pose.head),
     shellWidth: 1 + (REPULSOR_BOT_WIDTH_SCALE - 1) * swimming,
-    forearmScale: 2.6, handScale: 2, calfScale: 2.6, footScale: 1.5,
+    // Keep the soles compact beneath the widened leg armor.
+    forearmScale: 2.6, handScale: 2, calfScale: 2.6, footScale: 1,
     frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg), frontArm: arm(pose.frontArm), backArm: arm(pose.backArm) }
 }

@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { goalDoor } from '../../src/games/jumping/goal.ts'
 
 const { level } = JSON.parse(readFileSync(new URL('../fixtures/jumping-lockout2-crouch.json', import.meta.url), 'utf8'))
 test('keyboard-only Lock Out II fires low from the pump plate and returns to the exit', async ({ page }, info) => {
@@ -17,7 +18,8 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   async function tap(key, duration = 100) {
     await page.keyboard.down(key); await page.waitForTimeout(duration); await page.keyboard.up(key)
   }
-  await page.keyboard.down('ArrowRight'); await until(p => p.x >= 210); await page.keyboard.up('ArrowRight')
+  await page.keyboard.down('Shift'); await page.keyboard.down('ArrowRight'); await until(p => p.x >= 205)
+  await page.keyboard.up('ArrowRight'); await page.keyboard.up('Shift')
   await tap('e')
   await page.keyboard.down('ArrowRight'); await until(p => p.x >= 1660)
   await page.keyboard.up('ArrowRight')
@@ -36,7 +38,11 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   expect(wrist[0]).toBeGreaterThan(elbow[0])
   await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('crouched-plate-shot.png') })
   await page.keyboard.up('ArrowDown'); await page.keyboard.down('ArrowLeft')
-  await until(p => p.x <= 135); await page.keyboard.up('ArrowLeft')
+  const door = goalDoor(level.goal), center = door.x + door.w / 2
+  await until(p => p.x <= center + 150)
+  await page.keyboard.down('Shift'); await until(p => p.x <= center + 10)
+  await page.keyboard.up('ArrowLeft'); await page.keyboard.up('Shift')
+  // Stay in the opening while the delivered float finishes settling.
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible({ timeout: 20000 })
   expect(errors).toEqual([])
 })

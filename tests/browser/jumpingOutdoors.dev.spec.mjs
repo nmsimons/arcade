@@ -297,7 +297,8 @@ test('Spelunk III: keyboard play climbs the whole cave, reveals the exterior con
       const p = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
       if (p.signals.grounded && p.y <= top + 1) { await keys(); return true }
       if (p.signals.mode === 'ladder' || Math.abs(p.x - x) < 7) await keys('ArrowUp')
-      else await keys('Shift', p.x > x ? 'ArrowLeft' : 'ArrowRight', 'ArrowUp')
+      else if (Math.abs(p.x - x) < 60) await keys('Shift', p.x > x ? 'ArrowLeft' : 'ArrowRight', 'ArrowUp')
+      else await keys('Shift', p.x > x ? 'ArrowLeft' : 'ArrowRight')
       return false
     }, { timeout: 60000, intervals: [80] }).toBe(true)
   }
@@ -310,9 +311,11 @@ test('Spelunk III: keyboard play climbs the whole cave, reveals the exterior con
     await keys('ArrowRight'); await until(p => p.x > 600 && p.y > 2450 && p.signals.grounded)
     await climbLadder(620, 2100)
   }
-  await moveTo(1050); await climbLadder(1050, 1770)
-  await moveTo(1580); await climbLadder(1580, 1160)
-  await moveTo(1700); await climbLadder(1700, 1000)
+  // Approach at walking speed with Up already held near each ladder. A live
+  // observer can miss the narrow run-to-walk window and overshoot its footing.
+  await climbLadder(1050, 1770)
+  await climbLadder(1580, 1160)
+  await climbLadder(1700, 1000)
   await page.screenshot({ path: info.outputPath('spelunk-iii-cave-mouth.png') })
   await moveTo(2200); await page.screenshot({ path: info.outputPath('spelunk-iii-emergence.png') })
   await moveTo(5685); await keys('ArrowUp')

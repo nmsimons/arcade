@@ -167,7 +167,24 @@ The default renderer still fills interior levels with the off-white course wall,
 grid, and panels. An optional authored `environment` now supplies the landscape
 and explicit cave/facility wall coverage. Ordinary goals retain doorway entry;
 untimed `walk-off` and `overlook` goals supply exterior endpoints and a retained
-final view. Exit uses the run-off finish: it has no training door or finish marker.
+final view. Exit uses `goal.kind: "bus"`: the bus is the goal inside the level,
+visible during the normal playable approach. Walk into its left-side entrance
+to board. There is no map-edge completion, automatic approach, or camera reveal.
+The implied route crosses the platforming plane. The robot boards, then appears in
+the rear window. Hold briefly before the bus travels directly away from the
+camera, shrinking about its fixed visual center until the wheel bottoms align
+with the flat ground line, which serves as the horizon. From that exact contact,
+lower the bus briskly behind the line while it continues shrinking, so it
+disappears while its rear silhouette is still readable. Keep the whole bus and
+passenger together; the wheels disappear first and the roof last. There is no
+upward travel or separate raised horizon. Draw no hill or rise. Leave the road surface
+undrawn: no strip, edges, or perspective markings across the flat landscape.
+Keep the art flat and restrained, using the actual
+player rig. Save completion before the scene, allow pause and skip, and show the
+ending panel after departure. Keep the actual level, terrain, lighting, and
+camera in view throughout. The development preview at `/lab/ending-review`
+starts on Exit's final approach with normal controls and also offers a separate
+departure playback mode. Neither mode records campaign progress.
 
 The initial implementation supplies the following reusable support:
 

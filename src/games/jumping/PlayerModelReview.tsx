@@ -109,7 +109,7 @@ export default function PlayerModelReview() {
     const nightMode = backdrop === 'night'
     run.level = { ...run.level, lighting: { ambient: 0, nightMode, lights: [] },
       environment: backdrop === 'sky' ? { kind: 'landscape', horizon: 0, lighting: 'uniform', walls: [] }
-        : backdrop === 'stone' ? { kind: 'interior', lighting: 'uniform', walls: [{ x: 0, y: 0, w: run.level.width, h: run.level.height ?? run.level.floor, kind: 'cave' }] }
+        : backdrop === 'stone' ? { kind: 'landscape', horizon: 0, lighting: 'uniform', walls: [{ x: 0, y: 0, w: run.level.width, h: run.level.height ?? run.level.floor, kind: 'cave' }] }
         : undefined }
     // Keep the actor centered for inspection at the game's phone-size zoom
     // floor; the normal production renderer supplies materials and lighting.

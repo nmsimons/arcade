@@ -1656,8 +1656,31 @@ last stride. Running or jumping completely past the right edge completes the
 level automatically. There is no doorway, indicator, or finish button. The
 camera stops at the edge and the ending panel preserves the final landscape.
 The studio-only guide stays attached to the right edge as the level is resized;
-move it vertically or use Place on surface to set its ground height. Exit uses
-this finish after its outdoor journey.
+move it vertically or use Place on surface to set its ground height.
+
+For a bus exit, choose **Level → Timing → Finish → Bus stop (untimed)**. Save
+`goal: { "kind": "bus", "x": <rear center>, "y": <ground height> }`. Provide
+continuous flat ground from X − 184 to X + 76 and 144 units of clear space
+above it, all inside the level. The bus uses always-on power and does not flip.
+It is visible during normal play, studio editing, and thumbnails. Walk into
+the open boarding entrance on its left side to finish; no Up press or map-edge
+crossing is required. Jumping above it does not board.
+
+Boarding saves completion and starts the departure in the same level view.
+There is no automatic approach, camera reveal, or replacement scenery. The
+robot appears in the rear window. After a short hold, the bus travels directly
+away from the camera, shrinking about a fixed visual center until the wheel
+bottoms align with the flat ground line. It then lowers briskly behind that
+horizon while continuing to shrink. The result panel follows the departure.
+Escape or controller Start pauses it; Resume continues it. Space, Enter, or
+controller A advances to the result; held gameplay controls do not skip it.
+The departure has no on-screen Pause or Skip buttons. Exit uses
+this goal. The development-only `/lab/ending-review` page starts on the actual
+final approach with normal keyboard controls, without saving progress. Its
+Departure preview mode provides playback and a time slider.
+
+Level width supports 800–24,000 units, including point objects and lighting in
+the added space. Exit's longer final landing leaves room to approach its stop.
 
 Play, Play again, Restart and reloading a level start at its authored entrance,
 including outdoor endings such as Exit. Resume in the pause menu continues the

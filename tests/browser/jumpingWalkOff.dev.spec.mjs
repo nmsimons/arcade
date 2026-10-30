@@ -52,7 +52,7 @@ test('Play Exit uses the authored entrance despite an old outdoor checkpoint; Re
 })
 
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
-  test(`Exit's final approach runs off the right edge at ${viewport.width}px`, async ({ page }, info) => {
+  test(`Exit's final approach boards its visible bus at ${viewport.width}px`, async ({ page }, info) => {
     // A fresh entrance on the final flat approach tests the actual Exit geometry
     // with keyboard controls, independently of its long service-course route.
     const level = { ...structuredClone(exit), entrance: { x: 19720, y: 2320 } }
@@ -71,11 +71,17 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await page.keyboard.down('ArrowRight')
     await expect.poll(async () => {
       await page.clock.runFor(160)
-      return page.getByRole('dialog', { name: 'Level complete', exact: true }).count()
+      return page.getByRole('status', { name: 'Bus departure', exact: true }).count()
     }, { intervals: [0] }).toBe(1)
     await page.keyboard.up('ArrowRight')
+    await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toHaveCount(0)
+    expect(await page.evaluate(id => JSON.parse(localStorage.getItem('arcade.jumping.completed.v1'))[id], level.id)).toBe(true)
+    await page.clock.runFor(4500)
+    await expect(page.getByRole('status', { name: 'Bus departure', exact: true })).toHaveText('Riding away')
+    await page.screenshot({ path: info.outputPath('exit-bus-stop.png') })
+    await page.keyboard.press('Space')
     const ending = page.getByRole('dialog', { name: 'Level complete', exact: true })
-    await expect(ending.getByRole('heading', { name: 'You’re outside.' })).toBeVisible()
+    await expect(ending.getByRole('heading', { name: 'On your way.' })).toBeVisible()
     await expect(ending.getByRole('button', { name: 'Level menu', exact: true })).toBeVisible()
     await expect(ending.getByRole('button', { name: 'Next level', exact: true })).toHaveCount(0)
     expect(await page.evaluate(id => JSON.parse(localStorage.getItem('arcade.jumping.completed.v1'))[id], level.id)).toBe(true)
@@ -96,10 +102,14 @@ test('Studio switches run-off and doorway finishes, saves, and reopens the selec
   await expect(page.getByRole('combobox', { name: 'Finish', exact: true })).toContainText('Run off right edge')
   await selectBuilderOption(page, 'Finish', 'doorway')
   await expect(page.getByRole('combobox', { name: 'Finish', exact: true })).toContainText('Doorway')
-  await selectBuilderOption(page, 'Finish', 'walk-off')
+  await selectBuilderOption(page, 'Finish', 'bus')
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
   await page.reload(); await waitForBuilderPreview(page)
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: 'Finish', exact: true })).toContainText('Bus stop')
+  await selectBuilderOption(page, 'Finish', 'doorway')
+  await expect(page.getByRole('combobox', { name: 'Ending scene', exact: true })).toHaveCount(0)
+  await selectBuilderOption(page, 'Finish', 'walk-off')
   await expect(page.getByRole('combobox', { name: 'Finish', exact: true })).toContainText('Run off right edge')
 })

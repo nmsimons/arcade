@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { nearestBoundary, nearbyBoundary, pointInside, polygonPoints, lineBlocked, segmentPenetration, ropeBend, withTerrainQueries } from '../src/games/jumping/geometry.ts'
 
-const cave = JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk1.jump-level.json', import.meta.url))).platforms
+const cave = JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk.jump-level.json', import.meta.url))).platforms
 
 test('repeated cave contacts reuse edge lengths and reject distant edge distances', t => {
   const shape = cave.find(b => b.polygon?.length > 12), [x, y] = polygonPoints(shape)[0]

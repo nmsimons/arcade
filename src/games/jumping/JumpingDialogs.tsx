@@ -78,7 +78,7 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
   level: PuzzleLevel; elapsed: number; grade: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
   onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
-  const ending = level.goal.kind === 'overlook' || level.goal.kind === 'walk-off'
+  const ending = level.goal.kind === 'overlook' || level.goal.kind === 'walk-off' || level.goal.kind === 'bus'
   const primary = testing && canEdit ? onBuilder : ending ? onLevels : onNext ?? onRetry
   const primaryLabel = testing && canEdit ? 'Return to builder' : ending ? 'Level menu' : onNext ? 'Next level' : 'Try again'
   const time = formatTime(elapsed), [wholeTime, fraction] = time.split('.')
@@ -86,7 +86,7 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
     <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
       <header className="jumping-dialog-heading">
         <p className="jumping-eyebrow">{level.name}</p>
-        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : ending ? 'You’re outside.' : grade === 'F' ? 'Run finished.' : 'Level complete.'}</h2>
+        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : level.goal.kind === 'bus' || level.goal.ending === 'bus' ? 'On your way.' : ending ? 'You’re outside.' : grade === 'F' ? 'Run finished.' : 'Level complete.'}</h2>
         {level.timing !== 'untimed' && <p className="jumping-result-time" aria-label={`Finish time ${time}`}>{wholeTime}<wbr /><span className="jumping-result-fraction">.{fraction}</span></p>}
         {level.timing !== 'untimed' && <div className="jumping-result-summary">
           <p className="jumping-result-award">

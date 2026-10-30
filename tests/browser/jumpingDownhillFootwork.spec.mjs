@@ -9,7 +9,7 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 // These route regressions start from an already unlocked campaign.
 test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
-const spelunk = JSON.parse(readFileSync(new URL('../../public/levels/jumping/spelunk1.jump-level.json', import.meta.url)))
+const spelunk = JSON.parse(readFileSync(new URL('../fixtures/jumping/spelunk-downhill-before-finale.json', import.meta.url))).level
 for (const mode of ['run', 'walk', 'crouch']) test(`Spelunk downhill ${mode} keeps its feet with the body`, async ({ page }, info) => {
   // The slow full descent retains Spelunk's lamps in software Chromium.
   // This is a new encounter budget; existing traversal deadlines stay intact.

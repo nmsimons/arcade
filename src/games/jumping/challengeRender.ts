@@ -7,7 +7,9 @@ import { drawWallTexts } from './wallText.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import type { BusEnding } from './busEnding.ts'
+import { drawBusGoal } from './busEndingRender.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
 import type { AndroidAppearance } from './androidArtwork.ts'
 import { drawWallTimer } from './wallTimer.ts'
@@ -142,7 +144,11 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
   })
   ctx.restore()
 }
-export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, paint: WorldPaint = paintNormally) {
+export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, paint: WorldPaint = paintNormally, departure?: BusEnding, boarding = 0) {
+  if (goal.kind === 'bus') {
+    paint(ctx, .65, () => drawBusGoal(ctx, goal, departure, boarding), true, goalBounds(goal))
+    return
+  }
   if (goal.kind === 'walk-off') return
   if (goal.kind === 'overlook') {
     paint(ctx, 0, () => {
@@ -176,7 +182,7 @@ export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening:
     }
     return
   }
-  if (goal.kind === 'overlook') return
+  if (goal.kind === 'overlook' || goal.kind === 'bus') return
   drawDoorway(ctx, goalDoor(goal), opening, editor)
 }
 /** Editor and placement show the full doorway, including starts awaiting manual repair. */
@@ -233,7 +239,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   })
   for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), paint)
   for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
-  drawGoal(ctx, level.goal, run.goalLit, paint)
+  if (level.goal.kind !== 'bus') drawGoal(ctx, level.goal, run.goalLit, paint)
   for (const state of run.floatSwitches) drawFloatSwitchArm(ctx, state, paint)
   paint(ctx, 0, () => {
     if (editor) drawCheckpointMarkers(ctx, p, level)
@@ -259,6 +265,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
   if (!editor) drawGadgets(ctx, run, paint, playerExposure)
+  if (level.goal.kind === 'bus') drawGoal(ctx, level.goal, run.goalLit, paint, run.busDeparture, run.exit?.elapsed ?? 0)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)

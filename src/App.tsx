@@ -22,6 +22,7 @@ const UrbanFireGame = lazy(() => import('./games/UrbanFireGame').then(m => ({ de
 const UntitledJumpingGame = lazy(() => import('./games/UntitledJumpingGame').then(m => ({ default: m.UntitledJumpingGame })))
 const LightingLab = import.meta.env.DEV ? lazy(() => import('./games/jumping/LightingLab')) : null
 const ModelReview = import.meta.env.DEV ? lazy(() => import('./games/jumping/PlayerModelReview')) : null
+const EndingReview = import.meta.env.DEV ? lazy(() => import('./games/jumping/EndingReview')) : null
 
 export default function App({ accountControls }: { accountControls?: ReactNode }) {
   const navigate = useNavigate()
@@ -95,6 +96,7 @@ export default function App({ accountControls }: { accountControls?: ReactNode }
       <Route path="/hello-world" element={<GameViewport><HelloWorldGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
       {LightingLab && <Route path={`${LAB_PATH}/lighting-lab`} element={<LightingLab />} />}
       {ModelReview && <Route path={`${LAB_PATH}/model-review`} element={<ModelReview />} />}
+      {EndingReview && <Route path={`${LAB_PATH}/ending-review`} element={<EndingReview />} />}
       <Route path={`${LAB_PATH}/*`} element={<GameViewport><UntitledJumpingGame onExit={onExit} /></GameViewport>} />
 
       {/* Back-compat redirects */}

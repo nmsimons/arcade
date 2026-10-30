@@ -1,4 +1,5 @@
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
+import { MAX_LEVEL_WIDTH } from './levelLimits'
 import { nightModeEnabled } from './ambientLight'
 import { lightingForLevel } from './lightingDefinition'
 import { terrainCubic, terrainNodes } from './terrainCurves'
@@ -1466,9 +1467,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           <EnvironmentFields level={level} onChange={commit} selectedWall={selection?.kind === 'back-wall' ? selection.index : null} onSelectWall={editBackWall}
             onCreateWall={() => { chooseSelection(null); setTool('back-wall'); canvasRef.current?.focus() }} />
           {level.environment && <label><input type="checkbox" checked={environmentGrid} onChange={e => setEnvironmentGrid(e.target.checked)} />Editor grid</label>}
-          <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} {...numberEdit((base, value) => {
+          <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={MAX_LEVEL_WIDTH} {...numberEdit((base, value) => {
             const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.environment?.walls ?? []).map(w => w.x + w.w), ...(base.environment?.groundCover ?? []).map(c => c.x + c.w), ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).filter(s => s.kind !== 'goal' || base.goal?.kind !== 'walk-off').map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
-            const width = clamp(value, extent, 20000)
+            const width = clamp(value, extent, MAX_LEVEL_WIDTH)
             return { ...base, width, ...(base.goal?.kind === 'walk-off' ? { goal: { ...base.goal, x: width } } : {}) }
           })} /></label>
           <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>
@@ -1478,8 +1479,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
         </BuilderInspectorSection>
         {isPuzzleLevel(level) && <BuilderInspectorSection title="Timing">
-          {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }, { value: 'walk-off', label: 'Run off right edge (untimed)' }]}
-            onChange={kind => commit(setFinish(history.present, kind as 'doorway' | 'overlook' | 'walk-off'))} />}
+          {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }, { value: 'walk-off', label: 'Run off right edge (untimed)' }, { value: 'bus', label: 'Bus stop (untimed)' }]}
+            onChange={kind => commit(setFinish(history.present, kind as 'doorway' | 'overlook' | 'walk-off' | 'bus'))} />}
+          {level.goal.kind === 'bus' && <p className="builder-hint">Place the bus on flat ground. Walk into the open doorway on its left side to board and finish. The bus then drives away in the same view.</p>}
           {level.goal.kind === 'walk-off' && <p className="builder-hint">Continue flat ground to the right edge. Running or jumping completely off that edge finishes the level. The guide is visible only in the studio.</p>}
           {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
             const next = e.target.checked ? copyLevel(history.present) : setFinish(history.present, 'doorway')

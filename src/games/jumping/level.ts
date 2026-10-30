@@ -1,4 +1,5 @@
 import { parseObjectName } from './objectNames.ts'
+import { MAX_LEVEL_WIDTH } from './levelLimits.ts'
 import { gradeTimes } from './grading.ts'
 import type { TimeTargets } from './grading.ts'
 import { objectReference } from './objectLabels.ts'
@@ -190,17 +191,18 @@ export function levelProblems(level: JumpLevel): string[] {
       }
     } else {
       const bounds = goalBounds(level.goal), door = level.goal.kind === 'overlook' ? bounds : goalDoor(level.goal)
-      const left = level.goal.kind === 'overlook' ? level.goal.x - 30 : Math.min(goalPoleX(level.goal) - 2, door.x)
-      const right = level.goal.kind === 'overlook' ? level.goal.x + 30 : Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
+      const left = level.goal.kind === 'bus' ? bounds.x : level.goal.kind === 'overlook' ? level.goal.x - 30 : Math.min(goalPoleX(level.goal) - 2, door.x)
+      const right = level.goal.kind === 'bus' ? bounds.x + bounds.w : level.goal.kind === 'overlook' ? level.goal.x + 30 : Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
       const count = Math.ceil((right - left) / 8)
       const supported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
         const support = groundAt(terrain, x, level.goal.y, .15)
         return support && Math.abs(support.angle) < .02
       })
-      const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
-        [door.x + door.w, door.y + door.h], [door.x, door.y + door.h]], b))
+      const clearance = level.goal.kind === 'bus' ? { ...bounds, h: level.goal.y - bounds.y } : door
+      const blocked = terrain.some(b => polygonIntersects([[clearance.x, clearance.y], [clearance.x + clearance.w, clearance.y],
+        [clearance.x + clearance.w, clearance.y + clearance.h], [clearance.x, clearance.y + clearance.h]], b))
       if (!supported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
-        issues.push(`Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
+        issues.push(level.goal.kind === 'bus' ? 'Place the bus stop on continuous flat ground with a clear boarding approach inside the level.' : `Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
       }
     }
     const times = gradeTimes(level)
@@ -233,13 +235,13 @@ export function parseLevel(value: unknown): JumpLevel {
   const num = (v: unknown, min: number, max: number): number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fail()
   const list = (v: unknown, max: number): unknown[] => Array.isArray(v) && v.length <= max ? v : fail()
   const objectName = (v: Record<string, unknown>): NamedObject => parseObjectName(v.name, fail)
-  const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, 20000), y: num(p.y, -2000, 6000),
+  const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, MAX_LEVEL_WIDTH), y: num(p.y, -2000, 6000),
     ...(p.radius === undefined ? {} : { radius: num(p.radius, 10, 1000) }) } }
   const v = object(value)
   if (v.version !== 1 && v.version !== 2) throw new Error('Unsupported jumping level version. This game reads versions 1 and 2.')
   if (v.version === 1 && v.lighting !== undefined) throw new Error('Lighting requires a version 2 level file.')
   if (typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80 || typeof v.id !== 'string' || v.id.length > 100) fail()
-  const width = num(v.width, 800, 20000)
+  const width = num(v.width, 800, MAX_LEVEL_WIDTH)
   const platforms = list(v.platforms, 160).map(item => {
     const b = object(item), platform: Platform = { ...objectName(b), x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
     if (platform.x + platform.w > width) fail()
@@ -367,11 +369,14 @@ export function parseLevel(value: unknown): JumpLevel {
     if (g.power !== undefined && g.power !== 'always' && g.power !== 'switched') fail()
     if (g.id !== undefined && (typeof g.id !== 'string' || !g.id.trim() || g.id.length > 100)) fail()
     if (g.power === 'switched' && g.id === undefined) fail()
-    if (g.kind !== undefined && g.kind !== 'overlook' && g.kind !== 'walk-off') fail()
+    if (g.kind !== undefined && g.kind !== 'overlook' && g.kind !== 'walk-off' && g.kind !== 'bus') fail()
     if (g.kind && (v.timing !== 'untimed' || g.power === 'switched')) fail()
     if (g.kind === 'walk-off' && (location.x !== width || flipX)) fail()
+    if (g.kind === 'bus' && flipX) fail()
+    if (g.ending !== undefined && (g.ending !== 'bus' || g.kind !== 'walk-off')) fail()
     level.goal = { ...objectName(g), ...parseSwitchSettings(g, fail), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }),
       ...(g.kind ? { kind: g.kind as Goal['kind'] } : {}),
+      ...(g.ending ? { ending: g.ending as Goal['ending'] } : {}),
       ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }) }; if (level.goal.x > width) fail()
     const times = object(v.times), legacy = times.a === undefined && times.gold !== undefined
     const a = num(legacy ? times.gold : times.a, .1, 3600), b = num(legacy ? times.silver : times.b, .1, 3600)

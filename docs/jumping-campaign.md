@@ -287,10 +287,26 @@ it, and retain the last safe exterior checkpoint when resuming the coda.
 Version-2 landscapes and the untimed `walk-off` finish now provide this path.
 The authored finale is untimed throughout, so there is no score to latch at
 the threshold. Timed approaches with a separately latched coda score remain
-future work. Outdoor footing and completed latching switches resume after
-reload. Exit completes when the player runs or jumps off the right edge, with
-no door, indicator, or separate finish action. The last landscape remains visible
-behind the ending panel. Overlook finishes remain available for other levels.
+future work. Play and reload start at the authored entrance; the pause menu's
+Resume keeps the current run. The waiting bus is Exit's actual goal, visible
+during the normal outdoor approach. The player retains control and walks aboard
+through its left-side entrance. Boarding completes the level and saves progress;
+no edge crossing, automatic approach, or camera reveal is needed. Leave a broad
+flat walk between the final landing and the stop, so the player can see the bus
+and approach it deliberately. The bus departs in the same level view.
+The implied road crosses the platforming plane, and we see the bus from behind.
+Keep the landscape flat, without a drawn road surface or perspective lines. The
+robot boards around its side, then becomes visible seated in the rear window.
+Hold this quiet moment before the bus drives directly away from the camera,
+shrinking about a fixed visual center until the wheel bottoms align with the
+flat ground line. It then lowers behind that line while continuing to shrink,
+wheels first and roof last. There is no upward journey or
+separate elevated horizon. Draw no hill or rise.
+Keep the artwork in the game's flat 2D style. Pause and skip remain available,
+and the result panel follows the departure. The empty stop remains behind the panel.
+This quiet, ordinary journey is the ending payoff; it adds no new playable
+challenge or explanation of the outside world. Overlook finishes remain
+available for other levels.
 
 The current closing sequence is **Ascent I → Ascent II → Spelunk → Exit**.
 Preserve the Ascent levels' climb toward escape. The caves supply the last

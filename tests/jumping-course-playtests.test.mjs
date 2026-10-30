@@ -41,22 +41,14 @@ for (const recording of [...recordings.runs, ...recordings.alternatives]) test(`
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP, 'the whole run replays from a fresh start')
 })
 
-test('the captured Hurricane encounter contains Rbot and lets the player reset quarantine', () => {
-  const recording = recordings.quarantine
-  const level = recordedLevel(recording.file)
-  const run = createRun(level), boundary = level.forceFields[0].x
-  let activatedAt
-  for (const { frames, input } of recording.trace) for (let frame = 0; frame < frames; frame++) {
-    stepRun(run, { ...NEUTRAL_INPUT, ...input })
-    if (run.forceFields[0].active) {
-      activatedAt ??= run.activeTime
-      assert.ok(run.robots[0].x < boundary, 'the hunter cannot cross the closed field')
-    }
-  }
-  assert.ok(activatedAt !== undefined && run.activeTime - activatedAt > 9)
-  assert.ok(run.robots[0].shots > 0, 'the trap follows a live pursuit')
-  assert.ok(run.player.x > boundary && run.player.grounded)
-  assert.ok(Math.abs(run.player.x - 1180) < 4, 'the player remains safe during the observation')
+test('the captured Hurricane quarantine circuit closes, reopens and closes again with ordinary plate contacts', () => {
+  const recording = recordings.supersededQuarantine, level = recordedLevel(recording.file)
+  assert.ok(recording.reason?.trim() && recording.trace.length, 'preserve the superseded live-pursuit observation without claiming it still completes')
+  assert.equal(level.robots[0].kind, 'repulsor')
+  // Isolate the circuit from combat. The lower service route above still
+  // completes with the actual Rbot; the revised upper pursuit needs a new audit.
+  const run = createRun({ ...level, entrance: { x: 1180, y: 500 }, robots: [] })
+  for (let frame = 0; frame < 30; frame++) stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.forceFields[0].active, true)
 
   // Walk off and back onto the same toggle with ordinary analog steering.

@@ -50,16 +50,22 @@ export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
-/** Ending styles stay authored data, with a selectable edge guide in the studio. */
-export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk-off'): JumpLevel {
+/** Finish styles stay authored data, with selectable bounds in the studio. */
+export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk-off' | 'bus'): JumpLevel {
   const next = copyLevel(level)
   if (!next.goal) return level
   if (kind === 'walk-off') {
     const y = groundAt(levelTerrain(next), next.width - 32, next.goal.y, levelHeight(next))?.y ?? next.goal.y
     if (next.goal.id) removeSwitchTarget(next, next.goal.id)
-    next.goal = { x: next.width, y, kind, ...(next.goal.name ? { name: next.goal.name } : {}) }
+    next.goal = { x: next.width, y, kind, ...(next.goal.ending ? { ending: next.goal.ending } : {}), ...(next.goal.name ? { name: next.goal.name } : {}) }
+    next.timing = 'untimed'
+  } else if (kind === 'bus') {
+    const y = groundAt(levelTerrain(next), Math.min(next.width - 32, next.goal.x), next.goal.y, levelHeight(next))?.y ?? next.goal.y
+    if (next.goal.id) removeSwitchTarget(next, next.goal.id)
+    next.goal = { x: clamp(next.goal.x, 184, next.width - 76), y, kind, ...(next.goal.name ? { name: next.goal.name } : {}) }
     next.timing = 'untimed'
   } else {
+    delete next.goal.ending
     if (kind === 'overlook') { next.goal.kind = kind; next.timing = 'untimed'; delete next.goal.power }
     else delete next.goal.kind
     const bounds = goalBounds({ ...next.goal, x: 0, y: 0 })

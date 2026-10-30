@@ -1,5 +1,26 @@
 import { test, expect } from './helpers/test.mjs'
 
+test('the neck shaft and collar overlap as solid artwork in both facings and gravity frames', async ({ page }) => {
+  await page.goto('/lab/model-review')
+  const pixels = await page.evaluate(async () => {
+    const { createPlayer } = await import('/src/games/jumping/model.ts')
+    const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
+    const canvas = document.createElement('canvas'); canvas.width = 300; canvas.height = 1400
+    const ctx = canvas.getContext('2d'), pixels = []
+    for (const facing of [-1, 1]) for (const inverted of [false, true]) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.translate(150, 700); ctx.scale(10, 10)
+      const player = createPlayer(); player.facing = facing; player.inverted = inverted
+      drawAthlete(ctx, player, '#686b6e')
+      // These points belong to both the neck shaft and the flared collar.
+      // Opposite contour winding cuts white holes through their overlap.
+      for (const y of [-50.3, -50.2]) pixels.push([...ctx.getImageData(150, Math.round(700 + y * (inverted ? -10 : 10)), 1, 1).data])
+    }
+    return pixels
+  })
+  for (const pixel of pixels) expect(pixel).toEqual([101, 122, 112, 255])
+})
+
 test('model review synchronizes frozen and current artwork, supports inspection and keeps local notes', async ({ page }, info) => {
   await page.goto('/lab/model-review')
   const workspace = page.getByRole('region', { name: 'Player comparison', exact: true })

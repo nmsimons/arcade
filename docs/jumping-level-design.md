@@ -80,9 +80,10 @@ experience that payoff.
 Underground is a place, not a global time of day. Use authored cave back walls
 below the surface and open daylight above them, so climbing out reveals an
 actual change of enclosure. Preserve broad sky and playable natural ground for
-the final emergence. Exit ends by running off the right edge into continuing
-ground and sky. Keep that final approach open and readable in landscape and
-portrait views; it needs no training door, indicator, or separate finish action.
+the final emergence. Exit ends by walking aboard the waiting bus in the level.
+Keep that final approach open and readable in landscape and portrait views;
+the player retains control until boarding, without a training door or separate
+finish action. The bus departs in the same level view after boarding.
 An optional overlook finish can still offer a place to linger in other levels.
 Use the standard cavern back wall. Keep outdoors equally simple: flat blue sky
 and sparse clouds, with the playable terrain supplying the landscape. Light the
@@ -318,8 +319,11 @@ sound start its local wake-up while the player retains control. Leave a useful
 escape and readable space around its wider capsule; the pod artwork supplies
 no containment. Use a single installed unit when the story calls for one
 recurring hunter, rather than adding decorative copies of the adversary.
-The [final outdoor coda](jumping-campaign.md#finale-outside) still needs separate
-runtime support before authoring.
+The [final outdoor coda](jumping-campaign.md#finale-outside) uses an untimed
+bus goal and an in-place departure animation. Let the player linger before
+boarding; normal movement takes them aboard. The departure supplies the payoff
+after completion, with pause and skip available. It must not add a final skill
+gate or delay saving the completed escape.
 
 Build around the actual movement envelope. The wall grid uses 20-unit tiles;
 crouching fits a two-tile opening, and automatic step climbing reaches three

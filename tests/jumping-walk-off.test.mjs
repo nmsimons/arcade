@@ -60,9 +60,9 @@ test('the run-off marker stays on the edge when moved, and no door or indicator 
   assert.deepEqual(levelProblems(setFinish(door, 'walk-off')), [])
 })
 
-test('Exit ends on its continuous outdoor ground instead of its former door platform', () => {
+test('Exit uses a walk-in bus on its continuous outdoor ground', () => {
   const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/exit.jump-level.json', import.meta.url))))
-  assert.deepEqual(level.goal, { kind: 'walk-off', x: level.width, y: 2320 })
+  assert.deepEqual(level.goal, { kind: 'bus', x: level.width - 120, y: 2320 })
   assert.equal(level.timing, 'untimed'); assert.deepEqual(levelProblems(level), [])
   assert.ok(!level.platforms.some(b => b.x === 19780 && b.y === 2245), 'the raised door plinth is removed')
 })

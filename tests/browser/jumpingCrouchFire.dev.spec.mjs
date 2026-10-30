@@ -1,26 +1,33 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 import { goalDoor } from '../../src/games/jumping/goal.ts'
 
 const { level } = JSON.parse(readFileSync(new URL('../fixtures/jumping-lockout2-crouch.json', import.meta.url), 'utf8'))
 test('keyboard-only Lock Out II fires low from the pump plate and returns to the exit', async ({ page }, info) => {
-  test.setTimeout(120000)
+  test.setTimeout(240000)
   await page.setViewportSize({ width: 1440, height: 960 })
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
+  // Software renderers can draw only a few frames per second. A paused clock
+  // keeps gameplay time, input timing and polling independent of that speed.
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab?motionDebug=1')
-  await page.getByRole('button', { name: 'Play Lock Out II', exact: true }).click()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
-  await expect(page.locator('.jumping-state')).not.toHaveText('Entering the level', { timeout: 30000 })
+  const play = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
+  await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await play.click(); await finishJumpingEntrance(page)
   const motion = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
-  const until = predicate => expect.poll(async () => predicate(await motion()), { timeout: 15000, intervals: [25] }).toBe(true)
-  // The live game can advance less simulation time than wall time on a slow
-  // renderer. Pump filling, shot duration and cooldowns use gameplay time.
-  async function waitForGameplay(milliseconds) {
+  // Advance gameplay until the predicate holds, within a gameplay-time budget.
+  async function until(predicate, seconds = 15) {
     const start = (await motion()).time
-    await until(p => p.time >= start + milliseconds / 1000)
+    for (let p = await motion(); !predicate(p); p = await motion()) {
+      expect(p.time - start, `condition not met within ${seconds}s of gameplay: ${JSON.stringify({ x: p.x, y: p.y, signals: p.signals })}`).toBeLessThan(seconds)
+      await advanceJumpingSimulation(page, 48)
+    }
   }
+  // Pump filling, shot duration and cooldowns use gameplay time.
+  const waitForGameplay = milliseconds => advanceJumpingSimulation(page, milliseconds)
   async function tap(key, duration = 100) {
     await page.keyboard.down(key); await waitForGameplay(duration); await page.keyboard.up(key)
   }
@@ -31,7 +38,7 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   await page.keyboard.up('ArrowRight')
   await until(p => p.signals.grounded && Math.abs(p.y - 220) < 1)
   // Turn at crouch speed and observe the facing change rather than timing a
-  // running tap, which can walk off the pump before a slow poll returns.
+  // running tap, which could walk off the pump.
   await page.keyboard.down('ArrowDown'); await page.keyboard.down('ArrowLeft')
   await until(p => p.signals.facing === -1); await page.keyboard.up('ArrowLeft')
   await waitForGameplay(4500)
@@ -53,6 +60,8 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   await page.keyboard.down('Shift'); await until(p => p.x <= center + 10)
   await page.keyboard.up('ArrowLeft'); await page.keyboard.up('Shift')
   // Stay in the opening while the delivered float finishes settling.
-  await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible({ timeout: 20000 })
+  const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
+  for (let frame = 0; frame < 20 / .048 && !await complete.isVisible(); frame++) await advanceJumpingSimulation(page, 48)
+  await expect(complete).toBeVisible()
   expect(errors).toEqual([])
 })

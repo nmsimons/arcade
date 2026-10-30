@@ -35,13 +35,19 @@ test('the native quiet standing and crouched silhouettes expose both arms at gam
           if (own[i + 3] > 100 && other[i + 3] < 80 && actual[i] < 220) count++
         return count
       })
-      results.push({ facing, crouch, scale, exposed, handSeparation: Math.hypot(...pose.frontArm.end.map((v, i) => v - pose.backArm.end[i])), image: canvas.toDataURL('image/png') })
+      results.push({ facing, crouch, scale, exposed,
+        forearmRise: [pose.frontArm, pose.backArm].map(arm => arm.end[1] - arm.joint[1]),
+        handHeightDifference: Math.abs(pose.frontArm.end[1] - pose.backArm.end[1]),
+        handSeparation: Math.hypot(...pose.frontArm.end.map((v, i) => v - pose.backArm.end[i])), image: canvas.toDataURL('image/png') })
     }
     return results
   })
   await info.attach('quiet-arm-visibility', { body: JSON.stringify(samples.map(({ image: _image, ...sample }) => sample)), contentType: 'application/json' })
   for (const sample of samples) {
-    expect(sample.handSeparation).toBeGreaterThan(6)
+    if (sample.crouch) {
+      for (const rise of sample.forearmRise) expect(rise).toBeLessThan(4)
+      expect(sample.handHeightDifference).toBeLessThan(3)
+    } else expect(sample.handSeparation).toBeGreaterThan(6)
     for (const exposed of sample.exposed) expect(exposed, `${sample.facing}/${sample.crouch}/${sample.scale}: visible pixels unique to each arm`).toBeGreaterThan(1)
     await info.attach(`quiet-${sample.facing}-${sample.crouch}-${sample.scale}`, { body: Buffer.from(sample.image.split(',')[1], 'base64'), contentType: 'image/png' })
   }

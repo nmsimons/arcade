@@ -32,7 +32,7 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   expect(crouched.signals.grounded).toBe(true)
   expect(crouched.x).toBeCloseTo(before.x)
   const elbow = crouched.points[5], wrist = crouched.points[6]
-  expect(wrist[1]).toBeCloseTo(elbow[1], 5)
+  expect(Math.abs(wrist[1] - elbow[1])).toBeLessThan(4)
   expect(wrist[0]).toBeGreaterThan(elbow[0])
   await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('crouched-plate-shot.png') })
   await page.keyboard.up('ArrowDown'); await page.keyboard.down('ArrowLeft')

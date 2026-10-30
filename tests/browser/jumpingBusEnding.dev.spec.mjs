@@ -16,7 +16,10 @@ test('Exit plays its bus payoff, pauses, resumes the scene, and completes after 
   await play.click(); await finishJumpingEntrance(page)
   await page.keyboard.down('ArrowRight')
   const status = page.getByRole('status', { name: 'Bus departure', exact: true })
-  await expect.poll(async () => { await page.clock.runFor(100); return status.count() }, { intervals: [0] }).toBe(1)
+  // Bound simulation travel rather than a five-second wall-clock poll: full
+  // lighting is slower in CI's software renderer, while the route is identical.
+  for (let elapsed = 0; elapsed < 8000 && !await status.count(); elapsed += 100) await page.clock.runFor(100)
+  await expect(status).toHaveCount(1)
   await page.keyboard.up('ArrowRight')
   expect(await page.evaluate(id => JSON.parse(localStorage.getItem('arcade.jumping.completed.v1'))[id], level.id)).toBe(true)
   await expect(status).toHaveText('Settling into the back seat')

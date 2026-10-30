@@ -90,7 +90,8 @@ for (const size of sizes) for (const night of [false, true]) for (const kind of 
       for (let i = 0; i < 80; i++) { await page.clock.runFor(32); p = await sample(page); if (p.signals.grounded && p.y === 1000) break }
       expect(p.y).toBe(1000); expect(p.signals.grounded).toBe(true)
       await checkpoint('missed-jump-recovery-ladder', [560, 920])
-      for (let i = 0; i < 80 && p.x > 573; i++) { await page.clock.runFor(16); p = await sample(page) }
+      // First Gap's shallow recovery pool slows the walk to its ladder.
+      for (let i = 0; i < 240 && p.x > 573; i++) { await page.clock.runFor(16); p = await sample(page) }
       await page.keyboard.up('a'); await page.keyboard.down('w'); await page.clock.runFor(160)
       expect((await sample(page)).signals.mode).toBe('ladder')
       await checkpoint('ladder-acquisition', [560, 600])

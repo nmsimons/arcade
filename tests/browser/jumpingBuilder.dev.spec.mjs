@@ -1182,7 +1182,7 @@ test('the Node tool stays active for insertion and shaping with Keep placing off
   await nodeTool.click()
   await expect(page.getByRole('button', { name: 'Add at view center', exact: true })).toHaveCount(0)
   await dragWorld(page, { x: 100, y: 200 }, { x: 100, y: 200 })
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Click a terrain edge')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Click a shape edge')
   await expect(nodeTool).toHaveAttribute('aria-pressed', 'true')
   await dragWorld(page, { x: 431, y: 403 }, { x: 431, y: 403 })
   const inserted = (await saveTestLevel(page)).level

@@ -332,13 +332,20 @@ Give ledge hangs and pull-ups room. Test rope exits where the rope meets a slope
 Treat a pool as a space with a visible, usable exit. Give its rim an exposed
 grippable edge and room for the player's body and landing, or provide a lower
 bank or ladder. Test reaching and pulling out from the water with normal controls;
-a nearby top surface alone does not establish an exit. Consider floating props,
-a blocked pull-up when reviewing recovery. Water is always present; switches and
-EMPs cannot empty the pool.
+a nearby top surface alone does not establish an exit. Consider floating props
+and blocked pull-ups when reviewing recovery. Power loss does not remove water;
+authored Fill and Drain inputs change its height. Test both working watermarks.
 Give water physical containment: a visible basin floor and banks that reach its
 waterline. Compose the reservoir and its access together, including ramps or
 steps where the lower route enters and leaves it. An open water rectangle with
 no containing architecture does not read as a pool.
+
+When a float-delivery puzzle uses a standing firing position, align the float's
+settled center with the tool's actual firing height. Keep the working walkway
+shallow enough for dependable footing at high water, and test returning to it
+after jumping or leaving a service platform. Refilling should offer a deliberate
+retry when a delivery misses its receiver.
+
 Flooded passages can place coins and other pickups below the surface. Give the
 player room to dive, turn, and stop beside the item; submerged steering maintains
 depth and release eases into an upright float after a short glide. Test the passage in both directions

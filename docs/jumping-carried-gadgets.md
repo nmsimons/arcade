@@ -154,6 +154,12 @@ current facing direction. Fire remains an independent fresh action and works
 while moving or standing, subject to hand support, power, cooldown, and clearance.
 There is no separate right-stick, mouse-pointer, Q, or left-trigger aiming path.
 
+On supported footing, the direction used to crouch lowers horizontal fire
+instead of aiming into the supporting surface. Hold Down to duck and fire level
+on ordinary ground; Up does the same on inverted footing. This keeps a pressure
+plate loaded while taking a lower shot. Aiming away from the support still works,
+and airborne or freely swimming Up/Down retain their vertical aiming directions.
+
 The displayed upper arm and forearm ease toward the selected pose together,
 using the shortest angular path. The sleeve attaches to those same displayed
 bones, so it never slides independently of the arm. Direction selection and

@@ -1,5 +1,6 @@
 import type { Prop, Run } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
+import { wantsCrouch } from './model.ts'
 import { lineBlocked, nearestBoundary, polygonIntersects, polygonPoints } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { ballShape, boxShape, propHeight } from './propGeometry.ts'
@@ -163,7 +164,11 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
   if (prop) {
     const previousPresentation = p.heldTool?.presentation
     const supporting = rightArmSupporting(p)
-    const ax = input.aimX ?? Math.sign(input.move), ay = input.aimY ?? (Number(!!input.descend) - Number(input.climb))
+    const ax = input.aimX ?? Math.sign(input.move), vertical = input.aimY ?? (Number(!!input.descend) - Number(input.climb))
+    // A supported duck lowers horizontal fire. Its posture direction should
+    // not point the sleeve into the same floor the player is crouching on.
+    const ducking = p.grounded && (p.crouching || wantsCrouch(input, !!p.inverted))
+    const ay = ducking && vertical * (p.inverted ? -1 : 1) > 0 ? 0 : vertical
     const aiming = !supporting && Math.hypot(ax, ay) > .001
     const angle = aiming ? Math.round(Math.atan2(ay, ax) / (Math.PI / 4)) * (Math.PI / 4) : p.facing < 0 ? Math.PI : 0
     const facing = aiming && Math.abs(Math.cos(angle)) > .01 ? Math.sign(Math.cos(angle)) : p.facing

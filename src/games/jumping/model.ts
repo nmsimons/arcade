@@ -43,6 +43,10 @@ export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number 
 interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
+export function wantsCrouch(input: JumpInput, inverted = false) {
+  const down = !!(input.descend ?? (input.drop && !input.detach))
+  return inverted ? input.climb || input.crouch && !down && !input.drop : input.crouch || down
+}
 export interface GaitPose { speed: number; moving: number; run: number; air: number; jog?: number }
 export function gaitPose(vx: number, airborne = false): GaitPose {
   const smooth = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
@@ -862,8 +866,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const bodyClimb = frameDirection > 0 ? input.climb : screenDown
   const bodyDescend = frameDirection > 0 ? screenDown : input.climb
   const bodyDrop = bodyDescend || input.detach || input.drop && !screenDown
-  const bodyCrouch = frameDirection > 0 ? input.crouch || bodyDescend
-    : bodyDescend || input.crouch && !screenDown && !input.drop
+  const bodyCrouch = wantsCrouch(input, frameDirection < 0)
   p.ladderJumpGrace = p.grounded || p.hang || p.mantle || p.climbing || input.detach
     ? 0 : Math.max(0, p.ladderJumpGrace - dt)
   p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt

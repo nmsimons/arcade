@@ -68,7 +68,7 @@ for (const { recording, historical } of routes) test(`${historical ? 'captured' 
   const weighted = plate => run.props.filter(prop => propLoadsPlate(prop, plate.x, plate.y, plate.w, plate.ceiling))
   for (const { frames, input } of recording.trace) {
     assert.ok(Number.isInteger(frames) && frames > 0)
-    assert.ok(Object.keys(input).every(key => key in NEUTRAL_INPUT || key === 'jumpStrength'))
+    assert.ok(Object.keys(input).every(key => key in NEUTRAL_INPUT || ['jumpStrength', 'interact', 'use'].includes(key)))
     if (input.jump && jumpModel === 'recorded-impulses') assert.ok(input.jumpStrength >= 0 && input.jumpStrength <= 1)
     if (jumpModel === 'tap-hold') assert.equal('jumpStrength' in input, false)
     const controls = { ...NEUTRAL_INPUT, ...input }

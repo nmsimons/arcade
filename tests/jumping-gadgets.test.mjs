@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { createPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { addItem, duplicateItem, deleteItem } from '../src/games/jumping/editor.ts'
-import { heldToolFrame, toolShape, pulseHit, cancelGadgetInput, finishGadgetMotion } from '../src/games/jumping/gadgets.ts'
+import { heldToolFrame, toolShape, pulseHit, cancelGadgetInput, finishGadgetMotion, prepareGadgets } from '../src/games/jumping/gadgets.ts'
 import { polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { athletePose, presentedAthletePose, drawAthlete } from '../src/games/jumping/athlete.ts'
 import { createJumpController } from '../src/games/jumping/input.ts'
@@ -68,6 +68,43 @@ test('directions aim and move together, with horizontal hip fire when released',
   const before = run.player.x
   tick(run, 20, { move: 1 })
   assert.ok(run.player.x > before + 30, 'no mode-exit release requirement delays movement')
+})
+
+test('grounded Down crouches and fires horizontally at a low target without releasing its plate', () => {
+  for (const facing of [-1, 1]) {
+    const level = scene([gadget('repulsor', 410), { kind: 'ball', x: 400 + facing * 200, y: 920, size: 24 }])
+    level.entrance = { x: 400, y: 920 }
+    level.triggers = [{ x: 340, y: 920, w: 120, mode: 'weight', targets: [] }]
+    const run = createRun(level)
+    pickup(run); tick(run, 1, { move: facing }); tick(run, 30)
+    const duck = { crouch: true, descend: true, drop: true, aimX: 0, aimY: 1 }
+    tick(run, 40, duck)
+    const before = run.player.x
+    assert.ok(run.player.crouching && run.player.grounded && run.triggers[0].active)
+    tick(run, 1, { ...duck, use: true })
+    const pulse = run.gadgets.pulses.at(-1)
+    assert.equal(run.gadgets.shots, 1)
+    assert.ok(Math.abs(pulse.to[1] - pulse.from[1]) < 1e-6)
+    assert.ok(run.props.find(p => p.kind === 'ball').vx * facing > 50)
+    assert.ok(run.triggers[0].active && Math.abs(run.player.x - before) < .01)
+    assert.ok(pulse.from[1] > run.player.y - 20, 'the low shot follows the crouched forearm')
+  }
+})
+
+test('ducking follows the supporting gravity direction; free-flight Down and Up aiming remain available', () => {
+  for (const inverted of [false, true]) {
+    const run = createRun(scene()); pickup(run)
+    run.player = Object.assign(createPlayer({ x: 500, y: 400 }), { inverted, grounded: true, crouching: true, crouch: 1 })
+    const vertical = inverted ? -1 : 1
+    const duck = { ...NEUTRAL_INPUT, climb: inverted, descend: !inverted, crouch: !inverted, aimX: 0, aimY: vertical }
+    prepareGadgets(run, duck, STEP)
+    assert.equal(run.gadgets.angle, 0, 'the duck direction keeps horizontal fire on supported footing')
+    prepareGadgets(run, { ...duck, aimY: -vertical }, STEP)
+    assert.equal(run.gadgets.angle, -vertical * Math.PI / 2, 'aiming away from the support still works')
+    run.player.grounded = false
+    prepareGadgets(run, duck, STEP)
+    assert.equal(run.gadgets.angle, vertical * Math.PI / 2, 'an airborne or freely swimming player retains vertical aim')
+  }
 })
 
 for (const mode of ['objects', 'player']) test(`rifle pulse ${mode === 'objects' ? 'stops at red' : 'passes through blue'} fields`, () => {

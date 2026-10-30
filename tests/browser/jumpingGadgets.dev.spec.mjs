@@ -80,9 +80,9 @@ test('keyboard movement aims in eight directions, red fields detach, and restart
   expect(errors).toEqual([])
 })
 
-test('controller snaps to eight directions while moving and keeps the sleeve upright through turns', async ({ page }, info) => {
+test('controller directional aim includes low crouched fire and keeps the sleeve upright through turns', async ({ page }, info) => {
   await open(page, fixture(), true); await tap(page, 2)
-  for (const [degrees, snapped] of [[-17, 0], [-33, -45], [-80, -90], [-121, -135], [-163, -180], [12, 0], [37, 45], [80, 90], [137, 135]]) {
+  for (const [degrees, snapped] of [[-17, 0], [-33, -45], [-80, -90], [-121, -135], [-163, -180], [12, 0], [37, 45], [80, 0], [137, 135]]) {
     const angle = degrees * Math.PI / 180
     const before = await motion(page)
     await page.evaluate(angle => { window.testPad.axes = [Math.cos(angle) * .8, Math.sin(angle) * .8, 0, 0] }, angle)

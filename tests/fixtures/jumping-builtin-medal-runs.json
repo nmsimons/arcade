@@ -22,10 +22,6 @@
       "reason": "New authored Lock Out I course; a completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "Lock Out 2.jump-level.json",
-      "reason": "New authored Lock Out II course; a completed fresh-start player route and medal timing audit are pending."
-    },
-    {
       "file": "Quarantine II.jump-level.json",
       "reason": "New authored Quarantine II course; Rbot water recovery has regression coverage, but a completed fresh-start player route and medal timing audit are pending."
     },
@@ -4095,6 +4091,103 @@
           "input": {
             "move": 1
           }
+        }
+      ]
+    },
+    {
+      "file": "Lock Out 2.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 15.166666666666446,
+      "activeTime": 16.024999999999732,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 45,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "interact": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 427,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 501,
+          "input": {}
+        },
+        {
+          "frames": 40,
+          "input": {
+            "crouch": true,
+            "descend": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "crouch": true,
+            "descend": true,
+            "drop": true,
+            "use": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {
+            "crouch": true,
+            "descend": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "crouch": true,
+            "descend": true,
+            "drop": true,
+            "use": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {
+            "crouch": true,
+            "descend": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 472,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 193,
+          "input": {}
         }
       ]
     }

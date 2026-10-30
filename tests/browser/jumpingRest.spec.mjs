@@ -33,7 +33,12 @@ for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into 
   expect(settled.vx).toBe(0); expect(points(settled)).toEqual(points(initial))
   await page.keyboard.down('s'); await page.clock.runFor(600)
   const crouched = await latest()
-  expect(hands(crouched)).toBeGreaterThan(6)
+  // Both relaxed forearms are raised in the approved crouch. Their hands
+  // share a height instead of the old far hand hanging between the legs.
+  for (const [elbow, hand] of [[3, 4], [5, 6]]) {
+    expect(crouched.points[hand][1] - crouched.points[elbow][1]).toBeLessThan(4)
+  }
+  expect(Math.abs(crouched.points[4][1] - crouched.points[6][1])).toBeLessThan(3)
   expect(crouched.signals.grounded).toBe(true)
   expect(crouched.contacts.feet.every(foot => foot.planted)).toBe(true)
   for (let second = 0; second < 10; second++) {

@@ -25,7 +25,7 @@ import { SHOVE_RECOVERY } from './shove.ts'
 import { createImpactRagdoll, stepImpactRagdoll } from './impactRagdoll.ts'
 import type { ImpactJoint, ImpactKind } from './impactRagdoll.ts'
 
-type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
+type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number; slideContact?: boolean }
 export type AthletePose = {
   hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg
   sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point
@@ -1582,7 +1582,8 @@ export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFram
     }
     pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
     pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
-    return pose
+    // The continuity budget includes the final ankle correction as well.
+    return articulateAnkles(p, pose)
   }
   const points = (pose: AthletePose) => [pose.hip, pose.waist, pose.shoulder, pose.head,
     ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb =>
@@ -2462,7 +2463,7 @@ function articulateAnkles(p: Player, source: AthletePose): AthletePose {
     let candidate: Leg | undefined
     const wallContact = (p.wallBrace?.feet[i] ?? 0) > 0
     const grounded = p.grounded && !p.waterMotion?.landing
-    const supported = grounded || leg.planted || wallContact
+    const supported = grounded || leg.planted || wallContact || leg.slideContact
     if (supported) {
       // Foot-facing passes continuously through zero during a turn. Use that
       // profile in the knee constraint as well, rather than flipping its side.
@@ -2471,7 +2472,7 @@ function articulateAnkles(p: Player, source: AthletePose): AthletePose {
       const bent = bend && { ...leg, ...bend }
       if (bent && limbClearance(clearancePlayer(), bent, { fullLeg: true }).clear(bent)) candidate = bent
     }
-    if (!candidate && !leg.planted && !wallContact) {
+    if (!candidate && !leg.planted && !wallContact && !leg.slideContact) {
       if (delta >= -ANKLE_FLEX_LIMIT) continue
       candidate = { ...leg, footAngle: leg.footAngle + (Math.max(-ANKLE_FLEX_LIMIT, Math.min(Math.PI / 2, delta)) - delta) * facing }
       const edge = p.mantle ?? p.hang
@@ -3077,7 +3078,9 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
     // project them fully onto a plane extending beyond a round obstacle.
     if (above < 2.8) { target[0] += nx * p.facing * (2.8 - above) * weight; target[1] += ny * (2.8 - above) * weight }
     const limb = solve(add(hip, [0, 1]), target, 15, 14.5, -1, MIN_KNEE_OPENING)
-    return { ...limb, footAngle: lerp(original.footAngle, poseAngle * p.facing, weight), toeAngle: original.toeAngle * (1 - weight), footFacing: 1, planted: false }
+    // A settled sliding sole stays on its plane while moving along it.
+    // Keep planted false so turns can blend the ankle instead of pinning it.
+    return { ...limb, footAngle: lerp(original.footAngle, poseAngle * p.facing, weight), toeAngle: original.toeAngle * (1 - weight), footFacing: 1, planted: false, slideContact: weight === 1 }
   }
   const armRoot = add(shoulder, [0, .7])
   const frontArm = armPose(armRoot, .08 + speed * .16 + effort * .32 + correction * .015, .2 + speed * .55 + effort * .9)

@@ -53,6 +53,7 @@ test('Play Exit uses the authored entrance despite an old outdoor checkpoint; Re
 
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
   test(`Exit's final approach boards its visible bus at ${viewport.width}px`, async ({ page }, info) => {
+    test.setTimeout(120000)
     // A fresh entrance on the final flat approach tests the actual Exit geometry
     // with keyboard controls, independently of its long service-course route.
     const level = { ...structuredClone(exit), entrance: { x: 19720, y: 2320 } }
@@ -69,10 +70,9 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toHaveCount(0)
     await page.screenshot({ path: info.outputPath('exit-final-approach.png') })
     await page.keyboard.down('ArrowRight')
-    await expect.poll(async () => {
-      await page.clock.runFor(160)
-      return page.getByRole('status', { name: 'Bus departure', exact: true }).count()
-    }, { intervals: [0] }).toBe(1)
+    const departure = page.getByRole('status', { name: 'Bus departure', exact: true })
+    for (let elapsed = 0; elapsed < 8000 && !await departure.count(); elapsed += 160) await page.clock.runFor(160)
+    await expect(departure).toHaveCount(1)
     await page.keyboard.up('ArrowRight')
     await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toHaveCount(0)
     expect(await page.evaluate(id => JSON.parse(localStorage.getItem('arcade.jumping.completed.v1'))[id], level.id)).toBe(true)

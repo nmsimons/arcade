@@ -43,9 +43,16 @@ for (const [file, name] of [['00.json', 'First Gap'], ['02.json', 'A Little Swin
       await page.clock.runFor(32); p = await sample(page)
       if (p.signals.grounded && p.y === 1000) break
     }
-    expect(p.signals.grounded).toBe(true); expect(p.y).toBe(1000)
+    if (file === '02.json') {
+      // This authored recovery area is now a deep pool; the player swims to
+      // the same ladder instead of walking its submerged floor.
+      expect(p.waterCenter).toBeGreaterThanOrEqual(720)
+      expect(p.y).toBeLessThan(1000)
+    } else { expect(p.signals.grounded).toBe(true); expect(p.y).toBe(1000) }
     await page.screenshot({ path: info.outputPath('recovery-floor-hint.png') })
-    for (let i = 0; i < 80 && p.x > 573; i++) {
+    // The authored recovery floor is now shallow water, so this approach walks
+    // at water speed. Keep the same ladder and full recovery assertions.
+    for (let i = 0; i < 240 && p.x > 573; i++) {
       await page.clock.runFor(16); p = await sample(page)
     }
     expect(p.x).toBeGreaterThan(540); expect(p.x).toBeLessThanOrEqual(573)

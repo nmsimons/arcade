@@ -2,6 +2,8 @@ import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
+import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
+import { DIGITAL_AMBER } from '../../src/games/jumping/digitalDisplay.ts'
 
 // These route regressions start from an already unlocked campaign.
 test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
@@ -12,26 +14,7 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   test.setTimeout(180000)
   const errors = [], checkpoints = []
   page.on('pageerror', error => errors.push(error.message))
-  // Gravity changes can clear the diagnostic stream between physics steps.
-  // Force one such observation gap without changing the player or scored time.
-  await page.addInitScript(() => {
-    let monitor, gap = true
-    Object.defineProperty(window, 'jumpingMotion', {
-      configurable: true, get: () => monitor,
-      set(value) {
-        const read = value.read
-        value.read = () => {
-          const state = read()
-          if (gap && state.recent.length) {
-            gap = false; window.buoyancyObservationGap = true
-            return { ...state, recent: [] }
-          }
-          return state
-        }
-        monitor = value
-      },
-    })
-  })
+  await installDigitalClockSpy(page)
   await page.setViewportSize({ width: 852, height: 393 })
   await page.clock.install({ time: new Date('2026-10-10T12:00:00Z') })
   await page.goto('/lab/levels/built-in/buoyancy.jump-level.json?motionDebug=1')
@@ -39,6 +22,21 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
     await finishJumpingEntrance(page)
   await page.clock.runFor(64)
+  // Install after the entrance: React's development effect cleanup replaces
+  // the monitor during mount, so an init-script setter would be discarded.
+  // Force an observation gap without changing the player or scored time.
+  await page.evaluate(() => {
+    const monitor = window.jumpingMotion, read = monitor.read
+    let gap = true
+    monitor.read = () => {
+      const state = read()
+      if (gap && state.recent.length) {
+        gap = false; window.buoyancyObservationGap = true
+        return { ...state, recent: [] }
+      }
+      return state
+    }
+  })
   let held = new Set()
   const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   async function keys(wanted) {
@@ -67,19 +65,25 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   await steer(['d'], p => p.x >= 1020, 'move the heavy ball off the pump switch')
   await steer(['w'], p => p.y <= 705, 'rise with the filling pool', { budget: 10000 })
   await page.screenshot({ path: info.outputPath('filled-pool.png') })
-  await steer(['d'], p => p.x >= 1215, 'collect the stopwatch')
-  await steer(['d', 'w', 'Space'], p => p.y < 530, 'jump toward the right bank')
+  // Observe the watch's actual effect; the larger floating cargo changes how
+  // closely the player can approach its center before jumping toward the bank.
+  const clockStopped = () => page.locator('.jumping-game > canvas').evaluate((canvas, amber) =>
+    canvas.digitalClocks?.some(clock => clock.color === amber), DIGITAL_AMBER)
+  await steer(['d'], clockStopped, 'collect the stopwatch')
+  await steer(['d', 'w', 'Space'], p => p.x >= 1300 && (p.y < 530 || p.signals.mode === 'hang'), 'jump toward the right bank')
   await steer(['d', 'w'], p => p.x >= 1485 && p.signals.grounded && p.y < 570, 'collect the nine-second bonus')
   await steer(['a'], p => p.x <= 1420, 'take off from the right bank')
   await keys(['a', 'Space']); await page.clock.runFor(272)
   await steer(['a'], p => p.x <= 870 && p.y >= 705, 'return to the pool')
   await steer(['w'], p => p.y <= 685, 'rise beside the floating cargo')
   await steer(['a'], p => p.x <= 335, 'deliver floating balls above the exit switch')
-  await keys([]); await page.clock.runFor(960)
+  // The floats can settle while we return for the heavy ball; no idle wait is
+  // needed here now that the larger cargo has reached the receiving bank.
+  await keys([]); await page.clock.runFor(64)
   await page.screenshot({ path: info.outputPath('delivered-floats.png') })
   await steer(['d'], p => p.x >= 977, 'return through the gap between islands')
   await steer(['s'], p => p.y >= 850, 'dive below the right island')
-  await steer(['d'], p => p.x >= 1120, 'approach the heavy ball from the right')
+  await steer(['d', 's'], p => p.x >= 1120, 'approach the heavy ball from the right')
   await steer(['s'], p => p.signals.grounded && p.y >= 1150, 'land on the pool bottom')
   await steer(['a'], p => p.x <= 1007, 'restore the heavy ball to the drain switch')
   await steer(['w'], p => p.y <= 892, 'rise while the cargo settles on the exit switch')

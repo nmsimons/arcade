@@ -18,7 +18,9 @@ for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 
   const until = predicate => expect.poll(async () => predicate(await motion()), { timeout: 15000, intervals: [25] }).toBe(true)
   const key = async (code, ms) => { await page.keyboard.down(code); await page.waitForTimeout(ms); await page.keyboard.up(code) }
   await canvas.screenshot({ path: info.outputPath('lockout2-dry-overview.png') })
-  await page.keyboard.down('ArrowRight'); await until(p => p.x >= 210); await page.keyboard.up('ArrowRight')
+  // Walk into pickup range so a slow observer cannot run past the sleeve.
+  await page.keyboard.down('Shift'); await page.keyboard.down('ArrowRight'); await until(p => p.x >= 205)
+  await page.keyboard.up('ArrowRight'); await page.keyboard.up('Shift')
   await key('e', 80)
   await page.keyboard.down('ArrowRight'); await until(p => p.x >= 1680); await page.keyboard.up('ArrowRight')
   await page.waitForTimeout(2200)
@@ -29,9 +31,15 @@ for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 
   expect(stance.y).toBeCloseTo(260)
   await canvas.screenshot({ path: info.outputPath('lockout2-full-reservoir.png') })
   await key('f', 160); await page.waitForTimeout(1450)
-  await page.keyboard.down('ArrowRight'); await until(p => p.x >= 1220)
-  await page.keyboard.down('Space'); await until(p => p.x >= 1340 && p.y <= 125)
-  await page.keyboard.up('Space'); await page.keyboard.up('ArrowRight')
+  // Jump before moving beneath the overhang. Separate input calls and live
+  // polling can otherwise carry the player past the takeoff in software CI.
+  await page.keyboard.down('Space'); await page.keyboard.down('ArrowRight')
+  await until(p => p.signals.mode === 'hang' || p.signals.grounded && p.y <= 125)
+  await page.keyboard.up('ArrowRight')
+  await page.keyboard.up('Space')
+  await page.keyboard.down('Shift'); await page.keyboard.down('ArrowUp'); await page.keyboard.down('ArrowRight')
+  await until(p => p.x >= 1340 && p.y <= 125)
+  await page.keyboard.up('ArrowRight'); await page.keyboard.up('ArrowUp'); await page.keyboard.up('Shift')
   await until(p => p.signals.grounded && Math.abs(p.y - 125) < 1)
   await page.waitForTimeout(2400)
   await canvas.screenshot({ path: info.outputPath('lockout2-drained-receiver.png') })

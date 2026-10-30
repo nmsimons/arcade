@@ -4326,7 +4326,8 @@
       "y": 4000,
       "w": 100,
       "targets": [
-        "d56c494b-8da3-4e89-90b7-28c8b5c03a41:drain"
+        "d56c494b-8da3-4e89-90b7-28c8b5c03a41:drain",
+        "d56c494b-8da3-4e89-90b7-28c8b5c03a41:fill"
       ],
       "mode": "touch"
     }
@@ -4409,7 +4410,10 @@
       "h": 815,
       "gravity": -1,
       "effect": "water",
-      "waterMinLevel": 10
+      "waterMinLevel": 10,
+      "fill": {
+        "switchReversed": true
+      }
     }
   ],
   "forceFields": [],

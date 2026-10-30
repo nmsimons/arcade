@@ -1436,6 +1436,13 @@ anchor. Nearly horizontal spans retain their last material direction. A player's
 load uses the gravity averaged across their body, scaled to the rope's existing
 baseline, independently of the field at their hands. The anchor stays fixed.
 
+Sideways steering applies a finite weight-shift impulse. Starting a swing or
+shifting with its motion gets a stronger push; counter-steering retains its
+existing braking strength. Holding a direction supplies no continuing motor
+force, so building amplitude still rewards timed shifts. Settled free hangs coast
+with less drag. Climbing, wall bracing, unoccupied rope damping and sleeping,
+contact friction, grip geometry and release momentum rules remain unchanged.
+
 Free rope hangs retain softly bent elbows, relaxed knees and staggered feet.
 Two damped body followers respond to acceleration at the retained material grip:
 the pelvis lags changes in travel and the legs settle later. Constant velocity

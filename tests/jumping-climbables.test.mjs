@@ -227,7 +227,9 @@ test('pumping gathers the legs and bends the waist before the rope has built spe
     const resting = athletePose(p)
     advance(p, .12, { move })
     const early = athletePose(p)
-    assert.ok(early.frontLeg.end[1] - early.hip[1] < resting.frontLeg.end[1] - resting.hip[1] - 8)
+    // Follow-through rotates the pelvis as the swing accelerates. Measure the
+    // knee's gathering rather than its projection onto the world's vertical.
+    assert.ok(distance(resting.frontLeg.root, resting.frontLeg.end) - distance(early.frontLeg.root, early.frontLeg.end) > 6)
     const chest = Math.atan2(early.waist[0] - early.shoulder[0], early.waist[1] - early.shoulder[1])
     const pelvis = Math.atan2(early.hip[0] - early.waist[0], early.hip[1] - early.waist[1])
     assert.ok((pelvis - chest) * move > .25, 'the early tuck must flex through the waist')

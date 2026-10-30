@@ -318,7 +318,9 @@ test('Spelunk III: keyboard play climbs the whole cave, reveals the exterior con
   await climbLadder(1700, 1000)
   await page.screenshot({ path: info.outputPath('spelunk-iii-cave-mouth.png') })
   await moveTo(2200); await page.screenshot({ path: info.outputPath('spelunk-iii-emergence.png') })
-  await moveTo(5685); await keys('ArrowUp')
+  // Walk in with Up held. The overlook finishes as the player enters its
+  // window, so a slow live observer cannot carry the player past it.
+  await moveTo(5560); await keys('ArrowRight', 'Shift', 'ArrowUp')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible({ timeout: 30000 })
   await keys()
   await page.screenshot({ path: info.outputPath('spelunk-iii-finish-landscape.png') })

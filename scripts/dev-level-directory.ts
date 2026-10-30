@@ -1,10 +1,11 @@
 import { constants } from 'node:fs'
-import { lstat, mkdir, open, readdir, realpath, rename, rmdir, unlink } from 'node:fs/promises'
+import { lstat, mkdir, open, readdir, realpath, rmdir, unlink } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { LocalDirectory, LocalFileHandle } from '../src/games/jumping/levelFiles.ts'
 import { isLevelFileName } from '../src/games/jumping/levelAssets.ts'
 import { MAX_LEVEL_BYTES, textBytes } from '../src/games/jumping/levelLimits.ts'
+import { replaceDevLevelFile } from './dev-level-write.ts'
 
 const recoveryName = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z-[\da-f-]{36}$/i
 const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT'
@@ -89,8 +90,9 @@ export async function devLevelDirectory(project: string): Promise<LocalDirectory
                 const file = await open(temporary, 'wx', 0o600)
                 try {
                   await file.writeFile(staged); await file.close()
-                  if (await read(target) !== before) throw new Error('This file changed on disk. Refresh before saving.')
-                  await rename(temporary, target)
+                  await replaceDevLevelFile(temporary, target, before, staged, async () => {
+                    if (await read(target) !== before) throw new Error('This file changed on disk. Refresh before saving.')
+                  })
                 } finally { await file.close(); await unlink(temporary).catch(() => {}) }
               },
             }

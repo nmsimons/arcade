@@ -1,0 +1,817 @@
+{
+  "version": 1,
+  "date": "2026-10-29",
+  "file": "Lock Out 2.jump-level.json",
+  "level": {
+    "version": 2,
+    "id": "dbf1b51d-bf10-4c7a-aa35-0d769445c766",
+    "name": "Lock Out II",
+    "width": 1800,
+    "height": 920,
+    "platforms": [
+      {
+        "x": 1340,
+        "y": 220,
+        "w": 460,
+        "h": 700,
+        "polygon": [
+          [
+            460,
+            700
+          ],
+          [
+            0,
+            700
+          ],
+          [
+            0,
+            40
+          ],
+          [
+            143.75,
+            0
+          ],
+          [
+            460,
+            0
+          ]
+        ],
+        "bezier": [
+          null,
+          null,
+          {
+            "in": [
+              0,
+              220
+            ],
+            "out": [
+              70,
+              -40
+            ],
+            "mode": "corner"
+          },
+          {
+            "in": [
+              -33.75,
+              0
+            ],
+            "out": [
+              105.41666666666667,
+              0
+            ],
+            "mode": "corner"
+          },
+          null
+        ],
+        "name": "Pump and exit bank"
+      },
+      {
+        "x": 0,
+        "y": 220,
+        "w": 460,
+        "h": 700,
+        "polygon": [
+          [
+            0,
+            700
+          ],
+          [
+            460,
+            700
+          ],
+          [
+            460,
+            40
+          ],
+          [
+            316.25,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "bezier": [
+          null,
+          null,
+          {
+            "in": [
+              0,
+              220
+            ],
+            "out": [
+              -70,
+              -40
+            ],
+            "mode": "corner"
+          },
+          {
+            "in": [
+              33.75,
+              0
+            ],
+            "out": [
+              -105.41666666666669,
+              0
+            ],
+            "mode": "corner"
+          },
+          null
+        ],
+        "name": "Arrival bank"
+      },
+      {
+        "name": "Receiving tray and guide ramp",
+        "x": 460,
+        "y": 410,
+        "w": 340,
+        "h": 105,
+        "profile": [
+          [
+            0,
+            70
+          ],
+          [
+            200,
+            70
+          ],
+          [
+            340,
+            0
+          ]
+        ],
+        "material": "steel"
+      },
+      {
+        "name": "Receiving tray rim",
+        "x": 780,
+        "y": 320,
+        "w": 20,
+        "h": 195,
+        "material": "steel"
+      },
+      {
+        "name": "Drain service platform",
+        "x": 1260,
+        "y": 125,
+        "w": 200,
+        "h": 20,
+        "material": "steel"
+      },
+      {
+        "name": "Pump ball stop",
+        "x": 1770,
+        "y": 155,
+        "w": 30,
+        "h": 65,
+        "material": "steel"
+      }
+    ],
+    "entrance": {
+      "x": 165,
+      "y": 220
+    },
+    "checkpoints": [],
+    "climbables": {
+      "ladders": [],
+      "ropes": []
+    },
+    "floor": 920,
+    "goal": {
+      "x": 1760,
+      "y": 220,
+      "flipX": true,
+      "id": "94cd8996-52c4-45fd-ac97-f8f0e536990c",
+      "power": "switched",
+      "name": "Transfer interlock exit",
+      "wireTerminal": {
+        "x": 1600,
+        "y": 180
+      }
+    },
+    "times": {
+      "a": 20,
+      "b": 35,
+      "c": 60,
+      "d": 100
+    },
+    "props": [
+      {
+        "name": "Pump ballast",
+        "kind": "ball",
+        "x": 1540,
+        "y": 220,
+        "size": 56
+      },
+      {
+        "name": "Repulsor sleeve",
+        "kind": "box",
+        "x": 228,
+        "y": 220,
+        "size": 40,
+        "gadget": "repulsor"
+      },
+      {
+        "name": "Transfer float",
+        "kind": "ball",
+        "x": 1060,
+        "y": 910,
+        "size": 56
+      }
+    ],
+    "mechanisms": [],
+    "triggers": [
+      {
+        "name": "Dry receiver unlocks exit",
+        "x": 470,
+        "y": 480,
+        "w": 190,
+        "mode": "weight",
+        "targets": [
+          "94cd8996-52c4-45fd-ac97-f8f0e536990c"
+        ],
+        "showWires": true,
+        "wireHeight": 620,
+        "wireTerminal": {
+          "x": 620,
+          "y": 450
+        }
+      },
+      {
+        "name": "Pump ballast plate",
+        "x": 1660,
+        "y": 220,
+        "w": 110,
+        "mode": "weight",
+        "targets": [
+          "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:fill"
+        ]
+      },
+      {
+        "name": "Drain / refill toggle",
+        "x": 1280,
+        "y": 125,
+        "w": 160,
+        "mode": "touch",
+        "behavior": "toggle",
+        "targets": [
+          "d084a37e-475b-41bb-8b5c-0abe9d3f0c09",
+          "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:drain"
+        ]
+      }
+    ],
+    "robots": [],
+    "timers": [
+      {
+        "name": "Transfer clock",
+        "x": 830,
+        "y": 55
+      }
+    ],
+    "pickups": [],
+    "texts": [
+      {
+        "name": "Transfer bay sign",
+        "x": 540,
+        "y": 35,
+        "w": 280,
+        "h": 40,
+        "text": "BALL TRANSFER / 02",
+        "fontSize": 24,
+        "align": "center",
+        "style": "official"
+      },
+      {
+        "name": "Sleeve hint",
+        "x": 90,
+        "y": 130,
+        "w": 250,
+        "h": 45,
+        "text": "take the repulsor",
+        "fontSize": 18,
+        "align": "center",
+        "style": "graffiti"
+      },
+      {
+        "name": "Personnel bridge label",
+        "x": 820,
+        "y": 155,
+        "w": 320,
+        "h": 35,
+        "text": "PERSONNEL CROSSING",
+        "fontSize": 18,
+        "align": "center",
+        "style": "official"
+      },
+      {
+        "name": "Pump plate label",
+        "x": 1635,
+        "y": 155,
+        "w": 135,
+        "h": 32,
+        "text": "FILL",
+        "fontSize": 18,
+        "align": "center",
+        "style": "official"
+      },
+      {
+        "name": "Drain control label",
+        "x": 1215,
+        "y": 30,
+        "w": 230,
+        "h": 35,
+        "text": "DRAIN / REFILL",
+        "fontSize": 18,
+        "align": "center",
+        "style": "official"
+      },
+      {
+        "name": "Receiver hint",
+        "x": 475,
+        "y": 385,
+        "w": 215,
+        "h": 55,
+        "text": "let it settle",
+        "fontSize": 20,
+        "align": "center",
+        "style": "graffiti"
+      },
+      {
+        "name": "Float recovery hint",
+        "x": 840,
+        "y": 340,
+        "w": 325,
+        "h": 55,
+        "text": "water does the lifting",
+        "fontSize": 20,
+        "align": "center",
+        "style": "graffiti"
+      }
+    ],
+    "gravityPlates": [
+      {
+        "id": "ee9b7f6b-f3fc-4398-8024-b184070f1f2b",
+        "x": 0,
+        "y": 235,
+        "w": 1800,
+        "h": 685,
+        "gravity": -1,
+        "effect": "water",
+        "waterLevel": 5,
+        "waterMinLevel": 5,
+        "waterRate": 25,
+        "drain": {},
+        "name": "Transfer reservoir",
+        "fill": {
+          "switchLogic": "and"
+        }
+      }
+    ],
+    "forceFields": [
+      {
+        "id": "e92c44fc-e3ff-4385-9d91-d3d10d47e777",
+        "x": 460,
+        "y": 260,
+        "w": 880,
+        "h": 12,
+        "orientation": "horizontal",
+        "power": "always",
+        "name": "Personnel-only crossing"
+      }
+    ],
+    "lighting": {
+      "nightMode": true,
+      "ambient": 0,
+      "lights": [
+        {
+          "id": "9b8ea8fa-61cb-4fa1-a8f7-60afb6b950dc",
+          "x": 305,
+          "y": 25,
+          "intensity": 100,
+          "direction": 130,
+          "spread": 70,
+          "power": "always"
+        },
+        {
+          "id": "0fdc0841-8d6e-4de0-a62f-02971e7cedd4",
+          "x": 1410,
+          "y": 25,
+          "intensity": 100,
+          "direction": 65,
+          "spread": 100,
+          "power": "always"
+        },
+        {
+          "id": "38022c69-331b-4310-ab92-f87769b94b04",
+          "name": "Transfer bay light",
+          "x": 1080,
+          "y": 25,
+          "direction": 110,
+          "spread": 80,
+          "intensity": 100,
+          "power": "always"
+        }
+      ]
+    },
+    "logicRelays": [
+      {
+        "id": "d084a37e-475b-41bb-8b5c-0abe9d3f0c09",
+        "name": "Drain inhibits filling",
+        "x": 1500,
+        "y": 280,
+        "switchReversed": true,
+        "targets": [
+          "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:fill"
+        ]
+      }
+    ]
+  },
+  "routes": [
+    {
+      "name": "ordinary",
+      "elapsed": 15.174999999999779,
+      "activeTime": 16.033333333333065,
+      "grade": "A",
+      "shots": 1,
+      "trace": [
+        {
+          "frames": 25,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "interact": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 757,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 180,
+          "input": {}
+        },
+        {
+          "frames": 241,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "use": true
+          }
+        },
+        {
+          "frames": 150,
+          "input": {}
+        },
+        {
+          "frames": 50,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "jump": true,
+            "move": 1
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 221,
+          "input": {}
+        },
+        {
+          "frames": 192,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "fast",
+      "elapsed": 13.608333333333201,
+      "activeTime": 14.466666666666486,
+      "grade": "A",
+      "shots": 1,
+      "trace": [
+        {
+          "frames": 25,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "interact": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 637,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 157,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 239,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "use": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 75,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "jump": true,
+            "move": 1
+          }
+        },
+        {
+          "frames": 90,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 206,
+          "input": {}
+        },
+        {
+          "frames": 192,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "refill recovery",
+      "elapsed": 28.324999999999033,
+      "activeTime": 29.183333333332317,
+      "grade": "B",
+      "shots": 1,
+      "trace": [
+        {
+          "frames": 25,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "interact": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 757,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 180,
+          "input": {}
+        },
+        {
+          "frames": 241,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "jump": true,
+            "move": 1
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 600,
+          "input": {}
+        },
+        {
+          "frames": 22,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 602,
+          "input": {}
+        },
+        {
+          "frames": 163,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "use": true
+          }
+        },
+        {
+          "frames": 150,
+          "input": {}
+        },
+        {
+          "frames": 69,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "jump": true,
+            "move": 1
+          }
+        },
+        {
+          "frames": 90,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 191,
+          "input": {}
+        },
+        {
+          "frames": 192,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "extra shot",
+      "elapsed": 15.991666666666399,
+      "activeTime": 16.849999999999685,
+      "grade": "A",
+      "shots": 2,
+      "trace": [
+        {
+          "frames": 25,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "interact": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 757,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 180,
+          "input": {}
+        },
+        {
+          "frames": 241,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "use": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "use": true
+          }
+        },
+        {
+          "frames": 180,
+          "input": {}
+        },
+        {
+          "frames": 50,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "jump": true,
+            "move": 1
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 218,
+          "input": {}
+        },
+        {
+          "frames": 192,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    }
+  ]
+}

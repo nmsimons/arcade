@@ -7,8 +7,11 @@ import { drawWallTexts } from './wallText.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import type { BusEnding } from './busEnding.ts'
+import { drawBusGoal } from './busEndingRender.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
+import type { AndroidAppearance } from './androidArtwork.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { gradeClock } from './grading.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
@@ -141,7 +144,24 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
   })
   ctx.restore()
 }
-export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, paint: WorldPaint = paintNormally) {
+export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, paint: WorldPaint = paintNormally, departure?: BusEnding, boarding = 0) {
+  if (goal.kind === 'bus') {
+    paint(ctx, .65, () => drawBusGoal(ctx, goal, departure, boarding), true, goalBounds(goal))
+    return
+  }
+  if (goal.kind === 'walk-off') return
+  if (goal.kind === 'overlook') {
+    paint(ctx, 0, () => {
+      ctx.save()
+      ctx.fillStyle = '#8b9687'; ctx.fillRect(goal.x - 3, goal.y - 34, 6, 34)
+      ctx.fillStyle = '#bbc1ac'; ctx.beginPath(); ctx.moveTo(goal.x - 15, goal.y - 34)
+      ctx.lineTo(goal.x + 15, goal.y - 34); ctx.lineTo(goal.x + 11, goal.y - 26); ctx.lineTo(goal.x - 11, goal.y - 26); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#4c5e50'; ctx.font = '22px sans-serif'; ctx.textAlign = 'center'
+      ctx.fillText('HOLD UP TO FINISH', goal.x, goal.y - 54)
+      ctx.restore()
+    })
+    return
+  }
   const pole = goalPoleX(goal), lamp = goal.y - GOAL_LIGHT_HEIGHT
   paint(ctx, 0, () => {
     ctx.fillStyle = '#738575'
@@ -153,6 +173,16 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
   }, true, { x: pole - 11, y: lamp - 11, w: 22, h: 22 })
 }
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
+  if (goal.kind === 'walk-off') {
+    if (editor) {
+      ctx.save(); ctx.strokeStyle = '#8a938b'; ctx.lineWidth = 1; ctx.setLineDash([4, 4])
+      ctx.strokeRect(goal.x - 40, goal.y - 100, 40, 100)
+      ctx.fillStyle = '#4c5e50'; ctx.font = '14px sans-serif'; ctx.textAlign = 'right'
+      ctx.fillText('RUN OFF →', goal.x - 8, goal.y - 108); ctx.restore()
+    }
+    return
+  }
+  if (goal.kind === 'overlook' || goal.kind === 'bus') return
   drawDoorway(ctx, goalDoor(goal), opening, editor)
 }
 /** Editor and placement show the full doorway, including starts awaiting manual repair. */
@@ -160,8 +190,16 @@ export function drawRobotPortal(ctx: CanvasRenderingContext2D, robot: RobotState
   if (robot.definition.kind !== 'repulsor' || robot.definition.chargingBay || !editor && !robot.entrance) return
   ambientPaint(paint)(ctx, 0, () => drawDoorway(ctx, entranceDoor(robot.definition), editor ? 1 : entranceOpening(robot.entrance!.elapsed)))
 }
+/** Air and water need different depth layers: a transparent water tint alone
+ * exposes the hard sky/cave wall boundary beneath a continuous pool. */
+export function drawWaterBackdrop(ctx: CanvasRenderingContext2D, run: Run, paint: WorldPaint = paintNormally) {
+  if (run.level.environment?.kind !== 'landscape') return
+  const surface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
+  for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, surface, run.waterSpaces.get(plate), 'background')
+}
+
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
-export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
+export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: AndroidAppearance, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
@@ -201,7 +239,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   })
   for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), paint)
   for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
-  drawGoal(ctx, level.goal, run.goalLit, paint)
+  if (level.goal.kind !== 'bus') drawGoal(ctx, level.goal, run.goalLit, paint)
   for (const state of run.floatSwitches) drawFloatSwitchArm(ctx, state, paint)
   paint(ctx, 0, () => {
     if (editor) drawCheckpointMarkers(ctx, p, level)
@@ -227,6 +265,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
   if (!editor) drawGadgets(ctx, run, paint, playerExposure)
+  if (level.goal.kind === 'bus') drawGoal(ctx, level.goal, run.goalLit, paint, run.busDeparture, run.exit?.elapsed ?? 0)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)
@@ -237,6 +276,7 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   const { zoom, x: left, y: top } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-left, -top)
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom, false)
+  drawWaterBackdrop(ctx, run)
   drawWallWiring(ctx, level, run)
   drawWallTexts(ctx, level.texts ?? [])
   drawPuzzleWorld(ctx, run)

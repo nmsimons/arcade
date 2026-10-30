@@ -10,8 +10,10 @@ import { ENTRANCE_SECONDS } from '../src/games/jumping/goal.ts'
 // Simulation CPU only. The historical recording preserves its original explicit
 // jump impulses so a before/after run visits identical contacts and mechanisms.
 // One complete warmup, then one measured fresh-start playthrough. No rendering.
-const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk1.jump-level.json', import.meta.url))))
-const recording = JSON.parse(readFileSync(new URL('../tests/fixtures/jumping-builtin-medal-runs.json', import.meta.url))).runs.find(r => r.file === 'spelunk1.jump-level.json')
+const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk.jump-level.json', import.meta.url))))
+const evidence = JSON.parse(readFileSync(new URL('../tests/fixtures/jumping-builtin-medal-runs.json', import.meta.url)))
+const recording = [...evidence.runs, ...evidence.historicalRuns, ...evidence.supersededRuns].find(r => r.file === 'spelunk1.jump-level.json')
+if (!recording) throw new Error('Spelunk needs a completed recorded route before running the historical simulation benchmark.')
 const samples = [], phases = [], checksum = createHash('sha256')
 for (let trial = 0; trial < 2; trial++) {
   const run = createRun(level)

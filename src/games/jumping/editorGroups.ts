@@ -6,7 +6,7 @@ import { itemDefinition } from './objectLabels.ts'
 /** Flat, editor-only groups. Object references follow their collection indices. */
 export interface EditorGroup { id: string; members: Selection[] }
 const key = (s: Selection) => `${s.kind}:${s.index}`
-const kinds = new Set<Selection['kind']>(['platform', 'rope', 'ladder', 'entrance', 'checkpoint', 'goal', 'prop', 'robot',
+const kinds = new Set<Selection['kind']>(['back-wall', 'platform', 'rope', 'ladder', 'entrance', 'checkpoint', 'goal', 'prop', 'robot',
   'mechanism', 'trigger', 'timer', 'text', 'pickup', 'light', 'wall-light', 'logic-relay', 'float-switch', 'gravity-plate', 'force-field'])
 
 export function parseEditorGroups(value: unknown, level: JumpLevel): EditorGroup[] {

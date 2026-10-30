@@ -1,5 +1,297 @@
 # LAB performance notes
 
+## October 28, 2026: Exit GPU budget and repeated artwork
+
+Live regional lighting now selects the largest backing dimensions that fit the
+GPU's 64 MiB allowance, including regional fields, four Canvas scratch surfaces,
+four-sample shadow attachments and 1 MiB of vertex headroom. The check uses rounded
+dimensions. At 1280×800 CSS / DPR 1.5, Exit changes from 1789×1118 on Canvas to
+1577×986 on GPU. DPR 1 remains 1280×800. This is a backing-resolution tradeoff;
+the displayed layout, palette, light curves, haze and shadow sampling are retained.
+Uniform lighting and Canvas previews retain their existing pixel cap.
+
+An oversized direct renderer viewport is rejected before allocating its GPU
+field, without permanently marking GPU support unavailable. Resizing back into
+budget restores GPU rendering. Inactive Canvas light caches and the GPU-only
+regional resolve are released on backend transitions, so abandoned surfaces do
+not remain outside the active backend's reported allowance.
+
+Night rendering reuses the existing foreground occlusion artwork in the visible
+frame when context state and raster backends permit. Terrain, mechanisms, props,
+the player and water keep their painter order, and no new image buffer is added.
+The ordinary traversal also records whether any ambient-only readable ink exists.
+An empty readable-ambient correction replay is omitted; charging-bay lights keep
+their correction. The reference composition remains available through renderer
+options for visual regression checks.
+
+The [retained comparison](performance/2026-10-28-exit-render-optimization.json)
+uses the same frozen Exit snapshot for both source versions: 63 terrain pieces,
+13 props, one water region and 11 lights. Thirty-six uninstrumented episodes use
+hardware Edge 156.0.4314.42 on Snapdragon X Elite / Adreno X1-85, production bundles,
+normal structural shadows and no adaptive reduction. Each case has three matched
+before/after episodes, alternating arm order, 30 warmup frames and five measured
+seconds. The table gives medians of episode means.
+
+| Workload | DPR | FPS before → after | Draw CPU/frame before → after |
+| --- | ---: | ---: | ---: |
+| Cave-mouth camera pan | 1 | 36.3 → 42.3 | 6.42 → 5.63 ms |
+| Tower camera pan | 1 | 43.0 → 45.0 | 6.78 → 5.65 ms |
+| Swimming with camera follow | 1 | 33.4 → 37.1 | 5.64 → 4.92 ms |
+| Cave-mouth camera pan | 1.5 | 19.3 → 32.6 | 7.81 → 6.05 ms |
+| Tower camera pan | 1.5 | 19.0 → 36.8 | 8.39 → 6.23 ms |
+| Swimming with camera follow | 1.5 | 18.3 → 26.4 | 7.29 → 5.32 ms |
+
+All high-DPI optimized episodes remain on GPU, at about 63.0 MiB of reported
+buffers; the original episodes use Canvas at about 63.2 MiB. At DPR 1, drawing CPU
+falls about 12–17% with the same backing resolution and about 42.2 MiB of buffers.
+High-DPI camera-pan medians improve about 69–94%. This is not a steady 60 FPS
+result: episode ranges are retained, and swimming still has substantial simulation
+cost. Fewer catch-up ticks per rendered frame can lower its reported update time;
+the physics algorithm and movement rules were not changed.
+
+Sixteen fixed-state Exit comparisons at matching GPU resolutions cover cave,
+mouth, tower and water views, subpixel camera movement, props and player poses.
+The maximum channel difference from the original composition is 3/255, with a
+worst frame mean below 0.0012/255. Differences are limited to small 8-bit compositing
+rounding. This comparison does not imply identical sharpness at different backing
+resolutions. Separate checks cover both field backends, water ripples, exit fades,
+EMP, charging bays, inherited alpha, context loss, unavailable/software WebGL,
+regional gradient smoothing and player palettes. All 17 selected browser tests,
+28 focused Node tests, TypeScript, the production build and lint for touched
+source/tests passed. The build also validated all 45 built-in levels.
+
+Raw samples, frozen source modules and map, screenshots, visual metrics and the
+production-bundle harness live in `.local/exit-optimization-2026-10-28/`.
+Run `paired.mjs` with Node for the alternating comparison, `visual.mjs` for the
+matching-resolution pixel check and `retain-report.mjs` to validate source hashes
+and retain results. No other tests or benchmarks ran during timing; other user
+applications stayed open. CPU submission excludes asynchronous GPU completion,
+and buffer counters exclude driver/browser copies. Probes exclude React UI, audio
+and input latency and do not establish a completed normal-control Exit route.
+The user's ongoing level edits were preserved separately from the frozen input.
+
+## October 27, 2026: Exit camera movement and swimming
+
+The [retained Exit report](performance/2026-10-27-exit-windows-profile.json)
+contains 77 uninstrumented episodes and two separate CPU/graphics sampling runs
+on hardware Edge 156.0.4314.42, Snapdragon X Elite / Adreno X1-85. Runtime source
+is `d32742e`; no renderer, physics or authored-level changes were made for this
+investigation. All comparisons use a frozen map, 1280×800 CSS, normal structural
+shadows, 30 warmup frames and five measured seconds. Adaptive quality is disabled.
+The initial snapshot has 63 terrain pieces, 12 props, three ropes, 11 lights,
+three back walls, two water regions and 17 mechanisms, with no robots.
+
+The three-repeat regional-lighting scan shows both good warm runs and meaningful
+variation. Values below are medians of episode means; the full ranges and frames
+over 25 ms are retained rather than treating one 60 FPS run as a guarantee.
+
+| View | Stationary FPS | Camera-pan FPS | Pan FPS range |
+| --- | ---: | ---: | ---: |
+| Deep cave | 60.1 | 60.1 | 46.0–60.4 |
+| Cave mouth / water transition | 60.0 | 58.3 | 37.0–59.6 |
+| Open water | 60.2 | 60.2 | 60.1–60.2 |
+| Tower | 60.0 | 60.0 | 47.5–60.3 |
+| Late overworld | 60.1 | 60.5 | 60.2–60.5 |
+
+Separate browser-process controls reproduce slower panning: 38.8 FPS at the
+mouth and 47.7 FPS at the tower. Uniform Night gives 39.3 and 54.2 FPS;
+omitting the lighting pipeline gives approximately 60 FPS in both places.
+These controls deliberately change the image and are diagnostic, not proposed
+quality modes. Regional spill alone does not explain the whole slowdown.
+Longer, continuously traveling cameras record 40.1 FPS through the cave mouth
+and 46.3 FPS through the tower in single episodes. A separate finish-area pan
+reaches 60 FPS. The full-level overview remains around 43.5 FPS.
+
+### High DPI and the existing quality reduction
+
+At DPR 1.5, the normal pixel cap produces 1789×1118 rendered pixels. Regional
+lighting cannot stay within the GPU path's 64 MiB estimate at that size and
+selects Canvas, with about 63.2 MiB of reported buffers. The existing reduced
+resolution produces 1265×791 pixels and keeps the GPU path at about 41.3 MiB.
+These counters exclude driver/browser copies. Each result below summarizes
+two episodes with the same frozen map.
+
+| Probe | Full-resolution FPS, Canvas | Reduced-resolution FPS, GPU |
+| --- | ---: | ---: |
+| Cave-mouth pan | 19.5 | 37.7 |
+| Tower pan | 17.6 | 47.2 |
+| Swimming and camera movement | 17.9 | 36.3 |
+
+The reduction substantially helps, but does not establish steady 60 FPS.
+These are forced, fixed quality probes, not a measurement of the live game's
+automatic transition into or out of performance mode. A useful first follow-up
+is choosing a pixel ratio that respects the regional GPU budget before rendering,
+instead of reaching the nominal pixel cap and taking the Canvas fallback.
+
+### Where the work goes
+
+The cave-mouth sampling run replays world artwork seven times per frame.
+Those calls take about 3.37 ms of CPU submission time per frame; the GPU light
+field and regional-field calls take about 0.35 and 0.22 ms. Native `drawImage`,
+clipping, fills and garbage collection appear among the largest self-sampled
+costs. The graphics trace records 4,303 raster submissions in 214 frames, about
+20 per frame, with substantial GPU-service raster/flush activity. These are
+Chromium service-thread event durations, including nested work and possible
+waits, not hardware GPU timer measurements. They support investigating retained
+artwork and repeated Canvas composition; CPU field timings alone cannot isolate
+each field's asynchronous GPU cost.
+
+Normal neutral-input simulation at the entrance reaches 58.9 FPS. A diagnostic
+swimmer using ordinary Right input reaches 40.5 FPS, with about 11.8 ms of
+simulation CPU per rendered frame and 4.0 ms per simulation tick. The separate
+swimming sample attributes about 59% of active sampled time to `stepRun`,
+including about 29% in prop physics and 24% in player updates. Those inclusive
+percentages overlap their parent; they must not be added. Collision detection,
+nearby penetration queries, swimming-pose work and garbage collection are useful
+follow-up targets. Uniform Night barely changes this probe; omitting lighting
+reaches 60.2 FPS while simulation still costs about 4 ms per tick.
+
+### Latest-save check and limits
+
+The author changed Exit during the frozen comparison. Its later snapshot keeps
+63 terrain pieces, three ropes, 11 lights and 17 mechanisms, with 13 props and
+one water region. Two further uninstrumented episodes per probe record
+35.7–36.6 FPS for cave-mouth panning and 35.9–36.9 FPS for swimming with camera
+movement, still on GPU at DPR 1. Simulation costs about 15 ms per rendered
+swimming frame. This check supports the same bottlenecks; it does not establish
+which individual map edit changed the timings. Both map hashes and all runtime
+hashes are retained in the report.
+
+Renderer probes hold the authored world at its initial state while animating
+presentation time. Pans follow a fixed wall-time path, not a completed route.
+The swimming probe uses an in-memory entrance in the water and ordinary controls;
+it does not demonstrate reachability from the real start. Gameplay uses the
+normal 120 Hz accumulator and 50 ms elapsed-time cap. CPU submission timings
+exclude asynchronous GPU completion. React UI, audio, persistence and input
+latency are excluded. Other user applications stayed open; no tests or other
+benchmarks ran concurrently. Results vary across episodes and browser processes,
+and are not a claim about every machine or the in-app browser's compositor.
+
+Raw snapshots, frame samples, screenshots, CPU profiles, graphics traces and
+reproduction harnesses are retained in `.local/exit-perf-2026-10-27/`. Run
+`node .local/exit-perf-2026-10-27/browser-run.mjs` for the default scan; use
+`EXIT_CASES`, `EXIT_MODES`, `EXIT_REPEATS`, `EXIT_DPR`, `EXIT_REDUCED`,
+`EXIT_PROFILE`, `EXIT_TRACE` and `EXIT_REPORT` for the recorded follow-ups.
+`latest-run.mjs` preserves the initial snapshot while checking the latest save;
+`retain-report.mjs` validates matching runtime hashes and compacts the results.
+
+## October 27, 2026: regional gradient smoothing
+
+The gradual cave lighting now includes a subtle, world-anchored dither in its
+retained air field. Small brightness steps become irregular instead of forming
+continuous bands. Exposure curves, the 512-pixel field limit, terrain clipping,
+player materials and world-aligned caches are unchanged. The retained 64x64
+GPU-backed tile adds 16 KiB. Three small fills run when the air field rebuilds;
+ordinary moving frames keep the existing opaque upscale and perform no new
+readbacks or full-viewport passes.
+
+The [retained comparison](performance/2026-10-27-regional-gradient-smoothing-windows.json)
+uses the same frozen Spelunk Ib map, hardware Edge 156.0.4314.42 and Snapdragon
+X Elite / Adreno X1-85. Three alternating before/after pairs use fresh browser
+processes, a production renderer, 1280x800 CSS / DPR 1, 30 warmup frames and six
+measured seconds per workload. Full lighting stays enabled and adaptive quality
+is disabled. No tests or benchmarks run concurrently. Values are medians of
+three episode means; CPU timings measure submission, not GPU completion.
+
+| Workload | FPS before / after | Drawing CPU/frame before / after | Frame interval p95 before / after |
+| --- | ---: | ---: | ---: |
+| Cave-mouth camera pan | 60.0 / 60.0 | 3.96 / 4.09 ms | 16.9 / 17.3 ms |
+| Travel through the cave | 60.0 / 60.0 | 4.23 / 4.34 ms | 17.2 / 17.1 ms |
+
+Neither arm records a frame interval above 25 ms. Dither runs once during each
+pan episode, including its cold frame, and eight times during each travel
+episode. The observed FPS is unchanged; median drawing CPU increases by about
+0.1 ms. These capped, short runs do not establish zero overhead on every device.
+Raw per-frame data, the frozen reference and the reproduction harness remain in
+`.local/lighting-aa-2026-10-27/`.
+
+Smoothing is limited to close zoom (at least 0.5 native pixels per world unit)
+and viewports up to 1.5 million pixels. Earlier experiments showed that an
+extra pass each camera frame, high-quality filtering, or noise in the overview
+could cost performance. Overview and larger/fallback views keep the original
+mask and buffer budget: final pixel comparisons find zero differences there.
+The close-view comparison changes the grayscale lighting mask by at most two
+display gray values, without changing the fade's shape. Regressions cover the
+curve, cache reuse, stationary world anchoring, leaving either smoothing limit,
+player colors, cave-edge halos, and Canvas/GPU composition.
+
+## October 27, 2026: Spelunk Ib regional lighting and camera movement
+
+Regional lighting no longer rebuilds the terrain-light field or blends every
+opening from scratch on each camera frame. Terrain samples use a bounded,
+world-aligned sliding window: unchanged cells survive a pan, and only entering
+rows and columns are evaluated. A 64-pixel margin around the small air-light
+field lets the camera crop its existing texture until it needs to recenter.
+Occluder or level changes invalidate the affected field; mechanisms outside
+every opening's bounded reach do not invalidate daylight. The map's deep exit
+gate is one such mechanism. Ordinary spotlight shadows still use all relevant
+mechanisms through the existing renderer.
+
+Light-field blends stay on GPU-backed canvases on the hardware path. Software
+targets retain software masks. The small CPU-authored terrain grid is uploaded
+only when its window changes. Resolution, exposure curves and gameplay rules
+are unchanged. Both sample windows are bounded; lighting buffers increase from
+about 41.3 to 42.3 MiB at the measured resolution, below the 64 MiB budget.
+
+Terrain exposure is filtered first and clipped at the final pixel silhouette.
+Clipping before enlarging the small mask let bright rock pixels bleed onto the
+back wall under slopes and overhangs. The regression covers four zoom levels;
+an additional hardware review of the actual Spelunk Ib scene found zero added
+brightness at 110 sampled points two display pixels outside its undersides.
+An additional pocket-edge regression catches the remaining thin rim where an
+antialiased solid met its antialiased daylight shadow. Their geometry now shares
+one opaque union, prepared once per lighting-geometry revision. The ceiling-edge
+brightness spike falls from up to 19 gray values to zero in the hardware probe.
+
+The [retained report](performance/2026-10-27-spelunk1b-windows-profile.json)
+uses the user's frozen `spelunk1b.jump-level.json`: 17 terrain shapes, two ropes,
+seven lights, one regional outline, and its existing gate and Rbot. No authored
+level was changed for this investigation. Measurements use hardware Edge
+156.0.4314.42 on Snapdragon X Elite / Adreno X1-85, at 1280×800 CSS and DPR 1.
+Three alternating before/after pairs use fresh isolated browser processes,
+30 warmup frames and six measured seconds per case, with full-quality lighting
+and adaptive reduction disabled. No other tests or benchmarks ran concurrently.
+
+| Workload | FPS before → after | Drawing CPU/frame before → after |
+| --- | ---: | ---: |
+| Cave-mouth camera pan | 13.6 → 54.5 | 72.7 → 4.4 ms |
+| Longer camera travel through the cave | 13.0 → 54.0 | 75.6 → 4.5 ms |
+| Existing deep gate moving | 13.0 → 60.0 | 76.4 → 3.9 ms |
+| Normal neutral-input simulation at the entrance | 59.7 → 59.7 | 5.4 → 5.3 ms |
+| Full-level overview | 40.4 → 38.0 | 4.9 → 5.0 ms |
+
+Values are medians of three episode means. Camera-pan drawing CPU falls about
+94%; its median 95th-percentile frame interval falls from 100 to 33.4 ms.
+After the final pocket-rim correction, two additional unpaired spot checks record
+52.8 FPS / 5.5 ms drawing CPU for the pan and 48.1 FPS / 5.5 ms for longer travel.
+They retain the large improvement and are recorded separately from the paired
+medians, with the final source hash.
+The result is a large improvement, not a locked 60 FPS claim. Overview remains
+below 60 FPS and is slightly slower in these comparisons. The initial scan also
+puts uniform Night overview near 38 FPS, so regional sampling is not its only
+limit. CPU submission time does not measure asynchronous GPU completion.
+
+A separate DPR 1.5 probe reaches the renderer's roughly two-million-pixel cap.
+Regional lighting exceeds the GPU path's buffer allowance and takes the Canvas
+fallback: about 29 FPS and 63.3 MiB. Uniform Night remains on GPU at about
+40 FPS and 62.9 MiB. These probes deliberately disable adaptive reduction;
+high-DPI full-quality rendering remains a limitation.
+
+Separate CPU sampling identifies native image blends and terrain-boundary
+queries as the original hotspot. After optimization, these queries leave the
+top self-sample costs. Profiled FPS is excluded from the timing comparison.
+Raw snapshots, per-frame samples, screenshots, CPU profiles and reproduction
+harnesses remain in `.local/spelunk1b-perf-2026-10-27/`. Run its `paired.mjs`
+with Node for the alternating comparison. The frozen reference adds only crop
+metadata to its return value to work with the current consumer.
+
+Rendering probes animate presentation time and use diagnostic camera views;
+they are not a completed normal-control Spelunk Ib route. The entrance simulation
+uses the normal 120 Hz accumulator and 50 ms elapsed-time cap. Measurements
+exclude React UI, accounts, audio and input latency. Other user applications were
+left running. The report records the map hash, runtime hashes, graphics status,
+all thirty paired episodes, sampling summaries and the high-DPI probe.
+
 ## October 26, 2026: exact rope terrain-query optimization
 
 Repeated rope contact queries now reuse prepared edge bounds for point-on-edge
@@ -51,6 +343,89 @@ Raw reference sources, hash probes and browser reports are retained in
 frozen level hash, original/optimized geometry hashes, all episode statistics and
 the exact numeric trajectory hashes. CPU drawing spans exclude asynchronous GPU
 completion, React UI, audio and input latency.
+
+## October 26, 2026: Ascent I on Windows, shorter ropes
+
+The user's shorter-rope revision improves Ascent I's simulation headroom. Three
+alternating comparisons on Snapdragon X Elite / Adreno X1-85, using hardware
+Edge 156.0.4314.42, held 60 FPS in every revised seven-rope stress arm. The
+earlier revision's median was 50.4 FPS. This investigation changed no runtime or
+authored level files; the user's edits were frozen into separate profiling copies.
+
+The [retained report](performance/2026-10-26-ascent-windows-profile.json) records
+both level hashes, rope definitions, the concurrent chimney-wall edit, all paired
+statistics, sustained-run history, source hashes and sampling-profile summaries.
+The earlier snapshot has seven ropes, including the 650-unit first rope and a
+702-unit left rope; it differs from October 25's eight-rope Mac workload.
+
+### Measurements
+
+Each before/after arm uses a fresh isolated Edge process and production simulation,
+camera and renderer bundle at 1280x800 CSS / DPR 1, full-quality GPU lighting and
+water, 60 warmup frames and six measured seconds. The normal 120 Hz accumulator
+and 50 ms frame-delta cap remain active. Measurements ran sequentially, without
+concurrent tests or other benchmarks. Motion diagnostics and adaptive quality
+were disabled. Values below are medians of three episode means, in **CPU
+milliseconds per displayed frame**, including that frame's actual physics ticks.
+
+| Workload | Update before | Update after | FPS before / after |
+| --- | ---: | ---: | ---: |
+| Player holding and swinging on first rope | 6.19 | 4.82 | 60.0 / 60.0 |
+| All seven ropes disturbed, player at entrance | 15.59 | 8.87 | 50.4 / 60.0 |
+
+The first-rope update mean falls 22%. The stressed per-frame update mean falls
+43%, including less catch-up work: median ticks/frame falls from 2.37 to 2.00.
+Normalized update CPU per physics tick falls from 6.58 to 4.43 ms (33%). Stress
+arms recorded 114 frame intervals above 25 ms before, zero after; the revised
+arms' maximum interval was 18.8 ms. Drawing remains around 2.3 ms per frame.
+
+Six shortened ropes reduce particles from 496 to 366 (26%). When all ropes are
+active, the solver's unchanged pass formula now performs 21,696 segment-pair
+relaxations per tick instead of 38,240 (43% less). The first rope changes from
+650 to 405 units. The upper chimney right-wall polygon also changes, so this is
+a comparison of the two authored revisions, not a pure isolation of rope length.
+
+### Activity that builds during play
+
+Two separate 60-second entrance runs leave the player under ordinary neutral
+input while the Rbot operates normally. Both average approximately 60 FPS.
+Before shortening, update CPU rises from 3.14 ms/frame in the first five-second
+window to 9.53 in the last; five ropes remain moving. After the revision, those
+windows are 3.19 and 6.27 ms/frame, with four ropes still moving. Whole-run update
+means are 7.14 and 5.14 ms/frame. The different Rbot trajectory and active-rope
+count also contribute; these single sustained runs are not isolated solver tests.
+
+Separate pre-edit CPU sampling puts about 71% of non-idle samples under the rope
+solver in the seven-rope stress case and 77% after ordinary Rbot activity wakes
+five ropes. The largest self-sample costs are `solveRope`, `findBoundary`,
+`pointInside`, and `segmentPenetration`. These profiles support prioritizing rope
+constraint and terrain-contact work. Inclusive categories overlap; sampling
+perturbs execution and its FPS is excluded from the timing comparison.
+
+### Limits and reproduction
+
+An earlier unpaired scan varied substantially: even the first-rope probe ranged
+from about 53 to 60 FPS. A subsequent host snapshot showed 30% total CPU use,
+including other Chrome and SenseCE activity. No unrelated process was changed or
+terminated. The alternating pairs provide a stronger comparison; their results
+do not establish universal 60 FPS under other viewport sizes or machine load.
+
+These probes use collision-free diagnostic placements followed by ordinary
+controller inputs. The stress probe applies one 80-unit/sec horizontal impulse
+at 70% material distance to each rope. It is not a recorded normal-control route.
+The harness excludes React UI, accounts, audio, hardware input latency and
+asynchronous GPU completion. Level completion, medal times, readability and feel
+were not reviewed. All 38 unprofiled browser measurements and four sampling
+captures completed without page errors; renderer checks confirmed hardware GPU
+use. The production runtime sources remained unchanged during the comparisons.
+
+Raw snapshots, harnesses, per-frame samples, screenshots and CPU profiles are
+retained locally in `.local/ascent-perf-2026-10-26/`. Run `node` on its
+`browser-run.mjs`, setting `ASCENT_LEVEL=level.json` or `level-after.json` to
+select the frozen revision, `ASCENT_CASES=first-rope,disturbed-entrance`, and
+`ASCENT_SECONDS=6`. Use distinct `ASCENT_REPORT` filenames for each arm. Run
+comparisons sequentially. `node-scan.mjs` provides simulation-only probes; its
+per-tick CPU timings are not browser FPS measurements.
 
 ## October 25, 2026: rope solver optimization
 

@@ -52,8 +52,8 @@ test('slope feet maintain planted anchors and reach the ground without changing 
       for (const [j, leg] of [pose.frontLeg, pose.backLeg].entries()) {
         const foot = p.footwork.feet[j], clearance = footClearance(p, leg, PLATFORMS)
         assert.ok(clearance > -.08, `sole penetrated terrain at ${p.x}: ${clearance}`)
-        assert.ok(Math.abs(Math.hypot(leg.joint[0] - leg.root[0], leg.joint[1] - leg.root[1]) - 15) < 1e-6)
-        assert.ok(Math.abs(Math.hypot(leg.end[0] - leg.joint[0], leg.end[1] - leg.joint[1]) - 14.5) < 1e-6)
+        assert.ok(Math.abs(Math.hypot(leg.joint[0] - leg.root[0], leg.joint[1] - leg.root[1], leg.jointDepth ?? 0) - 15) < 1e-6)
+        assert.ok(Math.abs(Math.hypot(leg.end[0] - leg.joint[0], leg.end[1] - leg.joint[1], (leg.endDepth ?? 0) - (leg.jointDepth ?? 0)) - 14.5) < 1e-6)
         if (leg.planted) {
           contacts++
           assert.ok(clearance < 1.5, `planted foot floated at ${p.x}: ${clearance}`)

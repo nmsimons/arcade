@@ -10,8 +10,8 @@ Bounds). Read it with [Making a fun jumping level](jumping-level-design.md),
 [level files](jumping-levels.md), and [the outdoor finale brief](jumping-outdoors.md).
 The canon and rules below are adopted. The built-in untimed opening, Wake,
 implements the charging-bay awakening. The ordered picker now uses D-or-better
-progression; optional certification gates and the outdoor ending still need
-implementation and playtesting.
+progression. The final Spelunk sequence now supplies the outdoor ending;
+optional certification gates and independent campaign-wide playtesting remain.
 
 ## Canon
 
@@ -269,7 +269,7 @@ It introduces no mandatory new mechanic or unusually severe precision test.
 The final exterior threshold reveals a broad sky and natural landscape. After
 crossing it, the player gets a short, untimed outdoor journey with room to stop,
 look back, and continue. An ordinary accessible line and a playful faster line
-can share this ground. The final overlook establishes that the facility has
+can share this ground. The final departure establishes that the facility has
 been left behind and a larger world lies ahead.
 
 Follow the [outdoor terrain, sky, staging, and acceptance brief](jumping-outdoors.md).
@@ -284,7 +284,35 @@ complete only at the authored outdoor endpoint. The endpoint needs an explicit
 finish presentation, without putting another training door in the meadow.
 Provide a clear finish action or boundary, allow the player to linger before
 it, and retain the last safe exterior checkpoint when resuming the coda.
-These capabilities require implementation; current JSON does not supply them.
+Version-2 landscapes and the untimed `walk-off` finish now provide this path.
+The authored finale is untimed throughout, so there is no score to latch at
+the threshold. Timed approaches with a separately latched coda score remain
+future work. Play and reload start at the authored entrance; the pause menu's
+Resume keeps the current run. The waiting bus is Exit's actual goal, visible
+during the normal outdoor approach. The player retains control and walks aboard
+through its left-side entrance. Boarding completes the level and saves progress;
+no edge crossing, automatic approach, or camera reveal is needed. Leave a broad
+flat walk between the final landing and the stop, so the player can see the bus
+and approach it deliberately. The bus departs in the same level view.
+The implied road crosses the platforming plane, and we see the bus from behind.
+Keep the landscape flat, without a drawn road surface or perspective lines. The
+robot boards around its side, then becomes visible seated in the rear window.
+Hold this quiet moment before the bus drives directly away from the camera,
+shrinking about a fixed visual center until the wheel bottoms align with the
+flat ground line. It then lowers behind that line while continuing to shrink,
+wheels first and roof last. There is no upward journey or
+separate elevated horizon. Draw no hill or rise.
+Keep the artwork in the game's flat 2D style. Pause and skip remain available,
+and the result panel follows the departure. The empty stop remains behind the panel.
+This quiet, ordinary journey is the ending payoff; it adds no new playable
+challenge or explanation of the outside world. Overlook finishes remain
+available for other levels.
+
+The current closing sequence is **Ascent I → Ascent II → Spelunk → Exit**.
+Preserve the Ascent levels' climb toward escape. The caves supply the last
+detour beneath the blocked surface route; Exit leads through the final climb,
+emergence and overworld journey. The [earlier escape route evidence and remaining
+review](jumping-escape-review.md) retain the previous Spelunk II/III layouts.
 
 ## Delivery and review
 

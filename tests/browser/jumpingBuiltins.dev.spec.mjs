@@ -27,6 +27,39 @@ const test = base.extend({
   },
 })
 
+test('testing an unchanged built-in needs no save; edited drafts still require a successful write', async ({ page, project }) => {
+  test.setTimeout(90000)
+  const before = await readFile(join(project.assets, '00.json'), 'utf8')
+  let saves = 0
+  await page.route('**/__arcade/jumping-levels', route => {
+    if (route.request().method() !== 'POST' || route.request().postDataJSON().method !== 'save') return route.continue()
+    saves++
+    return route.fulfill({ status: 400, json: { error: 'EPERM: file is temporarily locked.' } })
+  })
+  await page.goto(`${project.url}/lab/builder/built-in/00.json`)
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  await expect(canvas).toHaveAttribute('aria-busy', 'false', { timeout: 30000 })
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
+  await expect(page.getByRole('img', { name: 'First Leap: reach the exit' })).toBeFocused()
+  expect(saves).toBe(0)
+  expect(await readFile(join(project.assets, '00.json'), 'utf8')).toBe(before)
+  await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
+  const name = page.getByRole('textbox', { name: 'Level name', exact: true })
+  await name.fill('Temporary edit')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(name).toHaveValue('First Leap')
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
+  await expect(page.getByRole('img', { name: 'First Leap: reach the exit' })).toBeFocused()
+  expect(saves).toBe(0)
+  await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
+  await name.fill('Keep this draft')
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
+  await dismissSaveFailure(page, 'EPERM')
+  expect(saves).toBe(1)
+  await expect(name).toHaveValue('Keep this draft')
+  expect(await readFile(join(project.assets, '00.json'), 'utf8')).toBe(before)
+})
+
 test('built-in maps edit, rename, save and test directly in the Git checkout', async ({ page, project }) => {
   const lit = { ...(await project.read('00.json')), version: 2, lighting: { ambient: 0, lights: [
     { id: 'ceiling-light', x: 600, y: 200, direction: 90, spread: 60, intensity: 100, power: 'always' },

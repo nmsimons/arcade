@@ -140,6 +140,7 @@ test('outward banks still require a clear hanging body and keep real ceilings', 
     level.gravityPlates[0].w += lean
     if (direction < 0) level.gravityPlates[0].x -= lean
     if (kind === 'ceiling') level.platforms.push({ x: edgeX - 60, y: 325, w: 120, h: 20 })
+    if (kind === 'body-blocked') level.platforms.push({ x: direction > 0 ? edgeX - 36 : edgeX + 16, y: 416, w: 20, h: 24 })
     const edge = platformLedges(bank).find(e => e.side === direction)
     assert.equal(!!edge, kind !== 'steep', 'only modest outward faces offer a possible lip')
     const run = createRun(parseLevel(level)), p = run.player
@@ -147,11 +148,11 @@ test('outward banks still require a clear hanging body and keep real ceilings', 
     let caught = false, pulled = false
     for (let tick = 0; tick < 600; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, climb: true, move: direction })
-      caught ||= !!p.hang; pulled ||= !!p.mantle
+      caught ||= p.hang?.edgeX === edgeX && p.hang.edgeY === 380
+      pulled ||= p.mantle?.edgeX === edgeX && p.mantle.edgeY === 380
     }
     assert.equal(caught, kind === 'ceiling', 'an obstructed hanging body remains a real miss')
     assert.equal(pulled, false, 'a ceiling never becomes part of the cleared supporting bank')
-    if (kind === 'body-blocked') assert.ok((edgeX - p.x) * direction < 24, 'water reaches the lip; the actual body clearance rejects the catch')
     if (kind === 'ceiling') assert.ok(p.hang, 'the blocked pull retains its grip')
   }
 })

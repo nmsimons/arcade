@@ -1,0 +1,61 @@
+.model-review { --paper: #f3f0e6; --ink: #303c36; --muted: #657369; --line: #cdd2c6; background: var(--paper); color: var(--ink); width: 100%; height: 100dvh; overflow-y: auto; font: 15px/1.45 system-ui, sans-serif; text-align: left; }
+.model-review * { box-sizing: border-box; }
+.model-review-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 30px 40px; background: var(--ink); color: var(--paper); }
+.model-review-header p, .model-review-eyebrow { margin: 0; font: 11px/1.5 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+.model-review h1 { margin: 6px 0 8px; font-size: clamp(38px, 5vw, 60px); line-height: 1; font-weight: 800; letter-spacing: -.055em; }
+.model-review-header span { color: #c2cbbd; }
+.model-review-header > div:last-child { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.model-review button, .model-review a { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 2px; background: #e6e8dd; color: var(--ink); font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; }
+.model-review button:hover, .model-review a:hover { background: #d0dac9; }
+.model-review button:disabled { opacity: .45; cursor: default; }
+.model-review :focus-visible { outline: 3px solid #bd8442; outline-offset: 3px; }
+.model-review-layout { display: grid; grid-template-columns: 235px minmax(0, 1fr); max-width: 1600px; margin: auto; }
+.model-review-clips { border-right: 1px solid var(--line); padding: 28px 20px; }
+.model-review-clips > p:first-child { color: var(--muted); }
+.model-review-clips h2 { margin: 28px 0 9px; font: 11px ui-monospace, monospace; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.model-review-clips button { text-align: left; width: 100%; justify-content: space-between; padding: 12px; margin-bottom: 5px; border-color: transparent; background: transparent; font-size: 13px; }
+.model-review-clips button[aria-current] { background: var(--ink); color: var(--paper); }
+.model-review-clips button span { opacity: .5; }
+.model-review-aside { margin-top: 35px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.model-review-workspace { padding: 28px 32px 18px; min-width: 0; }
+.model-review-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.model-review-intro h2 { margin: 3px 0 8px; font-size: clamp(24px, 3vw, 34px); font-weight: 750; letter-spacing: -.035em; }
+.model-review-intro p:last-child { margin: 0; max-width: 680px; color: var(--muted); }
+.model-review-intro > button { flex-shrink: 0; }
+.model-review-playback, .model-review-options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px; border: 1px solid var(--line); background: #e9eade; }
+.model-review-playback .model-review-play { min-width: 75px; background: var(--ink); color: var(--paper); }
+.model-review-playback input[type="range"] { flex: 1; min-width: 100px; }
+.model-review-playback output { font: 11px ui-monospace, monospace; min-width: 65px; }
+.model-review label { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; }
+.model-review select { padding: 7px; min-height: 36px; background: var(--paper); border: 1px solid var(--line); border-radius: 2px; font: inherit; }
+.model-review input { accent-color: #4f6e5c; }
+.model-review-options { margin: 8px 0 18px; padding: 10px 12px; background: transparent; }
+.model-review-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.model-review figure { margin: 0; position: relative; min-width: 0; border: 1px solid var(--line); }
+.model-review figcaption { min-height: 59px; display: flex; flex-direction: column; justify-content: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.model-review figcaption strong { font-size: 14px; }
+.model-review figcaption span { margin-top: 3px; font: 10px ui-monospace, monospace; color: var(--muted); }
+.model-review-pair canvas { display: block; width: 100%; height: 430px; }
+.model-review-unavailable { position: absolute; inset: 90px 20px auto; padding: 16px; background: var(--paper); font-size: 13px; }
+.model-review-frame-info { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; font: 11px ui-monospace, monospace; }
+.model-review-frame-info strong { color: #4f6e5c; font-weight: 600; }
+.model-review-frame-info button { margin-left: auto; min-height: 32px; padding: 5px 10px; font: inherit; }
+.model-review-context { border: 1px solid var(--line); margin: 12px 0 24px; }
+.model-review-context > div { padding: 14px 16px; }
+.model-review h3 { margin: 0; font-size: 14px; font-weight: 700; }
+.model-review-context p, .model-review-notes p { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+.model-review-context canvas { display: block; width: 100%; height: 240px; }
+.model-review-notes label { font-size: 14px; font-weight: 700; }
+.model-review textarea { width: 100%; margin-top: 10px; padding: 14px; border: 1px solid var(--line); background: #fbf9f0; color: var(--ink); font: 13px/1.6 system-ui, sans-serif; resize: vertical; }
+.model-review footer { padding: 20px 0 0; font: 10px/1.7 ui-monospace, monospace; color: var(--muted); }
+@media (max-width: 1050px) { .model-review-layout { grid-template-columns: 195px minmax(0, 1fr); } .model-review-workspace { padding: 24px 18px; } .model-review-intro { flex-wrap: wrap; gap: 12px; } }
+@media (max-width: 700px) {
+  .model-review-header { padding: 22px 18px; align-items: flex-start; } .model-review-header > div:last-child { flex-direction: column; }
+  .model-review-header a { font-size: 11px; padding: 7px 10px; } .model-review-header span { font-size: 12px; }
+  .model-review-layout { display: block; } .model-review-clips { display: flex; gap: 8px; overflow-x: auto; padding: 12px 18px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .model-review-clips > p, .model-review-clips h2 { display: none; } .model-review-clips > div { display: contents; }
+  .model-review-clips button { width: auto; min-width: 155px; margin: 0; font-size: 12px; }
+  .model-review-workspace { padding: 20px 14px; } .model-review-pair { gap: 8px; } .model-review-options { gap: 10px; }
+  .model-review figcaption { padding: 10px; } .model-review figcaption span { font-size: 9px; }
+  .model-review-playback input[type="range"] { order: 2; flex-basis: 65%; } .model-review-playback output { order: 3; }
+}

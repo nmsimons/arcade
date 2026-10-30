@@ -17,6 +17,9 @@ import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { backWallPath, drawLandscape } from './environment.ts'
+import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
+import { drawCaveWall } from './caveWall.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -40,9 +43,30 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
 }
 
 export const TERRAIN_COLOR = terrainMaterial().color
-export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom = 1, includeWallArt = true) {
-  ctx.fillStyle = TERRAIN_COLOR; ctx.fillRect(view.x, view.y, view.w, view.h)
+export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom = 1, includeWallArt = true, includeSky = true) {
+  ctx.save()
+  if (level.environment && !includeSky) {
+    ctx.beginPath(); ctx.rect(view.x, view.y, view.w, view.h); ctx.clip()
+    ctx.beginPath(); ctx.rect(view.x, view.y, view.w, view.h); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip('evenodd')
+  }
+  ctx.fillStyle = TERRAIN_COLOR; ctx.fillRect(view.x, view.y, view.w, view.h); ctx.restore()
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
+  if (level.environment?.kind === 'landscape') {
+    if (includeSky) drawLandscape(ctx, level.environment, view)
+    for (const wall of level.environment.walls) {
+      ctx.save(); ctx.beginPath(); backWallPath(ctx, wall); ctx.clip()
+      if (wall.kind === 'cave') drawCaveWall(ctx, view)
+      else drawCourseWall(ctx, level, view, zoom)
+      ctx.restore()
+    }
+  } else drawCourseWall(ctx, level, view, zoom)
+  if (includeWallArt) drawWallWiring(ctx, level)
+  if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
+  for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
+  ctx.restore()
+  if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
+}
+function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom: number) {
   ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level))
   ctx.lineWidth = 1 / zoom; ctx.strokeStyle = '#353f4810'; ctx.beginPath()
   // Zoomed-out views omit minor lines, but every line remains on the same snap lattice.
@@ -54,13 +78,9 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   drawWallPanels(ctx, { x: Math.max(0, view.x), y: Math.max(0, view.y),
     w: Math.min(level.width, view.x + view.w) - Math.max(0, view.x),
     h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) })
-  if (includeWallArt) drawWallWiring(ctx, level)
-  if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
-  for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
-  ctx.restore()
-  if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
+  if (level) drawTerrainGroundCover(ctx, level)
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
@@ -97,6 +117,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
     }
   }
   if (started) ctx.fill()
+  if (level) drawTerrainGroundCoverSurface(ctx, level)
   if (level) drawTerrainEdges(ctx, platforms, level)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {

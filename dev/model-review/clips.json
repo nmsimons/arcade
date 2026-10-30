@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "clips": [
+    { "id": "stride", "title": "Walk, run, stop, turn", "group": "Movement", "focus": "Foot placement, leg separation, weight transfer and settling after a reversal.", "scene": "floor", "phases": [
+      { "seconds": 0.4, "label": "Standing", "input": {} },
+      { "seconds": 0.8, "label": "Walking", "input": { "move": 0.35 } },
+      { "seconds": 0.9, "label": "Running", "input": { "move": 1 } },
+      { "seconds": 0.4, "label": "Stopping", "input": {} },
+      { "seconds": 0.9, "label": "Turning left", "input": { "move": -1 } },
+      { "seconds": 0.4, "label": "Settling", "input": {} }
+    ] },
+    { "id": "jump", "title": "Jump and land", "group": "Movement", "focus": "Takeoff, shape in flight, landing compression and the return to a planted stance.", "scene": "floor", "phases": [
+      { "seconds": 0.5, "label": "Run-up", "input": { "move": 1 } },
+      { "seconds": 0.22, "label": "Takeoff", "input": { "move": 1, "jump": true } },
+      { "seconds": 0.9, "label": "Flight and landing", "input": { "move": 1 } },
+      { "seconds": 0.8, "label": "Recovery", "input": {} }
+    ] },
+    { "id": "crouch", "title": "Crouch and rise", "group": "Movement", "focus": "Hip and knee articulation, compact feet, arm overlap and the change of silhouette.", "scene": "floor", "phases": [
+      { "seconds": 0.3, "label": "Standing", "input": {} },
+      { "seconds": 0.4, "label": "Crouching", "input": { "crouch": true, "descend": true } },
+      { "seconds": 1.1, "label": "Crouched walk", "input": { "move": 0.35, "crouch": true, "descend": true } },
+      { "seconds": 0.4, "label": "Crouched rest", "input": { "crouch": true, "descend": true } },
+      { "seconds": 0.7, "label": "Standing up", "input": {} }
+    ] },
+    { "id": "ledge", "title": "Catch, brace, pull up", "group": "Contact", "focus": "Flat toe pads against the wall, natural ankle bends, loaded hands and the pull-up handoff.", "scene": "ledge", "phases": [
+      { "seconds": 0.15, "label": "Approach", "input": { "move": 1 } },
+      { "seconds": 0.3, "label": "Jump to lip", "input": { "move": 1, "jump": true } },
+      { "seconds": 0.45, "label": "Catch", "input": { "move": 1 } },
+      { "seconds": 0.8, "label": "Braced hang", "input": {} },
+      { "seconds": 1.3, "label": "Pull-up", "input": { "climb": true } },
+      { "seconds": 0.4, "label": "Standing on ledge", "input": {} }
+    ] },
+    { "id": "ladder", "title": "Ladder climb and reverse", "group": "Contact", "focus": "The back view, shoulder attachments, alternating supports and visible knee bends.", "scene": "ladder", "phases": [
+      { "seconds": 0.2, "label": "Standing", "input": {} },
+      { "seconds": 1.2, "label": "Climbing up", "input": { "climb": true } },
+      { "seconds": 0.45, "label": "Holding", "input": {} },
+      { "seconds": 0.8, "label": "Climbing down", "input": { "descend": true, "drop": true } },
+      { "seconds": 0.4, "label": "Holding", "input": {} }
+    ] },
+    { "id": "rope", "title": "Rope climb and release", "group": "Contact", "focus": "Hand grip, body hang, leg gathering, shoulder rotation and the release into free movement.", "scene": "rope", "phases": [
+      { "seconds": 1.3, "label": "Climbing", "input": { "climb": true } },
+      { "seconds": 0.7, "label": "Swing right", "input": { "move": 1 } },
+      { "seconds": 0.5, "label": "Swing left", "input": { "move": -1 } },
+      { "seconds": 0.15, "label": "Release", "input": { "jump": true, "move": 1 } },
+      { "seconds": 0.65, "label": "Flight", "input": { "move": 1 } }
+    ] },
+    { "id": "slide", "title": "Slide down the Exit column", "group": "Contact", "focus": "Clearance at a thin slanted face, limb overlap, ankle direction and landing recovery.", "level": "/tests/fixtures/jumping/exit-column-slide.json", "phases": [
+      { "seconds": 0.35, "label": "Leave the column", "input": { "move": 1 } },
+      { "seconds": 1.4, "label": "Slide without catching the lip", "input": { "move": 1, "descend": true, "drop": true } },
+      { "seconds": 0.8, "label": "Land and recover", "input": {} }
+    ] },
+    { "id": "swim", "title": "Swim, float, dive", "group": "Water", "focus": "The stroke silhouette, upright float, folded limbs, head direction and changes of posture.", "scene": "water", "phases": [
+      { "seconds": 0.65, "label": "Leave the floor", "input": { "climb": true } },
+      { "seconds": 1.1, "label": "Swimming", "input": { "move": 1 } },
+      { "seconds": 0.9, "label": "Float upright", "input": {} },
+      { "seconds": 0.9, "label": "Dive", "input": { "descend": true } },
+      { "seconds": 0.5, "label": "Rest", "input": {} }
+    ] },
+    { "id": "water-push", "title": "Push from standing to swimming", "group": "Water", "focus": "Reach to a small ball, both palms on the surface, kicking effort and the release of working hands.", "level": "/tests/fixtures/jumping/small-water-prop.json", "phases": [
+      { "seconds": 1.5, "label": "Floor push", "input": { "move": 1 } },
+      { "seconds": 0.1, "label": "Leave support", "input": { "climb": true } },
+      { "seconds": 1.6, "label": "Swimming push", "input": { "move": 1 } },
+      { "seconds": 0.7, "label": "Swim away", "input": { "climb": true } },
+      { "seconds": 0.4, "label": "Float", "input": {} }
+    ] }
+  ]
+}

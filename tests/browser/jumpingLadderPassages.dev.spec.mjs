@@ -1,9 +1,67 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+
+test('direction slightly before Space still jumps sideways off a ladder', async ({ page }, info) => {
+  test.setTimeout(120000)
+  const file = { ...blankTrial(), id: 'ladder-departure-browser', name: 'Ladder departure',
+    width: 1000, height: 900, floor: 800, timing: 'untimed', entrance: { x: 400, y: 800 }, goal: { x: 900, y: 800, flipX: true },
+    platforms: [{ x: 200, y: 200, w: 500, h: 50 }],
+    climbables: { ladders: [{ x: 400, top: 200, bottom: 800, platform: -1, side: 1 }], ropes: [] } }
+  expect(levelProblems(file)).toEqual([])
+  await useLevelFixtures(page, [file])
+  await page.clock.install({ time: new Date('2026-10-29T12:00:00Z') })
+  await page.goto('/lab?motionDebug=1')
+  const play = page.getByRole('button', { name: 'Play Ladder departure', exact: true })
+  await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-10-29T13:00:00Z'))
+  await play.click(); await finishJumpingEntrance(page)
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(800); await page.keyboard.up('ArrowUp')
+  await page.clock.runFor(200)
+  const grip = await motion(page)
+  expect(grip.signals.mode).toBe('ladder')
+  await page.keyboard.down('ArrowRight'); await page.clock.runFor(64)
+  expect((await motion(page)).signals.mode).toBe('free')
+  await page.keyboard.down('Space'); await page.clock.runFor(120)
+  await page.keyboard.up('Space'); await page.keyboard.up('ArrowRight')
+  const jumping = await motion(page)
+  expect(jumping.x).toBeGreaterThan(grip.x + 35)
+  expect(jumping.y).toBeLessThan(grip.y - 35)
+  expect(jumping.signals.mode).toBe('free')
+  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('ladder-sideways-jump.png') })
+})
+
+test('a ladder flush with its deck lowers the player onto the first real rung', async ({ page }, info) => {
+  test.setTimeout(120000)
+  const file = { ...blankTrial(), id: 'top-rung-browser', name: 'Top rung descent',
+    width: 1000, height: 900, floor: 800, timing: 'untimed', entrance: { x: 400, y: 200 }, goal: { x: 900, y: 800, flipX: true },
+    platforms: [{ x: 250, y: 200, w: 300, h: 30 }],
+    climbables: { ladders: [{ x: 400, top: 200, bottom: 800, platform: -1, side: 1 }], ropes: [] } }
+  expect(levelProblems(file)).toEqual([])
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await useLevelFixtures(page, [file])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab?motionDebug=1')
+  await page.locator('.jumping-level-card[aria-pressed=true]').filter({ hasText: file.name }).click()
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await restartFromPause(page)
+  await page.keyboard.down('ArrowDown'); await page.clock.runFor(240); await page.keyboard.up('ArrowDown')
+  const lowering = await motion(page)
+  expect(lowering.signals.mode).toBe('ladder'); expect(lowering.y).toBeGreaterThan(220)
+  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('top-rung-lowering.png') })
+  await page.clock.runFor(250)
+  expect((await motion(page)).y).toBeCloseTo(lowering.y, 5)
+  await page.keyboard.down('ArrowDown'); await page.clock.runFor(500); await page.keyboard.up('ArrowDown')
+  expect((await motion(page)).y).toBeGreaterThan(270)
+  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('top-rung-climbing.png') })
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(2400); await page.keyboard.up('ArrowUp')
+  expect((await motion(page)).y).toBe(200); expect((await motion(page)).signals.grounded).toBe(true)
+  expect(errors).toEqual([])
+})
 
 test('normal controls climb through decks, stop on the upper landing and deliberately descend', async ({ page }, info) => {
   test.setTimeout(120000)

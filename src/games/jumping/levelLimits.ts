@@ -49,3 +49,6 @@ export async function readLevelResponse(response: Response, consume: (bytes: num
   } catch (error) { await reader.cancel().catch(() => {}); throw error }
   finally { reader.releaseLock() }
 }
+
+/** Shared authoring bounds for geometry, point objects, and lighting. */
+export const MAX_LEVEL_WIDTH = 24000

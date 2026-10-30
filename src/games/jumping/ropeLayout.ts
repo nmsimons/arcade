@@ -76,7 +76,7 @@ function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
 }
 
 // A coat of paint must not discard an authored rope's settled path or change its cache key.
-const geometryOnly = (key: string, value: unknown) => key === 'material' ? undefined : value
+const geometryOnly = (key: string, value: unknown) => key === 'material' || key === 'groundCover' ? undefined : value
 
 /** Resolve an unloaded rope once, in authoring time, using the game's own constraints. */
 export function prepareRope(definition: Rope, terrain: readonly Platform[], preview = false): Rope {

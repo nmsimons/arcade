@@ -21,6 +21,7 @@ import { drawWallLight } from './wallLight.ts'
 import { createFloatSwitch, drawFloatSwitchArm } from './floatSwitch.ts'
 import { drawLogicRelay } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
+import { backWallPath } from './environment.ts'
 
 export type PlacementPreview = { level: JumpLevel; selection: Selection }
 
@@ -41,6 +42,10 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
   const i = selection.index
   ctx.save(); ctx.globalAlpha = .65
   switch (selection.kind) {
+    case 'back-wall': {
+      ctx.beginPath(); backWallPath(ctx, level.environment!.walls[i]); ctx.fillStyle = '#287c9b30'; ctx.fill()
+      ctx.strokeStyle = '#287c9b'; ctx.lineWidth = 2 / zoom; ctx.stroke(); break
+    }
     case 'platform': drawTerrain(ctx, [level.platforms[i]]); break
     case 'prop': drawProp(ctx, { ...level.props![i], vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true }); break
     case 'robot': {

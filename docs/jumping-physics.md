@@ -169,7 +169,13 @@ short jumps under low ceilings as well as full-height reaches. Takeoff approach
 speed follows the planned arc; high jumps steer toward the outside handhold
 before pulling onto the surface. Takeoff waits for sufficient ground speed when
 there is still footing; near-apex grips use the controller's existing hand-reach
-window. Planned rope exits issue the ordinary jump
+window. Exposed lips also supply standing samples on irregular terrain that
+uniform sampling can miss. When a normal landing arc is blocked or too short,
+moderate rises can use the same ordinary hand catch; live barriers check that
+catch arc too. Planned jumps retain running-speed air control during patrol as
+well as pursuit, and passing above a setup cannot skip a required landing.
+Patrol destinations share one reachability search rather than searching again
+for each inaccessible shelf. Planned rope exits issue the ordinary jump
 control instead of continuing to hold the rope.
 Ground launches check the rising body from its actual position and momentum,
 including terrain, red fields, mechanisms and loose obstacles. A blocked arc
@@ -424,6 +430,13 @@ the real game adapter; an actual iPhone playtest is still needed to tune feel.
 
 ## Step order
 
+An untimed `goal.kind: "walk-off"` opens the right boundary above the authored
+goal ground. That ground continues beyond the rectangle for the player's last
+stride. Ordinary running or jumping completes only after the player passes the
+edge by one body width; props cannot complete it. The camera's right edge stays
+at the map boundary, with no automatic doorway step or player fade. Other level
+boundaries and normal movement contacts keep their existing rules.
+
 Levels begin through a 40-by-80 entrance door, without the exit's indicator.
 Its sill needs continuous flat terrain and an unobstructed doorway. During
 the 1.35-second entrance, a separate presentation actor emerges using the ordinary
@@ -566,8 +579,10 @@ the rider inside terrain. Ladder geometry remains exactly as authored. At the
 upper deck, the hands transfer to its lip and start the existing ledge mantle
 viewed from behind: pull, knee support, trailing foot, then stand. Forward reach
 projects into depth rather than shifting sideways. The shared mantle timing
-also determines when the equipped arm becomes free. Down reverses the pull-up
-onto the ladder; moving mechanisms and forcefields can stop it without dropping
+also determines when the equipped arm becomes free. Direct downward boarding
+at a flush top gathers the stance and reaches down to the first real rung;
+the visible rung cycle cannot extend above the authored ladder. Side-mounted
+exits reverse the pull-up onto the ladder. Moving mechanisms and forcefields can stop it without dropping
 the rider inside terrain.
 Intermediate floors support sideways departure. The bot graph includes these
 boarding/exit points and checks active mechanism/field barriers on ladder legs.
@@ -579,6 +594,37 @@ have to clear the actual terrain. Supporting-corner clearance follows the real
 slanted face, including flush joined pieces; a leaning bank's own wedge does not
 block its pull-up. Steeper outward banks, shallow hill crests and concave
 recesses do not gain ledge grips.
+
+Hanging follows an eligible wall's lean instead of requiring the vertical-wall
+body envelope to fit there. The pose and collision hull lean together below the
+hands, keeping the lip fixed. Feet brace on the actual face when it continues
+below the grip, including across flush joins. In every braced hang a visible
+forefoot pad lies flat along the wall, with the heel back and lower than the
+contact. Keep the normal heel, instep and toe proportions; only rotate the native
+forefoot at its toe joint, without stretching or scaling either section. Place
+the ankle using that native reach. Drawing and clearance samples share the same
+joint bend. It blends in on a catch and releases smoothly as the pull-up begins;
+the original close leg placement remains. Air gaps, receding faces and real obstructions still determine
+whether bracing is possible.
+
+Final ankle articulation follows the solved shin after clearance and pose
+transfers. Free shoes rotate toward that shin only as far as the terrain and
+ledge corner permit. Supported soles keep their ankle, angle and toe contact;
+the knee opens through depth with fixed thigh and shin lengths. The bend eases
+into its limit so a foot-facing reversal cannot introduce an abrupt depth
+change. A long leg against a steep wall uses its best reachable knee bend while
+retaining its sole contact. The native foot dimensions and braced toe pad stay
+unchanged. During pull-up the free trailing shoe lifts above the lip before
+planting, and foot-angle blends take the short path across the angle boundary.
+
+A top that slopes downhill inward from the lip can offer a hand grip down to
+sixty degrees below horizontal, independently of standing traction. Uphill tops
+keep the ordinary foot-grip limit. This still requires a convex, exposed corner
+and the same reachable hands, catch sweep and clear hanging space. Pull-ups use
+the actual sloping top and complete body-clearance checks. When a clear landing
+is too steep for traction, ordinary sliding takes over after the pull-up;
+otherwise the player keeps hanging and can jump or drop away. This does not
+make steep tops walkable or change a shallow crest into a ledge.
 
 Running off a lip retains the departing surface velocity. A trailing foot may
 briefly touch an outward-sloping bank, but a contact the player is moving away
@@ -682,7 +728,11 @@ Up can catch a ladder while Jump is held; catching consumes that press until it
 is released and pressed again. Catch alignment checks the whole body against
 terrain and mechanisms, so a platform lip cannot be crossed sideways. Holding
 Up/Down keeps the ladder grip despite slight sideways steering; release vertical
-input to step off sideways. In a hang, explicit detach
+input to step off sideways. A clear sideways departure into the air allows a
+fresh Jump press for the next 0.1 seconds, so direction pressed slightly before
+Jump still pushes off the ladder. This grace expires after use; explicit detach,
+a consumed held Jump and a release blocked by terrain do not grant it.
+In a hang, explicit detach
 or an unlocked Down drop takes precedence over Jump.
 
 Down ignores a ladder whose lower end is buried in the floor already supporting
@@ -902,6 +952,13 @@ repeatedly touches a ball as it rolls away: real contact gaps can occur without
 the limbs snapping back and forth. A separate wall brace keeps its own contact
 and release blend when a slope contact starts, and both poses compose through
 their existing weights.
+
+The blended slide trunk clears the actual terrain before the arms and legs are
+solved to their targets. A nearly vertical slip must not pull the head or torso
+through a wall that the motor hull already cleared. This correction changes
+only the visible pose and retains the limb lengths and contact targets.
+`tests/jumping-wall-slide-clearance.test.mjs` freezes Exit's two-column encounter
+and checks both directions at 120/30 Hz.
 
 When the brace and slip describe the same canted face, the loaded palms keep
 their wall targets. Gravity-field bobbing can start and stop the downhill slip
@@ -1188,11 +1245,17 @@ Swimming toward a loose prop keeps the body mostly prone, lifts the face clear
 and presses both palms against its visible surface when that surface lies within
 22 units of the visible shoulders and ahead of the torso. The reach eases in,
 and preserves the arm's depth bend while releasing into the free stroke.
-Underwater, only a real side body contact engages the palms; an overhead ball
-does not attract a reach from a distance. The frog kick continues
+Underwater, floating and overhead props require a real side body contact.
+For fully submerged, supported props up to 60 units wide, a shallow downward
+reach keeps nearby palms useful through the standing-to-swimming transition.
+Both palms must remain within their normal 22-unit reach with a clear path to
+the surface. Working hands limit the forward stroke and push at a slower
+54-unit pace, retaining the prop's weight and the existing push force limits.
+This contact cannot pull an escaping prop; vertical steering, reversal or
+releasing movement gives back ordinary swimming. The frog kick continues
 under pushing effort even when a prop is blocked; the arms hold contact instead
-of replaying the breaststroke pull. Approaching hands do not supply a grounded
-shove from a distance: shared body contacts supply the physical force and torque.
+of replaying the breaststroke pull. Unloaded preparation supplies no force;
+other swimming pushes retain shared body contact force and torque.
 Sideways swimming does not automatically catch a loose prop's ledge. Only a
 stable, flat-supported crate at least 78 units tall offers a grip, as on dry
 ground; floating/unstable crates and balls have no grabbable ledge. Up requests
@@ -1221,8 +1284,14 @@ each moving object. A retained
 clearance offset relaxes gradually so adjacent corner faces cannot snap the
 torso back and forth during a slow start or stop.
 Working-hand clearance includes the full drawn palm. Unanchored swimming hands
-use one enclosing 2.1-unit circle, avoiding repeated silhouette queries while
+use one enclosing 2.352-unit circle, avoiding repeated silhouette queries while
 keeping the whole palm clear of terrain.
+Closed, relaxed and open hands share that clearance. Flat palm planes are
+sampled between their vertices so they cannot cross a prop corner unnoticed.
+Working push palms retain their 1.6-unit surface offset while the fingers point
+up the face and the wrist meets the heel of the hand. Crouching relaxes the
+unloaded wrist and finger shape; loading and release blend that articulation
+without changing the arm lengths or the approved hand size.
 When a blocked wrist retracts, its contact palm follows it; deliberate pushing
 palms meet the prop surface while free sculls retain their stroke.
 
@@ -1366,6 +1435,13 @@ visible rope's vertical direction, including a rope floating upward from a floor
 anchor. Nearly horizontal spans retain their last material direction. A player's
 load uses the gravity averaged across their body, scaled to the rope's existing
 baseline, independently of the field at their hands. The anchor stays fixed.
+
+Sideways steering applies a finite weight-shift impulse. Starting a swing or
+shifting with its motion gets a stronger push; counter-steering retains its
+existing braking strength. Holding a direction supplies no continuing motor
+force, so building amplitude still rewards timed shifts. Settled free hangs coast
+with less drag. Climbing, wall bracing, unoccupied rope damping and sleeping,
+contact friction, grip geometry and release momentum rules remain unchanged.
 
 Free rope hangs retain softly bent elbows, relaxed knees and staggered feet.
 Two damped body followers respond to acceleration at the retained material grip:

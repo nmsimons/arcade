@@ -1109,5 +1109,16 @@
       "align": "center",
       "style": "lab-stamp"
     }
+  ],
+  "gravityPlates": [
+    {
+      "id": "e82757fb-3177-42cc-881d-bf3eb94c1927",
+      "x": 440,
+      "y": 1100,
+      "w": 780,
+      "h": 300,
+      "gravity": -1,
+      "effect": "water"
+    }
   ]
 }

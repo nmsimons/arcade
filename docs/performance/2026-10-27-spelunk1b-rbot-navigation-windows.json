@@ -1,0 +1,557 @@
+{
+  "date": "2026-10-27T19:57:29.291Z",
+  "machine": "Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz",
+  "browser": "156.0.4314.42",
+  "hardware": true,
+  "gpu": [
+    {
+      "vendorId": 1297040209,
+      "deviceId": 909329200,
+      "subSysId": 808989496,
+      "revision": 136,
+      "vendorString": "",
+      "deviceString": "Qualcomm(R) Adreno(TM) X1-85 GPU",
+      "driverVendor": "Qualcomm",
+      "driverVersion": "31.0.133.1"
+    },
+    {
+      "vendorId": 5140,
+      "deviceId": 140,
+      "subSysId": 0,
+      "revision": 0,
+      "vendorString": "",
+      "deviceString": "Microsoft Basic Render Driver",
+      "driverVendor": "",
+      "driverVersion": "10.0.26100.9711"
+    }
+  ],
+  "level": "public/levels/jumping/spelunk1b.jump-level.json",
+  "levelHash": "e4cdcefceea2af61c5594aad3cf3e46905cdd26884b19719186c30a461f47efe",
+  "method": "Two production bundles differing only in botNavigation.ts. Hardware Edge; 1280x800 DPR1; full-quality lighting; fixed cave camera with continuous pan; neutral input with ordinary 120Hz accumulator and 50ms cap. Startup begins at authored spawn; cave-patrol first simulates 30 seconds. Three alternating arm pairs; 30 warmup frames and six measured seconds. No concurrent tests. Bot routes intentionally differ once navigation is corrected. CPU draw spans exclude asynchronous GPU completion, React UI, audio and input latency.",
+  "summary": [
+    {
+      "scenario": "startup",
+      "before": {
+        "fps": 36.88374111285423,
+        "frameP95Ms": 33.5,
+        "frameP99Ms": 34.100000000000364,
+        "updateMeanMs": 3.5122727271508087,
+        "updateP95Ms": 6.0999999940395355,
+        "drawMeanMs": 7.111818181791088,
+        "framesOver33_83Ms": 3
+      },
+      "after": {
+        "fps": 38.00063334388907,
+        "frameP95Ms": 33.5,
+        "frameP99Ms": 40.700000000000045,
+        "updateMeanMs": 3.8754385972493575,
+        "updateP95Ms": 7.299999997019768,
+        "drawMeanMs": 7.634080717849624,
+        "framesOver33_83Ms": 6
+      }
+    },
+    {
+      "scenario": "cave-patrol",
+      "before": {
+        "fps": 30.913956155367565,
+        "frameP95Ms": 66.60000000000036,
+        "frameP99Ms": 67,
+        "updateMeanMs": 3.998295454562388,
+        "updateP95Ms": 7.699999988079071,
+        "drawMeanMs": 9.791477273049003,
+        "framesOver33_83Ms": 28
+      },
+      "after": {
+        "fps": 35.64853556485356,
+        "frameP95Ms": 33.69999999999891,
+        "frameP99Ms": 41.600000000000364,
+        "updateMeanMs": 3.4178403753070206,
+        "updateP95Ms": 6.200000002980232,
+        "drawMeanMs": 8.562264150606012,
+        "framesOver33_83Ms": 7
+      }
+    }
+  ],
+  "sources": {
+    "before": "61fcedf:src/games/jumping/botNavigation.ts",
+    "beforeSha256": "52dd8c91182f6026a5c420e0c9c31807cc4d33896468722accb711bb163fc4e5",
+    "afterSha256": "e02179ab7b1c05e2e52a24af648ff1f8f48df7ab268dd6e673e956f935a32f1c",
+    "frozenLevel": "tests/fixtures/jumping/spelunk1b-rbot-routes.json",
+    "frozenLevelSha256": "e4cdcefceea2af61c5594aad3cf3e46905cdd26884b19719186c30a461f47efe"
+  },
+  "routeProof": {
+    "test": "tests/jumping-bot-spelunk.test.mjs",
+    "controls": "Fresh authored spawn, neutral player input and normal Rbot AI/motor, up to 80 simulated seconds.",
+    "result": "Rbot lands on the central cave terrain, reaches x < 1500 on footing, and returns to x > 3100 on footing without acquiring or shooting the player.",
+    "negativeControls": [
+      "Committed navigator fails to leave the platform section.",
+      "Restoring walking-speed air control after adding the gap route crosses into the cave but fails the return over its steep rocks."
+    ],
+    "physics": "Existing shared controller, jump strengths, contacts and movement tuning."
+  },
+  "raw": [
+    {
+      "pair": 0,
+      "arm": "before",
+      "scenario": "startup",
+      "setupMs": 3,
+      "initial": [
+        3265,
+        1780
+      ],
+      "final": [
+        2522.199809548353,
+        1524.5259188721611
+      ],
+      "fps": 42.34309623430962,
+      "frames": 253,
+      "interval": {
+        "mean": 23.616600790513836,
+        "p95": 33.400000000000546,
+        "p99": 33.70000000000027,
+        "max": 49.80000000000018
+      },
+      "update": {
+        "mean": 3.2114624508873746,
+        "p95": 5.9000000059604645,
+        "p99": 8.5,
+        "max": 12.600000008940697
+      },
+      "draw": {
+        "mean": 6.745059288655345,
+        "p95": 10.299999997019768,
+        "p99": 13,
+        "max": 16.599999994039536
+      },
+      "updatePerTick": 1.1300417247211485,
+      "over33": 2,
+      "renderer": "gpu",
+      "bufferBytes": 44343960
+    },
+    {
+      "pair": 0,
+      "arm": "before",
+      "scenario": "cave-patrol",
+      "setupMs": 1780.4000000059605,
+      "initial": [
+        2179.6234449138265,
+        1885.1121376795481
+      ],
+      "final": [
+        2416.3134479353357,
+        1634.5490394331903
+      ],
+      "fps": 29.373967321461357,
+      "frames": 176,
+      "interval": {
+        "mean": 34.043749999999996,
+        "p95": 66.69999999999891,
+        "p99": 83.30000000000018,
+        "max": 266.6999999999998
+      },
+      "update": {
+        "mean": 3.998295454562388,
+        "p95": 7.399999991059303,
+        "p99": 11,
+        "max": 12.400000005960464
+      },
+      "draw": {
+        "mean": 9.791477273049003,
+        "p95": 15.099999994039536,
+        "p99": 16.200000002980232,
+        "max": 81.70000000298023
+      },
+      "updatePerTick": 1.0534431137769165,
+      "over33": 27,
+      "renderer": "canvas",
+      "bufferBytes": 51504784
+    },
+    {
+      "pair": 0,
+      "arm": "after",
+      "scenario": "startup",
+      "setupMs": 2.6000000089406967,
+      "initial": [
+        3265,
+        1780
+      ],
+      "final": [
+        2645.274211904846,
+        1529.08423007055
+      ],
+      "fps": 37.218151776624325,
+      "frames": 223,
+      "interval": {
+        "mean": 26.868609865470855,
+        "p95": 33.5,
+        "p99": 41.700000000000045,
+        "max": 50
+      },
+      "update": {
+        "mean": 3.8865470848810513,
+        "p95": 7.299999997019768,
+        "p99": 12,
+        "max": 36.29999999701977
+      },
+      "draw": {
+        "mean": 7.634080717849624,
+        "p95": 12.400000005960464,
+        "p99": 15.600000008940697,
+        "max": 19.600000008940697
+      },
+      "updatePerTick": 1.2054242001786848,
+      "over33": 7,
+      "renderer": "gpu",
+      "bufferBytes": 44363136
+    },
+    {
+      "pair": 0,
+      "arm": "after",
+      "scenario": "cave-patrol",
+      "setupMs": 1843.2999999970198,
+      "initial": [
+        2027.3804566512079,
+        1580
+      ],
+      "final": [
+        2582.4219721483846,
+        1436.3012524416183
+      ],
+      "fps": 35.48176538519474,
+      "frames": 212,
+      "interval": {
+        "mean": 28.18349056603773,
+        "p95": 33.69999999999982,
+        "p99": 41.69999999999982,
+        "max": 44.80000000000018
+      },
+      "update": {
+        "mean": 3.468867924556417,
+        "p95": 6,
+        "p99": 6.799999997019768,
+        "max": 7.5
+      },
+      "draw": {
+        "mean": 8.562264150606012,
+        "p95": 13.5,
+        "p99": 15,
+        "max": 16.5
+      },
+      "updatePerTick": 1.022809457588262,
+      "over33": 9,
+      "renderer": "gpu",
+      "bufferBytes": 44345568
+    },
+    {
+      "pair": 1,
+      "arm": "after",
+      "scenario": "startup",
+      "setupMs": 2.2000000029802322,
+      "initial": [
+        3265,
+        1780
+      ],
+      "final": [
+        2645.274211904846,
+        1529.08423007055
+      ],
+      "fps": 38.00063334388907,
+      "frames": 228,
+      "interval": {
+        "mean": 26.31535087719298,
+        "p95": 33.5,
+        "p99": 35.5,
+        "max": 66.5
+      },
+      "update": {
+        "mean": 3.8754385972493575,
+        "p95": 7.4000000059604645,
+        "p99": 12.900000005960464,
+        "max": 39.599999994039536
+      },
+      "draw": {
+        "mean": 7.74824561361681,
+        "p95": 12.599999994039536,
+        "p99": 18,
+        "max": 23.599999994039536
+      },
+      "updatePerTick": 1.2306406687644198,
+      "over33": 6,
+      "renderer": "gpu",
+      "bufferBytes": 44363184
+    },
+    {
+      "pair": 1,
+      "arm": "after",
+      "scenario": "cave-patrol",
+      "setupMs": 1825.5999999940395,
+      "initial": [
+        2027.3804566512079,
+        1580
+      ],
+      "final": [
+        2576.360842076966,
+        1429.6172246638407
+      ],
+      "fps": 35.64853556485356,
+      "frames": 213,
+      "interval": {
+        "mean": 28.05164319248826,
+        "p95": 33.69999999999891,
+        "p99": 41.600000000000364,
+        "max": 41.80000000000018
+      },
+      "update": {
+        "mean": 3.4178403753070206,
+        "p95": 6.200000002980232,
+        "p99": 7.799999997019768,
+        "max": 8.5
+      },
+      "draw": {
+        "mean": 8.635680751621443,
+        "p95": 14.5,
+        "p99": 20.299999997019768,
+        "max": 22.099999994039536
+      },
+      "updatePerTick": 1.0139275765186564,
+      "over33": 7,
+      "renderer": "gpu",
+      "bufferBytes": 44341536
+    },
+    {
+      "pair": 1,
+      "arm": "before",
+      "scenario": "startup",
+      "setupMs": 2.1000000089406967,
+      "initial": [
+        3265,
+        1780
+      ],
+      "final": [
+        2548.3194010159323,
+        1525.4933111487383
+      ],
+      "fps": 36.88374111285423,
+      "frames": 221,
+      "interval": {
+        "mean": 27.112217194570135,
+        "p95": 33.600000000000364,
+        "p99": 42.099999999999454,
+        "max": 58.299999999999955
+      },
+      "update": {
+        "mean": 3.733936651934326,
+        "p95": 6.5,
+        "p99": 11.700000002980232,
+        "max": 13.5
+      },
+      "draw": {
+        "mean": 7.233484162464401,
+        "p95": 11.5,
+        "p99": 15.200000002980232,
+        "max": 17.30000001192093
+      },
+      "updatePerTick": 1.1493036212778358,
+      "over33": 7,
+      "renderer": "gpu",
+      "bufferBytes": 44362608
+    },
+    {
+      "pair": 1,
+      "arm": "before",
+      "scenario": "cave-patrol",
+      "setupMs": 1727.5999999940395,
+      "initial": [
+        2179.6234449138265,
+        1885.1121376795481
+      ],
+      "final": [
+        2408.134286596727,
+        1635.1332652430908
+      ],
+      "fps": 31.253656009225683,
+      "frames": 187,
+      "interval": {
+        "mean": 31.996256684491975,
+        "p95": 66.60000000000036,
+        "p99": 66.80000000000018,
+        "max": 66.89999999999964
+      },
+      "update": {
+        "mean": 3.9160427806530405,
+        "p95": 8.100000008940697,
+        "p99": 10.200000002980232,
+        "max": 13.700000002980232
+      },
+      "draw": {
+        "mean": 10.10695187189681,
+        "p95": 16.900000005960464,
+        "p99": 26.100000008940697,
+        "max": 70.20000000298023
+      },
+      "updatePerTick": 1.0628447024413914,
+      "over33": 28,
+      "renderer": "canvas",
+      "bufferBytes": 51504784
+    },
+    {
+      "pair": 2,
+      "arm": "before",
+      "scenario": "startup",
+      "setupMs": 2.8999999910593033,
+      "initial": [
+        3265,
+        1780
+      ],
+      "final": [
+        2536.027828560601,
+        1525.0380677244666
+      ],
+      "fps": 36.76839255272922,
+      "frames": 220,
+      "interval": {
+        "mean": 27.19727272727273,
+        "p95": 33.5,
+        "p99": 34.100000000000364,
+        "max": 83.39999999999998
+      },
+      "update": {
+        "mean": 3.5122727271508087,
+        "p95": 6.0999999940395355,
+        "p99": 8,
+        "max": 9
+      },
+      "draw": {
+        "mean": 7.111818181791088,
+        "p95": 11.799999997019768,
+        "p99": 14.600000008940697,
+        "max": 17.299999997019768
+      },
+      "updatePerTick": 1.0822128851164956,
+      "over33": 3,
+      "renderer": "gpu",
+      "bufferBytes": 44354352
+    },
+    {
+      "pair": 2,
+      "arm": "before",
+      "scenario": "cave-patrol",
+      "setupMs": 1715.5,
+      "initial": [
+        2179.6234449138265,
+        1885.1121376795481
+      ],
+      "final": [
+        2407.111891429401,
+        1635.2062934693286
+      ],
+      "fps": 30.913956155367565,
+      "frames": 186,
+      "interval": {
+        "mean": 32.34784946236559,
+        "p95": 66.60000000000036,
+        "p99": 67,
+        "max": 83.30000000000018
+      },
+      "update": {
+        "mean": 4.05107526913766,
+        "p95": 7.699999988079071,
+        "p99": 12.5,
+        "max": 12.5
+      },
+      "draw": {
+        "mean": 9.64731182766858,
+        "p95": 15.400000005960464,
+        "p99": 20.799999997019768,
+        "max": 71.30000001192093
+      },
+      "updatePerTick": 1.0904486252671557,
+      "over33": 34,
+      "renderer": "canvas",
+      "bufferBytes": 51504784
+    },
+    {
+      "pair": 2,
+      "arm": "after",
+      "scenario": "startup",
+      "setupMs": 2.2000000029802322,
+      "initial": [
+        3265,
+        1780
+      ],
+      "final": [
+        2645.274211904846,
+        1529.08423007055
+      ],
+      "fps": 38.612609014046996,
+      "frames": 232,
+      "interval": {
+        "mean": 25.898275862068967,
+        "p95": 33.5,
+        "p99": 40.700000000000045,
+        "max": 49.60000000000002
+      },
+      "update": {
+        "mean": 3.5646551721568764,
+        "p95": 6.4000000059604645,
+        "p99": 9,
+        "max": 36.1000000089407
+      },
+      "draw": {
+        "mean": 7.216379310357674,
+        "p95": 11.400000005960464,
+        "p99": 15,
+        "max": 23.799999997019768
+      },
+      "updatePerTick": 1.1502086230047224,
+      "over33": 3,
+      "renderer": "gpu",
+      "bufferBytes": 44363136
+    },
+    {
+      "pair": 2,
+      "arm": "after",
+      "scenario": "cave-patrol",
+      "setupMs": 1867.7000000029802,
+      "initial": [
+        2027.3804566512079,
+        1580
+      ],
+      "final": [
+        2570.383045338881,
+        1423.3637524416183
+      ],
+      "fps": 37.333333333333336,
+      "frames": 224,
+      "interval": {
+        "mean": 26.785714285714285,
+        "p95": 33.5,
+        "p99": 35.30000000000018,
+        "max": 49.899999999999636
+      },
+      "update": {
+        "mean": 3.3008928575686047,
+        "p95": 6.4000000059604645,
+        "p99": 7.899999991059303,
+        "max": 10.100000008940697
+      },
+      "draw": {
+        "mean": 8.26964285703642,
+        "p95": 12.700000002980232,
+        "p99": 19.100000008940697,
+        "max": 27
+      },
+      "updatePerTick": 1.0269444445768992,
+      "over33": 5,
+      "renderer": "gpu",
+      "bufferBytes": 44341536
+    }
+  ],
+  "limitations": [
+    "This full-quality cave pan remains below 60 FPS; these results do not establish a universal frame-rate guarantee.",
+    "The corrected bot traverses different terrain during the measured window, so physics workload differs intentionally.",
+    "Other user applications and the interactive localhost browser remained open.",
+    "Raw per-frame measurements and screenshots remain in .local/rbot-spelunk-2026-10-27."
+  ],
+  "errors": []
+}

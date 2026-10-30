@@ -90,5 +90,16 @@
       "align": "center",
       "style": "lab-stamp"
     }
+  ],
+  "gravityPlates": [
+    {
+      "id": "07681dbd-7307-49e4-b362-e2bc1da1c21d",
+      "x": 540,
+      "y": 960,
+      "w": 240,
+      "h": 40,
+      "gravity": -1,
+      "effect": "water"
+    }
   ]
 }

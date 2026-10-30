@@ -1,4 +1,5 @@
 import type { JumpLevel } from './level.ts'
+import { MAX_LEVEL_WIDTH } from './levelLimits.ts'
 import type { NamedObject } from './objectNames.ts'
 import { parseObjectName } from './objectNames.ts'
 import { objectReference } from './objectLabels.ts'
@@ -65,7 +66,7 @@ export function parseLighting(value: unknown): LightingDefinition {
     // Accept older files, but authored spotlights always use full intensity.
     if (l.intensity !== undefined) number(l.intensity, 1, 100, true)
     // Retired mechanism mounts are ignored; saved world coordinates remain fixed.
-    return { id: id(l.id), x: number(l.x, 0, 20000), y: number(l.y, 0, 6000),
+    return { id: id(l.id), x: number(l.x, 0, MAX_LEVEL_WIDTH), y: number(l.y, 0, 6000),
       intensity: 100, direction: number(l.direction, -180, 180), spread: number(l.spread, 20, 160),
       power: l.power, ...parseSwitchSettings(l, fail), ...(l.flicker ? { flicker: true } : {}), ...name }
   })

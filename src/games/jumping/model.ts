@@ -1,13 +1,13 @@
 import type { NamedObject } from './objectNames.ts'
 import { advanceFootwork } from './footwork.ts'
 import type { Footwork } from './footwork.ts'
-import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
+import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
 import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ladderDistance, rappelFrame, ropeGripDistance, ropeImpulse, ropePoint, ropeSlopeSupport, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder, RopeState } from './climbables.ts'
 import { ladderExitGround, ladderLanding, ladderMantleEntry } from './ladderGeometry.ts'
 import { exposedSide, exposedWallFaces, followGround, groundAt, platformSurface } from './terrain.ts'
 import type { GroundSurface } from './terrain.ts'
-import { ledgeExposed, ledgeObstacles, platformLedges, sameLedge } from './terrainLedges.ts'
+import { canGrabLedge, ledgeExposed, ledgeObstacles, platformLedges, sameLedge } from './terrainLedges.ts'
 import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
@@ -18,10 +18,11 @@ import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot
 import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
+import type { GroundCover } from './terrainGroundCover.ts'
 import { TUNING } from './movementTuning.ts'
 import { carryWithRisingWater } from './waterTransport.ts'
 import type { WaterLevels } from './waterLevel.ts'
-import { advanceReturningStepPreparation, advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, athletePose, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, startImpactRagdoll, swimmingLedgeReach } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, athletePose, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, startImpactRagdoll, swimmingLedgeReach } from './athlete.ts'
 import type { ImpactRagdoll } from './impactRagdoll.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
@@ -35,13 +36,17 @@ import { stepRopeBodyMotion } from './ropeBodyMotion.ts'
 export { TUNING } from './movementTuning.ts'
 
 /** Runtime prop hulls allow free swimming limbs to pass through depth. */
-export interface Platform extends NamedObject { looseProp?: boolean; x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; bezier?: readonly (import('./terrainCurves.ts').TerrainBezier | null)[]; material?: TerrainMaterial; zIndex?: number }
+export interface Platform extends NamedObject { looseProp?: boolean; x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; bezier?: readonly (import('./terrainCurves.ts').TerrainBezier | null)[]; material?: TerrainMaterial; groundCover?: GroundCover; zIndex?: number }
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
 interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
+export function wantsCrouch(input: JumpInput, inverted = false) {
+  const down = !!(input.descend ?? (input.drop && !input.detach))
+  return inverted ? input.climb || input.crouch && !down && !input.drop : input.crouch || down
+}
 export interface GaitPose { speed: number; moving: number; run: number; air: number; jog?: number }
 export function gaitPose(vx: number, airborne = false): GaitPose {
   const smooth = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
@@ -60,16 +65,16 @@ export interface Player {
   sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number } | null
   coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
   jumpLift: { elapsed: number; strength: number; entrySpeed: number; extraSpeed: number; fresh: boolean } | null
-  grabCooldown: number
+  grabCooldown: number; ladderJumpGrace: number
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
   pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
-  hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
+  hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; outwardSlope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
     caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; ragdoll?: Player['ragdoll']; waterMotion?: Player['waterMotion']; dryTurn?: Player['dryTurn']; heldTool?: Player['heldTool'] } } | null
-  mantle: { edgeX: number; edgeY: number; side: number; slope?: number; toX: number; toY: number; time: number; braced: boolean;
+  mantle: { edgeX: number; edgeY: number; side: number; slope?: number; outwardSlope?: number; toX: number; toY: number; time: number; braced: boolean;
     platform?: number; returning?: boolean; crouched?: boolean; inset?: number; blockedTime?: number;
     step?: StepUp;
     /** Foreground ladder-to-deck pull-up, viewed from behind. */
@@ -92,7 +97,7 @@ export interface Player {
   waterPushOff?: boolean
   waterBob?: WaterBob
   waterCamera?: WaterCamera
-  waterMotion?: { amount: number; dive: number; phase: number; effort?: number; underwater?: boolean; steering?: number; bend?: number; leadHeading?: number; scull?: number; bottom?: number; gather?: number; floatCurl?: number; heading?: number; bodyOffset?: [number, number]; wall?: { x: number; amount: number };
+  waterMotion?: { amount: number; dive: number; phase: number; effort?: number; underwater?: boolean; steering?: number; bend?: number; leadHeading?: number; scull?: number; bottom?: number; gather?: number; floatCurl?: number; heading?: number; propLean?: number; bodyOffset?: [number, number]; wall?: { x: number; amount: number };
     ceiling?: { collider: string; amount: number; load: number; nx: number; ny: number; hands: { x: number; y: number; nx: number; ny: number }[] };
     floor?: { y: number; angle: number; reach: number };
     landing?: { pose: AthletePose; y: number; facing: number; time: number; load: number; hand: { x: number; y: number; angle: number }; leaving?: boolean } }
@@ -105,7 +110,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     shove: undefined, stagger: 0, shoves: 0, shoveDrift: false,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: undefined, jumpHeld: false, jumpLift: null,
-    grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
+    grabCooldown: 0, ladderJumpGrace: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     freeFall: null, ragdoll: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0, waterPushOff: false,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, airBoost: { x: 0, lift: 0, time: 0 }, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false, waterJump: false, swimAcceleration: 0 }
 }
@@ -140,6 +145,7 @@ export function cancelJumpInput(p: Player) {
   p.airBoost.x = 0; p.airBoost.lift = 0
   if (p.mantle?.step) p.mantle.step.jumpQueued = false
   p.stepIntent = null
+  p.ladderJumpGrace = 0
 }
 export function respawn(p: Player) {
   const { spawnX, spawnY, checkpoint, bestHeight } = p
@@ -159,8 +165,15 @@ function launch(p: Player, baseSpeed: number = TUNING.jumpSpeed, maxSpeed: numbe
     ? { elapsed: 0, strength: 0, entrySpeed: 0, extraSpeed, fresh: true } : null
   p.vy = -(baseSpeed + extraSpeed * (p.jumpStrength ?? 0))
   p.grounded = false; p.coyote = 0; p.buffer = 0; p.jumpStrength = undefined; p.wallJumpBuffer = 0
+  p.ladderJumpGrace = 0
   p.jumpStart = p.y; p.jumpHeight = 0
   if (p.sliding) p.sliding.active = false
+}
+function launchFromClimb(p: Player, move: number, gravity: number) {
+  const direction = gravity < -TUNING.gravity * .05 ? -1 : 1
+  const momentum = Math.min(p.vy * direction, 0)
+  launch(p); p.vy = (p.vy + momentum) * direction
+  p.vx = Math.max(-600, Math.min(600, p.vx + move * 180))
 }
 function sustainJump(p: Player, dt: number) {
   const lift = p.jumpLift
@@ -348,24 +361,29 @@ function settleSlopeBase(p: Player, ground: GroundSurface, downhill: number, pla
   p.x = q.x; p.y = q.y; p.vx = 0; p.vy = 0; p.grounded = true; p.gait = gaitPose(0)
   return q.surface
 }
-function ledgeBraced(platforms: readonly Platform[], edgeX: number, edgeY: number, side: number) {
-  return [55, 58].every(offset => platforms.some(wall => pointInside(wall, edgeX + side * .1, edgeY + offset)
-    && !pointInside(wall, edgeX - side * .1, edgeY + offset)))
+function ledgeBraced(platforms: readonly Platform[], edgeX: number, edgeY: number, side: number, outwardSlope = 0) {
+  return [55, 58].every(offset => {
+    const faceX = edgeX - side * offset * outwardSlope
+    return platforms.some(wall => pointInside(wall, faceX + side * .1, edgeY + offset)
+      && !pointInside(wall, faceX - side * .1, edgeY + offset))
+  })
 }
 function ledgePathClear(platforms: readonly Platform[], edge: TerrainLedge, braced: boolean, obstacles = platforms, crouched = false, inset = 20,
   blockers = ledgeObstacles(obstacles, edge)) {
   const { edgeX, edgeY, side } = edge
   const toY = edgeY + inset * (edge.slope ?? 0)
-  if (!groundAt(platforms, edgeX + inset * side, toY, .01, s => canGrip(s.angle))) return false
+  // A downhill landing can immediately slide; it need not provide standing traction.
+  if (!groundAt(platforms, edgeX + inset * side, toY, .01, s => canGrabLedge(Math.tan(s.angle) * side))) return false
   const height = crouched ? TUNING.crouchHeight : TUNING.height
   if (obstacles.some(b => overlaps(edgeX + inset * side, toY, b, height))) return false
   if (blockers.some(other => overlaps(edgeX + inset * side, toY, other, height) || overlaps(edgeX - 14 * side, edgeY, other, height))) return false
   // Sample each frame once across all obstacles, stopping as soon as the path
   // is blocked. Held Down retries against moving objects every physics tick.
   for (let i = 0; i <= 24 && blockers.length; i++) {
-    const pose = climbFrame(i / 24, braced, edge.slope, crouched, inset)
-    const root = climbContactRoot(i / 24, braced, edge.slope, crouched, inset, pose)
-    if (blockers.some(other => overlaps(edgeX + root[0] * side, edgeY + root[1], other, climbBodyHeight(i / 24, crouched))
+    const pose = climbFrame(i / 24, braced, edge.slope, crouched, inset, edge.outwardSlope)
+    const root = climbContactRoot(i / 24, braced, edge.slope, crouched, inset, edge.outwardSlope, pose)
+    const bodyHeight = climbBodyHeight(i / 24, crouched), outline = ledgeBodyOutline(root[1], bodyHeight, side, ledgeLean(i / 24, edge.outwardSlope))
+    if (blockers.some(other => bodyIntersects(edgeX + root[0] * side, edgeY + root[1], other, bodyHeight, 1, 0, outline)
       || crouched && (pointInside(other, edgeX + pose.head[0] * side, edgeY + pose.head[1])
         || nearestBoundary(other, edgeX + pose.head[0] * side, edgeY + pose.head[1]).distance < 6.2 - 1e-7))) return false
   }
@@ -373,10 +391,11 @@ function ledgePathClear(platforms: readonly Platform[], edge: TerrainLedge, brac
 }
 /** Keep the usual landing when it fits, then try a supported stance nearer the lip. */
 export function ledgeLanding(platforms: readonly Platform[], edge: TerrainLedge, braced: boolean, obstacles = platforms, crouchedOnly = false) {
-  const blockers = ledgeObstacles(obstacles, edge), root = climbContactRoot(0, braced, edge.slope)
+  const blockers = ledgeObstacles(obstacles, edge), root = climbContactRoot(0, braced, edge.slope, false, 20, edge.outwardSlope)
   // Every landing shares the same initial hang. A blocked hang cannot be
   // rescued by thirteen different landing insets or by ending in a crouch.
-  if (blockers.some(other => overlaps(edge.edgeX + root[0] * edge.side, edge.edgeY + root[1], other, climbBodyHeight(0)))) return null
+  const outline = ledgeBodyOutline(root[1], climbBodyHeight(0), edge.side, edge.outwardSlope ?? 0)
+  if (blockers.some(other => bodyIntersects(edge.edgeX + root[0] * edge.side, edge.edgeY + root[1], other, climbBodyHeight(0), 1, 0, outline))) return null
   for (const crouched of crouchedOnly ? [true] : [false, true]) for (let inset = 20; inset >= 8; inset--) {
     if (ledgePathClear(platforms, edge, braced, obstacles, crouched, inset, blockers)) return { crouched, inset }
   }
@@ -387,12 +406,13 @@ function ladderLedge(ladder: Ladder, platforms: readonly Platform[]) {
   const candidates = platforms.flatMap((b, platform) => platformLedges(b).flatMap(edge => {
     const { edgeX, edgeY, side } = edge, gap = (edgeX - ladder.x) * side
     return gap >= TUNING.width / 2 && gap <= 32 && Math.abs(edgeY - ladder.top) < 1 && ledgeExposed(platforms, edge)
-      ? [{ platform, ...edge, braced: ledgeBraced(platforms, edgeX, edgeY, side), gap }] : []
+      ? [{ platform, ...edge, braced: ledgeBraced(platforms, edgeX, edgeY, side, edge.outwardSlope), gap }] : []
   })).sort((a, b) => Number(b.platform === ladder.platform && b.side === ladder.side) - Number(a.platform === ladder.platform && a.side === ladder.side)
     || a.gap - b.gap || Number(b.side === ladder.side) - Number(a.side === ladder.side))
   return candidates.find(edge => {
     if (!ledgePathClear(platforms, edge, edge.braced)) return false
-    const target: [number, number] = [edge.edgeX - edge.side * 14, edge.edgeY + TUNING.hangReach]
+    const root = climbFrame(0, edge.braced, edge.slope, false, 20, edge.outwardSlope).root
+    const target: [number, number] = [edge.edgeX + edge.side * root[0], edge.edgeY + root[1]]
     const safe = moveBody([ladder.x, ladder.top + climbGait(18).root], target, platforms)
     return Math.hypot(safe.x - target[0], safe.y - target[1]) < .01
   })
@@ -407,14 +427,15 @@ function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[], w
     const { edgeX, edgeY, side } = edge, gap = (edgeX - p.x) * side
     return gap >= -TUNING.width / 2 && gap <= 48 && Math.abs(edgeX - grip[0]) <= 28
       && grip[1] >= edgeY - 24 && grip[1] <= edgeY + 56 && ledgeExposed(fixed, edge)
-      ? [{ platform, ...edge, braced: ledgeBraced(platforms, edgeX, edgeY, side) }] : []
+      ? [{ platform, ...edge, braced: ledgeBraced(platforms, edgeX, edgeY, side, edge.outwardSlope) }] : []
   })).sort((a, b) => Math.hypot(a.edgeX - grip[0], a.edgeY - grip[1]) - Math.hypot(b.edgeX - grip[0], b.edgeY - grip[1]))
   return candidates.find(edge => {
     if (!ledgePathClear(platforms, edge, edge.braced, fixed) || platforms.some(b => overlaps(p.x, p.y, b))) return false
     const from: [number, number] = [(p.x - edge.edgeX) * edge.side, p.y - edge.edgeY]
+    const hangRoot = climbFrame(0, edge.braced, edge.slope, false, 20, edge.outwardSlope).root
     let previous: [number, number] = [p.x, p.y]
     for (let i = 1; i <= 16; i++) {
-      const root = ropeCatchRoot(from, i / 16), target: [number, number] = [edge.edgeX + root[0] * edge.side, edge.edgeY + root[1]]
+      const root = ropeCatchRoot(from, i / 16, hangRoot), target: [number, number] = [edge.edgeX + root[0] * edge.side, edge.edgeY + root[1]]
       const safe = moveBody(previous, target, platforms)
       if (Math.hypot(safe.x - target[0], safe.y - target[1]) > .01) return false
       previous = target
@@ -574,6 +595,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       constrainWaterPosture(p, previousWaterMotion, previousWaterCenter, world)
       p.y += previousWaterCenter - playerWaterCenterOffset(p)
     }
+    advanceWaterPropReach(p, input, dt, world)
   } else delete p.waterMotion
   const verticalUsed = !!(p.climbing || p.hang || p.mantle)
   const initialContacts = playerContacts(p, input, world, dt), previousGround = initialContacts.support
@@ -588,6 +610,15 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const collisionOutline = playerCollisionOutline(p, world)
   const result = moveBody([beforeBody.x, beforeBody.y], [afterBody.x, afterBody.y], obstacles, afterBody.height, 1, playerTurnAngle(p), collisionOutline)
   result.x -= offsetX; result.y -= offsetY
+  // A changing hang hull can overlap yesterday's wall contact at the sweep's
+  // start even though this frame's complete target hull clears it. Accept only
+  // a clear endpoint and a correction smaller than this tick's body travel.
+  const catchingLean = p.hang?.outwardSlope && p.hang.time > 0
+    && p.hang.time < (p.hang.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME)
+  if (catchingLean && Math.hypot(result.x - p.x, result.y - p.y) < Math.hypot(afterBody.x - beforeBody.x, afterBody.y - beforeBody.y) + .1
+    && !obstacles.some(b => bodyIntersects(afterBody.x, afterBody.y, b, afterBody.height, 1, playerTurnAngle(p), collisionOutline?.(b)))) {
+    result.x = p.x; result.y = p.y
+  }
   // Following a curved ground profile may cross a crest between two samples.
   // Keep the supported endpoint only for tiny corrections with a clear body.
   if (p.grounded && Math.hypot(result.x - p.x, result.y - p.y) < Math.abs(p.x - from[0]) + .1 && !obstacles.some(b => overlaps(p.x, p.y, b))) {
@@ -787,7 +818,7 @@ export function loweringOption(p: Player, platforms: readonly Platform[] = p.ter
   })).filter(edge => Math.abs(edge.edgeX - p.x) <= 32 && ledgeExposed(platforms, edge))
     .sort((a, b) => Math.abs(a.edgeX - p.x) - Math.abs(b.edgeX - p.x))
   for (const edge of edges) {
-    const braced = ledgeBraced(platforms, edge.edgeX, edge.edgeY, edge.side)
+    const braced = ledgeBraced(platforms, edge.edgeX, edge.edgeY, edge.side, edge.outwardSlope)
     const landing = ledgeLanding(platforms, edge, braced, platforms, p.crouching)
     if (landing) return { ...edge, braced, ...landing }
   }
@@ -835,8 +866,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const bodyClimb = frameDirection > 0 ? input.climb : screenDown
   const bodyDescend = frameDirection > 0 ? screenDown : input.climb
   const bodyDrop = bodyDescend || input.detach || input.drop && !screenDown
-  const bodyCrouch = frameDirection > 0 ? input.crouch || bodyDescend
-    : bodyDescend || input.crouch && !screenDown && !input.drop
+  const bodyCrouch = wantsCrouch(input, frameDirection < 0)
+  p.ladderJumpGrace = p.grounded || p.hang || p.mantle || p.climbing || input.detach
+    ? 0 : Math.max(0, p.ladderJumpGrace - dt)
   p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt
   const stepIntent = p.stepIntent; p.stepIntent = null
   const pressed = input.jump && !p.jumpHeld
@@ -950,7 +982,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       return
     }
     const progress = Math.min(1, Math.max(0, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME))
-    const t = m.descending ? 1 - progress : progress, pose = climbFrame(t, m.braced, m.slope, m.crouched, m.inset)
+    const t = m.descending ? 1 - progress : progress, pose = climbFrame(t, m.braced, m.slope, m.crouched, m.inset, m.outwardSlope)
     p.x = m.edgeX + pose.root[0] * m.side; p.y = m.edgeY + pose.root[1]; p.vx = 0; p.vy = 0; p.facing = m.side
     if (m.descending && m.time < LEDGE_CATCH_TIME) {
       const blend = ease(m.time / LEDGE_CATCH_TIME)
@@ -958,13 +990,13 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.y = m.descending.caught.y + (p.y - m.descending.caught.y) * blend
     }
     if (m.returning && m.time === 0) {
-      p.hang = { platform: m.platform ?? -1, edgeX: m.edgeX, edgeY: m.edgeY, side: m.side, slope: m.slope, time: 1, queued: false, braced: m.braced, dropLocked: true,
+      p.hang = { platform: m.platform ?? -1, edgeX: m.edgeX, edgeY: m.edgeY, side: m.side, slope: m.slope, outwardSlope: m.outwardSlope, time: 1, queued: false, braced: m.braced, dropLocked: true,
         caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: p.gait, ledgeReach: null } }
       p.mantle = null; return
     }
     if (progress === 1 && m.descending) {
       const c = m.descending.climbable
-      const hang: NonNullable<Player['hang']> = { platform: m.descending.platform, side: m.side, edgeX: m.edgeX, edgeY: m.edgeY, slope: m.slope, time: 1, queued: false, braced: m.braced, dropLocked: true,
+      const hang: NonNullable<Player['hang']> = { platform: m.descending.platform, side: m.side, edgeX: m.edgeX, edgeY: m.edgeY, slope: m.slope, outwardSlope: m.outwardSlope, time: 1, queued: false, braced: m.braced, dropLocked: true,
         caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: p.gait, ledgeReach: null } }
       if (c) {
         c.caught = { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, grounded: false, gait: p.gait, footwork: null, hang }
@@ -1087,10 +1119,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
       const launchMove = c.rope && wall ? -wall.side : input.move
       if (jumping && !input.detach) {
-        const direction = orientationGravity < -TUNING.gravity * .05 ? -1 : 1
-        const momentum = Math.min(p.vy * direction, 0)
-        launch(p); p.vy = (p.vy + momentum) * direction
-        p.vx = Math.max(-600, Math.min(600, p.vx + launchMove * 180))
+        launchFromClimb(p, launchMove, orientationGravity)
       } else { if (!c.rope) p.vy = Math.max(0, p.vy) + 40; cancelJumpInput(p) }
       p.jumpStart = p.y; p.jumpHeight = 0; return
     }
@@ -1102,7 +1131,12 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const ground = exitGround ?? groundAt(platforms, p.x, p.y, 5, s => canGrip(s.angle))
       // Stepping onto a floor must fit at its actual height, including headroom.
       if (!ground || !platforms.some(b => overlaps(p.x, ground.y, b))) {
-        leaveLadder(p, ground); p.vx = input.move * TUNING.walkSpeed; return
+        leaveLadder(p, ground); p.vx = input.move * TUNING.walkSpeed
+        // Direction often arrives a few frames before Jump. Keep the immediate
+        // step-off, but let a fresh press turn that clear departure into a jump.
+        p.ladderJumpGrace = ground ? 0 : TUNING.coyoteTime
+        p.jumpHeld = input.jump
+        return
       }
     }
     const topFooting = c.ladder ? ladderFooting(c.ladder, platforms) : null
@@ -1217,10 +1251,11 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (pressed) h.queued = false
     const catchTime = h.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME
     const { side } = h, caught = ledgeEase(h.time / catchTime)
-    p.x = h.caught.x + (h.edgeX - side * 14 - h.caught.x) * caught
-    p.y = h.caught.y + (h.edgeY + TUNING.hangReach - h.caught.y) * caught
+    const target = climbFrame(0, h.braced, h.slope, false, 20, h.outwardSlope).root
+    p.x = h.caught.x + (h.edgeX + side * target[0] - h.caught.x) * caught
+    p.y = h.caught.y + (h.edgeY + target[1] - h.caught.y) * caught
     if (h.caught.climbing?.rope) {
-      const root = ropeCatchRoot([(h.caught.x - h.edgeX) * side, h.caught.y - h.edgeY], h.time / catchTime)
+      const root = ropeCatchRoot([(h.caught.x - h.edgeX) * side, h.caught.y - h.edgeY], h.time / catchTime, target)
       p.x = h.edgeX + root[0] * side; p.y = h.edgeY + root[1]
     }
     p.vx = 0; p.vy = 0; p.facing = side
@@ -1241,7 +1276,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         const landing = ledgeLanding(platforms, h, h.braced) ?? ledgeLanding(platforms, h, h.braced, fixed)
         if (landing) {
           const { crouched, inset } = landing, toX = h.edgeX + inset * side, toY = h.edgeY + inset * (h.slope ?? 0)
-          p.mantle = { platform: h.platform, edgeX: h.edgeX, edgeY: h.edgeY, slope: h.slope, side, toX, toY, time: 0, braced: h.braced, crouched, inset }; p.hang = null; cancelJumpInput(p)
+          p.mantle = { platform: h.platform, edgeX: h.edgeX, edgeY: h.edgeY, slope: h.slope, outwardSlope: h.outwardSlope, side, toX, toY, time: 0, braced: h.braced, crouched, inset }; p.hang = null; cancelJumpInput(p)
         }
       }
     }
@@ -1253,6 +1288,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   p.reach = approach(p.reach, Number(input.reach && !p.crouching), dt * 10)
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const wasGrounded = p.grounded
+  if (p.ladderJumpGrace > 0 && p.buffer > 0) launchFromClimb(p, input.move, orientationGravity)
   tryWallJump(p, platforms)
   p.coyote = wasGrounded ? TUNING.coyoteTime : Math.max(0, p.coyote - dt)
   if (p.coyote > 0 && p.buffer > 0) {
@@ -1434,9 +1470,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       // forward swimming it must not acquire the wider dry reach by default.
       const catchGap = waterReach ? 7 : swimStrength > 0 ? 13 : 19
       if (p.vy > (waterReach ? -TUNING.swimSpeed - 1 : -180) && outside && Math.abs(p.x + side * 14 - edge) < catchGap && reachable(p.y)) {
-        const braced = ledgeBraced(platforms, edge, edgeY, side)
-        const gripRoot = climbContactRoot(0, braced, ledge.slope)
-        if (platforms.some(other => overlaps(edge + side * gripRoot[0], edgeY + gripRoot[1], other))) continue
+        const braced = ledgeBraced(platforms, edge, edgeY, side, ledge.outwardSlope)
+        const gripRoot = climbContactRoot(0, braced, ledge.slope, false, 20, ledge.outwardSlope)
+        const gripOutline = ledgeBodyOutline(gripRoot[1], TUNING.height, side, ledge.outwardSlope ?? 0)
+        if (platforms.some(other => bodyIntersects(edge + side * gripRoot[0], edgeY + gripRoot[1], other, TUNING.height, 1, 0, gripOutline))) continue
         // Inset faces are resolved by the sweep, not the bounds-based side stop above.
         // Catch from that resolved position so the same contact cannot cancel the new grip.
         catchPosition ??= moveBody([oldX, oldY], [p.x, p.y], platforms, height, 1, playerTurnAngle(p), collisionOutline)
@@ -1446,7 +1483,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, gait: p.gait, ledgeReach: reach, freeFall: p.freeFall, ragdoll: p.ragdoll, dryTurn: p.dryTurn,
           ...(p.waterMotion ? { waterMotion: { ...p.waterMotion } } : {}),
           ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
-        p.vx = 0; p.vy = 0; p.hang = { platform: index, side, edgeX: edge, edgeY, slope: ledge.slope, time: 0, queued: false, braced, caught }
+        p.vx = 0; p.vy = 0; p.hang = { platform: index, side, edgeX: edge, edgeY, slope: ledge.slope, outwardSlope: ledge.outwardSlope, time: 0, queued: false, braced, caught }
         cancelJumpInput(p); p.jumpHeld = input.jump; break ledges
       }
     }

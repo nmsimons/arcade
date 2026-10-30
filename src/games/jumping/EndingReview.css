@@ -1,0 +1,6 @@
+.ending-review { position: fixed; inset: 0; background: #bddbea; }
+.ending-review > canvas { display: block; width: 100%; height: 100%; }
+.ending-review-controls { position: absolute; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; background: #eeeee6ee; color: #35463b; font: 12px ui-monospace, monospace; border-radius: 4px; }
+.ending-review-controls button, .ending-review-controls a { min-height: 40px; display: inline-flex; align-items: center; padding: 6px 12px; color: inherit; background: #d9ded2; border: 1px solid #899784; border-radius: 3px; }
+.ending-review-controls label { display: flex; align-items: center; gap: 8px; }
+.ending-review-controls input { width: min(240px, 40vw); }

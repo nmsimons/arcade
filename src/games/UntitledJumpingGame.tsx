@@ -2,10 +2,14 @@ import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
 import { LabLogo } from '../branding/LabLogo'
 import { LAB_NAME } from '../branding/lab'
 import { lightingForLevel } from './jumping/lightingDefinition'
+import { usesRegionLighting } from './jumping/environment'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
 import { playgroundLightingWorld } from './jumping/lightingModel'
 import { awakeningCamera, GameCamera } from './jumping/camera'
+import { advanceBusEnding, busEndingFrame, BUS_ENDING_SECONDS, createBusDeparture, createBusEnding } from './jumping/busEnding'
+import type { BusEnding, EndingCamera } from './jumping/busEnding'
+import { drawBusEnding } from './jumping/busEndingRender'
 import { levelTerrain } from './jumping/level'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore, lazy, Suspense } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -53,7 +57,7 @@ import './jumping/interface.css'
 
 const DevLevelBuilder = import.meta.env.DEV ? lazy(() => import('./jumping/LevelBuilder').then(module => ({ default: module.LevelBuilder }))) : null
 
-type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
+type Screen = 'menu' | 'playing' | 'ending' | 'paused' | 'building' | 'complete'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'KeyE', 'KeyF', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
@@ -180,11 +184,16 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const playPreparation = useRef<AbortController | null>(null), preparedStart = useRef<PreparedLevel | null>(null)
   useEffect(() => () => { playPreparation.current?.abort(); playPreparation.current = null }, [location.key])
   const screenRef = useRef<Screen>('menu')
+  const endingScene = useRef<BusEnding | null>(null), lastCamera = useRef<EndingCamera>({ x: 0, y: 0, zoom: 1 })
+  const pauseReturn = useRef<'playing' | 'ending'>('playing')
+  const [endingPhase, setEndingPhase] = useState('')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
   const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0, grade: 'A', remaining: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
+    if (next === 'paused' && (screenRef.current === 'playing' || screenRef.current === 'ending')) pauseReturn.current = screenRef.current
+    if (next === 'menu' || next === 'building' || next === 'playing' && screenRef.current !== 'paused') endingScene.current = null
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
     if (next === 'menu' || next === 'building') {
       setPerformanceSnapshot(null); adaptiveLighting?.reset(); setLightingReduced(false)
@@ -214,9 +223,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     }
   }, [devOpen])
   useLayoutEffect(() => {
-    if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
+    if (screen === 'playing' || screen === 'ending') canvasRef.current?.focus({ preventScroll: true })
   }, [screen])
   function resetPosition() {
+    endingScene.current = null; pauseReturn.current = 'playing'
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
     adaptiveLighting?.reset(); setLightingReduced(false)
     if (preparedStart.current?.run) {
@@ -397,7 +407,25 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         setSaveError(true)
       }
     }
+    if (!run.current.failed && (run.current.level.goal.kind === 'bus' || run.current.level.goal.ending === 'bus')) {
+      endingScene.current = run.current.level.goal.kind === 'bus'
+        ? createBusDeparture(run.current.level.goal, player.current, lastCamera.current)
+        : createBusEnding(run.current.level.width, run.current.level.goal.y, player.current, lastCamera.current)
+      if (run.current.level.goal.kind === 'bus') run.current.busDeparture = endingScene.current
+      setEndingPhase(busEndingFrame(endingScene.current).phase)
+      changeScreen('ending')
+    } else changeScreen('complete')
+  })
+  function skipEnding() {
+    if (screenRef.current !== 'ending' || !endingScene.current) return
+    advanceBusEnding(endingScene.current, BUS_ENDING_SECONDS)
     changeScreen('complete')
+  }
+  const advanceEnding = useEffectEvent((dt: number) => {
+    if (screenRef.current !== 'ending' || !endingScene.current || devOpenRef.current || document.hidden) return
+    const finished = advanceBusEnding(endingScene.current, dt)
+    setEndingPhase(busEndingFrame(endingScene.current).phase)
+    if (finished) changeScreen('complete')
   })
   const handleKey = useEffectEvent((event: KeyboardEvent) => {
     if (import.meta.env.DEV && (event.code === 'Backquote' || event.key === '`') && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
@@ -408,6 +436,14 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       return
     }
     if (devOpenRef.current) return
+    if (screenRef.current === 'ending' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (event.target instanceof HTMLButtonElement) return
+      if (event.code === 'Escape' || event.code === 'Space' || event.code === 'Enter') {
+        event.preventDefault()
+        if (!event.repeat) { if (event.code === 'Escape') changeScreen('paused'); else skipEnding() }
+      }
+      return
+    }
     if (screenRef.current === 'menu' && event.code === 'KeyY' && !event.altKey && !event.ctrlKey && !event.metaKey) {
       if (!event.repeat && devEditing && selected && unlocked.has(selected.fileName)) { event.preventDefault(); editFile(selected) }
       return
@@ -428,11 +464,11 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const suspend = useEffectEvent(() => {
     keys.current.clear(); controller.reset(); touch.reset(); cancelJumpInput(player.current)
     jumpQueue.current = []; keyboardJump.current = false
-    if (screenRef.current === 'playing') changeScreen('paused', 'Paused while the game was out of focus.')
+    if (screenRef.current === 'playing' || screenRef.current === 'ending') changeScreen('paused', 'Paused while the game was out of focus.')
   })
   const reorient = useEffectEvent(() => {
     touch.reset()
-    if (screenRef.current === 'playing') changeScreen('paused', 'Paused after the screen orientation changed.')
+    if (screenRef.current === 'playing' || screenRef.current === 'ending') changeScreen('paused', 'Paused after the screen orientation changed.')
   })
   const frameInput = useEffectEvent((now: number) => {
     let pads: (Gamepad | null)[] = []
@@ -447,15 +483,20 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       else if (dialog && pad.navigation) controlDialog(dialog, pad.navigation)
       return null
     }
-    if (pad.disconnected && screenRef.current === 'playing') {
+    if (pad.disconnected && (screenRef.current === 'playing' || screenRef.current === 'ending')) {
       changeScreen('paused', `Controller disconnected. Reconnect, or continue with ${touchAvailable ? 'touch controls' : 'the keyboard'}.`)
+      return null
+    }
+    if (screenRef.current === 'ending') {
+      if (pad.pause) changeScreen('paused')
+      else if (pad.pressed.includes(0)) skipEnding()
       return null
     }
     if (screenRef.current !== 'playing') {
       if (screenRef.current === 'building') return null
       const dialog = controllerDialog(rootRef.current)
       if (dialog) {
-        if (pad.pause && screenRef.current === 'paused') changeScreen('playing')
+        if (pad.pause && screenRef.current === 'paused') changeScreen(pauseReturn.current)
         else if (screenRef.current === 'menu' && pad.pressed.includes(3) && devEditing && selected) editFile(selected)
         else if (pad.pressed.includes(1)) controlDialog(dialog, 'back')
         else if (pad.pressed.includes(0)) {
@@ -497,14 +538,29 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     const paint = (dt = 0) => {
       if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
       const level = run.current?.level ?? activeLevel.current
-      const nextRatio = lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.reduced)
+      const nextRatio = lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.reduced, usesRegionLighting(level))
       if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       // Fractional render scales round the backing dimensions to whole pixels.
       // Frame against the drawable area so rounding cannot shift the view.
       const viewWidth = canvas.width / ratio, viewHeight = canvas.height / ratio
+      if (endingScene.current && run.current) {
+        const world = run.current
+        if (level.goal?.kind === 'bus') {
+          const camera = endingScene.current.camera
+          lightingStats = lightingRenderer.render(ctx, world, lightingForLevel(level),
+            { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, 0)
+          return
+        }
+        drawBusEnding(ctx, endingScene.current, level, viewWidth, viewHeight, camera => {
+          lightingRenderer.render(ctx, world, lightingForLevel(level),
+            { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, 0)
+        })
+        return
+      }
       const camera = awakeningCamera(gameCamera.view(viewWidth, viewHeight, player.current, level, !!run.current, dt),
         viewWidth, viewHeight, run.current?.entrance ?? playgroundEntrance.current)
+      lastCamera.current = camera
       lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current, playgroundEntrance.current), lightingForLevel(level),
         { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
     }
@@ -513,6 +569,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       const rect = canvas.getBoundingClientRect(); width = rect.width; height = rect.height
       ratio = Math.min(window.devicePixelRatio || 1, 2)
       canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio)
+      if (endingScene.current?.cameraLocked) endingScene.current.camera = gameCamera.view(width, height, player.current, run.current?.level ?? activeLevel.current, !!run.current, 0)
       paint()
       const focused = document.activeElement
       if (focused instanceof HTMLElement && focused.closest('.jumping-overlay')) focused.scrollIntoView({ block: 'nearest', inline: 'nearest' })
@@ -567,6 +624,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         }
         sound.update(audioState.drain())
       } else { accumulator = 0; motion?.reset() }
+      advanceEnding(dt)
       if (adaptiveLighting && adaptiveEnabled.current && input && !document.hidden) {
         const before = adaptiveLighting.reduced, after = adaptiveLighting.observe(now)
         if (after !== before) {
@@ -618,6 +676,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         {challenge && trial.timing !== 'untimed' && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}
       </aside>
     </>}
+    {screen === 'ending' && <>
+      <p className="jumping-visually-hidden" role="status" aria-live="polite" aria-label={trial.goal.kind === 'bus' ? 'Bus departure' : 'Ending scene'}>{endingPhase}</p>
+    </>}
     {preparing && <KeyboardDialog label="Preparing level" focusKey="jumping-preparing" onClose={cancelPreparation} className="jumping-overlay jumping-dialog-overlay jumping-ui">
       <div className="jumping-notice-panel">
         <header className="jumping-ui-heading jumping-brand-heading"><LabLogo /><h2>Preparing level.</h2></header>
@@ -629,7 +690,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       testing={testing} saveError={saveError} onNext={!testing && result.grade !== 'F' && campaignIndex >= 0 && nextFile && unlocked.has(nextFile.fileName) ? () => playFile(nextFile) : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
-      connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
+      connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen(pauseReturn.current)}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label={LAB_NAME} focusKey="jumping-menu"
       onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">

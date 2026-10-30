@@ -1,4 +1,5 @@
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
+import { MAX_LEVEL_WIDTH } from './levelLimits'
 import { nightModeEnabled } from './ambientLight'
 import { lightingForLevel } from './lightingDefinition'
 import { terrainCubic, terrainNodes } from './terrainCurves'
@@ -9,9 +10,9 @@ import { drawLevelCenterGuides, levelCenterSnap } from './builderSnap'
 import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, rememberEditorClipboard } from './editorClipboard'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { anchorRope, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { moveTerrainHandle, setTerrainNodeMode } from './editor'
+import { moveTerrainHandle, setTerrainNodeMode, setFinish } from './editor'
 import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
@@ -39,6 +40,12 @@ import { defaultObjectLabel, objectLabel } from './objectLabels'
 import { TerrainMaterialPicker } from './TerrainMaterialPicker'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
+import { EnvironmentFields } from './EnvironmentFields'
+import { drawBackWallOutline, reorderBackWall } from './backWallEditing'
+import { usesRegionLighting } from './environment'
+import { setLightingLayout } from './environmentEditor'
+import { shapePoints, shapeNodeTarget, shapeVertexTarget, insertShapeNode, moveShapeVertex, deleteShapeNode } from './editorShape'
+import { pointInside } from './geometry'
 import { BuilderLibrary } from './BuilderLibrary'
 import { SaveFailureDialog } from './LevelFileActions'
 import { BuilderHelp } from './BuilderHelp'
@@ -47,6 +54,8 @@ import { isHorizontalGate, mechanismAnchor, mechanismOpenPosition, mechanismRope
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
+import { GROUND_COVERS, terrainGroundCover } from './terrainGroundCover'
+import type { GroundCover } from './terrainGroundCover'
 import { switchedItems, switchSources, switchTargets, switchItemLabel, wallWiringItems } from './switchPower'
 import { waterControlId } from './waterLevel'
 import { drawLogicRelay } from './logicRelay'
@@ -73,7 +82,7 @@ const textEntryTarget = (target: EventTarget) => target instanceof HTMLElement
   && !!target.closest('input, select, textarea, [contenteditable]:not([contenteditable="false"])')
 function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: number): (Point & { corner: ResizeHandle })[] {
   if (!selection) return []
-  const terrain = selection.kind === 'platform' ? level.platforms[selection.index] : null
+  const terrain = selection.kind === 'platform' ? level.platforms[selection.index] : selection.kind === 'back-wall' ? level.environment?.walls[selection.index] : null
   // Keep the resize frame outside the white geometry nodes at every zoom.
   if (terrain) return (['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map(corner => ({ corner,
     x: terrain.x + (corner.endsWith('left') ? -16 / zoom : terrain.w + 16 / zoom),
@@ -104,6 +113,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
   { id: 'node', group: 'Editing', label: 'Node', help: 'Drag a node to reshape terrain, or click an edge to add one. Select a node and choose Bézier handles in the inspector to curve its edges. N activates this tool.' },
   { id: 'platform', group: 'Terrain', label: 'Terrain', help: 'Drag to create terrain, then reshape it with the white nodes. Use the Node tool to add points along an edge.' },
+  { id: 'back-wall', group: 'Scenery', label: 'Back wall', help: 'Draw a background region, then choose Day or Night in Object settings. It has no collision. Pointer moves and resizes it; Node reshapes it. Indoor walls and blue sky support the same lighting regions.' },
   { id: 'steps-narrow', group: 'Terrain', label: 'Steps narrow', help: 'Click to place five steps with a stepped underside and a two-square top landing. Each rise and tread is one grid square. Resize, reshape, rotate, or flip after placing.' },
   { id: 'steps-wide', group: 'Terrain', label: 'Steps wide', help: 'Click to place five one-square-thick steps, each three squares wide and offset two squares across and one square up. They form one terrain shape with a stepped underside. Resize, reshape, rotate, or flip after placing.' },
   { id: 'rope', group: 'Movement', label: 'Rope', help: 'Drag down from the anchor. Start near a terrain edge to attach the anchor to it.' },
@@ -165,6 +175,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   useEffect(() => () => lightingRenderer.dispose(), [lightingRenderer])
   useEffect(() => { if (!active) lightingRenderer.release() }, [active, lightingRenderer])
   const [lightingPreview, setLightingPreview] = useState(true)
+  const [environmentGrid, setEnvironmentGrid] = useState(true)
   const [previewLight, setPreviewLight] = useState<string | null>(null)
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
@@ -174,8 +185,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   useEffect(() => () => savePreparation.current?.abort(), [])
   const [tool, setTool] = useState<Tool>('select'), [selectedItems, setSelectedItems] = useState<Selection[]>([])
   const selection = selectedItems.length === 1 ? selectedItems[0] : null
+  const editingWall = selection?.kind === 'back-wall' ? level.environment?.walls[selection.index] : undefined
   const lastClick = useRef<{ point: Point; level: JumpLevel; selection: Selection; additive?: boolean } | null>(null)
-  const allTerrain = selectedItems.length > 0 && selectedItems.every(s => s.kind === 'platform')
+  const allTerrain = selectedItems.length > 0 && selectedItems.every(s => s.kind === 'platform' || s.kind === 'back-wall')
   const selectedGroup = selectedEditorGroup(level, selectedItems)
   const canUngroup = (level.editorGroups ?? []).some(g => g.members.some(s => selectedItems.some(item => sameSelection(item, s))))
   const [clipboard, setClipboard] = useState(readEditorClipboard)
@@ -223,8 +235,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const builderRef = useRef<HTMLElement>(null)
   const [textEntry, setTextEntry] = useState<HTMLInputElement | HTMLTextAreaElement | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
-  const terrainDrag = !!drag && ['bezier', 'point', 'resize', 'move'].includes(drag.mode)
-    && (drag.selection?.kind === 'platform' || drag.selections?.some(s => s.kind === 'platform'))
+  const terrainDrag = !!drag && (drag.mode === 'draw' && ['platform', 'back-wall', 'steps-narrow', 'steps-wide'].includes(tool)
+    || ['bezier', 'point', 'resize', 'move'].includes(drag.mode)
+    && (['platform', 'back-wall'].includes(drag.selection?.kind ?? '') || drag.selections?.some(s => ['platform', 'back-wall'].includes(s.kind))))
   // Do not restart workers or shade a whole scene for every handle movement.
   // Draw the live solid immediately; prepare lighting once the edit is released.
   const lightingGeometry = useLightingGeometry(terrainDrag ? history.present : level, active && lightingPreview && !terrainDrag)
@@ -263,7 +276,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
   const floatSwitch = selection?.kind === 'float-switch' ? level.floatSwitches?.[selection.index] : null
   const logicRelay = selection?.kind === 'logic-relay' ? level.logicRelays?.[selection.index] : null
-  const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
+  const switchable = (goal && !goal.kind ? goal : null) ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
   const objectPower = switchable ? switchable.power ?? (goal || forceField ? 'always' : 'switched') : null
   const targets = switchedItems(level)
   const switchedObject = targets.find(item => !('waterAction' in item) && item.kind === selection?.kind && item.index === selection.index)
@@ -283,8 +296,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
   const quantize = useCallback((v: number, grid: number) => snap ? Math.round(v / grid) * grid : Math.round(v), [snap])
   const quantizeY = useCallback((y: number, grid: number) => roomHeight - quantize(roomHeight - y, grid), [roomHeight, quantize])
-  const hoveredNode = useMemo(() => tool === 'node' && pointer && !drag ? terrainVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom) : null,
-    [tool, pointer, drag, level, view.zoom])
+  const hoveredNode = useMemo(() => tool === 'node' && pointer && !drag ? shapeVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom, selection) : null,
+    [tool, pointer, drag, level, view.zoom, selection])
   const curveHandles = useMemo(() => {
     if (!chosen || selectedNode === null) return []
     const node = terrainNodes(chosen)[selectedNode], handle = chosen.bezier?.[selectedNode]
@@ -294,8 +307,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     }) : []
   }, [chosen, selectedNode])
   const hoveredCurveHandle = pointer && curveHandles.find(h => Math.hypot(pointer.x - h.x, pointer.y - h.y) < 8 / view.zoom)
-  const nodeTarget = useMemo(() => tool === 'node' && pointer && !drag && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? gridSize : 0) : null,
-    [tool, pointer, drag, hoveredNode, level, view.zoom, snap, gridSize])
+  const nodeTarget = useMemo(() => tool === 'node' && pointer && !drag && !hoveredNode ? shapeNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? gridSize : 0, selection) : null,
+    [tool, pointer, drag, hoveredNode, level, view.zoom, snap, gridSize, selection])
   const placement = useMemo(() => pointer && !drag && !preview && !helpOpen && !libraryOpen && !saveFailure && !textEntry
     ? placementPreview(level, tool, pointer, snap, view.zoom, gridSize) : null,
     [pointer, drag, preview, helpOpen, libraryOpen, saveFailure, textEntry, level, tool, snap, view.zoom, gridSize])
@@ -450,11 +463,18 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     if (selectedItems.length) { commit(deleteSelections(history.present, selectedItems)); chooseSelection(null) }
   }
   function removeNode() {
-    if (selection?.kind !== 'platform' || selectedNode === null) return
+    if (!selection || selectedNode === null || !shapePoints(level, selection)) return
     try {
-      const next = deleteTerrainNode(history.present, selection.index, selectedNode)
-      commit(next); setSelectedNode(Math.min(selectedNode, terrainNodes(next.platforms[selection.index]).length - 1))
+      const next = deleteShapeNode(history.present, selection, selectedNode)
+      commit(next); setSelectedNode(Math.min(selectedNode, shapePoints(next, selection)!.length - 1))
     } catch (error) { setMessage((error as Error).message) }
+  }
+  function editBackWall(index: number) {
+    chooseSelection({ kind: 'back-wall', index }); setTool('select')
+    const wall = level.environment!.walls[index]
+    const zoom = clamp(Math.min(size.width / (wall.w + 120), size.height / (wall.h + 120)), .08, 2.5)
+    setView({ x: wall.x + wall.w / 2 - size.width / zoom / 2, y: wall.y + wall.h / 2 - size.height / zoom / 2, zoom })
+    canvasRef.current?.focus({ preventScroll: true })
   }
   function transformSelectedTerrain(transform: TerrainTransform) {
     if (!allTerrain) return
@@ -470,7 +490,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   }
   async function save(testAfter = false, updateRoute = true): Promise<LevelFile | undefined> {
     if (savePending.current || levels.busy || saveFailure) return undefined
-    if (!levels.canWrite) {
+    const testWithoutSaving = testAfter && !dirty && fileSource.text !== undefined
+    if (!levels.canWrite && !testWithoutSaving) {
       setMessage('Built-in editing requires the local development server.')
       setLibraryOpen(true)
       return undefined
@@ -481,6 +502,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     try {
       const controller = new AbortController(); savePreparation.current = controller
       const next = parseLevel((await prepareLevelInWorker(level, { signal: controller.signal })).level)
+      if (testWithoutSaving) {
+        onPlay(copyLevel(next))
+        return { fileName, level: next, sourceText: fileSource.text! }
+      }
       const ownsFile = fileSource.text !== undefined
       const previousName = ownsFile ? fileSource.fileName! : name
       if (levels.files.some(file => file.fileName !== previousName && file.fileName !== name && file.level.id === next.id)) {
@@ -537,6 +562,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
+      if (level.environment && environmentGrid) {
+        const step = LEVEL_GRID_SIZE * 2 ** Math.max(0, Math.ceil(Math.log2(8 / (LEVEL_GRID_SIZE * view.zoom))))
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
+        ctx.strokeStyle = '#353f4820'; ctx.lineWidth = 1 / view.zoom; ctx.beginPath()
+        for (let x = Math.max(0, Math.floor(view.x / step) * step); x <= Math.min(level.width, view.x + size.width / view.zoom); x += step) { ctx.moveTo(x, view.y); ctx.lineTo(x, view.y + size.height / view.zoom) }
+        for (let y = Math.max(0, Math.floor(view.y / step) * step); y <= Math.min(levelHeight(level), view.y + size.height / view.zoom); y += step) { ctx.moveTo(view.x, y); ctx.lineTo(view.x + size.width / view.zoom, y) }
+        ctx.stroke(); ctx.restore()
+      }
       for (const relay of level.logicRelays ?? []) drawLogicRelay(ctx, relay, !!previewRun?.switchStates.get(relay.id))
       if (mechanism) {
         const open = mechanismOpenPosition(mechanism)
@@ -599,6 +632,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           ctx.fillStyle = i === selectedNode ? '#c65231' : '#fffdf5'; ctx.fill(); ctx.stroke()
         }
       }
+      if (editingWall) drawBackWallOutline(ctx, editingWall, selectedNode, view.zoom)
       for (const point of selectedTerminals) {
         ctx.beginPath(); ctx.arc(point.x, point.y, 7 / view.zoom, 0, Math.PI * 2)
         ctx.strokeStyle = '#c65231'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
@@ -621,7 +655,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, curveHandles, mechanism, robot, terrainDrag, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, curveHandles, mechanism, robot, terrainDrag, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, environmentGrid, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer, editingWall])
   useEffect(() => {
     if (!active || size.width <= 0 || size.height <= 0) return
     // Cursor movement must not restart lighting or redraw the authored world.
@@ -638,6 +672,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       ctx.strokeRect(marquee.x, marquee.y, marquee.w, marquee.h)
     }
     if (placement) drawPlacementPreview(ctx, placement, view.zoom)
+    if (drag?.mode === 'draw' && tool === 'back-wall' && preview?.environment?.walls.at(-1)) drawBackWallOutline(ctx, preview.environment.walls.at(-1)!, null, view.zoom)
     ctx.setLineDash([])
     if (snap && !pointer?.free && !marquee && tool === 'select') drawLevelCenterGuides(ctx, level, selectedItems, view.zoom)
     if (hoveredNode) {
@@ -645,7 +680,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
     }
     if (nodeTarget) {
-      const [a, b, c, d] = terrainCubic(level.platforms[nodeTarget.index], nodeTarget.edge)
+      const points = nodeTarget.kind === 'back-wall' ? shapePoints(level, { kind: 'back-wall', index: nodeTarget.index })! : null
+      const [a, b, c, d] = points ? [points[nodeTarget.edge], points[nodeTarget.edge], points[(nodeTarget.edge + 1) % points.length], points[(nodeTarget.edge + 1) % points.length]] : terrainCubic(level.platforms[nodeTarget.index], nodeTarget.edge)
       ctx.strokeStyle = '#c65231'; ctx.lineWidth = 3 / view.zoom
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.bezierCurveTo(b[0], b[1], c[0], c[1], d[0], d[1]); ctx.stroke()
       ctx.beginPath(); ctx.arc(nodeTarget.x, nodeTarget.y, 6 / view.zoom, 0, Math.PI * 2)
@@ -654,7 +690,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       ctx.beginPath(); ctx.moveTo(nodeTarget.x - cross, nodeTarget.y); ctx.lineTo(nodeTarget.x + cross, nodeTarget.y)
       ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
     }
-  }, [active, size, view, placement, marquee, wallTextFontReady, hoveredNode, nodeTarget, level, selectedItems, snap, pointer?.free, tool])
+
+  }, [active, size, view, placement, marquee, wallTextFontReady, hoveredNode, nodeTarget, level, selectedItems, snap, pointer?.free, tool, drag?.mode, preview])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -680,17 +717,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       }
     }
     if (tool === 'node') {
-      const node = terrainVertexTarget(base, p.x, p.y, 10 / view.zoom)
+      const node = shapeVertexTarget(base, p.x, p.y, 10 / view.zoom, selection)
       if (node) {
-        const selected = { kind: 'platform' as const, index: node.index }
+        const selected = { kind: node.kind, index: node.index }
         chooseSelection(selected); setSelectedNode(node.vertex); setMessage('')
         setDrag({ mode: 'point', start: p, screen, base, view, selection: selected, point: node.vertex })
         return
       }
-      const target = terrainNodeTarget(base, p.x, p.y, 12 / view.zoom, snap ? gridSize : 0)
-      if (!target) { setMessage('Click a terrain edge to add a node, or drag an existing node.'); return }
+      const target = shapeNodeTarget(base, p.x, p.y, 12 / view.zoom, snap ? gridSize : 0, selection)
+      if (!target) { setMessage('Click a shape edge to add a node, or drag an existing node.'); return }
       try {
-        const next = insertTerrainNode(base, target), selected = { kind: 'platform' as const, index: target.index }
+        const next = insertShapeNode(base, target), selected = { kind: target.kind, index: target.index }
         chooseSelection(selected); setSelectedNode(target.edge + 1); setMessage(''); setPreview(next); latestPreview.current = next
         setDrag({ mode: 'point', start: p, screen, base: next, view, selection: selected, point: target.edge + 1, inserted: true })
       } catch (error) { setMessage((error as Error).message) }
@@ -739,9 +776,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       setSelectedNode(null)
       setDrag({ mode: 'resize', start: p, screen, base, view, selection, corner: handle.corner }); return
     }
-    if (selection && chosen) {
-      const point = terrainNodes(chosen).findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
+    if (selection && (chosen || editingWall)) {
+      const point = shapePoints(level, selection)!.findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
       if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); setDrag({ mode: 'point', start: p, screen, base, view, selection, point }); return }
+    }
+    if (selection && editingWall && pointInside(editingWall, p.x, p.y)) {
+      const foreground = [...hitItems(level, p.x, p.y, 9 / view.zoom)].find(s => s.kind !== 'back-wall')
+      chooseInspectorTab('object'); setDrag({ mode: 'move', start: p, screen, base, view, selection, selections: [selection], cycle: foreground, overlap: !!foreground }); return
     }
     const hits = [...hitItems(level, p.x, p.y, 9 / view.zoom)]
     const current = repeated && !previousClick.additive && (selection || selectedGroup)
@@ -823,9 +864,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         next = resizeItem(d.base, d.selection, Math.max(snap && !event.altKey ? grid : 1, width), Math.max(snap && !event.altKey ? grid : 1, height), d.corner)
       }
       if (d.mode === 'point') {
-        const point = terrainNodes(d.base.platforms[d.selection.index])[d.point!]
+        const point = shapePoints(d.base, d.selection)![d.point!]
         next = d.inserted && Math.hypot(dx, dy) * view.zoom < 3 ? d.base
-          : moveVertex(d.base, d.selection.index, d.point!, qx(point[0] + dx) - point[0], qy(point[1] + dy) - point[1])
+          : moveShapeVertex(d.base, d.selection, d.point!, qx(point[0] + dx) - point[0], qy(point[1] + dy) - point[1])
       }
       if (d.mode === 'bezier') {
         const terrain = d.base.platforms[d.selection.index], point = terrainNodes(terrain)[d.point!], vector = terrain.bezier![d.point!]![d.tangent!]!
@@ -984,16 +1025,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     }
     else if (event.target === canvasRef.current && selection) {
       if (event.key === 'End') { event.preventDefault(); commit(placeOnSurface(history.present, selection)) }
-      else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && chosen) removeNode(); else remove() }
+      else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && (chosen || editingWall)) removeNode(); else remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault(); const grid = gridSize, step = event.shiftKey ? 1 : grid
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
-        const node = chosen && selectedNode !== null ? terrainNodes(chosen)[selectedNode] : null
+        const node = (chosen || editingWall) && selectedNode !== null ? shapePoints(level, selection)?.[selectedNode] : null
         const origin = node ? { x: node[0], y: node[1] } : light ?? wallLight ?? logicRelay ?? bounds
         const shiftX = snap && !event.shiftKey && origin && dx ? quantize(origin.x + dx, grid) - origin.x : dx
         const shiftY = snap && !event.shiftKey && origin && dy ? quantizeY(origin.y + dy, grid) - origin.y : dy
-        commit(node ? moveVertex(history.present, selection.index, selectedNode!, shiftX, shiftY)
+        commit(node ? moveShapeVertex(history.present, selection, selectedNode!, shiftX, shiftY)
           : moveItem(history.present, selection, shiftX, shiftY))
       }
     }
@@ -1001,7 +1042,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     <header className="builder-header">
       <div className="builder-brand"><h1>Level studio</h1></div>
       <div className="builder-main-actions">
-        <button className="builder-play" title="Save this level and playtest it" disabled={!!problem || levels.busy || saving} aria-busy={saving} onClick={() => void save(true)}><span aria-hidden="true">▶</span> Save and Test</button>
+        <button className="builder-play" title="Test this level; saves any changes first" disabled={!!problem || levels.busy || saving} aria-busy={saving} onClick={() => void save(true)}><span aria-hidden="true">▶</span> Save and Test</button>
         <button title="Save this level (Ctrl/⌘ + S)" disabled={levels.busy || saving} onClick={() => void save()}>Save level</button>
         <button aria-haspopup="dialog" title="Level builder help (F1)" onClick={() => setHelpOpen(true)}>Help</button>
         <button aria-haspopup="dialog" title="Open the library to create or choose a level" disabled={saving} onClick={() => { setMessage(''); setLibraryOpen(true) }}>Library</button>
@@ -1041,7 +1082,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       <div className="builder-control-group" role="group" aria-label="Canvas view"><label className="builder-inline-check" title="Show daylight or night lighting in this view. This does not change the saved level."><input type="checkbox" checked={lightingPreview} onChange={e => setLightingPreview(e.target.checked)} />Lighting</label><button title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</button><button title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
     </div>
     <aside className="builder-tools" aria-label="Building tools">
-        {['Terrain', 'Movement', 'Objects', 'Gadgets', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
+        {['Terrain', 'Scenery', 'Movement', 'Objects', 'Gadgets', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
           const items = TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level)))
           return items.length ? <div className="builder-tool-group" key={group}><h2>{group}</h2>
             <div className="builder-tool-grid">{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div>
@@ -1072,11 +1113,11 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       <div className="builder-inspector-heading">
       <BuilderSelect label="Selected object" value={selectedItems.length > 1 ? 'group' : selection ? `${selection.kind}:${selection.index}` : ''}
         options={[{ value: '', label: 'Nothing selected' }, ...(selectedItems.length > 1 ? [{ value: 'group', label: `${selectedItems.length} objects selected` }] : []), ...allSelections(level).map(s => ({ value: `${s.kind}:${s.index}`, label: selectionLabel(s, level) }))]}
-        onChange={value => { if (value === 'group') return; const [kind, index] = value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform') setTool('select') }} />
+        onChange={value => { if (value === 'group') return; const [kind, index] = value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform' && kind !== 'back-wall') setTool('select') }} />
       </div>
       {selectedItems.length > 1 ? <div className="builder-property-card">
         <h3 className="builder-object-heading">{selectedItems.length} objects selected</h3>
-        <p className="builder-hint">{selectedGroup ? 'Saved group. Click a member to select just that object; drag a member to move the group.' : 'Drag any selected object to move the selection. Group keeps these objects together.'} Shift-click adds or removes objects. {allTerrain ? 'Rotate and flip transform the terrain group around its center.' : 'Rotate and flip are available when every selected object is terrain.'}</p>
+        <p className="builder-hint">{selectedGroup ? 'Saved group. Click a member to select just that object; drag a member to move the group.' : 'Drag any selected object to move the selection. Group keeps these objects together.'} Shift-click adds or removes objects. {allTerrain ? 'Rotate and flip transform the shape group around its center.' : 'Rotate and flip are available when all selected objects are terrain or back walls.'}</p>
         <div className="builder-object-actions">
           <button title="Duplicate selected objects (Ctrl/⌘ + D)" disabled={!selectedItems.some(copyableSelection)} onClick={duplicate}>Duplicate</button>
           <button className="builder-delete" aria-label="Delete selected objects" disabled={!selectedItems.some(copyableSelection)} onClick={remove}>Delete</button>
@@ -1086,7 +1127,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <h3 className="builder-object-heading">{selectionLabel(selection, level)}</h3>
         <label>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemDefinition(level, selection)?.name ?? ''}
           placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
-        {Boolean(trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject) && <BuilderInspectorSection title="Behavior">
+        {Boolean(editingWall || trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject) && <BuilderInspectorSection title="Behavior">
+          {editingWall && <>
+            <BuilderSelect label="Region lighting" value={editingWall.lighting ?? 'night'} options={[{ value: 'day', label: 'Day' }, { value: 'night', label: 'Night' }]}
+              onChange={lighting => { const next = copyLevel(history.present); next.environment!.walls[selection.index].lighting = lighting as 'day' | 'night'; commit(next) }} />
+            {!usesRegionLighting(level) && <><p className="builder-hint">This level currently uses uniform lighting. Enable regions to use this wall’s Day or Night setting.</p>
+              <button onClick={() => commit(setLightingLayout(history.present, 'regions'))}>Enable regional lighting</button></>}
+            <p className="builder-hint">Background only: no collision, grip, or cover. The frontmost back wall sets lighting where regions overlap.</p>
+          </>}
           {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : gravityPlate ? 'Gravity plate power' : forceField ? 'Force field power' : 'Mechanism power'} value={objectPower}
             options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]}
             onChange={value => commit(setObjectPower(history.present, selection, value === 'always' ? 'always' : 'switched'))} />}
@@ -1237,8 +1285,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <BuilderInspectorSection title="Transform">
           <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
             {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
-              || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field'].includes(selection.kind)
-              || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field'].includes(selection.kind))).map(axis => {
+              || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['back-wall', 'platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field'].includes(selection.kind)
+              || axis === 'h' && (verticalCoinSwitch || ['back-wall', 'platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field'].includes(selection.kind))).map(axis => {
               const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
               const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
                 : ({ x: light || wallLight || logicRelay || floatSwitch ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay || floatSwitch ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
@@ -1254,7 +1302,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           </>}
           {facingPlate && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
             onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</button>}
-          {selection.kind === 'goal' && level.goal && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
+          {selection.kind === 'goal' && level.goal && !level.goal.kind && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
             const next = copyLevel(history.present)
             if (next.goal) { if (next.goal.flipX) delete next.goal.flipX; else next.goal.flipX = true }
             commit(next)
@@ -1275,7 +1323,19 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
                 : support.delta > 0 ? `${Math.round(support.delta)} above surface` : 'Overlaps surface'
               : facingPlate?.ceiling ? 'No clear ceiling above' : 'No clear surface below'}</span>
           </div>}
-          {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || terrainNodes(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
+          {(chosen || editingWall) && <div className="builder-action-row"><button title="Activate Node to add or move outline points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected node; at least three must remain" disabled={selectedNode === null || shapePoints(level, selection)!.length <= 3} onClick={removeNode}>Delete node</button></div>}
+          {(chosen || editingWall) && selectedNode !== null && shapePoints(level, selection)?.[selectedNode] && <fieldset>
+            <legend>Node {selectedNode + 1} of {shapePoints(level, selection)!.length}</legend>
+            <div className="builder-dimensions">{(['x', 'y'] as const).map(axis => {
+              const p = shapePoints(level, selection)![selectedNode]
+              return <label key={axis}>Node {axis.toUpperCase()}<NumberField label={`Node ${axis.toUpperCase()}`} min={0} max={axis === 'x' ? level.width : roomHeight} step={snap ? gridSize : 1}
+                value={axis === 'x' ? p[0] : roomHeight - p[1]} {...numberEdit((base, value) => {
+                  const point = shapePoints(base, selection)![selectedNode]
+                  return moveShapeVertex(base, selection, selectedNode, axis === 'x' ? value - point[0] : 0, axis === 'y' ? levelHeight(base) - value - point[1] : 0)
+                })} /></label>
+            })}</div>
+          </fieldset>}
+          {editingWall && <p className="builder-hint">Drag inside the selected wall to move it. Square handles resize. Drag round nodes to reshape; Node adds points along edges. Snap, Alt, and arrow keys work as for terrain.</p>}
           {chosen && selectedNode !== null && <>
             <BuilderSelect label="Bézier handles" accessibleLabel="Bézier handles" value={chosen.bezier?.[selectedNode] ? chosen.bezier[selectedNode]?.mode ?? 'corner' : 'straight'}
               options={[{ value: 'straight', label: 'Straight · no handles' }, { value: 'corner', label: 'Corner · independent handles' }, { value: 'smooth', label: 'Smooth · aligned handles' }, { value: 'symmetric', label: 'Symmetric · equal handles' }]}
@@ -1285,10 +1345,20 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               }} />
           </>}
         </BuilderInspectorSection>
-        {Boolean(chosen || light || wallText) && <BuilderInspectorSection title="Appearance">
+        {Boolean(editingWall || chosen || light || wallText) && <BuilderInspectorSection title="Appearance">
+          {editingWall && <>
+            <p className="builder-hint">Back wall layer {selection.index + 1} of {level.environment!.walls.length}. Later layers take precedence.</p>
+            <div className="builder-action-row">{[false, true].map(front => <button key={String(front)} disabled={selection.index === (front ? level.environment!.walls.length - 1 : 0)}
+              onClick={() => { const result = reorderBackWall(history.present, selection.index, front); commit(result.level); chooseSelection({ kind: 'back-wall', index: result.index }) }}>{front ? 'Bring to front' : 'Send to back'}</button>)}</div>
+          </>}
           {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
             const next = copyLevel(history.present); next.platforms[selection.index].material = material; commit(next)
           }} />}
+          {chosen && <>
+            <BuilderSelect label="Ground cover" value={terrainGroundCover(level, selection.index)} options={GROUND_COVERS.map(cover => ({ value: cover.id, label: cover.label }))}
+              onChange={groundCover => { const next = copyLevel(history.present); next.platforms[selection.index].groundCover = groundCover as GroundCover; commit(next) }} />
+            <p className="builder-hint">Follows exposed top edges. Decorative only.</p>
+          </>}
           {chosen && <fieldset className="builder-terrain-order">
             <legend>Draw order ({terrainPosition + 1} of {level.platforms.length})</legend>
             <div className="builder-action-row">
@@ -1394,19 +1464,27 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
         <p className="builder-save-location">Built-in levels · Saved in this checkout</p>
         <BuilderInspectorSection title="World">
-          <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} {...numberEdit((base, value) => {
-            const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
-            return { ...base, width: clamp(value, extent, 20000) }
+          <EnvironmentFields level={level} onChange={commit} selectedWall={selection?.kind === 'back-wall' ? selection.index : null} onSelectWall={editBackWall}
+            onCreateWall={() => { chooseSelection(null); setTool('back-wall'); canvasRef.current?.focus() }} />
+          {level.environment && <label><input type="checkbox" checked={environmentGrid} onChange={e => setEnvironmentGrid(e.target.checked)} />Editor grid</label>}
+          <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={MAX_LEVEL_WIDTH} {...numberEdit((base, value) => {
+            const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.environment?.walls ?? []).map(w => w.x + w.w), ...(base.environment?.groundCover ?? []).map(c => c.x + c.w), ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).filter(s => s.kind !== 'goal' || base.goal?.kind !== 'walk-off').map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
+            const width = clamp(value, extent, MAX_LEVEL_WIDTH)
+            return { ...base, width, ...(base.goal?.kind === 'walk-off' ? { goal: { ...base.goal, x: width } } : {}) }
           })} /></label>
           <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>
-          <div className="builder-lighting-settings" role="group" aria-label="Level lighting">
-            <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(history.present, e.target.checked))} />Night mode</label></div>
-          </div>
+          {!usesRegionLighting(level) && <div className="builder-lighting-settings" role="group" aria-label="Level lighting">
+            <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(setLightingLayout(history.present, 'uniform'), e.target.checked))} />Night mode</label></div>
+          </div>}
           <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
         </BuilderInspectorSection>
         {isPuzzleLevel(level) && <BuilderInspectorSection title="Timing">
+          {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }, { value: 'walk-off', label: 'Run off right edge (untimed)' }, { value: 'bus', label: 'Bus stop (untimed)' }]}
+            onChange={kind => commit(setFinish(history.present, kind as 'doorway' | 'overlook' | 'walk-off' | 'bus'))} />}
+          {level.goal.kind === 'bus' && <p className="builder-hint">Place the bus on flat ground. Walk into the open doorway on its left side to board and finish. The bus then drives away in the same view.</p>}
+          {level.goal.kind === 'walk-off' && <p className="builder-hint">Continue flat ground to the right edge. Running or jumping completely off that edge finishes the level. The guide is visible only in the studio.</p>}
           {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
-            const next = copyLevel(history.present)
+            const next = e.target.checked ? copyLevel(history.present) : setFinish(history.present, 'doorway')
             if (e.target.checked) next.timing = 'untimed'; else delete next.timing
             commit(next)
           }} />Untimed level</label>}

@@ -139,7 +139,7 @@ test('stopping anywhere in a rappel stride smoothly rests both soles against the
       previous = current
       if (i >= 30) for (const leg of [athletePose(p).frontLeg, athletePose(p).backLeg]) {
         assert.ok(Math.abs(p.x + leg.end[0] * side - (400 - side * 3)) < .01, 'both ankles must settle against the wall')
-        assert.ok(Math.abs(leg.footAngle + Math.PI / 2) < .01, 'both soles should lie flat against the face')
+        assert.ok(Math.abs(leg.footAngle + leg.toeAngle + Math.PI / 2) < .01, 'both toe pads should lie flat against the face without folding the ankle')
       }
     }
     assert.ok(maxStep < 6, 'the raised foot should settle instead of snapping to the wall')

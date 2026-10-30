@@ -13,6 +13,7 @@ import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, entranceFits, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { EntranceAnimation, GoalExit } from './goal.ts'
+import type { BusEnding } from './busEnding.ts'
 import { stepPickups } from './pickups.ts'
 import { gradeFor, gradeTimes } from './grading.ts'
 import type { Grade } from './grading.ts'
@@ -75,6 +76,7 @@ export interface Run {
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
   elapsed: number; started: boolean; entrance: EntranceAnimation | null; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
   finished: boolean; grade: Grade | null; failed: boolean
+  busDeparture?: BusEnding
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
 export function formatTime(seconds: number) {
@@ -511,14 +513,29 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   collectPickups(run, dt)
   run.failed ||= run.level.timing !== 'untimed' && run.elapsed > gradeTimes(run.level).d + 1e-7
   stepTriggers(run, 0)
-  const p = run.player, door = goalDoor(run.level.goal)
+  const p = run.player
+  if (run.level.goal.kind === 'walk-off') {
+    if (!p.inverted && p.x >= run.level.width + TUNING.width && p.y <= run.level.goal.y + .15 && !p.hang && !p.mantle && !p.climbing) {
+      run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
+      cancelJumpInput(p)
+    }
+    return
+  }
+  if (run.level.goal.kind === 'overlook') {
+    if (input.climb && p.grounded && !p.hang && !p.climbing && Math.abs(p.x - run.level.goal.x) < 45 && Math.abs(p.y - run.level.goal.y) < 2) {
+      run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
+      cancelJumpInput(p)
+    }
+    return
+  }
   const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
+  const door = goalDoor(run.level.goal)
   if (!p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
     && !exitObstacles.some(b => bodyOverlap(p, b))) {
     // This is a doorway in the back wall. Reaching it permits entry even when
     // a loose prop blocks a sideways step toward its center.
-    const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
+    const intoDoor = moveBody([p.x, p.y], [run.level.goal.kind === 'bus' ? run.level.goal.x - 34 : door.x + door.w / 2, p.y], exitObstacles)
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
     run.gadgets.held = null; run.gadgets.aiming = false; delete p.heldTool
     run.grade = run.level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, run.level)

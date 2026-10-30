@@ -2,6 +2,7 @@ import type { Tool, TerrainTransform } from './editor'
 import { STOPWATCH_FACE_PATH, STOPWATCH_DETAILS_PATH, STOPWATCH_HAND_PATH, TIME_BONUS_ARROW_PATH, TIME_BONUS_ARROW_WIDTH, TIME_BONUS_DEFAULT_SECONDS, TIME_PENALTY_COLOR, EMP_BOLT_PATH } from './pickups'
 const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' | 'time-penalty' | 'emp'> | TerrainTransform, string> = {
   select: 'M5 3v16l4-5 4 7 3-2-4-6 7-1Z',
+  'back-wall': 'M3 3h18v18H3zM12 3v18M4 9h7M4 15h7M15 6h3M15 12h3M15 18h3',
   'carried-emp': 'M3 7h18v10H3zM6 7v10M13 8l-3 4h3l-1 4 4-5h-3Z',
   repulsor: 'M3 7h18v10H3zM6 7v10M16 7v10M9 10h4M20 10h2v4h-2',
   node: 'M3 17h6m6 0h6M12 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM12 3v7M8.5 6.5h7',

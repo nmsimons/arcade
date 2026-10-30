@@ -1,3 +1,6 @@
+import { bodyPolygon } from './geometry.ts'
+import { wallToeBrace } from './footwork.ts'
+
 type Point = [number, number]
 type LedgeFrame = { time: number; root: Point; hip: Point; waist: Point; shoulder: Point; head: Point; frontFoot: Point; backFoot: Point }
 export const LEDGE_CATCH_TIME = .14
@@ -20,8 +23,12 @@ const frames: LedgeFrame[] = [
   { time: .54, root: [-5, 21], hip: [-7.5, -17.5], waist: [-2, -17.5], shoulder: [6, -17.4], head: [9, -24.9], frontFoot: [-16, 3], backFoot: [-23, 6] },
   { time: .56, root: [-4, 21], hip: [-7, -14.7], waist: [-1, -17], shoulder: [7, -17.7], head: [10, -25.2], frontFoot: kneeAnkle, backFoot: [-23, 4] },
   { time: .6, root: [-2, 20], hip: [-1, -2.7 - Math.sqrt(216)], waist: [5, -19], shoulder: [13, -21], head: [16, -28.5], frontFoot: kneeAnkle, backFoot: [-23, -5] },
-  { time: .62, root: [-1, 19.5], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -22], head: [19, -29.5], frontFoot: kneeAnkle, backFoot: [-20, -4.5] },
-  { time: .64, root: [0, 19], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -23], head: [19, -30.5], frontFoot: kneeAnkle, backFoot: [-12, -3.5] },
+  // Carry the free shoe above the lip before planting it. Skimming the ankle
+  // at sole height forced the foot to fold back against the trailing shin.
+  // Start the traverse earlier so the gathered knee does not whip across the
+  // hip when the lifted shoe passes beneath it during a free rope transfer.
+  { time: .62, root: [-1, 19.5], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -22], head: [19, -29.5], frontFoot: kneeAnkle, backFoot: [-14, -8] },
+  { time: .64, root: [0, 19], hip: [2, -17.7], waist: [8, -20], shoulder: [16, -23], head: [19, -30.5], frontFoot: kneeAnkle, backFoot: [-4, -7] },
   { time: .73, root: [5, 17], hip: [2, -17.7], waist: [7, -22.5], shoulder: [14, -29], head: [15, -36.3], frontFoot: kneeAnkle, backFoot: [18, -2.8] },
   { time: .81, root: [12, 9], hip: [5, -25], waist: [7.5, -30.3], shoulder: [12, -39], head: [13, -46.3], frontFoot: [-9, -9], backFoot: [18, -2.8] },
   { time: .9, root: [18, 3], hip: [15, -31], waist: [15.8, -37.4], shoulder: [17, -47], head: [17.5, -54.5], frontFoot: [22, -9], backFoot: [18, -2.8] },
@@ -45,17 +52,25 @@ const crouchFrames: LedgeFrame[] = [
 const bracedCrouchFrames = [bracedFrames[0], ...crouchFrames.slice(1)]
 export const ledgeEase = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
 export const climbBodyHeight = (progress: number, crouched = false) => 62 - (crouched ? 22 * ledgeEase((progress - .25) / .35) : 0)
+/** Follow a leaning face below the hands, then release that lean before mounting the top. */
+export const ledgeLean = (progress: number, outwardSlope = 0) => outwardSlope * (1 - ledgeEase(progress / .5))
+
+/** Shear the ordinary contact hull by the same amount as the hanging pose. */
+export function ledgeBodyOutline(rootY: number, height: number, side: number, lean: number) {
+  return lean ? bodyPolygon(0, 0, height).map(([x, y]): Point =>
+    [x - side * lean * (Math.max(0, rootY + y) - Math.max(0, rootY)), y]) : undefined
+}
 
 /** Clear an overhang sideways before lifting from a rope into the ledge hang. */
-export function ropeCatchRoot(from: Point, progress: number): Point {
-  const underLip = from[0] > -14 && from[1] > 74
+export function ropeCatchRoot(from: Point, progress: number, target: Point = [-14, 74]): Point {
+  const underLip = from[0] > target[0] && from[1] > target[1]
   const x = ledgeEase(underLip ? progress / .5 : progress)
   const y = ledgeEase(underLip ? (progress - .5) / .5 : progress)
-  return [from[0] + (-14 - from[0]) * x, from[1] + (74 - from[1]) * y]
+  return [from[0] + (target[0] - from[0]) * x, from[1] + (target[1] - from[1]) * y]
 }
 
 /** Edge-relative choreography: pull, knee support, trailing foot, then stand. */
-export function climbFrame(progress: number, braced = false, slope = 0, crouched = false, inset = 20) {
+export function climbFrame(progress: number, braced = false, slope = 0, crouched = false, inset = 20, outwardSlope = 0) {
   const t = Math.max(0, Math.min(1, progress))
   const poses = crouched ? braced ? bracedCrouchFrames : crouchFrames : braced ? bracedFrames : frames
   const index = Math.max(1, poses.findIndex((frame, i) => i > 0 && frame.time >= t))
@@ -95,8 +110,14 @@ export function climbFrame(progress: number, braced = false, slope = 0, crouched
   const waist = onSlope(compact('waist')), shoulder = onSlope(compact('shoulder')), head = onSlope(compact('head'))
   const upright = inward / 4 * ledgeEase((t - .56) / .06) * (1 - ledgeEase((t - .81) / .15))
   waist[1] -= upright * .4; shoulder[1] -= upright; head[1] -= upright
-  return { root: onSlope(compact('root')), hip, waist, shoulder, head,
-    frontFoot, backFoot: onSlope(compact('backFoot')),
+  const lean = ledgeLean(t, outwardSlope)
+  const alongFace = (p: Point): Point => [p[0] - Math.max(0, p[1]) * lean, p[1]]
+  // The flexed forefoot meets the face while its ankle and heel stay back.
+  const braceInset = braced ? wallToeBrace(outwardSlope).inset : 2.8
+  const toeBrace = (p: Point): Point => [p[0] - (braced ? (braceInset - 2.8)
+    * (1 - ledgeEase((t - .04) / .2)) : 0), p[1]]
+  return { root: alongFace(onSlope(compact('root'))), hip: alongFace(hip), waist: alongFace(waist), shoulder: alongFace(shoulder), head: alongFace(head),
+    frontFoot: alongFace(toeBrace(frontFoot)), backFoot: alongFace(toeBrace(onSlope(compact('backFoot')))),
     frontRelease: ledgeEase((t - .56) / .15), backRelease: ledgeEase((t - .54) / .14),
     frontPlanted: t >= .96, backPlanted: t >= .73, kneePlanted: t >= .56 && t <= .73 }
 }
@@ -104,8 +125,9 @@ export function climbFrame(progress: number, braced = false, slope = 0, crouched
 /** The torso leans ahead of the movement root while climbing. Loose objects
  * must meet that reach, rather than pass through the head before hitting the
  * upright locomotion hull. Terrain keeps its existing corner clearance. */
-export function climbContactRoot(progress: number, braced = false, slope = 0, crouched = false, inset = 20,
-  pose = climbFrame(progress, braced, slope, crouched, inset)): Point {
-  return [Math.max(pose.root[0], pose.head[0] + 6.2 - 12, pose.shoulder[0] + 4 - 12),
-    Math.min(pose.root[1], pose.head[1] - 6.2 + climbBodyHeight(progress, crouched))]
+export function climbContactRoot(progress: number, braced = false, slope = 0, crouched = false, inset = 20, outwardSlope = 0,
+  pose = climbFrame(progress, braced, slope, crouched, inset, outwardSlope)): Point {
+  const lean = ledgeLean(progress, outwardSlope), x = (p: Point) => p[0] + Math.max(0, p[1]) * lean
+  const rootY = Math.min(pose.root[1], pose.head[1] - 6.2 + climbBodyHeight(progress, crouched))
+  return [Math.max(x(pose.root), x(pose.head) + 6.2 - 12, x(pose.shoulder) + 4 - 12) - Math.max(0, rootY) * lean, rootY]
 }

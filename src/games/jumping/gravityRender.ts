@@ -35,9 +35,11 @@ export function drawGravityRegion(ctx: CanvasRenderingContext2D, plate: GravityP
   })
 }
 
-/** Water overlays actors and props. The resting rectangle remains the fast path. */
+/** Water overlays actors and props. Landscape water also shares one background
+ * tone across sky/back-wall boundaries, beneath the ordinary lighting field.
+ * Both layers use exactly the same clipped, optionally rippling silhouette. */
 const waterClips = new WeakMap<readonly Vec[][], Path2D>()
-export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, paint: WorldPaint = paintNormally, state?: WaterSurfaceState, space?: readonly Vec[][]) {
+export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, paint: WorldPaint = paintNormally, state?: WaterSurfaceState, space?: readonly Vec[][], layer: 'tint' | 'background' = 'tint') {
   if (plate.effect !== 'water' || plate.h <= 0) return
   if (ctx.canvas && ctx.getTransform) {
     const t = ctx.getTransform()
@@ -46,7 +48,8 @@ export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPla
   }
   const spans = state?.enabled === false ? undefined : state?.regions.get(plate), moving = spans?.some(span => span.surface.active)
   paint(ctx, 0, () => {
-    ctx.save(); ctx.fillStyle = WATER_COLOR; ctx.globalAlpha *= .35
+    ctx.save(); ctx.fillStyle = layer === 'background' ? '#bddbea' : WATER_COLOR
+    if (layer === 'tint') ctx.globalAlpha *= .35
     if (space) {
       let path = waterClips.get(space)
       if (!path) {
@@ -77,7 +80,7 @@ export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPla
       ctx.lineTo(plate.x, plate.y + plate.h); ctx.closePath(); ctx.fill()
     }
     ctx.restore()
-  })
+  }, layer !== 'background')
 }
 
 /** Only exposed, visible waterlines receive a highlight. */

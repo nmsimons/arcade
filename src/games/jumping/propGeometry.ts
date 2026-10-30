@@ -61,6 +61,9 @@ export function propBounds(b: Prop) {
   return b.kind === 'box' ? boxShape(b) : { x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size }
 }
 
+/** A settled submerged prop can be worked with the hands near the pool floor. */
+export const smallSubmergedProp = (b: Prop) => b.size <= 60 && b.grounded && (b.waterImmersion ?? 0) > .9
+
 /** The face at hand height, rather than the outermost rotated corner. */
 export function boxPushFace(b: Prop, x: number, y: number, direction: number, handHeight = 43) {
   if (b.kind !== 'box') return null

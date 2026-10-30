@@ -77,6 +77,26 @@ open horizon, and playable natural ground for the
 [escape reveal](jumping-outdoors.md). The player needs time and control to
 experience that payoff.
 
+Underground is a place, not a global time of day. Use authored cave back walls
+below the surface and open daylight above them, so climbing out reveals an
+actual change of enclosure. Preserve broad sky and playable natural ground for
+the final emergence. Exit ends by walking aboard the waiting bus in the level.
+Keep that final approach open and readable in landscape and portrait views;
+the player retains control until boarding, without a training door or separate
+finish action. The bus departs in the same level view after boarding.
+An optional overlook finish can still offer a place to linger in other levels.
+Use the standard cavern back wall. Keep outdoors equally simple: flat blue sky
+and sparse clouds, with the playable terrain supplying the landscape. Light the
+terrain according to its exposed surfaces, so a sunlit roof does not make its
+deep cave wall glow. Review the robot's silhouette on both sides using its
+normal day/night material palettes, preserving the shell, face, joints and markings.
+
+Choose enclosure artwork separately from lighting. An indoor course may have a
+day-lit upper area and a dark lower cave using the same course wall throughout;
+mixed light does not require sky. Back walls are named background regions edited
+with ordinary object and node tools. They must never introduce collision, cover,
+or a level-specific movement rule.
+
 ## 1. Give the place a purpose
 
 Before placing obstacles, describe the level in one sentence: “A delivery lift
@@ -299,8 +319,11 @@ sound start its local wake-up while the player retains control. Leave a useful
 escape and readable space around its wider capsule; the pod artwork supplies
 no containment. Use a single installed unit when the story calls for one
 recurring hunter, rather than adding decorative copies of the adversary.
-The [final outdoor coda](jumping-campaign.md#finale-outside) still needs separate
-runtime support before authoring.
+The [final outdoor coda](jumping-campaign.md#finale-outside) uses an untimed
+bus goal and an in-place departure animation. Let the player linger before
+boarding; normal movement takes them aboard. The departure supplies the payoff
+after completion, with pause and skip available. It must not add a final skill
+gate or delay saving the completed escape.
 
 Build around the actual movement envelope. The wall grid uses 20-unit tiles;
 crouching fits a two-tile opening, and automatic step climbing reaches three
@@ -313,13 +336,20 @@ Give ledge hangs and pull-ups room. Test rope exits where the rope meets a slope
 Treat a pool as a space with a visible, usable exit. Give its rim an exposed
 grippable edge and room for the player's body and landing, or provide a lower
 bank or ladder. Test reaching and pulling out from the water with normal controls;
-a nearby top surface alone does not establish an exit. Consider floating props,
-a blocked pull-up when reviewing recovery. Water is always present; switches and
-EMPs cannot empty the pool.
+a nearby top surface alone does not establish an exit. Consider floating props
+and blocked pull-ups when reviewing recovery. Power loss does not remove water;
+authored Fill and Drain inputs change its height. Test both working watermarks.
 Give water physical containment: a visible basin floor and banks that reach its
 waterline. Compose the reservoir and its access together, including ramps or
 steps where the lower route enters and leaves it. An open water rectangle with
 no containing architecture does not read as a pool.
+
+When a float-delivery puzzle uses a standing firing position, align the float's
+settled center with the tool's actual firing height. Keep the working walkway
+shallow enough for dependable footing at high water, and test returning to it
+after jumping or leaving a service platform. Refilling should offer a deliberate
+retry when a delivery misses its receiver.
+
 Flooded passages can place coins and other pickups below the surface. Give the
 player room to dive, turn, and stop beside the item; submerged steering maintains
 depth and release eases into an upright float after a short glide. Test the passage in both directions

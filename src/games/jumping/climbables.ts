@@ -12,6 +12,7 @@ import type { RopeBodyMotion } from './ropeBodyMotion.ts'
 export type Point = [number, number]
 export const ROPE_CLEARANCE = 1.5
 const ROPE_PUSH_STRENGTH = 268.8
+const ROPE_SWING_PUSH_STRENGTH = 360
 // Short ropes retain fine contact/grip resolution around anchors and slopes.
 // Longer chains use modestly wider spans; terrain corners still add bend joints.
 export const ropeSegmentLength = (length: number) => length > 800 ? 12 : 8
@@ -366,8 +367,12 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
   const bodyMass = 160 / ropeSegmentLength(definition.length)
   const supports = nodes.map((_, i) => load ? Math.max(0, 1 - Math.abs(i - loadedAt)) : 0)
   const weights = supports.map((support, i) => i === 0 ? 0 : 1 / (1 + bodyMass * support))
+  const climb = load?.body?.climb
+  const freeSwing = !!load && !load.wall && (!climb || !climb.direction && climb.hangBlend > .9
+    && (climb.surfaceSupport ?? 0) < .01 && (climb.wallBlend ?? 0) < .05)
   // Scrambling against rock dissipates motion; it must not store a spring impulse for the next regrip.
-  const damping = Math.exp(-(.12 + (load?.body?.climb.surfaceSupport ?? 0) * 12) * dt)
+  // A rider coasts more freely; unoccupied ropes keep their resting/sleeping drag.
+  const damping = Math.exp(-((freeSwing ? .06 : .12) + (climb?.surfaceSupport ?? 0) * 12) * dt)
   if (load?.body?.climb.wallContact) {
     const c = load.body.climb
     c.wallContact!.time -= dt
@@ -381,7 +386,10 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
     // A weight shift supplies a small, finite impulse. Holding the stick does not
     // act like a motor; building a swing requires another well-timed shift.
     const shift = Math.sign(move - rope.pumpInput) === Math.sign(move) ? move - rope.pumpInput : 0
-    const pump = shift * ROPE_PUSH_STRENGTH
+    // Help a new or correctly timed swing without making a counter-shift
+    // erase the momentum already carried by the rope.
+    const travel = (grip.x - grip.oldX) * tx + (grip.y - grip.oldY) * ty
+    const pump = shift * (freeSwing && move * travel >= 0 ? ROPE_SWING_PUSH_STRENGTH : ROPE_PUSH_STRENGTH)
     pumpX = tx * pump * dt; pumpY = ty * pump * dt
   }
   rope.pumpInput = move

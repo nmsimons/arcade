@@ -7,7 +7,7 @@ import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
 import { itemDefinition, objectReference } from './objectLabels.ts'
 export { itemDefinition } from './objectLabels.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
-import { platformSurface } from './terrain.ts'
+import { groundAt, platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { MAX_CURVE_POINTS, cubicPoint, relativePoint, splitCubic, terrainCubic, terrainCurveOutline, terrainCurveSamples, terrainNodes } from './terrainCurves.ts'
@@ -39,14 +39,40 @@ import { terrainDrawOrder } from './terrainOrder.ts'
 import { GADGET_SIZE } from './gadgets.ts'
 import { removeEditorGroupMember } from './editorGroups.ts'
 import { propHeight, propWidth } from './propGeometry.ts'
+import { prepareBackWall } from './environmentEditor.ts'
+import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
+export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+
+/** Finish styles stay authored data, with selectable bounds in the studio. */
+export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk-off' | 'bus'): JumpLevel {
+  const next = copyLevel(level)
+  if (!next.goal) return level
+  if (kind === 'walk-off') {
+    const y = groundAt(levelTerrain(next), next.width - 32, next.goal.y, levelHeight(next))?.y ?? next.goal.y
+    if (next.goal.id) removeSwitchTarget(next, next.goal.id)
+    next.goal = { x: next.width, y, kind, ...(next.goal.ending ? { ending: next.goal.ending } : {}), ...(next.goal.name ? { name: next.goal.name } : {}) }
+    next.timing = 'untimed'
+  } else if (kind === 'bus') {
+    const y = groundAt(levelTerrain(next), Math.min(next.width - 32, next.goal.x), next.goal.y, levelHeight(next))?.y ?? next.goal.y
+    if (next.goal.id) removeSwitchTarget(next, next.goal.id)
+    next.goal = { x: clamp(next.goal.x, 184, next.width - 76), y, kind, ...(next.goal.name ? { name: next.goal.name } : {}) }
+    next.timing = 'untimed'
+  } else {
+    delete next.goal.ending
+    if (kind === 'overlook') { next.goal.kind = kind; next.timing = 'untimed'; delete next.goal.power }
+    else delete next.goal.kind
+    const bounds = goalBounds({ ...next.goal, x: 0, y: 0 })
+    next.goal.x = clamp(next.goal.x, Math.max(0, -bounds.x), next.width - bounds.x - bounds.w)
+  }
+  return next
+}
 
 /** Carry custom wall points with authored edits, never with runtime mechanism motion. */
 export function carryWallTerminals(before: JumpLevel, next: JumpLevel): JumpLevel {
@@ -152,13 +178,19 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     const clearance = s.kind === 'checkpoint' ? TUNING.height : 0
     return b.y - clearance
   })
-  const terminalTops = wallWiringItems(level).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.y - 4] : [])
+  const terminalTops = [...wallWiringItems(level).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.y - 4] : []),
+    ...(level.environment ? [...(level.environment.horizon === undefined ? [] : [level.environment.horizon]), ...level.environment.walls.map(w => w.y), ...level.environment.groundCover?.map(c => c.y - 8) ?? []] : [])]
   const height = clamp(requested, Math.ceil(Math.max(400, ...[...tops, ...terminalTops].map(y => before - y))), 6000)
   const dy = height - before
   if (!dy) return level
   const next = copyLevel(level)
   next.height = height
   if (next.floor !== undefined) next.floor = height
+  if (next.environment) {
+    if (next.environment.horizon !== undefined) next.environment.horizon += dy
+    for (const wall of next.environment.walls) wall.y += dy
+    for (const cover of next.environment.groundCover ?? []) cover.y += dy
+  }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
     ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
@@ -179,6 +211,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'force-field') return level.forceFields?.[i] ?? null
   if (selection.kind === 'gravity-plate') return level.gravityPlates?.[i] ?? null
   if (selection.kind === 'platform') return level.platforms[i] ?? null
+  if (selection.kind === 'back-wall') return level.environment?.walls[i] ?? null
   if (selection.kind === 'rope') { const r = level.climbables.ropes[i]; return r ? { x: r.x, y: r.y, w: 0, h: r.length } : null }
   if (selection.kind === 'ladder') { const l = level.climbables.ladders[i]; return l ? { x: l.x, y: l.top, w: 0, h: l.bottom - l.top } : null }
   if (selection.kind === 'prop') { const b = level.props?.[i]; return b ? { x: b.x - propWidth(b) / 2, y: b.y - propHeight(b), w: propWidth(b), h: propHeight(b) } : null }
@@ -480,10 +513,15 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
     const local = wallTextLocalPoint(t, x, y)
     if (local.x >= -tolerance && local.x <= t.w + tolerance && local.y >= -tolerance && local.y <= t.h + tolerance) yield { kind: 'text', index: i }
   }
+  // Background interiors remain available for marquee selection and panning.
+  // Their outline or the Back walls list selects them without hiding objects.
+  for (let i = (level.environment?.walls.length ?? 0) - 1; i >= 0; i--)
+    if (backWallEdgeAt(level.environment!.walls[i], x, y, tolerance)) yield { kind: 'back-wall', index: i }
 }
 export function replacePlatform(level: JumpLevel, index: number, platform: Platform): JumpLevel {
   const next = copyLevel(level), before = level.platforms[index]
-  next.platforms[index] = { ...(before.name ? { name: before.name } : {}), ...(before.zIndex === undefined ? {} : { zIndex: before.zIndex }), ...platform }
+  next.platforms[index] = { ...(before.name ? { name: before.name } : {}), ...(before.zIndex === undefined ? {} : { zIndex: before.zIndex }),
+    ...(before.groundCover === undefined ? {} : { groundCover: before.groundCover }), ...platform }
   for (const ladder of next.climbables.ladders) if (ladder.platform === index) {
     ladder.x = ladder.side === 1 ? platform.x - 16 : platform.x + platform.w + 16
     ladder.bottom += platform.y - before.y; ladder.top = platform.y
@@ -552,6 +590,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   const y = clamp(b.y + dy, 0, levelHeight(level) - b.h)
   if (selection.kind === 'platform') return replacePlatform(level, selection.index, { ...level.platforms[selection.index], x, y })
   const next = copyLevel(level)
+  if (selection.kind === 'back-wall') Object.assign(next.environment!.walls[selection.index], { x, y })
   if (selection.kind === 'rope') { Object.assign(next.climbables.ropes[selection.index], { x, y }); delete next.climbables.ropes[selection.index].anchor }
   if (selection.kind === 'ladder') {
     const ladder = next.climbables.ladders[selection.index]
@@ -563,7 +602,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
-    next.goal = { ...next.goal, x: clamp(x, Math.max(0, -b.x), Math.min(level.width, level.width - b.x - b.w)), y }
+    next.goal = { ...next.goal, x: next.goal?.kind === 'walk-off' ? level.width : clamp(x, Math.max(0, -b.x), Math.min(level.width, level.width - b.x - b.w)), y }
   }
   if (selection.kind === 'timer') Object.assign(next.timers![selection.index], { x, y })
   if (selection.kind === 'text') next.texts![selection.index] = fitWallText({ ...next.texts![selection.index], x: b.x + dx, y: b.y + dy }, next.width, levelHeight(next))
@@ -598,6 +637,14 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   const next = copyLevel(level)
   const corner = handle ?? 'bottom-right'
   const left = corner.endsWith('left'), top = corner.startsWith('top')
+  if (selection.kind === 'back-wall') {
+    const wall = next.environment!.walls[selection.index], before = { ...wall }
+    wall.w = clamp(w, 10, left ? before.x + before.w : next.width - before.x)
+    wall.h = clamp(h, 10, top ? before.y + before.h : levelHeight(next) - before.y)
+    if (left) wall.x = before.x + before.w - wall.w
+    if (top) wall.y = before.y + before.h - wall.h
+    if (before.polygon) wall.polygon = before.polygon.map(([x, y]) => [x / before.w * wall.w, y / before.h * wall.h])
+  }
   if (selection.kind === 'force-field') {
     const field = next.forceFields![selection.index], before = { ...field }
     if (field.orientation === 'horizontal') {
@@ -694,7 +741,8 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
       if (r.anchor.platform === i) delete r.anchor
       else if (r.anchor.platform > i) r.anchor.platform--
     }
-  } else if (selection.kind === 'rope') next.climbables.ropes.splice(i, 1)
+  } else if (selection.kind === 'back-wall') next.environment!.walls.splice(i, 1)
+  else if (selection.kind === 'rope') next.climbables.ropes.splice(i, 1)
   else if (selection.kind === 'timer') next.timers!.splice(i, 1)
   else if (selection.kind === 'text') next.texts!.splice(i, 1)
   else if (selection.kind === 'pickup') next.pickups!.splice(i, 1)
@@ -735,6 +783,15 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'back-wall') {
+    const changed = prepareBackWall(next), environment = changed.environment!
+    if (environment.walls.length >= 40) throw new Error('This level already has 40 back walls.')
+    const wallX = clamp(Math.min(start.x, end.x), 0, level.width - 10), wallY = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 10)
+    const w = clamp(Math.abs(end.x - start.x) || 320, 10, level.width - wallX), h = clamp(Math.abs(end.y - start.y) || 240, 10, levelHeight(level) - wallY)
+    const index = environment.walls.push({ kind: environment.kind === 'landscape' ? 'cave' : 'facility', x: wallX, y: wallY, w, h,
+      lighting: environment.baseLighting === 'night' ? 'day' : 'night' }) - 1
+    return { level: changed, selection: { kind: 'back-wall', index } }
+  }
   if (tool === 'float-switch') {
     const trial = asTrial(next), floats = trial.floatSwitches ??= []
     if (floats.length >= MAX_FLOAT_SWITCHES) throw new Error('This level already has 16 float switches.')
@@ -877,7 +934,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
     if (tool === 'goal') {
       const bounds = goalBounds({ ...trial.goal, x: 0, y: 0 })
-      trial.goal = { ...trial.goal, ...point, x: clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
+      trial.goal = { ...trial.goal, ...point, x: trial.goal?.kind === 'walk-off' ? trial.width : clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
       return { level: trial, selection: { kind: 'goal', index: 0 } }
     }
     if (tool === 'box' || tool === 'branded-box' || tool === 'ball' || tool === 'carried-emp' || tool === 'repulsor') {
@@ -931,7 +988,8 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   if (selection.kind === 'platform') {
     if (next.platforms.length >= 160) return null
     index = next.platforms.push(copyLevel(level).platforms[i]) - 1
-  } else if (selection.kind === 'rope') { if (next.climbables.ropes.length >= 40) return null; index = next.climbables.ropes.push({ ...next.climbables.ropes[i] }) - 1 }
+  } else if (selection.kind === 'back-wall') { if (next.environment!.walls.length >= 40) return null; index = next.environment!.walls.push(structuredClone(next.environment!.walls[i])) - 1 }
+  else if (selection.kind === 'rope') { if (next.climbables.ropes.length >= 40) return null; index = next.climbables.ropes.push({ ...next.climbables.ropes[i] }) - 1 }
   else if (selection.kind === 'ladder') { if (next.climbables.ladders.length >= 40) return null; index = next.climbables.ladders.push({ ...next.climbables.ladders[i], platform: -1 }) - 1 }
   else if (selection.kind === 'timer') { if (next.timers!.length >= 40) return null; index = next.timers!.push({ ...next.timers![i] }) - 1 }
   else if (selection.kind === 'text') { if (next.texts!.length >= 80) return null; index = next.texts!.push({ ...next.texts![i] }) - 1 }
@@ -953,6 +1011,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'entrance', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.environment?.walls ?? []).map((_, index) => ({ kind: 'back-wall' as const, index })),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
     ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),

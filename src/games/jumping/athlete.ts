@@ -1,7 +1,7 @@
 import { mirrorPlatform, mirrorPlayerState } from './gravityFrame.ts'
 import { gaitPose } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
+import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend, wallToeBrace } from './footwork.ts'
 import { groundAt } from './terrain.ts'
 import { bodyPolygon, lineBlocked, moveBody, nearbyBoundary, nearestBoundary, pointInside, platformOutline, withTerrainQueries } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, ladderMantleProgress, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
@@ -11,12 +11,13 @@ import { keepRopeGrip } from './ropeGravity.ts'
 import { stepFootOffsets } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
 import { canGrip } from './friction.ts'
-import { BOX_RESTING_ANGLE_TOLERANCE, propPushHands } from './propGeometry.ts'
+import { BOX_RESTING_ANGLE_TOLERANCE, propPushHands, smallSubmergedProp } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
-import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
-import type { AndroidMaterials } from './androidArtwork.ts'
-import { limbOnBend, limbReach, limitLimbBend } from './limbPose.ts'
+import { androidMaterials, androidRearArmColor, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
+import type { AndroidAppearance, AndroidMaterials } from './androidArtwork.ts'
+import { drawAndroidPalmPlate, handGeometry, HAND_CLEARANCE_REACH, pushPalmFrame, traceAndroidHand } from './androidHand.ts'
+import { ANKLE_FLEX_LIMIT, limbOnBend, limbReach, limitLimbBend, openAnkle } from './limbPose.ts'
 import type { Limb, Point } from './limbPose.ts'
 import { drawSleeve } from './sleeveArtwork.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
@@ -48,6 +49,8 @@ const TAU = Math.PI * 2
 const HEAD_RADIUS = 6.2
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
 const UPPER_ARM = 10, FOREARM = 9
+const SHOULDER_SOCKET_RADIUS = 1.2
+const NECK_ART_RADIUS = 1.5
 const MIN_KNEE_OPENING = Math.PI / 4
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
@@ -70,6 +73,7 @@ for (const [toe, contours] of footContours) for (const contour of contours) for 
   while (points.length > 1) points = points.slice(1).map((b, k) => mix(points[k], b, i / 8))
   footSkin.push({ point: points[0], toe })
 }
+const ankleSkin = [...footSkin, ...soleSkin]
 
 /** Reach targets stay within the limb's length; elbows never flip sides mid-pose. */
 function solve(root: Point, target: Point, upper: number, lower: number, bend: number, minOpening = 0): Limb {
@@ -177,7 +181,8 @@ function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: numbe
       [palmB.palm[0] - b.end[0], palmB.palm[1] - b.end[1]], t))
       : undefined
     return { ...solved,
-      hand, handAngle: palmA && palmB ? mixAngle(palmA.angle, palmB.angle, t) : mixAngle(a.handAngle ?? 0, b.handAngle ?? 0, t) }
+      hand, handAngle: palmA && palmB ? mixAngle(palmA.angle, palmB.angle, t) : mixAngle(a.handAngle ?? 0, b.handAngle ?? 0, t),
+      handOpen: hands ? lerp(a.handOpen ?? 0, b.handOpen ?? 0, t) : undefined }
   }
   const leg = (a: Leg, b: Leg): Leg => {
     const turningFoot = transition?.footTurn && a.footFacing !== b.footFacing
@@ -227,7 +232,9 @@ function footAngle(limb: Limb, desired: number, ankleFlex = .35): number {
   const neutral = Math.atan2(limb.end[1] - limb.joint[1], limb.end[0] - limb.joint[0]) - Math.PI / 2
   const delta = Math.atan2(Math.sin(desired - neutral), Math.cos(desired - neutral))
   // Flex relative to the shin, keeping the toes clear of the calf during recovery.
-  return neutral + Math.max(-ankleFlex, Math.min(.7, delta))
+  // Keep the result near the requested angle. A shin crossing -PI must not
+  // give later contact blends an equivalent angle almost a full turn away.
+  return desired + Math.max(-ankleFlex, Math.min(.7, delta)) - delta
 }
 function solveLeg(root: Point, target: Point, desired: number, grounded: boolean, planted = false, footFacing = 1, load = Number(grounded), kneeDirection = -1,
   groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null, lowStep = 0, ankleFlex = .35, toeCurl = 0): Leg {
@@ -302,25 +309,49 @@ function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string, materi
   if (limb.rear) fillShape(ctx, roundPath(add(limb.end, [0, 1]), 2.1 * limb.rear * footScale, 1.8), materials.grip)
   if ((limb.rear ?? 0) < 1) fillShape(ctx, footPath(limb.end, limb.footAngle, limb.footFacing, limb.toeAngle, 1 - (limb.rear ?? 0), footScale), materials.grip)
 }
-function handGeometry(limb: Limb) {
-  const forearmAngle = Math.atan2(limb.end[1] - limb.joint[1], limb.end[0] - limb.joint[0])
-  const angle = limb.handAngle ?? forearmAngle
-  const palm: Point = limb.hand ?? [limb.end[0] + Math.cos(angle) * 1.4, limb.end[1] + Math.sin(angle) * 1.4]
-  return { palm, angle }
-}
-const handBoundary: Point[] = Array.from({ length: 64 }, (_, i) => [Math.cos(i * TAU / 64) * 2.1, Math.sin(i * TAU / 64) * 1.6])
-/** Share the drawn palm's full silhouette with water clearance and checks. */
+// Shared tangent directions let clearance blend with finger articulation.
+// Closed grips keep their narrower profile instead of inheriting a flat open
+// palm that can cross a leaning ledge. Each curve fits its control-point hull;
+// both profiles also contain the original contact oval and its 1.6-unit depth.
+const handBoundary: [Point, Point][] = (() => {
+  const directions = Array.from({ length: 64 }, (_, i): Point => [Math.cos(i * TAU / 64), Math.sin(i * TAU / 64)])
+  const profiles = [0, 1].map(handOpen => {
+    const points: Point[] = [], at = (x: number, y: number) => { points.push([x, y]) }
+    traceAndroidHand({ moveTo: at, lineTo: at, quadraticCurveTo(cx, cy, x, y) { at(cx, cy); at(x, y) }, closePath() {} },
+      { root: [0, 0], joint: [0, 0], end: [0, 0], hand: [0, 0], handAngle: 0, handOpen })
+    const support = directions.map(([x, y]) => Math.max(Math.hypot(2.1 * x, 1.6 * y), ...points.map(p => p[0] * x + p[1] * y)))
+    return directions.map(([x, y], i): Point => {
+      const next = (i + 1) % directions.length, [nx, ny] = directions[next], divisor = x * ny - y * nx
+      return [(support[i] * ny - support[next] * y) / divisor, (support[next] * x - support[i] * nx) / divisor]
+    })
+  })
+  // Flat edges need interior samples too: their endpoints can straddle a prop
+  // corner while appearing clear. Keep matching samples in both profiles.
+  return profiles[0].flatMap((a, i) => {
+    const next = (i + 1) % directions.length, b = profiles[0][next], c = profiles[1][i], d = profiles[1][next]
+    const count = Math.max(1, Math.ceil(Math.max(Math.hypot(b[0] - a[0], b[1] - a[1]), Math.hypot(d[0] - c[0], d[1] - c[1])) / .25))
+    return Array.from({ length: count }, (_, j): [Point, Point] => [mix(a, b, j / count), mix(c, d, j / count)])
+  })
+})()
+/** Conservative hand skin shared by drawing-clearance checks and pose solves. */
 export function handOutline(limb: Limb): Point[] {
   const { palm, angle } = handGeometry(limb), cos = Math.cos(angle), sin = Math.sin(angle)
-  return handBoundary.map(([x, y]) => [palm[0] + x * cos - y * sin, palm[1] + x * sin + y * cos])
+  const open = clamp(limb.handOpen ?? 0)
+  return handBoundary.map(([closed, opened]): Point => {
+    const x = lerp(closed[0], opened[0], open), y = lerp(closed[1], opened[1], open)
+    return [palm[0] + x * cos - y * sin, palm[1] + x * sin + y * cos]
+  })
 }
-function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1, handScale = 1, shellWidth = 1) {
-  const { palm, angle } = handGeometry(limb)
-  const path = joined([roundPath(limb.root, 1.65), segmentPath(limb.root, limb.joint, 1.6, 1.35, 1.6), roundPath(limb.joint, 1.4),
-    segmentPath(limb.joint, limb.end, 1.4, 1.05, 1.45), roundPath(palm, 2.1 * handScale, 1.6 * handScale, angle)])
+function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1, handScale = 1, shellWidth = 1, rear = false) {
+  const { palm } = handGeometry(limb), hand = new Path2D()
+  traceAndroidHand(hand, limb, handScale)
+  const wrist = Math.hypot(palm[0] - limb.end[0], palm[1] - limb.end[1]) > .01 ? [segmentPath(limb.end, palm, .75, .65, .75)] : []
+  const path = joined([roundPath(limb.root, SHOULDER_SOCKET_RADIUS), segmentPath(limb.root, limb.joint, SHOULDER_SOCKET_RADIUS, 1.35, SHOULDER_SOCKET_RADIUS), roundPath(limb.joint, 1.4),
+    segmentPath(limb.joint, limb.end, 1.4, .75, 1.3), ...wrist, hand])
   fillShape(ctx, path, materials.joint)
-  drawAndroidArm(ctx, limb, color, forearmScale, shellWidth)
-  fillShape(ctx, roundPath(palm, 2.1 * handScale, 1.6 * handScale, angle), materials.grip)
+  drawAndroidArm(ctx, limb, rear ? androidRearArmColor(materials) : color, forearmScale, shellWidth)
+  fillShape(ctx, hand, materials.grip)
+  drawAndroidPalmPlate(ctx, limb, color, handScale)
 }
 function drawTorso(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string) {
   ctx.beginPath(); traceTorso(ctx, hip, waist, shoulder); ctx.fillStyle = color; ctx.fill()
@@ -343,6 +374,26 @@ function traceTorso(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Poi
 function neckPoints(shoulder: Point, head: Point, tilt = 0): [Point, Point] {
   const sin = Math.sin(tilt), cos = Math.cos(tilt)
   return [[shoulder[0] + sin, shoulder[1] - cos], [head[0] - sin * 4, head[1] + cos * 4]]
+}
+/** Keep the neck shaft fixed, then ease its base into the shoulder line. */
+function traceNeckArtwork(path: AthleteOutline, pose: AthletePose) {
+  const { shoulder, waist, head } = pose, [base, top] = neckPoints(shoulder, head, pose.headTilt)
+  const length = Math.hypot(top[0] - base[0], top[1] - base[1]) || 1
+  const axis: Point = [(top[0] - base[0]) / length, (top[1] - base[1]) / length], side: Point = [-axis[1], axis[0]]
+  const chest = Math.hypot(waist[0] - shoulder[0], waist[1] - shoulder[1]) || 1
+  const down: Point = [(waist[0] - shoulder[0]) / chest, (waist[1] - shoulder[1]) / chest]
+  const across: Point = [down[1], -down[0]]
+  if (across[0] * side[0] + across[1] * side[1] < 0) { across[0] *= -1; across[1] *= -1 }
+  const seat = add(shoulder, down), at = (point: Point, normal: Point, radius: number) => add(point, [normal[0] * radius, normal[1] * radius])
+  const right = at(base, side, NECK_ART_RADIUS), left = at(base, side, -NECK_ART_RADIUS)
+  const seatRight = at(seat, across, 2.2), seatLeft = at(seat, across, -2.2)
+  // Separate the shaft from its flared seat. Their union keeps the neckline
+  // intact when a folded chest rotates past it, without a crossing contour.
+  traceSegment(path, base, top, NECK_ART_RADIUS, NECK_ART_RADIUS, NECK_ART_RADIUS)
+  const collar = [seatRight, right, left, seatLeft]
+  const center: Point = [collar.reduce((n, point) => n + point[0], 0) / 4, collar.reduce((n, point) => n + point[1], 0) / 4]
+  collar.sort((a, b) => Math.atan2(b[1] - center[1], b[0] - center[0]) - Math.atan2(a[1] - center[1], a[0] - center[0]))
+  path.moveTo(...collar[0]); for (const point of collar.slice(1)) path.lineTo(...point); path.closePath()
 }
 function drawBack(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string, turn: number, facing = 1) {
   ctx.beginPath(); traceBack(ctx, hip, waist, shoulder, turn, facing); ctx.fillStyle = color; ctx.fill()
@@ -368,7 +419,7 @@ function traceBack(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Poin
 }
 
 /** Trace the original contact skin independently of the cosmetic shell. */
-function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, includeHead: boolean, footScale = 1, handScale = 1) {
+function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, includeHead: boolean, footScale = 1, handScale = 1, artwork = false) {
   const { hip, waist, shoulder, head, backView = 0 } = pose
   const round = (center: Point, rx: number, ry = rx, angle = 0) => {
     path.ellipse(...center, rx, ry, angle, 0, TAU, true); path.closePath()
@@ -380,15 +431,28 @@ function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, in
     if ((leg.rear ?? 0) < 1) traceFoot(path, leg.end, leg.footAngle, leg.footFacing, leg.toeAngle, 1 - (leg.rear ?? 0), footScale)
   }
   for (const arm of [pose.backArm, pose.frontArm]) {
-    const angle = arm.handAngle ?? Math.atan2(arm.end[1] - arm.joint[1], arm.end[0] - arm.joint[0])
-    const palm: Point = arm.hand ?? [arm.end[0] + Math.cos(angle) * 1.4, arm.end[1] + Math.sin(angle) * 1.4]
-    round(arm.root, 1.65); traceSegment(path, arm.root, arm.joint, 1.6, 1.35, 1.6); round(arm.joint, 1.4)
-    traceSegment(path, arm.joint, arm.end, 1.4, 1.05, 1.45); round(palm, 2.1 * handScale, 1.6 * handScale, angle)
+    const { palm } = handGeometry(arm)
+    // The slimmer visible socket must share its silhouette with shadows;
+    // physical clearance retains the existing shoulder and upper-arm skin.
+    const shoulderRadius = artwork ? SHOULDER_SOCKET_RADIUS : 1.65, upperRadius = artwork ? SHOULDER_SOCKET_RADIUS : 1.6
+    round(arm.root, shoulderRadius); traceSegment(path, arm.root, arm.joint, upperRadius, 1.35, upperRadius); round(arm.joint, 1.4)
+    if (artwork) {
+      traceSegment(path, arm.joint, arm.end, 1.4, .75, 1.3)
+      if (Math.hypot(palm[0] - arm.end[0], palm[1] - arm.end[1]) > .01) traceSegment(path, arm.end, palm, .75, .65, .75)
+      traceAndroidHand(path, arm, handScale)
+    } else {
+      traceSegment(path, arm.joint, arm.end, 1.4, 1.05, 1.45)
+      const points = handOutline(arm)
+      path.moveTo(...points[0]); for (const point of points.slice(1)) path.lineTo(...point); path.closePath()
+    }
   }
   if (p.climbing || backView > 0) traceBack(path, hip, waist, shoulder, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else traceTorso(path, hip, waist, shoulder)
-  const [neck, nape] = neckPoints(shoulder, head, pose.headTilt)
-  traceSegment(path, neck, nape, 1.15, 1.15, 1.15)
+  if (artwork) traceNeckArtwork(path, pose)
+  else {
+    const [neck, nape] = neckPoints(shoulder, head, pose.headTilt)
+    traceSegment(path, neck, nape, 1.15, 1.15, 1.15)
+  }
   if (includeHead) round(head, HEAD_RADIUS)
 }
 
@@ -398,7 +462,7 @@ export function traceAthlete(path: AthleteOutline, p: Player, pose = athletePose
 
 /** The shell casts light shadows without becoming part of the contact rig. */
 export function traceAthleteArtwork(path: AthleteOutline, p: Player, pose = presentedAthletePose(p)) {
-  traceAthleteSkin(path, p, pose, false, pose.footScale, pose.handScale)
+  traceAthleteSkin(path, p, pose, false, pose.footScale, pose.handScale, true)
   traceAndroidShell(path, pose, !!p.climbing || (pose.backView ?? 0) > 0)
 }
 
@@ -426,8 +490,11 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
     (free.jointDepth ?? 0) * (1 - contact), (free.endDepth ?? 0) * (1 - contact))
   const palm = handGeometry(free)
   const freePalm: Point = [palm.palm[0] - free.end[0], palm.palm[1] - free.end[1]]
-  const contactPalm: Point = [grip[0] - wrist[0], grip[1] - wrist[1]]
-  return { ...arm, hand: add(arm.end, mix(freePalm, contactPalm, contact)), handAngle: mixAngle(palm.angle, 0, contact) }
+  // The IK solver can tuck an out-of-reach wrist slightly inward. Keep the
+  // loaded palm on its actual contact instead of carrying that shortfall.
+  const contactPalm: Point = [grip[0] - target.end[0], grip[1] - target.end[1]]
+  return { ...arm, hand: add(arm.end, mix(freePalm, contactPalm, contact)), handAngle: mixAngle(palm.angle, 0, contact),
+    handOpen: (free.handOpen ?? 0) * (1 - contact) }
 }
 
 /** An unloaded reach advances along its existing folded arc only while clear.
@@ -595,9 +662,15 @@ function ledgePose(p: Player): AthletePose {
     const blend = smooth(h.time / LEDGE_CATCH_TIME)
     let pose = transferPose(source, target, shift, blend, [0, 0], 6, true, 0,
       { depth: Math.sin(Math.PI * blend) * 8, kneeOpening: 0, stableReach: !h.caught.waterMotion })
+    // Preserve the palms' approach to their support when a nearly extended
+    // wrist is tucked by IK. That small shortfall must not drop the fingers
+    // into the lip and force a last-frame clearance fold.
+    const palmBlend = blend < .8 ? blend : .8 + .2 * smooth((blend - .8) / .2)
+    for (const name of ['frontArm', 'backArm'] as const) pose[name].hand = mix(
+      add(handGeometry(source[name]).palm, shift), handGeometry(target[name]).palm, palmBlend)
     pose = clearBody(p, pose).pose
-    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
-    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true, true)
+    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true, true)
     for (const name of ['frontLeg', 'backLeg'] as const) {
       pose[name] = clearAirborneFoot(p, { ...pose[name], ...clearLimb(p, pose[name], 15, 14.5, -1) })
     }
@@ -620,13 +693,14 @@ function ledgePose(p: Player): AthletePose {
     const target = ledgePose({ ...p, hang: { ...h, time: catchTime } })
     const blend = smooth(h.time / catchTime)
     // The body follows the collision-safe outward arc when the rope is directly under the lip.
-    const offset: Point = [(p.x - lerp(h.caught.x, h.edgeX - h.side * 14, blend)) * p.facing,
-      p.y - lerp(h.caught.y, h.edgeY + 74, blend)]
+    const root = climbFrame(0, h.braced, h.slope, false, 20, h.outwardSlope).root
+    const offset: Point = [(p.x - lerp(h.caught.x, h.edgeX + h.side * root[0], blend)) * p.facing,
+      p.y - lerp(h.caught.y, h.edgeY + root[1], blend)]
     return transferPose(source, target, [(h.caught.x - p.x) * p.facing, h.caught.y - p.y], blend, offset, h.caught.climbing?.rope ? 6 : 0)
   }
   const edge = p.mantle ?? p.hang!
   const t = p.mantle ? p.mantle.descending ? 1 - clamp((p.mantle.time - LEDGE_CATCH_TIME) / LEDGE_CLIMB_TIME) : clamp(p.mantle.time / LEDGE_CLIMB_TIME) : 0
-  const crouched = !!p.mantle?.crouched, frame = climbFrame(t, edge.braced, edge.slope, crouched, p.mantle?.inset)
+  const crouched = !!p.mantle?.crouched, frame = climbFrame(t, edge.braced, edge.slope, crouched, p.mantle?.inset, edge.outwardSlope)
   const origin: Point = [(edge.edgeX - p.x) * p.facing, edge.edgeY - p.y]
   const at = (point: Point) => add(origin, point)
   let hip = at(frame.hip), waist = at(frame.waist), shoulder = at(frame.shoulder), head = at(frame.head)
@@ -671,19 +745,31 @@ function ledgePose(p: Player): AthletePose {
   const frontWrist = add(wrist, [-wristInset, -wristLift])
   const frontArm = grippingArm(root, frontWrist, grip(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
   const backArm = grippingArm(root, grip(BACK_WRIST), grip(BACK_GRIP), backFree, catchWeight * (1 - frame.backRelease), .9)
+  // The loaded palm rests along the top face, including an inclined bank.
+  // Keeping it horizontal lets the enlarged fingertips cut into uphill rock.
+  const palmAngle = Math.atan(edge.slope ?? 0)
+  frontArm.handAngle = mixAngle(handGeometry(frontFree).angle, palmAngle, catchWeight * (1 - frame.frontRelease))
+  backArm.handAngle = mixAngle(handGeometry(backFree).angle, palmAngle, catchWeight * (1 - frame.backRelease))
   const legRoot = add(hip, [0, 1])
   const folded = crouched && t > .73 || (p.mantle?.inset ?? 20) < 20 && t > .54
   const frontLeg = solveLeg(legRoot, frontFoot, .15 * (1 - smooth(t / .45)), folded, frame.frontPlanted)
-  const backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), folded, frame.backPlanted)
+  // The lifted free shoe can pass close to the hip before it plants. Allow
+  // that knee to gather instead of pushing the ankle back down toward the lip.
+  const backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), folded || t > .6 && t < .73, frame.backPlanted)
   // Soften ankle flex before contact; the support foot then remains exactly flat.
-  const flatten = (leg: Leg, weight: number) => { leg.footAngle = lerp(leg.footAngle, Math.atan(edge.slope ?? 0), weight); leg.toeAngle *= 1 - weight }
+  const flatten = (leg: Leg, weight: number) => { leg.footAngle = mixAngle(leg.footAngle, Math.atan(edge.slope ?? 0), weight); leg.toeAngle *= 1 - weight }
   flatten(frontLeg, smooth((t - .86) / .1)); flatten(backLeg, smooth((t - .56) / .07))
+  const toeBrace = edge.braced ? wallToeBrace(edge.outwardSlope) : null
   for (const [i, leg] of [frontLeg, backLeg].entries()) {
-    if (edge.braced) {
+    if (toeBrace) {
       const release = smooth((t - .04) / .2)
-      leg.footAngle = lerp(-Math.PI / 2, leg.footAngle, release); leg.toeAngle *= release
+      leg.footAngle = lerp(toeBrace.footAngle, leg.footAngle, release)
+      leg.toeAngle = lerp(toeBrace.toeAngle, leg.toeAngle, release)
     }
-    if (catchFeet) { leg.footAngle = lerp(catchFeet[i].footAngle, leg.footAngle, catchWeight); leg.toeAngle = lerp(catchFeet[i].toeAngle, leg.toeAngle, catchWeight) }
+    if (catchFeet) {
+      leg.footAngle = lerp(catchFeet[i].footAngle, leg.footAngle, catchWeight)
+      leg.toeAngle = lerp(catchFeet[i].toeAngle, leg.toeAngle, catchWeight)
+    }
   }
   return { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
 }
@@ -720,6 +806,7 @@ function rearLedgePose(p: Player): AthletePose {
   }
   return pose
 }
+
 function climbingPose(p: Player, turnAngle = 0): AthletePose {
   const c = p.climbing!, blend = smooth(c.time / .16)
   const d = c.distance
@@ -743,6 +830,7 @@ function climbingPose(p: Player, turnAngle = 0): AthletePose {
     return transferPose(source, target, [(c.caught.x - p.x) * p.facing, c.caught.y - p.y], blend)
   }
   const gait = climbGait(d, c.rope?.definition.length, c.ladder ? c.ladder.bottom - c.ladder.top : undefined)
+  const boarding = !!c.ladder && c.caught.grounded && p.y - c.ladder.top < climbGait(0).root
   const local = (point: Point): Point => [(point[0] - p.x) * p.facing, point[1] - p.y]
   const body = (distance: number, away: number) => local(climbBody(c, distance, away, p.facing))
   const phase = d / 28 * Math.PI * 2, sway = Math.sin(phase) * 1.4
@@ -754,10 +842,16 @@ function climbingPose(p: Player, turnAngle = 0): AthletePose {
   let waist = body(gait.waist, -sway * .65 + c.swing * p.facing)
   let shoulder = body(gait.shoulder, sway * .3 + c.swing * .4 * p.facing)
   let head = body(gait.head + Math.sin(phase - .7) * .35, -c.swing * .3 * p.facing)
+  if (boarding) {
+    // Reach down to the top rung from a gathered stance. The gait's negative
+    // distances preserve continuous movement; they are not rungs in midair.
+    const tuck = 14 * (1 - smooth((p.y - c.ladder!.top) / climbGait(0).root))
+    for (const point of [hip, waist, shoulder, head]) point[1] += tuck
+  }
   const contact = (step: ReturnType<typeof climbGait>['hands'][number], foot: boolean, side: number) => {
     const limit = c.rope?.definition.length ?? Infinity
     const supported = !foot || step.distance <= limit
-    const distance = Math.min(step.distance, limit)
+    const distance = boarding ? Math.max(0, Math.min(step.distance, limit)) : Math.min(step.distance, limit)
     const point = supported ? climbPoint(c, distance) : climbBody(c, gait.hip + (side < 0 ? 29.4 : 27.5), -side * 2, p.facing)
     const normal = climbNormal(c, distance)
     if (supported) {
@@ -815,8 +909,11 @@ function climbingPose(p: Player, turnAngle = 0): AthletePose {
   }
   const arms = hands.map((hand, i) => {
     const side = i ? 1 : -1, root = add(shoulder, [side * 3.9 * blend * (1 - sideView), .7])
-    return { ...solveRear(root, hand.point, UPPER_ARM, FOREARM, 1, lerp(side * .6, facing, sideView), 3,
-      bracing * smooth(c.rappelPull ?? 0)), hand: hand.point }
+    const solved = solveRear(root, hand.point, UPPER_ARM, FOREARM, 1, lerp(side * .6, facing, sideView), 3,
+      bracing * smooth(c.rappelPull ?? 0))
+    // Until the top rung is within reach, keep the palm on its wrist instead
+    // of stretching the hand artwork to an unreachable support.
+    return { ...solved, hand: boarding ? solved.end : hand.point }
   })
   const legs = feet.map((foot, i) => {
     const side = i ? 1 : -1
@@ -825,7 +922,7 @@ function climbingPose(p: Player, turnAngle = 0): AthletePose {
       spread)
     const wallAngle = -Math.PI / 2 + (wallFrame?.steps[i].lift ?? 0) * .4
     const leg: Leg = { ...solved, rear: 1 - sideView, footAngle: lerp(lerp(foot.angle, facing * .12, sideView), wallAngle, bracing), toeAngle: 0,
-      footFacing: facing, planted: foot.planted && hanging === 0 }
+      footFacing: facing, planted: foot.planted && (hanging === 0 || bracing === 1) }
     if (source) leg.footAngle = lerp(i ? source.backLeg.footAngle : source.frontLeg.footAngle, leg.footAngle, blend)
     return c.rope && p.terrain ? clearClimbingLeg(p, leg, spread) : leg
   })
@@ -1263,7 +1360,7 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
     }
     pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true, contactTurn && !reaching)
     pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true, contactTurn && !reaching)
-    return pose
+    return articulateAnkles(p, pose)
   }
   let t = fraction, pose = sample(t)
   if (motion.slide || reaching || motion.departure || motion.recoil) {
@@ -1630,10 +1727,12 @@ function waterPose(p: Player): AthletePose {
       gait: { ...(p.gait ?? gaitPose(p.vx)), air: 0 } })
     pose = motion.bottom >= 1 ? planted : transferPose(pose, planted, [0, 0], motion.bottom, [0, 0], 0, true)
   }
-  if (pushing && p.pushing?.palms) {
-    // Lift the face a little while the torso and kicking legs trail behind the
-    // palms. Shift the whole rig to clear the prop, keeping the spine intact.
-    pose = rotatePose(pose, -.22 * pushing, 1, pose.hip)
+  const propLean = motion.propLean ?? 0
+  if (propLean || pushing && p.pushing?.palms) {
+    // Aim down toward a small floor prop, or lift the face during an ordinary
+    // prone push. Rotate the whole fixed-length rig around the hips.
+    const tilt = propLean * (1 + 2 * (1 - smooth(motion.amount / .75)))
+    pose = rotatePose(pose, tilt - .22 * pushing * (1 - smooth(propLean / .2)), 1, pose.hip)
   }
   if (!p.grounded) {
     // Turn through depth while gathered instead of mirroring the extended body
@@ -1667,10 +1766,10 @@ function waterPose(p: Player): AthletePose {
     const press = (arm: Limb, index: number) => {
       const palm = p.pushing!.palms![index]
       const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
-      const wrist = add(point, [normal[0] * 2.8, normal[1] * 2.8])
-      const pressed = solve(arm.root, wrist, UPPER_ARM, FOREARM, 1)
-      const grip = { ...pressed, hand: add(pressed.end, [normal[0] * -1.2, normal[1] * -1.2]),
-        handAngle: Math.atan2(-normal[0], normal[1]) }
+      const frame = pushPalmFrame(point, normal)
+      const pressed = solve(arm.root, frame.wrist, UPPER_ARM, FOREARM, 1)
+      const grip = { ...pressed, hand: add(pressed.end, [frame.palm[0] - frame.wrist[0], frame.palm[1] - frame.wrist[1]]),
+        handAngle: frame.angle, handOpen: 1 }
       const free = { ...arm, hand: handGeometry(arm).palm }
       // Keep the stroke's depth bend as contact fades. Flattening a 3D arm
       // before blending used to make the wrist snap on its last contact frame.
@@ -1828,6 +1927,32 @@ export function dryLedgeReach(p: Player, edgeX: number, edgeY: number, pose: Ath
   return amount
 }
 
+/** Prepare a shallow downward reach before swimming past a small floor prop. */
+export function advanceWaterPropReach(p: Player, input: JumpInput, dt: number, world: ContactWorld) {
+  const motion = p.waterMotion
+  if (!motion) return
+  const direction = Math.sign(input.move)
+  let wanted = 0
+  if (motion.underwater && !p.grounded && direction && !input.jump && !input.climb && !input.descend && !input.drop
+    && Math.abs(input.swimVertical ?? 0) < .01 && (motion.leadHeading ?? motion.heading ?? p.facing) * direction > .5) {
+    const candidates = world.colliders.filter(c => c.prop && smallSubmergedProp(c.prop)
+      && (c.prop.x - p.x) * direction > 8 && (c.prop.x - p.x) * direction < 90 && Math.abs(c.prop.y - p.y) < 80)
+    if (candidates.length) {
+      const pose = waterPose({ ...p, terrain: undefined, pushing: null, waterMotion: { ...motion, propLean: 0 } })
+      const shoulder: Point = [p.x + pose.shoulder[0] * p.facing, p.y + pose.shoulder[1]]
+      for (const c of candidates) {
+        const hands = propPushHands(c.prop!, p.x, p.y, direction, -pose.shoulder[1], 70)
+        if (!hands?.palms || hands.palms.some(palm => lineBlocked(shoulder, [palm.x, palm.y], world.platforms.filter(b => b !== c.platform)))) continue
+        const below = hands.palms[0].y - shoulder[1], gap = (hands.wallX - shoulder[0]) * direction
+        if (below < 0 || below > 34) continue
+        wanted = Math.max(wanted, .45 * smooth((below - 10) / 14) * smooth((60 - gap) / 25))
+      }
+    }
+  }
+  motion.propLean = (motion.propLean ?? 0) + Math.max(-dt * 3, Math.min(dt * 3, wanted - (motion.propLean ?? 0)))
+  if (!motion.propLean) delete motion.propLean
+}
+
 /** Fit swimming palms to the visible shoulder, rather than the standing hull.
  * Passing below a float leaves the stroke free until its side is within reach. */
 export function swimmingPushHands(p: Player, prop: Prop, direction: number) {
@@ -1848,7 +1973,8 @@ export function swimmingPushHands(p: Player, prop: Prop, direction: number) {
     distance = Math.max(distance, Math.hypot(dx, dy))
   }
   if (distance >= 22) return null
-  return { hands, reach: smooth((22 - distance) / 2) }
+  const shoulders = [pose.frontArm, pose.backArm].map(arm => [p.x + arm.root[0] * p.facing, p.y + arm.root[1]] as Point)
+  return { hands, shoulders, reach: smooth((22 - distance) / 2) }
 }
 
 /** Terrain ceilings receive a hand brace. Loose floats use ordinary bumps,
@@ -2032,7 +2158,7 @@ function waterLandingPose(p: Player): AthletePose {
     const initial: Point = [captured.frontArm.root[0] - palm[0] - normal[0] * 2.8,
       captured.frontArm.root[1] + landing.y - landing.hand.y - normal[1] * 2.8]
     const absorb = smooth(landing.time / .095), push = smooth((landing.time - .075) / .2)
-    const initialReach = Math.hypot(...initial)
+    const initialReach = Math.min(UPPER_ARM + FOREARM - .1, Math.hypot(...initial))
     const reach = lerp(lerp(initialReach, initialReach - 3 - 3.3 * landing.load, absorb), 18.6, push)
     const across = initial[0] * tangent[0] + initial[1] * tangent[1] + push * (3 + 3 * landing.load) * turnSide
     const height = Math.sqrt(Math.max(0, reach * reach - across * across))
@@ -2162,7 +2288,7 @@ function pushBallSurface(p: Player) {
 /** Reaches and bend searches use the same bone radii, palm contour and anchor
  * rules. Cache only within this read-only query of the current terrain. */
 function limbClearance(p: Player, source: Limb,
-  { hands = false, handContact = false, holdContact = false, fullPalm = false } = {}) {
+  { hands = false, handContact = false, holdContact = false, fullPalm = false, fullLeg = false } = {}) {
   const visibleBall = handContact ? pushBallSurface(p) : undefined
   let lastHand: { x: number; y: number; angle: number; hit: ReturnType<typeof bodyIntrusion> } | undefined
   const handIntrusion = (limb: Limb) => {
@@ -2175,7 +2301,7 @@ function limbClearance(p: Player, source: Limb,
     // An unanchored swimming palm uses one enclosing circle. Full contour
     // queries remain for planted/working hands that must touch a surface.
     if (!fullPalm && p.waterMotion && !p.pushing?.amount && !p.waterMotion.landing && !p.waterMotion.ceiling?.amount && !p.waterMotion.floor) {
-      deepest = bodyIntrusion(p, palm, 2.1)
+      deepest = bodyIntrusion(p, palm, HAND_CLEARANCE_REACH)
     } else for (const point of handOutline(limb)) {
       const hit = bodyIntrusion(p, point, handContact ? 0 : .03, visibleBall)
       if (hit && (!deepest || Math.hypot(hit.x, hit.y) > Math.hypot(deepest.x, deepest.y))) deepest = hit
@@ -2184,7 +2310,7 @@ function limbClearance(p: Player, source: Limb,
     return deepest
   }
   const clear = (limb: Limb) => {
-    const samples = hands ? 10 : 4
+    const samples = hands || fullLeg ? 10 : 4
     for (const [index, [a, b]] of [[limb.root, limb.joint], [limb.joint, limb.end]].entries()) for (let i = 0; i <= samples; i++) {
       const radius = hands ? 1.65 : 'footAngle' in source ? index ? 1.8 : 2.2 : 1.6
       if (bodyIntrusion(p, mix(a, b, i / samples), radius, holdContact ? visibleBall : undefined, source.root)) return false
@@ -2203,6 +2329,9 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
   const retarget = (limb: Limb): Limb => source.hand ? { ...limb,
     hand: add(source.hand, [limb.end[0] - source.end[0], limb.end[1] - source.end[1]]) } : limb
   if (clear(source)) return source
+  // Folding an elbow through depth must not spin its palm in the image plane.
+  // Keep the incoming wrist orientation while finding a clear bend/target.
+  if (hands && source.handAngle === undefined) source = { ...source, handAngle: handGeometry(source).angle }
   const fold = (end: Point, previous: Limb) => {
     const dx = end[0] - source.root[0], dy = end[1] - source.root[1], length = Math.hypot(dx, dy)
     if (length < Math.abs(upper - lower) || length > upper + lower) return undefined
@@ -2257,7 +2386,7 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
 export function athletePose(p: Player): AthletePose {
   const frame = renderPoses.get(p)
   if (frame?.pose) return frame.pose
-  const pose = withTerrainQueries(() => shovingPose(p, equippedArmPose(p, baseAthletePose(p))))
+  const pose = withTerrainQueries(() => articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p)))))
   if (frame) frame.pose = pose
   return pose
 }
@@ -2312,7 +2441,64 @@ function equippedArmPose(p: Player, pose: AthletePose, presentation = false): At
 /** Ease only presentation; the arm and its sleeve always share the same bones.
  * Contacts, obstruction queries and fresh shots use the selected direction. */
 export function presentedAthletePose(p: Player): AthletePose {
-  return withTerrainQueries(() => shovingPose(p, equippedArmPose(p, baseAthletePose(p), true)))
+  return withTerrainQueries(() => articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p), true))))
+}
+
+/** Final clearance and pose blends can change the shin after its first solve.
+ * Keep support shoes fixed; free shoes follow that final shin instead of
+ * folding back onto the calf. The established wall toe brace owns its pose. */
+function articulateAnkles(p: Player, source: AthletePose): AthletePose {
+  if (p.hang?.braced || p.mantle?.braced && p.mantle.time < LEDGE_CLIMB_TIME * .24) return source
+  let local: Player | undefined
+  const clearancePlayer = () => local ??= p.inverted ? { ...p, y: -p.y, inverted: false, terrain: p.terrain?.map(mirrorPlatform) } : p
+  let result = source
+  for (const [i, name] of (['frontLeg', 'backLeg'] as const).entries()) {
+    const leg = source[name]
+    if ((leg.rear ?? 0) > .5) continue
+    const facing = Math.sign(leg.footFacing) || 1
+    const shin = Math.atan2(leg.end[1] - leg.joint[1], leg.end[0] - leg.joint[0]) - Math.PI / 2
+    const delta = Math.atan2(Math.sin(leg.footAngle - shin), Math.cos(leg.footAngle - shin)) * facing
+    if (Math.abs(leg.footFacing) === 1 && delta >= -(ANKLE_FLEX_LIMIT - .2)) continue
+    let candidate: Leg | undefined
+    const wallContact = (p.wallBrace?.feet[i] ?? 0) > 0
+    const grounded = p.grounded && !p.waterMotion?.landing
+    const supported = grounded || leg.planted || wallContact
+    if (supported) {
+      // Foot-facing passes continuously through zero during a turn. Use that
+      // profile in the knee constraint as well, rather than flipping its side.
+      const bend = openAnkle(leg, leg.footAngle, leg.footFacing)
+      if (bend === leg) continue
+      const bent = bend && { ...leg, ...bend }
+      if (bent && limbClearance(clearancePlayer(), bent, { fullLeg: true }).clear(bent)) candidate = bent
+    }
+    if (!candidate && !leg.planted && !wallContact) {
+      if (delta >= -ANKLE_FLEX_LIMIT) continue
+      candidate = { ...leg, footAngle: leg.footAngle + (Math.max(-ANKLE_FLEX_LIMIT, Math.min(Math.PI / 2, delta)) - delta) * facing }
+      const edge = p.mantle ?? p.hang
+      const clearShoe = (angle: number) => ankleSkin.every(({ point, toe }) => {
+        const sole = footPoint(point, angle * leg.footFacing, leg.toeAngle * leg.footFacing, toe)
+        const at: Point = [leg.end[0] + sole[0] * leg.footFacing * (1 - (leg.rear ?? 0)), leg.end[1] + sole[1]]
+        // A known lip is still a support when inspecting a pose without a
+        // terrain collection. Keep its corner and the actual terrain clear.
+        return !(edge && at[0] > (edge.edgeX - p.x) * p.facing + .01
+          && at[1] > (edge.edgeY - p.y) * (p.inverted ? -1 : 1) + .01) && !bodyIntrusion(clearancePlayer(), at, 0)
+      })
+      if (!clearShoe(candidate.footAngle)) {
+        let low = 0, high = 1
+        for (let pass = 0; pass < 10; pass++) {
+          const t = (low + high) / 2
+          if (clearShoe(mixAngle(leg.footAngle, candidate.footAngle, t))) low = t
+          else high = t
+        }
+        candidate.footAngle = mixAngle(leg.footAngle, candidate.footAngle, low)
+      }
+      const bend = openAnkle(candidate, candidate.footAngle, facing)
+      const bent = bend && { ...candidate, ...bend }
+      if (grounded && bent && limbClearance(clearancePlayer(), bent, { fullLeg: true }).clear(bent)) candidate = bent
+    }
+    if (candidate) result = { ...result, [name]: candidate }
+  }
+  return result
 }
 
 /** Gather both palms, drive them forward, then return to the current moving pose. */
@@ -2492,7 +2678,8 @@ function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose
       // Grounded downhill work can put a palm below the usual short-prop
       // reach. Continue hinging the chest toward the real wrist while keeping
       // the supported pelvis. Airborne preparation retains its own torso.
-      const wristY = Math.max(...(p.grounded ? p.pushing!.palms ?? [] : []).map(palm => palm.y + palm.ny * 2.8 - p.y))
+      const wristY = Math.max(...(p.grounded ? p.pushing!.palms ?? [] : []).map(palm =>
+        pushPalmFrame([(palm.x - p.x) * p.facing, palm.y - p.y], [palm.nx * p.facing, palm.ny]).wrist[1]))
       const shoulderY = wristY - .7 - 18.4
       const chest = Math.max(.35 + low * .9,
         Number.isFinite(shoulderY) ? Math.acos(Math.max(-1, Math.min(1, (lowWaist[1] - shoulderY) / 10.1))) : 0)
@@ -2517,10 +2704,10 @@ function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose
   let frontAngle = lerp(-swing - armCarry + relaxed * .24, -.65, squat), backAngle = lerp(swing - armCarry - relaxed * .24, -.75, squat)
   // The backward arm opens; the forward arm folds up toward the chest.
   let frontFlex = lerp(.1 + relaxed * .16 * (1 - pushing) + moving * lerp(.12 + (1 - Math.cos(armCycle)) * .14 * walk, 1.2 - Math.cos(armCycle - .12) * .5, run), 2.1, squat)
-  // At quiet crouched rest, let the rear forearm fall beside the knee instead
-  // of merging both hands into one. Travel and loaded palms keep their fold.
+  // Keep both forearms gently raised in a crouch. A small difference in bend
+  // separates the resting hands without dropping the far hand between the legs.
   const crouchRest = (1 - moving) * (1 - air) * (1 - pushing)
-  let backFlex = lerp(.1 + relaxed * .24 * (1 - pushing) + moving * lerp(.12 + (1 + Math.cos(armCycle)) * .14 * walk, 1.2 + Math.cos(armCycle - .12) * .5, run), 2.2 - 1.55 * crouchRest, squat)
+  let backFlex = lerp(.1 + relaxed * .24 * (1 - pushing) + moving * lerp(.12 + (1 + Math.cos(armCycle)) * .14 * walk, 1.2 + Math.cos(armCycle - .12) * .5, run), 2.2 - .15 * crouchRest, squat)
   if (air > 0) {
     // Stretch off the ground, gather through the apex, then open the arms for
     // balance. A real approaching support sweeps them back for the contact.
@@ -2554,7 +2741,8 @@ function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose
     // advances the pelvis with the chest, rather than stretching the spine.
     let reach = 0
     for (const palm of p.pushing!.palms) {
-      const x = (palm.x + palm.nx * 2.8 - p.x) * p.facing - preparationOffset, y = palm.y + palm.ny * 2.8 - p.y
+      const wrist = pushPalmFrame([(palm.x - p.x) * p.facing, palm.y - p.y], [palm.nx * p.facing, palm.ny]).wrist
+      const x = wrist[0] - preparationOffset, y = wrist[1]
       const dy = y - shoulder[1] - .7
       reach = Math.max(reach, x - shoulder[0] - Math.sqrt(Math.max(0, 18.7 ** 2 - dy * dy)))
     }
@@ -2584,6 +2772,11 @@ function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose
   // Near and far joints coincide in profile; depth comes only from overlap.
   const frontRoot = () => add(shoulder, [0, .7]), backRoot = frontRoot
   let frontArm = armPose(frontRoot(), frontAngle, frontFlex), backArm = armPose(backRoot(), backAngle, backFlex)
+  const relaxedHands = squat * (1 - air)
+  if (relaxedHands) for (const arm of [frontArm, backArm]) {
+    arm.handAngle = handGeometry(arm).angle + relaxedHands * .28
+    arm.handOpen = relaxedHands * .45
+  }
   if (!p.grounded && p.terrain) {
     frontArm = clearLimb(p, frontArm, UPPER_ARM, FOREARM, 1, true)
     backArm = clearLimb(p, backArm, UPPER_ARM, FOREARM, 1, true)
@@ -2594,13 +2787,18 @@ function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose
       const palm = p.pushing!.palms?.[index]
       if (palm) {
         const point: Point = [(palm.x - p.x) * p.facing - preparationOffset, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
-        const result = grippingArm(arm.root, add(point, [normal[0] * 2.8, normal[1] * 2.8]), add(point, [normal[0] * 1.6, normal[1] * 1.6]), arm, pushing, 0, preparationOffset > 0)
-        result.handAngle = (result.handAngle ?? 0) + Math.atan2(-normal[0], normal[1]) * pushing
+        const frame = pushPalmFrame(point, normal)
+        const result = grippingArm(arm.root, frame.wrist, frame.palm, arm, pushing, 0, preparationOffset > 0)
+        result.handAngle = mixAngle(handGeometry(arm).angle, frame.angle, pushing)
+        result.handOpen = lerp(arm.handOpen ?? 0, 1, pushing)
         return result
       }
       const contactX = wall + (y + 43) * (p.pushing!.slope ?? 0) * p.facing
-      const result = grippingArm(arm.root, [contactX - 2.8, y], [contactX - 1.6, y], arm, pushing)
-      result.handAngle = (result.handAngle ?? 0) + (Math.PI / 2 - Math.atan((p.pushing!.slope ?? 0) * p.facing)) * pushing
+      const slope = (p.pushing!.slope ?? 0) * p.facing, length = Math.hypot(1, slope)
+      const frame = pushPalmFrame([contactX, y], [-1 / length, slope / length])
+      const result = grippingArm(arm.root, frame.wrist, frame.palm, arm, pushing)
+      result.handAngle = mixAngle(handGeometry(arm).angle, frame.angle, pushing)
+      result.handOpen = lerp(arm.handOpen ?? 0, 1, pushing)
       return result
     }
     frontArm = press(frontArm, -43, 0); backArm = press(backArm, -46, 1)
@@ -2635,8 +2833,8 @@ function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose
       const palm = p.pushing!.palms![index]
       const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y]
       const normal: Point = [palm.nx * p.facing, palm.ny]
-      return { ...arm, end: add(point, [normal[0] * 2.8, normal[1] * 2.8]),
-        hand: add(point, [normal[0] * 1.6, normal[1] * 1.6]) }
+      const frame = pushPalmFrame(point, normal)
+      return { ...arm, end: frame.wrist, hand: frame.palm, handAngle: frame.angle, handOpen: 1 }
     })
     if (arms.some(arm => Math.hypot(arm.end[0] - arm.root[0], arm.end[1] - arm.root[1]) > 18.98 + .001)) {
       // A canted face can expose only a high grip to a crouching body. Fit
@@ -2862,9 +3060,15 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
   }
   const effort = smooth((Math.abs(velocity) - 130) / 420)
   const lean = -balance * (1.5 + speed + effort * 3) + correction * .4
-  const hip = mix(free.hip, hipTarget, weight), waist = mix(free.waist, add(hipTarget, [lean * .3, -6.5]), weight)
-  const shoulder = mix(free.shoulder, add(hipTarget, [lean, -16.4]), weight)
-  const head = mix(free.head, add(hipTarget, [lean + .45 - balance * effort * .8, -23.7]), weight)
+  // A nearly vertical slip can blend over a wall brace. Its balance target
+  // puts the torso over the feet, which can pull the head through that face.
+  // Clear the blended trunk before solving limbs, so palms and feet keep
+  // their own targets and the visual correction never moves the motor hull.
+  const { hip, waist, shoulder, head } = clearBody(p, { ...free,
+    hip: mix(free.hip, hipTarget, weight), waist: mix(free.waist, add(hipTarget, [lean * .3, -6.5]), weight),
+    shoulder: mix(free.shoulder, add(hipTarget, [lean, -16.4]), weight),
+    head: mix(free.head, add(hipTarget, [lean + .45 - balance * effort * .8, -23.7]), weight),
+  }).pose
   const leg = (original: Leg, foot: Point): Leg => {
     const target = mix(original.end, foot, weight), origin = at(0, 0)
     const above = (target[0] - origin[0]) * nx * p.facing + (target[1] - origin[1]) * ny
@@ -2900,7 +3104,7 @@ function wallBraceArm(p: Player, shoulder: Point, limb: Limb, weight: number, y:
   const brace = p.wallBrace!, slope = brace.normal ? -brace.normal[1] / brace.normal[0] * p.facing : 0
   const wall = (brace.wallX - p.x) * p.facing + slope * (p.y + y - (brace.wallY ?? p.y))
   const contact = smooth(weight), normal: Point = [-1 / Math.hypot(1, slope), slope / Math.hypot(1, slope)]
-  const root = add(shoulder, [0, .7]), wrist = add([wall, y], [normal[0] * 2.8, normal[1] * 2.8])
+  const root = add(shoulder, [0, .7]), frame = pushPalmFrame([wall, y], normal), wrist = frame.wrist
   // A cleared airborne elbow can cross the angular branch cut while the
   // torso leans in. Carry its bend around the wrist through depth, rather
   // than reversing the forearm's interpolated rotation halfway to the wall.
@@ -2912,8 +3116,9 @@ function wallBraceArm(p: Player, shoulder: Point, limb: Limb, weight: number, y:
   const reach = limbReach(root, end, UPPER_ARM, FOREARM, endDepth)
   const solved = limbOnBend(reach, reachingBend(limb, target, contact, reach.axis, 3))
   const palm = handGeometry(limb)
-  return { ...solved, hand: add(solved.end, mix([palm.palm[0] - limb.end[0], palm.palm[1] - limb.end[1]], [-normal[0] * 1.2, -normal[1] * 1.2], contact)),
-    handAngle: mixAngle(palm.angle, Math.PI / 2 - Math.atan(slope), contact) }
+  return { ...solved, hand: add(solved.end, mix([palm.palm[0] - limb.end[0], palm.palm[1] - limb.end[1]],
+    [frame.palm[0] - wrist[0], frame.palm[1] - wrist[1]], contact)),
+    handAngle: mixAngle(palm.angle, frame.angle, contact), handOpen: lerp(limb.handOpen ?? 0, 1, contact) }
 }
 
 /** Keep the ordinary pushing silhouette, with the legs reaching diagonally to the wall. */
@@ -2976,7 +3181,7 @@ export function awakeningPose(p: Player, progress: number): AthletePose {
   return transferPose(from, target, [0, 0], Math.max(0, progress))
 }
 /** The android shell follows the original solved joints and contact rig. */
-export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e', pose = presentedAthletePose(p)) {
+export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: AndroidAppearance = '#686b6e', pose = presentedAthletePose(p)) {
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, p.inverted ? -1 : 1)
   const materials = androidMaterials(body), shell = materials.shell
@@ -2994,7 +3199,7 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#6
   }
   const backPose = !!p.climbing || backView > 0
   drawLeg(ctx, backLeg, materials.rear, materials, pose.calfScale, pose.footScale, pose.shellWidth)
-  drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
+  drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale, pose.handScale, pose.shellWidth, true)
   if (p.facing < 0) sleeve(backArm)
   if (backPose) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
@@ -3003,10 +3208,9 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#6
 
   if (backPose) drawBack(ctx, hip, waist, shoulder, materials.joint, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else drawTorso(ctx, hip, waist, shoulder, materials.joint)
+  const neck = new Path2D(); traceNeckArtwork(neck, pose); fillShape(ctx, neck, materials.joint)
   drawAndroidTorso(ctx, pose, backPose, materials)
   drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale, pose.shellWidth)
-  const [neck, nape] = neckPoints(shoulder, head, headTilt)
-  fillShape(ctx, segmentPath(neck, nape, 1.15, 1.15, 1.15), materials.joint)
   drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth)
   if (!backPose) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)

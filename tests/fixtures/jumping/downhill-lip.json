@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "downhill-lip",
+  "name": "Downhill lip",
+  "width": 1280,
+  "height": 920,
+  "floor": 920,
+  "entrance": { "x": 560, "y": 400 },
+  "goal": { "x": 1000, "y": 400 },
+  "checkpoints": [],
+  "platforms": [
+    { "x": 600, "y": 280, "w": 200, "h": 500,
+      "polygon": [[0, 0], [200, 300], [200, 500], [0, 500]] },
+    { "x": 24, "y": 400, "w": 1232, "h": 520 }
+  ],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "times": { "gold": 4, "silver": 8, "bronze": 20 }
+}

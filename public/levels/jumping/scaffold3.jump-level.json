@@ -2046,5 +2046,15 @@
     }
   ],
   "texts": [],
-  "gravityPlates": []
+  "gravityPlates": [
+    {
+      "id": "ccb3d19f-0739-4686-a89b-c97680e8f0d0",
+      "x": 0,
+      "y": 2010,
+      "w": 1600,
+      "h": 40,
+      "gravity": -1,
+      "effect": "water"
+    }
+  ]
 }

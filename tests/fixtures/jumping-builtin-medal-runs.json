@@ -22,10 +22,6 @@
       "reason": "New authored Lock Out I course; a completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "Lock Out 2.jump-level.json",
-      "reason": "New authored Lock Out II course; a completed fresh-start player route and medal timing audit are pending."
-    },
-    {
       "file": "Quarantine II.jump-level.json",
       "reason": "New authored Quarantine II course; Rbot water recovery has regression coverage, but a completed fresh-start player route and medal timing audit are pending."
     },
@@ -75,7 +71,7 @@
     },
     {
       "file": "08.json",
-      "reason": "The stronger Rbot changes this route: it now completes at B in 9.53 seconds without the old time bonus. The completed route remains covered separately; a fresh A route and grade-time audit are required."
+      "reason": "The finale edit relocates Rbot to the entrance deck, adds a ledge under the rope and revises the lower cargo/water encounter. The former B route no longer reaches the exit."
     },
     {
       "file": "spelunk1.jump-level.json",
@@ -83,7 +79,7 @@
     },
     {
       "file": "07.json",
-      "reason": "Studio revisions added two shovebots. The previous A route is retained against its captured layout for regression coverage; a fresh completion and timing audit of the new encounter are pending."
+      "reason": "More capable Rbot traversal changes the captured encounter and interrupts the former fixed-input route. Retain this trace and its captured map for comparison; the revised live encounter needs a fresh completion."
     },
     {
       "file": "01.json",
@@ -104,6 +100,10 @@
     {
       "file": "ascent2.jump-level.json",
       "reason": "New authored Ascent II layout. A completed fresh-start player route and medal timing audit are pending."
+    },
+    {
+      "file": "buoyancy.jump-level.json",
+      "reason": "The finale edit changes the underwater ball positions and native sizes. The earlier small-ball route no longer loads both exit plates; a fresh normal-control completion and timing audit are required."
     }
   ],
   "runs": [
@@ -198,58 +198,73 @@
     },
     {
       "file": "02.json",
-      "elapsed": 6.358333333333439,
-      "activeTime": 7.216666666666815,
+      "jumpModel": "tap-hold",
+      "elapsed": 6.266666666666768,
+      "activeTime": 7.125000000000144,
       "coins": 0,
       "trace": [
         {
-          "frames": 123,
+          "frames": 124,
           "input": {
             "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
           }
         },
         {
           "frames": 82,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": true
           }
         },
         {
-          "frames": 119,
+          "frames": 20,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 99,
           "input": {
             "climb": true
           }
         },
         {
-          "frames": 238,
+          "frames": 55,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 83,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 1,
+          "frames": 73,
           "input": {
-            "jump": true,
-            "jumpStrength": 0.25
+            "move": -1
           }
         },
         {
-          "frames": 1,
+          "frames": 49,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 301,
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 247,
           "input": {
             "move": 1,
             "climb": true
@@ -3718,635 +3733,106 @@
       ]
     },
     {
-      "file": "buoyancy.jump-level.json",
+      "file": "Lock Out 2.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 30.75833333333199,
-      "activeTime": 50.616666666664436,
+      "elapsed": 15.166666666666446,
+      "activeTime": 16.024999999999732,
       "coins": 0,
       "trace": [
         {
-          "frames": 174,
+          "frames": 45,
           "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
+            "move": 1
           }
         },
         {
-          "frames": 320,
+          "frames": 1,
           "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
+            "interact": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 427,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 501,
+          "input": {}
+        },
+        {
+          "frames": 40,
+          "input": {
+            "crouch": true,
             "descend": true,
-            "detach": false
+            "drop": true
           }
         },
         {
-          "frames": 240,
+          "frames": 1,
           "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 900,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 240,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 32,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 120,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 70,
-          "input": {
-            "move": -1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 32,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 150,
-          "input": {
-            "move": -1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 160,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 645,
-          "input": {
-            "move": -1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 120,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 744,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 240,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
+            "crouch": true,
             "descend": true,
-            "detach": false
+            "drop": true,
+            "use": true
           }
         },
         {
-          "frames": 180,
+          "frames": 80,
           "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 365,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
+            "crouch": true,
             "descend": true,
-            "detach": false
+            "drop": true
           }
         },
         {
-          "frames": 240,
+          "frames": 1,
           "input": {
-            "move": -1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
+            "crouch": true,
+            "descend": true,
+            "drop": true,
+            "use": true
           }
         },
         {
-          "frames": 430,
+          "frames": 80,
           "input": {
-            "move": 0,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
+            "crouch": true,
+            "descend": true,
+            "drop": true
           }
         },
         {
-          "frames": 145,
+          "frames": 472,
           "input": {
-            "move": -1,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
+            "move": -1
           }
         },
         {
-          "frames": 180,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 330,
-          "input": {
-            "move": -1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 17,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
+          "frames": 193,
+          "input": {}
         }
       ]
     }
   ],
   "jumpModel": "recorded-impulses",
-  "completionRuns": [
-    {
-      "file": "08.json",
-      "elapsed": 9.5250000000001,
-      "activeTime": 10.383333333333384,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 185,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 81,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 170,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 193,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 21,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "climb": true,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 27,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 427,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 35,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 40,
-          "input": {}
-        },
-        {
-          "frames": 44,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 19,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        }
-      ],
-      "grade": "B"
-    }
-  ],
+  "completionRuns": [],
   "historicalRuns": [
-    {
-      "file": "07.json",
-      "elapsed": 25.04999999999922,
-      "activeTime": 25.908333333332504,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 90,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 85,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 524,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 63,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 61,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 71,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 91,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 68,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 39,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 83,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 46,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 84,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 52,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 70,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 120,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 90,
-          "input": {}
-        },
-        {
-          "frames": 322,
-          "input": {
-            "move": -1,
-            "crouch": true
-          }
-        },
-        {
-          "frames": 60,
-          "input": {}
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -0.3048780487804878,
-            "jump": true,
-            "jumpStrength": 0.47865853658536595
-          }
-        },
-        {
-          "frames": 72,
-          "input": {
-            "move": -0.3048780487804878
-          }
-        },
-        {
-          "frames": 18,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 45,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 573,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 97,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 278,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        }
-      ]
-    },
     {
       "file": "01.json",
       "jumpModel": "tap-hold",
@@ -4936,6 +4422,710 @@
         }
       ],
       "reason": "Superseded by subsequent authored Ascent I revisions and its added Rbot. This trace no longer completes the live layout; retain it as earlier completion evidence, without certifying current medal targets."
+    },
+    {
+      "file": "buoyancy.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 30.75833333333199,
+      "activeTime": 50.616666666664436,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 174,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 320,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": true,
+            "detach": false
+          }
+        },
+        {
+          "frames": 240,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 900,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 240,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 32,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 120,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": -1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 32,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 150,
+          "input": {
+            "move": -1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 160,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 645,
+          "input": {
+            "move": -1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 120,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 744,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 240,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": true,
+            "detach": false
+          }
+        },
+        {
+          "frames": 180,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 365,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": true,
+            "detach": false
+          }
+        },
+        {
+          "frames": 240,
+          "input": {
+            "move": -1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 430,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 145,
+          "input": {
+            "move": -1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 180,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 330,
+          "input": {
+            "move": -1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        }
+      ],
+      "reason": "The finale edit changes the underwater ball positions and native sizes. The earlier small-ball route no longer loads both exit plates; a fresh normal-control completion and timing audit are required."
+    },
+    {
+      "file": "08.json",
+      "elapsed": 9.5250000000001,
+      "activeTime": 10.383333333333384,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 185,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 81,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 170,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 193,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 21,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "climb": true,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 27,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 427,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 40,
+          "input": {}
+        },
+        {
+          "frames": 44,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 19,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "grade": "B",
+      "reason": "The finale edit relocates Rbot to the entrance deck, adds a ledge under the rope and revises the lower cargo/water encounter. The former B route no longer reaches the exit."
+    },
+    {
+      "file": "07.json",
+      "elapsed": 25.04999999999922,
+      "activeTime": 25.908333333332504,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 90,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 85,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 524,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 61,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 71,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 91,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 46,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 52,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 322,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "jump": true,
+            "jumpStrength": 0.47865853658536595
+          }
+        },
+        {
+          "frames": 72,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 573,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 97,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 278,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "More capable Rbot traversal changes the captured encounter and interrupts the former fixed-input route. Retain this trace and its captured map for comparison; the revised live encounter needs a fresh completion."
+    }
+  ],
+  "retiredRuns": [
+    {
+      "file": "spelunk2.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 6.58333333333345,
+      "activeTime": 7.441666666666666,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 47,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 36,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 16,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 65,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 0.4
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 105,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 420,
+          "input": {
+            "move": 1
+          }
+        }
+      ],
+      "reason": "The intermediate Spelunk II map was retired from the finale campaign; this trace is retained as historical evidence, not an audit of a deployed level."
     }
   ]
 }

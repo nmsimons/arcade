@@ -100,6 +100,17 @@
 .jumping-game .jumping-builder .builder-minimap { position: absolute; right: 16px; bottom: 16px; width: 148px; padding: 8px; background: var(--jumping-paper); box-shadow: var(--ui-shadow-card); }
 .builder-minimap .level-thumbnail { height: 56px; }
 .builder-minimap > span { display: block; margin-top: 6px; font-size: var(--jumping-type-small); font-weight: 400; }
+.builder-environment { display: grid; gap: 14px; }
+.builder-back-wall-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.builder-back-wall-heading h3 { margin: 0; }
+.builder-back-wall-heading > span { font-size: var(--jumping-type-small); }
+.builder-back-wall-list { display: grid; gap: 4px; max-height: 240px; overflow: auto; }
+.jumping-game .builder-back-wall-list button { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; background: var(--builder-field); }
+.builder-back-wall-list button > span:first-child { overflow-wrap: anywhere; }
+.builder-region-badge { flex: none; padding: 2px 6px; border-radius: 2px; font-size: var(--jumping-type-small); text-transform: capitalize; }
+.builder-region-day { background: #e8edda; color: #303c36; }
+.builder-region-night { background: #39413f; color: #f1f1ed; }
+.builder-sky-settings { display: grid; gap: 10px; }
 
 /* A single field rhythm throughout the inspector: normal labels, filled controls. */
 .builder-inspector { background: var(--jumping-paper); scroll-padding-top: 52px; }

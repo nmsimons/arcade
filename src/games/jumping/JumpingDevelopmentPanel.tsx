@@ -1,12 +1,15 @@
 import { KeyboardDialog } from '../hardVacuum/KeyboardDialog'
 import { PerformancePanel } from './PerformancePanel'
 import type { PerformanceSnapshot } from './performanceMonitor'
+import { useNavigate } from 'react-router-dom'
+import { LAB_PATH } from '../../branding/lab'
 
 export function JumpingDevelopmentPanel({ onClose, showPerformance, onPerformanceChange, snapshot, performanceMode, onPerformanceModeChange, reducedResolution }: {
   onClose: () => void
   showPerformance: boolean; onPerformanceChange: (value: boolean) => void; snapshot: PerformanceSnapshot | null
   performanceMode: boolean; onPerformanceModeChange: (value: boolean) => void; reducedResolution: boolean
 }) {
+  const navigate = useNavigate()
   return <KeyboardDialog label="Developer panel" focusKey="jumping-development" onClose={onClose} className="jumping-overlay jumping-dialog-overlay jumping-development-overlay">
     <div className="jumping-dialog-panel jumping-development" data-controller-scroll>
       <header className="jumping-dialog-heading">
@@ -23,6 +26,7 @@ export function JumpingDevelopmentPanel({ onClose, showPerformance, onPerformanc
           ? `${reducedResolution ? 'Rendering resolution is reduced and water surface effects are off for this run.' : 'Full quality is on. After two seconds below 35 FPS, rendering resolution drops and water surface effects turn off for this run.'} Restart or turn this mode off to restore full quality.`
           : 'Full quality. Enable to reduce rendering resolution and turn off water surface effects during sustained low frame rates.'}</p>
         {showPerformance && <PerformancePanel snapshot={snapshot} paused />}
+        <div className="jumping-dialog-actions"><button onClick={() => navigate(`${LAB_PATH}/model-review`)}>Player model review ↗</button></div>
       </div>
       <div className="jumping-dialog-actions jumping-pause-destinations">
         <button onClick={onClose} aria-keyshortcuts="` Escape">Close <kbd>` / Esc</kbd></button>

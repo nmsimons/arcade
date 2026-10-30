@@ -9,7 +9,7 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
   if (selection.kind === 'entrance') return level.entrance
   if (selection.kind === 'goal') return level.goal
   const collections = {
-    platform: level.platforms, rope: level.climbables.ropes, ladder: level.climbables.ladders,
+    platform: level.platforms, 'back-wall': level.environment?.walls, rope: level.climbables.ropes, ladder: level.climbables.ladders,
     checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
     trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'logic-relay': level.logicRelays, 'float-switch': level.floatSwitches, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
   }
@@ -17,6 +17,8 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
 }
 
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
+  if (s.kind === 'goal' && level.goal?.kind === 'walk-off') return 'Run-off finish'
+  if (s.kind === 'back-wall') return `Back wall ${s.index + 1}`
   if (s.kind === 'robot' && level.robots?.[s.index].kind === 'repulsor') return `Repulsorbot ${s.index + 1}`
   if (s.kind === 'robot' && level.robots?.[s.index].mode === 'emp') return `EMP shovebot ${s.index + 1}`
   if (s.kind === 'float-switch') return `Float switch ${s.index + 1}`

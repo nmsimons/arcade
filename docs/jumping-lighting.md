@@ -15,12 +15,19 @@ Read alongside [Making a fun jumping level](jumping-level-design.md),
 [the movement and mechanism contract](jumping-physics.md). Lighting must preserve
 the latter's physics, timing, input, and scoring rules.
 
-The [outdoor finale brief](jumping-outdoors.md#depth-indoor-transition-and-lighting)
-specifies a future sky and landscape backdrop. Its sky and distant scenery are
-not wall receivers and must not acquire projected wall shadows or panel grids.
-That environment support is pending implementation; existing Day mode alone
-does not create an outdoor background. Preserve this document's current indoor
-lighting contract while adding it.
+Version-2 [backgrounds and regions](jumping-levels.md#landscapes-caves-and-outdoor-finishes-version-2)
+support Day and Night areas with either the indoor course wall or blue sky.
+Flat blue sky and
+sparse clouds are background artwork, with no projected wall shadows or panel
+grids. Clouds scroll horizontally at 90% of the terrain's camera movement, with
+no independent drift. Their height follows the cloud baseline; cave openings
+remain in the terrain's frame. Against blue sky, cave back walls use light gray
+stone with a subtle,
+world-anchored texture and no grid or panel joints. Its pale gray separates the
+mid-tone day player and foreground materials; ambient exposure preserves that
+separation at night. Facility back walls retain
+the course wall treatment, as does the Indoor wall background. Existing indoor
+levels retain the lighting contract below.
 
 Charging bays and optional switch wiring are supported back-wall artwork.
 Charging bays, inactive wires, and jack housings receive ordinary illumination
@@ -94,6 +101,75 @@ level. Daytime retains its existing dark player ink. Displays and the thin
 night player retain their separate minimum exposures.
 
 ### Daylight
+
+Background choice and regional lighting are independent. A version-2
+`environment` can use an indoor course wall or blue sky. In region lighting,
+`baseLighting` selects Day (95%) or Night (35%) outside authored regions;
+each back wall selects Day or Night, with the last/frontmost wall taking
+precedence on overlaps. Existing landscape files default to Day outside and
+Night inside their walls. Bright areas contribute a bounded, smooth transition
+through actual unobstructed openings, including a bright indoor room inside a
+dark one. Each opening emits across its full width, with a continuous distance
+falloff that eases away from the boundary. Visibility samples handle rock
+occlusion; they do not produce separate circular brightness lobes. Offscreen
+openings are culled by their full extent, without dropping other authored
+openings from the level. This ambient field is separate from powered spotlights and their haze.
+The small air field retains an overscan margin for camera movement. Terrain
+shades are classified once per level revision and painted through retained
+native-resolution paths in terrain layer order. Camera movement and moving
+occluders do not repeat that classification. Relevant moving occluders, level
+edits, zoom and size changes still invalidate the air field as needed.
+
+The retained air field includes a faint, world-anchored dither to break up
+8-bit brightness bands. Apply it in place only when rebuilding that small
+field, using a retained 64-by-64 GPU-backed noise tile (16 KiB). Camera frames
+keep their ordinary opaque upscale, with no new passes or readbacks. Keep the
+ordinary fast filter and preserve the gradual falloff, field resolution, cache
+reuse and final terrain silhouette.
+Enable this only at close zoom (at least 0.5 native pixels per world unit) and
+up to 1.5 million viewport pixels. Overview and larger views retain the original
+mask and buffer budget; leaving either limit releases the noise tile and
+invalidates the cached air field so noise cannot survive in the fallback.
+See the [gradient smoothing measurements](jumping-performance.md#october-27-2026-regional-gradient-smoothing).
+Terrain exposure is painted at its final silhouette, so it cannot glow onto
+the back wall beneath a rock. The earlier interpolated terrain field is recorded
+in [performance measurements](jumping-performance.md#october-27-2026-spelunk-ib-regional-lighting-and-camera-movement).
+Each solid and its projected shadows also share one opaque mask with consistent
+winding. Separately antialiased masks can leave a partly lit line along a dark
+pocket's ceiling or walls even when the terrain field itself is clipped correctly.
+It has no switch, EMP response, or effect on movement or detection. Uniform
+lighting retains ordinary whole-level Day/Night behavior and ignores regional
+overrides without deleting the regions.
+
+Each authored terrain piece has one fixed regional shade. A piece entirely
+in Day uses 95% exposure; any positive-area overlap with a visible Night region
+makes the whole piece use 35%. Actual polygon, profile and curved outlines
+determine overlap, including small regions enclosed by a large rock. Frontmost
+Day regions can cover earlier Night regions, following the same wall-layer rule
+as the back wall. Daylight spill and local lamps do not change terrain shade.
+Separate pieces can keep different shades; do not propagate the choice through
+every connected rock or cut a lighting stripe across a piece. Keep the shared
+material fills and restrained grain. Player contrast uses the canonical day/night android material palettes;
+an arbitrary ink color selects a diagnostic mask and loses the normal materials.
+Regional lighting blends the shell, face, joints and markings gradually with
+local brightness, instead of switching palettes at a threshold. The bounded
+palette cache is shared by all composition passes and adds no rendering passes.
+Day mode retains the ordinary uniform daylight treatment described next.
+
+Landscape water has a continuous pale blue background beneath its transparent
+tint, wall artwork and actors. Sky/cave boundaries cannot form a hard color seam
+inside one pool: the shared regional ambient field supplies the gradual Day to
+Night transition. The background shares the water's clipped, rippling outline;
+Indoor water retains its course-wall backdrop. This adds artwork fills to the
+existing passes, with no new lighting field or framebuffer.
+
+The enclosing frame keeps its terrain material and one constant shade. Any
+visible Night area makes it dark; an entirely Day layout keeps a light frame.
+The frame does not sample neighboring air, daylight spill or lamps. Resolve
+the small air field inside the real room boundary before compositing; filtering
+a clipped low-resolution field must not produce a glowing rectangular outline.
+Native terrain paths retain the exact joins with the frame. Retained ambient
+fields and the GPU resolve count toward the shared buffer budget.
 
 The sun is a directional source above and to the left of the level: its rays
 travel down and right, 25 degrees from vertical, without divergence or distance
@@ -730,6 +806,14 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
   Lighting is render work, independent of the simulation's step frequency.
 - Reuse scratch buffers and bound the number of full-resolution stationary-light
   caches by viewport size; cap complete lighting buffers at 64 MiB with eviction.
+  Live regional lighting chooses rounded backing dimensions against the GPU's
+  complete buffer estimate, including regional fields and vertex headroom.
+  Budget fallback must permit GPU recovery after resizing and release inactive
+  backend surfaces. Keep the same exposure, palette, haze and shadow sampling.
+  The existing foreground-occlusion surface can supply the visible foreground
+  as well, preserving painter order without another buffer. Omit readable-ambient
+  correction only when the paint traversal finds no applicable ink; charging bays
+  still require it. Retain reference composition options and pixel regressions.
   Avoid canvas readback in the frame loop.
 - Night composition retains static terrain artwork in the existing haze
   surface, keyed by exact camera, size, materials, and geometry. Exposure masks

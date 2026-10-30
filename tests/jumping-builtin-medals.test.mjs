@@ -11,6 +11,9 @@ const root = new URL('../public/levels/jumping/', import.meta.url)
 const catalog = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
 const recordings = JSON.parse(await readFile(new URL('fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
 const historicalLevels = JSON.parse(await readFile(new URL('fixtures/jumping/course-regression-levels.json', import.meta.url), 'utf8'))
+// Captured route identities remain stable when an authored file is renamed.
+const currentFile = file => ({ 'Here There Everywhere.jump-level.json': 'hsj.jump-level.json',
+  'Walls.jump-level.json': 'hsj2.jump-level.json', 'spelunk1.jump-level.json': 'spelunk.jump-level.json' })[file] ?? file
 const untimed = []
 for (const file of catalog.levels) {
   const level = parseLevel(JSON.parse(await readFile(new URL(file, root), 'utf8')))
@@ -24,7 +27,7 @@ test('every built-in level has one medal recording, an explicit pending audit, o
   for (const audit of pending) assert.ok(typeof audit.reason === 'string' && audit.reason.trim().length > 0, 'pending audits explain the missing evidence')
   // Keep all recorded routes strict. Adding a level must explicitly record a
   // route or acknowledge its unverified medal times; never silently skip it.
-  const accounted = [...recordings.runs.map(run => run.file), ...pending.map(audit => audit.file), ...untimed]
+  const accounted = [...recordings.runs.map(run => currentFile(run.file)), ...pending.map(audit => currentFile(audit.file)), ...untimed]
   assert.equal(new Set(accounted).size, accounted.length, 'each level has exactly one audit status')
   assert.deepEqual(accounted.sort(), [...catalog.levels].sort())
   for (const completion of recordings.completionRuns ?? []) {
@@ -39,6 +42,10 @@ test('every built-in level has one medal recording, an explicit pending audit, o
     assert.ok(pending.some(audit => audit.file === superseded.file), 'superseded evidence cannot certify a revised live level')
     assert.ok(superseded.reason?.trim() && superseded.trace.length > 0, 'retain the old route and explain why it no longer certifies the level')
   }
+  for (const retired of recordings.retiredRuns ?? []) {
+    assert.ok(!catalog.levels.includes(currentFile(retired.file)), 'retired evidence cannot replace an active level audit')
+    assert.ok(retired.reason?.trim() && retired.trace.length > 0, 'retain the retired route with its reason')
+  }
 })
 
 // Historical routes preserve their jump impulses for contact/mechanism coverage.
@@ -50,10 +57,10 @@ const routes = [
   ...(recordings.historicalRuns ?? []).map(recording => ({ recording, historical: true })),
 ]
 for (const { recording, historical } of routes) test(`${historical ? 'captured' : 'built-in'} ${recording.jumpModel ?? recordings.jumpModel} route: ${recording.file}`, async () => {
-  assert.ok(catalog.levels.includes(recording.file))
+  assert.ok(catalog.levels.includes(currentFile(recording.file)))
   const level = parseLevel(historical
     ? structuredClone(historicalLevels.levels[recording.file])
-    : JSON.parse(await readFile(new URL(recording.file, root), 'utf8')))
+    : JSON.parse(await readFile(new URL(currentFile(recording.file), root), 'utf8')))
   const run = createRun(level)
   let entryTime
   let jammedGate = false
@@ -68,7 +75,7 @@ for (const { recording, historical } of routes) test(`${historical ? 'captured' 
   const weighted = plate => run.props.filter(prop => propLoadsPlate(prop, plate.x, plate.y, plate.w, plate.ceiling))
   for (const { frames, input } of recording.trace) {
     assert.ok(Number.isInteger(frames) && frames > 0)
-    assert.ok(Object.keys(input).every(key => key in NEUTRAL_INPUT || key === 'jumpStrength'))
+    assert.ok(Object.keys(input).every(key => key in NEUTRAL_INPUT || ['jumpStrength', 'interact', 'use'].includes(key)))
     if (input.jump && jumpModel === 'recorded-impulses') assert.ok(input.jumpStrength >= 0 && input.jumpStrength <= 1)
     if (jumpModel === 'tap-hold') assert.equal('jumpStrength' in input, false)
     const controls = { ...NEUTRAL_INPUT, ...input }
@@ -180,7 +187,7 @@ test('Waterline accepts only shaft 1 middle, shaft 2 high and shaft 3 low across
 })
 
 test('Spelunk I accepts buttons 2 and 4 alone across all four-button patterns', async () => {
-  const level = parseLevel(JSON.parse(await readFile(new URL('spelunk1.jump-level.json', root), 'utf8')))
+  const level = parseLevel(JSON.parse(await readFile(new URL('spelunk.jump-level.json', root), 'utf8')))
   for (let value = 0; value < 16; value++) {
     const buttons = level.triggers.map(button => ({ active: !!(value & (1 << (Number(button.name) - 1))) }))
     assert.equal(resolveSwitchStates(level, buttons).get(level.mechanisms[0].id), value === 10, `button mask ${value}`)

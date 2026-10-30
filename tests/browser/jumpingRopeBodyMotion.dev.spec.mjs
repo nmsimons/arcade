@@ -22,8 +22,12 @@ for (const length of [500, 1300]) test(`a fresh keyboard climb on a ${length}-un
   expect((await sample()).signals.mode).toBe('rope')
   await page.screenshot({ path: info.outputPath('relaxed-hang.png') })
   await page.keyboard.down('d'); await page.clock.runFor(600); await page.keyboard.up('d')
+  const releasedAt = (await sample()).time
   await page.clock.runFor(1100)
-  const recent = await page.evaluate(() => window.jumpingMotion.read().recent.slice(-40))
+  // Inspect the whole neutral coast. A short tail can fall at the pendulum's
+  // turning point even though the body has followed the swing throughout.
+  const recent = await page.evaluate(time => window.jumpingMotion.read().recent.filter(s => s.time > time), releasedAt)
+  expect(recent.length).toBeGreaterThan(60)
   expect(recent.every(s => s.signals.mode === 'rope' && s.input.move === 0)).toBe(true)
   const bends = recent.map(s => Math.atan2(s.points[0][0] - s.points[1][0], s.points[0][1] - s.points[1][1]))
   expect(Math.max(...bends) - Math.min(...bends)).toBeGreaterThan(.03)

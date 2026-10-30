@@ -5,6 +5,7 @@ type Limb = { root: Point; joint: Point; end: Point }
 export interface AndroidMaterials {
   shell: string; rear: string; joint: string; grip: string; mark: string; cranial: string; face: string
 }
+export type AndroidAppearance = string | AndroidMaterials
 const day: AndroidMaterials = {
   shell: '#b5bdb2', rear: '#a9b7ad', joint: '#657a70',
   grip: '#697d70', mark: '#8ba58e', cranial: '#a9b7ad', face: '#b8c0b5',
@@ -17,13 +18,50 @@ const night: AndroidMaterials = {
 }
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */
-export function androidMaterials(ink: string): AndroidMaterials {
+export function androidMaterials(ink: AndroidAppearance): AndroidMaterials {
+  if (typeof ink !== 'string') return ink
   // The back wall remains at ambient exposure inside a spotlight. Mid-tone
   // metal disappears against it when the robot receives full light.
   if (ink === '#b66d65') return { shell: ink, rear: '#925f59', joint: '#26322c', grip: '#344237', mark: '#ccad72', cranial: '#9b625b', face: '#d0c6af' }
   if (ink === '#e5e7e6') return night
   if (ink === '#686b6e' || ink === '#303c36') return day
   return { shell: ink, rear: ink, joint: ink, grip: ink, mark: ink, cranial: ink, face: ink }
+}
+
+const daylightMaterials: (AndroidMaterials | undefined)[] = []
+/** Preserve each material while easing between the established night/day
+ * palettes. Reuse the finite set of colors across every lighting replay. */
+export function androidDaylightMaterials(daylight: number): AndroidMaterials {
+  const t = Math.max(0, Math.min(1, daylight)), index = Math.round(t * t * (3 - 2 * t) * 255)
+  if (index === 0) return night
+  if (index === 255) return day
+  const saved = daylightMaterials[index]
+  if (saved) return saved
+  const amount = index / 255, materials = {} as AndroidMaterials
+  for (const key of Object.keys(day) as (keyof AndroidMaterials)[]) {
+    const from = parseInt(night[key].slice(1), 16), to = parseInt(day[key].slice(1), 16)
+    materials[key] = '#' + [16, 8, 0].map(shift => {
+      const a = from >> shift & 255, b = to >> shift & 255
+      return Math.round(a + (b - a) * amount).toString(16).padStart(2, '0')
+    }).join('')
+  }
+  daylightMaterials[index] = materials
+  return materials
+}
+
+const rearArmColors = new WeakMap<AndroidMaterials, string>()
+/** Separate the far arm from the chest without changing hands or leg colors.
+ * Diagnostic monochrome inks stay monochrome; lighting palettes are cached. */
+export function androidRearArmColor(materials: AndroidMaterials): string {
+  const saved = rearArmColors.get(materials)
+  if (saved) return saved
+  const { rear, joint } = materials
+  if (rear === joint || !/^#[\da-f]{6}$/i.test(rear) || !/^#[\da-f]{6}$/i.test(joint)) return rear
+  const from = parseInt(rear.slice(1), 16), to = parseInt(joint.slice(1), 16)
+  const color = '#' + [16, 8, 0].map(shift => Math.round((from >> shift & 255) * .75 + (to >> shift & 255) * .25)
+    .toString(16).padStart(2, '0')).join('')
+  rearArmColors.set(materials, color)
+  return color
 }
 const along = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
 
@@ -38,8 +76,10 @@ function panel(path: AthleteOutline, a: Point, b: Point, from: number, to: numbe
   path.quadraticCurveTo(a[0] - dx / length * from, a[1] - dy / length * from, ...at(a, from)); path.closePath()
 }
 function armShell(path: AthleteOutline, limb: Limb, forearmScale = 1, width = 1) {
-  panel(path, along(limb.root, limb.joint, .06), along(limb.root, limb.joint, .78), 2.5 * width, 1.95 * width)
-  panel(path, along(limb.joint, limb.end, .18), along(limb.joint, limb.end, .86), 2.15 * width, 1.6 * forearmScale * width)
+  // Cap the lower shoulder socket while leaving its articulation and the
+  // elbow visible. Bone lengths, plate widths and working hands stay fixed.
+  panel(path, along(limb.root, limb.joint, .16), along(limb.root, limb.joint, .74), 2.5 * width, 1.95 * width)
+  panel(path, along(limb.joint, limb.end, .22), along(limb.joint, limb.end, .86), 2.15 * width, 1.6 * forearmScale * width)
 }
 function legShell(path: AthleteOutline, limb: Limb, calfScale = 1, width = 1) {
   panel(path, along(limb.root, limb.joint, .04), along(limb.root, limb.joint, .8), 3 * width, 2.35 * width)
@@ -53,11 +93,15 @@ function torso(path: AthleteOutline, pose: AthletePose, back: boolean) {
     const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy) || 1
     return [p[0] + (dy * width + dx * offset) / length, p[1] + (dy * offset - dx * width) / length]
   }
-  const width = 3.8 + (back ? (pose.backView ?? 0) * 1.2 : 0)
-  path.moveTo(...at(shoulder, -width + .9, -1))
-  path.lineTo(...at(shoulder, -width, .6)); path.lineTo(...at(waist, -3.1, -.8))
+  const rear = back ? pose.backView ?? 0 : 0, width = 3.8 + rear * 1.2
+  // Expose the neck above a soft chest edge in profile. The back view raises
+  // that edge to meet the wider shoulders without leaving a broad dark band.
+  const inset = .9 + rear * .9, collar = 1 - rear * 1.3, drop = 2 + rear * .1
+  path.moveTo(...at(shoulder, -width + inset, collar))
+  path.lineTo(...at(shoulder, -width, drop)); path.lineTo(...at(waist, -3.1, -.8))
   path.quadraticCurveTo(...at(waist, 0, .8), ...at(waist, 3.1, -.8))
-  path.lineTo(...at(shoulder, width, .6)); path.lineTo(...at(shoulder, width - .9, -1)); path.closePath()
+  path.lineTo(...at(shoulder, width, drop)); path.lineTo(...at(shoulder, width - inset, collar))
+  path.quadraticCurveTo(...at(shoulder, 0, collar - .6), ...at(shoulder, -width + inset, collar)); path.closePath()
   // Pelvis and chest articulate independently across the original waist.
   path.moveTo(...at(hip, -3.5, -1.6)); path.lineTo(...at(hip, -4.2, .1))
   path.lineTo(...at(hip, -2.7, 3.5)); path.quadraticCurveTo(...at(hip, 0, 4.2), ...at(hip, 2.7, 3.5))

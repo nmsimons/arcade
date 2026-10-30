@@ -10,8 +10,8 @@ The [campaign canon](jumping-campaign.md) defines the approved required-level
 sequence rules and optional B-average certification. The
 [outdoor finale brief](jumping-outdoors.md) specifies the escape environment.
 D-or-better campaign progression and locked picker slots are implemented.
-Exterior backgrounds and the outdoor ending remain design requirements pending
-implementation. The untimed opening, charging-bay entrance, and optional wall
+Version-2 landscapes support daylight above authored cave or facility back walls,
+and an untimed outdoor overlook finish. The untimed opening, charging-bay entrance, and optional wall
 wiring described below are supported authoring features.
 
 Version 1 remains supported unchanged. Version 2 adds authored lighting, described
@@ -144,7 +144,9 @@ With `npm run dev` open on localhost, select **Edit** on a built-in tile, or
 **Level studio → Library → New level** to add a level. **Library** contains one
 built-in collection. New levels and templates save directly to
 `public/levels/jumping/` in this checkout and appear in Git. **Save and Test** saves
-before playing; **Return to builder** preserves the draft and undo history.
+new or edited levels before playing. An unchanged saved level starts its test
+without writing or renaming any file. **Return to builder** preserves the draft
+and undo history.
 No browser folder permissions, account level library, or cloud level import is
 involved. **Refresh built-in levels** picks up edits made outside the studio.
 
@@ -153,6 +155,14 @@ a per-server token. Network development hosts and production previews cannot
 author. Built-in recovery copies live in ignored `.local/jumping-recycle-bin/`,
 outside the published assets. Unfinished maps remain editable after restarting
 the dev server; build/publish validation requires ready-to-play maps.
+
+Built-in saves normally replace files atomically. Windows sharing locks receive
+bounded retries. If a reader permits writing but prevents replacement, the
+writer checks the expected contents again and updates the existing file through
+a verified handle. It keeps an original-content backup in `.local/` until that
+write succeeds or rollback finishes. If rollback also fails, the save error
+identifies the retained recovery copy. External edits, links, and denied writes
+still fail without being treated as successful saves.
 
 Use `npm run prod` to build and preview the player experience, normally on port
 4173 alongside development on port 5173. Restart it to rebuild after changes.
@@ -355,7 +365,8 @@ In the studio, **Library** provides **New level**, built-in files, templates,
 ordering and a recycle bin. Opening another level prompts about unsaved changes.
 **Use as template** creates an independent draft with new IDs and remapped
 connections. **Save level** writes to the built-in collection; **Save and Test**
-waits for a successful write before playing. Renames keep level identity and
+waits for a successful write when the draft has changes, and directly tests an
+unchanged saved level without a write. Renames keep level identity and
 update the manifest. External-edit checks protect changes made outside the
 studio; a failed write leaves the current draft editable.
 
@@ -851,6 +862,18 @@ to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a
 terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.
 Materials are saved in the JSON and appear in the game, editor and thumbnails.
+
+Terrain also accepts `groundCover: "none"`, `"grass"`, `"scrub"`, or `"moss"`.
+Choose **Object → Appearance → Ground cover** to add fine grass blades, sparse
+scrub, or short moss along a terrain piece's exposed tops and slopes. None leaves
+it bare. A shallow colored surface strip anchors the growth to the rock; spacing,
+height, shape and green or olive tones vary deterministically. The existing
+ambient lighting darkens these colors at night without an extra lighting pass.
+Cover follows the shape through moving, resizing and node edits, and
+works with either background and every lighting mode. Neighboring solid terrain
+hides it. It is decoration: collision, friction, climbing and shadows are unchanged.
+The choice survives duplication, clipboard, Undo/Redo and save/reopen. Missing
+values mean no cover, except for legacy landscape spans described below.
 
 Optional integer `zIndex` (−10000 to 10000, default 0) controls terrain's draw
 order. Higher values draw in front; equal values retain their order in
@@ -1527,6 +1550,143 @@ A bright blue or red beam with a soft glow, slow ripples and sparse fading spark
 shows an active field. Disabled beams
 retain their end emitters; the studio also shows a dashed guide. The effect pauses
 with the game and remains readable at night without casting light or shadows.
+
+## Landscapes, caves, and outdoor finishes (version 2)
+
+Background artwork and lighting regions are independent. Omitting `environment`
+preserves existing indoor walls, grids, panels and whole-level Day/Night lighting.
+New version-2 scenes can use the same indoor wall throughout, with a day-lit
+upper area and dark lower caverns, or blue sky above those caverns.
+
+For an indoor day/night scene:
+
+```json
+"environment": {
+  "kind": "interior",
+  "lighting": "regions",
+  "baseLighting": "day",
+  "walls": [
+    { "kind": "facility", "name": "Lower cavern", "lighting": "night",
+      "x": 0, "y": 420, "w": 1850, "h": 2180,
+      "polygon": [[0,0],[500,60],[1850,220],[1850,2180],[0,2180]] }
+  ]
+}
+```
+
+Use `kind: "landscape"` and a `horizon` Y coordinate for blue sky and sparse
+clouds instead. Indoor environments do not require a horizon. Both backgrounds
+use exactly the same lighting-region model. `baseLighting` is `day` or `night`;
+each wall's `lighting` is `day` or `night`. Later/frontmost walls take precedence
+on overlaps, allowing a bright service bay inside a dark cave. Bright areas
+contribute a smooth ambient transition through actual openings; terrain blocks
+that light. There is no new movement, detection, collision or switch rule.
+
+`lighting: "uniform"` retains whole-level Day/Night behavior and ignores regional
+overrides without deleting the walls. Regions use the version-2
+`lighting.nightMode: true` flag to activate mixed illumination. Existing landscape
+files without an environment lighting layout retain their old behavior: Day
+outside, Night walls by default when Night mode is enabled; fully Day when it is
+disabled. No existing file is upgraded merely by opening it.
+
+Back walls are rectangles or simple local polygons with 3–64 vertices. Up to 40
+walls may overlap; optional names have the same 80-character limit as other
+objects. Coordinates use the same top-left origin as terrain. The retained
+`facility` kind uses the standard course wall and grid. With Blue sky selected,
+`cave` walls use light gray stone with subtle texture and no grid or panel joints.
+The Indoor wall background retains the standard course wall treatment.
+New authoring chooses the kind from the background. Back walls never supply
+collision, grip, robot cover, pressure load or shadow casters. Author physical
+terrain separately. Each terrain piece uses one fixed shade: light when its
+entire outline belongs to Day, dark if any area overlaps a visible Night region.
+Layered Day overrides apply before this classification. Split a rock into
+separate pieces when its Day and Night portions should have different shades;
+daylight spill and lamps do not recolor terrain. A layout containing Night uses
+a constant dark enclosing frame; entirely Day layouts keep a light frame.
+Player contrast uses the normal day/night
+material palettes, preserving the robot's shell, face, joints and markings.
+These materials blend gradually as the player moves between lit and dark areas.
+
+**Level → World** provides **Background** (Indoor wall / Blue sky) and
+**Lighting layout** (Whole level / Day and night regions). Whole level keeps the
+familiar **Night mode** toggle. Regional lighting adds **Outside regions** to
+choose the default Day or Night light. Switching backgrounds and lighting layouts
+preserves authored walls and lamps.
+
+Use **Scenery → Back wall** or **Draw back wall** in World to place a rectangle.
+Select its outline or choose it in the World **Back walls** list. The normal
+Object inspector supplies its name, **Region lighting**, position, size and layer
+order. Drag inside a selected wall to move it; square handles resize it. Use
+round nodes to reshape, or **Node** / **Add node** to insert points on an edge.
+Selected nodes have X/Y fields; Delete/Backspace removes the selected node.
+Arrow keys nudge by the grid step and Shift moves by one unit. Snap, Alt, panning
+and zoom work as for terrain. Bounds follow node edits automatically, within the
+level, and crossing edges are rejected.
+
+Back walls support ordinary Duplicate, Delete, clipboard, groups, rotate/flip,
+Undo/Redo, Save and Test, and save/reopen. They remain behind gameplay objects
+when hit testing. A marquee selects a background region only when it contains
+the entire region, keeping small object selections usable. Layer controls preserve
+group references and determine which regional light takes precedence. There is
+no separate outline-editing mode or raw point JSON in the normal authoring flow.
+
+Sky remains flat blue with sparse clouds across the level's width, and receives
+no wall shadows, grid, panels or contact relief. Clouds scroll horizontally at
+90% of the terrain's speed as the camera moves, with no independent drift.
+The **Editor grid** is a Studio-only overlay. **Sky** holds the cloud baseline
+(saved as `horizon`), which controls their height. Ground cover belongs to
+terrain's Appearance settings. Old `environment.groundCover` spans still load:
+at most 80 `{x,y,w}` entries of width 10–600, shown as scrub on their supporting
+terrain with a sky background. An explicit terrain `groundCover` choice, including
+`"none"`, overrides these spans. No spans are rewritten on load. Resizing level
+height moves regions, the horizon when present, and legacy spans with the floor.
+
+An untimed trial can use `goal: { "kind": "overlook", "x": 5700, "y": 760 }`.
+The coordinates mark the center of a small viewpoint marker. Provide a flat,
+clear 60-unit landing and 80 units of headroom. Hold Up while standing within
+45 units to finish; walking to the marker alone leaves control available. An
+overlook cannot be timed or use switched exit power. It has no doorway or exit
+walk animation. Completion retains the standing robot and panorama behind a
+small ending panel, and saves the existing untimed completion flag.
+
+For an open-ended departure, choose **Level → Timing → Finish → Run off right
+edge (untimed)**. Save `goal: { "kind": "walk-off", "x": <level width>, "y": <ground height> }`.
+The last 64 units need continuous flat ground and 100 units of clear headroom.
+The right boundary opens above that ground, which continues offscreen for the
+last stride. Running or jumping completely past the right edge completes the
+level automatically. There is no doorway, indicator, or finish button. The
+camera stops at the edge and the ending panel preserves the final landscape.
+The studio-only guide stays attached to the right edge as the level is resized;
+move it vertically or use Place on surface to set its ground height.
+
+For a bus exit, choose **Level → Timing → Finish → Bus stop (untimed)**. Save
+`goal: { "kind": "bus", "x": <rear center>, "y": <ground height> }`. Provide
+continuous flat ground from X − 184 to X + 76 and 144 units of clear space
+above it, all inside the level. The bus uses always-on power and does not flip.
+It is visible during normal play, studio editing, and thumbnails. Walk into
+the open boarding entrance on its left side to finish; no Up press or map-edge
+crossing is required. Jumping above it does not board.
+
+Boarding saves completion and starts the departure in the same level view.
+There is no automatic approach, camera reveal, or replacement scenery. The
+robot appears in the rear window. After a short hold, the bus travels directly
+away from the camera, shrinking about a fixed visual center until the wheel
+bottoms align with the flat ground line. It then lowers briskly behind that
+horizon while continuing to shrink. The result panel follows the departure.
+Escape or controller Start pauses it; Resume continues it. Space, Enter, or
+controller A advances to the result; held gameplay controls do not skip it.
+The departure has no on-screen Pause or Skip buttons. Exit uses
+this goal. The development-only `/lab/ending-review` page starts on the actual
+final approach with normal keyboard controls, without saving progress. Its
+Departure preview mode provides playback and a time slider.
+
+Level width supports 800–24,000 units, including point objects and lighting in
+the added space. Exit's longer final landing leaves room to approach its stop.
+
+Play, Play again, Restart and reloading a level start at its authored entrance,
+including outdoor endings such as Exit. Resume in the pause menu continues the
+current run in place. Older outdoor checkpoints are ignored; completed-level
+flags and best times still persist. A timed approach with a separately latched
+coda score is not yet supported; Exit is untimed throughout.
 
 ## Lighting (version 2)
 

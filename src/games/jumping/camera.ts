@@ -42,7 +42,9 @@ export function gameCamera(width: number, height: number, p: Player, level: Jump
   const half = width / zoom / 2
   const leadLimit = Math.max(0, half - 72)
   const ahead = Math.max(-leadLimit, Math.min(leadLimit, lookAhead))
-  const cameraX = level.width < half * 2 - 80 ? level.width / 2 : Math.max(half - 40, Math.min(level.width - half + 40, centerX + ahead))
+  const walkOff = level.goal?.kind === 'walk-off'
+  const cameraX = level.width < half * 2 - 80 ? walkOff ? level.width - half : level.width / 2
+    : Math.max(half - 40, Math.min(level.width - half + (walkOff ? 0 : 40), centerX + ahead))
   return { zoom, x: cameraX - half, y: vertical(zoom) }
 }
 

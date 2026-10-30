@@ -80,8 +80,12 @@ test('ten seconds of started idle retain real support, readable quiet arms and p
       assert.deepEqual(p, before, 'the rendered pose remains read-only')
       assert.equal(p.gait.moving, 0, `${name}: passive rest does not cycle the gait`)
       assert.ok(p.footwork.feet.every(foot => foot.planted), `${name}: no cosmetic idle steps`)
-      assert.ok(Math.hypot(...pose.frontArm.end.map((v, i) => v - pose.backArm.end[i])) > 6,
-        `${name}: quiet hands stay distinct, including crouching`)
+      if (name.includes('crouched')) {
+        assert.ok([pose.frontArm, pose.backArm].every(arm => arm.end[0] > arm.joint[0] + 6
+          && arm.end[1] < Math.min(pose.frontLeg.joint[1], pose.backLeg.joint[1]) - 1),
+          `${name}: both quiet forearms stay raised ahead of the knees`)
+      } else assert.ok(Math.hypot(...pose.frontArm.end.map((v, i) => v - pose.backArm.end[i])) > 6,
+        `${name}: quiet hands stay distinct`)
       const shift = carrier ? [carrier.x - origin[0], carrier.y - origin[1]] : [0, 0]
       for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
         const foot = p.footwork.feet[i]

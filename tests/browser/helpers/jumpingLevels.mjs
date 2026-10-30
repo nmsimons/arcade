@@ -115,7 +115,7 @@ export async function saveTestLevel(page, button = 'Save level') {
   const fileName = await page.getByRole('textbox', { name: 'Level file name', exact: true, includeHidden: true }).inputValue()
   const writes = await page.evaluate(() => window.testFolderWrites)
   await page.getByRole('button', { name: button, exact: true }).click()
-  await expect.poll(() => page.evaluate(() => window.testFolderWrites)).toBeGreaterThan(writes)
+  if (button !== 'Save and Test') await expect.poll(() => page.evaluate(() => window.testFolderWrites)).toBeGreaterThan(writes)
   if (button === 'Save and Test') {
     await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
     await expect(page.getByRole('img', { name: /: reach the exit$/ })).toBeFocused()

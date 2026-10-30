@@ -54,7 +54,7 @@ for (const device of ['keyboard', 'stick']) for (const direction of [-1, 1]) {
     await input({}, 640)
     const quiet = await state()
     expect(quiet.signals.mode).toBe('hang'); expect(quiet.vx).toBe(0); expect(quiet.vy).toBe(0)
-    expect((edgeX - quiet.x) * direction).toBeCloseTo(14, 5)
+    expect((edgeX - quiet.x) * direction).toBeCloseTo(14 + 74 * 20 / 540, 5)
     await page.screenshot({ path: info.outputPath('outward-bank-grip.png') })
     await input({ vertical: 1 }, 1600); await input()
     const standing = await state()

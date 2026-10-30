@@ -6,6 +6,7 @@
   "height": 920,
   "platforms": [
     {
+      "name": "Pump and exit bank",
       "x": 1340,
       "y": 220,
       "w": 460,
@@ -61,6 +62,7 @@
       ]
     },
     {
+      "name": "Arrival bank",
       "x": 0,
       "y": 220,
       "w": 460,
@@ -117,7 +119,7 @@
     }
   ],
   "entrance": {
-    "x": 165,
+    "x": 100,
     "y": 220
   },
   "checkpoints": [],
@@ -127,26 +129,25 @@
   },
   "floor": 920,
   "goal": {
-    "x": 1720,
+    "name": "Transfer interlock exit",
+    "wireTerminal": {
+      "x": 100,
+      "y": 50
+    },
+    "x": 0,
     "y": 220,
-    "flipX": true,
     "id": "94cd8996-52c4-45fd-ac97-f8f0e536990c",
     "power": "switched"
   },
   "times": {
-    "a": 10,
-    "b": 20,
-    "c": 40,
-    "d": 60
+    "a": 20,
+    "b": 35,
+    "c": 60,
+    "d": 100
   },
   "props": [
     {
-      "kind": "ball",
-      "x": 1525,
-      "y": 220,
-      "size": 40
-    },
-    {
+      "name": "Repulsor sleeve",
       "kind": "box",
       "x": 228,
       "y": 220,
@@ -154,58 +155,81 @@
       "gadget": "repulsor"
     },
     {
+      "name": "Transfer float",
       "kind": "ball",
-      "x": 1050,
-      "y": 905,
-      "size": 40
+      "x": 1060,
+      "y": 910,
+      "size": 96
     }
   ],
   "mechanisms": [],
   "triggers": [
     {
-      "x": 5,
-      "y": 220,
-      "w": 70,
+      "name": "Dry receiver unlocks exit",
+      "showWires": true,
+      "wireHeight": 870,
+      "wireTerminal": {
+        "x": 565,
+        "y": 805
+      },
+      "x": 465,
+      "y": 920,
+      "w": 190,
       "targets": [
         "94cd8996-52c4-45fd-ac97-f8f0e536990c"
       ],
-      "mode": "touch"
+      "mode": "weight"
     },
     {
-      "x": 1725,
+      "name": "Pump ballast plate",
+      "x": 1630,
       "y": 220,
-      "w": 70,
+      "w": 165,
       "targets": [
         "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:fill",
         "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:drain"
       ],
-      "mode": "touch"
+      "mode": "weight"
     }
   ],
-  "robots": [
+  "robots": [],
+  "timers": [
     {
-      "x": 700,
-      "y": 920,
-      "left": 26,
-      "right": 1774,
-      "kind": "repulsor"
+      "name": "Transfer clock",
+      "x": 25,
+      "y": 80
     }
   ],
-  "timers": [],
   "pickups": [],
-  "texts": [],
+  "texts": [
+    {
+      "name": "Pump plate label",
+      "x": 1640,
+      "y": 135,
+      "w": 140,
+      "h": 35,
+      "text": "FILL/DRAIN",
+      "fontSize": 18,
+      "align": "center",
+      "style": "official"
+    }
+  ],
   "gravityPlates": [
     {
+      "name": "Transfer reservoir",
       "id": "ee9b7f6b-f3fc-4398-8024-b184070f1f2b",
       "x": 0,
-      "y": 225,
+      "y": 235,
       "w": 1800,
-      "h": 695,
+      "h": 685,
       "gravity": -1,
       "effect": "water",
-      "waterLevel": 5,
-      "waterMinLevel": 5,
-      "waterRate": 20,
+      "waterLevel": 2,
+      "waterMinLevel": 2,
+      "waterRate": 25,
+      "fill": {
+        "switchLogic": "and"
+      },
       "drain": {
         "switchReversed": true
       }
@@ -213,6 +237,7 @@
   ],
   "forceFields": [
     {
+      "name": "Personnel-only crossing",
       "id": "e92c44fc-e3ff-4385-9d91-d3d10d47e777",
       "x": 460,
       "y": 260,
@@ -220,6 +245,18 @@
       "h": 12,
       "orientation": "horizontal",
       "power": "always"
+    }
+  ],
+  "logicRelays": [
+    {
+      "name": "Drain inhibits filling",
+      "switchReversed": true,
+      "targets": [
+        "ee9b7f6b-f3fc-4398-8024-b184070f1f2b:fill"
+      ],
+      "id": "d084a37e-475b-41bb-8b5c-0abe9d3f0c09",
+      "x": 1500,
+      "y": 280
     }
   ],
   "lighting": {
@@ -240,9 +277,19 @@
         "x": 1410,
         "y": 25,
         "intensity": 100,
-        "direction": 65,
+        "direction": 55,
         "spread": 100,
         "power": "always"
+      },
+      {
+        "id": "38022c69-331b-4310-ab92-f87769b94b04",
+        "x": 1080,
+        "y": 25,
+        "intensity": 100,
+        "direction": 110,
+        "spread": 80,
+        "power": "always",
+        "name": "Transfer bay light"
       }
     ]
   }

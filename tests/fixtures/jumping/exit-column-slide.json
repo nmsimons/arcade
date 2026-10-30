@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "exit-column-slide",
+  "name": "Exit column slide",
+  "width": 1200,
+  "height": 1300,
+  "floor": 1300,
+  "entrance": { "x": 342.5, "y": 235 },
+  "goal": { "x": 900, "y": 1100 },
+  "checkpoints": [],
+  "platforms": [
+    { "x": 310, "y": 235, "w": 65, "h": 725 },
+    { "x": 465, "y": 215, "w": 60, "h": 750,
+      "polygon": [[20,0],[60,0],[55,750],[0,750]] },
+    { "x": 0, "y": 1100, "w": 1200, "h": 200 }
+  ],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "times": { "gold": 5, "silver": 10, "bronze": 20 }
+}

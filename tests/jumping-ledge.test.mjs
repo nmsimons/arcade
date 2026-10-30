@@ -4,12 +4,30 @@ import assert from 'node:assert/strict'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { NEUTRAL_INPUT, STEP, TUNING, cancelJumpInput } from '../src/games/jumping/model.ts'
 import { BACK_GRIP, FRONT_GRIP, KNEE_CONTACT, climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME } from '../src/games/jumping/ledge.ts'
-import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
+import { FOOT_BALL, FOOT_CONTACT, footPoint, wallToeBrace } from '../src/games/jumping/footwork.ts'
 
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
 const landmarks = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
   ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end])]
 const close = (a, b, message) => assert.ok(distance(a, b) < 1e-6, message)
+
+test('wall bracing bends the native toes without stretching the foot', () => {
+  const brace = wallToeBrace()
+  const at = x => footPoint([x, FOOT_BALL[1]], brace.footAngle, brace.toeAngle)
+  const pivot = footPoint(FOOT_BALL, brace.footAngle, brace.toeAngle, false)
+  for (const point of FOOT_CONTACT) {
+    const bent = footPoint(point, brace.footAngle, brace.toeAngle)
+    if (point[0] <= FOOT_BALL[0]) close(bent, footPoint(point, brace.footAngle, 0), 'the heel and instep keep their ordinary geometry')
+    else assert.ok(Math.abs(distance(bent, pivot) - distance(point, FOOT_BALL)) < 1e-6, 'toe dimensions stay unchanged through the bend')
+  }
+  const heel = footPoint([-1.8, 2.8], brace.footAngle, brace.toeAngle, false)
+  const toe = footPoint([6, 1.5], brace.footAngle, brace.toeAngle, true)
+  assert.ok(toe[1] < heel[1] - 3, 'the front curls upward while the heel stays down')
+  const pad = [2.2, 2.775, 3.35, 3.925, 4.5].map(at)
+  assert.ok(Math.max(...pad.map(p => p[0])) - Math.min(...pad.map(p => p[0])) < 1e-6, 'the toe pad is a flat vertical face')
+  const padLength = Math.max(...pad.map(p => p[1])) - Math.min(...pad.map(p => p[1]))
+  assert.ok(Math.abs(padLength - (4.5 - FOOT_BALL[0])) < 1e-6, 'the flat contact retains the native forefoot length')
+})
 
 test('compact pull-up poses keep their supports, limb lengths and corner clearance', () => {
   for (const inset of [8, 12, 16]) for (const braced of [false, true]) {
@@ -23,8 +41,8 @@ test('compact pull-up poses keep their supports, limb lengths and corner clearan
       for (const [j, prefix] of ['front', 'back'].entries()) {
         const arm = pose[`${prefix}Arm`], leg = pose[`${prefix}Leg`]
         for (const [limb, upper, lower] of [[arm, 10, 9], [leg, 15, 14.5]]) {
-          assert.ok(Math.abs(distance(limb.root, limb.joint) - upper) < 1e-6)
-          assert.ok(Math.abs(distance(limb.joint, limb.end) - lower) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.joint.map((v, axis) => v - limb.root[axis]), limb.jointDepth ?? 0) - upper) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.end.map((v, axis) => v - limb.joint[axis]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - lower) < 1e-6)
         }
         if (frame[`${prefix}Release`] === 0) close(edge(arm.hand), j ? BACK_GRIP : FRONT_GRIP)
         close(edge(leg.end), frame[`${prefix}Foot`], 'the foot target remains reachable')
@@ -54,8 +72,8 @@ test('the climb preserves limb lengths, ledge supports and clearance on either s
       for (const [index, prefix] of ['front', 'back'].entries()) {
         const arm = pose[`${prefix}Arm`], leg = pose[`${prefix}Leg`]
         for (const [limb, lengths] of [[arm, [10, 9]], [leg, [15, 14.5]]]) {
-          assert.ok(Math.abs(distance(limb.root, limb.joint) - lengths[0]) < 1e-6)
-          assert.ok(Math.abs(distance(limb.joint, limb.end) - lengths[1]) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.joint.map((v, axis) => v - limb.root[axis]), limb.jointDepth ?? 0) - lengths[0]) < 1e-6)
+          assert.ok(Math.abs(Math.hypot(...limb.end.map((v, axis) => v - limb.joint[axis]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - lengths[1]) < 1e-6)
         }
         if (frame[`${prefix}Release`] === 0) close(edge(arm.hand), index ? BACK_GRIP : FRONT_GRIP, 'a supporting hand must remain fixed')
         for (const point of [arm.joint, arm.end, arm.hand]) {
@@ -97,11 +115,17 @@ test('a real catch settles into wall bracing or a straight hang, then stands wit
         didCatch = true; assert.equal(p.hang.braced, braced)
         if (stable) landmarks(pose).forEach((point, i) => close(worldPoint(point), stable[i], 'the hanging body and contacts must settle'))
         stable = landmarks(pose).map(worldPoint)
-        if (braced) for (const leg of [pose.frontLeg, pose.backLeg]) {
-          assert.equal(leg.footAngle, -Math.PI / 2)
-          for (const point of [[-1.8, 2.8], [4.5, 2.8]]) {
-            const offset = footPoint(point, leg.footAngle, leg.toeAngle), soleX = p.x + (leg.end[0] + offset[0]) * side
-            assert.ok(Math.abs(soleX - p.hang.edgeX) < 1e-6, 'the soles must press against the wall')
+        if (braced) {
+          for (const leg of [pose.frontLeg, pose.backLeg]) {
+            assert.ok(Math.abs(leg.footAngle) < .25, 'the instep projects from the ankle toward the wall')
+            const shoe = FOOT_CONTACT.map(point => footPoint(point, leg.footAngle, leg.toeAngle)[0])
+            const heel = footPoint([-1.8, 2.8], leg.footAngle, leg.toeAngle, false)
+            const tip = footPoint([6, 1.5], leg.footAngle, leg.toeAngle, true)
+            assert.ok(heel[1] - tip[1] > 3, 'the heel sits below the upturned toe')
+            const toeX = Math.max(...shoe)
+            assert.ok(Math.abs(p.x + (leg.end[0] + toeX) * side - p.hang.edgeX) < .06, 'the flat toe pad presses against the wall')
+            const gap = (p.hang.edgeX - p.x) * side - leg.end[0]
+            assert.ok(gap > 2 && gap < 3.5, 'the ankle uses the native foot reach')
           }
         }
         else {

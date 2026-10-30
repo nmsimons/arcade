@@ -1,4 +1,5 @@
 import { parseObjectName } from './objectNames.ts'
+import { MAX_LEVEL_WIDTH } from './levelLimits.ts'
 import { gradeTimes } from './grading.ts'
 import type { TimeTargets } from './grading.ts'
 import { objectReference } from './objectLabels.ts'
@@ -28,6 +29,7 @@ import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from 
 import type { CoinSwitchOrientation } from './coins.ts'
 import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 import { isTerrainMaterial } from './terrainMaterials.ts'
+import { isGroundCover } from './terrainGroundCover.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { lightingProblems, MAX_LIGHTS, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
@@ -50,6 +52,8 @@ import { parseEditorGroups } from './editorGroups.ts'
 import type { EditorGroup } from './editorGroups.ts'
 import { parseToggleGroups } from './toggleGroups.ts'
 import type { ToggleGroup } from './toggleGroups.ts'
+import { parseEnvironment } from './environment.ts'
+import type { LevelEnvironment } from './environment.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
@@ -67,6 +71,7 @@ export interface JumpLevel {
   editorGroups?: EditorGroup[]
   toggleGroups?: ToggleGroup[]
   lighting?: LightingDefinition
+  environment?: LevelEnvironment
   entrance: Entrance; checkpoints: Checkpoint[]; platforms: Platform[]
   timing?: 'untimed'
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
@@ -90,13 +95,15 @@ export interface PuzzleLevel extends JumpLevel {
 export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.goal !== undefined && level.floor !== undefined && level.times !== undefined
 /** Legacy floor values are the bottom of the playable rectangle. */
 export const levelHeight = (level: JumpLevel) => level.floor ?? level.height ?? 1020
-/** Four solid half-spaces enclose the level. The renderer fills the entire outside viewport. */
+/** Enclose the level; a walk-off finish continues its ground through the right boundary. */
 export function levelTerrain(level: JumpLevel): Platform[] {
   const extent = 1e7, h = levelHeight(level)
   return [...level.platforms,
     { x: -extent, y: h, w: extent * 2, h: extent, ...(level.floorMaterial ? { material: level.floorMaterial } : {}) },
     { x: -extent, y: -extent, w: extent * 2, h: extent },
-    { x: -extent, y: 0, w: extent, h }, { x: level.width, y: 0, w: extent, h }]
+    { x: -extent, y: 0, w: extent, h },
+    level.goal?.kind === 'walk-off' ? { x: level.width, y: level.goal.y, w: extent, h: extent }
+      : { x: level.width, y: 0, w: extent, h }]
 }
 export const copyLevel = <T extends JumpLevel>(level: T): T => structuredClone(level)
 export const newLevelId = () => globalThis.crypto.randomUUID()
@@ -146,6 +153,7 @@ export function spawnProblem(level: JumpLevel): string | null {
 }
 export function levelProblems(level: JumpLevel): string[] {
   const issues: string[] = [], spawn = spawnProblem(level)
+  if (level.environment) try { parseEnvironment(level.environment, level.width, levelHeight(level)) } catch (error) { issues.push((error as Error).message) }
   if (!level.name.trim()) issues.push('Give the level a name.')
   if (spawn) issues.push(spawn)
   for (const [i, b] of level.platforms.entries()) if (b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'platform', i)} inside the level rectangle.`)
@@ -172,17 +180,30 @@ export function levelProblems(level: JumpLevel): string[] {
     if (field.x < 0 || field.y < 0 || field.x + field.w > level.width || field.y + field.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'force-field', i)} inside the level rectangle.`)
   }
   if (isPuzzleLevel(level)) {
-    const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
-    const left = Math.min(goalPoleX(level.goal) - 2, door.x), right = Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
-    const count = Math.ceil((right - left) / 8)
-    const supported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
-      const support = groundAt(terrain, x, level.goal.y, .15)
-      return support && Math.abs(support.angle) < .02
-    })
-    const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
-      [door.x + door.w, door.y + door.h], [door.x, door.y + door.h]], b))
-    if (!supported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
-      issues.push(`Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
+    const terrain = levelTerrain(level)
+    if (level.goal.kind === 'walk-off') {
+      const goal = level.goal, bounds = goalBounds(goal)
+      const supported = Array.from({ length: 9 }, (_, i) => groundAt(terrain, level.width - 64 + i * 8, goal.y, .15))
+      if (goal.x !== level.width || goal.y < 100 || goal.y > levelHeight(level)
+        || supported.some(surface => !surface || Math.abs(surface.angle) >= .02)
+        || terrain.some(b => polygonIntersects([[bounds.x, bounds.y], [goal.x, bounds.y], [goal.x, goal.y], [bounds.x, goal.y]], b))) {
+        issues.push('Give the run-off finish clear headroom and continuous flat ground at the right edge.')
+      }
+    } else {
+      const bounds = goalBounds(level.goal), door = level.goal.kind === 'overlook' ? bounds : goalDoor(level.goal)
+      const left = level.goal.kind === 'bus' ? bounds.x : level.goal.kind === 'overlook' ? level.goal.x - 30 : Math.min(goalPoleX(level.goal) - 2, door.x)
+      const right = level.goal.kind === 'bus' ? bounds.x + bounds.w : level.goal.kind === 'overlook' ? level.goal.x + 30 : Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
+      const count = Math.ceil((right - left) / 8)
+      const supported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
+        const support = groundAt(terrain, x, level.goal.y, .15)
+        return support && Math.abs(support.angle) < .02
+      })
+      const clearance = level.goal.kind === 'bus' ? { ...bounds, h: level.goal.y - bounds.y } : door
+      const blocked = terrain.some(b => polygonIntersects([[clearance.x, clearance.y], [clearance.x + clearance.w, clearance.y],
+        [clearance.x + clearance.w, clearance.y + clearance.h], [clearance.x, clearance.y + clearance.h]], b))
+      if (!supported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
+        issues.push(level.goal.kind === 'bus' ? 'Place the bus stop on continuous flat ground with a clear boarding approach inside the level.' : `Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
+      }
     }
     const times = gradeTimes(level)
     if (!(times.a > 0 && times.a < times.b && times.b < times.c && times.c < times.d)) issues.push('Grade times must increase from A to B to C to D.')
@@ -214,13 +235,13 @@ export function parseLevel(value: unknown): JumpLevel {
   const num = (v: unknown, min: number, max: number): number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fail()
   const list = (v: unknown, max: number): unknown[] => Array.isArray(v) && v.length <= max ? v : fail()
   const objectName = (v: Record<string, unknown>): NamedObject => parseObjectName(v.name, fail)
-  const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, 20000), y: num(p.y, -2000, 6000),
+  const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, MAX_LEVEL_WIDTH), y: num(p.y, -2000, 6000),
     ...(p.radius === undefined ? {} : { radius: num(p.radius, 10, 1000) }) } }
   const v = object(value)
   if (v.version !== 1 && v.version !== 2) throw new Error('Unsupported jumping level version. This game reads versions 1 and 2.')
   if (v.version === 1 && v.lighting !== undefined) throw new Error('Lighting requires a version 2 level file.')
   if (typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80 || typeof v.id !== 'string' || v.id.length > 100) fail()
-  const width = num(v.width, 800, 20000)
+  const width = num(v.width, 800, MAX_LEVEL_WIDTH)
   const platforms = list(v.platforms, 160).map(item => {
     const b = object(item), platform: Platform = { ...objectName(b), x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
     if (platform.x + platform.w > width) fail()
@@ -231,6 +252,10 @@ export function parseLevel(value: unknown): JumpLevel {
     if (b.material !== undefined) {
       if (!isTerrainMaterial(b.material)) return fail()
       platform.material = b.material
+    }
+    if (b.groundCover !== undefined) {
+      if (!isGroundCover(b.groundCover)) return fail()
+      platform.groundCover = b.groundCover
     }
     if (b.profile !== undefined) {
       const profile = list(b.profile, 100).map(item => {
@@ -344,7 +369,14 @@ export function parseLevel(value: unknown): JumpLevel {
     if (g.power !== undefined && g.power !== 'always' && g.power !== 'switched') fail()
     if (g.id !== undefined && (typeof g.id !== 'string' || !g.id.trim() || g.id.length > 100)) fail()
     if (g.power === 'switched' && g.id === undefined) fail()
+    if (g.kind !== undefined && g.kind !== 'overlook' && g.kind !== 'walk-off' && g.kind !== 'bus') fail()
+    if (g.kind && (v.timing !== 'untimed' || g.power === 'switched')) fail()
+    if (g.kind === 'walk-off' && (location.x !== width || flipX)) fail()
+    if (g.kind === 'bus' && flipX) fail()
+    if (g.ending !== undefined && (g.ending !== 'bus' || g.kind !== 'walk-off')) fail()
     level.goal = { ...objectName(g), ...parseSwitchSettings(g, fail), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }),
+      ...(g.kind ? { kind: g.kind as Goal['kind'] } : {}),
+      ...(g.ending ? { ending: g.ending as Goal['ending'] } : {}),
       ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }) }; if (level.goal.x > width) fail()
     const times = object(v.times), legacy = times.a === undefined && times.gold !== undefined
     const a = num(legacy ? times.gold : times.a, .1, 3600), b = num(legacy ? times.silver : times.b, .1, 3600)
@@ -538,6 +570,10 @@ export function parseLevel(value: unknown): JumpLevel {
       x: num(relay.x, LOGIC_RELAY_WIDTH / 2, width - LOGIC_RELAY_WIDTH / 2),
       y: num(relay.y, LOGIC_RELAY_HEIGHT / 2, levelHeight(level) - LOGIC_RELAY_HEIGHT / 2) }
   })
+  if (v.environment !== undefined) {
+    if (level.version !== 2) throw new Error('Landscapes require a version 2 level file.')
+    level.environment = parseEnvironment(v.environment, width, levelHeight(level))
+  }
   if (level.version === 2) level.lighting = parseLighting(v.lighting)
   if (v.editorGroups !== undefined) level.editorGroups = parseEditorGroups(v.editorGroups, level)
   // Older pools were wired like gravity devices. Water is now a passive region;

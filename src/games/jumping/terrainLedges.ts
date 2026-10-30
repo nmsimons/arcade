@@ -10,6 +10,11 @@ const ledges = new WeakMap<Platform, readonly TerrainLedge[]>()
 const ledgeOutlines = new WeakMap<Platform, readonly (readonly [number, number])[]>()
 const disabled = new WeakSet<Platform>()
 const OUTWARD_FACE_SLOPE = Math.tan(Math.PI / 18) // Ten degrees from vertical.
+const DOWNHILL_TOP_SLOPE = Math.tan(Math.PI / 3) // Sixty degrees below horizontal.
+
+/** A hand can hold a downhill lip even when its top is too steep for foot traction.
+ * Positive slope descends inward; uphill tops retain the ordinary grip limit. */
+export const canGrabLedge = (slope: number) => slope >= 0 && slope <= DOWNHILL_TOP_SLOPE + 1e-7 || canGrip(Math.atan(slope))
 
 /** Moving bodies can explicitly opt out of grips while unsupported or unstable. */
 export function disablePlatformLedges(platform: Platform) { disabled.add(platform); ledges.set(platform, []) }
@@ -38,18 +43,18 @@ export function platformLedges(platform: Platform): readonly TerrainLedge[] {
     const a = points[i], b = points[(i + 1) % points.length]
     if (b[0] <= a[0]) continue
     const slope = (b[1] - a[1]) / (b[0] - a[0])
-    if (!canGrip(Math.atan(slope))) continue
+    if (!canGrabLedge(slope) && !canGrabLedge(-slope)) continue
     const before = points[(i + points.length - 1) % points.length], after = points[(i + 2) % points.length]
     // A bank may lean slightly into the hanging space. Keep only convex lips
     // with a modest outward lean; the actual body sweep and climb
     // clearance still decide whether the player fits beneath that corner.
     const leftTurn = (a[0] - before[0]) * (b[1] - a[1]) - (a[1] - before[1]) * (b[0] - a[0])
     const rightTurn = (b[0] - a[0]) * (after[1] - b[1]) - (b[1] - a[1]) * (after[0] - b[0])
-    if (authoredCorner(a) && before[0] >= a[0] - sideTolerance - (before[1] - a[1]) * OUTWARD_FACE_SLOPE && before[1] > a[1] && leftTurn > 1e-7) {
+    if (canGrabLedge(slope) && authoredCorner(a) && before[0] >= a[0] - sideTolerance - (before[1] - a[1]) * OUTWARD_FACE_SLOPE && before[1] > a[1] && leftTurn > 1e-7) {
       const outwardSlope = Math.max(0, (a[0] - before[0]) / (before[1] - a[1]))
       found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}), ...(outwardSlope ? { outwardSlope } : {}) })
     }
-    if (authoredCorner(b) && after[0] <= b[0] + sideTolerance + (after[1] - b[1]) * OUTWARD_FACE_SLOPE && after[1] > b[1] && rightTurn > 1e-7) {
+    if (canGrabLedge(-slope) && authoredCorner(b) && after[0] <= b[0] + sideTolerance + (after[1] - b[1]) * OUTWARD_FACE_SLOPE && after[1] > b[1] && rightTurn > 1e-7) {
       const outwardSlope = Math.max(0, (after[0] - b[0]) / (after[1] - b[1]))
       found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}), ...(outwardSlope ? { outwardSlope } : {}) })
     }

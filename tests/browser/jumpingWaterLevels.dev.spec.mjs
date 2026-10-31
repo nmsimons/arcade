@@ -110,9 +110,14 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
       return move.apply(this, args)
     }
   })
-  await page.clock.install()
-  await page.goto('/lab?motionDebug=1')
-  await page.getByRole('button', { name: 'Play Water reservoir test', exact: true }).click(); await finishJumpingEntrance(page)
+  // A paused clock keeps held keys and waits to exact gameplay durations. A
+  // running clock also advanced while page calls were in flight, so slow CI
+  // runners could walk the player past the plate.
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab?motionDebug=1&renderControl=1')
+  const play = page.getByRole('button', { name: 'Play Water reservoir test', exact: true })
+  await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await play.click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('img', { name: 'Water reservoir test: reach the exit', exact: true })).toBeFocused()
   await page.clock.runFor(150)
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')

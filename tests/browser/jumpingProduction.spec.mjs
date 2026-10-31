@@ -14,7 +14,7 @@ test('published LAB offers play and progress without authoring or folder control
   const editorRequests = []
   page.on('request', request => { if (/LevelBuilder|builtInLevels|__arcade\/jumping-levels/.test(request.url())) editorRequests.push(request.url()) })
   await page.clock.install()
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab')
   await expect(page.getByRole('button', { name: 'Play Opening', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: /Level studio|Edit |Delete |Local folder|Account levels|Choose folder|Refresh built-in/ })).toHaveCount(0)
   await expect(page.locator('input[webkitdirectory]')).toHaveCount(0)

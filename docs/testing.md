@@ -116,7 +116,10 @@ polling loop in `withoutIntermediateFrames` to draw only once it finishes.
 `jumpingRenderControl.dev.spec.mjs` proves a keyboard trace is identical with
 and without skipped drawing. Do not opt in checks that observe every drawn
 frame, such as `jumping.spec.mjs`'s draw-call speed samples, per-frame duration
-measurements, or assertions about frames between two advances. Studio and menu
+measurements, assertions about frames between two advances, or sticky flags
+that record whether something was ever drawn. Opt in only pages whose test clock
+is paused: on a running clock, the two extra page round trips per advance let
+real time pass while keys are held. Studio and menu
 checks gain nothing: they do not draw the world, and each advance would add two
 page round trips. Compare a spec's time before and after opting in.
 

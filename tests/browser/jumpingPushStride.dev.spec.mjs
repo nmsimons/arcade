@@ -11,7 +11,7 @@ for (const kind of ['box', 'ball']) test(`keyboard ${kind} pushing takes steady 
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab/levels/built-in/00-fixture.json?motionDebug=1')
+  await page.goto('/lab/levels/built-in/00-fixture.json?motionDebug=1&renderControl=1')
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })
   await expect(canvas).toBeFocused({ timeout: 15000 })
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

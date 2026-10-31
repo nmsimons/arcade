@@ -9,7 +9,7 @@ for (const direction of [-1, 1]) for (const pace of ['walk', 'run', 'crouch']) t
     props: [{ kind: 'box', x: 540, y: 920, size: 80 }] }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-10-14T12:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-10-14T13:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()

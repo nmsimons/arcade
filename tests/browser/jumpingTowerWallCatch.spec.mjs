@@ -14,7 +14,7 @@ test('Tower II wall return catches the upper lip and pulls up with normal keys',
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-10-17T12:00:00Z') })
-  await page.goto('/lab/levels/built-in/00-fixture.json?motionDebug=1')
+  await page.goto('/lab/levels/built-in/00-fixture.json?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
   await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
   await page.clock.pauseAt(new Date('2026-10-17T13:00:00Z'))

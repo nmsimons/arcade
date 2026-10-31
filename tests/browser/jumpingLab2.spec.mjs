@@ -18,7 +18,7 @@ test('LAB2 crate powers the plate, releases it when pushed, and presses again af
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab')
+  await page.goto('/lab?renderControl=1')
   const play = page.getByRole('button', { name: `Play ${lab2.name}`, exact: true })
   await expect(play).toBeEnabled()
   // Keep slow browser calls from adding held-key frames between route steps.

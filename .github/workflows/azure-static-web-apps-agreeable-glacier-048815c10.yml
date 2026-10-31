@@ -110,7 +110,17 @@ jobs:
         run: npm run test:homepage -- --reporter=line
       - name: Test browser routes, recovery and controls
         if: needs.validate.outputs.fast != 'true'
-        run: npm run test:browser -- --shard=${{ matrix.shard }}/3 --reporter=line
+        run: npm run test:browser -- --shard=${{ matrix.shard }}/3 --reporter=line,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: browser-timings/shard-${{ matrix.shard }}.json
+      - name: Retain browser test timings
+        if: always() && needs.validate.outputs.fast != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-timings-${{ matrix.shard }}
+          path: browser-timings/
+          retention-days: 14
+          if-no-files-found: ignore
       - name: Retain browser failure diagnostics
         if: failure() || cancelled()
         uses: actions/upload-artifact@v7

@@ -12,7 +12,7 @@ test('a button-powered dry lift launches the player beyond its field in a room w
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Gravity launch', exact: true })
   await expect(play).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

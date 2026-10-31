@@ -116,7 +116,13 @@ polling loop in `withoutIntermediateFrames` to draw only once it finishes.
 `jumpingRenderControl.dev.spec.mjs` proves a keyboard trace is identical with
 and without skipped drawing. Do not opt in checks that observe every drawn
 frame, such as `jumping.spec.mjs`'s draw-call speed samples, per-frame duration
-measurements, or assertions about frames between two advances.
+measurements, or assertions about frames between two advances. Studio and menu
+checks gain nothing: they do not draw the world, and each advance would add two
+page round trips. Compare a spec's time before and after opting in.
+
+CI uploads a Playwright JSON report for each browser shard as
+`browser-timings-<shard>`. `node scripts/browser-timings.mjs <folder>` lists the
+slowest files and tests from downloaded reports.
 
 Daylight cache comparisons must witness the optimized path, compare every RGBA
 channel to an explicitly uncached renderer, and include a warm fixed-view

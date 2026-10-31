@@ -11,7 +11,7 @@ for (const length of [500, 1300]) test(`a fresh keyboard climb on a ${length}-un
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
@@ -38,7 +38,7 @@ for (const length of [500, 1300]) test(`a fresh keyboard climb on a ${length}-un
 })
 
 test('render enlarged resting, passive-swing and gravity-turn frames for visual review', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab?renderControl=1')
   const gallery = await page.evaluate(async () => {
     const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
     const { ropeGripDistance, ropePoint, ropeImpulse, ropePath } = await import('/src/games/jumping/climbables.ts')
@@ -88,7 +88,7 @@ test('render enlarged resting, passive-swing and gravity-turn frames for visual 
 })
 
 test('manual release and automatic support finish the reverse-gravity turn on a ceiling', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab?renderControl=1')
   const outcomes = await page.evaluate(async () => {
     const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
     const { ropeGripDistance, ropePoint, ropePath } = await import('/src/games/jumping/climbables.ts')

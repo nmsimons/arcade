@@ -14,7 +14,7 @@ test('picker shows saved medals and best times on every timed level, including z
   await page.addInitScript(({ key, records }) => localStorage.setItem(key, JSON.stringify(records)), {
     key: BEST_TIME_KEY, records: { Gold: 10, Silver: 20, Bronze: 30, Completed: 35.67, Zero: 0, Bonus: -2.5, Invalid: '5' },
   })
-  await page.goto('/lab')
+  await page.goto('/lab?renderControl=1')
   await expect(page.locator('.jumping-level-detail')).toHaveCount(0)
   await expect(page.locator('.jumping-medal-times')).toHaveCount(0)
   for (const [name, description] of [
@@ -47,7 +47,7 @@ for (const storageAvailable of [true, false]) test(`a completed run updates the 
     }
   }, BEST_TIME_KEY)
   await page.clock.install({ time: new Date('2026-10-12T12:00:00Z') })
-  await page.goto('/lab')
+  await page.goto('/lab?renderControl=1')
   await expect(card(page, 'Finish room')).toHaveAccessibleDescription('Best — Not graded')
   await card(page, 'Finish room').click()
   await expect(page.getByRole('img', { name: 'Finish room: reach the exit', exact: true })).toBeFocused()

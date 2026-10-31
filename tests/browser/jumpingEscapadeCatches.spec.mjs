@@ -12,7 +12,7 @@ for (const config of escapadeTowerCatches) {
     await page.setViewportSize({ width: 852, height: 480 })
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await page.clock.install({ time: new Date('2026-10-13T12:00:00Z') })
-    await page.goto('/lab?motionDebug=1')
+    await page.goto('/lab?motionDebug=1&renderControl=1')
     const play = page.getByRole('button', { name: 'Play Escapade', exact: true })
     await expect(play).toBeEnabled()
     await page.clock.pauseAt(new Date('2026-10-13T13:00:00Z'))

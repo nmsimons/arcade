@@ -14,12 +14,33 @@ export async function advanceSimulation(page,milliseconds) {
   }
 }
 
+// Level routes drop the query string, so remember pages that opened with it.
+const renderControlled=new WeakSet()
+export function trackRenderControl(page) {
+  page.on('framenavigated',frame=>{
+    if(frame===page.mainFrame() && new URL(frame.url()).searchParams.get('renderControl')==='1') renderControlled.add(page)
+  })
+}
+
+/** Software rendering dominates live UJG frames in headless browsers. On a page
+ * opened with renderControl=1, skip world drawing while `advance` runs, then
+ * draw the resulting frame once. Gameplay, camera and light timing still run.
+ * Pages without the flag, including pixel and per-frame checks, draw normally. */
+export async function withoutIntermediateFrames(page,advance) {
+  const paused=renderControlled.has(page)
+    && await page.evaluate(()=>window.jumpingRendering?.pause() ?? false).catch(()=>false)
+  try { return await advance() }
+  finally { if(paused) await page.evaluate(()=>window.jumpingRendering?.resume()).catch(()=>{}) }
+}
+
 /** UJG runs physics at 120 Hz and caps frame catch-up at 50 ms. Keep every
  * step while reducing expensive software-rendered frames in WebKit. */
 export async function advanceJumpingSimulation(page,milliseconds) {
-  for(let remaining=milliseconds;remaining>0;remaining-=48) {
-    await page.clock.fastForward(Math.min(48,remaining))
-  }
+  await withoutIntermediateFrames(page,async ()=>{
+    for(let remaining=milliseconds;remaining>0;remaining-=48) {
+      await page.clock.fastForward(Math.min(48,remaining))
+    }
+  })
 }
 
 /** Only for passive waits without rendered-transition assertions. Preserve
@@ -28,9 +49,11 @@ export async function advanceJumpingSimulation(page,milliseconds) {
  * Held animation checks must continue using normal clock.runFor pacing. */
 export async function advanceJumpingPassiveWait(page, milliseconds) {
   if (milliseconds <= 48) { await page.clock.runFor(milliseconds); return }
-  const now = await page.evaluate(() => performance.now())
-  const leading = Math.min(milliseconds, (16 - now % 16) % 16)
-  if (leading) { await page.clock.runFor(leading); milliseconds -= leading }
-  while (milliseconds >= 48) { await page.clock.fastForward(48); milliseconds -= 48 }
-  if (milliseconds) await page.clock.runFor(milliseconds)
+  await withoutIntermediateFrames(page, async () => {
+    const now = await page.evaluate(() => performance.now())
+    const leading = Math.min(milliseconds, (16 - now % 16) % 16)
+    if (leading) { await page.clock.runFor(leading); milliseconds -= leading }
+    while (milliseconds >= 48) { await page.clock.fastForward(48); milliseconds -= 48 }
+    if (milliseconds) await page.clock.runFor(milliseconds)
+  })
 }

@@ -16,7 +16,7 @@ async function clockContext(browser, info, level) {
 }
 
 async function start(page) {
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   const card = page.locator('.jumping-level-card[aria-pressed=true]')
   await expect(card).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

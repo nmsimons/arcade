@@ -105,6 +105,19 @@ gravity settling, climbing and both departures. Keep held input, short entries,
 departure checks, screenshots, assertions and their deadlines unchanged. These
 comparisons establish pacing equivalence; they do not evaluate naturalness.
 
+Software rendering dominates UJG frames in headless Chromium: at 1440 × 960 the
+Canvas lighting composition takes about 86% of each frame and physics about 8%.
+A page opened with `renderControl=1` lets the test clock skip world drawing while
+`page.clock.runFor`, `page.clock.fastForward` and the UJG advance helpers run.
+Every RAF still executes, so physics steps, input sampling, camera smoothing and
+light timing are unchanged; the final frame is drawn before control returns, so
+screenshots and pixel reads after an advance see the current state. Wrap a
+polling loop in `withoutIntermediateFrames` to draw only once it finishes.
+`jumpingRenderControl.dev.spec.mjs` proves a keyboard trace is identical with
+and without skipped drawing. Do not opt in checks that observe every drawn
+frame, such as `jumping.spec.mjs`'s draw-call speed samples, per-frame duration
+measurements, or assertions about frames between two advances.
+
 Daylight cache comparisons must witness the optimized path, compare every RGBA
 channel to an explicitly uncached renderer, and include a warm fixed-view
 sequence with moving foreground art. Check recovery indicators, rotated props,

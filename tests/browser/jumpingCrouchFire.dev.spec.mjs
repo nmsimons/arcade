@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
-import { advanceJumpingSimulation } from './helpers/simulation.mjs'
+import { advanceJumpingSimulation, withoutIntermediateFrames } from './helpers/simulation.mjs'
 import { goalDoor } from '../../src/games/jumping/goal.ts'
 
 const { level } = JSON.parse(readFileSync(new URL('../fixtures/jumping-lockout2-crouch.json', import.meta.url), 'utf8'))
@@ -13,19 +13,19 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   // Software renderers can draw only a few frames per second. A paused clock
   // keeps gameplay time, input timing and polling independent of that speed.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)
   const motion = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   // Advance gameplay until the predicate holds, within a gameplay-time budget.
-  async function until(predicate, seconds = 15) {
+  const until = (predicate, seconds = 15) => withoutIntermediateFrames(page, async () => {
     const start = (await motion()).time
     for (let p = await motion(); !predicate(p); p = await motion()) {
       expect(p.time - start, `condition not met within ${seconds}s of gameplay: ${JSON.stringify({ x: p.x, y: p.y, signals: p.signals })}`).toBeLessThan(seconds)
       await advanceJumpingSimulation(page, 48)
     }
-  }
+  })
   // Pump filling, shot duration and cooldowns use gameplay time.
   const waitForGameplay = milliseconds => advanceJumpingSimulation(page, milliseconds)
   async function tap(key, duration = 100) {

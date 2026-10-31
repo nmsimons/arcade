@@ -527,9 +527,16 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // Sampling the complete rig every physics tick is expensive near cave lips.
     const motion = new URLSearchParams(window.location.search).get('motionDebug') === '1'
       ? new JumpingMotionDiagnostics() : null
-    const debugWindow = window as Window & { jumpingMotion?: { read: () => ReturnType<JumpingMotionDiagnostics['read']> } }
+    const debugWindow = window as Window & { jumpingMotion?: { read: () => ReturnType<JumpingMotionDiagnostics['read']> }; jumpingRendering?: { pause: () => boolean; resume: () => void } }
     const motionView = motion ? { read: () => motion.read() } : undefined
     if (motionView) debugWindow.jumpingMotion = motionView
+    // Software-rendered browser checks can pause world drawing while they advance
+    // gameplay. Physics, camera and light timing continue. Pauses nest; the
+    // outermost resume draws the current frame at once.
+    let renderPauses = 0, skippedDt = 0
+    const renderView = new URLSearchParams(window.location.search).get('renderControl') === '1'
+      ? { pause: () => { renderPauses++; return true }, resume: () => { if (renderPauses && !--renderPauses) paint(0) } } : undefined
+    if (renderView) debugWindow.jumpingRendering = renderView
     audio.current = sound
     audioState.reset(player.current, run.current)
     let width = 0, height = 0, ratio = 1, frame = 0, previous = 0, accumulator = 0, published = 0
@@ -561,8 +568,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       const camera = awakeningCamera(gameCamera.view(viewWidth, viewHeight, player.current, level, !!run.current, dt),
         viewWidth, viewHeight, run.current?.entrance ?? playgroundEntrance.current)
       lastCamera.current = camera
+      if (renderPauses) { skippedDt += dt; return }
       lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current, playgroundEntrance.current), lightingForLevel(level),
-        { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
+        { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt + skippedDt)
+      skippedDt = 0
     }
     paintFrame.current = paint
     const resize = () => {
@@ -654,6 +663,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     return () => {
       sound.dispose(); audio.current = null; lightingRenderer.dispose(); paintFrame.current = () => {}
       if (motionView && debugWindow.jumpingMotion === motionView) delete debugWindow.jumpingMotion
+      if (renderView && debugWindow.jumpingRendering === renderView) delete debugWindow.jumpingRendering
       cancelAnimationFrame(frame); observer.disconnect()
       window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', suspend); document.removeEventListener('visibilitychange', visibility)

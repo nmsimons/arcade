@@ -17,7 +17,7 @@ async function start(page, x) {
   level.goal = { x: 1800, y: 1200 }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.getByRole('button', { name: 'Play Box bin regression', exact: true })).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Box bin regression', exact: true }).click()

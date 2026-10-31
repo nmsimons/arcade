@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
-import { advanceJumpingSimulation } from './helpers/simulation.mjs'
+import { advanceJumpingSimulation, withoutIntermediateFrames } from './helpers/simulation.mjs'
 
 const { level } = JSON.parse(readFileSync(new URL('../fixtures/jumping-lockout2-runs.json', import.meta.url), 'utf8'))
 
@@ -13,20 +13,20 @@ for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 
   // Software renderers can draw only a few frames per second. A paused clock
   // keeps gameplay time, input timing and polling independent of that speed.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)
   const canvas = page.locator('.jumping-game > canvas')
   const motion = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   // Advance gameplay until the predicate holds, within a gameplay-time budget.
-  async function until(predicate, seconds = 15) {
+  const until = (predicate, seconds = 15) => withoutIntermediateFrames(page, async () => {
     const start = (await motion()).time
     for (let p = await motion(); !predicate(p); p = await motion()) {
       expect(p.time - start, `condition not met within ${seconds}s of gameplay: ${JSON.stringify({ x: p.x, y: p.y, signals: p.signals })}`).toBeLessThan(seconds)
       await advanceJumpingSimulation(page, 48)
     }
-  }
+  })
   const key = async (code, ms) => { await page.keyboard.down(code); await advanceJumpingSimulation(page, ms); await page.keyboard.up(code) }
   await canvas.screenshot({ path: info.outputPath('lockout2-dry-overview.png') })
   // Walk into pickup range so the player stops beside the sleeve.

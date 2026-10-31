@@ -12,7 +12,7 @@ test('Company reveals its sleeping response unit and completes the rope escape w
   await page.setViewportSize({ width: 1280, height: 800 })
   await useLevelFixtures(page, [company])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Company', exact: true })
   await expect(play).toBeEnabled({ timeout: 30000 })
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

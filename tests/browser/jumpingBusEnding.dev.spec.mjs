@@ -10,7 +10,7 @@ test('Exit plays its bus payoff, pauses, resumes the scene, and completes after 
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-10-29T12:00:00Z') })
-  await page.goto('/lab')
+  await page.goto('/lab?renderControl=1')
   const play = page.getByRole('button', { name: 'Play Exit', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-10-29T13:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)

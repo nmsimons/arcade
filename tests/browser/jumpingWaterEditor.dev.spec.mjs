@@ -42,7 +42,7 @@ test('collecting an EMP leaves water visible and swimming available while gravit
   level.gravityPlates.push({ id: 'gravity', x: 0, y: 0, w: 150, h: 920, gravity: -1, power: 'always' })
   await useLevelFixtures(page, [level]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -64,7 +64,7 @@ test('collecting an EMP leaves water visible and swimming available while gravit
 test('normal controls settle the player and props in translucent water and allow leaving the pool', async ({ page }, info) => {
   await useLevelFixtures(page, [fixture()]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -130,7 +130,7 @@ for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${
   level.gravityPlates[0] = { ...level.gravityPlates[0], x: side > 0 ? 200 : edge, w: 440 }
   await useLevelFixtures(page, [level]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -219,7 +219,7 @@ for (const left of [false, true]) test(`normal controls pull out at the ${left ?
   level.platforms = [left ? { x: 0, y: 400, w: 450, h: 520 } : { x: 850, y: 400, w: 950, h: 520 }]
   await useLevelFixtures(page, [level]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -242,7 +242,7 @@ test('normal controls crouch on the pool floor, rest standing and swim away with
   const level = fixture(); level.props = []
   await useLevelFixtures(page, [level]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -274,7 +274,7 @@ folderTest('water authoring preserves its rectangle through save and reopen with
   const level = fixture(); level.gravityPlates = []; level.props = []
   level.triggers = [{ x: 500, y: 920, w: 100, mode: 'weight', behavior: 'toggle', startsOn: true, targets: [] }]
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'water.json': level }); await recordWater(page)
-  await page.goto('/lab')
+  await page.goto('/lab?renderControl=1')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open water.json', exact: true }).click()
@@ -310,7 +310,7 @@ test('normal controls push a float with kicking legs and quickly lose momentum o
   const level = fixture(); level.entrance = { x: 380, y: 920 }; level.props = [{ kind: 'box', x: 500, y: 440, size: 80 }]
   await useLevelFixtures(page, [level]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

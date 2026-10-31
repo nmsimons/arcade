@@ -42,7 +42,7 @@ async function open(page, level, controller = false) {
     }
   }, controller)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   const card = page.locator('.jumping-level-card[aria-pressed=true]').filter({ hasText: level.name })
   await expect(card).toBeVisible({ timeout: 15000 })
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

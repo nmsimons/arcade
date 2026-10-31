@@ -1,5 +1,6 @@
 import { test as base, expect } from '@playwright/test'
 import { SAVE_KEY } from '../../../src/games/hardVacuum/expedition.ts'
+import { trackRenderControl, withoutIntermediateFrames } from './simulation.mjs'
 
 // Never let a controller on the developer's desk change a keyboard fixture.
 // Controller scenarios install their own navigator property, which takes
@@ -10,6 +11,14 @@ export const test = base.extend({
     if(process.env.HV_TEST_CPU_RATE) {
       const cdp=await page.context().newCDPSession(page)
       await cdp.send('Emulation.setCPUThrottlingRate',{rate:Number(process.env.HV_TEST_CPU_RATE)})
+    }
+    // Pages opened with renderControl=1 skip software-rendered world frames while
+    // the test clock advances. The final frame is drawn before control returns.
+    trackRenderControl(page)
+    const clock=page.clock
+    for(const method of ['runFor','fastForward']) {
+      const advance=clock[method].bind(clock)
+      clock[method]=(...args)=>withoutIntermediateFrames(page,()=>advance(...args))
     }
     await use(page)
     if(testInfo.status!==testInfo.expectedStatus && !page.isClosed()) {

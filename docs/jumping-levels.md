@@ -133,7 +133,8 @@ ropes still start in their authored positions.
 CI runs this check along with validation, gameplay tests, lint, build, and browser
 regressions. Advisories of moderate severity or above block it. An advisory with
 no released fix can pass temporarily only through a dated entry, with a reason, in
-`scripts/security-check.mjs`; it blocks again once that date passes.
+`scripts/security-check.mjs`; it blocks again once that date passes. The desktop
+package's `security:check` uses the same script and list.
 
 ## Development authoring
 

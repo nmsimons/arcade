@@ -1,11 +1,14 @@
 import { spawnSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
-// Advisories that may temporarily pass the gate. Each entry needs a reason and an
-// expiry; once it expires, the advisory blocks again so the exception is revisited.
+// Advisories that may temporarily pass the gate, shared by the web and desktop
+// audits. Each entry needs a reason and an expiry; once it expires, the advisory
+// blocks again so the exception is revisited.
 export const ALLOWED_ADVISORIES = [
   { id: 'GHSA-g3hv-75wg-m249', package: 'minimatch', until: '2026-11-30',
-    reason: 'Published 2026-10-30 with no released fix (minimatch 11.0.1 is not yet on npm). Only ESLint tooling depends on it; no shipped code does.' },
+    reason: 'Published 2026-10-30 with no released fix (minimatch 11.0.1 is not yet on npm). Only ESLint and Electron packaging tooling depend on it; no shipped code does.' },
+  { id: 'GHSA-3g3m-2fjr-6pw4', package: 'glob', until: '2026-11-30',
+    reason: 'Published 2026-10-30 with no released fix (glob 14.0.2 is not yet on npm). Only @electron/packager depends on it, at build time; the desktop app does not ship it.' },
 ]
 const BLOCKING = new Set(['moderate', 'high', 'critical'])
 
@@ -41,7 +44,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try { report = JSON.parse(audit.stdout) } catch { report = { error: { summary: audit.stderr.trim() || 'npm audit did not return JSON' } } }
   const { failures, excused, unused } = auditResult(report)
   for (const advisory of excused) console.log(`Allowed until ${advisory.until}: ${advisory.package} ${advisory.id} (${advisory.severity}) ${advisory.title}`)
-  for (const entry of unused) console.log(`No longer reported; remove the exception: ${entry.package} ${entry.id}`)
+  for (const entry of unused) console.log(`Not reported by this audit (remove it once neither audit reports it): ${entry.package} ${entry.id}`)
   for (const advisory of failures) console.error(`Blocking: ${advisory.package} ${advisory.id}${advisory.severity ? ` (${advisory.severity})` : ''} ${advisory.title}${advisory.url ? ` ${advisory.url}` : ''}`)
   if (failures.length) process.exit(1)
   console.log('No blocking dependency advisories.')

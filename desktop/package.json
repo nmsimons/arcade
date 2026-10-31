@@ -10,7 +10,7 @@
   "scripts": {
     "start": "electron .",
     "package": "node package.mjs",
-    "security:check": "npm audit --audit-level=moderate"
+    "security:check": "node ../scripts/security-check.mjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

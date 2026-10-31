@@ -131,7 +131,9 @@ ropes still start in their authored positions.
 
 `npm run security:check` checks the locked dependencies against npm advisories.
 CI runs this check along with validation, gameplay tests, lint, build, and browser
-regressions.
+regressions. Advisories of moderate severity or above block it. An advisory with
+no released fix can pass temporarily only through a dated entry, with a reason, in
+`scripts/security-check.mjs`; it blocks again once that date passes.
 
 ## Development authoring
 

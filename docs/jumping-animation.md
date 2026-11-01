@@ -64,8 +64,8 @@ keep physics identical again, which the golden traces check.
 ## Phase 0: safety net
 
 - Golden traces: `tests/jumping-golden-traces.test.mjs`, recorded at fcafc46
-  on arm64, and replayed only on arm64. CI checks the cadences against its own
-  run ([testing](testing.md#ujg-golden-traces-and-the-fast-tier)).
+  on arm64, and replayed only on arm64. CI checks animation-off physics against
+  its own run ([testing](testing.md#ujg-golden-traces-and-the-fast-tier)).
 - Fast tier: `npm run test:fast`.
 - Benchmark: `scripts/benchmark-jumping-simulation.mjs`. At fcafc46 on an
   Apple M5 Pro (Node 25.9, arm64): 0.44 ms mean tick, 1.40 ms p95 tick and

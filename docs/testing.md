@@ -65,7 +65,10 @@ those functions (`mathFingerprint()` in `tests/helpers/jumping-golden.mjs`), and
 the replay runs only where the fingerprint matches: on Apple Silicon, not in
 CI. Run the golden test locally before pushing a change to UJG simulation code.
 The cadence checks compare against the same machine's run at the default
-cadence, so they run everywhere, CI included.
+cadence. Where no hashes are recorded, only the cadence the game uses
+(animation off) is checked. In CI the unit-test jobs set `SKIP_UJG_GOLDEN=1`,
+and the `UJG golden traces` job runs this file alongside the browser shards,
+so it does not delay them.
 
 `npm run test:fast` runs every UJG unit test except the stress-level routes and
 the long whole-skin acceptance sweeps, in about two minutes on an 18-core

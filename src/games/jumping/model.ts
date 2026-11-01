@@ -738,20 +738,20 @@ export function loweringOption(p: Player, platforms: readonly Platform[] = p.ter
   }
   return null
 }
-export function verticalClimbOption(p: Player, climbables: ClimbableWorld, platforms: readonly Platform[], vertical: number, frameDirection = 1) {
+export function verticalClimbOption(p: Player, climbables: ClimbableWorld, platforms: readonly Platform[], vertical: number, frameDirection = 1, decks = platforms) {
   if (p.hang || p.climbing || p.mantle || p.releaseTurn || p.grabCooldown !== 0 || !vertical) return null
   const found = findClimbable(p, climbables, platforms)
   if (!found || found.rope && p.grounded && vertical * frameDirection < 0) return null
   if (found.ladder && p.grounded) {
     const localVertical = vertical * frameDirection
-    const top = ladderFooting(found.ladder, platforms)?.y ?? found.ladder.top
+    const top = ladderFooting(found.ladder, platforms, decks)?.y ?? found.ladder.top
     if (localVertical > 0 && p.y <= top + 1 || localVertical < 0 && p.y >= found.ladder.bottom - 1) return null
     const floor = localVertical < 0 ? groundAt(platforms, found.ladder.x, p.y, 1) : null
     // Do not lower into a dead end inside the floor we are already standing on.
     // A rider arriving from above can still stop at a buried end and retreat.
     if (floor && overlaps(found.ladder.x, found.ladder.bottom, floor.platform, TUNING.crouchHeight)) return null
   }
-  if (found.ladder && !p.grounded && p.y < (ladderFooting(found.ladder, platforms)?.y ?? -Infinity)) return null
+  if (found.ladder && !p.grounded && p.y < (ladderFooting(found.ladder, platforms, decks)?.y ?? -Infinity)) return null
   return found
 }
 
@@ -760,8 +760,16 @@ function ladderObstacles(world: ContactWorld) {
   return world.colliders.filter(c => !c.id.startsWith('terrain:')).map(c => c.platform)
 }
 
-function ladderFooting(ladder: Ladder, platforms: readonly Platform[]) {
-  return ladderLanding(ladder, platforms)
+function ladderFooting(ladder: Ladder, platforms: readonly Platform[], decks = platforms) {
+  return ladderLanding(ladder, decks, platforms)
+}
+/** The platforms a ladder can lead to. A robot or person on the ladder is a
+ * body to stop against (ladderObstacles), never its top deck: counting a
+ * robot's head as the landing pulled a climber above it down onto the robot.
+ * A body standing on the deck still takes its room (ladderFooting). */
+function ladderDecks(platforms: readonly Platform[], world: ContactWorld) {
+  const bodies = new Set(world.colliders.flatMap(c => c.robot || c.id === 'player' ? [c.platform] : []))
+  return bodies.size ? platforms.filter(platform => !bodies.has(platform)) : platforms
 }
 
 function leaveLadder(p: Player, ground: GroundSurface | null, crouching = false) {
@@ -928,7 +936,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const vertical = input.jump ? 0 : verticalIntent
   const bodyVertical = vertical * frameDirection
   const requestedClimb = verticalIntent !== 0 && (!input.jump || !p.grounded)
-  const climbOption = requestedClimb ? verticalClimbOption(p, climbables, platforms, verticalIntent, frameDirection) : null
+  const climbOption = requestedClimb ? verticalClimbOption(p, climbables, platforms, verticalIntent, frameDirection, ladderDecks(platforms, world)) : null
   if (!climbOption?.ladder && p.grounded && !p.hang && !p.climbing && bodyVertical < 0 && !input.jump && !input.detach && p.grabCooldown === 0) {
     // Lower over the edge first, then transfer to a nearby ladder or rope.
     const edge = loweringOption(p,platforms)
@@ -1053,7 +1061,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         return
       }
     }
-    const topFooting = c.ladder ? ladderFooting(c.ladder, platforms) : null
+    const topFooting = c.ladder ? ladderFooting(c.ladder, platforms, ladderDecks(platforms, world)) : null
     const minimum = c.ladder ? topFooting ? ladderDistance(c.ladder, topFooting.y) : 18 : 12
     const bottom = c.ladder ? ladderDistance(c.ladder, c.ladder.bottom) : c.rope!.definition.length - 8
     const oldDistance = c.distance

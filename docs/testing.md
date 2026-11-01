@@ -123,9 +123,19 @@ real time pass while keys are held. Studio and menu
 checks gain nothing: they do not draw the world, and each advance would add two
 page round trips. Compare a spec's time before and after opting in.
 
-CI uploads a Playwright JSON report for each browser shard as
-`browser-timings-<shard>`. `node scripts/browser-timings.mjs <folder>` lists the
-slowest files and tests from downloaded reports.
+CI runs the browser suite as three shards. Playwright's own `--shard` gives each
+shard the same number of tests, which left one shard with 44 minutes of test
+time and another with 35. `npm run test:browser:shard -- 2/3` instead assigns
+whole spec files by the durations recorded in `tests/browser/timings.json`,
+longest file first onto the least-loaded shard; a spec missing from that record
+counts as the median spec until the record is refreshed, so a stale record only
+unbalances shards and never skips one. `node scripts/browser-shard.mjs --plan 3`
+prints the current assignment. CI uploads a Playwright JSON report for each
+shard as `browser-timings-<shard>`. Fetch them with
+`gh run download <run-id> -p 'browser-timings-*' -D .tmp/timings`, list the
+slowest files and tests with `node scripts/browser-timings.mjs .tmp/timings`,
+and add `--write tests/browser/timings.json` to refresh the shard record after
+adding, removing or substantially speeding up specs.
 
 Daylight cache comparisons must witness the optimized path, compare every RGBA
 channel to an explicitly uncached renderer, and include a warm fixed-view

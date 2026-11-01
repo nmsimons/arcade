@@ -110,7 +110,9 @@ jobs:
         run: npm run test:homepage -- --reporter=line
       - name: Test browser routes, recovery and controls
         if: needs.validate.outputs.fast != 'true'
-        run: npm run test:browser -- --shard=${{ matrix.shard }}/3 --reporter=line,json
+        # Whole spec files are assigned by the durations in tests/browser/timings.json
+        # so the shards finish together; see docs/testing.md to refresh them.
+        run: npm run test:browser:shard -- ${{ matrix.shard }}/3 --reporter=line,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: browser-timings/shard-${{ matrix.shard }}.json
       - name: Retain browser test timings

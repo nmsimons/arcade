@@ -1,7 +1,7 @@
-import { athletePose } from './athlete.ts'
 import { playerWaterCenterOffset } from './gravity.ts'
 import type { JumpInput, Player } from './model.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
+import { athletePose } from './athletePose.ts'
 
 const HISTORY_SECONDS = 2, WINDOW_SECONDS = .25, MAX_SAMPLES = 240, MAX_REPORTS = 8
 const pointNames = ['hip', 'shoulder', 'head', 'frontElbow', 'frontHand', 'backElbow', 'backHand',

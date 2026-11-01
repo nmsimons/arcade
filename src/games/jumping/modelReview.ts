@@ -4,8 +4,8 @@ import { entranceDuration } from './goal.ts'
 import { isPuzzleLevel, parseLevel } from './level.ts'
 import { NEUTRAL_INPUT, STEP } from './model.ts'
 import type { JumpInput, Player } from './model.ts'
-import { presentedAthletePose } from './athlete.ts'
-import type { AthletePose } from './athlete.ts'
+import { presentedAthletePose } from './athletePose.ts'
+import type { AthletePose } from './athleteRig.ts'
 
 export const REVIEW_FPS = 60
 export interface ReviewClip {

@@ -20,9 +20,8 @@ import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './
 import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
 import { drawCaveWall } from './caveWall.ts'
-
-import { drawAthlete } from './athlete.ts'
-export { drawAthlete } from './athlete.ts'
+import { drawAthlete } from './athleteDraw.ts'
+export { drawAthlete } from './athleteDraw.ts'
 
 const ACCENT = '#df633f'
 

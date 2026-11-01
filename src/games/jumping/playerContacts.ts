@@ -13,7 +13,9 @@ import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, le
 import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless, playerWaterCenterOffset } from './gravity.ts'
-import { dryPreparationFacesForward, retainInterruptedStepPose, swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './athlete.ts'
+import { dryPreparationFacesForward } from './athletePose.ts'
+import { retainInterruptedStepPose } from './athleteAnimation.ts'
+import { swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './poses/waterPose.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {

@@ -1,11 +1,11 @@
-import { drawAthlete, NIGHT_PLAYER_COLOR } from './athlete.ts'
 import { drawClimbables, drawTerrain } from './render.ts'
 import { drawProp } from './challengeRender.ts'
 import { drawWaterRegion } from './gravityRender.ts'
 import { reviewPoster } from './modelReview.ts'
 import type { ReviewBaseline, ReviewBounds, ReviewRecording } from './modelReview.ts'
-import type { AthletePose } from './athlete.ts'
 import { ANDROID_HAND_SIZE } from './androidHand.ts'
+import { NIGHT_PLAYER_COLOR, drawAthlete } from './athleteDraw.ts'
+import type { AthletePose } from './athleteRig.ts'
 
 export type ReviewBackdrop = 'paper' | 'night' | 'sky' | 'stone'
 export interface ReviewDisplay { backdrop: ReviewBackdrop; silhouette: boolean; joints: boolean; context: boolean; mirror: boolean; reference?: ReviewBounds; handSize?: number }

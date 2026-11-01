@@ -1,7 +1,7 @@
 import { cancelJumpInput } from './model.ts'
 import type { Player } from './model.ts'
 import type { Vec } from './geometry.ts'
-import { startImpactRagdoll } from './athlete.ts'
+import { startImpactRagdoll } from './athleteAnimation.ts'
 
 export const REPULSOR_BOT_IMPULSE = 1100
 

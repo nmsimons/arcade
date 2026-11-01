@@ -36,3 +36,44 @@ keep physics identical again, which the golden traces check.
   Apple M5 Pro (Node 25.9, arm64): 0.44 ms mean tick, 1.40 ms p95 tick and
   2.96 ms p95 frame over all scripts. Exit is the heaviest level, with a
   1.51 ms mean tick and an 8.08 ms p95 frame.
+
+## Phase 1: athlete.ts split
+
+`athlete.ts` is now a barrel for tests and tools. The code moved verbatim into:
+
+| Module | Contents |
+|---|---|
+| `athleteRig.ts` | `AthletePose`, `Leg`, proportions, limb solvers, `transferPose`, `rotatePose`, `reflectAthletePose` |
+| `athletePose.ts` | the per-render pose cache, `athletePose`, `presentedAthletePose`, mode dispatch (`resolveAthletePose`), the arm, shove and ankle passes, and the dry ledge-reach queries |
+| `poses/*.ts` | one module per mode: locomotion, ledge, climbing, water, fall, ragdoll, sliding, wall brace, release turn, plus the push-turn blends |
+| `athleteAnimation.ts` | the `advance*`, `capture*` and `settle*` functions and the impact ragdoll's start and advance |
+| `athleteClearance.ts` | body, limb, hand and foot clearance |
+| `athleteDraw.ts` | skin outlines and Canvas drawing |
+| `characterTypes.ts`, `gait.ts` | `Player`, `JumpInput`, `Platform`, and `gaitPose` |
+
+`resolveAthletePose` is a ten-line dispatcher. The 300-line locomotion pose is
+split at its two seams: fitting the trunk to a loaded push, and the final
+contact and clearance pass. The game modules import from the specific modules;
+`model.ts` re-exports the moved types and `gaitPose`, so existing importers are
+unchanged. Physics, state and pose hashes are identical.
+
+`tests/jumping-module-boundaries.test.mjs` guards three rules: the headless
+simulation (everything `challenge.ts` loads at runtime) loads no drawing
+module; simulation modules use pose and animation code only through the listed
+couplings; and the athlete modules import no runtime code from `model.ts`. The
+listed couplings are the in-step animation calls in `model.ts` (Phase 3) and
+these pose queries, which Phase 4 replaces:
+
+- `gadgets.ts` and `repulsorBot.ts`: `athletePose` for the tool frame and the robot's palm.
+- `repulsorBotRig.ts`: the robot rig's presented and awakening poses.
+- `model.ts`: `athletePose`, `dryLedgeReach`, `dryLedgeReachPose` and `swimmingLedgeReach` for ledge reach.
+- `playerContacts.ts` and `propPhysics.ts`: the swimming outline and swimming push hands; `dryPreparationFacesForward` and `retainInterruptedStepPose` for push anticipation.
+- `actorImpulse.ts`: `startImpactRagdoll` when a shove or impulse knocks a body down.
+
+The direct `model.ts` and `athlete.ts` cycle is gone. A wider runtime cycle
+remains: `model.ts` calls the animation, and shared helpers that the poses use
+(`climbables.ts`, `stepUp.ts`, `ropeGravity.ts` and others) reach `model.ts`
+through `playerContacts.ts`, `gadgets.ts` and `actorImpulse.ts`, which import
+`TUNING`, `STEP`, `cancelJumpInput` and `wantsCrouch` from it. Phase 3 removes
+the animation calls from the step; moving those four values out of `model.ts`
+would then break the rest of the cycle.

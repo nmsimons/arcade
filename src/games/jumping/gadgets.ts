@@ -4,12 +4,12 @@ import { wantsCrouch } from './model.ts'
 import { lineBlocked, nearestBoundary, polygonIntersects, polygonPoints } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { ballShape, boxShape, propHeight } from './propGeometry.ts'
-import { athletePose } from './athlete.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { faceRobotToward, repulseRobot, robotPlatforms } from './robotPhysics.ts'
 import { setPropCarried, repulseProp } from './propPhysics.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
+import { athletePose } from './athletePose.ts'
 
 export type GadgetKind = 'emp' | 'repulsor'
 export const GADGET_SIZE = 40

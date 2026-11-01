@@ -80,13 +80,13 @@ test('first opposite recovery presses and repeated turns retain the outgoing rig
           }
         }
         for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) if (leg.planted) {
-          const foot = p.footwork.feet[i]
+          const foot = p.anim.footwork.feet[i]
           assert.ok(foot.planted, 'visible support belongs to the motor')
           assert.ok(Math.hypot(p.x + leg.end[0] * p.facing - foot.x, p.y + leg.end[1] * (inverted ? -1 : 1) - foot.y) < 1e-6,
             'the final rig keeps its actual support ankle')
           if (!inverted) assert.ok(groundAt(terrain, foot.anchorX, foot.anchorY, .2), 'the anchor belongs to current geometry')
         }
-        settled ||= !p.freeFall && !!p.footwork?.feet.some(foot => foot.planted)
+        settled ||= !p.freeFall && !!p.anim.footwork?.feet.some(foot => foot.planted)
         previous = current
       }
       assert.ok(recovering > 0 && settled && !p.freeFall, 'the spring completes into an ordinary supported gait')

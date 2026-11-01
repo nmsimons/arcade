@@ -1,4 +1,4 @@
-import type { AthletePose } from './athlete.ts'
+import type { AthletePose } from './athleteRig.ts'
 
 export type ImpactKind = 'landing' | 'repulsor'
 export type ImpactJoint = 'body' | 'neck' | 'frontShoulder' | 'frontElbow' | 'backShoulder' | 'backElbow'

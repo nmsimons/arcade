@@ -25,11 +25,11 @@ test('resolved jogging travel lengthens steps while preserving the full-speed ru
   for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const speed of [180, 210, 240, TUNING.runSpeed]) {
     const p = createPlayer({ x: 0, y: 900 }), input = { ...NEUTRAL_INPUT, move: direction * speed / TUNING.runSpeed }
     for (let time = 0; time < 1 - dt / 2; time += dt) stepPlayer(p, input, dt, floor)
-    let previous = p.footwork.feet.map(foot => foot.planted), landings = 0, flight = 0, separation = 0, samples = 0
+    let previous = p.anim.footwork.feet.map(foot => foot.planted), landings = 0, flight = 0, separation = 0, samples = 0
     const startX = p.x
     for (let time = 0; time < 4 - dt / 2; time += dt) {
       stepPlayer(p, input, dt, floor)
-      const pose = athletePose(p), feet = p.footwork.feet
+      const pose = athletePose(p), feet = p.anim.footwork.feet
       landings += feet.filter((foot, i) => foot.planted && !previous[i]).length
       flight += Number(feet.every(foot => !foot.planted)); samples++
       separation = Math.max(separation, Math.abs(pose.frontLeg.end[0] - pose.backLeg.end[0]))
@@ -80,12 +80,12 @@ test('slow walking carries the chest forward and settles into soft elbows with f
       stepRun(run, { ...NEUTRAL_INPUT, move: direction * 125 / 410 })
       if (tick < 120) continue
       const pose = athletePose(p)
-      assert.ok(p.grounded && p.footwork.feet.some(foot => foot.planted))
+      assert.ok(p.grounded && p.anim.footwork.feet.some(foot => foot.planted))
       assert.ok(pose.shoulder[0] - pose.hip[0] > 1.5, 'every walking phase has a modest forward chest pitch')
       assert.ok(pose.shoulder[0] - pose.hip[0] < 3, 'precision walking does not borrow the sprint lean')
     }
     for (let tick = 0; tick < 360; tick++) stepRun(run, NEUTRAL_INPUT)
-    const settled = athletePose(p), anchors = p.footwork.feet.map(foot => [foot.x, foot.y])
+    const settled = athletePose(p), anchors = p.anim.footwork.feet.map(foot => [foot.x, foot.y])
     for (const arm of [settled.frontArm, settled.backArm]) {
       assert.ok(elbowBend(arm) > .2 && elbowBend(arm) < .4, 'idle elbows bend softly, without a held working pose')
       assert.ok(Math.abs(distance(arm.root, arm.joint) - 10) < 1e-6)
@@ -94,7 +94,7 @@ test('slow walking carries the chest forward and settles into soft elbows with f
     assert.ok(distance(settled.frontArm.end, settled.backArm.end) > 6, 'quiet hands remain separate')
     assert.ok(Math.abs(settled.shoulder[0] - settled.hip[0]) < .01, 'the walk lean relaxes at rest')
     for (let tick = 0; tick < 240; tick++) stepRun(run, NEUTRAL_INPUT)
-    assert.deepEqual(p.footwork.feet.map(foot => [foot.x, foot.y]), anchors)
+    assert.deepEqual(p.anim.footwork.feet.map(foot => [foot.x, foot.y]), anchors)
     assert.deepEqual(athletePose(p), settled, 'softening the arms adds no idle shuffling')
   }
 })
@@ -116,7 +116,7 @@ test('walking toe-off visibly lifts each heel while the loaded forefoot stays on
         const toe = footPoint([4.5, 2.8], angle, bend)
         assert.ok(ball[1] - heel[1] > 1.6, 'heel rise is separate from the grounded forefoot')
         assert.ok(Math.abs(toe[1] - ball[1]) < 1e-6, 'the loaded toe counter-rotates and stays flat')
-        const foot = p.footwork.feet[index]
+        const foot = p.anim.footwork.feet[index]
         assert.ok(Math.abs(p.x + (leg.end[0] + ball[0] * leg.footFacing) * p.facing
           - foot.anchorX - FOOT_BALL[0] * p.facing) < 1e-6, 'the ball of the foot does not skid')
         assert.ok(Math.abs(p.y + leg.end[1] + toe[1] - run.level.floor) < 1e-6)
@@ -150,7 +150,7 @@ test('the free walking toes dip toward the ground and straighten before landing'
           relaxed[index]++
           assert.ok(Math.abs(leg.toeAngle) < .04, 'the toe tip straightens as the shoe reaches forward')
         }
-        const foot = p.footwork.feet[index]
+        const foot = p.anim.footwork.feet[index]
         assert.ok(distance([p.x + leg.end[0] * direction, p.y + leg.end[1]], [foot.x, foot.y]) < .01,
           'toe flex retains the original ankle trajectory')
       }
@@ -167,10 +167,10 @@ test('precision walking visibly transfers weight through the body without a larg
     const p = createPlayer({ x: 0, y: 900 }), input = { ...NEUTRAL_INPUT, move: direction * TUNING.walkSpeed / TUNING.runSpeed }
     for (let time = 0; time < 1 - dt / 2; time += dt) stepPlayer(p, input, dt, floor)
     const startX = p.x, hips = [], heads = [], recovered = [], elbows = []
-    let previous = p.footwork.feet.map(foot => foot.planted), landings = 0, lift = 0
+    let previous = p.anim.footwork.feet.map(foot => foot.planted), landings = 0, lift = 0
     for (let time = 0; time < 4 - dt / 2; time += dt) {
       stepPlayer(p, input, dt, floor)
-      const pose = athletePose(p), feet = p.footwork.feet
+      const pose = athletePose(p), feet = p.anim.footwork.feet
       assert.ok(feet.some(foot => foot.planted), 'the walk always has real support')
       hips.push(pose.hip[1]); heads.push(pose.head[1])
       for (const leg of [pose.frontLeg, pose.backLeg]) {
@@ -197,8 +197,8 @@ test('precision walking visibly transfers weight through the body without a larg
 test('the walking head follows the supporting knee from recoil to the high point', () => {
   for (const direction of [-1, 1]) {
     const poses = [0, .125, .25, .375].map(phase => athletePose({ ...createPlayer({ x: 0, y: 900 }),
-      grounded: true, vx: direction * TUNING.walkSpeed, facing: direction, gait: gaitPose(TUNING.walkSpeed),
-      stride: direction * phase * Math.PI * 2 }))
+      grounded: true, vx: direction * TUNING.walkSpeed, facing: direction,
+      anim: { ...createPlayer().anim, gait: gaitPose(TUNING.walkSpeed), stride: direction * phase * Math.PI * 2 } }))
     const [contact, recoil, passing, highPoint] = poses
     assert.ok(recoil.hip[1] > contact.hip[1] + .4, 'the body absorbs weight after heel contact')
     assert.ok(passing.hip[1] < recoil.hip[1] - .4, 'the body rises as the free foot passes underneath')

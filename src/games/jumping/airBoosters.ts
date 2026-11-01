@@ -1,7 +1,7 @@
-import { athletePose } from './athlete.ts'
 import { footPoint } from './footwork.ts'
 import type { Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
+import { athletePose } from './athletePose.ts'
 
 /** Small exhaust plumes follow the posed feet, opposite the actual motor force.
  * Gravity, inherited momentum, contact impulses and zero-g drag supply no thrust. */

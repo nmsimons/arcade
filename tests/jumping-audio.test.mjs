@@ -32,12 +32,12 @@ test('footsteps follow planted feet: walking makes steps, standing and airborne 
 
 test('carried feet, sliding feet and a respawn never become phantom footsteps', () => {
   const { run, audio } = setup(), p = run.player
-  p.footwork = { feet: [{ planted: false }, { planted: true }] }
+  p.anim.footwork = { feet: [{ planted: false }, { planted: true }] }
   p.contacts = { motion: { speed: 0 } }; audio.reset(p, run)
-  p.y -= 1; p.footwork.feet[0].planted = true
+  p.y -= 1; p.anim.footwork.feet[0].planted = true
   audio.step(p, run, STEP); assert.equal(audio.drain().cues.length, 0)
-  p.footwork.feet[0].planted = false; p.contacts.motion.speed = 120; p.sliding = { active: true }
-  audio.step(p, run, STEP); p.footwork.feet[0].planted = true
+  p.anim.footwork.feet[0].planted = false; p.contacts.motion.speed = 120; p.sliding = { active: true }
+  audio.step(p, run, STEP); p.anim.footwork.feet[0].planted = true
   audio.step(p, run, STEP); assert.equal(audio.drain().cues.length, 0)
   p.sliding = null; p.grounded = false; p.vy = 500; audio.reset(p, run)
   p.y -= 500; p.grounded = true
@@ -303,13 +303,13 @@ test('Rbot makes one heavier landing thump, with silent idle, airborne, carried 
   const { run, audio } = setup(level => { level.robots = [{ kind: 'repulsor', x: 700, y: 920, left: 26, right: 1774 }] })
   const robot = run.robots[0], actor = robot.actor
   const observe = () => { robot.x = actor.x; robot.y = actor.y; audio.step(run.player, run, STEP); return audio.drain() }
-  actor.footwork = { feet: [{ planted: false }, { planted: true }] }
+  actor.anim.footwork = { feet: [{ planted: false }, { planted: true }] }
   actor.contacts = { motion: { speed: 0 } }; audio.reset(run.player, run)
-  actor.footwork.feet[0].planted = true; actor.y -= 1
+  actor.anim.footwork.feet[0].planted = true; actor.y -= 1
   assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0, 'transport and idle feet stay silent')
-  actor.grounded = false; actor.vy = 600; actor.footwork.feet[0].planted = false
+  actor.grounded = false; actor.vy = 600; actor.anim.footwork.feet[0].planted = false
   assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0)
-  actor.grounded = true; actor.vy = 0; actor.footwork.feet[0].planted = true
+  actor.grounded = true; actor.vy = 0; actor.anim.footwork.feet[0].planted = true
   const landed = observe().cues.filter(c => c.kind === 'robot-footstep')
   assert.equal(landed.length, 1); assert.ok(landed[0].strength >= .7)
   assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0)
@@ -321,11 +321,11 @@ test('Rbot makes one heavier landing thump, with silent idle, airborne, carried 
 for (const outage of ['global', 'direct']) test(`${outage} EMP suppresses Rbot steps and movement servos`, () => {
   const { run, audio } = setup(level => { level.robots = [{ kind: 'repulsor', x: 700, y: 920, left: 26, right: 1774 }] })
   const robot = run.robots[0], actor = robot.actor
-  actor.footwork = { feet: [{ planted: false }, { planted: true }] }
+  actor.anim.footwork = { feet: [{ planted: false }, { planted: true }] }
   actor.contacts = { motion: { speed: 200 } }; audio.reset(run.player, run)
   if (outage === 'global') run.empRemaining = 5
   else run.gadgets.disabled.set(robot, 5)
-  actor.footwork.feet[0].planted = true; actor.x += 1; robot.x = actor.x
+  actor.anim.footwork.feet[0].planted = true; actor.x += 1; robot.x = actor.x
   audio.step(run.player, run, STEP)
   assert.equal(audio.drain().cues.filter(c => c.kind === 'robot-footstep').length, 0)
   const ladder = {}, climb = { ladder, rope: null, distance: 100 }

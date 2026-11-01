@@ -10,7 +10,6 @@ import type { Goal } from './goal.ts'
 import type { BusEnding } from './busEnding.ts'
 import { drawBusGoal } from './busEndingRender.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
-import { awakeningPose } from './athlete.ts'
 import type { AndroidAppearance } from './androidArtwork.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { gradeClock } from './grading.ts'
@@ -34,6 +33,7 @@ import { drawLabLogo, LAB_LOGO_HEIGHT, LAB_LOGO_WIDTH } from '../../branding/lab
 import { drawGadgets, drawLooseGadget } from './gadgetRender.ts'
 import { drawRepulsorBot } from './repulsorBotRender.ts'
 import { EMP_PALETTE, ROBOT_PALETTE } from './equipmentPalette.ts'
+import { awakeningPose } from './athletePose.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'

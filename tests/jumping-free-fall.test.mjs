@@ -59,14 +59,14 @@ test('a long fall lands flat and gets up smoothly in either direction', () => {
         assert.equal(p.freeFall?.recovery, 0)
         assert.ok(pose.head[1] > -12 && pose.head[1] < -6.2)
         assert.ok(Math.abs(pose.shoulder[1] - pose.hip[1]) < 2)
-        assert.ok(p.footwork, 'ordinary contact footwork continues beneath the presentation')
+        assert.ok(p.anim.footwork, 'ordinary contact footwork continues beneath the presentation')
       }
       if (impact && !p.freeFall) { gotUp = true; break }
       previous = current
     }
     assert.ok(hadProneFlight && impact && gotUp)
     assert.ok(athletePose(p).head[1] < -50)
-    assert.ok(p.footwork.feet.every(foot => foot.planted))
+    assert.ok(p.anim.footwork.feet.every(foot => foot.planted))
     stepPlayer(p, { ...NEUTRAL_INPUT, jump: true, move: facing }, STEP, floor)
     assert.ok(p.vy < 0 && p.vx * facing > 0, 'normal movement and jumping return')
   }

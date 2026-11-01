@@ -18,11 +18,12 @@ export function ladderMantleEntry(height: number) {
   return (low + high) / 2
 }
 
-/** The upper deck crossed by the authored ladder, with room to stand. */
-export function ladderLanding(ladder: Ladder, terrain: readonly Platform[]) {
+/** The upper deck crossed by the authored ladder, with room to stand among
+ * `solids`, which can include bodies that are never a deck themselves. */
+export function ladderLanding(ladder: Ladder, terrain: readonly Platform[], solids: readonly Platform[] = terrain) {
   const ground = groundAt(terrain, ladder.x, ladder.top, ladder.bottom - ladder.top,
     s => s.y >= ladder.top - .1 && s.y < ladder.bottom - TUNING.height && canGrip(s.angle))
-  return ground && !terrain.some(b => bodyIntersects(ladder.x, ground.y, b)) ? ground : null
+  return ground && !solids.some(b => bodyIntersects(ladder.x, ground.y, b)) ? ground : null
 }
 
 /** Let toes straddling a deck find its top, without releasing a body into a wall. */

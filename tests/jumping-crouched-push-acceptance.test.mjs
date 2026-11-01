@@ -73,9 +73,9 @@ test('crouch entry, loaded work and release retain the complete skin, palms and 
       const pose = athletePose(p)
       fixedLimbs(pose, context)
       assert.ok(p.grounded, context + ': real receiving ground remains')
-      if (!escaping || p.pushing?.effort) assert.ok(p.footwork.feet.some(foot => foot.planted), context + ': a planted leg supports real working contact')
-      for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) if (p.footwork.feet[i].planted) {
-        const foot = p.footwork.feet[i], [x, y] = worldPoint(p, leg.end)
+      if (!escaping || p.pushing?.effort) assert.ok(p.anim.footwork.feet.some(foot => foot.planted), context + ': a planted leg supports real working contact')
+      for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) if (p.anim.footwork.feet[i].planted) {
+        const foot = p.anim.footwork.feet[i], [x, y] = worldPoint(p, leg.end)
         assert.ok(Math.hypot(x - foot.x, y - foot.y) < 1e-6, context + ': loaded shoe retains its motor ankle')
       }
       const points = joints(pose).map(point => worldPoint(p, point))

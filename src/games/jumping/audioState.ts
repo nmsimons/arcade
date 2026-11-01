@@ -25,9 +25,9 @@ function snapshot(p: Player, run: Run | null) {
     x: p.x, y: p.y, grounded: p.grounded, vx: p.vx, vy: p.vy,
     water: run ? playerSwimStrength(run.gravityField, p) : 0,
     fieldRevision: run?.gravityField.revision ?? 0,
-    feet: p.footwork?.feet.map(f => f.planted) ?? [],
+    feet: p.anim.footwork?.feet.map(f => f.planted) ?? [],
     robots: run?.robots.map(robot => ({ robot, x: robot.x, y: robot.y, grounded: robot.actor?.grounded ?? false,
-      vy: robot.actor?.vy ?? 0, feet: robot.actor?.footwork?.feet.map(f => f.planted) ?? [],
+      vy: robot.actor?.vy ?? 0, feet: robot.actor?.anim.footwork?.feet.map(f => f.planted) ?? [],
       climbable: robot.actor?.climbing?.rope ?? robot.actor?.climbing?.ladder, climbDistance: robot.actor?.climbing?.distance,
       mantle: robot.actor?.mantle, mantleTime: robot.actor?.mantle?.time, awakening: robot.awakening?.elapsed ?? 0 })) ?? [],
     props: run?.props.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, water: propWaterStrength(run.gravityField, b), grounded: b.grounded, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
@@ -102,7 +102,7 @@ export class JumpingAudioState {
       cue('water-entry', p.x, p.y, splashStrength(Math.max(Math.hypot(before.vx, before.vy), Math.hypot(p.vx, p.vy)), 60), 60)
     }
     const speed = p.contacts?.motion.speed ?? 0
-    const plant = p.footwork?.feet.some((f, i) => f.planted && before.feet[i] === false)
+    const plant = p.anim.footwork?.feet.some((f, i) => f.planted && before.feet[i] === false)
     const landing = !before.grounded && p.grounded && before.vy > 80
     if (continuous && !p.sliding?.active && !p.hang && !p.climbing && !p.mantle && this.stepCooldown === 0
       && (landing || p.grounded && !(p.freeFall?.amount && p.freeFall.recovery !== null) && speed > 8 && plant)) {
@@ -135,7 +135,7 @@ export class JumpingAudioState {
               volume: mix.volume * .6, pace: .3, size: 0 })
           }
           const speed = actor.contacts?.motion.speed ?? 0
-          const plant = actor.footwork?.feet.some((foot, footIndex) => foot.planted && old.feet[footIndex] === false)
+          const plant = actor.anim.footwork?.feet.some((foot, footIndex) => foot.planted && old.feet[footIndex] === false)
           const landing = !old.grounded && actor.grounded && old.vy * (actor.inverted ? -1 : 1) > 80
           if (!actor.sliding?.active && !actor.hang && !actor.climbing && !actor.mantle && !this.robotStepCooldowns[i]
             && (landing || actor.grounded && !(actor.freeFall?.amount && actor.freeFall.recovery !== null) && speed > 8 && plant)) {

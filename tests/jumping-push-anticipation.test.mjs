@@ -85,7 +85,7 @@ test('a close falling approach prepares unloaded hands without acquiring support
   for(const [changes,keys]of[
    [{vy:-1},{}],[{jumpLift:1},{}],[{}, {jump:true}],[{buffer:STEP},{}],
    [{waterMotion:{amount:1}},{}],[{hang:{}},{}],[{mantle:{}},{}],[{climbing:{}},{}],
-   [{sliding:{amount:.2,active:false}},{}],[{wallBrace:{amount:.2,active:false}},{}],[{slideEntry:{}},{}],
+   [{sliding:{amount:.2,active:false}},{}],[{wallBrace:{amount:.2,active:false}},{}],[{anim:{...snapshot.anim,slideEntry:{}}},{}],
    [{freeFall:{amount:1}},{}],[{}, {move:0}]
   ]){
    const state={...snapshot,...changes},before=structuredClone(state)
@@ -118,7 +118,7 @@ test('an unloaded falling reach transfers its whole outgoing rig into a brief ba
      `whole-rig slip transfer: walking=${walking} tick=${tick} point=${i}`)
     if(active&&previous.ready){
      reachTransfers++
-     assert.ok(p.slideEntry,'the actual slide retains the outgoing unloaded reach')
+     assert.ok(p.anim.slideEntry,'the actual slide retains the outgoing unloaded reach')
      assert.equal(p.pushing,null,'the slip balance owns the incoming pose')
     }
    }

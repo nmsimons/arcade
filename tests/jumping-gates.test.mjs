@@ -71,7 +71,7 @@ for (const flipX of [false, true]) {
     assert.equal(gate.x, 700 + direction * 180); assert.equal(gate.y, 840)
     assert.deepEqual({ x: gate.x, y: gate.y }, mechanismOpenPosition(gate.definition))
     advance(run, 120); assert.equal(gate.x, 700 + direction * 180)
-    Object.assign(p, { x: 790, y: 880, grounded: true, vx: 0, vy: 0, footwork: null })
+    Object.assign(p, { x: 790, y: 880, grounded: true, vx: 0, vy: 0, anim: { ...p.anim, footwork: null } })
     for (let i = 0; i < 240; i++) {
       advance(run, 1)
       assert.equal(bodyIntersects(p.x, p.y, mechanismShape(gate)), false, 'closing cannot penetrate the player')
@@ -79,7 +79,7 @@ for (const flipX of [false, true]) {
     assert.equal(gate.active, false); assert.equal(gate.x, 700 + direction * 180)
     assert.equal(gate.safetyHold, 0)
     advance(run, 600); assert.equal(gate.x, 700 + direction * 180, 'it must not retry while the player occupies its path')
-    Object.assign(p, { x: 450, y: 920, footwork: null })
+    Object.assign(p, { x: 450, y: 920, anim: { ...p.anim, footwork: null } })
     advance(run, 60); assert.equal(gate.x, 700 + direction * 180, 'clearance includes time to step away')
     advance(run, 420); assert.equal(gate.x, 700); assert.equal(gate.safetyHold, null)
     const reset = createRun(level).mechanisms[0]
@@ -105,7 +105,7 @@ for (const flipX of [false, true]) {
     const run = createRun(level), gate = run.mechanisms[0], p = run.player; run.started = true
     // The gate is almost closed, with the player's lower legs in the narrowing gap.
     gate.x = 700 + direction * 30
-    Object.assign(p, { x: wall + direction * 14, y: 798, grounded: false, facing: -direction, vx: 0, vy: 0, footwork: null })
+    Object.assign(p, { x: wall + direction * 14, y: 798, grounded: false, facing: -direction, vx: 0, vy: 0, anim: { ...p.anim, footwork: null } })
     let reversed = false, reopened = false
     for (let i = 0; i < 480; i++) {
       advance(run, 1)
@@ -148,7 +148,7 @@ for (const flipX of [false, true]) {
     advance(run, 240)
     const offset = passenger === 'player' ? flipX ? 10 : 170 : flipX ? 50 : 130
     p.x = 450
-    if (passenger === 'player') Object.assign(p, { x: gate.x + offset, y: gate.y, footwork: null })
+    if (passenger === 'player') Object.assign(p, { x: gate.x + offset, y: gate.y, anim: { ...p.anim, footwork: null } })
     else Object.assign(run.props[0], { x: gate.x + offset, y: gate.y })
     let reversed = false
     for (let i = 0; i < 600; i++) {

@@ -30,14 +30,14 @@ test('hard landing recoil is visible, bounded and read-only, with identical norm
     for (let frame = 0; frame < 350; frame++) {
       stepPlayer(p, NEUTRAL_INPUT, STEP, ground, undefined, undefined, undefined, undefined, gravity)
       stepPlayer(baseline, NEUTRAL_INPUT, STEP, ground, undefined, undefined, undefined, undefined, gravity)
-      baseline.ragdoll = null
+      baseline.anim.ragdoll = null
       for (const name of ['x', 'y', 'vx', 'vy', 'grounded', 'facing']) assert.equal(p[name], baseline[name], name)
       const before = structuredClone(p), pose = athletePose(p)
       assert.deepEqual(p, before, 'rendering does not integrate physics')
       lengths(pose)
-      if (p.ragdoll) {
+      if (p.anim.ragdoll) {
         sawImpact = true
-        assert.equal(p.ragdoll.kind, 'landing')
+        assert.equal(p.anim.ragdoll.kind, 'landing')
         assert.equal(p.grounded, true)
         assert.ok(pose.head[1] <= -6.2, 'the head stays outside support')
         const ordinary = athletePose(baseline)
@@ -45,15 +45,15 @@ test('hard landing recoil is visible, bounded and read-only, with identical norm
       }
     }
     assert.ok(sawImpact && maxRecoil > 4, 'hard impacts visibly articulate the limbs')
-    assert.equal(p.ragdoll, null)
+    assert.equal(p.anim.ragdoll, null)
     assert.equal(p.freeFall, null)
   }
 })
 
 test('short drops and light shoves do not ragdoll; a strong impulse scales recoil with its strength', () => {
   const short = createPlayer({ x: 0, y: 1100 }); short.grounded = false
-  for (let frame = 0; frame < 180; frame++) { stepPlayer(short, NEUTRAL_INPUT, STEP, floor); assert.equal(short.ragdoll, null) }
-  repulsePlayer(short, [.3, 0]); assert.equal(short.ragdoll, null)
+  for (let frame = 0; frame < 180; frame++) { stepPlayer(short, NEUTRAL_INPUT, STEP, floor); assert.equal(short.anim.ragdoll, null) }
+  repulsePlayer(short, [.3, 0]); assert.equal(short.anim.ragdoll, null)
   const pose = athletePose(short)
   const weak = createImpactRagdoll(pose, 1, 'repulsor', 800, 0), strong = createImpactRagdoll(pose, 1, 'repulsor', 1300, 0)
   stepImpactRagdoll(weak, STEP); stepImpactRagdoll(strong, STEP)
@@ -67,26 +67,26 @@ test('repulsor recoil survives a wall impact without body penetration or growing
     const world = [{ x: direction > 0 ? 100 : -120, y: -100, w: 20, h: 1500 }]
     const ground = inverted ? world.map(mirrorPlatform) : world
     repulsePlayer(p, [direction, 0])
-    assert.equal(p.ragdoll.kind, 'repulsor')
+    assert.equal(p.anim.ragdoll.kind, 'repulsor')
     let maxSpeed = 0
     for (let frame = 0; frame < 100; frame++) {
       stepPlayer(p, NEUTRAL_INPUT, STEP, ground, undefined, undefined, undefined, undefined, (inverted ? -1 : 1) * TUNING.gravity)
       const pose = athletePose(p); lengths(pose)
       assert.ok((p.x + pose.head[0] * p.facing) * direction + 6.2 <= 100.06)
-      if (p.ragdoll) for (const joint of Object.values(p.ragdoll.joints)) {
+      if (p.anim.ragdoll) for (const joint of Object.values(p.anim.ragdoll.joints)) {
         assert.ok(Number.isFinite(joint.angle) && Math.abs(joint.angle) <= 1)
         maxSpeed = Math.max(maxSpeed, Math.abs(joint.speed))
       }
     }
     assert.ok(maxSpeed < 24)
-    assert.equal(p.ragdoll, null)
+    assert.equal(p.anim.ragdoll, null)
   }
 })
 
 test('jump, water entry, a real rope catch and respawn release recoil immediately', () => {
   for (const action of ['jump', 'water', 'rope', 'respawn']) {
     const p = createPlayer({ x: 0, y: 1400 })
-    repulsePlayer(p, [1, 0]); assert.ok(p.ragdoll)
+    repulsePlayer(p, [1, 0]); assert.ok(p.anim.ragdoll)
     if (action === 'respawn') respawn(p)
     else if (action === 'jump') stepPlayer(p, { ...NEUTRAL_INPUT, jump: true }, STEP, floor)
     else if (action === 'water') stepPlayer(p, NEUTRAL_INPUT, STEP, [], undefined, undefined, undefined, undefined, TUNING.gravity, 1,
@@ -96,7 +96,7 @@ test('jump, water entry, a real rope catch and respawn release recoil immediatel
       stepPlayer(p, NEUTRAL_INPUT, STEP, [], { ropes: [{ x: 0, y: 0, length: 1800 }], ladders: [] })
       assert.equal(p.climbing?.kind, 'rope')
     }
-    assert.equal(p.ragdoll, null, action)
+    assert.equal(p.anim.ragdoll, null, action)
   }
 })
 
@@ -109,8 +109,8 @@ test('a rope catch retains the loose outgoing rig after live recoil is released'
   const source = athletePose(p), ropes = { ropes: [{ x: p.x, y: 0, length: 1800 }], ladders: [] }
   stepPlayer(p, NEUTRAL_INPUT, STEP, [], ropes)
   assert.equal(p.climbing?.kind, 'rope')
-  assert.ok(p.climbing.caught.ragdoll)
-  assert.equal(p.ragdoll, null)
+  assert.ok(p.climbing.caught.anim.ragdoll)
+  assert.equal(p.anim.ragdoll, null)
   const caught = athletePose(p)
   assert.ok(Math.hypot(caught.head[0] - source.head[0], caught.head[1] - source.head[1]) < 6)
   lengths(caught)
@@ -120,14 +120,14 @@ test('rapid repeat hits add bounded momentum without restarting recovery from a 
   const p = createPlayer({ x: 0, y: 500 }); p.grounded = false
   repulsePlayer(p, [1, 0])
   for (let i = 0; i < 12; i++) stepPlayer(p, NEUTRAL_INPUT, STEP)
-  const motion = p.ragdoll, time = motion.time, source = structuredClone(motion.source)
+  const motion = p.anim.ragdoll, time = motion.time, source = structuredClone(motion.source)
   for (let i = 0; i < 20; i++) repulsePlayer(p, [i % 2 ? -1 : 1, 0])
-  assert.equal(p.ragdoll, motion)
+  assert.equal(p.anim.ragdoll, motion)
   assert.equal(motion.time, time)
   assert.deepEqual(motion.source, source)
   assert.ok(Object.values(motion.joints).every(joint => Math.abs(joint.speed) <= 24))
   for (let i = 0; i < 80; i++) { stepPlayer(p, NEUTRAL_INPUT, STEP); lengths(athletePose(p)) }
-  assert.equal(p.ragdoll, null)
+  assert.equal(p.anim.ragdoll, null)
 })
 
 test('steering against a repulsor hit gathers the loose rig into a continuous supported turn', () => {
@@ -139,18 +139,18 @@ test('steering against a repulsor hit gathers the loose rig into a continuous su
     let previous
     for (let frame = 0; frame < Math.ceil(1.2 / dt); frame++) {
       const input = { ...NEUTRAL_INPUT, move: frame * dt < .1 ? 0 : -direction }
-      const turning = !!p.dryTurn?.recoil
+      const turning = !!p.anim.dryTurn?.recoil
       stepPlayer(p, input, dt, ground, undefined, undefined, undefined, undefined, (inverted ? -1 : 1) * TUNING.gravity)
       const pose = athletePose(p); lengths(pose)
       const current = [pose.hip, pose.waist, pose.shoulder, pose.head,
         ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.joint, limb.end])]
         .map(([x, y]) => [x * p.facing, y])
-      if (previous && (turning || p.dryTurn?.recoil)) for (let i = 0; i < current.length; i++) assert.ok(Math.hypot(current[i][0] - previous[i][0], current[i][1] - previous[i][1]) < 750 * dt,
+      if (previous && (turning || p.anim.dryTurn?.recoil)) for (let i = 0; i < current.length; i++) assert.ok(Math.hypot(current[i][0] - previous[i][0], current[i][1] - previous[i][1]) < 750 * dt,
         `joint ${i}, frame ${frame}, dt ${dt}: the recoil handoff cannot snap`)
       previous = current
     }
-    assert.equal(p.ragdoll, null)
-    assert.equal(p.dryTurn, null)
+    assert.equal(p.anim.ragdoll, null)
+    assert.equal(p.anim.dryTurn, null)
     assert.ok(p.vx * direction < 0 && p.grounded)
   }
 })
@@ -165,14 +165,14 @@ test('a working push takes over recoil with its real palms and supported feet', 
     p.facing = direction
     for (let i = 0; i < 100; i++) stepRun(run, NEUTRAL_INPUT)
     repulsePlayer(p, [direction, 0])
-    assert.ok(p.ragdoll)
+    assert.ok(p.anim.ragdoll)
     let contacts = 0
     const from = run.props[0].x
     for (let frame = 0; frame < 90; frame++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: direction })
       if (!p.contacts?.push?.hands || !p.pushing?.palms) continue
       contacts++
-      assert.equal(p.ragdoll, null, 'working contacts own the rig as soon as they apply force')
+      assert.equal(p.anim.ragdoll, null, 'working contacts own the rig as soon as they apply force')
       const pose = athletePose(p)
       lengths(pose)
       assert.ok(pose.frontLeg.planted || pose.backLeg.planted, 'a loaded push has a supporting shoe')
@@ -198,7 +198,7 @@ test('recoil cannot hyperextend a supported knee in either gravity frame or faci
     let samples = 0
     for (let frame = 0; frame < Math.ceil(.6 / dt); frame++) {
       stepPlayer(p, NEUTRAL_INPUT, dt, ground, undefined, undefined, undefined, undefined, gravity)
-      if (!p.ragdoll) continue
+      if (!p.anim.ragdoll) continue
       samples++
       const pose = athletePose(p)
       lengths(pose)
@@ -224,10 +224,10 @@ test('entering reverse gravity transfers the loose pose to the turn in the same 
     for (let i = 0; i < Math.round(.3 / dt); i++) {
       stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, undefined, (inverted ? -1 : 1) * TUNING.gravity)
     }
-    assert.ok(p.ragdoll)
+    assert.ok(p.anim.ragdoll)
     stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, field)
     assert.ok(p.releaseTurn)
-    assert.equal(p.ragdoll, null, 'the gravity turn is the sole owner of the captured pose')
+    assert.equal(p.anim.ragdoll, null, 'the gravity turn is the sole owner of the captured pose')
     const pose = athletePose(p), source = p.releaseTurn.pose
     const points = rig => [rig.hip, rig.waist, rig.shoulder, rig.head,
       ...[rig.frontArm, rig.backArm, rig.frontLeg, rig.backLeg].flatMap(limb => [limb.joint, limb.end])]
@@ -253,7 +253,7 @@ test('distant solids do not change loose clearance near a real floor and wall', 
       const gravity = (inverted ? -1 : 1) * TUNING.gravity
       stepPlayer(p, NEUTRAL_INPUT, STEP, near, undefined, undefined, undefined, undefined, gravity)
       stepPlayer(extended, NEUTRAL_INPUT, STEP, all, undefined, undefined, undefined, undefined, gravity)
-      sawRecoil ||= !!p.ragdoll
+      sawRecoil ||= !!p.anim.ragdoll
       assert.deepEqual(athletePose(extended), athletePose(p), 'only reachable surfaces can change the final rig')
     }
     assert.ok(sawRecoil, `${kind}, facing ${direction}, inverted ${inverted}: exercise loose clearance`)

@@ -1,5 +1,5 @@
-import type { AthleteOutline } from './athlete.ts'
 import type { Limb, Point } from './limbPose.ts'
+import type { AthleteOutline } from './athleteDraw.ts'
 
 /** Approved size relative to the first hand study. Contact depth stays 1.6. */
 export const ANDROID_HAND_SIZE = 1.12

@@ -130,14 +130,14 @@ test('running toward both room ends keeps the room clamp and resets lead for a f
 test('looking up and crouching gently pan vertically, then return without changing the player', () => {
   const level = room(2200), p = createPlayer({ x: 1500, y: 1100 }), camera = new GameCamera()
   const neutral = camera.view(1280, 800, p, level, true)
-  p.look = 1
+  p.anim.look = 1
   const before = structuredClone(p), first = camera.view(1280, 800, p, level, true, STEP)
   assert.ok(first.y < neutral.y && first.y > neutral.y - 5)
   for (let i = 0; i < 120; i++) camera.view(1280, 800, p, level, true, STEP)
   const up = camera.view(1280, 800, p, level, true)
   assert.ok(up.y < neutral.y - 50)
   assert.deepEqual(p, before)
-  p.look = 0; p.crouch = 1; p.crouching = true
+  p.anim.look = 0; p.crouch = 1; p.crouching = true
   for (let i = 0; i < 160; i++) camera.view(1280, 800, p, level, true, STEP)
   assert.ok(camera.view(1280, 800, p, level, true).y > neutral.y + 50)
   p.crouch = 0; p.crouching = false
@@ -147,7 +147,7 @@ test('looking up and crouching gently pan vertically, then return without changi
 
 test('vertical looking keeps the body in view at enclosing contacts and does not pan a fully visible room', () => {
   const level = room(2200), p = createPlayer({ x: 1500, y: 2200 }), camera = new GameCamera()
-  p.look = 1
+  p.anim.look = 1
   for (let i = 0; i < 120; i++) camera.view(1280, 800, p, level, true, STEP)
   const view = camera.view(1280, 800, p, level, true)
   assert.ok(screen(view, [p.x, p.y])[1] <= 788.01)
@@ -165,12 +165,12 @@ test('inverted crouch reveals above and inverted look reveals below with a gentl
     assert.ok(first.y < neutral.y && first.y > neutral.y - 20, 'crouching eases toward the top of the map')
     for (let i = 0; i < 2 / dt; i++) camera.view(size.width, size.height, p, level, true, dt)
     assert.ok(camera.view(size.width, size.height, p, level, true).y < neutral.y - 30)
-    p.crouching = false; p.crouch = 0; p.look = 1
+    p.crouching = false; p.crouch = 0; p.anim.look = 1
     const snapshot = structuredClone(p)
     for (let i = 0; i < 2 / dt; i++) camera.view(size.width, size.height, p, level, true, dt)
     assert.ok(camera.view(size.width, size.height, p, level, true).y > neutral.y + 30, 'looking away from ceiling footing reveals below')
     assert.deepEqual(p, snapshot, 'camera sampling remains read-only')
-    p.look = 0
+    p.anim.look = 0
     for (let i = 0; i < 3 / dt; i++) camera.view(size.width, size.height, p, level, true, dt)
     assert.ok(Math.abs(camera.view(size.width, size.height, p, level, true).y - neutral.y) < .001)
   }

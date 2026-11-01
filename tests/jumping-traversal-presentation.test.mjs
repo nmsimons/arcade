@@ -89,12 +89,12 @@ test('a blocked push establishes its brace once and then keeps its soles still',
   for (const direction of [-1, 1]) {
     const run = pushingRun(direction)
     advance(run, 360, { move: direction })
-    const p = run.player, feet = p.footwork.feet
+    const p = run.player, feet = p.anim.footwork.feet
     assert.ok(Math.abs(feet[0].anchorX - feet[1].anchorX) >= 8, 'the blocked shove establishes a staggered base')
     assert.ok(feet.every(foot => foot.planted))
     const anchors = feet.map(foot => [foot.anchorX, foot.anchorY])
     advance(run, 1200, { move: direction })
-    assert.deepEqual(p.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors)
+    assert.deepEqual(p.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors)
   }
 })
 
@@ -116,16 +116,16 @@ test('a blocked brace adapts to narrow real footing and stays settled through re
       stepRun(run, { ...NEUTRAL_INPUT, move: direction })
       const p = run.player
       assert.equal(p.grounded, true, `${width}: the actual motor remains on its narrow ledge`)
-      for (const foot of p.footwork.feet) if (foot.planted) {
+      for (const foot of p.anim.footwork.feet) if (foot.planted) {
         assert.ok(foot.anchorX >= footing.x - .02 && foot.anchorX <= footing.x + span + .02,
           `${width}: a force-bearing brace anchor cannot be planted beyond the actual support`)
         assert.ok(Math.abs(foot.anchorY - 500) < .02)
         supported++
       }
-      assert.ok(p.footwork.feet.some(foot => foot.planted), 'stance establishment keeps a supporting foot')
+      assert.ok(p.anim.footwork.feet.some(foot => foot.planted), 'stance establishment keeps a supporting foot')
       const pose = athletePose(p)
       limbLengths(pose)
-      for (const [index, leg] of [pose.frontLeg, pose.backLeg].entries()) if (p.footwork.feet[index].planted) {
+      for (const [index, leg] of [pose.frontLeg, pose.backLeg].entries()) if (p.anim.footwork.feet[index].planted) {
         let gap = Infinity
         for (const point of FOOT_CONTACT) {
           const sole = footPoint(point, leg.footAngle * leg.footFacing, leg.toeAngle * leg.footFacing)
@@ -141,29 +141,29 @@ test('a blocked brace adapts to narrow real footing and stays settled through re
       }
     }
     assert.ok(supported > 360)
-    assert.ok(run.player.footwork.feet.every(foot => foot.planted), 'both feet finish establishing their supported base')
-    assert.ok(Math.abs(run.player.footwork.feet[0].anchorX - run.player.footwork.feet[1].anchorX) >= (span >= 24 ? 8 : 7) - .02,
-      `${direction}/${width}: the base retains useful stagger within its actual available tread (${run.player.footwork.feet.map(foot => foot.anchorX)})`)
-    const anchors = run.player.footwork.feet.map(foot => [foot.anchorX, foot.anchorY])
+    assert.ok(run.player.anim.footwork.feet.every(foot => foot.planted), 'both feet finish establishing their supported base')
+    assert.ok(Math.abs(run.player.anim.footwork.feet[0].anchorX - run.player.anim.footwork.feet[1].anchorX) >= (span >= 24 ? 8 : 7) - .02,
+      `${direction}/${width}: the base retains useful stagger within its actual available tread (${run.player.anim.footwork.feet.map(foot => foot.anchorX)})`)
+    const anchors = run.player.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY])
     advance(run, 1200, { move: direction })
-    assert.deepEqual(run.player.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors,
+    assert.deepEqual(run.player.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors,
       'ten seconds of blocked effort does not restart stance adjustment')
     for (let cycle = 0; cycle < 3; cycle++) {
       for (let tick = 0; tick < 13; tick++) {
         advance(run, 1, { move: tick === 0 ? 0 : direction })
-        assert.ok(run.player.footwork.feet.every(foot => foot.planted), 'briefly easing hand pressure does not lift a settled foot')
+        assert.ok(run.player.anim.footwork.feet.every(foot => foot.planted), 'briefly easing hand pressure does not lift a settled foot')
       }
-      assert.deepEqual(run.player.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors,
+      assert.deepEqual(run.player.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors,
         'a brief release and recontact does not repeatedly widen or shuffle the brace')
     }
     advance(run, 120, { move: 0 })
-    assert.ok(run.player.footwork.feet.every(foot => foot.planted), 'full release completes normal resting steps')
-    assert.ok(run.player.footwork.feet.every(foot => Math.abs(foot.anchorX - run.player.x) <= 2.02),
+    assert.ok(run.player.anim.footwork.feet.every(foot => foot.planted), 'full release completes normal resting steps')
+    assert.ok(run.player.anim.footwork.feet.every(foot => Math.abs(foot.anchorX - run.player.x) <= 2.02),
       'full release returns the base under the quiet body')
     stepRun(run, { ...NEUTRAL_INPUT, jump: true })
     assert.equal(run.player.grounded, false, 'stance presentation does not delay a fresh jump')
     assert.ok(run.player.vy < 0)
-    assert.equal(run.player.footwork, null)
+    assert.equal(run.player.anim.footwork, null)
   }
 })
 
@@ -185,15 +185,15 @@ test('a brace reached by jumping and pulling up keeps its narrow supported base 
     const p = run.player
     assert.equal(p.grounded, true)
     assert.equal(p.y, 500)
-    const anchors = p.footwork.feet.map(foot => [foot.anchorX, foot.anchorY])
-    for (const foot of p.footwork.feet) {
+    const anchors = p.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY])
+    for (const foot of p.anim.footwork.feet) {
       assert.ok(foot.planted)
       assert.ok(foot.anchorX >= footing.x && foot.anchorX <= footing.x + width)
     }
     for (let cycle = 0; cycle < 3; cycle++) for (let tick = 0; tick < 10; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: tick < 2 ? 0 : direction })
-      assert.ok(p.footwork.feet.every(foot => foot.planted))
-      assert.deepEqual(p.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors)
+      assert.ok(p.anim.footwork.feet.every(foot => foot.planted))
+      assert.deepEqual(p.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors)
       const pose = athletePose(p)
       assert.ok(pose.frontLeg.planted && pose.backLeg.planted)
     }
@@ -208,7 +208,7 @@ test('a moving push transfers torso weight while its load-bearing palms stay fix
     stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
     const p = run.player, pose = athletePose(p)
     hips.push(pose.hip[1]); chest.push(pose.shoulder[0])
-    supports.add(p.footwork.feet.findIndex(foot => foot.planted))
+    supports.add(p.anim.footwork.feet.findIndex(foot => foot.planted))
     limbLengths(pose)
     for (const [j, arm] of [pose.frontArm, pose.backArm].entries()) {
       const palm = p.pushing.palms[j], hand = worldPoint(p, arm.hand)
@@ -262,8 +262,8 @@ test('short-object pushing hinges over working legs rather than staying in a ful
       const p = run.player, pose = athletePose(p)
       assert.ok(pose.hip[1] < -23, 'the working pelvis leaves room for a leg drive')
       assert.ok(pose.shoulder[0] - pose.hip[0] > 9, 'the torso hinges toward the low grips')
-      assert.ok(p.footwork.feet.some(foot => foot.planted), 'one foot supports each working step')
-      supports.add(p.footwork.feet.findIndex(foot => foot.planted))
+      assert.ok(p.anim.footwork.feet.some(foot => foot.planted), 'one foot supports each working step')
+      supports.add(p.anim.footwork.feet.findIndex(foot => foot.planted))
       ankles.push(pose.frontLeg.end[0] - pose.backLeg.end[0])
       clearPoint(p, pose.head, 6.2, run.platforms)
       limbLengths(pose)
@@ -278,14 +278,14 @@ test('the first playable frame has real idle support without advancing the chall
   assert.equal(run.elapsed, 0)
   assert.equal(run.started, true)
   assert.ok(p.contacts?.support, 'the ready frame already knows its support')
-  assert.ok(p.footwork?.feet.every(foot => foot.planted))
+  assert.ok(p.anim.footwork?.feet.every(foot => foot.planted))
   assert.ok(Math.abs(pose.frontLeg.end[0] - pose.backLeg.end[0]) >= 3, 'idle soles are distinct')
   assert.ok(Math.hypot(...pose.frontArm.end.map((v, i) => v - pose.backArm.end[i])) > 6, 'relaxed hands clear the torso silhouette')
   const unsupported = blankTrial()
   unsupported.entrance.y -= 100
   const airborne = createRun(unsupported).player
   assert.equal(airborne.grounded, false)
-  assert.equal(airborne.footwork, null)
+  assert.equal(airborne.anim.footwork, null)
   assert.ok(athletePose(airborne).frontLeg.planted === false)
 })
 
@@ -369,7 +369,7 @@ test('released steering retains a prone impact and recovery despite remaining si
       if (!impact) continue
       assert.equal(p.freeFall?.moving, undefined, 'drift cannot start the steering get-up')
       if (p.freeFall?.recovery < .18) {
-        assert.ok(Math.abs(pose.shoulder[1] - pose.hip[1]) < (p.ragdoll ? 7 : 2), 'the impact stays prone through bounded torso recoil')
+        assert.ok(Math.abs(pose.shoulder[1] - pose.hip[1]) < (p.anim.ragdoll ? 7 : 2), 'the impact stays prone through bounded torso recoil')
         assert.ok(!pose.frontLeg.planted && !pose.backLeg.planted, 'feet do not claim the initial impact')
       }
       if (!p.freeFall) {

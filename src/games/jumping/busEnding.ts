@@ -25,7 +25,7 @@ const progress = (time: number, start: number, end: number) => Math.max(0, Math.
 /** Presentation only: the real run is already complete and saved. */
 export function createBusEnding(edge: number, ground: number, player: Player, camera: EndingCamera): BusEnding {
   const actor = createPlayer({ x: player.x, y: player.y })
-  actor.stride = player.stride; actor.gait = player.gait ? { ...player.gait } : null
+  actor.anim.stride = player.anim.stride; actor.anim.gait = player.anim.gait ? { ...player.anim.gait } : null
   const terrain = [{ x: edge - 500, y: ground, w: 5000, h: 300 }]
   actor.terrain = terrain
   return { elapsed: 0, edge, ground, from: { x: player.x, y: player.y }, camera: { ...camera }, player: actor, terrain }

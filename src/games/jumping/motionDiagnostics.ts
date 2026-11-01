@@ -1,7 +1,7 @@
-import { athletePose } from './athlete.ts'
 import { playerWaterCenterOffset } from './gravity.ts'
 import type { JumpInput, Player } from './model.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
+import { athletePose } from './athletePose.ts'
 
 const HISTORY_SECONDS = 2, WINDOW_SECONDS = .25, MAX_SAMPLES = 240, MAX_REPORTS = 8
 const pointNames = ['hip', 'shoulder', 'head', 'frontElbow', 'frontHand', 'backElbow', 'backHand',
@@ -17,14 +17,14 @@ function snapshot(p: Player, input: JumpInput, time: number) {
       grounded: p.grounded, inverted: !!p.inverted, sliding: !!p.sliding?.active, bracing: !!p.wallBrace?.active, facing: p.facing,
       waterLanding: !!p.waterMotion?.landing && !p.waterMotion.landing.leaving,
       waterCeiling: (p.waterMotion?.ceiling?.amount ?? 0) > .5,
-      slideLanding: !!p.slideEntry?.landing,
-      reachingPush: !!p.dryTurn?.reaching,
-      ragdoll: p.ragdoll?.kind ?? null,
+      slideLanding: !!p.anim.slideEntry?.landing,
+      reachingPush: !!p.anim.dryTurn?.reaching,
+      ragdoll: p.anim.ragdoll?.kind ?? null,
       support: p.contacts?.support?.collider.id ?? null, push: p.contacts?.push?.collider.id ?? null,
     },
-    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0,
+    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.anim.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0,
       ceiling: p.waterMotion?.ceiling?.amount ?? 0, gravityTurn: playerTurnAngle(p),
-      ragdoll: p.ragdoll ? 1 - Math.min(1, p.ragdoll.time / p.ragdoll.duration) : 0 },
+      ragdoll: p.anim.ragdoll ? 1 - Math.min(1, p.anim.ragdoll.time / p.anim.ragdoll.duration) : 0 },
     contacts: {
       floorHand: p.waterMotion?.landing && !p.waterMotion.landing.leaving ? { ...p.waterMotion.landing.hand } : null,
       palms: p.pushing?.palms?.map(palm => ({ ...palm })) ?? [],

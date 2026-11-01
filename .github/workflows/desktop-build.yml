@@ -26,6 +26,9 @@ jobs:
       - run: npm run levels:check
       - run: npm run lint
       - run: npm test
+        env:
+          # The web workflow's golden traces job replays them.
+          SKIP_UJG_GOLDEN: '1'
       - run: npm run build:desktop
       - uses: actions/upload-artifact@v7
         with:

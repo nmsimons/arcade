@@ -1,5 +1,3 @@
-import { drawAthlete } from './athlete.ts'
-import type { AthletePose } from './athlete.ts'
 import { createPlayer } from './model.ts'
 import { drawLandscape } from './environment.ts'
 import type { JumpLevel } from './level.ts'
@@ -7,6 +5,8 @@ import { goalEase } from './goal.ts'
 import type { Goal } from './goal.ts'
 import { busEndingCamera, busEndingFrame, BUS_REAR_PIVOT_Y, BUS_REAR_WHEEL_BOTTOM_Y } from './busEnding.ts'
 import type { BusEnding, EndingCamera } from './busEnding.ts'
+import { drawAthlete } from './athleteDraw.ts'
+import type { AthletePose } from './athleteRig.ts'
 
 const path = (ctx: CanvasRenderingContext2D, points: number[][]) => {
   ctx.beginPath(); points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill()

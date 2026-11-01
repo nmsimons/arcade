@@ -23,7 +23,7 @@ for(const backend of ['canvas','gpu'])test(`${backend}: foreground reuse and emp
       const view={x:260.3,y:200.7,zoom:.9,width:900,height:600}
       for(let frame=0;frame<9;frame++){
         if(frame===1){view.x+=.37;view.y-=.23}
-        if(frame===2){run.props[0].angle=.33;run.props[1].x+=10;run.player.stride=.7}
+        if(frame===2){run.props[0].angle=.33;run.props[1].x+=10;run.player.anim.stride=.7}
         if(frame===3)run.exit={elapsed:.5}
         if(frame===4){run.exit=null;run.player.facing=-1;run.player.crouch=.7}
         if(frame===5){for(const surface of run.waterSurface.surfaces){surface.active=true;surface.height.fill(-3);surface.previous.fill(-2)}}

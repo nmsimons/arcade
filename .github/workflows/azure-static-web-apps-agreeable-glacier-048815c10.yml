@@ -59,6 +59,9 @@ jobs:
       - name: Test gameplay and saves
         if: steps.scope.outputs.fast != 'true'
         run: npm test
+        env:
+          # The golden traces job replays them alongside the browser shards.
+          SKIP_UJG_GOLDEN: '1'
       - name: Lint
         run: npm run lint
       - name: Build
@@ -130,8 +133,30 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  golden:
+    needs: validate
+    runs-on: ubuntu-latest
+    name: UJG golden traces
+    # Two replays of every trace take about eight minutes on a busy runner.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        if: needs.validate.outputs.fast != 'true'
+      - uses: actions/setup-node@v7
+        if: needs.validate.outputs.fast != 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+        if: needs.validate.outputs.fast != 'true'
+      - name: Replay golden traces with and without animation
+        if: needs.validate.outputs.fast != 'true'
+        run: node --test tests/jumping-golden-traces.test.mjs
+
   deploy:
-    needs: [validate, browser]
+    needs: [validate, browser, golden]
     if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
     name: Deploy validated site

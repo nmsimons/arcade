@@ -11,7 +11,6 @@ import { BOX_RESTING_ANGLE_TOLERANCE, ballHull, ballShape, boxShape, propHeight,
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { playerContactBody, rotateFeet, translatePlayer } from './playerContacts.ts'
-import { swimmingTerrainOutline } from './athlete.ts'
 import { advanceWaterBob, waterBobAcceleration } from './waterBob.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import type { ForceFieldState } from './forceField.ts'
@@ -22,6 +21,7 @@ import type { Vec } from './geometry.ts'
 
 import { propFloatDrag, propGravity, propWaterStrength } from './gravity.ts'
 import { propWeightScale } from './propWeight.ts'
+import { swimmingTerrainOutline } from './poses/waterPose.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; fields: Map<ForceFieldState, Matter.Body>; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
@@ -298,7 +298,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
         ? push.direction * Math.max(0, Math.min(maximum, (target - b.vx) * push.direction * response))
         : Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
       const point = lowSwimPush && b.kind === 'ball' && contact ? { x: contact.point[0], y: contact.point[1] } : body.position
-      const reach = lowSwimPush ? (push.reach ?? 1) * Math.min(1, (run.player.pushing?.amount ?? 0) + dt / .14) : 1
+      const reach = lowSwimPush ? (push.reach ?? 1) * Math.min(1, (run.player.pushRig?.amount ?? 0) + dt / .14) : 1
       Body.applyForce(body, point, { x: body.mass * acceleration * reach / propWeightScale(b) / 1e6, y: 0 })
     } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load

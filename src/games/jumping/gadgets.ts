@@ -4,12 +4,14 @@ import { wantsCrouch } from './model.ts'
 import { lineBlocked, nearestBoundary, polygonIntersects, polygonPoints } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { ballShape, boxShape, propHeight } from './propGeometry.ts'
-import { athletePose } from './athlete.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { faceRobotToward, repulseRobot, robotPlatforms } from './robotPhysics.ts'
 import { setPropCarried, repulseProp } from './propPhysics.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
+import { athletePose } from './athletePose.ts'
+import { gameplayPose } from './gameplayPose.ts'
+import { cadence } from './characterAnimation.ts'
 
 export type GadgetKind = 'emp' | 'repulsor'
 export const GADGET_SIZE = 40
@@ -52,7 +54,7 @@ export function advanceGadgetDisables(run: Run, dt: number) {
 /** The same sleeve hull and forearm axis drive artwork, clearance and firing. */
 export function heldToolFrame(p: Player, tool = p.heldTool): ToolFrame | null {
   if (!tool) return null
-  const pose = athletePose(tool === p.heldTool ? p : { ...p, heldTool: tool })
+  const pose = gameplayPose(tool === p.heldTool ? p : { ...p, heldTool: tool })
   const arm = p.facing < 0 ? pose.backArm : pose.frontArm
   const flip = p.inverted ? -1 : 1
   const dx = (arm.end[0] - arm.joint[0]) * p.facing, dy = (arm.end[1] - arm.joint[1]) * flip
@@ -63,6 +65,10 @@ function armAngles(p: Player) {
   const pose = athletePose(p), arm = p.facing < 0 ? pose.backArm : pose.frontArm, flip = p.inverted ? -1 : 1
   const angle = (a: Vec, b: Vec) => Math.atan2((b[1] - a[1]) * flip, (b[0] - a[0]) * p.facing)
   return { forearm: angle(arm.joint, arm.end), upper: angle(arm.root, arm.joint) }
+}
+/** One drawn frame of the displayed arm's easing, for the 'frame' cadence. */
+export function easeHeldTool(p: Player, dt: number) {
+  if (p.heldTool) p.heldTool.presentation = easeArm(p, p.heldTool.presentation, dt)
 }
 function easeArm(p: Player, previous: HeldTool['presentation'], dt: number) {
   const target = armAngles(p)
@@ -177,11 +183,13 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
     const before = heldToolFrame(p), after = heldToolFrame({ ...p, facing }, tool)!, solids = gadgetSolids(run)
     state.blocked = turnSupported || !legal(after, solids) || !!before && !framePathClear(before, after, solids)
     if (supporting || !aiming && rightArmAnimating(p) || !state.blocked || !p.heldTool) {
-      if (p.facing !== facing) { p.facing = facing; p.dryTurn = null }
+      if (p.facing !== facing) { p.facing = facing; p.anim.dryTurn = null }
       p.heldTool = tool; state.angle = angle; state.aiming = aiming
     }
     else { p.heldTool.blocked = true; state.aiming = aiming }
-    p.heldTool!.presentation = easeArm(p, previousPresentation, dt)
+    // The displayed arm eases every step, once per drawn frame, or not at all.
+    if (cadence(p) === 'tick') p.heldTool!.presentation = easeArm(p, previousPresentation, dt)
+    else if (previousPresentation) p.heldTool!.presentation = previousPresentation
     if (use && !interact) {
       if (supporting || turnSupported) feedback(run, 'Right arm supporting')
       else if (run.empRemaining > 0) feedback(run, 'Power off')

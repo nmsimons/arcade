@@ -7,8 +7,10 @@ import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { mirrorPlatform, mirrorPlayerState } from '../src/games/jumping/gravityFrame.ts'
 
 const lip = { x: 500, y: 400, w: 400, h: 800 }
-const falling = values => Object.assign(createPlayer({ x: 470, y: 444 }),
-  { grounded: false, coyote: 0, facing: 1, vy: 0, gait: gaitPose(200, true) }, values)
+const falling = values => {
+  const p = createPlayer({ x: 470, y: 444 })
+  return Object.assign(p, { grounded: false, coyote: 0, facing: 1, vy: 0, anim: { ...p.anim, gait: gaitPose(200, true) } }, values)
+}
 for (const inverted of [false, true]) {
   test(`dry ledge preparation leaves unreachable and departing lips alone: inverted=${inverted}`, () => {
     for (const values of [{ x: 460 }, { y: 500 }, { vx: -100 }]) {
@@ -21,7 +23,7 @@ for (const inverted of [false, true]) {
   })
   test(`a dry turn cannot prepare a lip behind the visible body: inverted=${inverted}`, () => {
     const p = falling({ x: 460 })
-    p.dryTurn = { pose: reflectAthletePose(athletePose(p)), facing: 1, target: 1, time: 0, departure: false }
+    p.anim.dryTurn = { pose: reflectAthletePose(athletePose(p)), facing: 1, target: 1, time: 0, departure: false }
     if (inverted) { mirrorPlayerState(p); p.inverted = true }
     stepPlayer(p, NEUTRAL_INPUT, STEP, [inverted ? mirrorPlatform(lip) : lip], undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
     assert.equal(p.ledgeReach, null)
@@ -45,7 +47,8 @@ for (const inverted of [false, true]) {
 for (const side of [-1, 1]) {
   test(`unloaded object preparation gathers gradually without moving the player or planted feet: side=${side}`, () => {
     for (const gap of [20, 30, 38, 45]) {
-      const p = Object.assign(createPlayer({ x: 500, y: 920 }), { vx: side * 200, facing: side, gait: gaitPose(200) })
+      const p = createPlayer({ x: 500, y: 920 })
+      Object.assign(p, { vx: side * 200, facing: side, anim: { ...p.anim, gait: gaitPose(200) } })
       const prop = { kind: 'box', x: 500 + side * (gap + 40), y: 920, size: 80, angle: 0, vx: 0, vy: 0 }
       const platform = boxShape(prop), world = { platforms: [platform], colliders: [{ id: 'prop:0', platform, prop }] }
       const contact = anticipatePush(p, { ...NEUTRAL_INPUT, move: side }, world)
@@ -74,7 +77,7 @@ for (const side of [-1, 1]) {
   })
   test(`a turn does not reach for an object behind the visible body: side=${side}`, () => {
     const p = Object.assign(createPlayer({ x: 500, y: 920 }), { vx: side * 200, facing: side })
-    p.dryTurn = { pose: reflectAthletePose(athletePose(p)), facing: side, target: side, time: 0, departure: false }
+    p.anim.dryTurn = { pose: reflectAthletePose(athletePose(p)), facing: side, target: side, time: 0, departure: false }
     const prop = { kind: 'box', x: 500 + side * 70, y: 920, size: 80, angle: 0, vx: 0, vy: 0 }
     const platform = boxShape(prop), world = { platforms: [platform], colliders: [{ id: 'prop:0', platform, prop }] }
     assert.equal(anticipatePush(p, { ...NEUTRAL_INPUT, move: side }, world), null)

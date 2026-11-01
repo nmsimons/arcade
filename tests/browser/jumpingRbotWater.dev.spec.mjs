@@ -89,7 +89,7 @@ test('Quarantine II: enlarged flight, swim-out and bank-catch review preserves t
         jump: frame === 1320, jumpStrength: 1, climb: t >= 11 })
       const bot = run.robots[0]
       if (frame <= flightFrames.at(-1)) {
-        const actor = bot.actor, turn = !actor.grounded && !actor.hang && !actor.climbing && !actor.mantle && !!actor.dryTurn
+        const actor = bot.actor, turn = !actor.grounded && !actor.hang && !actor.climbing && !actor.mantle && !!actor.anim.dryTurn
         if (turn && !previousTurn) flightTurns++
         previousTurn = turn
       }

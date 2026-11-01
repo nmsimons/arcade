@@ -1,8 +1,8 @@
-import { awakeningPose, presentedAthletePose } from './athlete.ts'
 import type { RobotState } from './challenge.ts'
 import { AWAKENING_SECONDS, awakeningProgress, entranceVisibility } from './goal.ts'
 import type { Player } from './model.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
+import { awakeningPose, presentedAthletePose } from './athletePose.ts'
 
 export const REPULSOR_BOT_WIDTH_SCALE = 1.45
 const smooth = (n: number) => { const t = Math.max(0, Math.min(1, n)); return t * t * (3 - 2 * t) }

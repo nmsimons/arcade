@@ -50,9 +50,9 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
       fixedLimbs(pose)
       if (tick % 4 === 0) clearUpperBody(run, pose)
       assert.ok(p.grounded && p.pushing?.effort, config.name + ': the fixture retains a real loaded push')
-      assert.ok(p.footwork.feet.some(foot => foot.planted), config.name + ': a real leg supports every working step')
+      assert.ok(p.anim.footwork.feet.some(foot => foot.planted), config.name + ': a real leg supports every working step')
       for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
-        const foot = p.footwork.feet[i]
+        const foot = p.anim.footwork.feet[i]
         if (!foot.planted && previous[i]) { steps++; movers.add(i) }
         if (foot.planted) {
           assert.ok(Math.hypot(p.x + leg.end[0] * p.facing - foot.x, p.y + leg.end[1] - foot.y) < 1e-6,
@@ -61,7 +61,7 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
           assert.ok(ground && Math.abs(ground.y - foot.anchorY) < .02, config.name + ': the anchor is on real support')
         }
       }
-      previous = p.footwork.feet.map(foot => foot.planted)
+      previous = p.anim.footwork.feet.map(foot => foot.planted)
       for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
         const palm = p.pushing.palms[i]
         assert.ok(Math.hypot(p.x + arm.hand[0] * p.facing - palm.x - palm.nx * 1.6,
@@ -76,14 +76,14 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
       'a moving support really moves; its motion is not erased to manufacture a stationary case')
     if (config.blocked) {
       assert.ok(Math.abs(p.x - start[0]) < .001, config.name + ': the real obstruction actually blocks locomotion')
-      const anchors = p.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), origin = carrier && [carrier.x, carrier.y]
+      const anchors = p.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), origin = carrier && [carrier.x, carrier.y]
       for (let tick = 0; tick < 1200; tick++) {
         stepRun(run, { ...NEUTRAL_INPUT, move: facing * (config.effort ?? 1) })
         const shift = carrier ? [carrier.x - origin[0], carrier.y - origin[1]] : [0, 0]
-        assert.ok(p.footwork.feet.every(foot => foot.planted), 'ten seconds of blocked effort cannot restart stance steps')
-        for (const [i, foot] of p.footwork.feet.entries()) assert.ok(Math.hypot(
+        assert.ok(p.anim.footwork.feet.every(foot => foot.planted), 'ten seconds of blocked effort cannot restart stance steps')
+        for (const [i, foot] of p.anim.footwork.feet.entries()) assert.ok(Math.hypot(
           foot.anchorX - anchors[i][0] - shift[0], foot.anchorY - anchors[i][1] - shift[1]) < 1e-6)
-        assert.ok(p.footwork.pushBalance.every(point => Math.hypot(...point) < .001), 'carrier transport alone cannot cycle voluntary weight transfer')
+        assert.ok(p.anim.footwork.pushBalance.every(point => Math.hypot(...point) < .001), 'carrier transport alone cannot cycle voluntary weight transfer')
       }
     }
     results.push({ name: config.name, facing, steps, load: p.pushing.load, pose: athletePose(p) })
@@ -139,10 +139,10 @@ test('low working pushes retain drive, alternating support and clearance across 
       const pose = athletePose(p)
       fixedLimbs(pose)
       assert.ok(p.grounded, config.name + ': the real support is retained')
-      if (!escaping || p.pushing?.effort) assert.ok(p.footwork.feet.some(foot => foot.planted), config.name + ': a real leg supports the working body')
+      if (!escaping || p.pushing?.effort) assert.ok(p.anim.footwork.feet.some(foot => foot.planted), config.name + ': a real leg supports the working body')
       if (tick % 4 === 0) clearUpperBody(run, pose)
       for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
-        const foot = p.footwork.feet[i]
+        const foot = p.anim.footwork.feet[i]
         if (previous[i] && !foot.planted) steps[i]++
         if (foot.planted) assert.ok(Math.hypot(p.x + leg.end[0] * facing - foot.x, p.y + leg.end[1] - foot.y) < 1e-6,
           config.name + ': the final shoe cannot drag off its motor ankle')
@@ -150,7 +150,7 @@ test('low working pushes retain drive, alternating support and clearance across 
         const ground = groundAt(p.terrain, kneeX, p.y)
         assert.ok(!ground || kneeY <= ground.y - 1.49, config.name + ': knee outline clears the support')
       }
-      previous = p.footwork.feet.map(foot => foot.planted)
+      previous = p.anim.footwork.feet.map(foot => foot.planted)
       // After this ball escapes, ordinary running has its normal flight phase.
       // Keep the strict pelvis/support contract throughout loaded work and the
       // first release; the separate release checks cover the ensuing free gait.
@@ -184,7 +184,7 @@ test('low working pushes retain drive, alternating support and clearance across 
       // Matter's polygonal balls take up a small initial clearance against the
       // wall. Test settled blockage, without erasing that physical movement.
       assert.ok(Math.abs(p.x - settledX) < .001, config.name + ': the settled obstruction actually blocks the motor')
-      assert.ok(p.footwork.feet.every(foot => foot.planted), 'blocked low effort ends in a planted brace')
+      assert.ok(p.anim.footwork.feet.every(foot => foot.planted), 'blocked low effort ends in a planted brace')
     }
     stepRun(run, { ...NEUTRAL_INPUT, jump: true })
     assert.ok(!p.grounded && p.vy < 0, config.name + ': low contact retains immediate jump escape')

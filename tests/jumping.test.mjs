@@ -78,36 +78,36 @@ test('running jumps bridge a 380-unit gap in either direction while a standing t
 
 test('releasing movement stops travel promptly while the pose settles smoothly to idle', () => {
   const p = createPlayer(); advance(p, .6, { move: 1 })
-  const running = { ...p.gait }
+  const running = { ...p.anim.gait }
   advance(p, STEP)
-  assert.ok(p.gait.moving >= running.moving - .02)
-  assert.ok(p.gait.run >= running.run - .02)
+  assert.ok(p.anim.gait.moving >= running.moving - .02)
+  assert.ok(p.anim.gait.run >= running.run - .02)
   advance(p, .15)
   assert.equal(p.vx, 0)
-  assert.ok(p.gait.moving > .2, 'the pose still has a settling transition after braking finishes')
-  const stoppedX = p.x, stoppingPose = { ...p.gait }
+  assert.ok(p.anim.gait.moving > .2, 'the pose still has a settling transition after braking finishes')
+  const stoppedX = p.x, stoppingPose = { ...p.anim.gait }
   advance(p, .1)
   assert.equal(p.x, stoppedX)
-  assert.ok(p.gait.moving > 0 && p.gait.moving < stoppingPose.moving)
-  assert.ok(p.gait.run < stoppingPose.run)
+  assert.ok(p.anim.gait.moving > 0 && p.anim.gait.moving < stoppingPose.moving)
+  assert.ok(p.anim.gait.run < stoppingPose.run)
   advance(p, .6)
-  assert.deepEqual(p.gait, { speed: 0, moving: 0, run: 0, air: 0 })
+  assert.deepEqual(p.anim.gait, { speed: 0, moving: 0, run: 0, air: 0 })
   advance(p, .12, { move: -1 })
-  assert.ok(p.vx < 0 && p.gait.moving > 0)
-  respawn(p); assert.equal(p.gait, null)
+  assert.ok(p.vx < 0 && p.anim.gait.moving > 0)
+  respawn(p); assert.equal(p.anim.gait, null)
 })
 
 test('landing keeps the falling pose briefly and blends it out after ground contact', () => {
   const p = createPlayer(); advance(p, STEP, { jump: true }); advance(p, .35)
-  assert.equal(p.grounded, false); assert.ok(p.gait.air > .95)
+  assert.equal(p.grounded, false); assert.ok(p.anim.gait.air > .95)
   for (let i = 0; i < 160 && !p.grounded; i++) advance(p, STEP)
   assert.equal(p.grounded, true); assert.equal(p.y, 620)
-  const contact = p.gait.air
+  const contact = p.anim.gait.air
   assert.ok(contact > .8, 'the landing-ready pose must blend through ground contact')
   advance(p, .1)
-  assert.ok(p.gait.air > .05 && p.gait.air < contact)
+  assert.ok(p.anim.gait.air > .05 && p.anim.gait.air < contact)
   assert.equal(p.y, 620)
-  advance(p, .5); assert.equal(p.gait.air, 0)
+  advance(p, .5); assert.equal(p.anim.gait.air, 0)
 })
 test('landing strength uses contact speed and never locks movement or another jump', () => {
   const impacts = [200, 900].map(vy => {
@@ -136,13 +136,13 @@ test('Down ducks under a low ceiling and waits for clearance before standing', (
 test('Down replaces looking down with a slow grounded crouch; Up still looks up', () => {
   const p = createPlayer()
   advance(p, .3, { descend: true })
-  assert.equal(p.crouching, true); assert.equal(p.crouch, 1); assert.equal(p.look, 0)
+  assert.equal(p.crouching, true); assert.equal(p.crouch, 1); assert.equal(p.anim.look, 0)
   advance(p, .4, { move: 1, descend: true })
   assert.equal(p.vx, TUNING.walkSpeed)
   advance(p, .4, { move: 1 })
   assert.equal(p.crouching, false); assert.equal(p.vx, TUNING.runSpeed)
-  advance(p, .8, { climb: true }); assert.equal(p.look, 1)
-  advance(p, .8, { descend: true }); assert.equal(p.look, 0)
+  advance(p, .8, { climb: true }); assert.equal(p.anim.look, 1)
+  advance(p, .8, { descend: true }); assert.equal(p.anim.look, 0)
 })
 test('held reach raises and lowers the arms without changing running or takeoff', () => {
   const p = createPlayer(); advance(p, .3, { move: 1 })
@@ -170,7 +170,7 @@ test('the body cannot remain supported beyond a platform edge', () => {
     const world = [{ x: 300, y: 620, w: 300, h: 400 }], p = createPlayer()
     Object.assign(p, { x: side === 1 ? 601 : 299, facing: side })
     advance(p, .1, {}, world)
-    assert.equal(p.grounded, false); assert.equal(p.footwork, null)
+    assert.equal(p.grounded, false); assert.equal(p.anim.footwork, null)
     assert.ok(p.y > 625, 'the body falls instead of leaning past pinned feet')
   }
 })

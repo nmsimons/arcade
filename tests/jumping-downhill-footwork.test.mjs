@@ -17,7 +17,7 @@ test('Spelunk downhill running completes descending-foot landings instead of res
     for (let tick = 0; tick < 160; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: mode === 'walk' ? -TUNING.walkSpeed / TUNING.runSpeed : -1,
         crouch: mode === 'crouch', descend: mode === 'crouch', drop: mode === 'crouch' })
-      const p = run.player, feet = p.footwork?.feet ?? [], pose = athletePose(p)
+      const p = run.player, feet = p.anim.footwork?.feet ?? [], pose = athletePose(p)
       for (const [i, foot] of feet.entries()) {
         maximumTrail = Math.max(maximumTrail, (p.x - foot.x) * p.facing)
         if (previous[i]?.release?.landing && foot.release?.landing) {

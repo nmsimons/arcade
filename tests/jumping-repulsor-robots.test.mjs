@@ -37,7 +37,7 @@ test('a repulsor hit starts visible recoil without teleporting the shovebot', ()
 
 for (const side of [-1, 1]) test(`a shot from ${side < 0 ? 'left' : 'right'} turns the bot to face the player`, () => {
   const run = equipped(), robot = run.robots[0], p = run.player
-  Object.assign(p, { x: robot.x + side * 180, facing: -side, dryTurn: null })
+  Object.assign(p, { x: robot.x + side * 180, facing: -side, anim: { ...p.anim, dryTurn: null } })
   robot.facing = -side
   prepareGadgets(run, { ...NEUTRAL_INPUT, use: true }, STEP)
   assert.equal(run.gadgets.shots, 1)
@@ -48,7 +48,7 @@ for (const side of [-1, 1]) test(`a shot from ${side < 0 ? 'left' : 'right'} tur
 for (const side of [-1, 1]) test(`touching the bot from ${side < 0 ? 'left' : 'right'} makes it face the player`, () => {
   const level = scene(); level.props = []
   const run = createRun(level), robot = run.robots[0]
-  Object.assign(run.player, { x: robot.x + side * 37.8, y: robot.y, grounded: true, footwork: null })
+  Object.assign(run.player, { x: robot.x + side * 37.8, y: robot.y, grounded: true, anim: { ...run.player.anim, footwork: null } })
   robot.facing = -side
   tick(run)
   assert.equal(robot.facing, side)
@@ -66,7 +66,7 @@ test('walking into a resting bot from behind turns it toward the contacting play
   const level = scene(); level.props = []
   const run = createRun(level), robot = run.robots[0]
   Object.assign(robot, { facing: 1, phase: 'recover', time: -10 })
-  Object.assign(run.player, { x: robot.x - 100, y: robot.y, grounded: true, footwork: null })
+  Object.assign(run.player, { x: robot.x - 100, y: robot.y, grounded: true, anim: { ...run.player.anim, footwork: null } })
   tick(run, 80, { move: 1 })
   assert.equal(robot.facing, -1)
 })
@@ -75,7 +75,7 @@ for (const side of [-1, 1]) test(`a rider on the ${side < 0 ? 'left' : 'right'} 
   const level = scene(); level.props = []
   const run = createRun(level), robot = run.robots[0]
   Object.assign(robot, { facing: -side, phase: 'recover', time: -10 })
-  Object.assign(run.player, { x: robot.x + side * 10, y: robot.y - 46, grounded: true, footwork: null })
+  Object.assign(run.player, { x: robot.x + side * 10, y: robot.y - 46, grounded: true, anim: { ...run.player.anim, footwork: null } })
   tick(run)
   assert.equal(robot.facing, side)
 })

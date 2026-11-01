@@ -23,11 +23,11 @@ test('leaving a real moving ball steps down to the lower floor without instantly
         if (previous) core.forEach((point,i) => assert.ok(Math.hypot(...point.map((v,j) => v-previous[i][j])) < 8,
           `${side}/${tick}/${i}: support transfer rejects the original 25-unit body drop`))
         sawBall ||= p.contacts.support?.collider.prop === run.props[0]
-        sawLanding ||= !!p.footwork?.feet.some(foot => foot.release?.landing && !foot.planted && foot.groundY-foot.y > 8)
+        sawLanding ||= !!p.anim.footwork?.feet.some(foot => foot.release?.landing && !foot.planted && foot.groundY-foot.y > 8)
         for (const [i, leg] of [pose.frontLeg,pose.backLeg].entries()) {
           assert.ok(Math.abs(Math.hypot(...leg.joint.map((v,j) => v-leg.root[j]),leg.jointDepth??0)-15) < 1e-5)
           assert.ok(Math.abs(Math.hypot(...leg.end.map((v,j) => v-leg.joint[j]),(leg.endDepth??0)-(leg.jointDepth??0))-14.5) < 1e-5)
-          const foot = p.footwork?.feet[i]
+          const foot = p.anim.footwork?.feet[i]
           if (!leg.planted) continue
           assert.ok(foot?.planted, 'the drawing cannot manufacture support')
           assert.ok(Math.hypot(p.x+leg.end[0]*p.facing-foot.x,p.y+leg.end[1]-foot.y) < 1e-5, 'the drawn ankle retains the real foot motor')

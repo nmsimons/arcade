@@ -28,6 +28,59 @@ Run the affected checks after each fix. These test locations are included in the
 existing unit and browser CI jobs; a separate manual regression command must not
 be the only way to exercise a reported bug.
 
+## UJG golden traces and the fast tier
+
+`tests/jumping-golden-traces.test.mjs` replays fixed input scripts on every
+built-in level and every mechanism fixture level in `tests/fixtures/jumping/`:
+two seeded explorers per level (a runner and a climber, eight seconds each) and
+every recorded medal route. Each tick it hashes three things,
+and `tests/fixtures/jumping-golden-traces/` keeps a running hash every
+second of gameplay:
+
+- **physics:** positions, velocities, motor modes and timers of the player,
+  props, ropes, robots and mechanisms, plus run counters. Presentation blends
+  are excluded.
+- **state:** every mutable field of the run, including animation state.
+- **pose:** `presentedAthletePose` for the player and every robot actor, every
+  second tick.
+
+The simulation is deterministic, so a change that claims to preserve behaviour
+must reproduce every hash bit for bit. Never re-record physics for such a
+change. Re-record a kind only when changing it is the intent, and say which
+kind and why: `node scripts/jumping-golden.mjs --write --kinds pose`. To find a
+divergence, run `node scripts/jumping-golden.mjs --only <level>`, then
+`--print '<level>|<script>' --kinds physics --from <tick> --to <tick>` in both
+versions and diff the output; `--source <checkout>` replays another checkout's
+game code with the same scripts. The test also replays every trace with
+animation switched off and with animation once every second step
+(`--cadence off|frame`), and requires the same physics hashes: physics never
+reads animation ([design note](jumping-animation.md)).
+
+The hashes hold only for the CPU's math library. V8's `sin`, `atan2`, `exp`,
+`pow` and similar functions can differ in the last bit between arm64 and x64
+(arm64 builds fuse multiply-adds), and between Linux and macOS x64 builds.
+Motion grows that into a different trace within seconds. The recorded set,
+`tests/fixtures/jumping-golden-traces/arm64.json`, stores a fingerprint of
+those functions (`mathFingerprint()` in `tests/helpers/jumping-golden.mjs`), and
+the replay runs only where the fingerprint matches: on Apple Silicon, not in
+CI. Run the golden test locally before pushing a change to UJG simulation code.
+The cadence checks compare against the same machine's run at the default
+cadence. Where no hashes are recorded, only the cadence the game uses
+(animation off) is checked. In CI the unit-test jobs set `SKIP_UJG_GOLDEN=1`,
+and the `UJG golden traces` job runs this file alongside the browser shards,
+so it does not delay them.
+
+`npm run test:fast` runs every UJG unit test except the stress-level routes and
+the long whole-skin acceptance sweeps, in about two minutes on an 18-core
+machine. Run the full `npm test` before finishing a change.
+`node scripts/benchmark-jumping-simulation.mjs` times each tick and each 60 Hz
+frame (two ticks plus pose solving) per level over the same scripts; save a
+result with `--output`, compare a later run with `--compare`, and pick the
+animation cadence with `--cadence tick|frame|off`. On Arm Windows
+machines, install dependencies with Arm64 Node (`node -p process.arch` prints
+`arm64`). x64 Node runs under emulation there, so builds can fail and timings
+are not native.
+
 ## Game acceptance coverage
 
 Node imports the same `createGameSession` used by React. `sessionReplay.mjs`

@@ -1,7 +1,8 @@
-import { traceAthleteArtwork } from './athlete.ts'
-import type { AthleteOutline, AthletePose } from './athlete.ts'
-import type { Player, Platform } from './model.ts'
+import type { Platform, Player } from './characterTypes.ts'
 import type { Vec } from './geometry.ts'
+import { traceAthleteArtwork } from './athleteDraw.ts'
+import type { AthleteOutline } from './athleteDraw.ts'
+import type { AthletePose } from './athleteRig.ts'
 
 const TOLERANCE = .2
 const middle = (a: Vec, b: Vec): Vec => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]

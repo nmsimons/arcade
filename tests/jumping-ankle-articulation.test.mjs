@@ -37,7 +37,7 @@ for (const clip of catalog) test(`final ${clip.id} poses keep visible ankles ope
     // A long leg against a steep wall can exhaust its bend-plane travel. Its
     // sole remains on the wall; it still must not fold flat against the calf.
     assert.ok(flex(leg) >= -(wall ? 66 : 55) * Math.PI / 180, `${clip.id}/${frame}/${name}: folded ankle ${flex(leg)}`)
-    const foot = sample.player.footwork?.feet[i]
+    const foot = sample.player.anim.footwork?.feet[i]
     if (clip.id === 'crouch' && leg.planted && foot?.planted) {
       assert.ok(Math.hypot(sample.player.x + leg.end[0] * sample.player.facing - foot.x,
         sample.player.y + leg.end[1] - foot.y) < 1e-6, 'opening the knee does not slide its motor ankle')

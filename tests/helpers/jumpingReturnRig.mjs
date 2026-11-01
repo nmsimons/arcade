@@ -26,7 +26,7 @@ export function assertReturningRig(p,pose,prop,context){
  assert.ok(distance(pose.hip,pose.waist)>6.2,'pelvis proportions '+context)
  assert.ok(distance(pose.waist,pose.shoulder)>8.5,'chest proportions '+context)
  assert.ok(distance(pose.head,pose.shoulder)<10,'neck proportions '+context)
- if(p.dryTurn?.pushing&&p.contacts.push?.hands&&p.dryTurn.time<.1){
+ if(p.anim.dryTurn?.pushing&&p.contacts.push?.hands&&p.anim.dryTurn.time<.1){
   assert.ok(Math.abs(distance(pose.hip,pose.waist)-6.5)<1e-5,'handoff pelvis length '+context)
   assert.ok(Math.abs(distance(pose.waist,pose.shoulder)-10.1)<1e-5,'handoff chest length '+context)
  }
@@ -39,10 +39,10 @@ export function assertReturningRig(p,pose,prop,context){
   assert.equal(pointInside(solid,...head),false,'head outside '+context)
   assert.ok(nearestBoundary(solid,...head).distance>=6.18,'head clearance '+context)
  }
- if(p.grounded&&p.footwork&&!p.mantle&&!p.sliding&&!p.slideEntry){
-  if(p.footwork.feet.some(foot=>foot.planted))assert.ok([pose.frontLeg,pose.backLeg].some(leg=>leg.planted),'visible loaded support '+context)
+ if(p.grounded&&p.anim.footwork&&!p.mantle&&!p.sliding&&!p.anim.slideEntry){
+  if(p.anim.footwork.feet.some(foot=>foot.planted))assert.ok([pose.frontLeg,pose.backLeg].some(leg=>leg.planted),'visible loaded support '+context)
   for(const [i,leg]of[pose.frontLeg,pose.backLeg].entries())if(leg.planted){
-   const foot=p.footwork.feet[i]
+   const foot=p.anim.footwork.feet[i]
    assert.ok(foot.planted,'real foot owner '+context)
    assert.ok(distance(world(leg.end),[foot.x,foot.y])<1e-5,'actual ankle '+context)
   }

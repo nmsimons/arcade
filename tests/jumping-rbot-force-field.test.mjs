@@ -28,7 +28,7 @@ for (const dt of [STEP, 1 / 30]) test(`Quarantine II: a field closing during Rbo
         braced++
         seesBehind ||= bot.seesPlayer && (run.player.x - bot.x) * actor.facing < 0
         assert.equal(actor.facing, actor.wallBrace.direction)
-        assert.equal(actor.dryTurn, null, 'looking behind cannot restart a turn against the wall-owned rig')
+        assert.equal(actor.anim.dryTurn, null, 'looking behind cannot restart a turn against the wall-owned rig')
       }
       const body = playerContactBody(actor)
       for (const field of run.forceFields.filter(field => field.active)) {

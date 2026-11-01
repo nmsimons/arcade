@@ -17,7 +17,7 @@ test('ascending a wall rope alternates planted hand grips and hauls the body thr
   for (const side of [-1, 1]) {
     const p = createPlayer(), rope = createRope({ x: 400 - side * 10, y: 0, length: 800, segments: 40 })
     const c = { kind: 'rope', index: 0, distance: 450, time: 1, direction: 1, swing: 0, lean: 0, hangBlend: 0, swingVelocity: 0,
-      ladder: null, rope, wall: { x: 400, side }, rappelPull: 1, caught: { ...p } }
+      ladder: null, rope, wall: { x: 400, side }, rappelPull: 1, caught: { ...p, anim: { ...p.anim } } }
     Object.assign(p, { grounded: false, facing: side, climbing: c })
     let previous, hauls = [0, 0], exchanges = [0, 0], reachMin = Infinity, reachMax = -Infinity
     for (let i = 0; i < 240; i++) {
@@ -85,7 +85,7 @@ test('rappelling alternates substantial lifted steps with fixed wall footholds i
   for (const side of [-1, 1]) for (const direction of [-1, 1]) {
     const p = createPlayer(), rope = createRope({ x: 400 - side * 10, y: 0, length: 900, segments: 45 })
     const c = { kind: 'rope', index: 0, distance: 450, time: 1, direction, swing: 0, lean: 0, hangBlend: 0, swingVelocity: 0,
-      ladder: null, rope, wall: { x: 400, side }, rappelPull: direction > 0 ? 1 : 0, caught: { ...p } }
+      ladder: null, rope, wall: { x: 400, side }, rappelPull: direction > 0 ? 1 : 0, caught: { ...p, anim: { ...p.anim } } }
     Object.assign(p, { grounded: false, facing: side, climbing: c, terrain: [{ x: side === 1 ? 400 : 0, y: 0, w: 400, h: 1000 }] })
     let previous, maxStep = 0, previousPoints
     const planted = [0, 0], lifted = [0, 0], extremes = [[Infinity, -Infinity], [Infinity, -Infinity]]

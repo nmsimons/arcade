@@ -207,7 +207,8 @@ test('stick aiming snaps to eight sectors, turns toward the shot, and needs no t
 test('sleeve stays on the forearm with exact bone lengths, including crouch, travel and reversed gravity', () => {
   const run = createRun(scene()); pickup(run)
   for (const inverted of [false, true]) for (const crouch of [0, 1]) for (const facing of [-1, 1]) {
-    const p = { ...run.player, x: 417, y: 600, inverted, crouch, crouching: !!crouch, facing,
+    // With animation at rest the presented forearm and the gameplay sleeve coincide.
+    const p = { ...run.player, x: 417, y: 600, inverted, crouch, crouching: !!crouch, facing, anim: createPlayer().anim,
       heldTool: { ...run.player.heldTool, aiming: true, angle: 1.234 } }
     const pose = athletePose(p), arm = facing < 0 ? pose.backArm : pose.frontArm, frame = heldToolFrame(p), flip = inverted ? -1 : 1
     assert.ok(Math.abs(Math.hypot(arm.joint[0] - arm.root[0], arm.joint[1] - arm.root[1]) - 10) < 1e-8)
@@ -217,6 +218,17 @@ test('sleeve stays on the forearm with exact bone lengths, including crouch, tra
     assert.ok(Math.abs(frame.angle - 1.234) < 1e-8)
     const loose = { ...gadget(), x: frame.x, y: frame.y + propHeight(gadget()) / 2, angle: frame.angle }
     assert.deepEqual(boxShape(loose), toolShape(frame), 'pickup/drop preserve the sleeve hull dimensions')
+  }
+})
+
+test('the gameplay sleeve ignores animation state', () => {
+  const run = createRun(scene()); pickup(run); tick(run, 30, { move: 1 })
+  const p = { ...run.player, heldTool: { ...run.player.heldTool, aiming: true, angle: .5 } }
+  const frame = heldToolFrame(p)
+  const pose = athletePose({ ...p, anim: createPlayer().anim })
+  for (const anim of [{ stride: 2.1 }, { gait: { speed: 1, moving: 1, run: 1, air: 0 } }, { footwork: null }, { look: 1 },
+    { dryTurn: { pose, facing: -p.facing, target: p.facing, time: .05, departure: false } }, { recovery: { pose, time: .02, facing: p.facing } }]) {
+    assert.deepEqual(heldToolFrame({ ...p, anim: { ...p.anim, ...anim } }), frame, `${Object.keys(anim)[0]} must not move the gameplay sleeve`)
   }
 })
 

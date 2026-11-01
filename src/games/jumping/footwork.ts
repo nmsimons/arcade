@@ -281,8 +281,8 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
 
 /** Persistent world-space contacts survive changes in speed and body pose. */
 export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: readonly Platform[]) {
-  if (!p.grounded || p.hang || p.mantle) { p.footwork = null; return }
-  const run = p.gait?.run ?? 0, moving = p.gait?.moving ?? 0, jog = p.gait?.jog ?? 0
+  if (!p.grounded || p.hang || p.mantle) { p.anim.footwork = null; return }
+  const run = p.anim.gait?.run ?? 0, moving = p.anim.gait?.moving ?? 0, jog = p.anim.gait?.jog ?? 0
   const profile = strideProfile(run, moving, jog), traveling = Math.abs(p.x - oldX) > .0001
   const makeFoot = (offset: number): FootContact => {
     const x = oldX + offset * p.facing, ground = groundAt(platforms, x, p.y)
@@ -291,29 +291,29 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     plantFoot(foot, platforms, p.y, p.x)
     return foot
   }
-  const previous: Footwork = p.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
-  if (!traveling || p.crouch > 0 || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing); return }
+  const previous: Footwork = p.anim.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
+  if (!traveling || p.crouch > 0 || p.pushing?.effort) { p.anim.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing); return }
   const rephased = traveling && (!previous.moving || previous.facing !== p.facing)
-  const beforeCycle = p.stride * p.facing
+  const beforeCycle = p.anim.stride * p.facing
   let armOffset = advanceArmOffset(previous, dt)
   if (rephased) {
     const support = previous.feet[0].planted !== previous.feet[1].planted ? (previous.feet[0].planted ? 0 : 1)
       : (previous.feet[0].x - previous.feet[1].x) * p.facing >= 0 ? 0 : 1
     const relativeX = (previous.feet[support].x - p.x) * p.facing
     const phase = Math.max(.02, Math.min(profile.duty - .02, (profile.lead - relativeX) / profile.length))
-    p.stride = (phase + (support ? .5 : 0)) * TAU * p.facing
-    const resuming = !p.pushing && !p.sliding && !p.slideEntry && previous.feet.some(foot => foot.settle)
+    p.anim.stride = (phase + (support ? .5 : 0)) * TAU * p.facing
+    const resuming = !p.pushing && !p.sliding && !p.anim.slideEntry && previous.feet.some(foot => foot.settle)
     if (previous.facing === p.facing && (previous.heldArmPhase || resuming)) {
       // Rephase the shoes to their actual support immediately, while the free
       // arms keep their outgoing swing. A recovery step or crouch/shove release
       // must not throw both elbows across the body as the stride changes phase.
       const oldOffset = previous.armOffset ? previous.armOffset.angle * (1 - smooth(previous.armOffset.time / .2)) : 0
-      const change = beforeCycle + oldOffset - p.stride * p.facing
+      const change = beforeCycle + oldOffset - p.anim.stride * p.facing
       armOffset = { angle: Math.atan2(Math.sin(change), Math.cos(change)), time: 0 }
     }
-  } else if (traveling) p.stride += Math.abs(p.x - oldX) / profile.length * TAU * p.facing
+  } else if (traveling) p.anim.stride += Math.abs(p.x - oldX) / profile.length * TAU * p.facing
   const feet = previous.feet.map((before, index): FootContact => {
-    const foot = { ...before }, cycle = p.stride * p.facing + index * Math.PI
+    const foot = { ...before }, cycle = p.anim.stride * p.facing + index * Math.PI
     if (rephased) foot.blockedCycle = -1
     const lap = Math.floor(cycle / TAU), step = sampleStride(cycle, run, moving, jog)
     const targetX = p.x + step.ankle[0] * p.facing
@@ -330,7 +330,7 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     }
     if (foot.settle || rephased) {
       foot.release = { x: foot.x - targetX, y: foot.y - targetY, angle: foot.angle - targetAngle, time: 0,
-        landing: !!foot.settle && !p.pushing && !p.sliding && !p.slideEntry || undefined }
+        landing: !!foot.settle && !p.pushing && !p.sliding && !p.anim.slideEntry || undefined }
     }
     // A changing curved support can expose a much lower walkable floor under
     // the next stride. Carry the actual swing into that landing instead of
@@ -367,5 +367,5 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     else clearTerrain(foot, platforms, p.y, p.x)
     return foot
   }) as [FootContact, FootContact]
-  p.footwork = { feet, moving: traveling, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt), armOffset }
+  p.anim.footwork = { feet, moving: traveling, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt), armOffset }
 }

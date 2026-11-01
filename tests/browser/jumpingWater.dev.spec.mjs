@@ -120,9 +120,9 @@ test('water floor contact rests standing with relaxed arms and blends into an up
     document.body.replaceChildren(canvas); document.body.style.margin = '0'; const ctx = canvas.getContext('2d')
     const draw = (label, col, row) => {
       const source = structuredClone(p); source.x = 0; source.y = 0; source.terrain = []
-      if (source.footwork) {
-        source.footwork.terrain = [{ x: -1000, y: 0, w: 2000, h: 80 }]
-        for (const f of source.footwork.feet) { f.x -= p.x; f.anchorX -= p.x; f.y -= p.y; f.anchorY -= p.y; f.groundY -= p.y }
+      if (source.anim.footwork) {
+        source.anim.footwork.terrain = [{ x: -1000, y: 0, w: 2000, h: 80 }]
+        for (const f of source.anim.footwork.feet) { f.x -= p.x; f.anchorX -= p.x; f.y -= p.y; f.anchorY -= p.y; f.groundY -= p.y }
       }
       const pose = athletePose(source)
       const ys = [pose.head, pose.hip, pose.frontArm.end, pose.backArm.end, pose.frontLeg.end, pose.backLeg.end].map(point => point[1])
@@ -323,7 +323,7 @@ test('floating box drift bobbing and rocking retain the rider pose and planted f
       ctx.fillStyle = '#f1f1ed'; ctx.fillRect(originX, 0, 300, 30); ctx.font = '14px sans-serif'; ctx.fillStyle = '#43494b'
       ctx.fillText(['Balanced rider', 'Drift / bob', 'Settling', 'Rock with planted feet', 'Rock back'][col], originX + 12, 20)
       ctx.strokeStyle = '#ddd'; ctx.strokeRect(originX, 0, 300, 380); ctx.restore()
-      samples.push({ grounded: p.grounded, moving: p.gait.speed, planted: p.footwork?.feet.every(f => f.planted), angle: b.angle })
+      samples.push({ grounded: p.grounded, moving: p.anim.gait.speed, planted: p.anim.footwork?.feet.every(f => f.planted), angle: b.angle })
     }
     return samples
   })

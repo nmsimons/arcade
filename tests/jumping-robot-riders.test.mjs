@@ -66,7 +66,7 @@ for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 60]) {
       assert.ok(Math.abs(p.x - r.x) < 24, 'limited acceleration catches up on the roof')
       assert.ok(Math.abs(p.vx - speed * direction) < .01)
       assert.ok(p.contacts.motion.speed < .01, 'standing transport does not become a walk animation')
-      assert.ok(p.gait.moving < .01)
+      assert.ok(p.anim.gait.moving < .01)
     }
   })
   test(`charge-speed motion leaves the rider behind ${direction < 0 ? 'left' : 'right'} at ${1 / dt} Hz`, () => {

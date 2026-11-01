@@ -1,4 +1,5 @@
-import type { AthleteOutline, AthletePose } from './athlete.ts'
+import type { AthleteOutline } from './athleteDraw.ts'
+import type { AthletePose } from './athleteRig.ts'
 
 type Point = readonly [number, number]
 type Limb = { root: Point; joint: Point; end: Point }

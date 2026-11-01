@@ -13,7 +13,9 @@ import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, le
 import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless, playerWaterCenterOffset } from './gravity.ts'
-import { dryPreparationFacesForward, retainInterruptedStepPose, swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './athlete.ts'
+import { dryPreparationFacesForward } from './athletePose.ts'
+import { retainInterruptedStepPose } from './athleteAnimation.ts'
+import { swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './poses/waterPose.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -329,7 +331,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
           if (!body.some(contact => contact.collider === c)) {
             const nx = (palms[0].nx + palms[1].nx) / 2, ny = (palms[0].ny + palms[1].ny) / 2, length = Math.hypot(nx, ny)
             const normal: Vec = [nx / length, ny / length]
-            const amount = p.pushing?.colliderId === c.id ? p.pushing.amount : 0
+            const amount = p.pushRig?.colliderId === c.id ? p.pushRig.amount : 0
             const load = Math.max(0, -normal[0] * input.move * TUNING.airAcceleration) * Math.min(1, amount + dt / .14)
             body.push({ collider: c, normal, point: [palms[0].x, palms[0].y], load })
           }
@@ -426,10 +428,10 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
   // already owns a continuous outgoing rig and can prepare its incoming hands;
   // an ordinary free reach cannot take over another contact's torso.
   const falling = !p.grounded && p.vy >= 0 && !p.jumpLift && !p.waterMotion
-    && (p.dryTurn?.step || !p.sliding?.amount && !p.wallBrace?.amount && !p.slideEntry)
+    && (p.anim.dryTurn?.step || !p.sliding?.amount && !p.wallBrace?.amount && !p.anim.slideEntry)
   // A returning step explicitly turns its captured rig toward incoming palms;
   // ordinary preparation waits until the visible body faces the target.
-  const forward = p.dryTurn?.step || dryPreparationFacesForward(p, direction)
+  const forward = p.anim.dryTurn?.step || dryPreparationFacesForward(p, direction)
   if (!direction || !forward || !(p.grounded || falling) || p.hang || p.mantle || p.climbing || p.freeFall?.amount
     || input.jump && !p.jumpHeld || p.buffer > 0) return null
   const candidates = world.colliders.flatMap(collider => {
@@ -464,13 +466,13 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
   return candidates[0] ?? null
 }
 
-/** Presentation consumes the solved contact; it never moves the player. */
-export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
+/** The next push rig for one step: hands on the contact, easing in and out. */
+function nextPushPose(p: Player, current: Player['pushing'], contact: PushContact | null, dt: number, speed: number, motion: readonly [number, number]): Player['pushing'] {
   if (contact?.passive) contact = null
   if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
-    const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing : null
+    const previous = current?.direction === contact.direction && current.colliderId === contact.collider.id ? current : null
     let hands = contact.hands
     if (contact.anticipation !== undefined && contact.collider.prop && previous?.height !== undefined && hands.height !== undefined) {
       // Losing force contact must not teleport a crouched palm to a lower
@@ -485,7 +487,7 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
     // deliver. Ease its presentation independently of the hand-contact blend.
     const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
     const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
-    p.pushing = { ...hands, colliderId: contact.collider.id, direction: contact.direction,
+    return { ...hands, colliderId: contact.collider.id, direction: contact.direction,
       // A prop has already received this tick's force. Its working palms must
       // be established now; resistance still loads the body gradually above.
       amount: contact.anticipation === undefined
@@ -496,22 +498,34 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
       ready: contact.anticipation === undefined ? (contact.collider.prop && !contact.swimming ? 1 : 0)
         // A returning step already owns and budgets its whole incoming rig.
         // Keep its target current rather than adding a second handoff delay.
-        : p.dryTurn?.step ? contact.anticipation
+        : p.anim.dryTurn?.step ? contact.anticipation
           : (previous?.ready ?? 0) + (contact.anticipation - (previous?.ready ?? 0)) * (1 - Math.exp(-dt / .045)),
       effort: contact.effort, load }
-  } else if (p.pushing) {
+  } else if (current) {
     // Force-bearing prop palms used the full ready stance, even when the
     // timed contact blend was young. Release that actual outgoing weight.
-    const amount = Math.max(0, Math.max(p.pushing.amount, p.pushing.effort ? p.pushing.ready ?? 0 : 0) - dt / .16)
-    const ready = Math.max(0, (p.pushing.ready ?? 0) - dt / .16)
-    p.pushing = (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
+    const amount = Math.max(0, Math.max(current.amount, current.effort ? current.ready ?? 0 : 0) - dt / .16)
+    const ready = Math.max(0, (current.ready ?? 0) - dt / .16)
+    return (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && current.direction === p.facing
       // Released palms relax with the outgoing body. Keeping their old world
       // coordinates pins the arms behind a running player and can fold the
       // trunk or flip an elbow as the shoulders pass the abandoned contact.
-      ? { ...p.pushing, wallX: p.pushing.wallX + motion[0],
-        palms: p.pushing.palms?.map(palm => ({ ...palm, x: palm.x + motion[0], y: palm.y + motion[1] })) as PushHands['palms'],
-        amount, ready, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
+      ? { ...current, wallX: current.wallX + motion[0],
+        palms: current.palms?.map(palm => ({ ...palm, x: palm.x + motion[0], y: palm.y + motion[1] })) as PushHands['palms'],
+        amount, ready, effort: 0, load: (current.load ?? 0) * Math.exp(-dt / .08) } : null
   }
+  return null
+}
+
+/** Presentation consumes the solved contact and anticipation; it never moves the player. */
+export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
+  p.pushing = nextPushPose(p, p.pushing, contact, dt, speed, motion)
+}
+
+/** The motor's push rig: the same hands and easing from real contacts only,
+ * without anticipation, so animation can never change it. Gameplay reads this. */
+export function updatePushRig(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
+  p.pushRig = nextPushPose(p, p.pushRig ?? null, contact?.anticipation === undefined ? contact : null, dt, speed, motion)
 }
 
 /** Transport the body and its planted anchors before measuring locomotion. */
@@ -521,7 +535,7 @@ export function translatePlayer(p: Player, dx: number, dy: number) {
   p.x += dx; p.y += dy
   // An automatic step targets static terrain. A prop pushing the player away
   // interrupts it rather than moving the destination off the real ledge.
-  if (interruptedStep) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
+  if (interruptedStep) { p.mantle = null; p.anim.footwork = null; p.grabCooldown = .25 }
   translateFeet(p, dx, dy)
   if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
   if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }
@@ -546,7 +560,7 @@ export function followPropGrip(p: Player, world: ContactWorld) {
 
 /** A planted foot follows its support independently of the body's inertia. */
 export function translateFeet(p: Player, dx: number, dy: number) {
-  if (p.footwork) for (const foot of p.footwork.feet) {
+  if (p.anim.footwork) for (const foot of p.anim.footwork.feet) {
     foot.x += dx; foot.y += dy; foot.anchorX += dx; foot.anchorY += dy; foot.groundY += dy
     if (foot.settle) foot.settle = { ...foot.settle, x: foot.settle.x + dx, y: foot.settle.y + dy }
   }
@@ -560,7 +574,7 @@ export function rotateFeet(p: Player, angle: number) {
     const dx = x - p.x, dy = y - p.y
     return { x: p.x + dx * cos - dy * sin, y: p.y + dx * sin + dy * cos }
   }
-  if (p.footwork) for (const foot of p.footwork.feet) {
+  if (p.anim.footwork) for (const foot of p.anim.footwork.feet) {
     const ankle = point(foot.x, foot.y), anchor = point(foot.anchorX, foot.anchorY), ground = point(foot.x, foot.groundY)
     Object.assign(foot, ankle, { anchorX: anchor.x, anchorY: anchor.y, groundY: ground.y,
       angle: foot.angle + angle * foot.facing, groundAngle: foot.groundAngle + angle })

@@ -140,8 +140,8 @@ canvas's `aria-busy`, rather than for clock time.
 yields and opens playtests with `renderControl=1`. The pressure-plate and
 horizontal-gate checks opt out of `renderControl`, because their anchor
 observers record whether an anchor was ever drawn. Together these took the
-spec from 346 s to 221 s of local test time (4 workers on an M5 Pro); the
-playtest-heavy checks are 60 to 75% faster.
+spec from 346 s to 221 s of local test time (4 workers on an M5 Pro); its
+rope, ladder and ledge playtests are 55 to 70% faster.
 
 CI uploads a Playwright JSON report for each browser shard as
 `browser-timings-<shard>`. `node scripts/browser-timings.mjs <folder>` lists the

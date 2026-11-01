@@ -176,6 +176,26 @@ real time pass while keys are held. Studio and menu
 checks gain nothing: they do not draw the world, and each advance would add two
 page round trips. Compare a spec's time before and after opting in.
 
+Playwright's clock also waits on a real `setTimeout(0)` after every fake timer
+it fires, and Chrome clamps nested zero-delay timeouts to 4 ms. An advance
+therefore costs at least 4 ms of idle real time per animation frame and per
+other fake timer, however little the page does: a 4 s playtest in
+`jumpingBuilder.dev.spec.mjs` sat idle for 70% of its 2.6 s.
+`installUnclampedClockYields(page)` in `helpers/simulation.mjs`, called before
+`page.clock.install`, routes those zero-delay waits through a `MessageChannel`.
+Every fake timer still fires in the same order at the same virtual time, so
+gameplay, input and drawing are unchanged; only the idle real time goes. Work
+that runs in real time (workers, network, lazy modules) gets less real time per
+virtual second, so a check must wait for its completion, such as the level
+canvas's `aria-busy`, rather than for clock time.
+
+`jumpingBuilder.dev.spec.mjs` uses both: its `open` installs the unclamped
+yields and opens playtests with `renderControl=1`. The pressure-plate and
+horizontal-gate checks opt out of `renderControl`, because their anchor
+observers record whether an anchor was ever drawn. Together these took the
+spec from 346 s to 221 s of local test time (4 workers on an M5 Pro); its
+rope, ladder and ledge playtests are 55 to 70% faster.
+
 CI uploads a Playwright JSON report for each browser shard as
 `browser-timings-<shard>`. `node scripts/browser-timings.mjs <folder>` lists the
 slowest files and tests from downloaded reports.

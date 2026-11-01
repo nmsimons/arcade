@@ -14,6 +14,30 @@ export async function advanceSimulation(page,milliseconds) {
   }
 }
 
+/** Playwright's clock waits on a real setTimeout(0) after every fake timer it
+ * fires. Chrome clamps nested zero-delay timeouts to 4 ms, so each requestAnimationFrame
+ * of an advance cost at least 4 ms of idle real time, whatever the page did. Before
+ * page.clock.install captures setTimeout, route zero-delay calls through a
+ * MessageChannel, which is not clamped. Every fake timer still fires in the same
+ * order at the same virtual time; only the real idle time between them goes.
+ * Work that runs in real time (workers, network, lazy modules) therefore gets
+ * less of it per virtual second: wait for its completion rather than for time. */
+export async function installUnclampedClockYields(page) {
+  await page.addInitScript(() => {
+    const realSet = window.setTimeout, realClear = window.clearTimeout, channel = new MessageChannel(), queued = new Map()
+    let next = -1
+    channel.port1.onmessage = ({ data }) => { const task = queued.get(data); queued.delete(data); task?.() }
+    // Negative ids never collide with the browser's own timer ids.
+    window.setTimeout = function (handler, timeout, ...args) {
+      if (timeout || typeof handler !== 'function') return realSet.call(window, handler, timeout, ...args)
+      const id = next--
+      queued.set(id, () => handler(...args)); channel.port2.postMessage(id)
+      return id
+    }
+    window.clearTimeout = function (id) { if (id < 0) queued.delete(id); else realClear.call(window, id) }
+  })
+}
+
 // Level routes drop the query string, so remember pages that opened with it.
 const renderControlled=new WeakSet()
 export function trackRenderControl(page) {

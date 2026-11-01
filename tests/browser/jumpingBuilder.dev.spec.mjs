@@ -1,5 +1,6 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
+import { installUnclampedClockYields } from './helpers/simulation.mjs'
 import { selectBuilderOption, selectBuilderObject, restartFromPause, useLevelFixtures, installBuiltInFixtures, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { ropeTower } from '../helpers/rope-tower.mjs'
@@ -9,9 +10,13 @@ import { defaultObjectLabel } from '../../src/games/jumping/objectLabels.ts'
 import { expectDayAmbientPixel } from './helpers/jumpingLighting.mjs'
 import { cubicPoint, terrainCubic } from '../../src/games/jumping/terrainCurves.ts'
 
-async function open(page, level) {
+// Playtests skip intermediate world drawing (docs/testing.md). The clock is
+// paused below and every observer here keeps only the latest drawn frame. A
+// test whose observer records whether something was ever drawn opts out.
+async function open(page, level, { renderControl = true } = {}) {
   if (level) await useLevelFixtures(page, [level])
   await installBuiltInFixtures(page, level ? { 'fixture.json': level } : {})
+  await installUnclampedClockYields(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
@@ -60,7 +65,7 @@ async function open(page, level) {
       return text.call(this, value, x, y, ...rest)
     }
   })
-  await page.goto('/lab')
+  await page.goto(renderControl ? '/lab?renderControl=1' : '/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await waitForBuilderPreview(page)
@@ -538,7 +543,8 @@ test('one pressure plate controls a gate and elevator through editing, save and 
     { id: 'lift', kind: 'lift', x: 900, y: 890, w: 160, h: 22, travel: 200 },
   ]
   level.triggers = [{ x: 300, y: 920, w: 80, target: 'gate', mode: 'weight' }]
-  await open(page, level)
+  // Draw every frame: mechanismAnchors records every anchor ever drawn.
+  await open(page, level, { renderControl: false })
   const selected = page.getByRole('combobox', { name: 'Selected object' }), editor = page.getByRole('application', { name: 'Level canvas' })
   await selectBuilderObject(page, 'trigger:0')
   await expect(page.getByRole('checkbox', { name: 'Gate 1', exact: true })).toBeChecked()
@@ -671,7 +677,8 @@ test('horizontal gates resize, flip, round-trip and retract one width only while
     }
   })
   const level = blankTrial(); level.entrance.x = 240
-  await open(page, level)
+  // Draw every frame: gateAnchor records whether an anchor was ever drawn.
+  await open(page, level, { renderControl: false })
   await page.getByRole('button', { name: 'Horizontal gate', exact: true }).click()
   await dragWorld(page, { x: 700, y: 780 }, { x: 880, y: 780 })
   const editor = page.getByRole('application', { name: 'Level canvas' }), selected = page.getByRole('combobox', { name: 'Selected object' })
@@ -1369,6 +1376,7 @@ test('rope layout is resolved in the editor, saved, and reused unchanged on play
   await selectBuilderObject(page, 'platform:0')
   await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('600'); await page.getByRole('spinbutton', { name: 'Object x', exact: true }).press('Enter')
   await page.clock.runFor(600)
+  await expect(editor).toHaveAttribute('aria-busy', 'false', { timeout: 15000 })
   const edited = await editor.evaluate(canvas => canvas.ropePath)
   expect(edited).not.toEqual(preview)
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await page.clock.runFor(600)

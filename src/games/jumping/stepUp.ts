@@ -35,8 +35,8 @@ export function finishStepFeet(p: Player, step: StepUp) {
     const x = p.x + offset * p.facing, y = p.y + offset * p.facing * Math.tan(angle)
     return { x, y: y - 2.8, anchorX: x, anchorY: y, groundY: y, groundAngle: angle, angle,
       facing: p.facing, planted: true, blockedCycle: -Infinity, release: null, settle: null }
-  }) as NonNullable<Player['footwork']>['feet']
-  p.footwork = { feet, moving: false, facing: p.facing, terrain: p.terrain ?? [] }
+  }) as NonNullable<Player['anim']['footwork']>['feet']
+  p.anim.footwork = { feet, moving: false, facing: p.facing, terrain: p.terrain ?? [] }
 }
 
 /** Lift the feet over the lip before the body crosses it. Even the supporting
@@ -84,7 +84,7 @@ export function findRopeStepUp(p: Player, world: ContactWorld): Mantle | null {
     if (!ground) continue
     const rise = p.y - ground.y
     if (rise < 1 || rise > 74 || (toX - p.x) * side < 0 || Math.abs(toX - p.x) > 64) continue
-    const caught = { x: p.x, y: p.y, vx: 0, vy: 0, stride: p.stride, grounded: false, gait: p.gait, footwork: null }
+    const caught = { x: p.x, y: p.y, vx: 0, vy: 0, anim: { stride: p.anim.stride, gait: p.anim.gait, footwork: null }, grounded: false }
     const mantle: Mantle = { edgeX: anchor.x, edgeY: anchor.y, side, toX, toY: ground.y, time: 0, braced: false,
       step: { caught, duration: .65, rise, lead: 0, landingAngle: ground.angle, climbing: c } }
     let previous: [number, number] = [p.x, p.y], clear = true
@@ -125,10 +125,10 @@ export function findStepUp(p: Player, move: number, dt: number, world: ContactWo
       p.stepIntent = { ...edge, time: (intent && sameLedge(intent, edge) ? intent.time : 0) + dt }
       if (p.stepIntent.time < .2) return null
     }
-    const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork,
-      pushing: tall ? p.pushing : undefined, freeFall: p.freeFall, dryTurn: p.dryTurn,
+    const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, anim: { stride: p.anim.stride, gait: p.anim.gait, footwork: p.anim.footwork, dryTurn: p.anim.dryTurn }, grounded: p.grounded,
+      pushing: tall ? p.pushing : undefined, freeFall: p.freeFall,
       ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
-    const lead = p.footwork?.feet[0].planted && !p.footwork.feet[1].planted ? 1 : 0
+    const lead = p.anim.footwork?.feet[0].planted && !p.anim.footwork.feet[1].planted ? 1 : 0
     // Keep the usual stride when it fits. Short steps can plant nearer the lip
     // on a narrow tread, leaving room for the body before the next riser.
     // The hand-assisted tall climb retains its authored landing and pose.

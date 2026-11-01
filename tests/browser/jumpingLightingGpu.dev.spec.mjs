@@ -31,7 +31,7 @@ for (const nightMode of [false, true]) test(`GPU ${nightMode ? 'night' : 'day'} 
     const view = { ...gameCamera(800, 500, run.player, level, true), width: 800, height: 500 }
     for (let i = 0; i < 14; i++) {
       if (i === 4) run.props[0].x += .01
-      if (i === 5) { run.props[0].angle += .3; run.player.stride += .7 }
+      if (i === 5) { run.props[0].angle += .3; run.player.anim.stride += .7 }
       if (i === 6) view.y -= .37
       if (i === 7) run.mechanisms[0].y -= 12
       if (i === 8) run.empRemaining = 5

@@ -40,7 +40,7 @@ export function crouchedPushScenario(config, facing, inverted = false) {
     // Start the contact fixture at its receiving ceiling. An airborne roll
     // beside the cargo can shove it before the pushing encounter even begins.
     run.player.y = 1300 - 650; run.player.inverted = true
-    run.player.footwork = null; run.player.contacts = null
+    run.player.anim.footwork = null; run.player.contacts = null
     run.props[0].y = run.player.y + config.size
     stepRun(run, { ...NEUTRAL_INPUT, reach: true })
     for (let tick = 0; tick < 720; tick++) stepRun(run, NEUTRAL_INPUT)

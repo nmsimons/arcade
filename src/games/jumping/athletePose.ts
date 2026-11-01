@@ -33,11 +33,11 @@ export function withAthletePose<T>(p: Player, render: () => T): T {
 /** Preparation observes the visible body, including a turn's outgoing facing.
  * Established grips and their catch choreography have separate ownership. */
 export function dryPreparationFacesForward(p: Player, direction: number): boolean {
-  const turn = p.dryTurn
+  const turn = p.anim.dryTurn
   return !turn || (turn.pose.head[0] - turn.pose.hip[0]) * turn.facing * direction >= -1
 }
 export function dryLedgeReachPose(p: Player): AthletePose | null {
-  if (p.freeFall?.amount || p.wallBrace?.amount || p.sliding?.amount || p.slideEntry || p.vx * p.facing < -5) return null
+  if (p.freeFall?.amount || p.wallBrace?.amount || p.sliding?.amount || p.anim.slideEntry || p.vx * p.facing < -5) return null
   if (!dryPreparationFacesForward(p, p.facing)) return null
   const pose = athletePose({ ...p, ledgeReach: null, pushing: null })
   return pose
@@ -211,14 +211,14 @@ export function resolveAthletePose(p: Player, deferLooseClearance = false): Athl
     try { return resolveAthletePose(p, deferLooseClearance) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
-  if (p.ragdoll) return impactRagdollPose(p)
+  if (p.anim.ragdoll) return impactRagdollPose(p)
   if (p.releaseTurn) return releaseTurnPose(p)
   if (p.mantle?.step) return prepareReturningStepPose(p)
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
   if (p.waterMotion && !p.jumpLift && !p.waterJump) return waterPose(p)
-  if (p.dryTurn) return capturedPose(p.dryTurn, p.facing)
-  if (p.slideEntry) return capturedPose(p.slideEntry, p.facing)
+  if (p.anim.dryTurn) return capturedPose(p.anim.dryTurn, p.facing)
+  if (p.anim.slideEntry) return capturedPose(p.anim.slideEntry, p.facing)
   if ((p.freeFall?.amount ?? 0) > 0) return fallPose(p, deferLooseClearance)
   return locomotionPose(p)
 }

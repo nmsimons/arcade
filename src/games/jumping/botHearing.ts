@@ -6,7 +6,7 @@ type NoiseKind = 'running' | 'landing' | 'gadget'
 interface Noise { x: number; y: number; time: number; kind: NoiseKind; range: number; serial: number }
 export interface HeardNoise { x: number; y: number; time: number; kind: NoiseKind; uncertainty: number; serial: number }
 const snapshot = (run: Run) => ({ player: run.player, x: run.player.x, y: run.player.y, vy: run.player.vy,
-  grounded: run.player.grounded, feet: run.player.footwork?.feet.map(foot => foot.planted) ?? [], shots: run.gadgets.shots })
+  grounded: run.player.grounded, feet: run.player.anim.footwork?.feet.map(foot => foot.planted) ?? [], shots: run.gadgets.shots })
 interface Acoustics { previous: ReturnType<typeof snapshot>; cooldown: number; serial: number; noises: Noise[] }
 const acoustics = new WeakMap<Run, Acoustics>(), heard = new WeakMap<RobotState, HeardNoise>(), processed = new WeakMap<RobotState, number>()
 export const botLastHeard = (robot: RobotState) => { const noise = heard.get(robot); return noise && { ...noise } }
@@ -28,7 +28,7 @@ export function recordPlayerNoise(run: Run, dt: number) {
   const continuous = before.player === p && Math.hypot(p.x - before.x, p.y - before.y) < 80
   if (continuous) {
     const landed = !before.grounded && p.grounded && Math.abs(before.vy) > 240
-    const planted = p.footwork?.feet.some((foot, index) => foot.planted && before.feet[index] === false)
+    const planted = p.anim.footwork?.feet.some((foot, index) => foot.planted && before.feet[index] === false)
     const speed = p.contacts?.motion.speed ?? 0
     if (landed) emit('landing', Math.min(850, 500 + Math.abs(before.vy) * .4) * (p.crouching ? .65 : 1))
     else if (!state.cooldown && p.grounded && speed > 180 && planted && !p.crouching && !p.sliding?.active

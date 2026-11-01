@@ -16,7 +16,7 @@ const distance = (a, b, depth = 0) => Math.hypot(a[0] - b[0], a[1] - b[1], depth
 
 test('airborne contact braces on either side while gravity continues unchanged', () => {
   for (const direction of [-1, 1]) {
-    const p = airborne({ x: direction === 1 ? 338 : 462, facing: direction }), falling = { ...p }
+    const p = airborne({ x: direction === 1 ? 338 : 462, facing: direction }), falling = { ...p, anim: { ...p.anim } }
     advance(p, .25, { move: direction })
     advance(falling, .25, {}, [])
     assert.equal(playerState(p), 'Bracing')
@@ -30,7 +30,7 @@ test('airborne contact braces on either side while gravity continues unchanged',
 })
 
 test('holding jump before touching a wall braces and falls without an automatic kick', () => {
-  const p = airborne({ vy: -300, jumpHeld: true }), falling = { ...p }
+  const p = airborne({ vy: -300, jumpHeld: true }), falling = { ...p, anim: { ...p.anim } }
   for (let frame = 0; frame < 50; frame++) {
     advance(p, STEP, { jump: true, move: 1 })
     advance(falling, STEP, {}, [])

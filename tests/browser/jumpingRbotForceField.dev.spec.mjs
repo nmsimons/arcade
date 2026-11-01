@@ -40,7 +40,7 @@ test('Quarantine II: a live plate closes the field during a jump without restart
             for (let i = 0; i < points.length; i++) maxPoseStep = Math.max(maxPoseStep,
               Math.hypot(points[i][0] - previousPoints[i][0], points[i][1] - previousPoints[i][1]))
             if (actor.wallBrace?.active) {
-              braced++; restarted += Number(!!actor.dryTurn)
+              braced++; restarted += Number(!!actor.anim.dryTurn)
               sawBehind ||= bot.seesPlayer && (run.player.x - bot.x) * actor.facing < 0
               if (samples.includes(braced)) {
                 const x = column % 3 * 440, y = Math.floor(column / 3) * 330

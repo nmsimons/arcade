@@ -19,10 +19,10 @@ import type { Player } from '../characterTypes.ts'
 export function locomotionPose(p: Player): AthletePose {
   // Sliding blends from the same locomotion pose on contact and release. A
   // momentary slip must not replace the airborne gait before its blend begins.
-  const pose = p.gait ?? gaitPose(p.vx, !p.grounded)
+  const pose = p.anim.gait ?? gaitPose(p.vx, !p.grounded)
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
   const walk = 1 - smooth(run / .2)
-  const cycle = p.stride * p.facing
+  const cycle = p.anim.stride * p.facing
   const pushing = smooth(Math.max(p.pushing?.amount ?? 0, p.pushing?.ready ?? 0))
   // Gather the supported body with the hands before contact. Otherwise the
   // first force-bearing frame moves the shoulders and both wrists at once.
@@ -71,8 +71,8 @@ export function locomotionPose(p: Player): AthletePose {
   // The head leads the run while its vertical motion lags behind the shoulders.
   const head: Point = [shoulder[0] + .45 + Math.sin(chestPitch) * 2.2, shoulder[1] - 7.3 + headBob - chestBob]
   // The round head reads as looking by leaning at the neck, without moving the body.
-  head[0] -= p.look * 2
-  head[1] -= p.look * (p.look > 0 ? .45 : .8)
+  head[0] -= p.anim.look * 2
+  head[1] -= p.anim.look * (p.anim.look > 0 ? .45 : .8)
   const frontStep = sampleStride(cycle, run, moving, pose.jog), backStep = sampleStride(cycle + Math.PI, run, moving, pose.jog)
   if (bodyPush) {
     // Crouching already lowers the body; do not add a second squat when pushing.
@@ -88,7 +88,7 @@ export function locomotionPose(p: Player): AthletePose {
     waist[0] += lean * .35; shoulder[0] += lean; head[0] += lean
     // Weight rises over the planted leg while the other foot clears the floor.
     // This follows the actual short step; blocked feet produce no body cycle.
-    const balance = p.footwork?.pushBalance
+    const balance = p.anim.footwork?.pushBalance
     if (balance) {
       for (let axis = 0; axis < 2; axis++) {
         hip[axis] += balance[0][axis] * bodyPush
@@ -124,7 +124,7 @@ export function locomotionPose(p: Player): AthletePose {
   frontAnkle = mix(frontAnkle, [4 + Math.sin(cycle) * speed * 3, -2.8], squat)
   backAnkle = mix(backAnkle, [-5 - Math.sin(cycle) * speed * 3, -2.8], squat)
 
-  const armOffset = p.footwork?.armOffset
+  const armOffset = p.anim.footwork?.armOffset
   const armCycle = cycle + (armOffset ? armOffset.angle * (1 - smooth(armOffset.time / .2)) : 0)
   const swing = Math.cos(armCycle - run * .12) * moving * lerp(.52, 1.18, run)
   const relaxed = (1 - moving) * (1 - air) * (1 - squat)
@@ -157,7 +157,7 @@ export function locomotionPose(p: Player): AthletePose {
   frontAngle = lerp(frontAngle, Math.PI - .08, p.reach)
   backAngle = lerp(backAngle, Math.PI + .06, p.reach)
   frontFlex = lerp(frontFlex, .03, p.reach); backFlex = lerp(backFlex, .03, p.reach)
-  const contacts = p.grounded && !p.hang && !p.mantle ? p.footwork?.feet : undefined
+  const contacts = p.grounded && !p.hang && !p.mantle ? p.anim.footwork?.feet : undefined
   const frontPlanted = contacts ? contacts[0].planted : p.grounded && !p.mantle && (frontStep.planted || !moving)
   const backPlanted = contacts ? contacts[1].planted : p.grounded && !p.mantle && (backStep.planted || !moving)
   if (contacts) {
@@ -242,8 +242,8 @@ export function locomotionPose(p: Player): AthletePose {
     backArm = clearLedgeReach(p, add(origin, BACK_WRIST), add(origin, BACK_GRIP), backArm, p.ledgeReach.amount)
   }
   const frontFacing = (contacts?.[0].facing ?? p.facing) * p.facing, backFacing = (contacts?.[1].facing ?? p.facing) * p.facing
-  const terrainHeight = p.footwork ? (x: number) => {
-    const ground = groundAt(p.footwork!.terrain, p.x + x * p.facing, p.y)
+  const terrainHeight = p.anim.footwork ? (x: number) => {
+    const ground = groundAt(p.anim.footwork!.terrain, p.x + x * p.facing, p.y)
     return ground ? ground.y - p.y : null
   } : undefined
   // Let the walking foot recover independently of the folding shin. The
@@ -300,7 +300,7 @@ function settleLocomotionContacts(p: Player, result: AthletePose): AthletePose {
   // instead of switching the entire rig when a brief slide starts or ends.
   const braced = p.wallBrace ? wallBracePose(p, result) : result
   const resolved = p.sliding ? slidingPose(p, braced) : braced
-  if (!p.grounded && p.terrain && !p.sliding && !p.slideEntry) for (const name of ['frontLeg', 'backLeg'] as const) {
+  if (!p.grounded && p.terrain && !p.sliding && !p.anim.slideEntry) for (const name of ['frontLeg', 'backLeg'] as const) {
     // A raised knee can cross a crate before the beveled motor hull does.
     // Apply the existing riser clearance to free legs in flight too; planted
     // shoes retain their actual support anchors.

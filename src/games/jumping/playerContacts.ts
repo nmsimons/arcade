@@ -428,10 +428,10 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
   // already owns a continuous outgoing rig and can prepare its incoming hands;
   // an ordinary free reach cannot take over another contact's torso.
   const falling = !p.grounded && p.vy >= 0 && !p.jumpLift && !p.waterMotion
-    && (p.dryTurn?.step || !p.sliding?.amount && !p.wallBrace?.amount && !p.slideEntry)
+    && (p.anim.dryTurn?.step || !p.sliding?.amount && !p.wallBrace?.amount && !p.anim.slideEntry)
   // A returning step explicitly turns its captured rig toward incoming palms;
   // ordinary preparation waits until the visible body faces the target.
-  const forward = p.dryTurn?.step || dryPreparationFacesForward(p, direction)
+  const forward = p.anim.dryTurn?.step || dryPreparationFacesForward(p, direction)
   if (!direction || !forward || !(p.grounded || falling) || p.hang || p.mantle || p.climbing || p.freeFall?.amount
     || input.jump && !p.jumpHeld || p.buffer > 0) return null
   const candidates = world.colliders.flatMap(collider => {
@@ -498,7 +498,7 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
       ready: contact.anticipation === undefined ? (contact.collider.prop && !contact.swimming ? 1 : 0)
         // A returning step already owns and budgets its whole incoming rig.
         // Keep its target current rather than adding a second handoff delay.
-        : p.dryTurn?.step ? contact.anticipation
+        : p.anim.dryTurn?.step ? contact.anticipation
           : (previous?.ready ?? 0) + (contact.anticipation - (previous?.ready ?? 0)) * (1 - Math.exp(-dt / .045)),
       effort: contact.effort, load }
   } else if (p.pushing) {
@@ -523,7 +523,7 @@ export function translatePlayer(p: Player, dx: number, dy: number) {
   p.x += dx; p.y += dy
   // An automatic step targets static terrain. A prop pushing the player away
   // interrupts it rather than moving the destination off the real ledge.
-  if (interruptedStep) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
+  if (interruptedStep) { p.mantle = null; p.anim.footwork = null; p.grabCooldown = .25 }
   translateFeet(p, dx, dy)
   if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
   if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }
@@ -548,7 +548,7 @@ export function followPropGrip(p: Player, world: ContactWorld) {
 
 /** A planted foot follows its support independently of the body's inertia. */
 export function translateFeet(p: Player, dx: number, dy: number) {
-  if (p.footwork) for (const foot of p.footwork.feet) {
+  if (p.anim.footwork) for (const foot of p.anim.footwork.feet) {
     foot.x += dx; foot.y += dy; foot.anchorX += dx; foot.anchorY += dy; foot.groundY += dy
     if (foot.settle) foot.settle = { ...foot.settle, x: foot.settle.x + dx, y: foot.settle.y + dy }
   }
@@ -562,7 +562,7 @@ export function rotateFeet(p: Player, angle: number) {
     const dx = x - p.x, dy = y - p.y
     return { x: p.x + dx * cos - dy * sin, y: p.y + dx * sin + dy * cos }
   }
-  if (p.footwork) for (const foot of p.footwork.feet) {
+  if (p.anim.footwork) for (const foot of p.anim.footwork.feet) {
     const ankle = point(foot.x, foot.y), anchor = point(foot.anchorX, foot.anchorY), ground = point(foot.x, foot.groundY)
     Object.assign(foot, ankle, { anchorX: anchor.x, anchorY: anchor.y, groundY: ground.y,
       angle: foot.angle + angle * foot.facing, groundAngle: foot.groundAngle + angle })

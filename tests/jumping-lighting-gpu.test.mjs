@@ -32,7 +32,7 @@ test('GPU triangle coverage follows animated player outlines in both facings', (
   const player = createPlayer()
   let checked = 0
   for (const facing of [-1, 1]) for (const crouch of [0, .5, 1]) for (const grounded of [false, true]) for (const stride of [0, .8, 1.6, 2.4, 3.2, 4.8]) {
-    Object.assign(player, { facing, crouch, grounded, stride, vx: 180, vy: -120, gait: gaitPose(180, !grounded) })
+    Object.assign(player, { facing, crouch, grounded, anim: { ...player.anim, stride, gait: gaitPose(180, !grounded) }, vx: 180, vy: -120 })
     for (const shape of athleteCasters(player)) {
       const points = polygonPoints(shape), triangles = triangulateCaster(points)
       assert.ok(Math.abs(triangleArea(triangles) - area(points)) < 1e-6, `pose ${facing}/${crouch}/${grounded}/${stride}`)

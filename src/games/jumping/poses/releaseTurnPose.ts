@@ -17,7 +17,7 @@ export function releaseTurnPose(p: Player): AthletePose {
     const aligned = athletePose({ ...p, releaseTurn: undefined, facing: -p.facing,
       x: p.x + Math.sin(turn.angle) * 31, y: -(p.y - Math.cos(turn.angle) * 31 - 31),
       vy: -p.vy, gravity: -(p.gravity ?? TUNING.gravity), groundAngle: -p.groundAngle,
-      terrain: p.terrain?.map(mirrorPlatform), footwork: null, contacts: null })
+      terrain: p.terrain?.map(mirrorPlatform), anim: { ...p.anim, footwork: null }, contacts: null })
     target = transferPose(target, aligned, [0, 0], smooth(turn.progress), [0, 0], 0, true, 0,
       { depth: Math.sin(Math.PI * turn.progress) * 8, kneeOpening: MIN_KNEE_OPENING, stableReach: true })
   }

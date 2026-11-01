@@ -81,9 +81,10 @@ export function prepareReturningStepPose(p: Player): AthletePose {
     backArm: clearLimb(p, raw.backArm, UPPER_ARM, FOREARM, 1, true) } : raw
   if (!preparation?.amount) return source
   const direction = preparation.direction, t = preparation.amount
-  let target = athletePose({ ...p, mantle: null, hang: null, climbing: null, dryTurn: null, slideEntry: null,
-    freeFall: null, sliding: null, wallBrace: null, footwork: null, grounded: false, landing: 0, look: 0,
-    facing: direction, gait: { ...(p.gait ?? gaitPose(p.vx,true)), air: 1 },
+  let target = athletePose({ ...p, mantle: null, hang: null, climbing: null,
+    freeFall: null, sliding: null, wallBrace: null, grounded: false, landing: 0,
+    anim: { ...p.anim, dryTurn: null, slideEntry: null, footwork: null, look: 0, gait: { ...(p.anim.gait ?? gaitPose(p.vx,true)), air: 1 } },
+    facing: direction,
     // Forecast the incoming working stance. The returning step owns this
     // deliberate body repositioning; the live unloaded contact stays separate.
     pushing: { ...preparation.hands, direction, amount: 1, ready: 1, effort: 0, load: 0 } })
@@ -119,7 +120,7 @@ export function prepareReturningStepPose(p: Player): AthletePose {
  * then bring the trailing foot up. It never passes through the hanging rig. */
 function stepUpPose(p: Player): AthletePose {
   const m = p.mantle!, s = m.step!, t = clamp(m.time / s.duration), side = m.side
-  const source = presentedAthletePose({ ...p, ...s.caught, climbing: s.climbing ?? null, mantle: null, pushing: s.caught.pushing ?? null, landing: 0, groundAngle: 0 })
+  const source = presentedAthletePose({ ...p, ...s.caught, anim: { ...p.anim, ...s.caught.anim }, climbing: s.climbing ?? null, mantle: null, pushing: s.caught.pushing ?? null, landing: 0, groundAngle: 0 })
   if (s.rise > 40.01 && !s.climbing) {
     // A head-height obstacle needs hands and a knee on the lip. Reuse the
     // established pull-up rig, starting above its hanging phase, at step timing.
@@ -173,7 +174,7 @@ function stepUpPose(p: Player): AthletePose {
 export function ledgePose(p: Player): AthletePose {
   if (p.mantle?.ladder) return rearLedgePose(p)
   if (p.hang && p.hang.time < LEDGE_CATCH_TIME && !p.hang.caught.climbing) {
-    const h = p.hang, source = presentedAthletePose({ ...p, ...h.caught, hang: null, mantle: null, climbing: null, landing: 0 })
+    const h = p.hang, source = presentedAthletePose({ ...p, ...h.caught, anim: { ...p.anim, ...h.caught.anim }, hang: null, mantle: null, climbing: null, landing: 0 })
     const target = ledgePose({ ...p, hang: { ...h, time: LEDGE_CATCH_TIME } })
     const shift: Point = [(h.caught.x - p.x) * p.facing, h.caught.y - p.y]
     // An incoming arm can already be folded through depth beside the wall.
@@ -199,7 +200,7 @@ export function ledgePose(p: Player): AthletePose {
   const descent = p.mantle?.crouched && p.mantle.descending
   if (descent && p.mantle!.time < LEDGE_CATCH_TIME) {
     const caught = descent.caught, turn = (caught.facing ?? p.facing) * p.facing
-    const source = presentedAthletePose({ ...p, ...caught, mantle: null, hang: null, climbing: null, pushing: null, landing: 0 })
+    const source = presentedAthletePose({ ...p, ...caught, anim: { ...p.anim, ...caught.anim }, mantle: null, hang: null, climbing: null, pushing: null, landing: 0 })
     const mirror = (point: Point): Point => [point[0] * turn, point[1]]
     const limb = <T extends Limb>(part: T): T => ({ ...part, root: mirror(part.root), joint: mirror(part.joint), end: mirror(part.end), hand: part.hand && mirror(part.hand) })
     const from = { ...source, hip: mirror(source.hip), waist: mirror(source.waist), shoulder: mirror(source.shoulder), head: mirror(source.head),
@@ -209,7 +210,7 @@ export function ledgePose(p: Player): AthletePose {
   }
   const catchTime = p.hang?.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME
   if (p.hang?.caught.climbing && p.hang.time < catchTime) {
-    const h = p.hang, source = presentedAthletePose({ ...p, ...h.caught, hang: null, mantle: null, landing: 0 })
+    const h = p.hang, source = presentedAthletePose({ ...p, ...h.caught, anim: { ...p.anim, ...h.caught.anim }, hang: null, mantle: null, landing: 0 })
     const target = ledgePose({ ...p, hang: { ...h, time: catchTime } })
     const blend = smooth(h.time / catchTime)
     // The body follows the collision-safe outward arc when the rope is directly under the lip.
@@ -238,7 +239,7 @@ export function ledgePose(p: Player): AthletePose {
   const catching = p.hang && p.hang.time < LEDGE_CATCH_TIME ? { caught: p.hang.caught, time: p.hang.time }
     : p.mantle?.descending && p.mantle.time < LEDGE_CATCH_TIME ? { caught: p.mantle.descending.caught, time: p.mantle.time } : null
   if (catching) {
-    const h = catching, source = athletePose({ ...p, climbing: null, ...h.caught, hang: null, mantle: null, landing: 0 })
+    const h = catching, source = athletePose({ ...p, climbing: null, ...h.caught, anim: { ...p.anim, ...h.caught.anim }, hang: null, mantle: null, landing: 0 })
     const shift: Point = [(h.caught.x - p.x) * p.facing, h.caught.y - p.y]
     const from = (point: Point) => add(shift, point)
     catchWeight = smooth(h.time / LEDGE_CATCH_TIME)

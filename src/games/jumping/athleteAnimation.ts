@@ -79,7 +79,7 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean,
     // The first steering press may already have changed mechanical facing.
     // Seed from the actual preceding rig, expressed in the new local frame.
     const source = captured?.pose ?? athletePose(p)
-    p.ragdoll = null
+    p.anim.ragdoll = null
     fall.moving = { pose: captured && captured.facing !== p.facing ? reflectAthletePose(source) : source,
       time: 0, facing: p.facing }
   }
@@ -89,7 +89,7 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean,
     motion.facing = p.facing
   }
   motion.time += dt
-  const target = athletePose({ ...p, freeFall: null, ragdoll: null, dryTurn: null, landing: 0 })
+  const target = athletePose({ ...p, freeFall: null, anim: { ...p.anim, ragdoll: null, dryTurn: null }, landing: 0 })
   const fraction = Math.min(1, dt / Math.max(dt, .1 - motion.time + dt))
   const from = motion.pose
   const points = (pose: AthletePose) => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -122,32 +122,32 @@ export function startImpactRagdoll(p: Player, velocity: Point, kind: ImpactKind)
     finally { mirrorPlayerState(p); p.inverted = true }
     return
   }
-  if (p.ragdoll?.kind === kind) {
+  if (p.anim.ragdoll?.kind === kind) {
     // Closely spaced hits add momentum to the same joints. Repeatedly seeding
     // from an already displaced rig would accumulate permanent contortions.
-    const kick = createImpactRagdoll(p.ragdoll.source, p.ragdoll.facing, kind, ...velocity)
+    const kick = createImpactRagdoll(p.anim.ragdoll.source, p.anim.ragdoll.facing, kind, ...velocity)
     for (const name of Object.keys(kick.joints) as ImpactJoint[]) {
-      const spring = p.ragdoll.joints[name]
+      const spring = p.anim.ragdoll.joints[name]
       spring.speed = Math.max(-24, Math.min(24, spring.speed + kick.joints[name].speed))
     }
     return
   }
-  const source = kind === 'landing' ? athletePose({ ...p, grounded: true, ragdoll: null }) : athletePose(p)
-  p.ragdoll = createImpactRagdoll(source, p.facing, kind, ...velocity)
+  const source = kind === 'landing' ? athletePose({ ...p, grounded: true, anim: { ...p.anim, ragdoll: null } }) : athletePose(p)
+  p.anim.ragdoll = createImpactRagdoll(source, p.facing, kind, ...velocity)
 }
 
 export function advanceImpactRagdoll(p: Player, dt: number) {
-  const motion = p.ragdoll
+  const motion = p.anim.ragdoll
   if (!motion) return
   if (p.hang || p.climbing || p.mantle || p.waterMotion || p.releaseTurn || p.wallBrace?.active
-    || p.sliding?.active || p.jumpLift || p.contacts?.push?.hands) { p.ragdoll = null; return }
+    || p.sliding?.active || p.jumpLift || p.contacts?.push?.hands) { p.anim.ragdoll = null; return }
   if (motion.facing !== p.facing) {
     motion.source = reflectAthletePose(motion.source)
     for (const spring of Object.values(motion.joints)) { spring.angle *= -1; spring.speed *= -1 }
     motion.facing = p.facing
   }
   stepImpactRagdoll(motion, dt)
-  if (motion.time >= motion.duration) p.ragdoll = null
+  if (motion.time >= motion.duration) p.anim.ragdoll = null
 }
 
 /** Capture requested turns and slides whose real wall brace can select facing.
@@ -166,9 +166,9 @@ export function captureDryTurn(p: Player, input: JumpInput, frameDirection = 1):
   }
   if (grip && !departing) return null
   const reversing = Math.abs(input.move) > .01 && Math.sign(input.move) !== p.facing
-    && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2 || p.freeFall?.recovery != null || !!p.contacts?.push?.hands && !!p.pushing?.palms)
-  const slide = !!(p.sliding || p.slideEntry)
-  if (p.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, ledgeDrop, slide, pushing: !!p.contacts?.push?.hands && !!p.pushing?.palms }
+    && (Math.abs(p.vx) > 5 || (p.anim.gait?.moving ?? 0) > .2 || p.freeFall?.recovery != null || !!p.contacts?.push?.hands && !!p.pushing?.palms)
+  const slide = !!(p.sliding || p.anim.slideEntry)
+  if (p.anim.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, ledgeDrop, slide, pushing: !!p.contacts?.push?.hands && !!p.pushing?.palms }
   if (p.grounded) return null
   // A new canted contact can choose direction after a tick with no slide or
   // brace. Capture cheaply now, and only solve if that direction changes.
@@ -180,18 +180,18 @@ export function captureDryTurn(p: Player, input: JumpInput, frameDirection = 1):
  * Retain its actual outgoing rig before the physical root is transported. */
 export function retainInterruptedStepPose(p: Player) {
   if (!p.mantle?.step || p.mantle.step.climbing) return
-  p.dryTurn = { pose: athletePose(p), facing: p.facing, target: p.facing, time: 0, departure: false, step: true }
+  p.anim.dryTurn = { pose: athletePose(p), facing: p.facing, target: p.facing, time: 0, departure: false, step: true }
 }
 
 export function dryTurnDirection(p: Player, input: JumpInput, before?: DryTurnFrame | null) {
   if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || p.freeFall?.recovery != null) return p.facing
   // A neutral ledge drop's small clearance impulse must not select a turn.
   if (before?.ledgeDrop && Math.abs(input.move) <= .01) return before.facing
-  if (p.slideEntry?.landing && input.move * p.vx < -1 && Math.abs(p.vx) > 20) return Math.sign(p.vx)
+  if (p.anim.slideEntry?.landing && input.move * p.vx < -1 && Math.abs(p.vx) > 20) return Math.sign(p.vx)
   const changing = before && (before.grip || before.facing !== p.facing)
-  if (!p.dryTurn && !changing) return p.facing
+  if (!p.anim.dryTurn && !changing) return p.facing
   if ((before?.grip || input.move * p.vx < -1) && Math.abs(p.vx) > 20) return Math.sign(p.vx)
-  if (p.dryTurn?.departure && Math.abs(input.move) <= .01) return p.dryTurn.target
+  if (p.anim.dryTurn?.departure && Math.abs(input.move) <= .01) return p.anim.dryTurn.target
   return p.facing
 }
 
@@ -200,34 +200,34 @@ export function dryTurnDirection(p: Player, input: JumpInput, before?: DryTurnFr
 export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?: DryTurnFrame | null) {
   // The landing transfer already retains the outgoing orientation. A second
   // owner would discard it when steering reverses against the remaining slip.
-  if (p.slideEntry?.landing) { p.dryTurn = null; return }
+  if (p.anim.slideEntry?.landing) { p.anim.dryTurn = null; return }
   const push = p.contacts?.push
-  const contactTurn = !!(push?.hands && (p.dryTurn?.pushing || p.dryTurn?.step || before?.step && !p.mantle || before?.pushing && before.facing !== p.facing))
+  const contactTurn = !!(push?.hands && (p.anim.dryTurn?.pushing || p.anim.dryTurn?.step || before?.step && !p.mantle || before?.pushing && before.facing !== p.facing))
   // A first shove owns its reachable brace. An interrupted step can transfer
   // only with the incoming force's palms and real shoes held fixed.
   if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || p.freeFall?.recovery != null || p.contacts?.push?.hands && !contactTurn) {
-    p.dryTurn = null; return
+    p.anim.dryTurn = null; return
   }
   const interruptedStep = !!(before?.step && !p.mantle && before.step.time > 0 && before.step.time < before.step.step!.duration)
   const departure = !!before?.grip, changed = before && (before.facing !== p.facing || departure || interruptedStep)
-  if (!p.dryTurn && !changed) return
-  const previousFacing = before?.facing ?? p.dryTurn!.facing
-  let from = before?.pose ?? p.dryTurn!.pose
+  if (!p.anim.dryTurn && !changed) return
+  const previousFacing = before?.facing ?? p.anim.dryTurn!.facing
+  let from = before?.pose ?? p.anim.dryTurn!.pose
   if (previousFacing !== p.facing) from = reflectAthletePose(from)
-  const motion = p.dryTurn ??= { pose: from, facing: p.facing, target: previousFacing, time: 0, departure,
-    slide: !!(before?.slide || p.sliding || p.slideEntry), pushing: contactTurn, step: !!interruptedStep, recoil: !!p.ragdoll }
+  const motion = p.anim.dryTurn ??= { pose: from, facing: p.facing, target: previousFacing, time: 0, departure,
+    slide: !!(before?.slide || p.sliding || p.anim.slideEntry), pushing: contactTurn, step: !!interruptedStep, recoil: !!p.anim.ragdoll }
   // The turn already owns the outgoing loose pose. Return toward the active
   // rig once, rather than layering recoil onto its own captured deformation.
-  p.ragdoll = null
+  p.anim.ragdoll = null
   motion.pushing ||= contactTurn
   const braking = input.move * p.vx < -1
   const approach = !p.grounded && (p.pushing?.ready ?? 0) > 0 && p.pushing?.effort === 0
   const direction = contactTurn ? push!.direction : approach ? p.pushing!.direction : dryTurnDirection(p, input, before)
   if (motion.target !== direction) { motion.target = direction; motion.time = 0 }
   motion.time += dt
-  const gait = p.gait && { ...p.gait, run: braking ? 0 : p.gait.run }
+  const gait = p.anim.gait && { ...p.anim.gait, run: braking ? 0 : p.anim.gait.run }
   const incoming = motion.step && p.pushing ? { ...p.pushing, amount: Math.max(p.pushing.amount, p.pushing.ready ?? 0) } : p.pushing
-  let target = athletePose({ ...p, dryTurn: null, slideEntry: null, facing: direction, gait, pushing: incoming })
+  let target = athletePose({ ...p, anim: { ...p.anim, dryTurn: null, slideEntry: null, gait }, facing: direction, pushing: incoming })
   if (direction !== p.facing) target = reflectAthletePose(target)
   // A planted shoe uses the current motor contact, including heel/toe roll.
   // Blending its angle independently of its ankle would drag material points.
@@ -309,25 +309,26 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   // over or preparation fades. Grounding alone is not a handoff: dropping the
   // owner there retracts the rig just before the same palms load on the prop.
   const preparingStep = motion.step && (p.pushing?.ready ?? 0) > 0 && !p.contacts?.push?.hands
-  if (t === 1 && direction === p.facing && !braking && !preparingStep) p.dryTurn = null
+  if (t === 1 && direction === p.facing && !braking && !preparingStep) p.anim.dryTurn = null
 }
 
 /** Delay solving the outgoing support or approaching reach until a slip. */
 export function captureSlideEntry(p: Player): SlideEntryFrame | null {
-  if (!p.slideEntry && (!p.grounded && !p.sliding && !p.pushing?.ready && !(p.freeFall?.amount ?? 0) || p.hang || p.mantle || p.climbing || p.waterMotion)) return null
-  if (p.slideEntry) return { player: { ...p }, facing: p.facing, sliding: !!p.sliding }
+  if (!p.anim.slideEntry && (!p.grounded && !p.sliding && !p.pushing?.ready && !(p.freeFall?.amount ?? 0) || p.hang || p.mantle || p.climbing || p.waterMotion)) return null
+  // Snapshots keep their own animation fields; later updates replace the live ones.
+  if (p.anim.slideEntry) return { player: { ...p, anim: { ...p.anim } }, facing: p.facing, sliding: !!p.sliding }
   return { player: snapshotDryPlayer(p), facing: p.facing, sliding: !!p.sliding }
 }
 
 function snapshotDryPlayer(p: Player): Player {
-  const feet = p.footwork
+  const feet = p.anim.footwork
   const footwork = feet && { ...feet, feet: feet.feet.map(foot => ({ ...foot,
     release: foot.release && { ...foot.release }, settle: foot.settle && { ...foot.settle } })) as typeof feet.feet }
   const preparation = p.mantle?.step?.returnPreparation
   const returnPreparation = preparation && { ...preparation, hands: { ...preparation.hands,
     palms: preparation.hands.palms?.map(palm => ({ ...palm })) as typeof preparation.hands.palms } }
   const mantle = p.mantle && { ...p.mantle, step: p.mantle.step && { ...p.mantle.step, returnPreparation } }
-  return { ...p, mantle, footwork, sliding: p.sliding && { ...p.sliding }, freeFall: p.freeFall && { ...p.freeFall },
+  return { ...p, mantle, anim: { ...p.anim, footwork }, sliding: p.sliding && { ...p.sliding }, freeFall: p.freeFall && { ...p.freeFall },
     wallBrace: p.wallBrace && { ...p.wallBrace, hands: [...p.wallBrace.hands], feet: [...p.wallBrace.feet],
       ...(p.wallBrace.normal ? { normal: [...p.wallBrace.normal] } : {}) } }
 }
@@ -360,10 +361,10 @@ export function anticipateSlideLanding(p: Player) {
 /** A loaded landing shoe meets the real face after the rig transfer. Swing
  * feet retain the running stride's brief flight phase. */
 function loadSlideLanding(p: Player, pose: AthletePose): AthletePose {
-  if (!p.grounded || !p.terrain || !p.footwork) return pose
+  if (!p.grounded || !p.terrain || !p.anim.footwork) return pose
   const names = ['frontLeg', 'backLeg'] as const
   const contacts = names.flatMap((name, index) => {
-    if (!p.footwork!.feet[index].planted) return []
+    if (!p.anim.footwork!.feet[index].planted) return []
     const leg = pose[name], profile = 1 - (leg.rear ?? 0)
     let gap = Infinity
     for (const point of FOOT_CONTACT) {
@@ -387,21 +388,21 @@ function loadSlideLanding(p: Player, pose: AthletePose): AthletePose {
 export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFrame | null, input?: JumpInput) {
   const landing = !!p.sliding && !!anticipateSlideLanding(p)
   if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || (p.freeFall?.amount ?? 0) > 0 || p.freeFall?.recovery != null
-    || p.dryTurn && !landing && !p.slideEntry?.landing || p.contacts?.push?.hands) {
-    p.slideEntry = null; return
+    || p.anim.dryTurn && !landing && !p.anim.slideEntry?.landing || p.contacts?.push?.hands) {
+    p.anim.slideEntry = null; return
   }
-  if (!p.slideEntry && !(before && ((!before.sliding || before.player.freeFall?.amount) && p.sliding || landing))) return
-  const source = p.slideEntry?.pose ?? athletePose(before!.player)
-  const facing = p.slideEntry?.facing ?? before!.facing
+  if (!p.anim.slideEntry && !(before && ((!before.sliding || before.player.freeFall?.amount) && p.sliding || landing))) return
+  const source = p.anim.slideEntry?.pose ?? athletePose(before!.player)
+  const facing = p.anim.slideEntry?.facing ?? before!.facing
   const from = facing === p.facing ? source : reflectAthletePose(source)
-  const motion = p.slideEntry ??= { pose: from, facing: p.facing, time: 0, landing }
+  const motion = p.anim.slideEntry ??= { pose: from, facing: p.facing, time: 0, landing }
   motion.landing ||= landing
   motion.time += dt
-  if (motion.landing) p.dryTurn = null
+  if (motion.landing) p.anim.dryTurn = null
   const braking = motion.landing && !!input && input.move * p.vx < -1
   const direction = braking && Math.abs(p.vx) > 20 ? Math.sign(p.vx) : p.facing
-  const gait = braking && p.gait ? { ...p.gait, run: 0 } : p.gait
-  let target = athletePose({ ...p, slideEntry: null, facing: direction, gait })
+  const gait = braking && p.anim.gait ? { ...p.anim.gait, run: 0 } : p.anim.gait
+  let target = athletePose({ ...p, anim: { ...p.anim, slideEntry: null, gait }, facing: direction })
   if (direction !== p.facing) target = reflectAthletePose(target)
   const fraction = Math.min(1, dt / Math.max(dt, .12 - motion.time + dt))
   const sample = (t: number) => {
@@ -444,9 +445,9 @@ export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFram
   // when that contact is gone and the cleared rig has actually caught up.
   if (t === 1 && (!motion.landing || !p.sliding)) {
     if (motion.landing && (direction !== p.facing || braking)) {
-      p.dryTurn = { pose, facing: p.facing, target: direction, time: .16, departure: false, slide: true }
+      p.anim.dryTurn = { pose, facing: p.facing, target: direction, time: .16, departure: false, slide: true }
     }
-    p.slideEntry = null
+    p.anim.slideEntry = null
   }
 }
 
@@ -537,7 +538,7 @@ export function advanceWaterLanding(p: Player, input: JumpInput, dt: number, inc
       if (p.grounded && !landing.leaving) {
         // Begin walking from the stance that just received the feet, rather
         // than inheriting a gait cycle advanced while they were still tucked.
-        p.gait = gaitPose(0); p.footwork = null
+        p.anim.gait = gaitPose(0); p.anim.footwork = null
         advanceFootwork(p, 0, p.x, p.terrain ?? [])
       }
     }

@@ -138,7 +138,7 @@ test('pushing varied prop sizes keeps palms on the surface and feet moving with 
           for (const [j, leg] of [pose.frontLeg, pose.backLeg].entries()) {
             assert.ok(Math.hypot(leg.joint[0] - previousLegs[j].joint[0], leg.joint[1] - previousLegs[j].joint[1]) < 4,
               `a deeply bent knee must not flip while stepping past the hip: size ${size}, side ${direction}, frame ${i}, leg ${j}, delta ${Math.hypot(leg.joint[0] - previousLegs[j].joint[0], leg.joint[1] - previousLegs[j].joint[1])}`)
-            const foot = p.footwork.feet[j]
+            const foot = p.anim.footwork.feet[j]
             assert.ok(Math.hypot(p.x + leg.end[0] * direction - foot.x, p.y + leg.end[1] - foot.y) < 1.5,
               'the leg must reach its small pushing step without floor corrections launching the ankle')
           }
@@ -215,7 +215,7 @@ test('a blocked box keeps the solved body and animation still and releases for a
   for (let i = 0; i < 120; i++) {
     advance(run, 1, { move: 1 })
     assert.ok(p.contacts.motion.speed < .02)
-    assert.ok(p.gait.speed < .001)
+    assert.ok(p.anim.gait.speed < .001)
     assert.ok(Math.hypot(p.x - start.x, p.y - start.y) < .01)
     assert.ok(Math.hypot(...athletePose(p).head.map((v, j) => v - start.head[j])) < .01)
   }
@@ -233,7 +233,7 @@ test('moving support carries planted feet without creating a walking gait', () =
       level.props = [{ kind: 'box', x: 350, y: 920, size: 40 }]
     } else level.props = [{ kind, x: 700, y: 920, size: 80 }]
     const run = createRun(level), p = run.player; run.started = true
-    Object.assign(p, { x: 700, y: 840, vx: 0, vy: 0, footwork: null })
+    Object.assign(p, { x: 700, y: 840, vx: 0, vy: 0, anim: { ...p.anim, footwork: null } })
     advance(run, 30)
     const start = { x: p.x, y: p.y }
     let travel = 0
@@ -242,8 +242,8 @@ test('moving support carries planted feet without creating a walking gait', () =
       advance(run, 1)
       assert.ok(p.contacts.support, `${kind} provides support`)
       assert.ok(p.contacts.motion.speed < .05, `${kind} transport is not walking`)
-      assert.ok(p.gait.speed < .001)
-      assert.equal(p.footwork.feet.every(f => f.planted), true)
+      assert.ok(p.anim.gait.speed < .001)
+      assert.equal(p.anim.footwork.feet.every(f => f.planted), true)
       travel = Math.hypot(p.x - start.x, p.y - start.y)
     }
     assert.ok(travel > 15, `${kind} actually moved the player`)
@@ -261,7 +261,7 @@ test('leaving a support publishes airborne contacts and animation only sees the 
     if (p.x > 150) {
       fell = true
       assert.equal(p.grounded, false); assert.equal(p.contacts.support, null); assert.equal(p.contacts.push, null)
-      assert.equal(p.footwork, null)
+      assert.equal(p.anim.footwork, null)
     }
   }
   assert.ok(fell)
@@ -274,7 +274,7 @@ test('bracing against a wall transfers the shove through the feet and rolls a su
     level.props = [{ kind: 'ball', x: wall - direction * 34, y: 920, size: 68 }]
     const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
     const x = wall - direction * 25.5, dx = x - ball.x
-    Object.assign(p, { x, y: 886 - Math.sqrt(34 ** 2 - dx ** 2), facing: direction, footwork: null })
+    Object.assign(p, { x, y: 886 - Math.sqrt(34 ** 2 - dx ** 2), facing: direction, anim: { ...p.anim, footwork: null } })
     advance(run, 10)
     const start = ball.x
     let recoiled = false
@@ -295,7 +295,7 @@ test('standing still anywhere on the grippable crown does not propel a ball', ()
     if (besideWall) level.platforms = [{ x: x + direction * size / 2 - (direction < 0 ? 30 : 0), y: 500, w: 30, h: 420 }]
     const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
     const playerX = x + offset * size / 2
-    Object.assign(p, { x: playerX, y: platformSurface(ballShape(ball), playerX).y, vx: 0, vy: 0, footwork: null })
+    Object.assign(p, { x: playerX, y: platformSurface(ballShape(ball), playerX).y, vx: 0, vy: 0, anim: { ...p.anim, footwork: null } })
     for (let i = 0; i < 600; i++) {
       advance(run, 1)
       assert.ok(p.grounded, 'the player keeps stable footing')
@@ -311,7 +311,7 @@ test('an airborne player wedged between a ball and a wall transfers load and can
     level.platforms = [{ x: wall - (direction < 0 ? 30 : 0), y: 600, w: 30, h: 320 }]
     level.props = [{ kind: 'ball', x: wall - direction * 56, y: 920, size: 68 }]
     const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
-    Object.assign(p, { x: wall - direction * 21, y: 899, grounded: false, vy: 200, facing: -direction, footwork: null })
+    Object.assign(p, { x: wall - direction * 21, y: 899, grounded: false, vy: 200, facing: -direction, anim: { ...p.anim, footwork: null } })
     const start = ball.x
     let supported = false, separating = false
     for (let i = 0; i < 300; i++) {
@@ -338,7 +338,7 @@ test('descending beside a yielding ball blends intermittent sliding contacts wit
     level.entrance = { x: mirror(708), y: 400 }
     level.props = [{ kind: 'ball', x: mirror(666), y: 500, size: 100 }]
     const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
-    Object.assign(p, { grounded: false, footwork: null, facing: -direction })
+    Object.assign(p, { grounded: false, anim: { ...p.anim, footwork: null }, facing: -direction })
     let previous = null, contacts = 0, releases = 0, loaded = false
     for (let i = 0; i < 300; i++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: i < 26 ? -direction : 0 })
@@ -368,7 +368,7 @@ test('large balls yield to a player falling beside a wall, including on a pressu
     level.props = [{ kind: 'ball', x: wall - direction * (size / 2 + 8), y: 920, size }]
     if (plate) level.triggers = [{ x: wall - size - 80, y: 920, w: size * 2 + 160, mode: 'weight', targets: [] }]
     const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
-    Object.assign(p, { x: wall - direction * 12, y: 920 - size - 20, grounded: false, vy: 200, footwork: null })
+    Object.assign(p, { x: wall - direction * 12, y: 920 - size - 20, grounded: false, vy: 200, anim: { ...p.anim, footwork: null } })
     let supported = false, loaded = false
     // Gameplay always advances at STEP, including during slower render frames.
     for (let i = 0; i < Math.ceil(5 / STEP); i++) {

@@ -42,7 +42,7 @@ export function shoveReaches(run: Run, actor: Player, target: Player, direction:
 
 export function beginShove(actor: Player, windup: number) {
   actor.shove = { time: 0, windup, direction: actor.facing, struck: false }
-  actor.dryTurn = null; actor.pushing = null; actor.ledgeReach = null
+  actor.anim.dryTurn = null; actor.pushing = null; actor.ledgeReach = null
 }
 
 function shoveContact(run: Run, actor: Player, targets: readonly Player[], world: ContactWorld): ShoveContact | undefined {

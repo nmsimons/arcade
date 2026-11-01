@@ -15,7 +15,7 @@ function scene(mode = 'emp') {
   file.robots = [{ x: 450, y: 920, left: 350, right: 1000, ...(mode ? { mode } : {}) }]
   const run = createRun(file)
   Object.assign(run.robots[0], { phase: 'recover', time: -10 })
-  Object.assign(run.player, { x: 413, y: 920, grounded: true, footwork: null })
+  Object.assign(run.player, { x: 413, y: 920, grounded: true, anim: { ...run.player.anim, footwork: null } })
   return run
 }
 
@@ -92,7 +92,7 @@ test('a shocked player keeps their sleeve, cannot fire or drop it, and regains b
   assert.ok(sleeve)
   const contact = scene()
   run.robots = contact.robots
-  Object.assign(run.player, { x: 413, y: 920, vx: 0, vy: 0, footwork: null })
+  Object.assign(run.player, { x: 413, y: 920, vx: 0, vy: 0, anim: { ...run.player.anim, footwork: null } })
   tick(run, 1, { use: true, interact: true })
   run.robots = []
   for (let i = 0; i < 30; i++) { tick(run); tick(run, 1, { use: true, interact: true, climb: true }) }

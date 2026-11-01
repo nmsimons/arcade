@@ -24,13 +24,13 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     const target = rotatePose(pose, c.turn.angle, p.facing, [(pivot[0] - root[0]) * p.facing, pivot[1] - root[1]],
       [(root[0] - p.x) * p.facing, root[1] - p.y])
     if (c.caught.releaseTurn && blend < 1) {
-      const source = athletePose({ ...p, ...c.caught, climbing: null, hang: null, mantle: null })
+      const source = athletePose({ ...p, ...c.caught, anim: { ...p.anim, ...c.caught.anim }, climbing: null, hang: null, mantle: null })
       return transferPose(source, target, [(c.caught.x - p.x) * p.facing, c.caught.y - p.y], blend, [0, 0], 0, true)
     }
     return target
   }
   if (c.caught.hang && blend < 1) {
-    const source = presentedAthletePose({ ...p, ...c.caught, climbing: null, hang: c.caught.hang, mantle: null, ledgeReach: null })
+    const source = presentedAthletePose({ ...p, ...c.caught, anim: { ...p.anim, ...c.caught.anim }, climbing: null, hang: c.caught.hang, mantle: null, ledgeReach: null })
     const target = climbingPose({ ...p, climbing: { ...c, time: .16 } })
     return transferPose(source, target, [(c.caught.x - p.x) * p.facing, c.caught.y - p.y], blend)
   }
@@ -105,7 +105,7 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
   }
   let source: AthletePose | null = null
   if (blend < 1) {
-    source = presentedAthletePose({ ...p, ...c.caught, climbing: null, hang: c.caught.hang ?? null, mantle: null, ledgeReach: null })
+    source = presentedAthletePose({ ...p, ...c.caught, anim: { ...p.anim, ...c.caught.anim }, climbing: null, hang: c.caught.hang ?? null, mantle: null, ledgeReach: null })
     const at = (point: Point): Point => [point[0] + (c.caught.x - p.x) * p.facing, point[1] + c.caught.y - p.y]
     hip = mix(at(source.hip), hip, blend); waist = mix(at(source.waist), waist, blend)
     shoulder = mix(at(source.shoulder), shoulder, blend); head = mix(at(source.head), head, blend)

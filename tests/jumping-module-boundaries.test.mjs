@@ -11,16 +11,21 @@ import ts from 'typescript'
 // coupling is replaced; a new pose or animation import from the simulation
 // needs a deliberate entry here.
 const root = fileURLToPath(new URL('../src/games/jumping/', import.meta.url))
-const POSE_FAMILY = /^(athleteRig|athletePose|athleteClearance|athleteAnimation|poses\/\w+)\.ts$/
+const POSE_FAMILY = /^(athleteRig|athletePose|athleteClearance|athleteAnimation|footwork|poses\/\w+)\.ts$/
 const DRAWING = /^(athleteDraw|athleteShadow|androidArtwork|sleeveArtwork|render|\w+Render|\w+Artwork)\.ts$/
 const ALLOWED = {
   'actorImpulse.ts': { 'athleteAnimation.ts': ['startImpactRagdoll'] },
+  'challenge.ts': { 'footwork.ts': ['advanceFootwork'] },
   'gadgets.ts': { 'athletePose.ts': ['athletePose'] },
+  'goal.ts': { 'footwork.ts': ['advanceFootwork'] },
+  'ledge.ts': { 'footwork.ts': ['wallToeBrace'] },
+  'level.ts': { 'footwork.ts': ['advanceFootwork'] },
   'model.ts': {
     'athleteAnimation.ts': ['advanceDryTurn', 'advanceImpactRagdoll', 'advanceMovingRecovery', 'advanceReturningStepPreparation', 'advanceSlideEntry',
       'advanceWaterCeiling', 'advanceWaterLanding', 'advanceWaterPropReach', 'captureDryTurn', 'captureRopeTurnRelease', 'captureSlideEntry',
       'dryTurnDirection', 'settleFallClearance', 'settleWaterClearance', 'startImpactRagdoll'],
     'athletePose.ts': ['athletePose', 'dryLedgeReach', 'dryLedgeReachPose'],
+    'footwork.ts': ['advanceFootwork'],
     'poses/waterPose.ts': ['swimmingLedgeReach'],
   },
   'playerContacts.ts': {
@@ -30,6 +35,7 @@ const ALLOWED = {
   },
   'propPhysics.ts': { 'poses/waterPose.ts': ['swimmingTerrainOutline'] },
   'repulsorBot.ts': { 'athletePose.ts': ['athletePose'] },
+  'stepUp.ts': { 'footwork.ts': ['FOOT_CONTACT'] },
   'repulsorBotRig.ts': { 'athletePose.ts': ['awakeningPose', 'presentedAthletePose'] },
 }
 
@@ -76,6 +82,27 @@ test('simulation modules use poses and animation only through the listed couplin
   }
   for (const modules of Object.values(actual)) for (const module of Object.keys(modules)) modules[module].sort()
   assert.deepEqual(actual, ALLOWED, 'Update ALLOWED and docs/jumping-animation.md when a coupling is added or removed')
+})
+
+// Animation fields (Player.anim) each simulation module reads or writes; '*' is
+// the whole object. These are the in-step animation calls and their state
+// handling (Phase 3) and the gameplay reads of animation (Phase 4).
+const ANIM_FIELDS = {
+  'actorImpulse.ts': ['dryTurn'], 'armSupport.ts': ['ragdoll'], 'botHearing.ts': ['footwork'], 'challenge.ts': ['ragdoll'],
+  'climbables.ts': ['*'], 'gadgets.ts': ['dryTurn'], 'goal.ts': ['footwork'], 'gravityFrame.ts': ['footwork'],
+  'model.ts': ['dryTurn', 'footwork', 'gait', 'look', 'ragdoll', 'slideEntry', 'stride'],
+  'playerContacts.ts': ['dryTurn', 'footwork', 'slideEntry'], 'repulsorBot.ts': ['gait'], 'shove.ts': ['dryTurn'],
+  'stepUp.ts': ['dryTurn', 'footwork', 'gait', 'stride'],
+}
+
+test('simulation modules touch only the listed animation fields', () => {
+  const actual = {}
+  for (const file of [...simulation].sort()) {
+    if (POSE_FAMILY.test(file) || file.startsWith('../') || /^(characterTypes|gait)\.ts$/.test(file)) continue
+    const fields = new Set([...readFileSync(resolve(root, file), 'utf8').matchAll(/\.anim\b(?:\??\.(\w+))?/g)].map(match => match[1] ?? '*'))
+    if (fields.size) actual[file] = [...fields].sort()
+  }
+  assert.deepEqual(actual, ANIM_FIELDS, 'Update ANIM_FIELDS and docs/jumping-animation.md when simulation code starts or stops using animation state')
 })
 
 test('athlete pose, animation and drawing modules import no runtime code from model.ts', () => {

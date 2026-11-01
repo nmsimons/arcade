@@ -42,7 +42,7 @@ export function wallBracePose(p: Player, free: AthletePose): AthletePose {
   // from the wall. The physical capsule stays at the collision boundary.
   const pushDistance = 25.5
   const pushing = athletePose({ ...p, x: p.x + p.facing * (wall - pushDistance),
-    grounded: true, vx: 0, vy: 0, wallBrace: null, sliding: null, footwork: null, gait: gaitPose(0),
+    grounded: true, vx: 0, vy: 0, wallBrace: null, sliding: null, anim: { ...p.anim, footwork: null, gait: gaitPose(0) },
     crouch: 0, crouching: false, reach: 0, landing: 0, groundAngle: 0,
     pushing: { wallX: p.x + p.facing * wall, direction: p.facing, amount: 1, effort: 1 } })
   const offset: Point = [wall - pushDistance, 0]

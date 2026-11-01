@@ -97,7 +97,7 @@ test('equipped pushing uses the normal motor and palm pose', () => {
 test('a gadget permits a real ledge catch and pull-up, suspending use while the right palm is loaded', () => {
   const level = scene(); level.platforms = [{ x: 350, y: 750, w: 250, h: 20 }]
   const run = equipped(level), p = run.player
-  Object.assign(p, { x: 338, y: 820, grounded: false, coyote: 0, vy: 100, footwork: null })
+  Object.assign(p, { x: 338, y: 820, grounded: false, coyote: 0, vy: 100, anim: { ...p.anim, footwork: null } })
   tick(run, 1, { move: 1 })
   assert.ok(p.hang)
   assert.ok(rightArmSupporting(p))
@@ -118,7 +118,7 @@ test('a gadget permits a real ledge catch and pull-up, suspending use while the 
 test('equipping a gadget preserves wall braces and wall jumps', () => {
   const level = scene(); level.platforms = [{ x: 350, y: 100, w: 100, h: 820 }]
   const run = equipped(level), p = run.player
-  Object.assign(p, { x: 338, y: 650, grounded: false, coyote: 0, vy: 100, footwork: null })
+  Object.assign(p, { x: 338, y: 650, grounded: false, coyote: 0, vy: 100, anim: { ...p.anim, footwork: null } })
   tick(run, 3, { move: 1 })
   assert.ok(p.wallBrace?.active)
   assert.ok(rightArmSupporting(p)); sameArm(p)
@@ -132,7 +132,7 @@ test('equipping a gadget preserves wall braces and wall jumps', () => {
 test('a rope can catch automatically with equipment, then release into an ordinary jump', () => {
   const level = scene(); level.climbables.ropes = [{ x: 400, y: 300, length: 580, segments: 73 }]
   const run = equipped(level), p = run.player
-  Object.assign(p, { x: 394, y: 700, grounded: false, coyote: 0, vy: 100, footwork: null })
+  Object.assign(p, { x: 394, y: 700, grounded: false, coyote: 0, vy: 100, anim: { ...p.anim, footwork: null } })
   tick(run, 30)
   assert.equal(p.climbing?.kind, 'rope')
   sameArm(p)
@@ -169,7 +169,7 @@ test('aim and fire are available during an actual free right-hand climbing phase
 test('an EMP shot denied by a supporting arm never queues use or consumes the weapon', () => {
   const level = scene('emp'); level.platforms = [{ x: 350, y: 750, w: 250, h: 20 }]
   const run = equipped(level), p = run.player, prop = run.gadgets.held
-  Object.assign(p, { x: 338, y: 820, grounded: false, coyote: 0, vy: 100, footwork: null })
+  Object.assign(p, { x: 338, y: 820, grounded: false, coyote: 0, vy: 100, anim: { ...p.anim, footwork: null } })
   tick(run, 1, { move: 1 }); assert.ok(p.hang)
   tick(run, 180, { use: true, climb: true })
   assert.equal(run.gadgets.held, prop)

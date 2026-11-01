@@ -18,22 +18,22 @@ test('braced pushing steps follow distance travelled and stop when blocked', () 
   const terrain = [{ x: 0, y: 320, w: 2600, h: 780, profile: [[0,780],[2600,0]] }]
   const counts = []
   for (const speed of [2, 12, 60]) {
-    const p = createPlayer(); p.x = 800; p.y = 1100 - p.x * .3; p.gait = gaitPose(speed)
+    const p = createPlayer(); p.x = 800; p.y = 1100 - p.x * .3; p.anim.gait = gaitPose(speed)
     p.pushing = { wallX: p.x + 25.5, direction: 1, amount: 1, effort: 1 }
     let steps = 0, planted = [true,true]
     for (let frame=0;frame<1200;frame++) {
       const oldX=p.x; p.x+=speed*STEP; p.y=1100-p.x*.3; p.pushing.wallX=p.x+25.5
       advanceFootwork(p,STEP,oldX,terrain)
-      const feet=p.footwork.feet
+      const feet=p.anim.footwork.feet
       steps+=feet.filter((foot,i)=>!foot.planted&&planted[i]).length
       assert.ok(feet.some(foot=>foot.planted),'at least one foot supports a slow push')
       planted=feet.map(foot=>foot.planted)
     }
     counts.push(steps)
     for(let frame=0;frame<120;frame++)advanceFootwork(p,STEP,p.x,terrain)
-    const stopped=p.footwork.feet.map(foot=>[foot.x,foot.y])
+    const stopped=p.anim.footwork.feet.map(foot=>[foot.x,foot.y])
     for(let frame=0;frame<240;frame++)advanceFootwork(p,STEP,p.x,terrain)
-    assert.deepEqual(p.footwork.feet.map(foot=>[foot.x,foot.y]),stopped,'blocked pushing keeps the feet planted')
+    assert.deepEqual(p.anim.footwork.feet.map(foot=>[foot.x,foot.y]),stopped,'blocked pushing keeps the feet planted')
   }
   assert.ok(counts[0]<6,`a creeping push should not churn: ${counts}`)
   assert.ok(counts[1]>counts[0]*2 && counts[2]>counts[1]*2,`steps scale with travel: ${counts}`)
@@ -47,7 +47,7 @@ test('crouch walking uses a full pushing stride with low feet and grounded knees
     let steps = 0, planted = [true, true]
     for (let frame = 0; frame < 300; frame++) {
       stepPlayer(p, { ...NEUTRAL_INPUT, move: direction * speed / 125, descend: true }, STEP, [floor])
-      const feet = p.footwork.feet, pose = athletePose(p)
+      const feet = p.anim.footwork.feet, pose = athletePose(p)
       steps += feet.filter((foot, i) => !foot.planted && planted[i]).length
       planted = feet.map(foot => foot.planted)
       if (p.crouch < 1) continue
@@ -64,7 +64,7 @@ test('crouch walking uses a full pushing stride with low feet and grounded knees
     assert.ok(steps > 3, 'the check spans multiple alternating steps')
     assert.ok(Math.abs(p.x - 1300) / steps > 10, 'crouch steps cover ground instead of rapidly shuffling')
     for (let i = 0; i < 120; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, [floor])
-    assert.ok(p.footwork.feet.every(foot => foot.planted))
+    assert.ok(p.anim.footwork.feet.every(foot => foot.planted))
     const stopped = athletePose(p)
     for (let i = 0; i < 60; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, [floor])
     assert.deepEqual(athletePose(p), stopped, 'stopping keeps the crouched feet still')
@@ -75,7 +75,7 @@ test('expressive strides keep limb lengths, safe knee bends, and continuous pose
   for (const vx of [0, 70, 125, 240, 350]) {
     let previous
     for (let frame = 0; frame <= 1000; frame++) {
-      const p = { ...createPlayer(), vx, stride: frame / 1000 * Math.PI * 2 }
+      const p = { ...createPlayer(), vx, anim: { ...createPlayer().anim, stride: frame / 1000 * Math.PI * 2 } }
       const pose = athletePose(p)
       for (const limb of [pose.frontLeg, pose.backLeg, pose.frontArm, pose.backArm]) {
         const leg = 'footAngle' in limb
@@ -142,8 +142,8 @@ test('takeoff, gathered apex and open descent have distinct arm balance in eithe
 test('the same local animation plays in either direction', () => {
   for (let frame = 0; frame < 40; frame++) {
     const stride = frame / 40 * Math.PI * 2
-    const right = athletePose({ ...createPlayer(), vx: 350, stride })
-    const left = athletePose({ ...createPlayer(), vx: -350, facing: -1, stride: -stride })
+    const right = athletePose({ ...createPlayer(), vx: 350, anim: { ...createPlayer().anim, stride } })
+    const left = athletePose({ ...createPlayer(), vx: -350, facing: -1, anim: { ...createPlayer().anim, stride: -stride } })
     assert.deepEqual(left, right)
   }
 })
@@ -170,7 +170,7 @@ test('rendered feet roll around a fixed footprint through speed changes, braking
       previous = feet
     }
     assert.ok(comparisons > 300 && contacts > 400, 'the check must cover sustained ground contacts')
-    assert.ok(p.footwork.feet.every(foot => foot.planted), 'both feet settle into a standing position')
+    assert.ok(p.anim.footwork.feet.every(foot => foot.planted), 'both feet settle into a standing position')
   }
 })
 
@@ -178,7 +178,7 @@ test('jumping releases foot anchors, and landing establishes new contacts', () =
   const p = createPlayer(), floor = [{ x: 0, y: 620, w: 2600, h: 400 }]
   for (let i = 0; i < 50; i++) stepPlayer(p, { ...NEUTRAL_INPUT, move: 1, jump: true }, STEP, floor)
   stepPlayer(p, { ...NEUTRAL_INPUT, move: 1 }, STEP, floor)
-  assert.equal(p.footwork, null)
+  assert.equal(p.anim.footwork, null)
   let previous, contacts = 0
   for (let i = 0; i < 190; i++) {
     stepPlayer(p, { ...NEUTRAL_INPUT, move: i < 140 ? 1 : 0 }, STEP, floor)
@@ -277,7 +277,7 @@ test('stopping at different stride phases settles both feet into the same natura
       for (let j = 0; j < current.length; j++) assert.ok(distance(previous[j], current[j]) < 3, 'rest pose must not snap')
       previous = current
     }
-    for (const [i, foot] of p.footwork.feet.entries()) {
+    for (const [i, foot] of p.anim.footwork.feet.entries()) {
       assert.ok(foot.planted && foot.settle === null)
       assert.ok(Math.abs((foot.x - p.x) * direction - (i ? -2 : 2)) < .16, `wide final stance at speed ${speed}, phase ${phase}`)
       assert.equal(foot.angle, 0); assert.equal(foot.facing, direction)
@@ -308,7 +308,7 @@ test('resting near a platform edge keeps both recovery steps on the platform', (
   for (const facing of [-1, 1]) {
     const p = createPlayer(); Object.assign(p, { x: 299, facing })
     for (let i = 0; i < 100; i++) stepPlayer(p, NEUTRAL_INPUT, STEP, floor)
-    assert.ok(p.footwork.feet.every(foot => foot.planted && foot.x >= 0 && foot.x <= 300))
+    assert.ok(p.anim.footwork.feet.every(foot => foot.planted && foot.x >= 0 && foot.x <= 300))
   }
 })
 
@@ -376,7 +376,7 @@ test('the sliding pose stays continuous through slow reversals and is still at z
 
 test('brief sliding contacts blend the falling rig and foot clearance instead of switching them', () => {
   for (const facing of [-1, 1]) for (const braced of [false, true]) {
-    const p = { ...createPlayer(), x: 0, y: 0, grounded: false, facing, vx: 20 * facing, vy: 70, gait: gaitPose(20, true),
+    const p = { ...createPlayer(), x: 0, y: 0, grounded: false, facing, vx: 20 * facing, vy: 70, anim: { ...createPlayer().anim, gait: gaitPose(20, true) },
       wallBrace: braced ? { wallX: 12 * facing, direction: facing, active: true, hands: [.6, .5], feet: [.7, .7] } : null }
     const free = athletePose(p)
     p.sliding = { angle: facing * 1.05, amount: 0, time: .4, active: true, x: -8 * facing, y: -5 }

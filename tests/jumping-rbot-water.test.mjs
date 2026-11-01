@@ -111,7 +111,7 @@ test('Quarantine II: a fresh fall commits to a bank exit while the player keeps 
       assert.ok(playerSwimStrength(run.gravityField, bot.actor) < .05, 'a submerged sighting cannot lure the escaped bot straight back in')
     }
     const actor = bot.actor, pose = repulsorBotPose(actor)
-    const flightTurn = !wet && !actor.grounded && !actor.climbing && !actor.hang && !actor.mantle && !!actor.dryTurn
+    const flightTurn = !wet && !actor.grounded && !actor.climbing && !actor.hang && !actor.mantle && !!actor.anim.dryTurn
     if (flightTurn && !previousFlightTurn) flightTurns++
     previousFlightTurn = flightTurn
     const palms = ['frontArm', 'backArm'].map(name => {

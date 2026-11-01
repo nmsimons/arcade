@@ -18,7 +18,7 @@ test('resting shadows reuse raster fields without stale pixels when objects move
     for (let i = 0; i < 5; i++) check()
     const restedEdges = edges.at(-1)
     // Player animation must never freeze when the room's other shadows are cached.
-    h.run.player.x += 90; h.run.player.stride += .7; check()
+    h.run.player.x += 90; h.run.player.anim.stride += .7; check()
     h.run.props[0].x += 50; h.run.props[0].angle += .25; check()
     for (let i = 0; i < 4; i++) { h.run.props[0].x += 10; check() }
     for (let i = 0; i < 4; i++) check()

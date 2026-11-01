@@ -18,7 +18,7 @@ const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9
 test('player casters follow the pose and facing without mutating movement state', () => {
   const p = run().player
   for (const facing of [-1, 1]) for (const crouch of [0, 1]) for (const grounded of [false, true]) for (const stride of [0, 1, 2]) {
-    Object.assign(p, { facing, crouch, grounded, stride, vx: 180, vy: -120, gait: gaitPose(180, !grounded) })
+    Object.assign(p, { facing, crouch, grounded, anim: { ...p.anim, stride, gait: gaitPose(180, !grounded) }, vx: 180, vy: -120 })
     const before = JSON.stringify(p), pose = athletePose(p), shapes = athleteCasters(p)
     assert.equal(JSON.stringify(p), before)
     assert.ok(shapes.length > 20)

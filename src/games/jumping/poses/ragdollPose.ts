@@ -9,12 +9,12 @@ import { clearLoosePose } from './fallPose.ts'
 import type { Player } from '../characterTypes.ts'
 
 export function impactRagdollPose(p: Player): AthletePose {
-  const motion = p.ragdoll!
+  const motion = p.anim.ragdoll!
   const blend = motion.kind === 'landing' ? smooth(motion.time / .08) : smooth((motion.time - .1) / .4)
   // The repulsor's initial hold has no target contribution. A falling target
   // also defers its loose clearance until after the joint springs are applied.
   let pose = blend === 0 ? motion.source
-    : transferPose(motion.source, resolveAthletePose({ ...p, ragdoll: null }, true), [0, 0], blend, [0, 0], 0, true)
+    : transferPose(motion.source, resolveAthletePose({ ...p, anim: { ...p.anim, ragdoll: null } }, true), [0, 0], blend, [0, 0], 0, true)
   const release = Math.min(.16, motion.duration * .3)
   const weight = 1 - smooth((motion.time - release) / (motion.duration - release))
   const angle = (name: ImpactJoint) => motion.joints[name].angle * weight

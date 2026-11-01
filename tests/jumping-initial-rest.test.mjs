@@ -26,14 +26,14 @@ test('the ready stance uses final narrow, sloped, prop and carrier support witho
       const run = createRun(level), p = run.player, before = JSON.stringify(run)
       assert.equal(p.grounded, true, name)
       assert.ok(p.contacts.support, `${name}: the ready frame identifies real support`)
-      assert.ok(p.footwork.feet.some(foot => foot.planted), `${name}: at least one shoe bears weight`)
+      assert.ok(p.anim.footwork.feet.some(foot => foot.planted), `${name}: at least one shoe bears weight`)
       const pose = athletePose(p)
       assert.ok(Math.hypot(...pose.frontLeg.end.map((v, i) => v - pose.backLeg.end[i])) > .5,
         `${name}: the initial legs are not coincident`)
       assert.ok(Math.hypot(...pose.frontArm.end.map((v, i) => v - pose.backArm.end[i])) > 6,
         `${name}: relaxed arms remain distinguishable`)
       for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
-        const foot = p.footwork.feet[i]
+        const foot = p.anim.footwork.feet[i]
         assert.equal(leg.planted, foot.planted, `${name}: drawing does not invent support`)
         if (!foot.planted) continue
         const ground = groundAt(run.platforms, foot.anchorX, foot.anchorY, .2)
@@ -68,18 +68,18 @@ test('ten seconds of started idle retain real support, readable quiet arms and p
     for (let tick = 0; tick < 4; tick++) stepRun(run, { ...input, move: facing })
     for (let tick = 0; tick < 360; tick++) stepRun(run, input)
     assert.equal(run.started, true, `${name}: exercise the started world rather than the frozen ready frame`)
-    assert.ok(p.grounded && p.footwork.feet.every(foot => foot.planted), `${name}: reach actual settled support`)
+    assert.ok(p.grounded && p.anim.footwork.feet.every(foot => foot.planted), `${name}: reach actual settled support`)
     assert.equal(p.facing, facing)
     assert.equal(!!p.inverted, name.includes('reversed'))
-    const anchors = p.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), carrier = name === 'carrier' ? run.mechanisms[0] : null
+    const anchors = p.anim.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), carrier = name === 'carrier' ? run.mechanisms[0] : null
     const origin = carrier ? [carrier.x, carrier.y] : [0, 0], initialX = p.x
     let carrierTravel = 0
     for (let tick = 0; tick < 1200; tick++) {
       stepRun(run, input)
       const before = structuredClone(p), pose = athletePose(p)
       assert.deepEqual(p, before, 'the rendered pose remains read-only')
-      assert.equal(p.gait.moving, 0, `${name}: passive rest does not cycle the gait`)
-      assert.ok(p.footwork.feet.every(foot => foot.planted), `${name}: no cosmetic idle steps`)
+      assert.equal(p.anim.gait.moving, 0, `${name}: passive rest does not cycle the gait`)
+      assert.ok(p.anim.footwork.feet.every(foot => foot.planted), `${name}: no cosmetic idle steps`)
       if (name.includes('crouched')) {
         assert.ok([pose.frontArm, pose.backArm].every(arm => arm.end[0] > arm.joint[0] + 6
           && arm.end[1] < Math.min(pose.frontLeg.joint[1], pose.backLeg.joint[1]) - 1),
@@ -88,7 +88,7 @@ test('ten seconds of started idle retain real support, readable quiet arms and p
         `${name}: quiet hands stay distinct`)
       const shift = carrier ? [carrier.x - origin[0], carrier.y - origin[1]] : [0, 0]
       for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
-        const foot = p.footwork.feet[i]
+        const foot = p.anim.footwork.feet[i]
         assert.equal(leg.planted, true)
         assert.ok(Math.hypot(p.x + leg.end[0] * p.facing - foot.x, p.y + leg.end[1] * (p.inverted ? -1 : 1) - foot.y) < 1e-6,
           `${name}: the final shoe retains its motor ankle`)
@@ -109,7 +109,7 @@ test('unsupported ready frames retain an airborne rig instead of borrowing the l
   for (const { name, level } of fixtures) {
     const run = createRun({ ...level, entrance: { x: level.entrance.x, y: level.entrance.y - 100 } }), p = run.player
     assert.equal(p.grounded, false, name)
-    assert.equal(p.footwork, null, name)
+    assert.equal(p.anim.footwork, null, name)
     assert.equal(p.contacts.support, null, name)
     const pose = athletePose(p)
     assert.equal(pose.frontLeg.planted || pose.backLeg.planted, false, name)

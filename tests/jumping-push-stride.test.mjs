@@ -14,18 +14,18 @@ for (const kind of ['box', 'ball']) for (const side of [-1, 1]) for (const dt of
     for (let i = 0; i < ticks; i++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: side }, dt)
       assert.ok(p.grounded && p.pushing?.effort, 'retain the actual loaded push')
-      assert.ok(p.footwork.feet.some(f => f.planted), 'one real foot carries every step')
+      assert.ok(p.anim.footwork.feet.some(f => f.planted), 'one real foot carries every step')
       if (i === warmup) start = p.x
       if (i > warmup) {
         const pose = athletePose(p)
-        for (const [j, foot] of p.footwork.feet.entries()) {
+        for (const [j, foot] of p.anim.footwork.feet.entries()) {
           if (!foot.planted && previous[j]) { steps++; movers.add(j) }
           const leg = j === 0 ? pose.frontLeg : pose.backLeg
           if (foot.planted) assert.ok(Math.hypot(p.x + leg.end[0] * side - foot.x, p.y + leg.end[1] - foot.y) < 1e-6, 'a loaded ankle cannot slide under the body')
           assert.ok(Math.abs(foot.x - p.x) < 18, 'the step retains a modest reach')
         }
       }
-      previous = p.footwork.feet.map(f => f.planted)
+      previous = p.anim.footwork.feet.map(f => f.planted)
     }
     const seconds = (ticks - warmup - 1) * dt, cadence = steps / seconds, speed = Math.abs(p.x - start) / seconds
     assert.equal(movers.size, 2, 'both legs advance')

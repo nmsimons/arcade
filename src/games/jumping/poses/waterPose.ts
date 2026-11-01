@@ -123,7 +123,7 @@ export function waterPose(p: Player): AthletePose {
     const planted = athletePose({ ...p, waterMotion: undefined, freeFall: null, landing: 0,
       // This is the water floor-contact endpoint, including its release blend.
       // A buoyant lift must not make that endpoint adopt dry apex balance.
-      gait: { ...(p.gait ?? gaitPose(p.vx)), air: 0 } })
+      anim: { ...p.anim, gait: { ...(p.anim.gait ?? gaitPose(p.vx)), air: 0 } } })
     pose = motion.bottom >= 1 ? planted : transferPose(pose, planted, [0, 0], motion.bottom, [0, 0], 0, true)
   }
   const propLean = motion.propLean ?? 0
@@ -363,8 +363,8 @@ export function waterLandingPose(p: Player): AthletePose {
     : smooth(landing.time / WATER_LANDING_TIME)
   const target = landing.leaving
     ? waterPose({ ...p, waterMotion: { ...motion, landing: undefined, bottom: 0 } })
-    : athletePose({ ...p, waterMotion: undefined, freeFall: null, dryTurn: null, slideEntry: null, landing: 0,
-      footwork: null, gait: gaitPose(0) })
+    : athletePose({ ...p, waterMotion: undefined, freeFall: null, landing: 0,
+      anim: { ...p.anim, dryTurn: null, slideEntry: null, footwork: null, gait: gaitPose(0) } })
   const angle = (pose: AthletePose) => Math.atan2(pose.shoulder[1] - pose.hip[1], pose.shoulder[0] - pose.hip[0])
   let delta = Math.atan2(Math.sin(angle(target) - angle(from)), Math.cos(angle(target) - angle(from)))
   // A nearly vertical dive has two similar half-turns available. Continue

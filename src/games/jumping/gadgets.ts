@@ -177,7 +177,7 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
     const before = heldToolFrame(p), after = heldToolFrame({ ...p, facing }, tool)!, solids = gadgetSolids(run)
     state.blocked = turnSupported || !legal(after, solids) || !!before && !framePathClear(before, after, solids)
     if (supporting || !aiming && rightArmAnimating(p) || !state.blocked || !p.heldTool) {
-      if (p.facing !== facing) { p.facing = facing; p.dryTurn = null }
+      if (p.facing !== facing) { p.facing = facing; p.anim.dryTurn = null }
       p.heldTool = tool; state.angle = angle; state.aiming = aiming
     }
     else { p.heldTool.blocked = true; state.aiming = aiming }

@@ -58,7 +58,7 @@ test('the short exit preserves the walking rig and foot contacts instead of swit
     stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
     const pose = athletePose(p)
     if (run.exit) {
-      entered = true; assert.ok(p.footwork)
+      entered = true; assert.ok(p.anim.footwork)
       if (previous) assert.ok(Math.hypot(p.x + pose.head[0] - previous.x, p.y + pose.head[1] - previous.y) < 7,
         'the head follows a continuous final step')
       assert.equal(pose.backView, undefined, 'entry keeps the familiar side-view silhouette')

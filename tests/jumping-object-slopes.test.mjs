@@ -96,7 +96,7 @@ test('a gate rises past a ball leaning against it on a slope',()=>{
 test('pushing a tilted box uphill keeps hands on its face and makes gradual progress',()=>{
   const level=ramp(-1);level.props=[{kind:'box',x:700,y:surface(level,700),size:100}]
   const run=createRun(level);run.started=true;advance(run,600)
-  const box=run.props[0];Object.assign(run.player,{x:box.x-85,y:surface(level,box.x-85),vx:0,footwork:null})
+  const box=run.props[0];Object.assign(run.player,{ x:box.x-85, y:surface(level,box.x-85), vx:0, anim: { ...run.player.anim, footwork:null } })
   const start=box.x;let poses=0,previous=box.x
   for(let i=0;i<360;i++){
     advance(run,1,1);clearTerrain(run)
@@ -113,7 +113,7 @@ test('uphill pushing keeps the body steady through foot changes in either direct
     const level=ramp(-direction,rise);level.props=[{kind:'box',x:700,y:surface(level,700),size:100}]
     const run=createRun(level);run.started=true;advance(run,600)
     const box=run.props[0],p=run.player,x=box.x-direction*85
-    Object.assign(p,{x,y:surface(level,x),vx:0,facing:direction,footwork:null})
+    Object.assign(p,{ x, y:surface(level,x), vx:0, facing:direction, anim: { ...p.anim, footwork:null } })
     let previous=null,velocity=null,pose=null,footChanges=0,feet=null
     for(let frame=0;frame<360;frame++){
       advance(run,1,direction)
@@ -126,9 +126,9 @@ test('uphill pushing keeps the body steady through foot changes in either direct
         if(velocity)assert.ok(Math.hypot(delta[0]-velocity[0],delta[1]-velocity[1])<.05,'walking and contact corrections must not fight')
         velocity=delta
         for(const joint of ['hip','shoulder','head'])assert.ok(Math.hypot(current[joint][0]-pose[joint][0],current[joint][1]-pose[joint][1])<.1,`${joint} stays steady as feet exchange support`)
-        footChanges+=p.footwork.feet.filter((foot,i)=>foot.planted!==feet[i]).length
+        footChanges+=p.anim.footwork.feet.filter((foot,i)=>foot.planted!==feet[i]).length
       }
-      previous={x:p.x,y:p.y};pose=current;feet=p.footwork.feet.map(foot=>foot.planted)
+      previous={x:p.x,y:p.y};pose=current;feet=p.anim.footwork.feet.map(foot=>foot.planted)
     }
     assert.ok(footChanges>=6,'the check spans several actual steps')
     advance(run,30,-direction)
@@ -169,7 +169,7 @@ test('standing on a ball wedged between a tilted box and gate preserves support 
   level.props=[{kind:'ball',x:716,y:769,size:68},{kind:'box',x:650,y:778,size:80}]
   const run=createRun(level);run.started=true;run.props[1].angle=.39;advance(run,180)
   const ball=run.props[0],p=run.player
-  Object.assign(p,{x:ball.x-4,y:ball.y-ball.size,grounded:true,vx:0,vy:0,footwork:null})
+  Object.assign(p,{ x:ball.x-4, y:ball.y-ball.size, grounded:true, vx:0, vy:0, anim: { ...p.anim, footwork:null } })
   // Walking toward the box can move or tip it. Keep support while over the
   // ball's crown, and permit normal sliding once that route becomes clear.
   for(let i=0;i<180;i++){

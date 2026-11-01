@@ -256,10 +256,10 @@ export function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
   if (!p.terrain?.length) return leg
   let current = leg
   const target: Point = [...leg.end]
-  const landing = !!p.slideEntry?.landing || !!p.sliding && !!anticipateSlideLanding(p)
-    || p.grounded && !!p.dryTurn?.pushing
+  const landing = !!p.anim.slideEntry?.landing || !!p.sliding && !!anticipateSlideLanding(p)
+    || p.grounded && !!p.anim.dryTurn?.pushing
   if (landing) passes = Math.max(passes, 16)
-  const boundary = p.slideEntry || p.dryTurn || landing || p.freeFall?.amount ? footSkin : soleSkin
+  const boundary = p.anim.slideEntry || p.anim.dryTurn || landing || p.freeFall?.amount ? footSkin : soleSkin
   for (let pass = 0; pass < passes; pass++) {
     let deepest: { x: number; y: number; nx: number; ny: number; distance: number } | null = null
     for (const { point, toe } of boundary) {

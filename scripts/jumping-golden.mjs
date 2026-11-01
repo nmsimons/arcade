@@ -7,7 +7,7 @@ import { CHECKPOINT, FIXTURE, KINDS, compareTrace, goldenScripts, loadGame, read
 //   node scripts/jumping-golden.mjs                      check every trace
 //   node scripts/jumping-golden.mjs --only Tower         check traces whose key contains "Tower"
 //   node scripts/jumping-golden.mjs --write              record every kind
-//   node scripts/jumping-golden.mjs --write --kinds pose record only the pose hashes
+//   node scripts/jumping-golden.mjs --write --kinds pose --note 'why'   record only the pose hashes
 //   node scripts/jumping-golden.mjs --print 'Tower.jump-level.json|runner' --kinds physics --from 600 --to 720
 //       print per-tick values. Run it in two checkouts, or with --source, and diff
 //       the output to find the first changed tick and field.
@@ -50,10 +50,12 @@ if (args.includes('--write')) {
   const current = new Set(goldenScripts(game).map(entry => entry.key))
   for (const key of Object.keys(golden.traces)) if (!current.has(key)) delete golden.traces[key]
   const commit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
-  const recorded = { ...golden.recorded, ...Object.fromEntries(kinds.map(kind => [kind, commit])) }
+  const dirty = execFileSync('git', ['status', '--porcelain', '--', 'src', 'public/levels'], { encoding: 'utf8' }).trim() !== ''
+  const note = option('--note')
+  const recorded = { ...golden.recorded, ...Object.fromEntries(kinds.map(kind => [kind, `${commit}${dirty ? ' with uncommitted changes' : ''}${note ? `: ${note}` : ''}`])) }
   const ordered = Object.fromEntries(Object.keys(golden.traces).sort().map(key => [key, golden.traces[key]]))
   writeFileSync(FIXTURE, `${JSON.stringify({ version: 1, checkpoint: CHECKPOINT, recorded, traces: ordered }, null, 1)}\n`)
-  console.log(`Recorded ${kinds.join(', ')} for ${results.length} traces in ${seconds} s (${commit}; uncommitted changes are included).`)
+  console.log(`Recorded ${kinds.join(', ')} for ${results.length} traces in ${seconds} s (${recorded[kinds[0]]}).`)
   process.exit(0)
 }
 

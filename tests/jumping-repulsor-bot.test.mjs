@@ -69,9 +69,9 @@ function ropeTargetRun(file = level()) {
   file.climbables.ropes = [{ x: 160, y: 200, length: 600, segments: 75 }]
   const run = createRun(file), player = run.player, rope = createRope(file.climbables.ropes[0])
   const climbing = { kind: 'rope', index: 0, distance: 300, time: 1, direction: 0, swing: 0, lean: 0, hangBlend: 1,
-    swingVelocity: 0, ladder: null, rope, caught: { ...player } }
+    swingVelocity: 0, ladder: null, rope, caught: { ...player, anim: { ...player.anim } } }
   const [x, y] = climbRoot(climbing, player.facing)
-  Object.assign(player, { x, y, grounded: false, footwork: null, ropes: [rope], climbing })
+  Object.assign(player, { x, y, grounded: false, anim: { ...player.anim, footwork: null }, ropes: [rope], climbing })
   return run
 }
 
@@ -179,7 +179,7 @@ test('autonomous patrol jumps over a raised obstruction using swept contacts and
     tick(run); airborne ||= !bot.actor.grounded
     reachedTop ||= !!(bot.actor.hang || bot.actor.mantle) || bot.actor.grounded && Math.abs(bot.y - 820) < 1
       || bot.x >= 450 && bot.x <= 550 && bot.actor.y <= 820
-    planted ||= !!bot.actor.footwork?.feet.some(foot => foot.planted)
+    planted ||= !!bot.actor.anim.footwork?.feet.some(foot => foot.planted)
     const body = playerContactBody(bot.actor)
     if (!bot.actor.hang && !bot.actor.mantle) assert.equal(bodyIntersects(body.x, body.y, file.platforms[0], body.height), false, `frame ${i}: ${JSON.stringify(body)}`)
   }
@@ -190,7 +190,7 @@ test('a repulsor impulse releases hand support and stops at solid walls through 
   const file = level(); file.robots = []; file.platforms = [{ x: 200, y: 600, w: 20, h: 320 }]
   const run = createRun(file), actor = run.player
   actor.hang = { platform: 0, side: 1, edgeX: 200, edgeY: 600, time: .3, queued: false, braced: true,
-    caught: { x: actor.x, y: actor.y, vx: 0, vy: 0, stride: 0, gait: actor.gait, ledgeReach: null } }
+    caught: { x: actor.x, y: actor.y, vx: 0, vy: 0, anim: { stride: 0, gait: actor.anim.gait }, ledgeReach: null } }
   repulsePlayer(actor, [1, 0])
   assert.equal(actor.hang, null); assert.equal(actor.climbing, null)
   tick(run, 120)
@@ -511,7 +511,7 @@ for (const direction of [-1, 1]) test(`airborne Rbot keeps its travel heading wh
     tick(run)
     assert.ok(!bot.actor.grounded && Math.abs(bot.actor.vx) > 100)
     assert.equal(bot.facing, direction, 'a braking command or opposite sighting cannot spin the airborne body')
-    const turn = bot.actor.dryTurn
+    const turn = bot.actor.anim.dryTurn
     if (turn && !previousTurn) turns++
     if (turn) assert.equal(turn.target, direction, 'braking keeps the animation pointed along actual travel')
     if (turn && previousTurn) assert.ok(Math.abs(turn.time - previousTurn.time - STEP) < 1e-8, 'the turn advances once per motor step without restarting')
@@ -534,7 +534,7 @@ for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) test(`a genuin
     if (frame * dt < .34) continue // Let the initial placed heading settle before the actual reversal.
     if (actor.facing !== previousFacing) {
       turns++
-      assert.ok(actor.dryTurn, 'a real heading reversal owns a visible turn instead of mirroring the rig')
+      assert.ok(actor.anim.dryTurn, 'a real heading reversal owns a visible turn instead of mirroring the rig')
       assert.ok(Math.abs(actor.vx) > 60, 'small landing corrections retain the outgoing heading')
     }
     const arms = [pose.frontArm, pose.backArm], limbs = [...arms, pose.frontLeg, pose.backLeg]
@@ -552,7 +552,7 @@ for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) test(`a genuin
   }
   assert.equal(turns, 1)
   assert.ok(depth > 4, 'knees and elbows articulate through depth during the turn')
-  assert.equal(bot.actor.dryTurn, null, 'the turn finishes and returns to the normal airborne pose')
+  assert.equal(bot.actor.anim.dryTurn, null, 'the turn finishes and returns to the normal airborne pose')
 })
 
 for (const mirror of [false, true]) test(`Rbot settles at a real takeoff instead of jumping into an overlapping deck (${mirror ? 'left' : 'right'})`, () => {

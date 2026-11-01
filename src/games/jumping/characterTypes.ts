@@ -17,6 +17,22 @@ import type { WaterBob, WaterCamera } from './waterBob.ts'
 /** Runtime prop hulls allow free swimming limbs to pass through depth. */
 export interface Platform extends NamedObject { looseProp?: boolean; x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; bezier?: readonly (import('./terrainCurves.ts').TerrainBezier | null)[]; material?: TerrainMaterial; groundCover?: GroundCover; zIndex?: number }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
+/** Animation state: visible turns, foot placement, gait and look blends, and the
+ * impact ragdoll. The movement step advances it today; it never changes motion
+ * except through the couplings in docs/jumping-animation.md. */
+export interface CharacterAnimation {
+  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; reaching?: boolean; step?: boolean; recoil?: boolean } | null
+  slideEntry: { pose: AthletePose; facing: number; time: number; landing?: boolean } | null
+  footwork: Footwork | null
+  stride: number
+  gait: GaitPose | null
+  /** Positive looks up, negative looks down. */
+  look: number
+  ragdoll: ImpactRagdoll | null
+}
+/** The animation fields a hang, climb or step retains from before its catch.
+ * Poses and restores apply them over the current animation, field by field. */
+export type CaughtAnimation = Pick<CharacterAnimation, 'stride' | 'gait'> & Partial<CharacterAnimation>
 export interface Player {
   heldTool?: import('./gadgets.ts').HeldTool
   armAim?: { angle: number; aiming: boolean }
@@ -34,25 +50,21 @@ export interface Player {
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; outwardSlope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
-    caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; ragdoll?: Player['ragdoll']; waterMotion?: Player['waterMotion']; dryTurn?: Player['dryTurn']; heldTool?: Player['heldTool'] } } | null
+    caught: { x: number; y: number; vx: number; vy: number; anim: CaughtAnimation; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; waterMotion?: Player['waterMotion']; heldTool?: Player['heldTool'] } } | null
   mantle: { edgeX: number; edgeY: number; side: number; slope?: number; outwardSlope?: number; toX: number; toY: number; time: number; braced: boolean;
     platform?: number; returning?: boolean; crouched?: boolean; inset?: number; blockedTime?: number;
     step?: StepUp;
     /** Foreground ladder-to-deck pull-up, viewed from behind. */
     ladder?: { climb: Climbing; x: number; y: number; entry: number };
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
-  stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
-  ragdoll: ImpactRagdoll | null
+  landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
   freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
-  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; reaching?: boolean; step?: boolean; recoil?: boolean } | null
-  slideEntry: { pose: AthletePose; facing: number; time: number; landing?: boolean } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
-  look: number // Presentation only: positive looks up, negative looks down.
-  gait: GaitPose | null
   airBoost: { x: number; lift: number; time: number } // Presentation of applied air-control forces.
-  footwork: Footwork | null
   contacts: PlayerContacts | null
+  /** Presentation state owned by the animation, never read by the motor except through the listed couplings. */
+  anim: CharacterAnimation
   swimAcceleration?: number
   waterJump?: boolean
   waterPushOff?: boolean

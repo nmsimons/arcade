@@ -21,7 +21,23 @@ the 107 traces, through three paths:
 | Slide entry | rampingup medal route | tick 5245: player `pushing` | `anticipatePush` gates on `p.slideEntry` and `p.dryTurn`. `pushing.amount` feeds swimming push loads and the water-bob rest test. |
 
 The other three updates (moving recovery, fall clearance and returning-step
-preparation) changed no physics hash. So the solved pose and some animation
+preparation) changed no physics hash in these traces. Reading the code finds
+further paths that no trace exercised:
+
+- `advanceMovingRecovery` ends the physical fall (`p.freeFall = null`), and
+  `advanceFreeFall` waits for `freeFall.moving` before ending it.
+- Step-ups choose their leading foot from planted footwork, and the footing
+  check that accepts the step uses that foot's offsets (`stepUp.ts`).
+- Robots hear a footstep when footwork newly plants a foot while running
+  (`botHearing.ts`).
+- `settleWaterClearance` writes `waterMotion.bodyOffset` from the water pose,
+  and the swimming collision outline includes it.
+
+The same switch-off check on the fields the issue lists as unproven: look, air
+boost and the impact ragdoll change no physics. Gait changes physics in four
+traces (first on the Boxes medal route at tick 471, through push preparation),
+because the captured turn pose and the dry ledge-reach pose both depend on it.
+Landing changes a robot's decisions in one trace, through the robot's pose. So the solved pose and some animation
 state are physics inputs today. Moving animation to frame rate (Phase 3) would
 change physics until those reads are replaced (Phase 4). The phases therefore
 run in the order 0, 1, 2, 4, 3, with 5 alongside. Phases 1 and 2 keep physics
@@ -77,3 +93,35 @@ through `playerContacts.ts`, `gadgets.ts` and `actorImpulse.ts`, which import
 `TUNING`, `STEP`, `cancelJumpInput` and `wantsCrouch` from it. Phase 3 removes
 the animation calls from the step; moving those four values out of `model.ts`
 would then break the rest of the cycle.
+
+## Phase 2: animation state under `Player.anim`
+
+`Player.anim` (`CharacterAnimation` in `characterTypes.ts`) now holds the dry
+turn, slide entry, footwork, stride, gait, look and impact ragdoll. Hang, climb
+and step snapshots keep the animation fields they captured under `caught.anim`;
+poses and restores apply them over the live animation field by field, exactly
+as the old spreads did. Shallow player copies that are kept for later, such as
+the slide-entry snapshot, copy `anim` as well, so later updates to the live
+player cannot leak into them.
+
+Physics and pose hashes are identical; the state hash was re-recorded because
+the fields moved. The full unit suite ran once with a tripwire that threw on
+any read or write of the old field names, and nothing touched them.
+
+Two parts of the issue's Phase 2 are deferred:
+
+- `freeFall.moving`, `freeFall.bodyOffset` and `releaseTurn.pose` stay where
+  they are. They live on objects that physics creates and clears, and the
+  moving recovery itself ends the physical fall, so they move with Phase 4's
+  fall-timer change.
+- Replacing the remaining physics writes to animation (`translateFeet`,
+  `rotateFeet`, the snapshot restores and the resets such as
+  `p.anim.footwork = null`) with events moves to the start of Phase 3. An event
+  applied later than the direct write it replaces can only change physics
+  while gameplay still reads animation; after Phase 4 it cannot.
+
+The boundary test now also lists, per simulation module, the animation fields
+it touches. `model.ts` and `stepUp.ts` touch most of them; the rest are single
+reads or resets in `actorImpulse.ts`, `armSupport.ts`, `botHearing.ts`,
+`challenge.ts`, `climbables.ts`, `gadgets.ts`, `goal.ts`, `gravityFrame.ts`,
+`playerContacts.ts`, `repulsorBot.ts` and `shove.ts`.

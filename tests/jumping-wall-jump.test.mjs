@@ -157,7 +157,7 @@ test('inset wall faces launch immediately in either orientation without penetrat
 test('holding toward the wall can trim a jump but cannot reverse its outward arc', () => {
   for (const side of [-1, 1]) {
     const p = airborne({ x: side === 1 ? 338 : 462, facing: side }); advance(p, .1)
-    const start = { x: p.x, y: p.y }, outward = { ...p }
+    const start = { x: p.x, y: p.y }, outward = { ...p, anim: { ...p.anim } }
     advance(p, STEP, { jump: true, move: side })
     advance(outward, STEP, { jump: true, move: -side })
     advance(p, STEP, { move: side }); advance(outward, STEP, { move: -side })

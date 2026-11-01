@@ -50,7 +50,7 @@ test('slope feet maintain planted anchors and reach the ground without changing 
       stepPlayer(p, { ...NEUTRAL_INPUT, move: direction * speed }, STEP)
       const pose = athletePose(p)
       for (const [j, leg] of [pose.frontLeg, pose.backLeg].entries()) {
-        const foot = p.footwork.feet[j], clearance = footClearance(p, leg, PLATFORMS)
+        const foot = p.anim.footwork.feet[j], clearance = footClearance(p, leg, PLATFORMS)
         assert.ok(clearance > -.08, `sole penetrated terrain at ${p.x}: ${clearance}`)
         assert.ok(Math.abs(Math.hypot(leg.joint[0] - leg.root[0], leg.joint[1] - leg.root[1], leg.jointDepth ?? 0) - 15) < 1e-6)
         assert.ok(Math.abs(Math.hypot(leg.end[0] - leg.joint[0], leg.end[1] - leg.joint[1], (leg.endDepth ?? 0) - (leg.jointDepth ?? 0)) - 14.5) < 1e-6)
@@ -64,7 +64,7 @@ test('slope feet maintain planted anchors and reach the ground without changing 
           }
         }
       }
-      previous = p.footwork.feet.map(foot => ({ ...foot }))
+      previous = p.anim.footwork.feet.map(foot => ({ ...foot }))
     }
     assert.ok(contacts > 300)
   }
@@ -77,8 +77,8 @@ test('stopping, turning, crouching on either incline keep the body supported', (
     const stopped = { x: p.x, y: p.y }
     advance(p, .5, { crouch: true })
     assert.equal(p.x, stopped.x); assert.equal(p.y, stopped.y)
-    assert.ok(p.footwork.feet.every(foot => foot.planted))
-    for (const foot of p.footwork.feet) assert.ok(Math.abs(foot.angle - foot.groundAngle * foot.facing) < .001)
+    assert.ok(p.anim.footwork.feet.every(foot => foot.planted))
+    for (const foot of p.anim.footwork.feet) assert.ok(Math.abs(foot.angle - foot.groundAngle * foot.facing) < .001)
     advance(p, .12, { move: -direction * .35 })
     assert.ok(p.grounded); assert.equal(p.facing, -direction)
   }
@@ -89,7 +89,7 @@ test('jumps release slope support immediately and land on the surface from eithe
     const p = at(x); advance(p, STEP, { jump: true, move: direction * .35 })
     const launchY = p.y
     advance(p, STEP, { move: direction * .35 })
-    assert.ok(!p.grounded && p.vy < 0); assert.equal(p.footwork, null)
+    assert.ok(!p.grounded && p.vy < 0); assert.equal(p.anim.footwork, null)
     let rise = 0
     for (let i = 0; i < 200 && !p.grounded; i++) {
       advance(p, STEP, { move: direction * .35 }); rise = Math.max(rise, launchY - p.y)
@@ -105,7 +105,7 @@ test('slope support does not bridge gaps or pull the player down a real drop', (
   for (const gap of [1, 40]) {
     const terrain = [ramp, { x: 400 + gap, y: 560, w: 200, h: 300 }], p = at(397, terrain)
     for (let frame = 0; frame < 30 && p.x <= 400; frame++) advance(p, STEP, { move: 1 }, terrain)
-    assert.ok(p.x > 400); assert.ok(!p.grounded); assert.equal(p.footwork, null)
+    assert.ok(p.x > 400); assert.ok(!p.grounded); assert.equal(p.anim.footwork, null)
     assert.ok(p.y < 510, 'the player must fall naturally toward the lower surface')
   }
 })

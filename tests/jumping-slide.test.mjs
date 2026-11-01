@@ -25,7 +25,7 @@ function trace(level, entry, steer, observe, jumpAt) {
       if (Math.hypot(p.vx, p.vy) > 900) fast++
     }
     if (observe?.(p, i, run) === false) break
-    if (typeof jumpAt !== 'function' && contact >= 0 && !p.sliding && !p.slideEntry && p.grounded) break
+    if (typeof jumpAt !== 'function' && contact >= 0 && !p.sliding && !p.anim.slideEntry && p.grounded) break
   }
   return { seen, fast }
 }
@@ -63,7 +63,7 @@ for (const degrees of [46.5, 55, 70]) {
           if (press >= 0 && i >= press + 24) return false
         }, (p, i) => {
           const x = direction > 0 ? p.x : 1800 - p.x
-          if (press < 0 && x > 990 && (phase === 'gather' ? p.slideEntry?.landing && p.sliding?.active : p.grounded)) press = i
+          if (press < 0 && x > 990 && (phase === 'gather' ? p.anim.slideEntry?.landing && p.sliding?.active : p.grounded)) press = i
           return press >= 0 && i < press + 3
         })
         assert.ok(launched, `${degrees}° ${entry} ${direction} ${inverted} ${steer} ${phase}: actual controls must reach the requested corner state`)
@@ -97,7 +97,7 @@ for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
           if (i > contact + 50) return false
           const max = Math.max(...points.map((point, k) => Math.hypot(...point.map((v, axis) => v - previous[k][axis]))))
           assert.ok(max <= 5, `${degrees}° ${entry} ${direction} ${inverted} ${steer}: rig changed ${max} units at ${i}`)
-          handoff ||= !!p.slideEntry
+          handoff ||= !!p.anim.slideEntry
           if (i % 2 === 0) for (const shape of athleteCasters(p)) for (const [x, y] of polygonPoints(shape)) {
             if (pointInside(level.platforms[0], x, y)) assert.ok(nearestBoundary(level.platforms[0], x, y).distance <= .2,
               `outgoing native skin must remain clear at ${i}, (${x},${y})`)
@@ -134,15 +134,15 @@ for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
         if (x > 940) {
           const max = Math.max(...points.map((point, k) => Math.hypot(...point.map((v, axis) => v - previous[k][axis]))))
           assert.ok(max <= 5, `${degrees}° ${entry} ${direction} ${inverted} ${steer}: landing rig changed ${max} units at ${i}`)
-          transfer ||= !!p.slideEntry?.landing
-          completed ||= !p.sliding && !p.slideEntry && p.grounded
-          if (steer === 'uphill' && p.slideEntry?.landing && p.vx * p.facing < 0 && Math.abs(p.vx) > 20) {
+          transfer ||= !!p.anim.slideEntry?.landing
+          completed ||= !p.sliding && !p.anim.slideEntry && p.grounded
+          if (steer === 'uphill' && p.anim.slideEntry?.landing && p.vx * p.facing < 0 && Math.abs(p.vx) > 20) {
             assert.equal(dryTurnDirection(p, { ...NEUTRAL_INPUT, move: -direction }), Math.sign(p.vx),
               'braking retains the outgoing visible facing until the actual coast slows')
-            if (p.grounded) assert.equal(p.footwork.facing, Math.sign(p.vx), 'new supported steps follow the same braking direction')
+            if (p.grounded) assert.equal(p.anim.footwork.facing, Math.sign(p.vx), 'new supported steps follow the same braking direction')
           }
-          if (p.grounded && p.slideEntry?.landing) for (const [index, leg] of [pose.frontLeg, pose.backLeg].entries()) {
-            if (!p.footwork.feet[index].planted) continue
+          if (p.grounded && p.anim.slideEntry?.landing) for (const [index, leg] of [pose.frontLeg, pose.backLeg].entries()) {
+            if (!p.anim.footwork.feet[index].planted) continue
             const gap = Math.min(...FOOT_CONTACT.map(point => {
               const sole = footPoint(point, leg.footAngle * leg.footFacing, leg.toeAngle * leg.footFacing, point[0] > 2.2)
               const x = p.x + (leg.end[0] + sole[0] * leg.footFacing * (1 - (leg.rear ?? 0))) * p.facing

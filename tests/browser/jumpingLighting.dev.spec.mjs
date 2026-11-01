@@ -18,7 +18,7 @@ test('player shadow outlines match the actual artwork in standing, running, crou
     const ctx = canvas.getContext('2d', { willReadFrequently: true }), p = createPlayer({ x: 50, y: 75 })
     let wrongInterior = 0, worstAreaError = 0
     for (const facing of [-1, 1]) for (const crouch of [0, 1]) for (const grounded of [true, false]) for (const stride of [0, 1, 2]) {
-      Object.assign(p, { facing, crouch, grounded, stride, vx: 180, vy: -120, gait: gaitPose(180, !grounded) })
+      Object.assign(p, { facing, crouch, grounded, anim: { ...p.anim, stride, gait: gaitPose(180, !grounded) }, vx: 180, vy: -120 })
       ctx.resetTransform(); ctx.clearRect(0, 0, 400, 320); ctx.scale(4, 4); drawAthlete(ctx, p, '#fff')
       const art = ctx.getImageData(0, 0, 400, 320).data
       ctx.resetTransform(); ctx.clearRect(0, 0, 400, 320); ctx.scale(4, 4); ctx.fillStyle = '#fff'

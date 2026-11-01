@@ -31,8 +31,9 @@ be the only way to exercise a reported bug.
 ## UJG golden traces and the fast tier
 
 `tests/jumping-golden-traces.test.mjs` replays fixed input scripts on every
-built-in level: two seeded explorers per level (a runner and a climber, eight
-seconds each) and every recorded medal route. Each tick it hashes three things,
+built-in level and every mechanism fixture level in `tests/fixtures/jumping/`:
+two seeded explorers per level (a runner and a climber, eight seconds each) and
+every recorded medal route. Each tick it hashes three things,
 and `tests/fixtures/jumping-golden-traces.json` keeps a running hash every
 second of gameplay:
 
@@ -50,14 +51,18 @@ kind and why: `node scripts/jumping-golden.mjs --write --kinds pose`. To find a
 divergence, run `node scripts/jumping-golden.mjs --only <level>`, then
 `--print '<level>|<script>' --kinds physics --from <tick> --to <tick>` in both
 versions and diff the output; `--source <checkout>` replays another checkout's
-game code with the same scripts.
+game code with the same scripts. The test also replays every trace with
+animation switched off and with animation once every second step
+(`--cadence off|frame`), and requires the same physics hashes: physics never
+reads animation ([design note](jumping-animation.md)).
 
 `npm run test:fast` runs every UJG unit test except the stress-level routes and
-the long whole-skin acceptance sweeps, in about a minute and a half on a
-12-core machine. Run the full `npm test` before finishing a change.
+the long whole-skin acceptance sweeps, in about two minutes on an 18-core
+machine. Run the full `npm test` before finishing a change.
 `node scripts/benchmark-jumping-simulation.mjs` times each tick and each 60 Hz
 frame (two ticks plus pose solving) per level over the same scripts; save a
-result with `--output` and compare a later run with `--compare`. On Arm Windows
+result with `--output`, compare a later run with `--compare`, and pick the
+animation cadence with `--cadence tick|frame|off`. On Arm Windows
 machines, install dependencies with Arm64 Node (`node -p process.arch` prints
 `arm64`). x64 Node runs under emulation there, so builds can fail and timings
 are not native.

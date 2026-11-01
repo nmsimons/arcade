@@ -12,6 +12,7 @@ import { CHECKPOINT, FIXTURE, KINDS, compareTrace, goldenScripts, loadGame, read
 //       print per-tick values. Run it in two checkouts, or with --source, and diff
 //       the output to find the first changed tick and field.
 //   --source <checkout>  replay another checkout's game code with these scripts
+//   --cadence off|frame  animate never, or once per two steps; physics must not change
 //
 // Physics hashes must not be re-recorded for a change that claims to preserve
 // behaviour. Record a kind only when its change is intended, and say so.
@@ -20,13 +21,14 @@ const args = process.argv.slice(2)
 const option = name => { const at = args.indexOf(name); return at < 0 ? undefined : args[at + 1] }
 const kinds = option('--kinds')?.split(',') ?? KINDS
 for (const kind of kinds) if (!KINDS.includes(kind)) throw new Error(`Unknown kind ${kind}; expected ${KINDS.join(', ')}`)
-const source = option('--source'), only = option('--only'), print = option('--print')
+const source = option('--source'), only = option('--only'), print = option('--print'), cadence = option('--cadence')
+if (cadence && kinds.includes('pose')) throw new Error('--cadence other than tick changes poses; pass --kinds physics')
 
 if (print) {
   const game = await loadGame(source), entry = goldenScripts(game).find(candidate => candidate.key === print)
   if (!entry) throw new Error(`No trace ${print}`)
   const from = Number(option('--from') ?? 0), to = Number(option('--to') ?? Infinity)
-  traceScript(game, entry.url, entry.script, { kinds, onTick(tick, values) {
+  traceScript(game, entry.url, entry.script, { kinds, cadence, onTick(tick, values) {
     if (tick >= from && tick <= to) for (const kind of kinds) if (values[kind] !== undefined) console.log(`${tick} ${kind} ${values[kind]}`)
   } })
   process.exit(0)
@@ -35,7 +37,7 @@ if (print) {
 const game = await loadGame(source)
 const keys = goldenScripts(game).map(entry => entry.key).filter(key => !only || key.includes(only))
 const started = performance.now()
-const results = await runTraces({ keys, kinds, source, jobs: option('--jobs') && Number(option('--jobs')) })
+const results = await runTraces({ keys, kinds, source, cadence, jobs: option('--jobs') && Number(option('--jobs')) })
 const seconds = ((performance.now() - started) / 1000).toFixed(1)
 
 if (args.includes('--write')) {

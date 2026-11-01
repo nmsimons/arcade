@@ -3,6 +3,7 @@
 import type { Climbing, RopeState } from './climbables.ts'
 import type { Footwork } from './footwork.ts'
 import type { AthletePose } from './athleteRig.ts'
+import type { PendingAnimation } from './characterAnimation.ts'
 import type { GaitPose } from './gait.ts'
 import type { ImpactRagdoll } from './impactRagdoll.ts'
 import type { NamedObject } from './objectNames.ts'
@@ -33,6 +34,10 @@ export interface CharacterAnimation {
   recovery: { pose: AthletePose; time: number; facing: number } | null
   /** The presented swimmer's clearance offset. The swimming hull uses its own `waterMotion.bodyOffset`. */
   waterClearance: { offset: [number, number]; facing: number } | null
+  /** When animation runs: every physics step (default), once per drawn frame, or never. */
+  cadence?: 'tick' | 'frame' | 'off'
+  /** Physics steps since the last drawn frame, for the 'frame' cadence. */
+  pending?: PendingAnimation | null
 }
 /** The animation fields a hang, climb or step retains from before its catch.
  * Poses and restores apply them over the current animation, field by field. */

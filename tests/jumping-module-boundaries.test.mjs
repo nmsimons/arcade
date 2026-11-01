@@ -11,7 +11,7 @@ import ts from 'typescript'
 // coupling is replaced; a new pose or animation import from the simulation
 // needs a deliberate entry here.
 const root = fileURLToPath(new URL('../src/games/jumping/', import.meta.url))
-const POSE_FAMILY = /^(athleteRig|athletePose|athleteClearance|athleteAnimation|footwork|gameplayPose|poses\/\w+)\.ts$/
+const POSE_FAMILY = /^(athleteRig|athletePose|athleteClearance|athleteAnimation|characterAnimation|footwork|gameplayPose|poses\/\w+)\.ts$/
 const DRAWING = /^(athleteDraw|athleteShadow|androidArtwork|sleeveArtwork|render|\w+Render|\w+Artwork)\.ts$/
 const ALLOWED = {
   // Animation started or advanced inside the movement step (Phase 3 moves these).
@@ -20,12 +20,13 @@ const ALLOWED = {
   'goal.ts': { 'footwork.ts': ['advanceFootwork'] },
   'level.ts': { 'footwork.ts': ['advanceFootwork'] },
   'model.ts': {
-    'athleteAnimation.ts': ['advanceDryTurn', 'advanceImpactRagdoll', 'advanceMovingRecovery', 'advanceReturningStepPreparation', 'advanceSlideEntry',
-      'advanceWaterCeiling', 'advanceWaterLanding', 'advanceWaterPropReach', 'captureDryTurn', 'captureRopeTurnRelease', 'captureSlideEntry',
-      'dryTurnDirection', 'settleFallClearance', 'settlePresentedWaterClearance', 'settleWaterClearance', 'startImpactRagdoll'],
+    // Water contact helpers that live with the animation, the start-of-step turn
+    // captures, gravity-turn and ragdoll starts, and the animation cadence hooks.
+    'athleteAnimation.ts': ['advanceWaterCeiling', 'advanceWaterLanding', 'advanceWaterPropReach', 'captureDryTurn', 'captureRopeTurnRelease',
+      'captureSlideEntry', 'settleWaterClearance', 'startImpactRagdoll'],
+    'characterAnimation.ts': ['animateOrQueue', 'animates', 'cadence', 'preparePush', 'presentPush', 'presentWaterOrQueue', 'settleOrQueue'],
     // Captured turn poses and the presented ledge reach; gameplay never reads them.
     'athletePose.ts': ['athletePose', 'dryLedgeReach', 'dryLedgeReachPose'],
-    'footwork.ts': ['advanceFootwork'],
     // Rope catches during a gravity turn use the physics rig.
     'gameplayPose.ts': ['gameplayPose'],
     'poses/waterPose.ts': ['swimmingLedgeReach'],
@@ -39,7 +40,7 @@ const ALLOWED = {
   },
   'propPhysics.ts': { 'poses/waterPose.ts': ['swimmingTerrainOutline'] },
   // The gameplay sleeve uses the physics rig; the displayed arm easing uses the animated pose.
-  'gadgets.ts': { 'athletePose.ts': ['athletePose'], 'gameplayPose.ts': ['gameplayPose'] },
+  'gadgets.ts': { 'athletePose.ts': ['athletePose'], 'characterAnimation.ts': ['cadence'], 'gameplayPose.ts': ['gameplayPose'] },
   // The robot's palm and firing line use the physics rig.
   'repulsorBot.ts': { 'athletePose.ts': ['athletePose'], 'gameplayPose.ts': ['physicsView'] },
   'repulsorBotRig.ts': { 'athletePose.ts': ['awakeningPose', 'presentedAthletePose'] },
@@ -99,7 +100,7 @@ test('simulation modules use poses and animation only through the listed couplin
 const ANIM_FIELDS = {
   'actorImpulse.ts': ['dryTurn'], 'challenge.ts': ['ragdoll'], 'climbables.ts': ['*'], 'gadgets.ts': ['dryTurn'],
   'goal.ts': ['footwork'], 'gravityFrame.ts': ['footwork'],
-  'model.ts': ['dryTurn', 'footwork', 'gait', 'look', 'ragdoll', 'slideEntry', 'stride'],
+  'model.ts': ['cadence', 'dryTurn', 'footwork', 'gait', 'pending', 'ragdoll', 'slideEntry', 'stride'],
   'playerContacts.ts': ['dryTurn', 'footwork', 'slideEntry'], 'repulsorBot.ts': ['gait'], 'shove.ts': ['dryTurn'],
   'stepUp.ts': ['dryTurn', 'footwork', 'gait', 'stride'],
 }

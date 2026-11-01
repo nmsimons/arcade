@@ -6,12 +6,15 @@ import { goldenScripts, loadGame } from '../tests/helpers/jumping-golden.mjs'
 
 // Per-tick and per-frame simulation cost for Untitled Jumping Game in Node.
 //
-//   node scripts/benchmark-jumping-simulation.mjs [--only <text>] [--output file.json] [--compare before.json]
+//   node scripts/benchmark-jumping-simulation.mjs [--only <text>] [--cadence tick|frame|off] [--output file.json] [--compare before.json]
 //
 // It replays the golden-trace input scripts (two seeded explorers per built-in
 // level, plus the recorded medal routes). A tick is one 120 Hz stepRun. A frame
 // is two ticks plus presentedAthletePose for the player and every robot actor,
-// which is the simulation and pose work of one 60 Hz rendered frame. Canvas
+// which is the simulation and pose work of one 60 Hz rendered frame. With
+// `--cadence frame` (the game's) a frame also runs one animation pass for the
+// player and robots; `off` times physics alone; `tick` (default) animates inside
+// every step, as tests and tools do. Canvas
 // drawing is not included. Each level runs its scripts once to warm the JIT,
 // then once timed. Run it alone: concurrent work inflates every number.
 // `--source <checkout>` times another checkout's game code with the same scripts.
@@ -19,7 +22,8 @@ import { goldenScripts, loadGame } from '../tests/helpers/jumping-golden.mjs'
 
 const args = process.argv.slice(2)
 const option = name => { const at = args.indexOf(name); return at < 0 ? undefined : args[at + 1] }
-const only = option('--only'), output = option('--output'), compare = option('--compare')
+const only = option('--only'), output = option('--output'), compare = option('--compare'), cadence = option('--cadence') ?? 'tick'
+if (!['tick', 'frame', 'off'].includes(cadence)) throw new Error(`Unknown cadence ${cadence}`)
 const game = await loadGame(option('--source'))
 // Built-in levels only by default; pass --fixtures to include the mechanism fixtures.
 const entries = goldenScripts(game).filter(entry => (args.includes('--fixtures') || !entry.file.startsWith('fixture:')) && (!only || entry.key.includes(only)))
@@ -33,6 +37,8 @@ function replay(entry, timed) {
   const level = game.parseLevel(JSON.parse(readFileSync(new URL(entry.url), 'utf8')))
   const run = game.createRun(level)
   game.stepRun(run, game.NEUTRAL_INPUT, game.entranceDuration(run.entrance))
+  const actors = () => [run.player, ...run.robots.flatMap(robot => robot.actor ? [robot.actor] : [])]
+  if (cadence !== 'tick') for (const actor of actors()) game.setAnimationCadence(actor, cadence)
   const ticks = [], frames = [], poses = []
   let frame = 0, posing = 0, tick = 0
   for (const { frames: count, input } of entry.script) {
@@ -45,8 +51,9 @@ function replay(entry, timed) {
       frame += stepped - started
       if (++tick % 2 === 0) {
         const before = performance.now()
-        game.presentedAthletePose(run.player)
-        for (const robot of run.robots) if (robot.actor) game.presentedAthletePose(robot.actor)
+        if (cadence === 'frame') for (const actor of actors()) game.advanceCharacterAnimation(actor)
+        if (cadence !== 'off') game.presentedAthletePose(run.player)
+        if (cadence !== 'off') for (const robot of run.robots) if (robot.actor) game.presentedAthletePose(robot.actor)
         const pose = performance.now() - before
         posing += pose; frame += pose
         if (timed) { frames.push(frame); poses.push(posing) }
@@ -76,7 +83,7 @@ for (const [file, scripts] of byLevel) {
 
 const round = value => typeof value === 'number' ? Number(value.toFixed(4)) : value
 const report = JSON.parse(JSON.stringify({
-  commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(),
+  commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(), cadence,
   node: process.version, arch: process.arch, cpu: cpus()[0]?.model, scripts: entries.length,
   overall: { ticks: all.ticks.length, tickMs: stats(all.ticks), frameMs: stats(all.frames), poseMs: stats(all.poses) }, levels,
 }, (key, value) => round(value)))
@@ -84,7 +91,7 @@ if (output) writeFileSync(output, `${JSON.stringify(report, null, 1)}\n`)
 
 const before = compare ? JSON.parse(readFileSync(compare, 'utf8')) : null
 const cell = (now, then) => then ? `${now.toFixed(3)} (${((now / then - 1) * 100).toFixed(0).padStart(4)}%)` : now.toFixed(3)
-console.log(`${report.scripts} scripts, ${report.overall.ticks} ticks, ${report.node} ${report.arch} on ${report.cpu}${before ? `, compared with ${compare}` : ''}`)
+console.log(`${report.cadence} cadence, ${report.scripts} scripts, ${report.overall.ticks} ticks, ${report.node} ${report.arch} on ${report.cpu}${before ? `, compared with ${compare}` : ''}`)
 console.log('level'.padEnd(34), 'tick mean', '  tick p95', ' frame p95', '  pose mean')
 const rows = Object.entries(levels).sort((a, b) => b[1].tickMs.mean - a[1].tickMs.mean)
 for (const [file, level] of [['overall', report.overall], ...rows]) {

@@ -27,9 +27,10 @@ const repository = new URL('../../', import.meta.url)
 export async function loadGame(root = repository) {
   const base = root instanceof URL ? root : pathToFileURL(root.endsWith('/') ? root : `${root}/`)
   const jumping = new URL('src/games/jumping/', base)
-  const [challenge, level, model, athlete, goal] = await Promise.all(['challenge.ts', 'level.ts', 'model.ts', 'athlete.ts', 'goal.ts']
-    .map(file => import(new URL(file, jumping).href)))
-  return { ...challenge, ...level, ...model, ...athlete, ...goal, levelsRoot: new URL('public/levels/jumping/', base) }
+  const [challenge, level, model, athlete, goal, animation] = await Promise.all(['challenge.ts', 'level.ts', 'model.ts', 'athlete.ts', 'goal.ts', 'characterAnimation.ts']
+    // Older checkouts have no animation cadence; their traces animate every step.
+    .map(file => import(new URL(file, jumping).href).catch(error => file === 'characterAnimation.ts' ? {} : Promise.reject(error))))
+  return { ...challenge, ...level, ...model, ...athlete, ...goal, ...animation, levelsRoot: new URL('public/levels/jumping/', base) }
 }
 
 /** Mulberry32: a small, well-mixed generator with a 32-bit state. */
@@ -162,11 +163,15 @@ function staticObjects(run) {
 }
 
 /** Replay one script, returning checkpoint hashes for the requested kinds.
+ * `cadence` 'off' never animates; 'frame' animates the player and robots once
+ * every `frameEvery` steps, like a drawn frame. Pose hashes need 'tick'.
  * `onTick` receives the projections for printing per-tick values. */
-export function traceScript(game, url, script, { kinds = KINDS, onTick } = {}) {
+export function traceScript(game, url, script, { kinds = KINDS, onTick, cadence = 'tick', frameEvery = 2 } = {}) {
   const level = game.parseLevel(JSON.parse(readFileSync(new URL(url), 'utf8')))
   const run = game.createRun(level)
   game.stepRun(run, game.NEUTRAL_INPUT, game.entranceDuration(run.entrance))
+  const actors = () => [run.player, ...run.robots.flatMap(robot => robot.actor ? [robot.actor] : [])]
+  if (cadence !== 'tick') for (const actor of actors()) game.setAnimationCadence(actor, cadence)
   const statics = staticObjects(run)
   const hashes = Object.fromEntries(kinds.map(kind => [kind, createHash('sha256')]))
   const checkpoints = Object.fromEntries(kinds.map(kind => [kind, []]))
@@ -176,6 +181,7 @@ export function traceScript(game, url, script, { kinds = KINDS, onTick } = {}) {
     const controls = { ...game.NEUTRAL_INPUT, ...input }
     for (let frame = 0; frame < frames && !run.finished; frame++) {
       game.stepRun(run, controls)
+      if (cadence === 'frame' && (tick + 1) % frameEvery === 0) for (const actor of actors()) game.advanceCharacterAnimation(actor)
       const values = {}
       if (hashes.physics) values.physics = JSON.stringify(physicsProjection(run))
       if (hashes.state) values.state = stateProjection(run, statics)
@@ -207,7 +213,7 @@ export function compareTrace(expected, actual, kinds = KINDS) {
 }
 
 /** Replay the selected traces on worker threads, preserving the selected order. */
-export async function runTraces({ keys, kinds = KINDS, source, jobs } = {}) {
+export async function runTraces({ keys, kinds = KINDS, source, jobs, cadence } = {}) {
   const { Worker } = await import('node:worker_threads')
   const { availableParallelism } = await import('node:os')
   const game = await loadGame(source)
@@ -217,7 +223,7 @@ export async function runTraces({ keys, kinds = KINDS, source, jobs } = {}) {
   const queue = selected.toSorted((a, b) => length(b) - length(a)).map(entry => entry.key)
   const results = new Map(), count = Math.max(1, Math.min(jobs ?? availableParallelism() - 1, queue.length))
   await Promise.all(Array.from({ length: count }, () => new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./jumping-golden-worker.mjs', import.meta.url), { workerData: { kinds, source: source && String(source) } })
+    const worker = new Worker(new URL('./jumping-golden-worker.mjs', import.meta.url), { workerData: { kinds, cadence, source: source && String(source) } })
     const next = () => queue.length ? worker.postMessage(queue.shift()) : worker.terminate().then(resolve)
     worker.on('message', ({ key, result, error }) => {
       if (error) { worker.terminate(); reject(new Error(`${key}: ${error}`)); return }

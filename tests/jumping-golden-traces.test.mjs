@@ -19,6 +19,17 @@ test('every built-in level and medal route has a recorded golden trace', () => {
   }
 })
 
+// Physics never reads animation, so neither skipping it (headless runs and
+// off-screen robots) nor running it once per drawn frame may change motion.
+for (const cadence of ['off', 'frame']) test(`physics is unchanged when animation runs ${cadence === 'off' ? 'never' : 'once per frame'}`, async () => {
+  const results = await runTraces({ kinds: ['physics'], cadence })
+  const problems = results.flatMap(({ key, ...result }) => {
+    const problem = compareTrace(golden.traces[key], result, ['physics'])
+    return problem ? [`${key}: ${problem}`] : []
+  })
+  assert.deepEqual(problems, [])
+})
+
 test('golden traces reproduce their physics, state and pose hashes', async t => {
   const results = await runTraces()
   for (const { key, ...result } of results) {

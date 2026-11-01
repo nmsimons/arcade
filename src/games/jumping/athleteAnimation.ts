@@ -54,7 +54,7 @@ export function advanceReturningStepPreparation(p: Player, input: JumpInput, dt:
 export function captureRopeTurnRelease(p: Player): NonNullable<Player['releaseTurn']> {
   const turn = p.climbing!.turn!
   return { angle: turn.angle, target: turn.target, time: 0, facing: p.facing,
-    pose: rotatePose(athletePose(p), -turn.angle, p.facing) }
+    ...(p.anim.cadence === 'off' ? {} : { pose: rotatePose(athletePose(p), -turn.angle, p.facing) }) }
 }
 
 /** Retain the side of a prop corner already cleared by the falling body.
@@ -117,6 +117,8 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean,
 /** Seed from the actual outgoing rig; impulse and pose use the same local
  * gravity frame. This never changes the motor, contact hull or input rules. */
 export function startImpactRagdoll(p: Player, velocity: Point, kind: ImpactKind) {
+  // Presentation only: an unanimated actor has no rig to recoil.
+  if (p.anim.cadence === 'off') return
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try { startImpactRagdoll(p, [velocity[0], -velocity[1]], kind) }
@@ -180,7 +182,7 @@ export function captureDryTurn(p: Player, input: JumpInput, frameDirection = 1):
 /** Prop transport can interrupt a step after the controller's turn handoff.
  * Retain its actual outgoing rig before the physical root is transported. */
 export function retainInterruptedStepPose(p: Player) {
-  if (!p.mantle?.step || p.mantle.step.climbing) return
+  if (!p.mantle?.step || p.mantle.step.climbing || p.anim.cadence === 'off') return
   p.anim.dryTurn = { pose: athletePose(p), facing: p.facing, target: p.facing, time: 0, departure: false, step: true }
 }
 

@@ -185,3 +185,67 @@ pushes, and a steered get-up's timing. The issue suggested simplified analytic
 rigs for these queries; the physics rig reuses the full pose solver with
 animation at rest instead, which keeps the poses' clearance rules. Phase 5
 measures its cost.
+
+## Phase 3: animation cadence
+
+`characterAnimation.ts` holds everything the movement step used to advance for
+presentation: the presented push and its anticipation, returning-step
+preparation, gait, look, footwork, the moving get-up, the dry turn, slide entry,
+fall clearance, the impact ragdoll and the presented water clearance. Each
+player has a cadence (`p.anim.cadence`):
+
+- `'tick'`, the default, animates at the end of every physics step exactly as
+  before. Tests and tools that check poses after each step are unchanged, and
+  the golden pose hashes are identical.
+- `'frame'` records each step's inputs in `p.anim.pending`, and
+  `advanceCharacterAnimation(p)` animates once per drawn frame. A frame longer
+  than 1/60 s animates in equal substeps, because footwork and the turn blends
+  assume short steps; at 30 Hz a sprinting swing foot otherwise overshot by
+  several units.
+- `'off'` never animates. Headless runs that only need physics can use it.
+
+The game animates the player and every robot within 160 units of the view
+every step (`'tick'`), and switches robots farther away to `'off'`; one that
+returns resumes from rest before it can be seen. It does not use `'frame'`.
+Measured over the golden scripts (Apple M5 Pro, Node 25.9), against fcafc46:
+
+| Cadence | Mean tick | p95 tick | p95 frame (two ticks and poses) |
+|---|---:|---:|---:|
+| `'tick'` | 0.389 ms (−12%) | 1.21 ms (−13%) | 2.55 ms (−14%) |
+| `'frame'` | 0.322 ms (−27%) | 1.14 ms (−19%) | 2.47 ms (−17%) |
+| `'off'` | 0.316 ms (−28%) | 1.13 ms (−19%) | 2.27 ms (−23%) |
+
+Animating once per frame saved 3 to 5% of frame time over animating every
+step (separate runs vary by a few percent), and lost continuity the browser tests check: 40 checks of flight
+balance, slide entries, turns, footwork, camera framing and clock-paced
+animation failed at 60 Hz with the repository's existing thresholds, and a
+keyboard route that steers by the motion diagnostics took a different line.
+Skipping animation is where the time is: a quarter of every tick for headless
+runs and off-screen robots, with no visible change.
+
+Animated players still capture a few things during the step, because they
+depend on the state before the step changed it: the turn and slide-entry source
+poses (at most once per frame), the presented ledge reach (inside the ledge
+search), the impact ragdoll's source pose, the gravity-turn source pose and the
+interrupted-step pose. With `'off'` none of them run.
+
+The golden test now replays every trace with `'off'` and with `'frame'`
+(animating every second step), and requires physics hashes identical to the
+recorded `'tick'` run. `scripts/benchmark-jumping-simulation.mjs --cadence`
+times each cadence. `tests/jumping-animation-cadence.test.mjs` replays five
+medal routes at 30, 60 and 144 Hz with `'frame'` and requires exact bones, a
+finite rig, and per-frame joint jumps no larger than animating every step
+produces at the same frames (within 25% plus 3 units). Animating once per
+frame does not reproduce the per-step poses: footwork re-seeds its stride phase
+when walking starts, and that now happens on frame boundaries, so the feet can
+settle half a stride apart from the per-step animation while both stay
+continuous.
+
+Not done as the issue proposed: physics still writes a few animation fields
+directly instead of emitting events. It carries planted feet with a moving
+support (`translateFeet`, `rotateFeet`), resets animation on transitions such as
+a new hang, and stores and restores the animation captured by catches. These
+writes are cheap, apply immediately at either cadence, and cannot affect motion
+because physics never reads animation. Replacing them with an event queue would
+change presentation timing without a measurable benefit, so it is left for a
+decision.

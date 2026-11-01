@@ -11,6 +11,7 @@ import { setPropCarried, repulseProp } from './propPhysics.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { athletePose } from './athletePose.ts'
 import { gameplayPose } from './gameplayPose.ts'
+import { cadence } from './characterAnimation.ts'
 
 export type GadgetKind = 'emp' | 'repulsor'
 export const GADGET_SIZE = 40
@@ -64,6 +65,10 @@ function armAngles(p: Player) {
   const pose = athletePose(p), arm = p.facing < 0 ? pose.backArm : pose.frontArm, flip = p.inverted ? -1 : 1
   const angle = (a: Vec, b: Vec) => Math.atan2((b[1] - a[1]) * flip, (b[0] - a[0]) * p.facing)
   return { forearm: angle(arm.joint, arm.end), upper: angle(arm.root, arm.joint) }
+}
+/** One drawn frame of the displayed arm's easing, for the 'frame' cadence. */
+export function easeHeldTool(p: Player, dt: number) {
+  if (p.heldTool) p.heldTool.presentation = easeArm(p, p.heldTool.presentation, dt)
 }
 function easeArm(p: Player, previous: HeldTool['presentation'], dt: number) {
   const target = armAngles(p)
@@ -182,7 +187,9 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
       p.heldTool = tool; state.angle = angle; state.aiming = aiming
     }
     else { p.heldTool.blocked = true; state.aiming = aiming }
-    p.heldTool!.presentation = easeArm(p, previousPresentation, dt)
+    // The displayed arm eases every step, once per drawn frame, or not at all.
+    if (cadence(p) === 'tick') p.heldTool!.presentation = easeArm(p, previousPresentation, dt)
+    else if (previousPresentation) p.heldTool!.presentation = previousPresentation
     if (use && !interact) {
       if (supporting || turnSupported) feedback(run, 'Right arm supporting')
       else if (run.empRemaining > 0) feedback(run, 'Power off')

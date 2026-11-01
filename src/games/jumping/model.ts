@@ -1,5 +1,4 @@
 import type { NamedObject } from './objectNames.ts'
-import { advanceFootwork } from './footwork.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
 import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ladderDistance, rappelFrame, ropeGripDistance, ropeImpulse, ropePoint, ropeSlopeSupport, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder } from './climbables.ts'
@@ -11,7 +10,7 @@ import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
-import { anticipatePush, constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushGrip, updatePushingPose } from './playerContacts.ts'
+import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushGrip } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
@@ -29,11 +28,12 @@ import type { JumpInput, Platform, Player } from './characterTypes.ts'
 export { gaitPose } from './gait.ts'
 export type { GaitPose } from './gait.ts'
 import { gaitPose } from './gait.ts'
-import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceReturningStepPreparation, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, settlePresentedWaterClearance, dryTurnDirection, settleFallClearance, settleWaterClearance, startImpactRagdoll } from './athleteAnimation.ts'
+import { advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, settleWaterClearance, startImpactRagdoll } from './athleteAnimation.ts'
 import { athletePose, dryLedgeReach, dryLedgeReachPose } from './athletePose.ts'
 import { gameplayPose } from './gameplayPose.ts'
 import { swimmingLedgeReach } from './poses/waterPose.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athleteAnimation.ts'
+import { animateOrQueue, animates, cadence, preparePush, presentPush, presentWaterOrQueue, settleOrQueue } from './characterAnimation.ts'
 import type { AthletePose } from './athleteRig.ts'
 
 export const STEP = 1 / 120
@@ -60,24 +60,6 @@ export function airBoostStrength(p: Player) {
   if (p.grounded || p.hang || p.mantle || p.climbing || p.waterMotion || p.wallBrace?.active || p.sliding?.active) return 0
   return Math.min(1, Math.hypot(p.airBoost.x, p.airBoost.lift))
 }
-function settleGait(p: Player, dt: number) {
-  const speed = p.climbing ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
-  const target = gaitPose(speed, !p.grounded && !p.hang && !p.mantle && !p.climbing), previous = p.anim.gait ?? gaitPose(0)
-  if (p.contacts?.push && !p.contacts.push.passive || p.grounded && p.vx * p.facing < -1) target.run = 0
-  const blend = (from: number, to: number, response = to > from ? .045 : .08) => {
-    const value = from + (to - from) * (1 - Math.exp(-dt / response))
-    return Math.abs(value - to) < .001 ? to : value
-  }
-  // Lengthen the settled middle pace, rather than imposing a full jogging
-  // cycle during the brief acceleration into a sprint. Keep the old sprint
-  // and precision-walk contacts and their traversal handoffs.
-  const jogging = Math.abs(previous.speed - target.speed) < .02 && !target.air
-    ? 16 * target.run ** 2 * (1 - target.run) ** 2 : 0
-  const jog = blend(previous.jog ?? 0, jogging, .12)
-  // Animation settles independently of physical braking; the feet return to rest.
-  p.anim.gait = { speed: blend(previous.speed, target.speed), moving: blend(previous.moving, target.moving), run: blend(previous.run, target.run),
-    air: blend(previous.air, target.air, target.air ? .035 : .065), ...(jog > .001 ? { jog } : {}) }
-}
 export function cancelJumpInput(p: Player) {
   p.anim.slideEntry = null
   p.waterJump = false
@@ -90,9 +72,10 @@ export function cancelJumpInput(p: Player) {
   p.ladderJumpGrace = 0
 }
 export function respawn(p: Player) {
-  const { spawnX, spawnY, checkpoint, bestHeight } = p
+  const { spawnX, spawnY, checkpoint, bestHeight } = p, mode = p.anim.cadence
   const ropes = p.ropes?.map(r => createRope(r.definition)) ?? null
   Object.assign(p, createPlayer(), { x: spawnX, y: spawnY, spawnX, spawnY, checkpoint, bestHeight, ropes })
+  if (mode) p.anim.cadence = mode
   delete p.releaseTurn
   delete p.waterBob
   delete p.waterCamera
@@ -449,8 +432,11 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const beforeBody = playerContactBody(p)
   const previousFacing = p.facing
   const flightFacing = options.airFacing === 'travel' && !p.releaseTurn ? previousFacing : undefined
-  const turnFrame = captureDryTurn(p, input, frameDirection)
-  const slideEntryFrame = captureSlideEntry(p)
+  // Turn and slide-entry blends start from the rig before this step; only animated
+  // players capture it, once per drawn frame for the 'frame' cadence.
+  const animating = animates(p)
+  const turnFrame = animating && !p.anim.pending?.turnFrame ? captureDryTurn(p, input, frameDirection) : null
+  const slideEntryFrame = animating && !p.anim.pending?.slideEntryFrame ? captureSlideEntry(p) : null
   const previousWaterCenter = inWater ? playerWaterCenterOffset(p) : 0
   const previousWaterMotion = p.waterMotion ? { ...p.waterMotion } : undefined
   const swimDirection = swimmingDirection(input)
@@ -662,8 +648,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     startImpactRagdoll(p, [impact.vx, impact.vy], 'landing')
   }
   finishPlayerStep(p, input, dt, world, from, verticalUsed, turnFrame, slideEntryFrame, frameDirection)
-  settleFallClearance(p, dt, previousFacing)
-  advanceImpactRagdoll(p, dt)
+  settleOrQueue(p, dt, previousFacing)
   if (p.waterMotion) {
     if (p.facing !== previousFacing && p.waterMotion.bodyOffset) p.waterMotion.bodyOffset[0] *= -1
     if (p.waterMotion.underwater) {
@@ -691,7 +676,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       if (!p.waterMotion.landing) p.waterMotion.bottom = 1
     }
     settleWaterClearance(p, dt)
-    settlePresentedWaterClearance(p, dt)
+    presentWaterOrQueue(p, dt)
   }
   if (gravityOverride === undefined) { finishGravityTurn(p); turnToGravity(p, orientationGravity) }
 }
@@ -701,7 +686,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
 function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
   if (Math.abs(gravity) <= TUNING.gravity * .05 || p.grounded || p.hang || p.mantle || p.climbing || p.releaseTurn || p.waterMotion || p.wallBrace?.active
     || (gravity < 0) === !!p.inverted) return
-  p.releaseTurn = { angle: 0, target: p.facing * Math.PI, pose: pose ?? athletePose(p), facing: p.facing, time: 0, progress: 0 }
+  p.releaseTurn = { angle: 0, target: p.facing * Math.PI, pose: pose ?? (animates(p) ? athletePose(p) : undefined), facing: p.facing, time: 0, progress: 0 }
   // The turn now owns the outgoing rig, including any loose impact joints.
   // Do not apply recoil again before the next controller tick releases it.
   p.anim.ragdoll = null
@@ -714,6 +699,7 @@ function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
 /** All movement modes publish contacts and advance presentation once, after
  * their final world position is known, including an authored level exit. */
 export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number], verticalUsed = false, turnFrame?: DryTurnFrame | null, slideEntryFrame?: SlideEntryFrame | null, frameDirection = 1) {
+  const rawFrom = from
   const contacts = playerContacts(p, input, world, dt)
   const carrier = contacts.support?.collider.robot
   if (carrier) {
@@ -722,40 +708,18 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
     from = [from[0] + dx, from[1] + dy]
   }
   contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
-  // A physical contact owns its hands. Otherwise an imminent dry ledge grip
-  // takes precedence over object preparation; do not combine two targets.
-  if (!p.waterMotion && contacts.push?.hands) p.ledgeReach = null
-  const preparation = contacts.push || !p.waterMotion && p.ledgeReach ? null : anticipatePush(p, input, world)
+  // Presented push preparation is solved before the contacts are published,
+  // as it always was, when animating every step.
+  const preparation = cadence(p) === 'tick' ? preparePush(p, input, world, contacts) : undefined
   updatePushGrip(p, contacts.push ?? null, dt)
-  updatePushingPose(p, contacts.push ?? preparation, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
+  if (preparation !== undefined) presentPush(p, contacts, preparation, dt)
   // A rolling ball remains an obstruction for the motor, but the published
   // working contacts and rig must release once the shove supplies no force.
   p.contacts = contacts.push?.passive ? { ...contacts, push: null } : contacts
-  advanceReturningStepPreparation(p, input, dt, world)
   advanceWaterCamera(p, input, dt)
-  settleGait(p, dt)
-  // Climbing and crouching own the pose; unused Up still gets a quiet glance.
-  const look = verticalUsed || p.climbing || p.hang || p.mantle || p.crouching || p.freeFall?.amount ? 0
-    : Number(frameDirection > 0 ? input.climb : input.descend)
-  p.anim.look += (look - p.anim.look) * (1 - Math.exp(-dt / .1))
-  if (Math.abs(p.anim.look - look) < .001) p.anim.look = look
-  const visibleDirection = dryTurnDirection(p, input, turnFrame)
-  if (visibleDirection === p.facing) advanceFootwork(p, dt, from[0], world.platforms)
-  else {
-    // Footwork belongs to presentation. Grips and steering retain mechanical
-    // facing; resting/swing shoes turn toward the body's outgoing direction.
-    const feetPlayer = { ...p, facing: visibleDirection }
-    advanceFootwork(feetPlayer, dt, from[0], world.platforms)
-    p.anim.footwork = feetPlayer.anim.footwork; p.anim.stride = feetPlayer.anim.stride
-  }
-  // Residual flight drift or a contact correction is not a requested step.
-  // Only active steering starts the faster get-up after a prone impact.
   // Residual drift is not steering; only an actual step starts the faster get-up.
-  const steering = Math.abs(input.move) > .01 && Math.abs(contacts.motion.x) > .05
-  if (steering && p.grounded && p.freeFall && p.freeFall.recovery !== null) p.freeFall.getUp ??= 0
-  advanceMovingRecovery(p, dt, steering, turnFrame)
-  advanceDryTurn(p, input, dt, turnFrame)
-  advanceSlideEntry(p, dt, slideEntryFrame, input)
+  if (Math.abs(input.move) > .01 && Math.abs(contacts.motion.x) > .05 && p.grounded && p.freeFall && p.freeFall.recovery !== null) p.freeFall.getUp ??= 0
+  animateOrQueue(p, { input, dt, world, from, contacts, verticalUsed, frameDirection, turnFrame: turnFrame ?? null, slideEntryFrame: slideEntryFrame ?? null }, rawFrom)
 }
 
 /** Read-only lowering availability in the motor's gravity-normalized frame.
@@ -1191,7 +1155,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     // A ledge grip only hangs against its current load. Carry the actual held
     // pose into free turning when gravity reverses, including at a field edge.
     if (orientationGravity < -TUNING.gravity * .05) {
-      const pose = athletePose(p)
+      const pose = animates(p) ? athletePose(p) : undefined
       p.hang = null; p.grabCooldown = .35
       turnToGravity(p, orientationGravity, pose)
       return
@@ -1397,7 +1361,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const gap = (edge - p.x) * side
       const swimmingReach = outside && gap < 55 && p.waterMotion && !p.jumpLift && !p.waterJump
         ? swimmingLedgeReach(p, edge, edgeY) : undefined
-      if (outside && gap < 55 && (waterReach && reachable(p.y) || Math.abs(handY - edgeY) < 48)) {
+      // The presented ledge reach; only animated players solve it.
+      if (animates(p) && outside && gap < 55 && (waterReach && reachable(p.y) || Math.abs(handY - edgeY) < 48)) {
         const heightReach = waterReach && reachable(p.y) ? 1 : ledgeEase((48 - Math.abs(handY - edgeY)) / 28)
         if (swimmingReach === undefined && dryReachPose === undefined) dryReachPose = dryLedgeReachPose(p)
         const target = swimmingReach ?? Math.min(ledgeEase((55 - gap) / 27), heightReach,

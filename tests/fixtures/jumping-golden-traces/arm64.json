@@ -1,6 +1,8 @@
 {
- "version": 1,
+ "version": 2,
  "checkpoint": 120,
+ "math": "f218227f60a5a1d1",
+ "cpu": "arm64",
  "recorded": {
   "physics": "fcafc46 with uncommitted changes: Phase 4 of #86: gameplay reads the motor's push rig, physics rig, fall timer and footfall cadence, not animation",
   "state": "fcafc46 with uncommitted changes: Phase 4 of #86: gameplay reads the motor's push rig, physics rig, fall timer and footfall cadence, not animation",

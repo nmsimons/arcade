@@ -1,6 +1,6 @@
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { CHECKPOINT, FIXTURE, KINDS, compareTrace, goldenScripts, loadGame, readGolden, runTraces, traceScript } from '../tests/helpers/jumping-golden.mjs'
+import { CHECKPOINT, GOLDEN, KINDS, compareTrace, goldenScripts, loadGame, mathFingerprint, missingGolden, readGolden, runTraces, traceScript } from '../tests/helpers/jumping-golden.mjs'
 
 // Golden traces for Untitled Jumping Game (see tests/helpers/jumping-golden.mjs).
 //
@@ -16,6 +16,11 @@ import { CHECKPOINT, FIXTURE, KINDS, compareTrace, goldenScripts, loadGame, read
 //
 // Physics hashes must not be re-recorded for a change that claims to preserve
 // behaviour. Record a kind only when its change is intended, and say so.
+//
+// Hashes are kept per math library (arm64 and x64 differ). Checking and
+// recording use this process's set, so record an intended change on both: on
+// Apple Silicon, run the same command again under Rosetta with an x64 Node,
+// arch -x86_64 <x64 node> scripts/jumping-golden.mjs --write ... (docs/testing.md).
 
 const args = process.argv.slice(2)
 const option = name => { const at = args.indexOf(name); return at < 0 ? undefined : args[at + 1] }
@@ -40,9 +45,12 @@ const started = performance.now()
 const results = await runTraces({ keys, kinds, source, cadence, jobs: option('--jobs') && Number(option('--jobs')) })
 const seconds = ((performance.now() - started) / 1000).toFixed(1)
 
+const math = mathFingerprint()
 if (args.includes('--write')) {
-  let golden
-  try { golden = readGolden() } catch { golden = { traces: {} } }
+  // A new math library gets a file named for its CPU, or for its platform and
+  // CPU when another library already has that name.
+  const golden = readGolden(math) ?? { name: [`${process.arch}.json`, `${process.platform}-${process.arch}.json`].find(name => !existsSync(new URL(name, GOLDEN))), traces: {} }
+  if (!golden.recorded && kinds.length < KINDS.length) throw new Error(`${golden.name} is a new set; record every kind`)
   for (const { key, ...result } of results) {
     const previous = golden.traces[key] ?? {}
     golden.traces[key] = { ticks: result.ticks, finished: result.finished,
@@ -56,17 +64,18 @@ if (args.includes('--write')) {
   const note = option('--note')
   const recorded = { ...golden.recorded, ...Object.fromEntries(kinds.map(kind => [kind, `${commit}${dirty ? ' with uncommitted changes' : ''}${note ? `: ${note}` : ''}`])) }
   const ordered = Object.fromEntries(Object.keys(golden.traces).sort().map(key => [key, golden.traces[key]]))
-  writeFileSync(FIXTURE, `${JSON.stringify({ version: 1, checkpoint: CHECKPOINT, recorded, traces: ordered }, null, 1)}\n`)
-  console.log(`Recorded ${kinds.join(', ')} for ${results.length} traces in ${seconds} s (${recorded[kinds[0]]}).`)
+  writeFileSync(new URL(golden.name, GOLDEN), `${JSON.stringify({ version: 2, checkpoint: CHECKPOINT, math, cpu: process.arch, recorded, traces: ordered }, null, 1)}\n`)
+  console.log(`Recorded ${kinds.join(', ')} for ${results.length} traces in ${golden.name} in ${seconds} s (${recorded[kinds[0]]}).`)
   process.exit(0)
 }
 
-const golden = readGolden()
+const golden = readGolden(math)
+if (!golden) { console.log(missingGolden(math)); process.exit(1) }
 let failures = 0
 for (const { key, ...result } of results) {
   const expected = golden.traces[key]
   const problem = expected ? compareTrace(expected, result, kinds) : 'no recorded trace'
   if (problem) { failures++; console.log(`✗ ${key}: ${problem}`) }
 }
-console.log(`${results.length - failures}/${results.length} traces match (${kinds.join(', ')}) in ${seconds} s.`)
+console.log(`${results.length - failures}/${results.length} traces match (${kinds.join(', ')}) in ${golden.name}, in ${seconds} s.`)
 process.exit(failures ? 1 : 0)

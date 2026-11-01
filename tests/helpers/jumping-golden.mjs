@@ -16,11 +16,18 @@ import { pathToFileURL } from 'node:url'
 // Checkpoints store a running hash every CHECKPOINT ticks, so a divergence is
 // located to within one second of gameplay. `scripts/jumping-golden.mjs`
 // records and checks them, and prints per-tick values for finding the tick.
+//
+// The hashes hold only for the math library that recorded them. V8 computes
+// sin, atan2, exp, pow and the other transcendental functions in its own C++
+// library, and arm64 builds fuse multiply-adds in it, so arm64 and x64 can
+// differ in a result's last bit. Motion grows that into a different trace
+// within seconds. Each math library therefore keeps its own set, chosen by
+// mathFingerprint().
 
 export const CHECKPOINT = 120
 export const POSE_EVERY = 2
 export const KINDS = ['physics', 'state', 'pose']
-export const FIXTURE = new URL('../fixtures/jumping-golden-traces.json', import.meta.url)
+export const GOLDEN = new URL('../fixtures/jumping-golden-traces/', import.meta.url)
 const repository = new URL('../../', import.meta.url)
 
 /** Game modules from this checkout or another one, for side-by-side traces. */
@@ -197,8 +204,39 @@ export function traceScript(game, url, script, { kinds = KINDS, onTick, cadence 
   return { ticks: tick, finished: run.finished, ...checkpoints }
 }
 
-export function readGolden() {
-  return JSON.parse(readFileSync(FIXTURE, 'utf8'))
+/** A hash of the bits the simulation's transcendental Math functions return,
+ * which identifies the math library a golden set was recorded with. */
+export function mathFingerprint() {
+  const unary = ['sin', 'cos', 'tan', 'atan', 'asin', 'acos', 'exp', 'log2', 'tanh'], count = 4096
+  const values = new Float64Array(count * (unary.length + 3))
+  let at = 0
+  for (let i = 0; i < count; i++) {
+    // Arguments spread over the ranges the game uses: angles, small exponents
+    // and unit ratios.
+    const x = (i - count / 2) * 0.00731, unit = Math.sin(i * 0.37) * 0.999
+    for (const name of unary) values[at++] = Math[name](name === 'asin' || name === 'acos' ? unit : name === 'exp' ? x / 4 : name === 'log2' ? Math.abs(x) + 1e-3 : x)
+    values[at++] = Math.atan2(x, (i % 61 - 30) * 0.513)
+    values[at++] = Math.hypot(x, (i % 47 - 23) * 0.917)
+    values[at++] = (Math.abs(x) + 1e-3) ** [3, 0.8, 0.55, 0.25][i % 4]
+  }
+  return createHash('sha256').update(new Uint8Array(values.buffer)).digest('hex').slice(0, 16)
+}
+
+/** Every recorded golden set, one per math library. */
+export function goldenSets() {
+  return readdirSync(GOLDEN).filter(name => name.endsWith('.json')).sort()
+    .map(name => ({ name, ...JSON.parse(readFileSync(new URL(name, GOLDEN), 'utf8')) }))
+}
+
+/** The golden set for this process's math library, or null when none is recorded. */
+export function readGolden(math = mathFingerprint()) {
+  return goldenSets().find(set => set.math === math) ?? null
+}
+
+/** Why this process has no golden set, and how to record one. */
+export function missingGolden(math = mathFingerprint()) {
+  return `No golden traces are recorded for this math library (${process.platform} ${process.arch}, fingerprint ${math}). `
+    + 'Record them with node scripts/jumping-golden.mjs --write (docs/testing.md).'
 }
 
 /** First differing checkpoint per kind, in seconds of gameplay, or null when equal. */

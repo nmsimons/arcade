@@ -205,7 +205,12 @@ function shovingPose(p: Player, pose: AthletePose): AthletePose {
   return result
 }
 
+let solves = 0
+/** Rig solves since the module loaded; tests count them instead of timing work. */
+export const athletePoseSolves = () => solves
+
 export function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose {
+  solves++
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try { return resolveAthletePose(p, deferLooseClearance) }

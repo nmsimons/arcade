@@ -71,3 +71,20 @@ test('frame cadence animates only when a drawn frame asks, and resumes from rest
   assert.equal(run.player.anim.pending, null)
   assert.ok(run.player.anim.footwork, 'the frame animated the feet')
 })
+
+test('physics without animation solves no rig on a dry pushing level; animating every step does', async () => {
+  const { athletePoseSolves } = await import('../src/games/jumping/athletePose.ts')
+  const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/Boxes.jump-level.json', import.meta.url), 'utf8')))
+  const route = medals.runs.find(run => run.file === 'Boxes.jump-level.json').trace
+  const solvesFor = cadence => {
+    const run = createRun(level)
+    setAnimationCadence(run.player, cadence)
+    const before = athletePoseSolves()
+    for (const { frames, input } of route) for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input })
+    assert.equal(run.finished, true)
+    return athletePoseSolves() - before
+  }
+  // Counting work is stable across machines, unlike timing it.
+  assert.equal(solvesFor('off'), 0, 'headless physics and off-screen robots skip every pose solve')
+  assert.ok(solvesFor('tick') > 100, 'animating every step captures its turns and pushes')
+})

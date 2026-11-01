@@ -5,6 +5,23 @@ character animation out of the 120 Hz physics step, then speed up the
 simulation. It records what each phase changed and the evidence for it. The
 safety net is described in [testing](testing.md#ujg-golden-traces-and-the-fast-tier).
 
+## Status
+
+| Phase | State |
+|---|---|
+| 0. Safety net | Done: golden traces (built-in levels, medal routes, mechanism fixtures), fast tier, benchmark. |
+| 1. Split `athlete.ts` | Done, with physics, state and pose hashes identical. |
+| 2. `Player.anim` | Done for turns, slide entry, footwork, stride, gait, look and the ragdoll; physics and pose hashes identical. |
+| 4. Gameplay reads physics | Done, ahead of Phase 3. The one intended physics change; see below for what moved. |
+| 3. Animation cadence | Done: per-step, per-frame or off. The game animates visible actors every step and skips off-screen robots. |
+| 5. Hot spots | Partly: operation-count guard and profiles; the optimizations themselves are not started. |
+
+Deviations from the issue, each explained in its section: the phases ran in the
+order 0, 1, 2, 4, 3; the game does not animate once per drawn frame; physics
+still writes a few animation fields directly instead of emitting events; and
+gameplay queries reuse the full pose solver on an animation-free player view
+rather than simplified analytic rigs.
+
 ## Coupling measured in Phase 0
 
 The issue's scratch experiment switched off the six animation updates inside
@@ -254,3 +271,27 @@ writes are cheap, apply immediately at either cadence, and cannot affect motion
 because physics never reads animation. Replacing them with an event queue would
 change presentation timing without a measurable benefit, so it is left for a
 decision.
+
+## Phase 5: hot spots after the split
+
+`tests/jumping-animation-cadence.test.mjs` now counts rig solves instead of
+timing them: on the Boxes medal route, physics without animation solves none,
+while animating every step solves more than a hundred. A gameplay change that
+reintroduces a pose solve into the dry movement step fails it.
+
+CPU profiles of physics alone (`--cadence off`) on the heaviest levels, as
+shares of profiled samples:
+
+| Level | Largest costs |
+|---|---|
+| Ascent, Waterline II | water-pose solves from the physics rig, 28–35% inclusive (swimming hull 10–18%, hull clearance 10–14%, ceiling brace 10–16%); building the physics view 2–6% self |
+| Quarantine II | rope solver 22% self |
+| Exit | prop collision queries 12.5% self, matter.js 9% |
+
+These are the next targets. The swimming queries rebuild the same water rig
+several times per step, so a per-step cache of the physics-rig water pose, or
+the simplified swimming skeleton the issue proposed, is the larger opportunity.
+Neither was attempted here: each changes the hottest water code, and any cache
+needs an exact account of what the water pose reads. The rope solver already
+culls distant terrain and sleeps idle ropes; what remains is its constraint
+iteration.

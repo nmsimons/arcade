@@ -160,7 +160,7 @@ test('uphill landings regain support and preserve only tangential momentum', () 
     const energy = p.vx ** 2 + p.vy ** 2
     tick(p, shape, { move: direction })
     assert.ok(p.grounded, 'upward world velocity must not prevent landing on an uphill slope')
-    assert.ok(p.footwork, 'the landing must restore foot placement')
+    assert.ok(p.anim.footwork, 'the landing must restore foot placement')
     assert.ok((p.vx / Math.cos(35 * Math.PI / 180)) ** 2 <= energy)
     for (let i = 0; i < 120; i++) {
       tick(p, shape, { move: direction })

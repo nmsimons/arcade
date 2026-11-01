@@ -20,6 +20,7 @@ import { createJumpTouch } from './jumping/touchInput'
 import { cancelGadgetInput } from './jumping/gadgets'
 import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
+import { setAnimationCadence } from './jumping/characterAnimation'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
@@ -592,6 +593,23 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     window.addEventListener('keydown', handleKey); window.addEventListener('keyup', keyup)
     window.addEventListener('blur', suspend); document.addEventListener('visibilitychange', visibility)
     window.addEventListener('orientationchange', reorient)
+    // The player and robots near the view animate every physics step. Robots
+    // more than this far outside the view skip animation, which cannot change
+    // their motion; one that returns resumes from rest before it can be seen.
+    // (Animating once per drawn frame instead saved 3 to 5% of frame time and
+    // lost continuity checked by the browser tests; see docs/jumping-animation.md.)
+    const ANIMATION_MARGIN = 160
+    const updateRobotAnimation = () => {
+      if (!run.current) return
+      const camera = lastCamera.current, right = camera.x + width / camera.zoom, bottom = camera.y + height / camera.zoom
+      for (const robot of run.current.robots) {
+        const actor = robot.actor
+        if (!actor) continue
+        const visible = actor.x > camera.x - ANIMATION_MARGIN && actor.x < right + ANIMATION_MARGIN
+          && actor.y > camera.y - ANIMATION_MARGIN && actor.y - 60 < bottom + ANIMATION_MARGIN
+        setAnimationCadence(actor, visible ? 'tick' : 'off')
+      }
+    }
     const tick = (now: number) => {
       const measuring = import.meta.env.DEV && performanceEnabled.current && !devOpenRef.current && screenRef.current === 'playing' && !document.hidden
       const started = measuring ? performance.now() : 0
@@ -600,6 +618,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       const input = frameInput(now)
       if (input) {
         accumulator += dt
+        updateRobotAnimation()
         while (accumulator >= STEP) {
           steps++
           // Preserve even a complete keyboard tap between two rendered frames.

@@ -21,12 +21,12 @@ function bones(pose) {
   }
 }
 function soles(p, pose) {
-  if (!p.footwork) return
+  if (!p.anim.footwork) return
   for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
     if (!leg.planted) continue
-    const foot = p.footwork.feet[i]
+    const foot = p.anim.footwork.feet[i]
     assert.ok(foot.planted, 'visible support belongs to an actual contact')
-    assert.ok(distance(worldPoint(p, leg.end), [foot.x, foot.y]) < 1e-5, `turn retains the actual ankle: ${JSON.stringify({root:leg.root,end:leg.end,foot,turn:p.dryTurn&&{time:p.dryTurn.time,target:p.dryTurn.target}})}`)
+    assert.ok(distance(worldPoint(p, leg.end), [foot.x, foot.y]) < 1e-5, `turn retains the actual ankle: ${JSON.stringify({root:leg.root,end:leg.end,foot,turn:p.anim.dryTurn&&{time:p.anim.dryTurn.time,target:p.anim.dryTurn.target}})}`)
     // Compare every drawn material point against the unchanged contact motor,
     // including heel roll, toe bend and the original shoe facing.
     for (const point of FOOT_CONTACT) {
@@ -47,7 +47,7 @@ test('a full-speed reverse responds immediately while its head continues through
     assert.equal(p.facing, -direction, 'grip/contact intent changes immediately')
     assert.ok(Math.abs(p.vx - direction * (410 - 2000 * STEP)) < 1e-6, 'the original steering acceleration starts on this tick')
     assert.ok(distance(before, worldPoint(p, athletePose(p).head)) < 6, 'world head motion rejects the baseline 16-unit mirror')
-    assert.equal(p.dryTurn.target, direction, 'visible orientation initially follows outgoing momentum')
+    assert.equal(p.anim.dryTurn.target, direction, 'visible orientation initially follows outgoing momentum')
     let previous = worldPoint(p, athletePose(p).head)
     for (let i = 0; i < 90; i++) {
       stepPlayer(p, { ...NEUTRAL_INPUT, move: -direction }, STEP, floor)
@@ -55,7 +55,7 @@ test('a full-speed reverse responds immediately while its head continues through
       assert.ok(distance(previous, head) < 8, 'turn continuity includes ordinary root travel')
       bones(pose); soles(p, pose); previous = head
     }
-    assert.equal(p.dryTurn, null, 'the rig returns to the ordinary contact gait')
+    assert.equal(p.anim.dryTurn, null, 'the rig returns to the ordinary contact gait')
     assert.equal(p.vx, -direction * 410)
   }
 })
@@ -93,14 +93,14 @@ test('air reversals stay unsupported and a restart discards the preceding turn',
     assert.equal(pose.frontLeg.planted || pose.backLeg.planted, false, 'air turning never creates a support')
     bones(pose)
   }
-  respawn(p); assert.equal(p.dryTurn, null)
+  respawn(p); assert.equal(p.anim.dryTurn, null)
 })
 
 test('a ledge jump transfers out of the real grip while retaining outward impulse and fresh-press semantics', () => {
   for (const side of [-1, 1]) for (const inverted of [false, true]) for (const heldDown of [false, true]) {
     const p = createPlayer({ x: 400 - side * 14, y: 274 })
     Object.assign(p, { facing: side, grounded: false, coyote: 0, jumpHeld: true,
-      hang: { edgeX: 400, edgeY: 200, side, time: LEDGE_CATCH_TIME, braced: true, dropLocked: heldDown, caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: null, ledgeReach: null } } })
+      hang: { edgeX: 400, edgeY: 200, side, time: LEDGE_CATCH_TIME, braced: true, dropLocked: heldDown, caught: { x: p.x, y: p.y, vx: 0, vy: 0, anim: { stride: 0, gait: null }, ledgeReach: null } } })
     const terrain = [{ x: side === 1 ? 400 : 200, y: 200, w: 200, h: 400 }]
     if (inverted) { mirrorPlayerState(p); p.inverted = true }
     const floor = inverted ? terrain.map(mirrorPlatform) : terrain
@@ -110,7 +110,7 @@ test('a ledge jump transfers out of the real grip while retaining outward impuls
     step(false); const before = worldPoint(p, athletePose(p).head)
     step(true)
     assert.equal(p.hang, null); assert.equal(p.vx, -side * 260)
-    assert.ok(p.dryTurn?.departure); assert.equal(p.dryTurn.target, -side)
+    assert.ok(p.anim.dryTurn?.departure); assert.equal(p.anim.dryTurn.target, -side)
     assert.ok(distance(before, worldPoint(p, athletePose(p).head)) < 8, 'release starts from the hanging rig')
     const pose = athletePose(p); bones(pose)
     assert.equal(pose.frontLeg.planted || pose.backLeg.planted, false)
@@ -134,7 +134,7 @@ test('letting go of a ledge preserves visible facing through the release without
       const p = createPlayer({ x: 400 - side * 14, y: 274 })
       Object.assign(p, { facing: side, grounded: false, coyote: 0,
         hang: { platform: 0, edgeX: 400, edgeY: 200, side, time: LEDGE_CATCH_TIME, braced,
-          caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: null, ledgeReach: null } } })
+          caught: { x: p.x, y: p.y, vx: 0, vy: 0, anim: { stride: 0, gait: null }, ledgeReach: null } } })
       const terrain = [{ x: side === 1 ? 400 : 200, y: 200, w: 200, h: braced ? 400 : 12 }]
       if (inverted) { mirrorPlayerState(p); p.inverted = true }
       const floor = inverted ? terrain.map(mirrorPlatform) : terrain
@@ -145,11 +145,11 @@ test('letting go of a ledge preserves visible facing through the release without
       assert.equal(p.vx, -side * 60, 'letting go keeps its small outward clearance impulse')
       assert.equal(p.vy, inverted ? -80 : 80)
       assert.equal(p.grabCooldown, .35)
-      assert.equal(p.dryTurn?.target, side, 'release faces the ledge rather than its outward impulse')
+      assert.equal(p.anim.dryTurn?.target, side, 'release faces the ledge rather than its outward impulse')
       for (let i = 0; i < 30; i++) {
         const pose = athletePose(p), head = worldPoint(p, pose.head)
         assert.equal(p.facing, side)
-        if (p.dryTurn) assert.equal(p.dryTurn.target, side, 'neutral falling never introduces a turn away')
+        if (p.anim.dryTurn) assert.equal(p.anim.dryTurn.target, side, 'neutral falling never introduces a turn away')
         assert.ok(distance(previous, head) < 8, 'the retained facing releases smoothly from the hanging rig')
         const points = [[pose.head, 6.2], ...[pose.hip, pose.waist, pose.shoulder].map(a => [a, 2.8]),
           ...[pose.frontArm, pose.backArm].flatMap(arm => handOutline(arm).map(a => [a, 0]))]
@@ -173,7 +173,7 @@ test('turning into a real prop contact retains first-force palms and fixed suppo
     const level = blankTrial(); level.entrance = {x:540-side*(size/2+25.5),y:920}
     level.props = [{kind,x:540,y:920,size}]
     const run = createRun(level)
-    Object.assign(run.player,{facing:-side,vx:-side*410,gait:gaitPose(-side*410)})
+    Object.assign(run.player,{ facing:-side, vx:-side*410, anim: { ...run.player.anim, gait:gaitPose(-side*410) } })
     let touched = 0
     for (let i=0;i<60;i++) {
       stepRun(run,{...NEUTRAL_INPUT,move:side})
@@ -184,10 +184,10 @@ test('turning into a real prop contact retains first-force palms and fixed suppo
       for (const [j,arm] of [pose.frontArm,pose.backArm].entries()) {
         const palm = p.pushing.palms[j]
         assert.ok(arm.hand,'the palm is present on the first force-bearing tick')
-        assert.ok(distance(worldPoint(p,arm.hand),[palm.x+palm.nx*1.6,palm.y+palm.ny*1.6])<.001,JSON.stringify({side,kind,size,i,j,hand:worldPoint(p,arm.hand),palm,turn:!!p.dryTurn,shoulder:pose.shoulder}))
+        assert.ok(distance(worldPoint(p,arm.hand),[palm.x+palm.nx*1.6,palm.y+palm.ny*1.6])<.001,JSON.stringify({side,kind,size,i,j,hand:worldPoint(p,arm.hand),palm,turn:!!p.anim.dryTurn,shoulder:pose.shoulder}))
       }
       const head = worldPoint(p,pose.head)
-      for (const solid of run.platforms) assert.ok(!pointInside(solid,...head) && nearestBoundary(solid,...head).distance >= 6.18, JSON.stringify({side,kind,size,i,head,solid,distance:nearestBoundary(solid,...head).distance,turn:!!p.dryTurn}))
+      for (const solid of run.platforms) assert.ok(!pointInside(solid,...head) && nearestBoundary(solid,...head).distance >= 6.18, JSON.stringify({side,kind,size,i,head,solid,distance:nearestBoundary(solid,...head).distance,turn:!!p.anim.dryTurn}))
     }
     assert.ok(touched>20,'the encounter actually applies the shove')
   }
@@ -216,7 +216,7 @@ test('opposed blocked braces release and reach through repeated turns without mo
         bones(pose); soles(p, pose)
         assert.ok(distance(pose.hip, pose.waist) > 6.2, 'the pelvis cannot flatten during the turn')
         assert.ok(distance(pose.waist, pose.shoulder) > 8.5, 'the chest cannot flatten during the turn')
-        if (p.dryTurn?.reaching) {
+        if (p.anim.dryTurn?.reaching) {
           reachingFrames++
           assert.ok(Math.abs(distance(pose.hip, pose.waist) - 6.5) < .001, 'the reaching pelvis retains its length')
           assert.ok(Math.abs(distance(pose.waist, pose.shoulder) - 10.1) < .001, 'the reaching chest retains its length')
@@ -240,7 +240,7 @@ test('opposed blocked braces release and reach through repeated turns without mo
       }
     }
     assert.ok(reachingFrames > 0 && braceFrames > 20, 'the sequence exercises both the reach and its established brace')
-    assert.equal(run.player.dryTurn, null, 'release finishes the turn')
+    assert.equal(run.player.anim.dryTurn, null, 'release finishes the turn')
     stepRun(run, { ...NEUTRAL_INPUT, jump: true })
     assert.ok(run.player.vy < 0, 'a fresh jump still leaves immediately')
   }

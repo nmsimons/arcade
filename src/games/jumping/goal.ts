@@ -38,7 +38,7 @@ export function createEntranceAnimation(player: Player, platforms: readonly Plat
   if (entrance?.kind === 'charging-bay') return { elapsed: 0, player: structuredClone(player), fromX: player.x, toX: player.x, kind: 'charging-bay' }
   const actor = structuredClone(player), from = moveBody([player.x, player.y], [player.x - player.facing * 10, player.y], platforms)
   actor.terrain = platforms
-  if (!actor.footwork) advanceFootwork(actor, 0, actor.x, platforms)
+  if (!actor.anim.footwork) advanceFootwork(actor, 0, actor.x, platforms)
   translatePlayer(actor, from.x - player.x, 0)
   return { elapsed: 0, player: actor, fromX: from.x, toX: player.x }
 }

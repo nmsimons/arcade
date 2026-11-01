@@ -1,0 +1,6971 @@
+{
+ "version": 2,
+ "checkpoint": 120,
+ "math": "f218227f60a5a1d1",
+ "cpu": "arm64",
+ "recorded": {
+  "physics": "fcafc46 with uncommitted changes: Phase 4 of #86: gameplay reads the motor's push rig, physics rig, fall timer and footfall cadence, not animation",
+  "state": "fcafc46 with uncommitted changes: Phase 4 of #86: gameplay reads the motor's push rig, physics rig, fall timer and footfall cadence, not animation",
+  "pose": "fcafc46 with uncommitted changes: Phase 4 of #86: gameplay reads the motor's push rig, physics rig, fall timer and footfall cadence, not animation"
+ },
+ "traces": {
+  "00.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "639b16aa7eb6a924",
+    "063cb5d9d06ad60a",
+    "c26b7e42abb15b57",
+    "cde99e92b46d3087",
+    "9b036fcabc99ea40",
+    "bad121b6698c438b",
+    "fc25ad391b4c8fec",
+    "dad56815a5ec01a4"
+   ],
+   "state": [
+    "d451a772c00ed0f7",
+    "607deca4d0bcaa8a",
+    "3752585579fb023c",
+    "bce86f9b60431b80",
+    "13f2abadc424aa14",
+    "2dd8e7d0d276cbe5",
+    "7b9c02a842d0a2aa",
+    "01bb27f4c83a28e9"
+   ],
+   "pose": [
+    "966b918527b723f2",
+    "2d6c19d37da71388",
+    "0f9cdd5d8f3e5242",
+    "cf845a0d74020584",
+    "b29d6c5078b95f6a",
+    "172dcc0ef6c9c7aa",
+    "4c98768a8dd05a68",
+    "39dd42684cac4fe5"
+   ]
+  },
+  "00.json|medal-route": {
+   "ticks": 416,
+   "finished": true,
+   "physics": [
+    "0168b319b19a0a3e",
+    "893f4ef65f4e697b",
+    "cb02958cb65257ca",
+    "f42d09176ac80d4b"
+   ],
+   "state": [
+    "bd2145b0c6793fbf",
+    "5bc50c56ea599326",
+    "51b6e6c8ef4ec6a5",
+    "9fe950e0531ef15c"
+   ],
+   "pose": [
+    "c483b383d61c86bd",
+    "9733faf1cdd69772",
+    "d4b02e1dcfe1bf10",
+    "8ecb28a252cad475"
+   ]
+  },
+  "00.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "43f029ac0dab94cf",
+    "6bac3912eea6a429",
+    "d7bb05a0f4a3f756",
+    "283da37ec0c7afc6",
+    "ef54e9ffaf9fafe2",
+    "d8407b64ef08e3c1",
+    "513180f674a0576f",
+    "31606b430c2c8808"
+   ],
+   "state": [
+    "6b55aa2872dd25dd",
+    "e465ffb38cd7b96c",
+    "b2b78e2a070419e5",
+    "77e8b53c3c13e538",
+    "10607ab859d4c161",
+    "4382c407c4a89ad3",
+    "889c338f53434252",
+    "a3c0178a48828113"
+   ],
+   "pose": [
+    "a3d7ccadad7a9d9b",
+    "c90b722c7809b127",
+    "6097dcc1247b296f",
+    "56dd44e8152849d7",
+    "fceea59028d9dd0d",
+    "339fd0e45d68918a",
+    "a8feb13510cc1ab5",
+    "50568b898c4a25ba"
+   ]
+  },
+  "01.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "db3f6dfc1bf2d089",
+    "f45d80e44f28c183",
+    "ba14c08949a8446d",
+    "03e1308e63a74edb",
+    "e41187fb9004cea2",
+    "7c42dc0328ea81fc",
+    "26189424bfe6c79c",
+    "712f796ca91720a1"
+   ],
+   "state": [
+    "a77712517e85a604",
+    "f7d6224dfc97f6cc",
+    "458271fbcf905d31",
+    "74282a6e64797658",
+    "dd49a0bb86de6780",
+    "5b7a16d94e2decc9",
+    "afd99c574c35624d",
+    "424ec0e5fec7ac32"
+   ],
+   "pose": [
+    "da32caadcee38b06",
+    "d861db7235d9ac33",
+    "96549caf667fb761",
+    "18ac63bd09a11701",
+    "8c0a76233345f0e2",
+    "fb78cfb7d7a9e5c5",
+    "b48bc36ae673a83a",
+    "0758f1a73a074f20"
+   ]
+  },
+  "01.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "e83e82b80d01206f",
+    "67f1ed14aa8de6cb",
+    "578789b77d586244",
+    "63ab6862364bf391",
+    "5e15941cfadaf002",
+    "235b51d393c73b52",
+    "db8f3f14842dbbfe",
+    "59fae40c1cf0ea4d"
+   ],
+   "state": [
+    "b3c64a7e61ecad15",
+    "51f74cd0f6acf604",
+    "8951b281c86cd94b",
+    "2b35a9b79332e08d",
+    "1f92b9d07ac9b130",
+    "1b999b62f2d587b4",
+    "ca51bc134eceee69",
+    "ce9b9851af1b34a9"
+   ],
+   "pose": [
+    "cad9d620c7c202be",
+    "1e85f4324ab70881",
+    "92f91e7d3ee6b931",
+    "04463ecbea3e71be",
+    "47b0b31db6b0ad1d",
+    "0e5a75f964ad73e5",
+    "806a97b3afd02123",
+    "98f386776e5e1c4b"
+   ]
+  },
+  "02.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7ff8d5227e94a405",
+    "fd953cda72113c25",
+    "1bea543c5b088c70",
+    "16459df5132a91e1",
+    "0d3118ab6bf33f73",
+    "15dd8301af01d9a0",
+    "675e110ad49a31cd",
+    "6f6c3774a2f71df1"
+   ],
+   "state": [
+    "fa25bca499007521",
+    "ba2be7e2242a54dc",
+    "8b665b6b44db0d5c",
+    "6aca5753d6391f36",
+    "970fb27e18bb8c55",
+    "9f2a7921dd5b9a93",
+    "5c263ee88a27b5e2",
+    "6646b88e8bdbf543"
+   ],
+   "pose": [
+    "6a4fba3b699c0210",
+    "c06acf08fdd43179",
+    "f0fbbdc53e677339",
+    "e27087bbce997ac7",
+    "ec8d69de2056a26b",
+    "1ac06b5848097bd9",
+    "e238badb39e5c93c",
+    "668436e213b31095"
+   ]
+  },
+  "02.json|medal-route": {
+   "ticks": 855,
+   "finished": true,
+   "physics": [
+    "a14b578a3b77cbaf",
+    "7114546bf4099bf9",
+    "b783322ac4a9c6e1",
+    "0e919afafcce66bb",
+    "db835e77062d38d2",
+    "57066127abfa574a",
+    "656f9beb2a40cf05",
+    "560f82712c643c09"
+   ],
+   "state": [
+    "38b558d7ccc1e921",
+    "2f2389f6f0044c82",
+    "a12ce343e1ad8a20",
+    "ded69fec43e840d6",
+    "8fd1087675fc61ae",
+    "848b84448afe9812",
+    "ccf60962bb02b2e0",
+    "1d300f2fafe46200"
+   ],
+   "pose": [
+    "4784e363f008358b",
+    "ba79bf813c43a648",
+    "8f77bcd785de5013",
+    "e9b55d7fe008ddf2",
+    "b9bf0680f2907145",
+    "e5f7cdae98855083",
+    "9c61e750576f4bd3",
+    "53020218be2d24f4"
+   ]
+  },
+  "02.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b60fe5ff61c3a65b",
+    "49fd7f55434077c9",
+    "4809f3392dc79bd4",
+    "bcfa280003f82fc9",
+    "44a054b5f59e693c",
+    "a97bf65c49f65161",
+    "71289aecfbb2dd74",
+    "be03a34e9ea95aef"
+   ],
+   "state": [
+    "dbe857479b8ef03f",
+    "6b63df32906b4820",
+    "10516a8026ae9d44",
+    "0d659f5411b96f4d",
+    "88a9d326c6634abc",
+    "42946511af1a13e4",
+    "21b47351e03fc4b1",
+    "4f03114a397984ce"
+   ],
+   "pose": [
+    "0f9460aa7b3a7251",
+    "d4b14700dafbb34a",
+    "faf6b22f05089053",
+    "2545666d2b2eb583",
+    "f229c6def3f39e3d",
+    "e2bef10513b506c8",
+    "33f45a248dbb992c",
+    "ab1a8ff1769b0554"
+   ]
+  },
+  "03.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "f60a8d0c617dc45d",
+    "325f3d044f6bec2a",
+    "9992be335cb3ceb0",
+    "fd9bb83a36da873e",
+    "ffd54ffddcb4e285",
+    "17e6ecf8fd56e3cf",
+    "758b1214d488fa54",
+    "4fed284b5d2bc913"
+   ],
+   "state": [
+    "d30d5bf51eceb5d7",
+    "acd761a8340e9aa0",
+    "b9bc4f483a830ae0",
+    "cf84e78ddb1e786a",
+    "a9bceec4ac8df5ba",
+    "c73b1d86a0bc1149",
+    "be7e11ec5f9b67f7",
+    "818b7d4d6d1f5e97"
+   ],
+   "pose": [
+    "4f064293a620f265",
+    "11f0da44ed21402c",
+    "a562db01b8e07da5",
+    "f65e7a34958d4529",
+    "dfe4453ba7fdfc2e",
+    "624093d4042cf815",
+    "a4669d52e0592097",
+    "5dcb3ff1548c8080"
+   ]
+  },
+  "03.json|medal-route": {
+   "ticks": 1194,
+   "finished": true,
+   "physics": [
+    "612af18ba9ac574f",
+    "bf933c74ceb107df",
+    "34a6e69063140811",
+    "bc582d4da36ef83f",
+    "166b01856e3c3529",
+    "84f156fffc3dac44",
+    "2bc1bf0d9b2da877",
+    "4083357640e02ef6",
+    "0bcb261843171097",
+    "328e68a8dcabce15"
+   ],
+   "state": [
+    "01aa414ee1e45a0a",
+    "1c9cb48c6104de88",
+    "aeb6fd9eaefb8a3d",
+    "f35b5e84b0193478",
+    "3280c730ebbe2ab1",
+    "af3891fb1720b9fc",
+    "e9f8132e7c137250",
+    "6def61aba0c4f2bc",
+    "29de62b77a5b4c3d",
+    "e337cf43f9035651"
+   ],
+   "pose": [
+    "56ce24a1aa03a5ee",
+    "9cdd99a8a90f5ebb",
+    "2361e888cd63b2b1",
+    "1a7ba5fd2a3a0241",
+    "7b934fcf514e602c",
+    "066a119002547344",
+    "e2cba186e3dfd14a",
+    "632f8910fc1c4667",
+    "e953fa9056a6668f",
+    "0a5c6eaaa2a39260"
+   ]
+  },
+  "03.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "aacc4f884e265d13",
+    "6a785f76db75bcdc",
+    "f5cfd752289db497",
+    "67f77380e4abfde0",
+    "f37d739767bfebb3",
+    "dfc24eef94501dd4",
+    "940b001f3e18c81c",
+    "1a853a660339f49a"
+   ],
+   "state": [
+    "70704f73fea70a88",
+    "392e0da36d2051ce",
+    "30e7c81f471944cd",
+    "41b5eda5e5c83c43",
+    "f3c6d28a37e616d0",
+    "b58ccffcce0378f5",
+    "39a46e4ee0970fd9",
+    "f5038743168779fc"
+   ],
+   "pose": [
+    "36dc92ef406a29b5",
+    "41ba2d05c9f09edb",
+    "ca748e444a63daaa",
+    "a5f9fed6e1c498c6",
+    "fbc84d2bee2b0520",
+    "52698db5fd47c8f2",
+    "386dc5806447aa1b",
+    "aadbb1550a648efc"
+   ]
+  },
+  "04.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b83aae21de7cda7e",
+    "3d09f9b64e9d17bc",
+    "08351b5627809614",
+    "d53a58be8a2b5d22",
+    "ead7f6bceba449c9",
+    "35fd55e0cd5e4df9",
+    "a22e8bbc8f0b7495",
+    "30fb1371b86d1ce3"
+   ],
+   "state": [
+    "2a33a1f9a0033f22",
+    "7c6bcdb41ab81764",
+    "ba6ebdfc75d4c032",
+    "a96facaf7f9e0ab0",
+    "527daabc88135204",
+    "b1d300076de564d4",
+    "e5a5f2db54978c8e",
+    "9832a6819d64ec77"
+   ],
+   "pose": [
+    "f1614fc6349d5889",
+    "27a98a3019b6d221",
+    "50fabb2aa7dec0ad",
+    "95cf577f450a39d2",
+    "5ced5c4aeab30b0a",
+    "39f2d7266108ffec",
+    "a29814cd2bc79075",
+    "38eac6e95df02f0e"
+   ]
+  },
+  "04.json|medal-route": {
+   "ticks": 1415,
+   "finished": true,
+   "physics": [
+    "e1cc325bb9431aca",
+    "0fb959f3f063f33a",
+    "264d0a74460d5e9b",
+    "4100ac0158e64dc0",
+    "a66f0832721f295e",
+    "7e510c94bd8b725e",
+    "3f31b6598ba1f5b0",
+    "36be145143e324f6",
+    "1079716bca316eff",
+    "4043c412c9d84cec",
+    "b1acb4ee82df80fa",
+    "ea4cea0882856803"
+   ],
+   "state": [
+    "22c81330931d6ca9",
+    "be5f1d2f65d4cf46",
+    "0e2d9765907b0785",
+    "ee9408b22a933143",
+    "c2ae2ebf5ffdfbce",
+    "64443cbf918793c1",
+    "c858e3fac3a0b0a5",
+    "f54d344f464e273d",
+    "63e8c071eea04077",
+    "2d1ca692f304bb09",
+    "92478b44587660ff",
+    "7ad6f31a5e19c0d6"
+   ],
+   "pose": [
+    "27d95fb745fbe980",
+    "325db7c6cb7c9335",
+    "1d1367f7f5c8831c",
+    "fad0fdafdd10178f",
+    "a376cab4127e1686",
+    "7aa8847cef0d170e",
+    "409399a8f68f5d29",
+    "7147fad58c2eb74d",
+    "f310dd13f2a2ce47",
+    "a3ebdfa323e59ba7",
+    "9a3724c9694c2792",
+    "ef7d0d20bcf5fe03"
+   ]
+  },
+  "04.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "96fbaabdbcb3a655",
+    "160e6cdd50e2b907",
+    "860aa906edeba814",
+    "76d028ecba8427e7",
+    "db8f3aac8a44f7e1",
+    "256c2df64c67f527",
+    "fb99ce3a5c699212",
+    "c2c416efc688efdf"
+   ],
+   "state": [
+    "4ba5650808e7b853",
+    "214cdf2eee420481",
+    "b085ca72379235a0",
+    "f1545f5e5ccf27c1",
+    "263c634491f68ea6",
+    "ea06f8bfdde72295",
+    "a69e4ae0309847a2",
+    "282750bd423154b6"
+   ],
+   "pose": [
+    "21b9047284fd6011",
+    "485ee422b7546f7e",
+    "2c6a2f96f0260eb0",
+    "c4ccf502aba96602",
+    "c8336e9ffe396c59",
+    "a7ce94fe35c6a469",
+    "9166fd00863950f8",
+    "e0ceaf5df6cb41fb"
+   ]
+  },
+  "05.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "1c0dacfc47444244",
+    "b9343fb424412366",
+    "6b97f2c198ac6a6e",
+    "0dcd7e0a539020af",
+    "cc99e336a3ed4314",
+    "a4b2eb9e507d8001",
+    "a007c04f481bd651",
+    "345639d071abd43b"
+   ],
+   "state": [
+    "c7be883dcf6cb9d8",
+    "c4927b08c8f22a3c",
+    "3aab12e2772865bb",
+    "de34890825b41e0a",
+    "3772107dda19a368",
+    "4511554b0d0fb092",
+    "ef5bfd00110fb187",
+    "1b636411fc760d0e"
+   ],
+   "pose": [
+    "69292491bd683198",
+    "ae50bb40797a1153",
+    "ca3d489d731d48b2",
+    "de86df6e22c68abf",
+    "5dde4a340478fa26",
+    "678fc9d33e9d079e",
+    "af7cc893bdfd2c4c",
+    "b4a6f7d28ff6ed21"
+   ]
+  },
+  "05.json|medal-route": {
+   "ticks": 1198,
+   "finished": true,
+   "physics": [
+    "dd2802c6e7947475",
+    "6a4fe02babcb97ae",
+    "e484db6c5fb1c01d",
+    "41060d5dab107603",
+    "0b7e97b321af84ca",
+    "f6086a1f100570d0",
+    "45c8f1a397b9063a",
+    "75a0151371ab11ac",
+    "d6c4d9caf036850c",
+    "c78be59b15894762"
+   ],
+   "state": [
+    "39f6d414efcf0160",
+    "b556d9665575e995",
+    "5bd60b570f66125d",
+    "305760b2d749074d",
+    "4ab253326380404e",
+    "25eea1514c965dcb",
+    "07ae55eb9a5a9445",
+    "9a828197115ec508",
+    "694a1c66eb0ff7e9",
+    "8933710e014a7a38"
+   ],
+   "pose": [
+    "3e7da036035c4dca",
+    "b5a7a5bfa37d12f9",
+    "c5abf2b9b086dfe4",
+    "42be31d489959ebe",
+    "5ca278e6fdd3256b",
+    "a860d490835f1d6b",
+    "2866770c217b2464",
+    "505312e77d0a5bc7",
+    "da13d3ed06101113",
+    "40ea18d17110162b"
+   ]
+  },
+  "05.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "67df4eb1b4117217",
+    "1f3b64f8bf8e1b76",
+    "b746b76180b52fe7",
+    "7447be0d8747b791",
+    "ce0fc665e2a45ef1",
+    "aa5aa55789816f09",
+    "0dae980ce2a1eb3e",
+    "4d48c5b3db11eeb8"
+   ],
+   "state": [
+    "86acdf6ef7a40b67",
+    "d1c8ca03f00d44fb",
+    "8b9585a7c352a705",
+    "cac257e9a0b0abf6",
+    "119a072e70ce8afc",
+    "27840f9d85a7fc73",
+    "8735c85232cda5cf",
+    "654eab9455e66278"
+   ],
+   "pose": [
+    "99debc05a44d856b",
+    "7d24d9e3a4b638ed",
+    "5c5225470b9c9caf",
+    "e99301490c32c6d0",
+    "d526867093ba02b2",
+    "535d6ad352a9d69f",
+    "2e939259763fb1ca",
+    "1b4f6d87744278a6"
+   ]
+  },
+  "07.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d80779a2e2db488e",
+    "02995cace4bc9bcd",
+    "952864a3be3cddf1",
+    "0fd0b559de9178c7",
+    "27b856aaa65c8a35",
+    "8ac66f12f433c854",
+    "54d6a9a38b5b2a5c",
+    "bbf828269fc1b250"
+   ],
+   "state": [
+    "85cd995b81961c06",
+    "49e4188b93208fd0",
+    "afc57a302593a2da",
+    "c5bc8e57bae2eba9",
+    "defa42e70d10a91a",
+    "2854b0dcd733765f",
+    "6394c4a9325b3377",
+    "d0c95cd558b2c5e5"
+   ],
+   "pose": [
+    "ce9ad8930ff3e4b3",
+    "85d770fb8a90ef3b",
+    "16233e3a6811a3d9",
+    "d9b08b57ce390792",
+    "02275effd5fa175d",
+    "ff91692617b808c1",
+    "f9cf01427d2a50eb",
+    "d4562383c5ace5bb"
+   ]
+  },
+  "07.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c13fd54f561361f9",
+    "a7cd2c16bd624748",
+    "ee2242da76a20282",
+    "3b616b551b7bd382",
+    "a1296338e5970fd7",
+    "16a5630ae9d71bad",
+    "2575fb92588331fe",
+    "4aaec6c940bbd29d"
+   ],
+   "state": [
+    "32d692352ebe9cd4",
+    "6862c18e2b5c9d3d",
+    "d70169de15d135c8",
+    "820fba86f2769943",
+    "8abf8b5336eecc4c",
+    "b682fe522410aadf",
+    "06cf11db84b85555",
+    "a30a657e6279be8c"
+   ],
+   "pose": [
+    "7ec54aae71653eb3",
+    "f768720fb4a4994c",
+    "f9575e992d32b2de",
+    "636caf3dbd3ebab3",
+    "5cbaad6026e7db7b",
+    "bf22f811417c3f55",
+    "a0e2b7e5553a9785",
+    "1e6116d2840bee64"
+   ]
+  },
+  "08.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "da6a6435d6cb63a2",
+    "b64620b2d4ae8a98",
+    "080288ff5962a836",
+    "f06481361de34316",
+    "f9ecfba74c4de77a",
+    "41297155ee6cbe16",
+    "2f8c22ac60b7d5ca",
+    "9de79e835bc9e910"
+   ],
+   "state": [
+    "18fbe3b993b521fc",
+    "29d5da73a3b1e696",
+    "de08e6cc5302bf33",
+    "dcd3afcb145b8a20",
+    "f04cb082c4f55ee0",
+    "4284ec8b54cc8894",
+    "cd2eac80d1995852",
+    "0319c384ca3f6233"
+   ],
+   "pose": [
+    "905a1e08543836a9",
+    "2d731f9939af6fad",
+    "d0c759e33314c0f7",
+    "19c74fa6b9a9ac4f",
+    "e98eccdafe76e27b",
+    "98780b23f84517d4",
+    "1a96c91709972580",
+    "4371f25739d6d8f9"
+   ]
+  },
+  "08.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "470d24f229434df9",
+    "1d684ba83921b5f7",
+    "5c3b63c79596ee06",
+    "09a53d530c5fe3d2",
+    "6e8f8292833206a1",
+    "21c99e74314ab4f4",
+    "7280e5c4251d7250",
+    "14ade2426019b753"
+   ],
+   "state": [
+    "558197d5675e2f08",
+    "565d88f38341b037",
+    "10ff402401ef2ea9",
+    "9edefb73cf7c815b",
+    "9385942dfd60b3de",
+    "bb4cd8d96ab93fab",
+    "3cd6d75ddc9850b9",
+    "a5ea3dbaa084f5fa"
+   ],
+   "pose": [
+    "440f87ad168037d7",
+    "820ea45df8a484bc",
+    "4ee7ff591fb24a10",
+    "6163f0891eb467b3",
+    "4e30196d2a8ddbb0",
+    "7bfa58ccdd4de812",
+    "c8f82a782f482913",
+    "856af44cfe6d7cf5"
+   ]
+  },
+  "Ascent.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "ebe4ef334bfd8a50",
+    "a12671405eb75320",
+    "910367cb5483bfa7",
+    "04a4707a53fa4a37",
+    "1f0e2d7eecc91be3",
+    "f18e1b8f5e0b4836",
+    "d040a85c77332bcd",
+    "80be3781574aea93"
+   ],
+   "state": [
+    "0c3d0d621cd759f2",
+    "4432af09a466197b",
+    "81edab5d67d5ce9d",
+    "cc43d38091f0aab2",
+    "5fd022372d952fde",
+    "8539e9bc22d87d9b",
+    "e82da5388cd79404",
+    "c8d19f302152f71b"
+   ],
+   "pose": [
+    "9d8b8f271eec288d",
+    "70aee101b0f3be98",
+    "8fdfc2d8853bcdf8",
+    "9aabd191ee33b9c0",
+    "1131e4d3455d8dfa",
+    "a83ba7a748605877",
+    "6ce6ba69472c9c69",
+    "a070f2c4e93baa1a"
+   ]
+  },
+  "Ascent.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c1a805775648287a",
+    "cd67c748cacc7a0a",
+    "627b0967a9bca091",
+    "fa8563a0b0cb19cf",
+    "1a36b644b07f9c57",
+    "343e4812a628fef3",
+    "4a57c1424093acc8",
+    "6426fa18c5f6a923"
+   ],
+   "state": [
+    "5445656697a1239f",
+    "0f04d62d390e9b5a",
+    "2c4273051b4c1a89",
+    "05a4464515e9998d",
+    "46ea781df4e4cf3f",
+    "2c2eb61d2bfb2e0b",
+    "feba1dc4ab6a6625",
+    "4b11c7302ab36787"
+   ],
+   "pose": [
+    "6857bc9e239c8ba6",
+    "cada50d449499bf8",
+    "27a4aae00f665625",
+    "4dade873f1989ca1",
+    "af44a6ee7ee9bf85",
+    "a9257e47deca1a6c",
+    "4967ee0d75f586f9",
+    "19cb6bae61d0be9a"
+   ]
+  },
+  "Balls.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "3a3320919768e4da",
+    "275b855da5703c67",
+    "baf3658daa86f16c",
+    "292ebdba388356c0",
+    "d5f9c4cf2bac56a9",
+    "3aa67aaa92725b13",
+    "851be84cc56834cc",
+    "9497d83e84d80220"
+   ],
+   "state": [
+    "860db5842f84981c",
+    "602445095477e9fc",
+    "c23b606db3a69bd1",
+    "6ab59fbbd52bc0b2",
+    "3e7aee15ffb72dfc",
+    "784eeec47251ffd5",
+    "d6a478a60ce82d68",
+    "5dc5ea346772b18c"
+   ],
+   "pose": [
+    "048c2575025d07eb",
+    "7ac9636f41035c7a",
+    "9b47a4440a53d896",
+    "27ac40df18864952",
+    "6cb7cb06c4a2fcc9",
+    "ab2b70a8f3167326",
+    "3605a4edf6e6c270",
+    "497582cdfb6f6948"
+   ]
+  },
+  "Balls.jump-level.json|medal-route": {
+   "ticks": 3142,
+   "finished": true,
+   "physics": [
+    "3b8f631f25ac6e10",
+    "f395bcbd03f54ce3",
+    "987ab1b908e39228",
+    "ca35522f223b0e8a",
+    "568b79cfa4fed2ce",
+    "784ceb94c22d2f5d",
+    "fa5b75c79daa2b57",
+    "5b84b1d316c1ae79",
+    "b2c293a59652427b",
+    "625807ee397625e0",
+    "cb5a150d6e8c6899",
+    "b0298fd0746b067f",
+    "38027a776c8bd3c3",
+    "81598ddf98410f00",
+    "322befd4fe85371a",
+    "d7ff3d2573d0b3d4",
+    "8a49df1d00d8ed92",
+    "fbc5d017345a0ac7",
+    "57bdefc958594c56",
+    "0ac1dc4d3b5b5de3",
+    "0a1b6cbf856aeedc",
+    "cb20c3cbc58b6652",
+    "af7c72b6f0357a46",
+    "5a2ffc53c52cb098",
+    "3d0a080b6d291807",
+    "084ed9064640c498",
+    "75627a6531d0d675"
+   ],
+   "state": [
+    "7f29c7b879082d5f",
+    "237e059c24d87c9d",
+    "e71752fc4f10c16c",
+    "18d8513996f11b77",
+    "09e7fb85de7d04b6",
+    "8e63e73bd5fef783",
+    "b6284c3f288ef9f5",
+    "33727e264b39f600",
+    "c80424835e55a036",
+    "91738ec051fc9f1d",
+    "69589519779fb566",
+    "bd138ee7f7887216",
+    "6fdc8a2cfbe06ad8",
+    "4283137748c91991",
+    "5974c283331b5384",
+    "42999ee5c8b14f6f",
+    "8079e9289014fd9f",
+    "3ca26c9424c54489",
+    "dd280232484c2066",
+    "2c144f92cac233ff",
+    "43b6b2b908b0a497",
+    "d8b28420d07f1fc1",
+    "28b1b4178f797895",
+    "89dc783239ec98cc",
+    "712196473752403a",
+    "58c2b1bdb72ef482",
+    "da6f9e804d802493"
+   ],
+   "pose": [
+    "2035cebc73741fa5",
+    "d9b662d3e946aa01",
+    "5b81263954b80911",
+    "f31bd100e25f6322",
+    "bacd940e6ea9d35c",
+    "efefc9ec3de2cbe0",
+    "4ce705ae053b873e",
+    "5a0b9f147eae1ef8",
+    "1906964177b06170",
+    "f78e2e628a0082e8",
+    "7e319f62803bbe5d",
+    "70da600d69c949e5",
+    "9b42402ee45daaed",
+    "5a680b9adcabcb5c",
+    "d0f54349f4f3ea54",
+    "2156bdca7fef32fd",
+    "ae8f2d9919ae07cb",
+    "6517e3c320ca1af1",
+    "7c7cad23010566b4",
+    "5f1781f675dd8f68",
+    "88df486a59bf2644",
+    "03a374146e4640c4",
+    "31f5319fe668345b",
+    "310ac6d181bbce39",
+    "102b8043a8746790",
+    "130f5538880c92b9",
+    "81238b69b4d64fd9"
+   ]
+  },
+  "Balls.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2ec0b4a200b28b40",
+    "61b3c39c92fcf2cc",
+    "106ed10a4097d45c",
+    "66aca1283fba222b",
+    "d940ecd573b46087",
+    "070b778473127294",
+    "02082d4e36c41eab",
+    "5f504cc914eaf4e4"
+   ],
+   "state": [
+    "f873e0fe9eb13d12",
+    "d94b8cf07f045bda",
+    "ba32449e11f22ad5",
+    "25e550235be2cd1f",
+    "3c5589c547ae7e47",
+    "52c8e72e5590fe4b",
+    "013be07b7f466dd8",
+    "71f9b4fa633d9807"
+   ],
+   "pose": [
+    "41ca4f5e5aba5917",
+    "94537d96f2f26dcd",
+    "ab9b081815b4d65b",
+    "4b1cab8a79b87278",
+    "33418a9f223faa5a",
+    "42be3f860edb65f3",
+    "a0c072833a01fe3d",
+    "c80b2d9b3374c359"
+   ]
+  },
+  "Boxes.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7b5c11fa42260065",
+    "174a28514a641ed2",
+    "edadc641be1152e8",
+    "724bd5832cb1ebc5",
+    "3a5b48ab7c0a0599",
+    "300b1fbda721e24f",
+    "370a26ac707954ff",
+    "5230546a0876e690"
+   ],
+   "state": [
+    "8b5ee14ef0c4a4f6",
+    "3116aad359d2900f",
+    "fcb82089efcbe511",
+    "b862ec72ac36c4cd",
+    "c7b33f2a5bb3c701",
+    "cff681be3b29881b",
+    "44ccdac99d1beba3",
+    "274b0baa6bcb75f9"
+   ],
+   "pose": [
+    "b5e37b565ee1955c",
+    "37a1dd41b723c9dc",
+    "1c95d3801b0a5281",
+    "a5135ebb83a7327a",
+    "b511a75deaf9596b",
+    "4911109472b5412f",
+    "89b485c8c9d9313d",
+    "0cff3b9c23c30050"
+   ]
+  },
+  "Boxes.jump-level.json|medal-route": {
+   "ticks": 3319,
+   "finished": true,
+   "physics": [
+    "ddf6f4d834b30128",
+    "45990dfdee6c7ec1",
+    "4e481d0bd4298913",
+    "5db4b75a0744d926",
+    "6a047817c6eb1ca8",
+    "6d47428e1e4cc078",
+    "1d86e9302555a191",
+    "5c2d7ef078967956",
+    "825a78ad9d857588",
+    "6809f1bde32e62b3",
+    "a84cc7d6beed0e29",
+    "d2a37191c3863795",
+    "3914cf3d274d625f",
+    "ec8b41a6e9471a22",
+    "76a42ed60373a6db",
+    "ef37f5df7a9f96aa",
+    "7d276759e6a3b01f",
+    "8ff280991d78986c",
+    "a78e02ff6cceb9da",
+    "a733f218a274027a",
+    "d5068659685128df",
+    "1655bf1102129467",
+    "44a2ab7a51161926",
+    "f405a17fe19fbe08",
+    "bd3e0498d36ebe94",
+    "c295622e9366c06d",
+    "8637f4600d5114ae",
+    "5c0e0bced84850cb"
+   ],
+   "state": [
+    "81fe8466eec5b5ed",
+    "ff85d6fcfc12d850",
+    "3b8f509cb62a97a0",
+    "6e682df15e049288",
+    "9a503d1688bf73f3",
+    "3ea23704f8b715a6",
+    "acdfc37f83c825ce",
+    "89b14093c0083285",
+    "85679aad0f863340",
+    "04b73d4e86799968",
+    "86a1f53e9f64cb94",
+    "866743631f201796",
+    "7864679d0c70669a",
+    "745b1e69cee19326",
+    "480ec3eba0beee58",
+    "aafc291a013ffc64",
+    "c0e5d5bfd59e9df5",
+    "e8f855856361f618",
+    "8e0915303cd6ccf3",
+    "336a96bb473c9aad",
+    "b0c11b347d55effc",
+    "bf9ebc6cd123732b",
+    "a5efd18ab87dd38c",
+    "e9d8cbf3928d30e4",
+    "d378210d1a85c333",
+    "2f73d364e32fba77",
+    "7e62c45454e70224",
+    "62655fe40481502b"
+   ],
+   "pose": [
+    "76ff9d6978743a89",
+    "60170273c5de8eb3",
+    "cf388dc84390fddd",
+    "049cc2951fa1e7f1",
+    "a5c24a23a9904615",
+    "1bf253d89cfacfe9",
+    "f200a893639c7fbc",
+    "5f3160d1e0390a76",
+    "de6d48c8406d8271",
+    "2f9d732ed611027b",
+    "1c82e349ff3ddb89",
+    "ac1211c0c04692ba",
+    "a536795821d26414",
+    "6b0939a1075f55dd",
+    "632926e55e3e2441",
+    "60da20c93690d7f9",
+    "f2bb3e795f3f89b7",
+    "cc4692e9e44d0b01",
+    "13eeb310a7c79f73",
+    "d360447d545d98e6",
+    "67edd6e4506e850f",
+    "61fa5f851e039381",
+    "1b0ea85ee5f8e613",
+    "970bbb83d4e70298",
+    "157803b2aaf13137",
+    "539fc842f0a77b70",
+    "a40c5ab5fd23fdb0",
+    "df62b98b11cf3015"
+   ]
+  },
+  "Boxes.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "686ccac2cce290f6",
+    "81d2acb192da4f64",
+    "65f4ac94924ab8ed",
+    "e7439d84cd49b77b",
+    "b9c154499d1020b5",
+    "9a551c1833d829d2",
+    "3a179f2dc6b6075b",
+    "19b69414c5fd9d42"
+   ],
+   "state": [
+    "1235b0b6ef37746c",
+    "23745da01b3c4abe",
+    "f3712eb7a04f6109",
+    "2856f60487850c31",
+    "d6595230db4266c8",
+    "65ce00de8c1ba155",
+    "f320cc52c5c2fe99",
+    "3d5d17fe344bda08"
+   ],
+   "pose": [
+    "7f17aa8b94693dc9",
+    "caba85158e99d605",
+    "14c13b29ed42d776",
+    "8722c935210b7102",
+    "e9ec1e970ec2cfbb",
+    "f17b864f5fd40ea9",
+    "d2faa20f3ae2e993",
+    "be188b3ee0efdf39"
+   ]
+  },
+  "Coins.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "4c5eaaf30f9e4efa",
+    "a2371506bd216e26",
+    "ab24ca61c184cb1d",
+    "52033e7fac0d2dc6",
+    "ab83f8faa715b940",
+    "3d48a6fd6756df93",
+    "9d8e943c39f70286",
+    "d9589e9356c9a229"
+   ],
+   "state": [
+    "70282e84ccb95934",
+    "884524dc018943dc",
+    "e9449fbd188ddaea",
+    "07d9e2d118066dbb",
+    "6e589706d3b80a13",
+    "5197ad2d840306a8",
+    "5da3c3834dc1c089",
+    "5722bf7670269254"
+   ],
+   "pose": [
+    "82c80c68b7b1e9f4",
+    "cf3025f429d1ba2c",
+    "dcacba75749771ac",
+    "56a7a67453e27923",
+    "feb8c1fb94a4d436",
+    "332315e37eebd8f8",
+    "8903ce5bee467c8d",
+    "edf4bb6aad427137"
+   ]
+  },
+  "Coins.jump-level.json|medal-route": {
+   "ticks": 1398,
+   "finished": true,
+   "physics": [
+    "778b29d77b4956c5",
+    "e76557044b2e80df",
+    "5ebc152015006636",
+    "ff8d277ddc659754",
+    "553f0069fb268406",
+    "fb80a483fa439e79",
+    "5772aa53ddc3e4ab",
+    "dbb85ac42a152a97",
+    "1086cd2a71409d33",
+    "4666cd26f3d52460",
+    "e7c9aac0be29552b",
+    "72d277ee0387d627"
+   ],
+   "state": [
+    "b4d1d49d9e541a27",
+    "7312eec6728b8d60",
+    "19b908e5230b8a95",
+    "e2eb10cefb240eb0",
+    "b26a93f4090898ce",
+    "f6fd5c4abe148fa0",
+    "51aca205fbf66149",
+    "6dc1b08cb8cb0ec7",
+    "bf3293c56bfd1887",
+    "dded8bc4c701a952",
+    "839150e2d18eb80a",
+    "fbfcc38e28d56f4f"
+   ],
+   "pose": [
+    "90a471e1a2a9ff42",
+    "b795d86a587f4a6a",
+    "013515000de0e033",
+    "d7c9ec96cf0d74ee",
+    "429bf45d5b59dc0c",
+    "11f042f15544a330",
+    "bc829f07385fcd15",
+    "8a30096a74e9007c",
+    "8b47aa3bf83cd515",
+    "d57da1d46c43ee7b",
+    "0ee24049926c3d5a",
+    "0a977a1eb46c2bd6"
+   ]
+  },
+  "Coins.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "e7bacfd1f731ef04",
+    "6e45ac1051713c5f",
+    "79934e91ecb15e04",
+    "683f37b78b0b1ce9",
+    "00aac67b202770fb",
+    "a3cf07d241ad2cda",
+    "9c61c0e94ade045a",
+    "f10977c645d983a7"
+   ],
+   "state": [
+    "55dec65b8987c790",
+    "5fb2ed4892868b93",
+    "45384f119e8bbd26",
+    "63647f9ddd121324",
+    "36dc19dc2286eaad",
+    "d1360c2572352275",
+    "52d2c21a8da28783",
+    "dffae942e7022e32"
+   ],
+   "pose": [
+    "daa0656a027d1230",
+    "0351246e5f04ccca",
+    "738eb57b04cc8c02",
+    "247db388d2d45915",
+    "b371a55681e6b4e1",
+    "fd8dc022d65abf9d",
+    "9bc8862668a079b3",
+    "66ea6c7b719901f1"
+   ]
+  },
+  "Company.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "08ea15bcc21bd62d",
+    "7cf215037918d7b7",
+    "beebfe6004cf02ab",
+    "802711de2b678abe",
+    "129c92959e37da72",
+    "632fe98d27dbd959",
+    "c505a523ec2b3029",
+    "0278e5dac34aca60"
+   ],
+   "state": [
+    "5e94b608ef47e94d",
+    "e08a9bc6c4736234",
+    "4769d4ba14e41fbf",
+    "3e8c4b5f985ba19b",
+    "aa19ec10842f42af",
+    "9c60e6ab83eae52a",
+    "cf635ec64ad6521e",
+    "ba7a786f1839a803"
+   ],
+   "pose": [
+    "f3daeef104944516",
+    "b98aaa6b264341f7",
+    "e010ba9845a9536f",
+    "f670156ffa9fd328",
+    "e4d253aeb6f58b49",
+    "6e0730a53f862887",
+    "250f9d1ffb48f801",
+    "3fa8b4c8743d65c6"
+   ]
+  },
+  "Company.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "fc61b89e51a9018e",
+    "9399022bd08dbe75",
+    "fa7229f02f9fc55c",
+    "4b88af0927a593d3",
+    "6fb7d0266a6cf83b",
+    "d740aea498282535",
+    "1ca457673436b418",
+    "80fe1ee8deaab746"
+   ],
+   "state": [
+    "416ec1a4f5741636",
+    "d6af4a0cbd681a42",
+    "124c2fdc45f62e52",
+    "c968c7afd1540fd2",
+    "77cd978413da4ee2",
+    "9f242347e4c219e0",
+    "0e26580958afc8bc",
+    "e86322e3d2517e90"
+   ],
+   "pose": [
+    "dc054b87511df8a3",
+    "b67bfd8e9a08f8f6",
+    "17feba25e4bc3bf1",
+    "b10f9bd3caa17a48",
+    "51a05c0708f20a1c",
+    "7f867a2deef0954c",
+    "14bfac6fa8922b44",
+    "7e60c374bf1c85c5"
+   ]
+  },
+  "Drain.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b490eb1206329951",
+    "ebfbcda8c4ce3d67",
+    "d9a3e12feb9eccd2",
+    "43943102eeb9bcc3",
+    "1253c7aca16e3485",
+    "d1a5a519e92eebc9",
+    "a625b43bd95de85f",
+    "66d008db7e2371ce"
+   ],
+   "state": [
+    "ac2d109fc8a8f00b",
+    "be67bf027aa26b6c",
+    "55d70b7deee28357",
+    "a5e37453e4a3a7cd",
+    "47b2abb8a4d6ffb0",
+    "70e01fe6a9af8d2d",
+    "3df9071ebd1af970",
+    "451c285afb093fe5"
+   ],
+   "pose": [
+    "d7aa2dcd2c14c837",
+    "cac3578da7a8bd65",
+    "6fcc63260dbefd77",
+    "e0cbea82bff714b5",
+    "bdcbc1acdd5e4b66",
+    "b9bce93c16df2eb0",
+    "0ec21ca644fd5779",
+    "1a44d8cfdcf507e6"
+   ]
+  },
+  "Drain.json|medal-route": {
+   "ticks": 5055,
+   "finished": true,
+   "physics": [
+    "1a3a25830031b486",
+    "1fd80d81a9e5e89e",
+    "3d7951fb529e541f",
+    "9897b66de8eaef75",
+    "efe9a179f420dc8f",
+    "6b6dfdd29e29dd18",
+    "873c7988801ae2bc",
+    "9ac93bf97b744657",
+    "deab2007c51ba954",
+    "dea258d839a6b364",
+    "f542fd159cf0c8bf",
+    "eaa0511274f67064",
+    "37abc47a9b19935a",
+    "b0370f7be5464ede",
+    "ff698ae7504c4ba0",
+    "fedc09d9ea28e148",
+    "61c55c2e13ad09f2",
+    "d213afdcbbf3ad01",
+    "ffc23fc50e7fc9e2",
+    "03abbfe00fdc61bf",
+    "560866238523cc7a",
+    "2b3e10f01cded340",
+    "3f29121fcaedaddf",
+    "3f7ea1f7daf2f724",
+    "9be145a60054581c",
+    "f34e99172bc6e1ea",
+    "e011e202d35f1d62",
+    "ae7b9949becd8ca2",
+    "8426e8ec2f86fe68",
+    "50fe763fadec70e9",
+    "c97d372719f2dfda",
+    "e0226c73238b90c7",
+    "89e7d844914e649e",
+    "cf6838a5b67ada1e",
+    "04e669aeeb63108f",
+    "4e824e0d50caf6d7",
+    "709c92f373f1914f",
+    "d1e99406090c381c",
+    "3b01698f19cfe30c",
+    "587d519075b0f22b",
+    "ff4728463f68b1be",
+    "95a624d797c53853",
+    "acbede2a6d73809d"
+   ],
+   "state": [
+    "04b128f460d77574",
+    "ef0c5d4a6a6212bf",
+    "517662e1e83ef36e",
+    "70fa52fbf31bc2c1",
+    "541588832ea84c3b",
+    "701dbe865632820a",
+    "65e40b9a0904daf5",
+    "084b2f48e77737e8",
+    "2a3569c8fe32429f",
+    "f30a4b61b954187c",
+    "55bb16ffbeef4afa",
+    "48d637495d768a2c",
+    "5a044a80df52b69a",
+    "3711f19fed4e528d",
+    "45468842e680f269",
+    "a3a25c3bb3d88e95",
+    "bc5f335213969a9b",
+    "2897cee8d388654a",
+    "bf7c15e1b4190da5",
+    "5405d2e97799963b",
+    "5f7404bdd1a47301",
+    "edd58d5c1d461c40",
+    "8c710eba64965a21",
+    "7e779411f2370d63",
+    "189cf8af1d49030f",
+    "a48fadf59bc737e7",
+    "74b2da6e2d19ac81",
+    "8d149fb7ff870f95",
+    "a7c68425ea9e796c",
+    "385b3d7384973400",
+    "ce46ae63aecb516b",
+    "15ffe787d836b582",
+    "9883abae8f7221ad",
+    "bf181a0aed43aa05",
+    "9a0ccbe6323bb5f5",
+    "539ce8ff832677ce",
+    "b5bfd17ae23e21d6",
+    "3acca5cb9fe4880b",
+    "29ec645b45b23425",
+    "9ad7bdbd61af5c88",
+    "bd14e7301515431d",
+    "df468d7fe5635087",
+    "c58bc3cea1829d92"
+   ],
+   "pose": [
+    "3e14ab7b5162ff44",
+    "fed8671847813a0b",
+    "1c36ec7599001e7c",
+    "c1161cc1f9aafba5",
+    "4d01e420d273522f",
+    "e5b204409deb5203",
+    "b4802cc6e09f23db",
+    "de8f9ff994144668",
+    "e267a3490ff85861",
+    "821703658727f0a2",
+    "aecdc1b8349d7a91",
+    "8bcb588074bb0a45",
+    "a47b5cc3ad3868f6",
+    "04b8cf22c62facf3",
+    "f263a5c3abd0cce9",
+    "b9a0ae14e535f14b",
+    "8b5b294dae6fc61b",
+    "305e96396c102342",
+    "8d0e38ea756f9c4c",
+    "7f065ec4d8e8971a",
+    "6874e32c4a49b3bc",
+    "7c6663da2e9aae8b",
+    "3abe752e2aa120e1",
+    "724525323901b89a",
+    "9debf5b580d32070",
+    "16a0bdf1a0c7cfbb",
+    "d65a6de77f745830",
+    "7d1de330db9d6c44",
+    "3c53d5329b381a68",
+    "3db64eda3f523fed",
+    "c59a5c6a84e05c29",
+    "8fa92f0d407d7284",
+    "31c1fdb6893671e5",
+    "b6b4f67b1f190418",
+    "45b875a7dda15803",
+    "ed5a215e75382c9c",
+    "83a1e818d92330f4",
+    "8ba933dc2b3da7b5",
+    "c26053d9bdf8649b",
+    "6c488337cf07e14e",
+    "eb8cc47517239566",
+    "216e04dca1ff3c1e",
+    "794dc96c4d08e6b7"
+   ]
+  },
+  "Drain.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2c086a8c0f0e742f",
+    "9e804630fdfb9d8c",
+    "ee30770b6eead484",
+    "78cb78aab271625b",
+    "2aa3eb017d395a4b",
+    "8ac277c92c701e9a",
+    "130bb91ccbb7ee9e",
+    "d4715fb704bb561e"
+   ],
+   "state": [
+    "0d434ef06926f5c9",
+    "32e0fb52f9ff8798",
+    "0068c632ac7845be",
+    "684a714bcf7e7295",
+    "3eb3dc92d2de2eae",
+    "717ebcc1ad684f35",
+    "4d8d72e0e27f88e8",
+    "6f33d1b2f23ee3b0"
+   ],
+   "pose": [
+    "d9f7a8c3a29a3bf6",
+    "532599f4989061a5",
+    "3372d2ecb37d8865",
+    "c349351623ed1dff",
+    "9c5afc3fd134f110",
+    "6db79e40c3da37b4",
+    "a3055a8bd062bc78",
+    "8cd45b4e4a678084"
+   ]
+  },
+  "LAB1.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "48271816fe47f110",
+    "ddcaf75d9a465682",
+    "de94ef959867cfe8",
+    "18f37034a13ea971",
+    "488d50281bd6da28",
+    "aa39c3b497e9dc2d",
+    "e97ff9d3a11e2905",
+    "fb903eb106c294c8"
+   ],
+   "state": [
+    "795aa5c934bdb9a7",
+    "cb0fd02c00efcc59",
+    "5e72f1c7bee2a9d5",
+    "c6b46437034cfa0f",
+    "156b4c2423b69020",
+    "eb864cb06eb0b424",
+    "541a0962e0e09c5e",
+    "21217cd95d52df41"
+   ],
+   "pose": [
+    "c0238e734a39cad7",
+    "8a7b9086e4d06d44",
+    "d9288688192c3290",
+    "fd21a73b1ea1d2d5",
+    "fe2958ade532c9fe",
+    "9234cbeaddecdbcc",
+    "a0a0df57e4f28ffe",
+    "8408886ec1c6c8d5"
+   ]
+  },
+  "LAB1.jump-level.json|medal-route": {
+   "ticks": 558,
+   "finished": true,
+   "physics": [
+    "1df1062c82109dbb",
+    "74ade5d08d19e238",
+    "763d9f932740b086",
+    "e53f1cb9d6a8cf82",
+    "3da33400a066e93e"
+   ],
+   "state": [
+    "fc3280281cccd987",
+    "faec91ae12ffdffa",
+    "ad7e980604219811",
+    "9c4369c04920bb81",
+    "d20ddc39950680e7"
+   ],
+   "pose": [
+    "03dae2e3705d08c9",
+    "cc638c14dd0481a1",
+    "48c2f2f1aae726aa",
+    "a6d26e4b98887d2d",
+    "e0e14eedf7e1ba7c"
+   ]
+  },
+  "LAB1.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "6d6d6ed56d2161d0",
+    "ba01b95d7a03e56d",
+    "09c3fa86aa1282b5",
+    "898d5762fb79064e",
+    "d447009b908e3d31",
+    "ac135f207cf3544f",
+    "1cd8fc9743e9bf60",
+    "196d55be0d9bb3e5"
+   ],
+   "state": [
+    "9a9b0758b276db0d",
+    "27b75606b9ba2a0e",
+    "35e568cbc1a31593",
+    "3957678283fbf51d",
+    "594fad54c73310ff",
+    "dd8df01a1a7bfaee",
+    "215f2ddd4b9030dd",
+    "ce6123e00f5373cd"
+   ],
+   "pose": [
+    "c819aa50ca1d88f9",
+    "88b669c7e5cc0c42",
+    "289b841109bc8c75",
+    "239c42b1bcc1fe9f",
+    "16b11fa8d96e477f",
+    "575b2373e4741f6d",
+    "7d9a366a35becc71",
+    "c8e73d98da9f64c2"
+   ]
+  },
+  "LAB2.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "64d79483dc0d43c5",
+    "049a87159d2d33f2",
+    "6974df5744cc7a83",
+    "2fb984027ae66084",
+    "408d162487d5d9e8",
+    "8a3cccd6077b5617",
+    "22bca50ef60dec48",
+    "7269b70049b9f622"
+   ],
+   "state": [
+    "d0d2a98bdbf7408a",
+    "cf5fb5113dee018b",
+    "9ae468c79848f236",
+    "f79478643116c36c",
+    "737aedacf8482879",
+    "b63fa36f3a330fd0",
+    "527116339273a721",
+    "ef0442f309e30add"
+   ],
+   "pose": [
+    "4b0b73e425155686",
+    "0ac87c165264eaa3",
+    "c5460a4efafbf5f5",
+    "21b59bb08daf9d89",
+    "59c4a2a251846cf7",
+    "260c5e95d95cdf95",
+    "2ebda0591c2c4d3c",
+    "9771d7d0eb93b7ea"
+   ]
+  },
+  "LAB2.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "961c7bd118ce0bb6",
+    "39b699d20fe0c8d5",
+    "e1b408fd4a6d1ca1",
+    "843c5cb7c528ed17",
+    "44b135390503ae90",
+    "40bbd06c94050b2c",
+    "5d906bec023a8002",
+    "c629f9c93e960d91"
+   ],
+   "state": [
+    "02309a4c667da208",
+    "282b1c46d3afdbbe",
+    "1034980ebf3e59a1",
+    "b3e8f694826fe6d1",
+    "b7f662a5d63f0688",
+    "2c4084f31e5cdc18",
+    "ff7ca7197ed27c4e",
+    "f30f7e5a82cc8f62"
+   ],
+   "pose": [
+    "6c40342404676714",
+    "6545988bb2803e64",
+    "a7027a9ca4a3a4d9",
+    "0b0b46188111eae1",
+    "c449c67e9193e5d0",
+    "924f0bf319a2993b",
+    "eab4209d122da66b",
+    "e8bf8de7227c15cf"
+   ]
+  },
+  "Lock Out 2.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "6aae67160963d8fa",
+    "6017b0cf6b4bf6b2",
+    "78e31db92fcb8bf9",
+    "82d76c854dfafc87",
+    "c1b05c4ca35ce3af",
+    "806839a7c95e7c6c",
+    "02b9af2db2af5c0b",
+    "2d62858aeec2677f"
+   ],
+   "state": [
+    "0c46c3b48a037492",
+    "10566ae3e57f67fc",
+    "98149654855b01ea",
+    "6592d319b01baa4c",
+    "713f22c263e72b5a",
+    "d40b93b399d73d38",
+    "63afcbf96139446e",
+    "b3c900c64c47c563"
+   ],
+   "pose": [
+    "372a3fca2c9fff4c",
+    "7fa4aa7388877292",
+    "72937be9c0d0a12a",
+    "846c6bf884ae3fd3",
+    "87c1d2868bf559ba",
+    "0f769d204445df4c",
+    "de464fe64df4c2cc",
+    "6daeb450589b8350"
+   ]
+  },
+  "Lock Out 2.jump-level.json|medal-route": {
+   "ticks": 1923,
+   "finished": true,
+   "physics": [
+    "48517e4f4e6fe476",
+    "6599ca04e5946680",
+    "1400acfdb647810a",
+    "11a26cea71b90925",
+    "247def2dfaf730aa",
+    "bb5c900e5861f1a0",
+    "781721f70fa0e5cf",
+    "a540c93bed3c7d90",
+    "ea6bfaa0ae44765d",
+    "b6152b7f5b4189cf",
+    "8ac6f3e00b82a2c5",
+    "f5b5ac0f93faa4f1",
+    "634695396ab967f7",
+    "2f1fd4ac6bd9f2a9",
+    "c722133eed311382",
+    "fc70936ef52064de",
+    "9b1a133f1c7c25cb"
+   ],
+   "state": [
+    "cacbc0a4fe084799",
+    "c6a3f03fab9db5a9",
+    "fd4317904bf92697",
+    "eaa58beb18f452e3",
+    "49a18f19b8571f99",
+    "0f6659786c978399",
+    "857c137e0a92b688",
+    "5e21df96e0a7a962",
+    "fc2593d5968c37ed",
+    "c9c0aeb935ae4565",
+    "81a95d8431553452",
+    "40a2ab26a5feb41c",
+    "e1026cf9d2222b87",
+    "254599f50c98a021",
+    "d3158607d41f4f00",
+    "df720f086892dd02",
+    "89b0d2b47d52a466"
+   ],
+   "pose": [
+    "f93d6f2233625ac9",
+    "87c970c37eccbfa4",
+    "1713236f7c73ca46",
+    "eb3b86a5b4d72d72",
+    "756e89a1b6d46706",
+    "90fb568ac3e55b1c",
+    "dafd4b858a709d73",
+    "63f6fedb7c0151a6",
+    "f6baf962832d2741",
+    "a067fceb07499805",
+    "b9b6c1ddcfbcf9a9",
+    "6f7fd5547dd8cf6c",
+    "7862965fa2a97568",
+    "bb20f126f9a3ddc9",
+    "de8274f12bd571ef",
+    "a7c2ae5f72f34119",
+    "c2708ac7d4806f58"
+   ]
+  },
+  "Lock Out 2.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "a2bbfb1292424e0b",
+    "2aae9a8c331c7fbb",
+    "ee1fc47ec9e8e3a3",
+    "91782d80601dca37",
+    "b0f08fc6a26fd2c4",
+    "741646032beac19a",
+    "9db5d7611a13b024",
+    "d7968680d8edfb0f"
+   ],
+   "state": [
+    "b96b119cd57a2899",
+    "50a214ffd270a615",
+    "84f4360bace296b0",
+    "2c3422a92fd0761b",
+    "c42ed3ad6cbe6c52",
+    "d3db80ffb8544c5e",
+    "90675ec776341112",
+    "47d042d543f11d2f"
+   ],
+   "pose": [
+    "c7b6faa4cea59113",
+    "ee2efac43989ba8c",
+    "fce1e05802b89ae0",
+    "6d1a1bea424ee168",
+    "ffd2abc4a9df9554",
+    "2196989f80b506f4",
+    "0de36db3bf803bf0",
+    "5e90c8ba67996b9c"
+   ]
+  },
+  "Quarantine II.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "17f4145672cc00bc",
+    "711a0677321e6cdc",
+    "102146efc97b402d",
+    "b5add25eaf0abb33",
+    "3f142317cc9ceb9f",
+    "0af4073a39137d7b",
+    "0546c7d9e813fb1c",
+    "b063cb6af3730162"
+   ],
+   "state": [
+    "cf69a2d807b4ab0b",
+    "f8ca43b0be5e61ad",
+    "8d34f1137e57b2f9",
+    "d969c3c87b68d78d",
+    "a0387707fbb0e752",
+    "0a9a13aec0253bde",
+    "51cc9a94d37a557b",
+    "33eb7899ee8af6f6"
+   ],
+   "pose": [
+    "4e4b4e3c5feaf8ea",
+    "881f158865816215",
+    "7bbc5b918f617d0a",
+    "15d3148721f80a74",
+    "ca75ea9a6c379799",
+    "753f9588da6763e2",
+    "1ad30125cb4ff555",
+    "2823b6dea966e9ad"
+   ]
+  },
+  "Quarantine II.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "fad2f2e9d42893d4",
+    "5b9722f6207b12dc",
+    "1d4dea1f239bc7ce",
+    "7db500a5f501cac7",
+    "0cecb6324e5bba9a",
+    "673906558eef67ac",
+    "d90a707ac693c0c1",
+    "a2e20adfb2236f64"
+   ],
+   "state": [
+    "4a0f43bb7918fecd",
+    "908b674a4d591aa6",
+    "1f577fa976b178a5",
+    "ea98f9507c17b5a2",
+    "8863e1d549982bc4",
+    "273fb95a5f305442",
+    "69d8e3575d65b7ff",
+    "88f12cd03856e51c"
+   ],
+   "pose": [
+    "10e3c53c5d54003a",
+    "d0c347fe9319730a",
+    "6186a287bdade783",
+    "0d2ac5c12370278d",
+    "390f99d70c834040",
+    "40218ecc2911a551",
+    "984b3b2013a747cb",
+    "fe3775fe8dcc2f2b"
+   ]
+  },
+  "Quarantine III.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "5551e0769592a4f2",
+    "d8583a4192b8f324",
+    "661e8e208cfa576a",
+    "c38866c90a258917",
+    "509b12ede013179d",
+    "448622cb83bfd00a",
+    "8302027181884d43",
+    "62177e9cfc0364f9"
+   ],
+   "state": [
+    "36df98e907da1816",
+    "7f54a2b8aca96516",
+    "786cc62d1cba4fad",
+    "d7f808500e1748e9",
+    "0152c581473aa695",
+    "de4467495de20cd4",
+    "dae688825633fc44",
+    "e7e60e8eed7eb9d1"
+   ],
+   "pose": [
+    "983afbf643fadce7",
+    "2c83a8089dee357e",
+    "a40a0b4d23c69d0a",
+    "38c15b6c43aebc93",
+    "918a46cb09ed61d7",
+    "224d1a104e4e0264",
+    "76ba8ec61dbdba82",
+    "e5371dfeefc3ce46"
+   ]
+  },
+  "Quarantine III.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "230b71a874da451b",
+    "586cd7a9ae598f2d",
+    "9a4601a5202807e1",
+    "85a198c0d3eb2c1d",
+    "71cb5bbe7741d05c",
+    "f8032d61fd9b80a7",
+    "1fafd02034381ea2",
+    "b187fb98744d307d"
+   ],
+   "state": [
+    "5f7b7ffb898a3ab5",
+    "e12b5f58d120afb2",
+    "904837f412fbb97c",
+    "f33001bcf3d507d3",
+    "aec6ef054d0a9f3c",
+    "6ded2c39046a22f5",
+    "31684cf1de93e104",
+    "1ed96ab0f89019f7"
+   ],
+   "pose": [
+    "699a780d8a3011db",
+    "4f7588aa249f92e3",
+    "95d6d985d190b718",
+    "fd6bbc0f6cd850b5",
+    "2c8040266a0f43f0",
+    "d28ec648b80cecca",
+    "9e34abecafa1bac9",
+    "aacd17a0abdcdb9b"
+   ]
+  },
+  "Quarantine.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c3b97cab31a10bb9",
+    "4d15479632a119b3",
+    "31ea1c193fcb3e2b",
+    "40556b8044897111",
+    "7eb43e3cd78dcb21",
+    "40164770bcc2e206",
+    "7ab84455747caf8e",
+    "549335ec84a51408"
+   ],
+   "state": [
+    "23e6b38f33d33585",
+    "a5d64a190cefd017",
+    "8e5dbd3cf20851f4",
+    "22ce5e1eea5c996a",
+    "f8d849f59b566686",
+    "d908eea014b18a3e",
+    "12d4962bdf67c85e",
+    "f3ff24202fba6426"
+   ],
+   "pose": [
+    "feaabbcfc525c08f",
+    "f3811ca77aff1692",
+    "3c6199191c1e4f84",
+    "a25de4917910f544",
+    "f62e60665c03a8da",
+    "2a332b9476782b36",
+    "d955a6f7244e082a",
+    "e609d369de49da93"
+   ]
+  },
+  "Quarantine.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "856c46ca11b4ab6f",
+    "d64ec2413bd23ec7",
+    "5bc412be2003fee6",
+    "220418d9ec3405c4",
+    "90a88c1d5ed7e4b7",
+    "0a68c3012f7da7f5",
+    "68e10360e4f7a674",
+    "bf7af43dff97ab50"
+   ],
+   "state": [
+    "098e78d1c6c5d857",
+    "70a6320554fd759f",
+    "9fbce021b0fbbde1",
+    "599a9c2bfa1d9837",
+    "5971b5334f6ef135",
+    "a2a001a627cbc62e",
+    "563224269a1be791",
+    "83c979fb00bd17a2"
+   ],
+   "pose": [
+    "287b45abc077463b",
+    "e0606f6d4193a86d",
+    "25dd0e6bad8a68d9",
+    "98ec568184c299c5",
+    "bd98dd73d915f4db",
+    "f89738e5d18b90a5",
+    "6e1420abcaccdc86",
+    "c9c559b042977408"
+   ]
+  },
+  "Tower II.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7f74ef8abeeac30a",
+    "871e81aceeee1517",
+    "e8f735bc4e14cf8f",
+    "688592c6df432691",
+    "a4ef48b4ad0a0c05",
+    "295ffaaeaebc3b43",
+    "31afe966d37b27b0",
+    "8471b1e146788a81"
+   ],
+   "state": [
+    "80faa2a55d43cded",
+    "60cfb9b66ade882d",
+    "733e911941ed3b4c",
+    "298e0b0782df5320",
+    "a2264d1395e553c3",
+    "1a7ab1cd77f6d64e",
+    "a9699a6fb318b63d",
+    "a9e00d661d44c5a9"
+   ],
+   "pose": [
+    "1e7d15c901df77ba",
+    "e666061d05f5a526",
+    "9b5013b7b0ad4471",
+    "fc1d1d7dce55ded1",
+    "6dc573c90f1de2bc",
+    "26f5a3180ec3913c",
+    "1710ce0220067d9a",
+    "2c89b76d7f30d4b5"
+   ]
+  },
+  "Tower II.jump-level.json|medal-route": {
+   "ticks": 11987,
+   "finished": true,
+   "physics": [
+    "273ba14594b2ac01",
+    "bb67f8d4dc71d244",
+    "cff22d4c145dcc09",
+    "5f6cf54e2d557edb",
+    "df538f4f492cd45f",
+    "bee843508f4e4969",
+    "cc97d09b83d3d6ed",
+    "21ab01e43475c7ac",
+    "c1bbe95ff53ca846",
+    "7e50ea394ca3feaa",
+    "d9c56a304ffef984",
+    "f81069d6511cd2db",
+    "1d1f2c9ab0d548c9",
+    "ceac1f4704882e0f",
+    "62d3fbb12eb87040",
+    "ae5139decd3fd1a2",
+    "bd290d7fd744fa9b",
+    "792b83c54ca79870",
+    "c24b180e7d9d46b4",
+    "4a689b0ad70acb88",
+    "6f355ae901a193ed",
+    "7af1212b75b9436d",
+    "1c30bed06a338c5b",
+    "3400cb543b978d36",
+    "61cb9972bed24070",
+    "33930241fe4d49d9",
+    "2df6c964b09a366f",
+    "d7046e7cf8faffc9",
+    "3166f5e730034f25",
+    "a5cd9809ed81d905",
+    "d72e7cd9fddd5cc6",
+    "493be72e66a3e358",
+    "c28ce8446f73eab8",
+    "36f69dc966c4b89b",
+    "e5f6dfffb969716b",
+    "465869b79699632b",
+    "54d91f0911162d14",
+    "fb0a9133a8c5d16c",
+    "73af92d3a4fbcb2f",
+    "c5b0fa351db0c32e",
+    "04c169ac871b2309",
+    "0080569b49421869",
+    "200d8631f4221911",
+    "d72db6fcd1139830",
+    "615906c14e2a433e",
+    "506bebd7a5c110fd",
+    "621843d299d8161e",
+    "162efd05ad711173",
+    "4d0fafafeb2d4cc7",
+    "b2dba2683c79f105",
+    "306b5c3092495825",
+    "d656bee9b748748e",
+    "da744640380cf54e",
+    "6d1a255eb308ccd7",
+    "6ddf5c0245a8dbfe",
+    "867a3d1782902c1b",
+    "69abb8d93d4ed2eb",
+    "ba5ba3cc3e3effb4",
+    "e08a8d1ee437ae50",
+    "6d87da16863eff72",
+    "a7d43b07efc45eea",
+    "08cc95bf0345697a",
+    "6af24c62b1230fab",
+    "8841114a5a4ee4ff",
+    "abe3a3012b88f696",
+    "cb6fed106dd81859",
+    "298b5741a1d8d469",
+    "6b0377888072bac2",
+    "bcccddb62203eb29",
+    "bab25e20d3842be8",
+    "e59522d18fecd097",
+    "0ad4ea6d71799027",
+    "6fbf06a0297e8c2e",
+    "5e63cc37184b5b60",
+    "c51e95927b9804b0",
+    "817aba22fb880b7d",
+    "b4b952e93b8fa325",
+    "bcc5586435b85b3c",
+    "d34d2e5003061b09",
+    "2b3efb95b7b43282",
+    "80e469fedce6e02c",
+    "fef8ca02f1a845c1",
+    "f52169946a057b29",
+    "70ab504fe2a125ba",
+    "6317ad7c8cacc7e2",
+    "41991be3ecb66d0d",
+    "ac269f56237e6a1c",
+    "21336297f2e2e56e",
+    "b788e1d6128b4004",
+    "1b56d7ebc0679c2f",
+    "9e26e344c92199bb",
+    "7b503cc6df7fcdf7",
+    "f29284aa932e3ab2",
+    "5d2213e35a21e5db",
+    "de9c7ff7549fbe2a",
+    "2dd539f10b7ba937",
+    "3dfa744c0755b9dd",
+    "20742bd99ae02618",
+    "076285b9d44270e1",
+    "5775b0a7718c93b6"
+   ],
+   "state": [
+    "cd877c4975d5749b",
+    "74aff8d3bd3daa5c",
+    "9794f3b8cba7769e",
+    "1f1b8d3a56a7dcce",
+    "e1db556ecf6f027b",
+    "6b713c00c23ce2f9",
+    "fbf141b3d5bb2a79",
+    "cfba510d13cbfac1",
+    "745af993abfc3c99",
+    "86082af261e60fdd",
+    "bf0bd9c23d1e8e13",
+    "8d55e63bdf238178",
+    "b474f8a66c8f3499",
+    "e289581d44aebf04",
+    "172c27bad24ad221",
+    "d1406d6bef30f333",
+    "673139e7ff16efb2",
+    "634dc4dd6a853fbc",
+    "a5e848657f8d4195",
+    "b310088049f6c17c",
+    "8cf370a2244e16a4",
+    "c3b821c87e7648f6",
+    "d87b315730e0b05f",
+    "926200600cb353b0",
+    "90907ca5eeed8443",
+    "1d2851ac2024df29",
+    "56df2fad2fd7b5e8",
+    "c95823ee8ad78138",
+    "08d24bc05bd57364",
+    "b3e5e107ebd66e1f",
+    "9473889dd86ced1a",
+    "e6ec1cc77c7d55fd",
+    "a724f6187807b352",
+    "b245e52f08385a7c",
+    "3c0f62eec7e90886",
+    "3ab4b7f6b257bfc7",
+    "fed1ecbbaa35011e",
+    "ae4204ed70c46a92",
+    "7e6dabcb686961c4",
+    "1863078b518cdd4a",
+    "17d9bf45837bf6ef",
+    "9c4e96d7fbf16ae0",
+    "d7bab2ffb63fb7ee",
+    "dda460be38e94120",
+    "a03ecc1d849f1800",
+    "f87464553a099d2e",
+    "c4519e662725e2a9",
+    "996a878088643fca",
+    "f65266b7b4f55278",
+    "d844e9938434606c",
+    "b4bb6a3d4faede92",
+    "13676f949b0b1a9b",
+    "37c1976d4a9b88a7",
+    "760c271f167180a2",
+    "aa98101a6b885d2d",
+    "39f6b28585605812",
+    "c91c914e75d486d6",
+    "ec5ed5a6652feb4e",
+    "9b88464fa0a0d503",
+    "bb4a45cd9c40a017",
+    "1f37a62149eedbfa",
+    "80432d8b1cd90c3e",
+    "2c97efe0a0449dc8",
+    "318e38d11672370f",
+    "4491f48d26239b49",
+    "84129a07a4b33cd5",
+    "50dae143546ec634",
+    "b5d483e7ee2ba274",
+    "7ea6cb55646fdfb0",
+    "2b5488233b2258b8",
+    "a1cb248e797dfc16",
+    "3024aa49caae6c7f",
+    "6980a1acafc2fad0",
+    "e33d5c12e46f6c63",
+    "1d669d255c358a5f",
+    "1e47e353269b999b",
+    "0089da116b503dfc",
+    "3bc3428dc106347b",
+    "bdf1ae165ac1e91d",
+    "02ef31a9e4ffc1df",
+    "8d09e668449781bb",
+    "d0281db7166248ad",
+    "8f2769b2bc0fc4b4",
+    "85254278925f188e",
+    "25d79956d80f3512",
+    "dcc72cc58cfbfb02",
+    "5a2631e6ee15eac1",
+    "a2b191e04992eedd",
+    "67f4f53f61066df8",
+    "88508baaf0ed3c5d",
+    "4e61d365d5bd9ea8",
+    "459b432c8c1c5e3c",
+    "80c0d3bb01698750",
+    "537907df47e52e87",
+    "708d61795c27e563",
+    "ecb610dfa191a215",
+    "fcd498aadd88e2a7",
+    "efc9a5b8d969fb65",
+    "686ab79a57b73034",
+    "1b8e9bf8cdc1634c"
+   ],
+   "pose": [
+    "01279a45a23e0689",
+    "ee3a7cd2e9a91e5f",
+    "0c0af7c829f05cd3",
+    "9c4b08ac1d3979bd",
+    "9b5c73b2117922d5",
+    "6497b2b97a474c0c",
+    "60323b99ea299a38",
+    "cebc5516217f663c",
+    "bdd7e5ba3225688d",
+    "6ac33ea9e28cb476",
+    "2fe4ae2d6d8e1362",
+    "6c9fa12af627eb71",
+    "ffdab67cbd5e2d34",
+    "8a71ead599624743",
+    "02d8f4ad7175d5e3",
+    "4edf3a914bd17d27",
+    "171e9324c44dbdd5",
+    "ff2d475d060344f9",
+    "5a24442f773758a3",
+    "94fc90e60d1a414b",
+    "32797d8c7a6e27de",
+    "a914fd76fe58cdb6",
+    "5a25cd32881dadd6",
+    "b5d81ea54c1e414a",
+    "bf9b802bb866bf2f",
+    "d5763effc2db7ed5",
+    "51a691669a77165e",
+    "6bf8994fd0094a42",
+    "7ee4a3049c9ed427",
+    "14fddc1f27f77bbe",
+    "aa048d0a0a3bfac1",
+    "6668a2e47dbe70f6",
+    "768220e3599064e8",
+    "1e89051df2598f50",
+    "00bdeada390f05a1",
+    "9fad0ee892150e56",
+    "17307de93e2f4966",
+    "e87ede7955052c98",
+    "e7e713947ba4544d",
+    "fc96805ebee8c603",
+    "30b36f589eb4fd3d",
+    "3fe4d04c1f303569",
+    "46a71cd003ac7f99",
+    "a0d8f504afad830d",
+    "2819d803226f45ec",
+    "06b6aff81418077c",
+    "36bbc05bd8396b29",
+    "6419e235169f2008",
+    "25dee54b75599710",
+    "f5bc45e6afecbbb1",
+    "f10a93cc848d1be3",
+    "bb12c8139784b5ef",
+    "9eff23c7b3184c85",
+    "df6d13acb8932ade",
+    "17d0a76d940e739c",
+    "260e8902fc0f0313",
+    "ba6935a26633384d",
+    "97aef9f76d04b690",
+    "c26cf0b18b616d89",
+    "ca4c873383c0b030",
+    "e4d8c3af637eaf4e",
+    "f63365b172cd9fef",
+    "a1cab8886f697bb1",
+    "4579026c7737f639",
+    "5c80d84daa217679",
+    "5180bfe186ca4b1a",
+    "d65e76ffe3331c5b",
+    "5805ab9506024bf8",
+    "b2e991bc12f85a67",
+    "f528d97580d5402d",
+    "146c747936d259d1",
+    "8a37b0506825f6b9",
+    "e28f12e6da2f1321",
+    "66ba7cb6acbe4cc7",
+    "04dc105a724f45b9",
+    "2592aa6cf5ae97e6",
+    "2630d36fc11bcbd3",
+    "ae87869d1c03b0e9",
+    "c05881e45c87900e",
+    "37b98b61eaf1b6c5",
+    "f62069a256930b55",
+    "575506cfdb8c6c78",
+    "d3277cf8917fc7d6",
+    "38bd03553d54fe40",
+    "8b74f8d955a6095a",
+    "038d99040fb2b5d6",
+    "8c78aa30758f761f",
+    "f9e8197c13bead82",
+    "94b11816b5dec8f9",
+    "85021968b0e6a4e5",
+    "f546519dec96ff69",
+    "c21113482c74220f",
+    "ec2d5d8d78126e33",
+    "9c04908d5f1da729",
+    "f215d6f6d3449d66",
+    "bdc9eeb73017c91b",
+    "e1451aa51176fe7a",
+    "862fcc2bcfe7193c",
+    "89b386b8815278df",
+    "514c1af98e3c623f"
+   ]
+  },
+  "Tower II.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c36ec2061dd9fd79",
+    "58ff13778e4511b6",
+    "796b03d51688962f",
+    "5b404d9c2a356e7d",
+    "4110c93b796d2e6e",
+    "6b1ec5bdba9c2502",
+    "7ae2f1fc8c743ed8",
+    "abd14b9c2098a4c9"
+   ],
+   "state": [
+    "b0ed223424be18da",
+    "d62eac1ac6f46185",
+    "570d84fa7183d6fd",
+    "d109216b131549cf",
+    "07eaffb7d5bf5976",
+    "826d544382092912",
+    "0d981254166ccb20",
+    "230a4f2876228aa2"
+   ],
+   "pose": [
+    "21d2e6b9ee37b24b",
+    "cb030f921b5b9c23",
+    "74a2767dc657ae44",
+    "dbfa6ffb2e47dd60",
+    "9908e487dbac0958",
+    "cf08ea4a9cfac92a",
+    "3a244f3a9928133b",
+    "3b35d9fce6a12741"
+   ]
+  },
+  "Tower.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2329de58ab077704",
+    "0f1a788c0304e3b0",
+    "8c18c5c4d2fcfc93",
+    "c7a23de25aaae5a2",
+    "3c542848b1998c3c",
+    "26313eb4db7db5d4",
+    "8759ea333146a791",
+    "0bcd503fbfa13ea4"
+   ],
+   "state": [
+    "76628c94e5070e8d",
+    "788ee32139afb95d",
+    "3f50f94cd96fab3f",
+    "7c727d2048ad2794",
+    "21899f972a17b97e",
+    "78978ee53a4e686e",
+    "8337c87a26914191",
+    "6ec6c5e7aeb192f9"
+   ],
+   "pose": [
+    "7db39acbcb8ef022",
+    "136a13f67691f97c",
+    "f843172cf6f1f63b",
+    "bb24be757d70b0d4",
+    "d26ac1f3286eb7bc",
+    "57e88bb1d63c55dd",
+    "59d13e879fb81741",
+    "d0cd6bd3687b5666"
+   ]
+  },
+  "Tower.jump-level.json|medal-route": {
+   "ticks": 10617,
+   "finished": true,
+   "physics": [
+    "0a331b8bb4c9f878",
+    "9dad8a030aabf89d",
+    "b263e14010ad36f4",
+    "182843ecc7e20e2c",
+    "ed836507ad803a69",
+    "499b4f50b85df699",
+    "cccd6541ad252bbb",
+    "027dbb785d6571db",
+    "ad23a2429a71996a",
+    "c6e551e33f2b9ac3",
+    "734823379f13e8b0",
+    "19f3cb1de5164d12",
+    "1594518d2b9a2360",
+    "6e97e4a41614527e",
+    "46f5a4b7f14eac22",
+    "dd55125677486dde",
+    "ab5a015d1d921572",
+    "e7ed0b54791460e7",
+    "c4742cce075a7fd2",
+    "ec01399b282233f6",
+    "0e727fe479aa5ccb",
+    "6788f3e2ddd3f18e",
+    "a8bd6573b0aa975b",
+    "051224b0b7949fa3",
+    "1d3ad9a447a8dbbb",
+    "3f129b23de1cb4f7",
+    "73da942f7103c62e",
+    "db0506788f6ff181",
+    "3321401f0b838a1a",
+    "1bbec02bf6dcbf99",
+    "f569a9aa381d91d0",
+    "465374205f896bf5",
+    "35010fd473252985",
+    "c40df1739679ddbe",
+    "32274991f71019f3",
+    "dfbcbf5d0d915c8e",
+    "b4a30f89696c8006",
+    "2fbd56bb52603fa6",
+    "287190d1be938e08",
+    "4332dcdd13990345",
+    "c90a18b72252b19b",
+    "bb00b97433734f9a",
+    "3dfcf5e0a8e7ef3e",
+    "74503ab6b2ef9736",
+    "f6d8da2c60c2a5e3",
+    "e66e580689dfc685",
+    "dfc6da194aae6f47",
+    "a56d339927f18299",
+    "ee91d6cce4f6ccb4",
+    "5dbea37dc87ee1f2",
+    "c1b1b9053e12d50d",
+    "da8b3aaf449d766d",
+    "0f36a4df1528ec37",
+    "04af72bc86f31055",
+    "c9bc807e2a64c277",
+    "ceb8f22ea928c827",
+    "cd2dfe1fd25ddd43",
+    "f4607cf0609d91bf",
+    "98cb4856dceb9bca",
+    "1a9243459e09496c",
+    "5eb04b345537f778",
+    "aec2f08e22aa5aa3",
+    "04c9f62fc767fbe6",
+    "dad551009f59903d",
+    "dfe292150c4d3f76",
+    "d501146f085ea45b",
+    "aac205defd9c7734",
+    "6aed5fa36ef89bbf",
+    "2763858cff57cb3c",
+    "509e4e454e53e44f",
+    "8d446cad391b8a70",
+    "d3315211d5999b4b",
+    "7938ce6542c7852c",
+    "bd85f43b1fefc941",
+    "8f135bb3c680f1fd",
+    "f6bb2f83c7b6dd7f",
+    "bda4f07d2ba5efc1",
+    "34b31a662ae97483",
+    "3959fbc40adee3a7",
+    "b9f587613c306a29",
+    "99746ac456ede19d",
+    "7490a91ce68dbb71",
+    "e578fc586154bcc0",
+    "cfc18ecb4b0aa4c5",
+    "a7289cc1cb5bf72b",
+    "6855fb426c1956f1",
+    "0ed179bf86d0a834",
+    "0402a93303175bb0",
+    "9d3a7d812667a0d1"
+   ],
+   "state": [
+    "949b19e384778ac2",
+    "b012f4e9f7d66b8a",
+    "49b28bdd0a02d3b1",
+    "8e7b0e3eae3369ae",
+    "e770c36b02524414",
+    "9b3bda27ddc74b12",
+    "2b6a3ddbc51aa570",
+    "495dd4f31697a5d8",
+    "0ad022313850348a",
+    "366fe042115081de",
+    "8c10b9f97d735e5b",
+    "72a0beac310491c0",
+    "c75bc9862cbb210a",
+    "5f5e5ace99e6cb6e",
+    "9a4c2242f85c923f",
+    "d8415c680dd73afa",
+    "757bc56382b6c70d",
+    "713a27fb75614f41",
+    "5dff4ce7d5185e87",
+    "1551649c28215fb5",
+    "dd65561a6f43881a",
+    "337dd1f966a0baba",
+    "2ae627735d10916c",
+    "1479991d694cdcec",
+    "1eb0a30fc80ab589",
+    "f5acc9f564d47e37",
+    "a7cda10ff9474fee",
+    "c578dbabf86dd324",
+    "e3cd64e40c5dc3c3",
+    "3464267112f0f0e0",
+    "810065608ccecfe0",
+    "d79cf709c1bda168",
+    "61a9ea252b3569ee",
+    "83084e2ebe1d6cd8",
+    "25c6cfb780295fb0",
+    "50c5fdfdcf4816a4",
+    "1faff636d2faa80b",
+    "5ef7381d39f78ee3",
+    "43553c2ab8c57cf5",
+    "e9ff283091a7c4e5",
+    "3624c4805603c49e",
+    "4369b9b29a495509",
+    "599f9e75efbbf7e5",
+    "2aa20295d4d4940f",
+    "f8a619fa83f68a9f",
+    "344a7aefd28f74f1",
+    "75199e3dc6467a37",
+    "16888340576607bb",
+    "40be60a3d0a02a3d",
+    "b039caf616d74d6d",
+    "bf3c01773bd5f9fd",
+    "13119d65f120f78b",
+    "a26dd2cd1fa42088",
+    "db34d7cc6be30efa",
+    "0130dafd05158bf7",
+    "8d987315f198c053",
+    "33f146a080e68a6b",
+    "261cc48b3a274804",
+    "50d5ae70f96b2f59",
+    "8961915c11a739c5",
+    "ba1f6c69264d9ea5",
+    "eddc0771bc0499c4",
+    "2c50c99a69afdb6f",
+    "cb58b9c0dc3c39bd",
+    "b7dfafd4370a465e",
+    "88b98b873f43b2f5",
+    "f9fe8d049e469c3a",
+    "8cf26315a154157f",
+    "d0f3b91f0a74da05",
+    "6d9a7bbf6e5d5546",
+    "11bbe02350f91346",
+    "37b81dbef62f455f",
+    "14b8b556f705f8a0",
+    "4c43b87b83bc0b46",
+    "2a31faed2e4349c5",
+    "c12db307912a4f95",
+    "0185aae0f67f6bef",
+    "6695f0bcd1d9422f",
+    "9b8fb17fef07722b",
+    "71d48aaafec4fc25",
+    "27b19ff2ef71bf28",
+    "bc523062050e1bf8",
+    "e372566406defaeb",
+    "5cf8b245922505fe",
+    "592b6c88bc077ac3",
+    "11d872b70d26cf39",
+    "fe78012a52b217b9",
+    "ae51940e6279e60d",
+    "9135d4eaadec1a8a"
+   ],
+   "pose": [
+    "01279a45a23e0689",
+    "ee3a7cd2e9a91e5f",
+    "0c0af7c829f05cd3",
+    "0689b253e8a71755",
+    "f85c5e86e885ec4c",
+    "f4684b4708e9b1cb",
+    "e28bea63dc560b20",
+    "d57ecab8729fe229",
+    "e3e6e3dd60c262b5",
+    "c7ee8c6a5a7c9d07",
+    "6b6ea1f795e2998d",
+    "02cc2fce2dbf3f20",
+    "ca9bf2895b478417",
+    "f761c8980516b3fa",
+    "825edf6f1ddf7fb0",
+    "0b72ebccd4b345a8",
+    "f999ba56c86c16fb",
+    "da8cc9e6e263df3b",
+    "f4d300861907bfae",
+    "ae3b79635f5d5d9e",
+    "15f621832f182573",
+    "e8807554223c97fa",
+    "b2b7cbc60600434e",
+    "5c12ca6eef786e75",
+    "22ad07cc2e689eea",
+    "494adfabca772b59",
+    "d6784a4d9a41fdf4",
+    "ac225538641feec7",
+    "aabe7def7642c53e",
+    "42a4db674862b314",
+    "70745ccc5d52445b",
+    "0395965503a79283",
+    "54205fc831f1f499",
+    "aea18ae5035a18ca",
+    "d8703ac4dbc4a7c0",
+    "e3d1277d652d70df",
+    "e183a29ed4a071fb",
+    "b185b3239d4c7d23",
+    "3522b7b0b970c387",
+    "6aca432a94d5ec89",
+    "4ff85cd050a9df51",
+    "21227ae6f3c60254",
+    "d4949327e67aa634",
+    "47d34d5707ff00a9",
+    "06c7ca281efda3f5",
+    "98a0709ceb6da5b3",
+    "715a37f42ae7c86b",
+    "90ad6bfe395e987d",
+    "5daa4665a196ff09",
+    "90dc46ff386f8f33",
+    "2330e12fb9f982c0",
+    "d3d48469d762af38",
+    "c5bc83dfc3b3a5f7",
+    "bda5192a045435dd",
+    "432e2f326810dbad",
+    "9d5bbb79fedf96b4",
+    "93d2eb94360e9fc2",
+    "31cb7c324c1e8083",
+    "39e5c2a402da5cdf",
+    "97b0864d786176af",
+    "41d0542a3047a905",
+    "d356cf1cddbef9b8",
+    "bad2bc6a5fae0735",
+    "bb5b1833ea01416e",
+    "106dfce38a4c1861",
+    "99c002132acfd528",
+    "f9cd140c137a9c9e",
+    "fb6e8b1e51e958df",
+    "3f768a593606da43",
+    "30f7e8cc12c41a33",
+    "ba22f3fea7324d94",
+    "0725d38f911e9ce2",
+    "6a99ef9df3cbb7d4",
+    "579a7d361b090498",
+    "3010bf4583aa81f3",
+    "0f72965b1d403e90",
+    "4da0ae81ff4bb74e",
+    "5ffac4be2da45771",
+    "7095c674f776ab53",
+    "0507592c59464985",
+    "d021f74787552c2f",
+    "1367e73a278437a1",
+    "95ec504f49195f12",
+    "ea1550b4cfcc93a8",
+    "7d5f776b8e89a7d2",
+    "d623b62410800e29",
+    "a299b098777b7434",
+    "e39356bae4ac670c",
+    "f112636ae219880b"
+   ]
+  },
+  "Tower.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c7f54c56389beda0",
+    "437ee63ae0c22de1",
+    "3e49f44badfa7139",
+    "0a03ca300325248d",
+    "630783afdc03ac07",
+    "f2c8b56271f2f539",
+    "17998fe150c5e67e",
+    "d18394891baa90a2"
+   ],
+   "state": [
+    "33116474b7734094",
+    "3c271e475405f0cc",
+    "afe896b2792fd17b",
+    "337a4f875fafc195",
+    "d7b8482fb25a9d57",
+    "a5650e14775ff248",
+    "8b444cd0b25d7ec3",
+    "82ec6f1e48d4c478"
+   ],
+   "pose": [
+    "b25d19b04d632785",
+    "21edc66d5005e2b8",
+    "16f94194586cb5f4",
+    "a5ba0275410bf9c5",
+    "db17621fb4b34cb2",
+    "14c875ff3e19afea",
+    "61f829ee9da1cb95",
+    "464db72f7bfe2661"
+   ]
+  },
+  "Wake.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "db6dfbb6fc2b30d7",
+    "bc8170a5734d4a38",
+    "723118ce340b47ec",
+    "70d674e5ae453a5c",
+    "22bfefab9f05e8c4",
+    "c877cc27137b85f0",
+    "d43cf041b5e4426b",
+    "3d5509d113e05cde"
+   ],
+   "state": [
+    "1b9791111f24835e",
+    "9ac5c2eb6c1d768f",
+    "db82412bc3a21fb4",
+    "751b66b69851d0ec",
+    "379c690dfd9f3a9a",
+    "254aa22e323f6a13",
+    "b71dd7f767b5cbb0",
+    "0efe5de8ecea3152"
+   ],
+   "pose": [
+    "f3525491ed34280d",
+    "366a0807a23338c2",
+    "731fecaa569dcc84",
+    "348fc68e832e6469",
+    "4cbb67aecc42b2b2",
+    "8287ef1eb1df18ef",
+    "457f0ea154b6e419",
+    "45ddc5b884d82e75"
+   ]
+  },
+  "Wake.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c85d3d144739e763",
+    "13764707542845d5",
+    "806306856079fa32",
+    "472b73186c33f140",
+    "b69c4b8a9316c30d",
+    "62c7134eeaab1e55",
+    "badc103518ed520e",
+    "a6a0dc0d215c26ab"
+   ],
+   "state": [
+    "4fc63e3e5b84291a",
+    "a2e060f7b98b5432",
+    "97bb46cf901e27da",
+    "bf19a641eb0a798d",
+    "9f10fef026632666",
+    "140bbe755b5adaaf",
+    "9b542f7d458f91fb",
+    "880a359da2ce5037"
+   ],
+   "pose": [
+    "4509fce1c5783c7b",
+    "91169d37feae7328",
+    "1f76d107fac6fd7b",
+    "aa049c186b9127b0",
+    "7910dceeb2e4b63f",
+    "f834e56e361a7aaa",
+    "93ee2cd6659d0999",
+    "acc2ccaf02991970"
+   ]
+  },
+  "Waterline1.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "53be2353efb97ea6",
+    "37301d01bdd2b8a8",
+    "59592a910c3930d4",
+    "355dcceea4f19fcc",
+    "3e638f0cbb004420",
+    "a695ecde7b7b537f",
+    "8732f5e44936b711",
+    "e85587de80e2bbb9"
+   ],
+   "state": [
+    "b7f0d09f7c93e24c",
+    "98d87c920c0c4dfe",
+    "5bb992963e845068",
+    "0def38c34f485ed3",
+    "797696df93f7ca54",
+    "dcf58034dcf6827a",
+    "ad3007720914bc45",
+    "a1d850a3aa558a4e"
+   ],
+   "pose": [
+    "430493bebd9ffbd0",
+    "d59f98a996c3ecd9",
+    "57fff910ce0e89c6",
+    "c46cc930ee18150f",
+    "c4896c04aa26d447",
+    "9c759d27b6346aaf",
+    "76d1ba37e947b2df",
+    "88b64e9983c15272"
+   ]
+  },
+  "Waterline1.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "0fdcde72a1194889",
+    "2ecba16d9980dbc5",
+    "a524c7e90e6dbb49",
+    "ee4a2a457dc04e46",
+    "a392e1f8a9f872f4",
+    "646e9f2f3025d77d",
+    "023f9bf9e816532f",
+    "437812e79c67110d"
+   ],
+   "state": [
+    "8324f6da3a1c37aa",
+    "2f8da8758e40afff",
+    "35a082493af1e2fe",
+    "9aa9ee1f254f460a",
+    "ef43de3130202786",
+    "ec929eb36ae31f83",
+    "e98930e7c076349f",
+    "b45b5241185ce744"
+   ],
+   "pose": [
+    "b5aef2eb9a971b3e",
+    "6ed5c1d9543f221f",
+    "cf64ec1367e6d0ce",
+    "5439bd52535c28f3",
+    "51041acf282525da",
+    "a2575e870ad90221",
+    "ca39d38a56fbc5be",
+    "e09c8ab60aea963d"
+   ]
+  },
+  "Waterline2.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7b9a7d3bf2a56a0a",
+    "a9caf9928c4e0665",
+    "016bf670be172019",
+    "bb137b8c79e87875",
+    "a9851212d7987117",
+    "2cf94e59f93f8b5b",
+    "4077f2cf1754800b",
+    "bdd929fcc58a97a6"
+   ],
+   "state": [
+    "2422caeab2b41d4e",
+    "03d1d5a5b5550158",
+    "2a690224132ae2da",
+    "18e5f0176431ea20",
+    "9b48659aa17bbf5d",
+    "e442c2d08ec6e067",
+    "cfee6a414e9f03ea",
+    "26db3e34d38f8bae"
+   ],
+   "pose": [
+    "31dada599272af5f",
+    "69b077f4af479c27",
+    "17d2c05ae0fe9926",
+    "1ec84b1f407ae2b3",
+    "51817b70c63148e3",
+    "1847feb93d98c2b7",
+    "aa9e3cad54564ed8",
+    "3cf8fd7dd0ac559e"
+   ]
+  },
+  "Waterline2.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2e5359dfdd47417d",
+    "5382a2d335d350e8",
+    "5690f036b6f0a17d",
+    "e532e8a1c885ccab",
+    "13b5aba7f1e272f3",
+    "a39c04568986b792",
+    "31ccdbcb3c876c4c",
+    "ba49556dec7dd471"
+   ],
+   "state": [
+    "76933e4a9757b83c",
+    "25b09af7703dcbbb",
+    "0d22bb5eb86b99ca",
+    "8787fbb0327d20ab",
+    "3a6f6ac488272bb8",
+    "63f1393fd5792a24",
+    "84e2227e1c6ecf92",
+    "54e3eef3c45f8bd9"
+   ],
+   "pose": [
+    "4202256db73e13b2",
+    "e1dc79e2fc5fcf0f",
+    "87605dbec4cd3c1d",
+    "38c9d0668129bd81",
+    "fef978af6397df18",
+    "54d403a63e6cc1f6",
+    "9491703cee0c7958",
+    "4292127ba5cb57ed"
+   ]
+  },
+  "ascent2.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "1d4ade8dadd41dc0",
+    "21ab1c4db46d7498",
+    "319554c21d148efe",
+    "2101c8b781acc5bb",
+    "cea7bdadcac8a43a",
+    "934fe53f4c26f7a7",
+    "f0baf68eb6abb590",
+    "1dc937f9813fa07b"
+   ],
+   "state": [
+    "e2f27f31127eeebc",
+    "76567d73b0d46be1",
+    "46c51bc7bda4d410",
+    "16eea4bde8c5fb28",
+    "749d85a628949556",
+    "dba786c402525d9a",
+    "cc9f79da3e06cb77",
+    "9ab276df50f47943"
+   ],
+   "pose": [
+    "5b2cbda651ba35cd",
+    "6a6fdd9a340308d7",
+    "c81a75acb3842dbf",
+    "960296851daf3e0d",
+    "f8624bb5ded4deb3",
+    "858070a35e83f693",
+    "f5ae9b974e431dfd",
+    "384f077b0dd2b32f"
+   ]
+  },
+  "ascent2.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2776805c2336d09b",
+    "73eea52c5e6659ea",
+    "02fb56b8dbb50e77",
+    "2ddccc16bcdc9541",
+    "265d07ba9c825acd",
+    "42215e19e66e5eff",
+    "0c1910402726d340",
+    "c5e8de1cdc270785"
+   ],
+   "state": [
+    "83f79f04d794e34e",
+    "4cebb571148bf2be",
+    "076c6aa7018ef2d3",
+    "0b3607059e120b25",
+    "261ce4436e0f1ab3",
+    "0b720274020cc191",
+    "98d1f4edea03c066",
+    "8badca7d6d807547"
+   ],
+   "pose": [
+    "8f9659b338d3da13",
+    "d54a21d4f995a963",
+    "8befe878e90acdbd",
+    "8c957e62b62103b7",
+    "67512fd7d630143e",
+    "ecf92be19979b568",
+    "7f5918e6ec7d379e",
+    "429387c5f64a696d"
+   ]
+  },
+  "buoyancy.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b6f7d37b38c475ed",
+    "5b151c5f4f5ef037",
+    "59b4bf8001271d69",
+    "0ea5ccf5497cde33",
+    "4d850a72c17ca301",
+    "2ab8f6e5ecf5df94",
+    "15728d51d61e69dc",
+    "9bcce8c4ff6ae90b"
+   ],
+   "state": [
+    "89283cbf823bcfb2",
+    "b141bed3c49154a7",
+    "53011abb41c487b8",
+    "b10ac0d6b70c9de1",
+    "47f1c2472b9e79ba",
+    "e365e29e30704563",
+    "f743f14d00db8d1f",
+    "6191b2d175a5c5fd"
+   ],
+   "pose": [
+    "bc36604e4efe8826",
+    "c5b00d0e8b08142a",
+    "c73da1dc636cfc59",
+    "141ad2934f615169",
+    "6dcee9f495567154",
+    "09ced25557e9ed2a",
+    "d8e74be78ca17647",
+    "3397bdb8a7b9abaf"
+   ]
+  },
+  "buoyancy.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "e5c4d66d2893af21",
+    "c6a88623b42c1a6f",
+    "8829f8ada0adda4e",
+    "d5a4eeae0e993a17",
+    "6b6096d2695ac425",
+    "ee81de91f2dce993",
+    "252824840de61b1e",
+    "fb385eb776bb6378"
+   ],
+   "state": [
+    "e479a38c5230b238",
+    "cd7d5b67399a1077",
+    "0bdc995f28efb936",
+    "16ca2343e58797d8",
+    "90f74bf35d438e6b",
+    "6fdb49434499e619",
+    "8c3c19ecaec4d0a4",
+    "c5a715502e1ac64d"
+   ],
+   "pose": [
+    "6180289078b1fbdc",
+    "2f196cb2b2163393",
+    "1a0c8e1fad6cf99a",
+    "b7488d002251d2fa",
+    "42fff943466bbbd0",
+    "8ed12bee8e37d243",
+    "17745da56e69e32f",
+    "5b31d95f027fadaf"
+   ]
+  },
+  "escapade.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "18e8f6c698e3df90",
+    "fb396675b28209d0",
+    "ab1e625e417db570",
+    "f46936adbd40f3a1",
+    "0f236ed6e989922d",
+    "d5ad8cb59796d510",
+    "71e005b75189532b",
+    "3ee108478e0cadef"
+   ],
+   "state": [
+    "2bc6237de7f13aff",
+    "621f399469b90822",
+    "f23673d6423826e9",
+    "b442424033a4ad64",
+    "5a22f81eddf9598e",
+    "d084bf6063a8cdd0",
+    "0936e3e80f237e05",
+    "50cb091bb81c593e"
+   ],
+   "pose": [
+    "1b1cd9d63baaaf2d",
+    "45515b6e1c173aa5",
+    "2c82ee4347163f67",
+    "1f00d13df73e878d",
+    "7fc831384d65b189",
+    "c96d401254cea46a",
+    "dc3722d154747eae",
+    "202aa19168abcdcf"
+   ]
+  },
+  "escapade.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "40be86fd1a2f5768",
+    "145f3c91e4c17369",
+    "7fae316ee0f96ee3",
+    "9831e90fb0987c2b",
+    "0aeb2f6222880520",
+    "bb64d1a2ea3a0f43",
+    "7f8aa26f40540ca1",
+    "572174ace511a10f"
+   ],
+   "state": [
+    "7d73ddd5151a0752",
+    "398fd7cd638fcb58",
+    "57cfdbe3ec71d32d",
+    "2588de27557fc67a",
+    "8851bc6cb5b23f5d",
+    "c1ec78d064b2d2b2",
+    "938404df544a4a8b",
+    "63a021bd9deb4744"
+   ],
+   "pose": [
+    "a58c0734ee32315d",
+    "284b085590db46ec",
+    "15761cd6b125bb5b",
+    "c65b72db3172b34d",
+    "a390dc6e0e318ad2",
+    "d9c1408de5935c4a",
+    "b06040a74816c7ed",
+    "f3ade0dcccc3389c"
+   ]
+  },
+  "exit.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "eaa5b569bb111a5e",
+    "a998ea7a34a582c7",
+    "6bb8c948c03ecd4c",
+    "bdc14c32fc26bbcc",
+    "09ba33d55fc1fc08",
+    "4d8c71f42fe2211b",
+    "e5ea065cc575b640",
+    "2477c14f5e3fca60"
+   ],
+   "state": [
+    "3e2d98f3b8871449",
+    "ccb8716998a4d48b",
+    "a2e1b87703a4512d",
+    "8937f96991cdddcc",
+    "654d4c1efa78e13d",
+    "519c1d1e4f6ec2b0",
+    "dd856ab2b5b40651",
+    "4d47b5581b3629ad"
+   ],
+   "pose": [
+    "a6c6d095496099c6",
+    "7d53b1e6ace68938",
+    "5dbf7e4aee954077",
+    "3c1e514dff81df81",
+    "3c5be6f8f4ac40df",
+    "c4262277414c0fd1",
+    "d9607afa335841a0",
+    "687607231f9ca440"
+   ]
+  },
+  "exit.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d804ed94c2f8fc0b",
+    "3baac660555d56be",
+    "5785f3e2a7e9d455",
+    "cc45b134efc51cfd",
+    "6a529ac258b0bfe9",
+    "c17202b6776f8d30",
+    "9c84912dfe02cdd1",
+    "73c3fcdecb469ab7"
+   ],
+   "state": [
+    "c13d5d9633186b8d",
+    "40c054c5e9287434",
+    "1318cd1280dbffc1",
+    "2ee59cb6c28b5fb2",
+    "518628246c2de2ba",
+    "2ab1561a3bc06707",
+    "667f3d4fded955af",
+    "2c6e17b6a059f3aa"
+   ],
+   "pose": [
+    "3779d6204f12918a",
+    "d309afe684a82d18",
+    "b74f65e1f90baa80",
+    "056097ddcd270846",
+    "ed8d72b854504759",
+    "5a380aaa4a17c7e7",
+    "aac71befa526d486",
+    "672d8cbf7ce89fee"
+   ]
+  },
+  "fixture:00-json-test-lab.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "4b7b10f1c99f073e",
+    "79fb93b53ed21f62",
+    "66073071be8c5465",
+    "da2863434891446d",
+    "13dc5b329fa26c82",
+    "e80be8e402dc1078",
+    "8e9ba3cdaba7eb7c",
+    "a1af90e9287a88a0"
+   ],
+   "state": [
+    "1c4f5a08d148de97",
+    "9a83ca6a2d2cb1f3",
+    "25f7527012e222e9",
+    "20f9020c001c4b83",
+    "3ba3a96195b6fd1b",
+    "7121fd09457f8471",
+    "72277d65c186cd9f",
+    "8891f49c71cf543b"
+   ],
+   "pose": [
+    "797eb56272fae971",
+    "6e4cd6167f5381cf",
+    "43b9def984dfab5d",
+    "5aa7750ec39ecae8",
+    "9d6edcc42d12a57d",
+    "c20dfe7e61b2ca83",
+    "7b33b24638051fdb",
+    "8ac9a670a9067e57"
+   ]
+  },
+  "fixture:00-json-test-lab.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "826df38364825a02",
+    "77e67e5cf05678eb",
+    "cc18364c2e32c5ed",
+    "408b7e7281bb8213",
+    "6668c816d69d5fab",
+    "6ad7aec924b87781",
+    "4ccacf2973807645",
+    "04553eb71c6ea231"
+   ],
+   "state": [
+    "1748e262f6b96045",
+    "0bcd432c2c477d00",
+    "d1efbac4aed98470",
+    "2966e4448395fa20",
+    "2e537a09e9a90ab7",
+    "f0dcecc28917d1d7",
+    "a2192c16411cde31",
+    "d097d624a6bf4326"
+   ],
+   "pose": [
+    "8ff4dc8613811c93",
+    "78f801930e9e029e",
+    "3853dbe766fb535a",
+    "38347877c9be3f27",
+    "6548a773a1a6d05e",
+    "400a14146c09d249",
+    "3b26770a2ad471ff",
+    "8e6b008f2c995081"
+   ]
+  },
+  "fixture:aloft-rbot-routes.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "8e46006b82351054",
+    "4dcff4b2ec217b59",
+    "87f0e51a32e91961",
+    "b4ecc40588eb1575",
+    "f2e139c10faf184f",
+    "0872dbcedda42b2a",
+    "760b7a73e25e2279",
+    "41b55edd5c814320"
+   ],
+   "state": [
+    "ce9298aa1f7db9e5",
+    "b21eac6ac473fdbe",
+    "5086ef36991e2885",
+    "1de3b7f35d38d36e",
+    "6ebf642fb2e7f941",
+    "f4a9350a53de5ec7",
+    "8f7c3173d9c58844",
+    "f7c17a36c89cf4ad"
+   ],
+   "pose": [
+    "166a19c317e8f356",
+    "3252ed31001f9460",
+    "6ebf61cac738b384",
+    "1e7e0f51a6bed8e0",
+    "140ee8b47812f804",
+    "b879fd5a9e797b05",
+    "d24481baae9af1a9",
+    "3a27cf7268f1b06c"
+   ]
+  },
+  "fixture:aloft-rbot-routes.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "0af75d730aea3459",
+    "bb9a553aae37af30",
+    "c53bcbcb1e6c2286",
+    "c68f7b38ee915b86",
+    "e9d8fb5e810b4ead",
+    "f0c61d1855460df0",
+    "81f44b9bfc3d1b4e",
+    "f911e179a0f0ea9c"
+   ],
+   "state": [
+    "02ad6b458b0d2737",
+    "ce2a5eaa4538edd8",
+    "527bec388d6d8c00",
+    "2501240f129f4b02",
+    "1c409c6aa0e2ab02",
+    "bf36577c6262460a",
+    "11a86bbf6188f789",
+    "8f9c9f600b97836e"
+   ],
+   "pose": [
+    "6b363b4912d0e426",
+    "f0b7a0881c90dd1c",
+    "490719db90914544",
+    "a75988f191a710c8",
+    "651a546742db3058",
+    "8a27a32b1cd0d2e0",
+    "22813689eb0fbe01",
+    "1519729ba2048f21"
+   ]
+  },
+  "fixture:ball-beside-box.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "f58882de82043bc3",
+    "4a8ca893474427b8",
+    "997c0e30434f405a",
+    "54e40f008b47fb89",
+    "e51dcddcf24918e9",
+    "b0be2327fddef829",
+    "7a5bba093ea06660",
+    "c0af97a6fcbd709e"
+   ],
+   "state": [
+    "af391a44f1958863",
+    "32c820d99b6260f9",
+    "3f77812db12c8192",
+    "732bd833ac5f6ee3",
+    "83e1b35823163e97",
+    "c6c55b0844cbd19a",
+    "b000cb8401f267f5",
+    "f4b8b7a491a4028c"
+   ],
+   "pose": [
+    "6b0fff3c815d43ee",
+    "12ffbfd1d6a84000",
+    "4d8abe33d287a0a3",
+    "8a445a092c54d207",
+    "fee84a7e8a756b3c",
+    "db8204ee9be86a31",
+    "e891de3afbf3b59a",
+    "cb9295d210c0a264"
+   ]
+  },
+  "fixture:ball-beside-box.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c54ef54895fb0dfc",
+    "5e7a668623f975ff",
+    "ba0aef12fb83e236",
+    "539484883a815310",
+    "dcec612bf31f9aa8",
+    "7989cc621a4374ce",
+    "fca64d6a8ecf6fe2",
+    "066429b2e32779d4"
+   ],
+   "state": [
+    "9702e27223fd819a",
+    "b4106c5826c6af5f",
+    "a44640a9ea7c80a7",
+    "7dbdf71b8ddc9460",
+    "f07d4f7c78a76044",
+    "5b5a2bc5257e7196",
+    "c15f0887cf9ba6cc",
+    "e8fd04da9762f638"
+   ],
+   "pose": [
+    "b198f1a1ae8b1c8e",
+    "3c5da610f8bb0d0b",
+    "6549f88a7292e307",
+    "42168e9cf3579a38",
+    "2827a69659aba589",
+    "d0b1926292660050",
+    "146578a992c0f3f9",
+    "97fd5be45d781e02"
+   ]
+  },
+  "fixture:box-bin.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "bda1f84e2e923bfb",
+    "a463681400b7b26d",
+    "48b78fd32e09a5f3",
+    "2d5ddd9c3e2d1467",
+    "ae629a2be6398a27",
+    "c12809c0156aa655",
+    "c33b43ebcdd26d95",
+    "fed279f3f99494f2"
+   ],
+   "state": [
+    "4ca68e61ee2721bd",
+    "d12ad2d33ffdfaf4",
+    "c3a033cbd81dac8e",
+    "634b50bc05f07f54",
+    "27019f47a895b317",
+    "edee52f87fdc11e7",
+    "a6828de6017c2523",
+    "e6e322db47097ee8"
+   ],
+   "pose": [
+    "a5f238940a3a6e2f",
+    "9b8f946024d78666",
+    "33b9615f3fa325ff",
+    "3a128c802dc1c13c",
+    "6a29fe81a1a55e66",
+    "cc137e576064f284",
+    "28960153e39ee1ec",
+    "84a726905baedcff"
+   ]
+  },
+  "fixture:box-bin.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "11cd5b3ea6740f4e",
+    "14ca8c55b2f16928",
+    "39e860f1e3fa2d1a",
+    "22d1869486379c90",
+    "a861959d7c8e450d",
+    "c67a8d80da0cbd25",
+    "819f2446a1eab506",
+    "08a5dfaba945c72e"
+   ],
+   "state": [
+    "d0593143672cf07d",
+    "74213d19d950bf64",
+    "fdffbd93a103afc2",
+    "6298f12140ffa2e4",
+    "89c1cb6b0189f6b3",
+    "59f203bbc04cc600",
+    "0a80f0facfc8a1cf",
+    "27270bbda1239149"
+   ],
+   "pose": [
+    "0b0c429316036b2a",
+    "cc83a7fadddd666b",
+    "7aa504b9e825a545",
+    "cdd4f7a81a53b3e0",
+    "f3eb238d533805a4",
+    "93487dc15f0899d4",
+    "5e372b77b8819f89",
+    "3048bdd8a253ab97"
+   ]
+  },
+  "fixture:company-pod.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d9ad3bdd78fdaf4c",
+    "853dfb77a1d83982",
+    "574bd41805791183",
+    "91922e35c0e8b147",
+    "c1ee1ac3933478d5",
+    "1257b3028aabaa1c",
+    "2cc017eb2e9c242a",
+    "adc2f8710e0fcc16"
+   ],
+   "state": [
+    "de1ad9b9c05a7c40",
+    "2de00b11f8c221db",
+    "67cf780222b128f6",
+    "c5edaaa6b8c3e909",
+    "b45afa964b54084e",
+    "98b564eb1dee3dc1",
+    "380ed11dc118d162",
+    "c1ec86aed8a3e6ce"
+   ],
+   "pose": [
+    "5a2b750b560c3328",
+    "f9560a9ee02fbfd6",
+    "da26a7d2582dee81",
+    "c373cb356e66d232",
+    "ba05a9c8780d5071",
+    "589b5e84e2fe1f46",
+    "32ba488481dc20b8",
+    "b2e5d6d5ea08ca1b"
+   ]
+  },
+  "fixture:company-pod.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "275eff5a5f527e09",
+    "4f83f0253e66d9f6",
+    "9d825e29e06727f2",
+    "80cb766d04a98ae4",
+    "541ad627b387d867",
+    "4379a45f778bcf3a",
+    "3863c9932c68dd71",
+    "b18b14b669e4800a"
+   ],
+   "state": [
+    "6aaf082ae39c56e7",
+    "5db62c7b68dfa0c8",
+    "8db4b6d58eb01b0a",
+    "2c6162d2b8208d1a",
+    "5a1e84b70880fefb",
+    "64a0a67c02ea7599",
+    "527f879b43d25c76",
+    "f53921624aca3926"
+   ],
+   "pose": [
+    "a5bd9ce12d0485e2",
+    "412b0ae2decdb6b1",
+    "d6ed48fd8404574c",
+    "e45fb0953d448ea1",
+    "3f0ad7514a4cc17f",
+    "b01611cb21e4f44d",
+    "345cf7e14fe7d095",
+    "037737baee4c14f4"
+   ]
+  },
+  "fixture:downhill-lip.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "a21c587cc0686f41",
+    "c5c06f3bd409781d",
+    "940c1b906bbfeddb",
+    "1ef23e83c5a9624d",
+    "972303d01ac421fd",
+    "16af6ae01721672b",
+    "581d2df4f93aebd2",
+    "fffa12806aeb2ac5"
+   ],
+   "state": [
+    "a198a83995579090",
+    "04ba518de0135e56",
+    "118be016458fb572",
+    "c378a4129be6e01e",
+    "3d3cccd8858ef8c0",
+    "ee9c2825fab81e68",
+    "7be73e27913d21c4",
+    "d22513fe231e34ef"
+   ],
+   "pose": [
+    "f131dd680f997e19",
+    "5a1212730cf43fd8",
+    "147bc9f3ab4cc289",
+    "009705df4bb0ef5d",
+    "5372e6ed8401a62b",
+    "64692aee5f35e03a",
+    "ea2f9faaa1785c43",
+    "fa9989b62deb4b92"
+   ]
+  },
+  "fixture:downhill-lip.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7a5c345609a2d705",
+    "522310bc423c4af8",
+    "c9351bdf21f3cf0c",
+    "f21193a1f0a57d26",
+    "a0ac27e8fe74e6e5",
+    "f4221613374809be",
+    "dcdc664d4c67d92d",
+    "9145580cc5c445a2"
+   ],
+   "state": [
+    "ed97ab4d105eb5d1",
+    "52d349b26e850226",
+    "fed9b5a4198d426d",
+    "1d12adf49ec4086b",
+    "17b1e91adb2bb5a3",
+    "4e725217525de6f2",
+    "afc399d9d327b60a",
+    "0a59960f19f7fa22"
+   ],
+   "pose": [
+    "78408ffd18fad423",
+    "bd74d820e3f139b3",
+    "85d583c349ca08e3",
+    "27c113f2b79925b9",
+    "51d55129d66a64ae",
+    "3624cfa0454a7a61",
+    "b221576f79a05ee3",
+    "544db3d84943d56a"
+   ]
+  },
+  "fixture:escapade-tower-catches.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2391132af14c39a8",
+    "66e33c6388edfb87",
+    "cce55d3ceb7db06e",
+    "a6d50d0b50bc17b2",
+    "4607fa4c81a558e4",
+    "b788d0e12770d3e8",
+    "48c9886ad6593bac",
+    "e7a4219618d98681"
+   ],
+   "state": [
+    "0f12b7a7a3df08a6",
+    "9eb52ec2a7322e95",
+    "a6722a7bdcc7a784",
+    "4439c447a07777f3",
+    "94e0a94abf10cb4f",
+    "b002879d2cd6034f",
+    "aaf441e467ca3f21",
+    "214b8d334c34edcd"
+   ],
+   "pose": [
+    "663aa5d58b48877c",
+    "bb91cc047cece864",
+    "c5a54d08b27d174f",
+    "a607f56adc5d4a97",
+    "df34a6d4765943d0",
+    "952139d87100c74e",
+    "8816101efa051ed4",
+    "f5355330daf18764"
+   ]
+  },
+  "fixture:escapade-tower-catches.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "4c28606db4402325",
+    "80b4ab3e8779ed97",
+    "567176c7f2436e78",
+    "900db6053859d637",
+    "4f9f6f7abccc6ee9",
+    "d019e5626641b919",
+    "b3c64a89aeaa6ba6",
+    "917c203ba6106a19"
+   ],
+   "state": [
+    "a8a62086f0f6e692",
+    "6da4d6f46c5fee4e",
+    "f21fc9f76b20fb00",
+    "10afd6e679110875",
+    "64834b8d11601ea1",
+    "2ae9dc2e36828e6f",
+    "01fe64e3eac17693",
+    "662dd5f843a50f0c"
+   ],
+   "pose": [
+    "5a8dfbae032f152c",
+    "7d849056d784a78b",
+    "f9358a4520573869",
+    "414fafc7917fa05a",
+    "37b2cb1825530f8f",
+    "afe0bebb83e807c7",
+    "cd013e021032934e",
+    "e1051f967345bfd6"
+   ]
+  },
+  "fixture:exit-column-slide.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "a956cf3bbc73882e",
+    "a78dc6acaeab63e8",
+    "e35d1da318b8346f",
+    "63f5e43939458f5e",
+    "909b79c4d10b6c9d",
+    "9fd534e4717eca12",
+    "2c1c1c0d6f895113",
+    "27ccdfa9cb17a61b"
+   ],
+   "state": [
+    "11d80c15c2fa8e44",
+    "1b357373b4dd3f4c",
+    "5303795aa80c6e39",
+    "b1f5ad13a1fc2633",
+    "7f9bd7e566e43760",
+    "5e8c04415c778582",
+    "473c82f12acf1b19",
+    "145a5e0d8da9e1a2"
+   ],
+   "pose": [
+    "e4719af093caa080",
+    "ef141b594aa43a90",
+    "10d228cda77cc1e6",
+    "0e9118c1a97cfa31",
+    "a02f3e049bff3682",
+    "1252614c8a67fe44",
+    "e3e2140480b53c13",
+    "6bf4db08a52b946f"
+   ]
+  },
+  "fixture:exit-column-slide.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "ebab4b628336a608",
+    "30592ff46521690d",
+    "6f533cc6c0d980f4",
+    "33af702dfb98a9ae",
+    "9eea4ce68736bff0",
+    "90afaae36aecceba",
+    "3c445c5b800ce606",
+    "fa4ffbc26dead1ce"
+   ],
+   "state": [
+    "d9db05140c0b3411",
+    "82b582c4cca32b03",
+    "b30d3d557d7f41a1",
+    "4f64b33d4bdd66e5",
+    "cedf357dc2fdd2f0",
+    "2a869b6ef0f3fb6a",
+    "787a7a9986671eca",
+    "26379c71d3def934"
+   ],
+   "pose": [
+    "f47c97f407cfcce1",
+    "bd4efd23964bc000",
+    "ebfc6b5f92d255c1",
+    "6b8a5fec3394dab4",
+    "4dfbc8ea37b301a6",
+    "7618f5fac66bbe3b",
+    "6a8346ff258307a5",
+    "d1cb5a09bca6a5e7"
+   ]
+  },
+  "fixture:float-switch.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "07a65e181ab81306",
+    "4ef574cded264e5b",
+    "e169936d9097868d",
+    "f88b43c85ee8f860",
+    "86194965ebfe3cfe",
+    "6c75d2d4144a6fa9",
+    "a0fec22dc083a20a",
+    "17c708acd80e1315"
+   ],
+   "state": [
+    "3ff0d9edd9e0bccd",
+    "a4575022afecb700",
+    "4ec5e983f88e5b44",
+    "3db6554787d0170b",
+    "aa5a053f206cdffe",
+    "d4e05d2fffc38053",
+    "e8c5b31baf3fdef7",
+    "9462202899c89e7f"
+   ],
+   "pose": [
+    "251b3b3a5efbcee7",
+    "1ac81642fdff2acf",
+    "141752c19af45181",
+    "d972099c95b46cc3",
+    "9d17a40ffc99dfe2",
+    "30504172c605d5c6",
+    "97403910f7cf429a",
+    "652f42115bc2db69"
+   ]
+  },
+  "fixture:float-switch.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "73444be17831debd",
+    "4397ceddefe0192e",
+    "fb026a1a7610108d",
+    "ecde7ee7f5f3d0d9",
+    "1c76e2ff33788291",
+    "f4eac4bb5699f9fe",
+    "a6328fcbf174c584",
+    "1a222ef52691d17b"
+   ],
+   "state": [
+    "c035c60d2b5823eb",
+    "6757209570adec4c",
+    "c9d979d7221c511d",
+    "f78c93cd3645015a",
+    "413b19281319638c",
+    "457edf3735527081",
+    "2dd52a014e28c58e",
+    "d617c60233905c5a"
+   ],
+   "pose": [
+    "f65fb1fcf2b45b2c",
+    "e590d82e829f4c2f",
+    "dc6d039200f8c3f0",
+    "fd758062448b4d1c",
+    "f08107659fc387d8",
+    "5bed557a0cc77ea1",
+    "c6f4d504a9cf6ab8",
+    "23791c79e73b771c"
+   ]
+  },
+  "fixture:freight-run.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "6bf2298fb7eab412",
+    "ad7d3eb6850c4196",
+    "e1e2c505379731ad",
+    "7b06cbc52fb72efe",
+    "b4a829af824327b6",
+    "ee445ff8dac5ade7",
+    "f286da938b2cbc58",
+    "99757c4be53abcb6"
+   ],
+   "state": [
+    "e8632f67b177043b",
+    "0649f7a83694eb5a",
+    "7068635cddf37417",
+    "9cb061a3af9e74e0",
+    "0eede51a64478f54",
+    "90d99cf91c0f325b",
+    "3fe6a700bd8139ad",
+    "4845c50ae78ff3f1"
+   ],
+   "pose": [
+    "5d7795452ff08c3b",
+    "fd1405029a9ba386",
+    "3d63f5f437e5d7d7",
+    "3839869157685d05",
+    "7a7bdf06ae561a91",
+    "6b6fb5ea368e2a38",
+    "a468461bf317262d",
+    "6e9c7c236f6e95dc"
+   ]
+  },
+  "fixture:freight-run.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "125006830afa3453",
+    "d17da7d891e9d111",
+    "385ddb958ffeb94d",
+    "30d0e1707c1da9ec",
+    "7632798f1c2f06e4",
+    "792b45e3880ccc8c",
+    "25baf83f17c9032e",
+    "27f713b206f4e1d0"
+   ],
+   "state": [
+    "4ee4aab2eec779cd",
+    "d993aeb45d3b954d",
+    "eb0b0eb8e31bdc35",
+    "665b9908001c3b52",
+    "66bf31266d00329c",
+    "e37023017ec06ee4",
+    "fbce2f9969e8c2fe",
+    "712207998cfad829"
+   ],
+   "pose": [
+    "27da0ca3b357dca7",
+    "7bf31068a061cd7d",
+    "ebef4403bc235609",
+    "c043f128ec1fd243",
+    "0cdfada7a2ede894",
+    "6ee2d8b0d7afdf6d",
+    "f58344bc314460f2",
+    "03e42a4e3735c0df"
+   ]
+  },
+  "fixture:inset-wall-brace.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c11d545c960ad805",
+    "9ead18bf89c76537",
+    "2d952509f94d3559",
+    "f84a4b291a5845de",
+    "3c50389becdd8cba",
+    "82ea4f2608d68569",
+    "b48db8ca3afcf78e",
+    "46187fd9c1e4c6d8"
+   ],
+   "state": [
+    "0a589b62daf4e9c9",
+    "7a69e7c2e1364e8a",
+    "9cfbbfde06926760",
+    "fec1722991ec88a4",
+    "bf4ffb247488f6c8",
+    "d8f6a10cb9308444",
+    "05ece3795d4d6cf7",
+    "767dd23b1a0d3dbb"
+   ],
+   "pose": [
+    "e554255a22f0bc70",
+    "ab5b810a575ec265",
+    "169720b090708800",
+    "92ac9b64da412984",
+    "9373814c1469f9fa",
+    "3a55615a5e46917c",
+    "a29a2b4e0daabac8",
+    "7400a573c0688e2b"
+   ]
+  },
+  "fixture:inset-wall-brace.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "e0f2f641798cab1f",
+    "614845b13b8dfa35",
+    "e312997469cf89e9",
+    "b552a52236df9456",
+    "42c94ae63106b29b",
+    "b36266df90a350d3",
+    "313cc04f681d434b",
+    "c06b380cef5c4218"
+   ],
+   "state": [
+    "4472550fa552df5e",
+    "4bfa3b6e8d1accb7",
+    "464d5408dde16be4",
+    "80802f57136e0adf",
+    "9ccb21dff2210d5d",
+    "002b5ff79aa6f441",
+    "61c50325640f65e4",
+    "e58eb347329fcb12"
+   ],
+   "pose": [
+    "51114a8263cc0cfd",
+    "371603e8f8ce4056",
+    "269d1d362cbf87f8",
+    "def0cddc695c5adb",
+    "255e37abb532757d",
+    "8fa3adf04d5f7c96",
+    "c63dd93f87503dc0",
+    "88ff29346963d245"
+   ]
+  },
+  "fixture:inset-wall-jump.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d078e05b288ee4f1",
+    "6e24185a6cd097e9",
+    "269f6608f384a56f",
+    "f2fae531201317e4",
+    "c628288b60e73cd6",
+    "74ec7de45311e564",
+    "ebc5050264905124",
+    "d14014c7cf64c7f2"
+   ],
+   "state": [
+    "50084c01369d0a0a",
+    "05d99ced0656d107",
+    "e6e92c35322df727",
+    "8e68061159818e27",
+    "11156516f4877278",
+    "5c7100b7864b085f",
+    "76ef6dc279d0908b",
+    "80a004427406368a"
+   ],
+   "pose": [
+    "a777c00c9d2cc923",
+    "777f1ccf04c61143",
+    "68baf34b9c5361f3",
+    "2ede95d679164a4b",
+    "d5ce3130ac94e367",
+    "1fe55254ccfd39b3",
+    "aa4d224dfddde011",
+    "b7e9205ec9a23471"
+   ]
+  },
+  "fixture:inset-wall-jump.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "a7774b7391cdec3c",
+    "238ffb01906b5c25",
+    "6add00844abd1449",
+    "c64076a795894fd3",
+    "f0795cbae41382dc",
+    "94a49acb771915bf",
+    "1693222747a05500",
+    "447a7b02143fa951"
+   ],
+   "state": [
+    "e4c6bf03da3e3f57",
+    "77ff2f9622732f65",
+    "ca9607b9fba85daf",
+    "cb39331a25c879c5",
+    "e6a86a01974ee3a7",
+    "3591cc18cc2b9387",
+    "13bea5b8a374a012",
+    "4efd2446bb07ddfb"
+   ],
+   "pose": [
+    "c2174b9caec2db8f",
+    "3b8b48f8944b87c5",
+    "a25544b7477634d8",
+    "c58a71cc9026897b",
+    "6051df70a7ecfbeb",
+    "85337db8fb63c0aa",
+    "79a00aea1d1a76f5",
+    "c723c783e8b9dff8"
+   ]
+  },
+  "fixture:ladder-scaffold-exit.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "609164b0c3da517f",
+    "9f505c46541e270a",
+    "6ccd6c4b77f2c9a7",
+    "cae2812a5c393bbf",
+    "f45d569f51f15948",
+    "212dd68db787ba4f",
+    "f04f3caed6f049aa",
+    "a048ada20cca6af0"
+   ],
+   "state": [
+    "eb6cb89ed71626f4",
+    "535c2b19470aa321",
+    "853296b8dcb4896a",
+    "ff0b48355ce83d2c",
+    "491b35abb44ca6e1",
+    "48248384b109cf62",
+    "552d0c28408eee3d",
+    "d5536014d4680c00"
+   ],
+   "pose": [
+    "198128527af3e8b9",
+    "679e2786e043adf3",
+    "a4d8cdf50a119ba4",
+    "ab7cc0b76e8ffcaf",
+    "8690b5d468c87f07",
+    "b4ec2380b40f1357",
+    "f9937563fb2d6041",
+    "6e71d715f9e01444"
+   ]
+  },
+  "fixture:ladder-scaffold-exit.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "0e18a04c4b97e2d9",
+    "6c66e2de4b90f0a8",
+    "193be8d77ed9760a",
+    "d74e99bd103b08d4",
+    "ef511097b2ae6c76",
+    "e680f7b6ab809103",
+    "834b7c5546ee9d66",
+    "daca965eecb081db"
+   ],
+   "state": [
+    "5450ee2613ca646c",
+    "b0b39c076063c7a9",
+    "42188113529af1a7",
+    "85e7a7c7128c641e",
+    "e7f890f17fe81569",
+    "16365bc6b21d42a7",
+    "ff019c8544a259a5",
+    "579f475fc4a27277"
+   ],
+   "pose": [
+    "a6543d04140c37fe",
+    "c767b91bb0e2434c",
+    "2e41f62961dc6d45",
+    "e057c26da15dc6f7",
+    "6c5b0aa39bd7cadd",
+    "11939dd9c64849d7",
+    "93a0c6d0209af991",
+    "3ba6c6b421d204e7"
+   ]
+  },
+  "fixture:leaning-lip.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "6d259441ce789471",
+    "305e1f416712e7f2",
+    "ad5ec0470e1dbd0b",
+    "921f54d918c0caf8",
+    "98c6cb024de7b365",
+    "2b73020d49b559f5",
+    "80d3e3e2004745f6",
+    "933b967427d41000"
+   ],
+   "state": [
+    "0e8b0b40c7f096b1",
+    "623a4d7fe6f52175",
+    "4ed5a7073120beb2",
+    "ea01afe752f0e49d",
+    "1b8a348a20420413",
+    "59f7fbbf3bf85698",
+    "3bc46120a7f5741d",
+    "ef50dd4d0be632c7"
+   ],
+   "pose": [
+    "cd43eec949d27765",
+    "27e85d097a06e028",
+    "e952db1f32ce3723",
+    "8999b66647fc42b2",
+    "105a708eef358bc7",
+    "fe8108560b4ea401",
+    "b765775b4080f9b2",
+    "48f2a434b7e0f564"
+   ]
+  },
+  "fixture:leaning-lip.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "ebfd3e576c611c35",
+    "a0b529b3002d0b4f",
+    "094e9085e0387287",
+    "346ced1c86233c8a",
+    "2bc9f890b44e1065",
+    "b1aea22afb1c606c",
+    "2880424b5f3ad415",
+    "024f05b611ae2147"
+   ],
+   "state": [
+    "6ebbd1704de1d8c1",
+    "afe7b82d6d2f6706",
+    "d424e83d25d42e9d",
+    "1f75becc53aec8db",
+    "7b03f2d911bf9ebe",
+    "3ecd5c2d32a7ad82",
+    "65d6e1b6c9418fc8",
+    "d964d5da64f1cf25"
+   ],
+   "pose": [
+    "2e5e66a7a2bddaf3",
+    "a3d9216be0960486",
+    "aed4608939f3b397",
+    "deba96f29559aa25",
+    "67156f6a03669a49",
+    "5ab7680ac436fad7",
+    "1aa1fa4cbc74d795",
+    "178b24601cf67a37"
+   ]
+  },
+  "fixture:lighting-gates.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "dad63e1b52802236",
+    "714a62dadad1f4d8",
+    "0a77ca9ac56de719",
+    "53c7bb216b18c283",
+    "5b82295f71d7affd",
+    "4dc3ad11433f24b7",
+    "97d9fdf6821d9332",
+    "134cc9974ddaaa30"
+   ],
+   "state": [
+    "4db4f2346ef83475",
+    "d365690aab91045a",
+    "67f75304944e0089",
+    "efd19be91e2aa50d",
+    "14394f0dbb626f18",
+    "07a924ee6770c20b",
+    "d74b50ff9300062f",
+    "a3e1781608647e48"
+   ],
+   "pose": [
+    "fd9fe1de8f2853ad",
+    "8d4781db916ff8c4",
+    "427d9401a4de57aa",
+    "62b9e08e41d658b7",
+    "8f730620c3e33dbe",
+    "7d369ae59cb9ac46",
+    "b14762d30f65d6cb",
+    "9ca5098f6af5aadb"
+   ]
+  },
+  "fixture:lighting-gates.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "58423edae27736c6",
+    "7ab895cf4af5726e",
+    "905df59152776755",
+    "ab99db8766fcc392",
+    "cadde4e48687fae5",
+    "8d11230b02e5be10",
+    "e22c3bb7f5e8fd59",
+    "7a0a0d77bba087a5"
+   ],
+   "state": [
+    "d703e9b5b8dec9e3",
+    "a6ca4319a60a0f6f",
+    "f2a810dd378406f0",
+    "042eec76ddaa4922",
+    "67aa5f3ce053353f",
+    "ae042899ccce5fe8",
+    "b6ba58331af2f0fa",
+    "c1521857e9b77e67"
+   ],
+   "pose": [
+    "f14bfce5fb702381",
+    "ced7fd85dd505731",
+    "3d50d45fa0093cee",
+    "16eb1d186f025398",
+    "68cb3ab36dd4dc8e",
+    "07237bf099de6f62",
+    "c955f3cbc6568b5b",
+    "3703938d5c506f4d"
+   ]
+  },
+  "fixture:logic-relay-exclusive.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "9952d02cdc59b867",
+    "40b08ae119b619f6",
+    "197bc9daa15a8a04",
+    "e48513e5f3541b87",
+    "d011288e583c0c44",
+    "814ebd33573a0713",
+    "a9dca9d510ac2f55",
+    "238a27f961beb686"
+   ],
+   "state": [
+    "aefcd1f905c1686d",
+    "999c1b781df66aa7",
+    "43c33e1990bb9bef",
+    "b546a5e51fca250c",
+    "bc9a34761bd9a11a",
+    "138b384da08451b1",
+    "30eb39cf05cbb3b8",
+    "0e890f02b029a927"
+   ],
+   "pose": [
+    "edec4d06d02d3913",
+    "a1e4cf3a632dd479",
+    "89b9632f97e77aec",
+    "9217359b064dfd26",
+    "2b8cd1543054f44e",
+    "5ba451d86b29f1ac",
+    "247fb6eea95b15ae",
+    "ee96e0beddac181e"
+   ]
+  },
+  "fixture:logic-relay-exclusive.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "85584a5c28a26673",
+    "60974be8b77327c9",
+    "964c16cbe8ce70e8",
+    "adbc4936a6f2fe57",
+    "4aa65080f87d50e1",
+    "bd19a0e4586b72f3",
+    "e6a1b3283b053428",
+    "18d2b027ec590fed"
+   ],
+   "state": [
+    "0973ed2a4e11a478",
+    "2c5b6310696cef58",
+    "eed4bc79ed47f7fd",
+    "663790fd818b2c7f",
+    "2cf8fa84f31a0ba5",
+    "36e7939c2abb1ea6",
+    "3abce0c6fdb47a6e",
+    "a01b27801198cd32"
+   ],
+   "pose": [
+    "7f394ddea3377527",
+    "a9c60c0a9b87f4f3",
+    "abf2758210792f2f",
+    "16a4f8389481410a",
+    "5d8a5c6ab5d40796",
+    "ad8d6887ce898703",
+    "6a69b6a663342a00",
+    "337b410ab2d656be"
+   ]
+  },
+  "fixture:narrow-water-tunnel.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d54a50ada487fec5",
+    "b9d042b3f146a23e",
+    "d69b1764153e6f6d",
+    "ac92156e9d2609cb",
+    "93ad53a6a46c4086",
+    "e9ad0ad7697a35f9",
+    "fe8e1f9d3f305152",
+    "2d25292f87433f36"
+   ],
+   "state": [
+    "9814f4a106259430",
+    "3d53c7376c05a08a",
+    "16be60a04bc78011",
+    "8297c9a3a8ede759",
+    "3a91d4271c7c6b6e",
+    "2b1b4ac5e249ec5c",
+    "e14b4a69b282aafa",
+    "d4e7520ad5b2bb89"
+   ],
+   "pose": [
+    "9507c1bbe5e31c92",
+    "ec8f3d1489ab3c17",
+    "23bed1bb5159265c",
+    "d8bfe69d455cb2f1",
+    "d6b1f503820e05a1",
+    "b2df0cbb6dcf382d",
+    "7ac39984db48ea04",
+    "b30fae14aa24bc16"
+   ]
+  },
+  "fixture:narrow-water-tunnel.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "5765ba34fa6ef660",
+    "d63efea5af01c6c3",
+    "f5de7f5202fc2aee",
+    "795d2bc7c90f21e6",
+    "f57ccf916746af28",
+    "20c42ecffdd047b6",
+    "4bfc6c5d98fb5dad",
+    "14803208678e37c3"
+   ],
+   "state": [
+    "900d7216eed9a5b9",
+    "de423307c8fce8b9",
+    "6ea711510044245d",
+    "f9a3733146f6ef69",
+    "1027cff83e776502",
+    "4344f8a452fbec5e",
+    "79c3c092588751a7",
+    "8b31428226184353"
+   ],
+   "pose": [
+    "6e4c968e12429979",
+    "0156e46b17d2c139",
+    "5a0ed589ef4a618e",
+    "af6803d19a84554f",
+    "64c63174727210c2",
+    "a5de074b5908155d",
+    "44ed49df3187424b",
+    "4892712c06233bcd"
+   ]
+  },
+  "fixture:quarantine-ii-rbot-force-field.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "39603b9e0ccecf4b",
+    "8ed78b7a7700497f",
+    "45a45edb8aba9cf7",
+    "68537185fb2353c8",
+    "f976b3e5e398951c",
+    "86d55e37d5c0d4a5",
+    "76878f0eb44da999",
+    "0fff6613d593a4f9"
+   ],
+   "state": [
+    "3624333834bf14b0",
+    "849803e721e1c263",
+    "9d2e43b446b1dcd1",
+    "49ccf216327aff6d",
+    "c55c5ef96875b3a9",
+    "9791e8a4c6900fbf",
+    "9b023095171e6284",
+    "083dbdab7688ffea"
+   ],
+   "pose": [
+    "d102c6bfe24c0749",
+    "f2adfba06e78d358",
+    "cbce1819cc0c37c9",
+    "332119bf0fa7bd5b",
+    "2f335fd5a3c9235d",
+    "864e0ae5eb9f878b",
+    "b5e6e378ee789d19",
+    "e0b6a2af11fe445a"
+   ]
+  },
+  "fixture:quarantine-ii-rbot-force-field.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "9274838789133d0e",
+    "86abee4fed070fe2",
+    "f0138fc30ebe9b33",
+    "a485e9f9c635a2cd",
+    "1e292c4a57026cfe",
+    "dcf4a32be3b36564",
+    "b5949db2a1291d90",
+    "1ec8efc8f0194b88"
+   ],
+   "state": [
+    "46586ffd5b819c21",
+    "c1ecca23192e9d60",
+    "e1bded80c3a76218",
+    "f18db0dde9e5418f",
+    "4ab2572a524ed5e9",
+    "c2605f7f94e4420d",
+    "e40fd05d432cbb8f",
+    "68007ba63674d9b0"
+   ],
+   "pose": [
+    "308b008c045d4f63",
+    "fc689bb0ad8cf622",
+    "6bcfb2735feac1df",
+    "9b1e0155f262ec14",
+    "c278d5106bb2ab7a",
+    "2a8563ce73b06487",
+    "dd0344779c014cba",
+    "87c4a5cff9962f22"
+   ]
+  },
+  "fixture:quarantine-ii-rbot-water.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "52b083692fe53994",
+    "b55e33929e000ce4",
+    "d53beb1945006212",
+    "b6a57b312fda1b76",
+    "921886fe564e8916",
+    "bfb2a5204a5f46d3",
+    "f571b249d2c73b10",
+    "6cf1dbce2b1cb1ef"
+   ],
+   "state": [
+    "05dc097d8b49497a",
+    "93d6ae1daff76d4e",
+    "3c64ff8fc1667832",
+    "ec763efb689998e8",
+    "91d6bfa98e3eb6d5",
+    "211cef034fac7dc1",
+    "d83f075a7634e71f",
+    "44d7696f80711efa"
+   ],
+   "pose": [
+    "b2cfe342b95a6592",
+    "9fc08ec3d68557fb",
+    "d2e537cd5ab3663a",
+    "565cee22aadc0a50",
+    "466ef4be91fad83c",
+    "815bd5e05a815681",
+    "55c6950d9c783380",
+    "4379113ecd85c5c8"
+   ]
+  },
+  "fixture:quarantine-ii-rbot-water.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2caa6fc0dd7240df",
+    "d06d87479a1ff487",
+    "edd7068ad329c36a",
+    "107bcee40c37983a",
+    "01222fd733b427bf",
+    "8302f6d9cbaf29c6",
+    "7bde22ff4b06cbbf",
+    "cf80efb401f7e5f9"
+   ],
+   "state": [
+    "144a64a2ffa1d198",
+    "864c972a5ee81477",
+    "d1a1ad2ba8c2b6b4",
+    "b733ed09283c8361",
+    "732d46614c7d80f7",
+    "1db4b555cb147598",
+    "6245ad60250a1206",
+    "aa0a9474f1988595"
+   ],
+   "pose": [
+    "bedc580542878208",
+    "e3ff8aec9c1295c4",
+    "602442a6c6d741a0",
+    "271a21818ae3d6a5",
+    "00c6969a6a0bedd3",
+    "dff18fbfb034c106",
+    "575ace1df60f1316",
+    "77842a7461eb7d5a"
+   ]
+  },
+  "fixture:quarantine-iii-rbot-water.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "488842499da919d9",
+    "cd0e5168cc2939dc",
+    "faef8dd3f4e2c809",
+    "6aa9be80713fffd2",
+    "2e0e0005bf4aba34",
+    "d725ca91679676c3",
+    "9fbfb7062653c7fa",
+    "8da4532c3f40385b"
+   ],
+   "state": [
+    "8f20ed72c41de9fb",
+    "a664476ddf94065b",
+    "3b29c56644ae0dba",
+    "e9d751c7b37a111f",
+    "6b4883ac83fdf943",
+    "69b0b9f436846a14",
+    "1f92eb83b9110e83",
+    "712d3b11edfdffd9"
+   ],
+   "pose": [
+    "08b7a61222f1d001",
+    "4521300d4b1998cd",
+    "7e3a3816ae081258",
+    "24ba1f92241297e8",
+    "ba0358fec37707b8",
+    "fd32911c9d7313ec",
+    "2cdb1bb26a34a3d8",
+    "66efe647df7cf59d"
+   ]
+  },
+  "fixture:quarantine-iii-rbot-water.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "94137d237e48f134",
+    "2b8e89cac14ca015",
+    "a2140fb93410ff12",
+    "beb096a236c1d10e",
+    "3d5199571ffb6691",
+    "ae9a27873812b22d",
+    "e0bd3c715d40fac9",
+    "340943c8c047d355"
+   ],
+   "state": [
+    "72e552068f854400",
+    "bea8bd9a83d5ec75",
+    "2113213d905ddc4f",
+    "986e68684f3bf5a1",
+    "c8b62f38530d8520",
+    "ab9af2b8c9d71018",
+    "9289464047916c91",
+    "ec5d301acf963b7e"
+   ],
+   "pose": [
+    "f88201870f332239",
+    "c5e0eb3368ae66ae",
+    "78c3e95d506e5c3e",
+    "49e92c571eb64e02",
+    "1f054cd197a0975f",
+    "4ad7f6fdfb57b78c",
+    "0930ae7b67fc3b66",
+    "eb5399a5acbb139d"
+   ]
+  },
+  "fixture:rope-ball-ledge.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c7bbfcb04ddccca1",
+    "adbda098f30029df",
+    "3089bd13fe4c6544",
+    "15ad7085768c8239",
+    "35f553bcd9d8ec84",
+    "41c2d4a519ad5f4e",
+    "8a70f7e236c3023e",
+    "fa6f75a7632b21f2"
+   ],
+   "state": [
+    "15fe11f7b05e4a5d",
+    "8c6f2f79e12d1a23",
+    "4430ef2b02b289b0",
+    "7ea48138c311a381",
+    "e9dc48433d74e379",
+    "47076fe2da463de4",
+    "82d33822e86f2831",
+    "7d35c0c71e4527d1"
+   ],
+   "pose": [
+    "2e3f795a460058e4",
+    "a1d9175fe68dd6c5",
+    "0cef03feeccda484",
+    "abee52b06b2d3db5",
+    "782dffe2e2858b04",
+    "7a5fd08bf682ea52",
+    "ac3a58bd99a212c8",
+    "47850142ad804271"
+   ]
+  },
+  "fixture:rope-ball-ledge.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "138d28e9f07e4211",
+    "446d607dc8bd51d4",
+    "1904008d1eeb2571",
+    "0494fe407512729a",
+    "d6be38d46c1842cd",
+    "eb4ab3fe9c421e0a",
+    "e85786ca02f25a11",
+    "4c885f106f645995"
+   ],
+   "state": [
+    "8132382129e4f213",
+    "3c9f4dec4a0bcd86",
+    "967f0138fa4a6bfd",
+    "453a201aa008aafa",
+    "bbbdee88a4872b8f",
+    "96d080980bf29bd5",
+    "e2a1d7a7f3432026",
+    "c7f8c75d1d723200"
+   ],
+   "pose": [
+    "3b76829d8e9b18de",
+    "b99b9afcc7bbaf44",
+    "e7b7068cfcdc4c04",
+    "a6eca9c999f86298",
+    "88af84bf844ed1be",
+    "698eb64c360fdebe",
+    "9661e013b07b5b34",
+    "8f25c93e5ff8c244"
+   ]
+  },
+  "fixture:rope-window-gate.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "42be91a8f4ec744e",
+    "069f75cf53b693f1",
+    "a258606ae102283b",
+    "94e8a2e8f9bd3dff",
+    "abf536a3bf33371a",
+    "6f8a5b614824349d",
+    "aa83bc962411818b",
+    "171c4363f54729bd"
+   ],
+   "state": [
+    "316cade222025901",
+    "7964f9f6b05e55ad",
+    "b286e59b8e80ae81",
+    "d516fe755d377c03",
+    "503dae1530c7e045",
+    "f41b113c06cce91c",
+    "a6b7315851569858",
+    "5177f64cba698a7f"
+   ],
+   "pose": [
+    "8aa76203fdc50a56",
+    "38ace5cb80b09fe7",
+    "6f2de0d8fad327d9",
+    "0562775cc3c377d3",
+    "1921fcda22321220",
+    "492e8e0eea0092be",
+    "182528d2ae4247b3",
+    "97ef116df2828222"
+   ]
+  },
+  "fixture:rope-window-gate.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "817cee9a453009cd",
+    "8ec29fcf9b3283e1",
+    "272f7d60841b435c",
+    "f68cdac2b211a00b",
+    "e37773dc3b0ba857",
+    "f2958953a0b97da1",
+    "3f7b49363d798f5b",
+    "bd369d9fd6c66f19"
+   ],
+   "state": [
+    "5e48f7147e3b2ac5",
+    "e5be1f8a8116128a",
+    "cc4c988916628c40",
+    "2d17afe00dce0b67",
+    "0518a0963bd1313b",
+    "f93d49424695faa8",
+    "dfffe17c0abaf643",
+    "98b0a86ab51d894b"
+   ],
+   "pose": [
+    "87e1180704cc49c5",
+    "92a15250ad862c39",
+    "a97e59e684740266",
+    "a6771796c0a85ebc",
+    "a0c09c1ee4b5733e",
+    "70799d1a0e503d85",
+    "9061a64fb7c0ec72",
+    "dcd91220fd30d00f"
+   ]
+  },
+  "fixture:rope-window-transfer.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "3e892dabbec1b033",
+    "07a58ed3eb6a149c",
+    "9253fc12183f7698",
+    "32c39e3c01a3c36d",
+    "a1b3fc4c247d3513",
+    "ef229868b496f526",
+    "100548122e61020a",
+    "a148c8c64f5ef4e9"
+   ],
+   "state": [
+    "84e9b6c711e8204a",
+    "708fecb30983adc8",
+    "75de4eca52d5c6e1",
+    "5be9bb0bf316847d",
+    "f64fe92bc782072b",
+    "0e97f077bc538fc4",
+    "e8d7dd0c3ecdc67b",
+    "1e3dff185591b8e2"
+   ],
+   "pose": [
+    "ca0b6de26e56fe5c",
+    "3a8143ec45198103",
+    "19fdac79cf409dc6",
+    "58c717038af612b2",
+    "b1a31a23b150ad90",
+    "d846830b3065bfb4",
+    "8d564ccd6e58bf50",
+    "71584ee6a28137da"
+   ]
+  },
+  "fixture:rope-window-transfer.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7f095cab1c027969",
+    "1c26f0cabdc119cf",
+    "48ffb77c95b654c4",
+    "bda506e0d50a084b",
+    "8b9cc3d039a0a027",
+    "d56e4f6159b86563",
+    "ea6ca9b6e655bc72",
+    "e0004f48b33bbf58"
+   ],
+   "state": [
+    "b3fba7ad27d97de2",
+    "5df74a9db85e1cdd",
+    "9b7a6f70d76fc7e0",
+    "d6047f53e1bcfcc8",
+    "6f9a85f7188caaa1",
+    "45bc273bd9980c37",
+    "e84cbebe5b1ca120",
+    "1a37a4ee89503ced"
+   ],
+   "pose": [
+    "0f42557b4a668909",
+    "6ec9657fc9cb8f0a",
+    "c9a8f5e8d36e996c",
+    "9f74a70d9e4ed7d3",
+    "c1d3580542eef2f6",
+    "9d935aba2473d06c",
+    "6c9d8c9e37a8df64",
+    "d7252b0130b5526b"
+   ]
+  },
+  "fixture:scaffold-rbot-routes.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "ae8e661174621693",
+    "6bca83ba21a27ba0",
+    "c5fcc7321ab6f237",
+    "912f959bab0a4b59",
+    "505cdf8f9ea25296",
+    "a56575df92725ddb",
+    "92557faedd3451fe",
+    "49ed6b3aa84f1ca6"
+   ],
+   "state": [
+    "e402453bc50ab9e6",
+    "8ca41f5b06e46aef",
+    "e2a65eec9ec19916",
+    "004d91289a736b1c",
+    "87244a064ac44f2b",
+    "576e7d17e3e21942",
+    "08b7b773fe3a3b7f",
+    "5eeade5aa4dc565d"
+   ],
+   "pose": [
+    "ee88ce94532f14e1",
+    "e9081ab6508b2f40",
+    "95ca92ab60b3dafd",
+    "d7bc6c1d866366fb",
+    "84410c4a13dbb335",
+    "f3084b3bfa8b1dcd",
+    "ba40af7118ae2372",
+    "60a1f645fee73bac"
+   ]
+  },
+  "fixture:scaffold-rbot-routes.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "89fb403040267502",
+    "00bcb8b73aa5baec",
+    "281e5d5fb55bb09a",
+    "c5d5436bbf6e6ddc",
+    "1536137a22bde988",
+    "4614b1c512561c26",
+    "578a3d2ad41aa578",
+    "1c3732358288df6c"
+   ],
+   "state": [
+    "65297214405b12e3",
+    "116b0952fdde00fd",
+    "29e6bfcaec2a141d",
+    "587ca08b1dbeb5f2",
+    "0b19310a7c873190",
+    "c47dc5a7a0c8c18b",
+    "83815c1ef5dce6d3",
+    "b191782754e9cd8a"
+   ],
+   "pose": [
+    "e411ac6537455a62",
+    "c8b5a64c301a01df",
+    "2010f61a9cb18585",
+    "84473581fa0d2546",
+    "a4e118e68c8d8b9a",
+    "5a698bde9068b6b4",
+    "f0a7c1c76b5d3724",
+    "8bce44e748c719db"
+   ]
+  },
+  "fixture:single-block-pool.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7a2c7b829cde6436",
+    "91d5d5bceb6fa314",
+    "ffea57cdd6905c9a",
+    "04420bb98bc8ccee",
+    "711187851db2a31e",
+    "628c4a49b95065c7",
+    "286621c2c5806bb6",
+    "c4ddcf8d98707bfb"
+   ],
+   "state": [
+    "0e5e081e115219fb",
+    "1739ebf13088aefe",
+    "8ecdc5f0abe98532",
+    "4bad01c4565e1023",
+    "f9829b38ddca4839",
+    "1963bd59a7720a4d",
+    "d9a07ac9a4590054",
+    "d56d75528a77332f"
+   ],
+   "pose": [
+    "4f0a7b1a95bd798d",
+    "bb48ca62ed385fa6",
+    "b64e29ee271ff116",
+    "355c08fb38bf52c2",
+    "d8972739d49e89c5",
+    "f9e45ae8c010ce9d",
+    "56a3dd81d523b47f",
+    "a3e4e6ae9d757b0a"
+   ]
+  },
+  "fixture:single-block-pool.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "86dc6a3cc5b53d88",
+    "9e750fd271479375",
+    "7a383e0b42af92f1",
+    "cc527adf6916aecd",
+    "a32c7f62dd79cc7e",
+    "17156baff4ced60d",
+    "26d942c1a0002b11",
+    "e7713acf053c6739"
+   ],
+   "state": [
+    "90ec5ebe7f0843a2",
+    "0eb4326d3d86322d",
+    "4a1248f0f38fad3e",
+    "9ea9be4e04d79dc8",
+    "288d87f329de9caf",
+    "2f1690eae1eb0725",
+    "afb7350fad175a13",
+    "c58ee5473c14420a"
+   ],
+   "pose": [
+    "b40620e75ad8f2e6",
+    "b02b21daf4b03e93",
+    "353beb9fadc20b69",
+    "ef7cf13933233fba",
+    "df9b6f272c555508",
+    "52509c89729e5419",
+    "a6fd09b4d6d8d13b",
+    "4cde02a9623c667a"
+   ]
+  },
+  "fixture:small-water-prop.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "27b2fd243079fc83",
+    "f768163f213e3476",
+    "a3d5b31173643a7e",
+    "2eee50988a16b169",
+    "703ffb1b9bb66e17",
+    "ea62203f5b890537",
+    "e03f7ffaeae6cec4",
+    "e4e5937c926decf5"
+   ],
+   "state": [
+    "374c2d646cef5bcf",
+    "0a5eb2b58174f834",
+    "aca8724fa6d5c788",
+    "9bbc358dc3fc3e1d",
+    "47717ec7b5886e72",
+    "eaeed9234f92f65a",
+    "8305b26c64b54026",
+    "8536a849a534663c"
+   ],
+   "pose": [
+    "64175e81fcfbbf42",
+    "baddbfc2bdb27ba4",
+    "f041748efd187602",
+    "64125ea969ec4368",
+    "31107d75455c4da8",
+    "6748f8c846538615",
+    "4d7f830f6f8f6c8b",
+    "5d638336c9217877"
+   ]
+  },
+  "fixture:small-water-prop.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2226ed3f1efa71bd",
+    "23d565d7c6a32f42",
+    "60deac314f27e281",
+    "f2e109a3349001b4",
+    "65f26f813b158e3f",
+    "0420d691759f157e",
+    "ecd32312a99d2be8",
+    "6cf1d7cd4f857bc8"
+   ],
+   "state": [
+    "33b7aced13bdb18c",
+    "da28b1607d2d9d65",
+    "f68903954a188fee",
+    "b8be869edc979a0a",
+    "7aa9c675afb253f3",
+    "69d1ea35c8e00d47",
+    "611573e399262374",
+    "2e68ca5d96ed330f"
+   ],
+   "pose": [
+    "7138bdf0a8c4acb7",
+    "c111c4da32a92b48",
+    "e5d0f605042cac64",
+    "90a7d8df3c79671d",
+    "ba0908abe57c1d73",
+    "c1a5e092c2520651",
+    "89cf35086b9f58af",
+    "d9d35d1998245aa9"
+   ]
+  },
+  "fixture:spelunk1b-rbot-routes.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "f92b6692a6bb2d8d",
+    "9290d2b5b643f184",
+    "70e39bdb9927b19f",
+    "03b2017e88c84d10",
+    "3b3f507a92496d6b",
+    "71d71653bb1bb82f",
+    "390510ef74d9df63",
+    "c4a6e3bed114db09"
+   ],
+   "state": [
+    "d541627af797e559",
+    "aec00969f2ec450e",
+    "885501301fd43e36",
+    "7efe421be7f76eb6",
+    "081e2aa5753fb2bf",
+    "9583609a48016415",
+    "74ebc8f8d28002a1",
+    "a7c83e1763c6bb1e"
+   ],
+   "pose": [
+    "96456c78e1bb9743",
+    "5955777ee09fbfd3",
+    "d65921a2e0d7bf57",
+    "a8cb9209b8d40826",
+    "47831aff7cffa203",
+    "a83f09869c50552f",
+    "4f15cff89d7633e6",
+    "a04c96c4be668910"
+   ]
+  },
+  "fixture:spelunk1b-rbot-routes.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "021b436864e7716e",
+    "d43173b0f69701bb",
+    "5d6779ac07787527",
+    "3b1303eed5b68646",
+    "6fa75e3d0758642b",
+    "43478068e102838a",
+    "4ba3cbf62013c774",
+    "472a8f1dfd1da11f"
+   ],
+   "state": [
+    "22cee944839396c2",
+    "3227576922c7fed7",
+    "081b5a4c2c0205f6",
+    "2b77716bd9b36aa4",
+    "3e2902002e7ecf34",
+    "ca3c4a2a47ee1b7d",
+    "71e6e90ef114e9f2",
+    "ce1dd2a7e0346504"
+   ],
+   "pose": [
+    "908f9661b5a7eac9",
+    "ed8ef9e475949b96",
+    "949d94b232fa7e93",
+    "d03ca74ad1fa92a9",
+    "c373910dcfd4d6b4",
+    "0d40493c49dbcf3c",
+    "4c95c0a2eb5dffa9",
+    "2f2da3191b9490f9"
+   ]
+  },
+  "fixture:spire2-ledge-approach.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "ed3965076f7e5459",
+    "97b1ed01ce1bd0d5",
+    "5635649f9f145350",
+    "77e8819434c9f9a6",
+    "110c88b400876182",
+    "76ef491033391502",
+    "8b3454151bc3f742",
+    "f7a3c593d3650b9f"
+   ],
+   "state": [
+    "0703e197c56cd169",
+    "3798da74fed3cadc",
+    "49e1514b5f2815aa",
+    "673e91fc22dd9abf",
+    "94957906d5844af5",
+    "d4cbc910f2d55c31",
+    "bb8dbca66f2dd8ec",
+    "696f379ad57b9848"
+   ],
+   "pose": [
+    "da399cb8d0d667a9",
+    "022d872b7adb5049",
+    "8ddc0a3ff3772a44",
+    "6b389d3e36559aea",
+    "1c717392a6f87939",
+    "34a01cff44c5c2e0",
+    "50bd33653a2a45d2",
+    "046a4f5e5b1ababc"
+   ]
+  },
+  "fixture:spire2-ledge-approach.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "543a763b71dcd463",
+    "82612cd16764c0b8",
+    "8caee7a137f3ad09",
+    "3321adaa8d098127",
+    "9b9ed899efbdc62d",
+    "99e9db435a50b2cb",
+    "3967ee79c4c35aa7",
+    "133bb6856121e6bd"
+   ],
+   "state": [
+    "4c7305f9b3fae354",
+    "9cb06d40a206b3ef",
+    "a27b417bbf21583b",
+    "ad649e5994cb3573",
+    "39f6fea1964348a1",
+    "ac1bc843ba9c54a3",
+    "da3128d9203e85cf",
+    "eb305da4663799dd"
+   ],
+   "pose": [
+    "67eca83ba9d6ad25",
+    "d2154ec982fb298f",
+    "a98a6c8124a40fc6",
+    "d824cece9dcbcd3c",
+    "08cb6c07de0e924c",
+    "25752b23320ef1f8",
+    "42674be1e5fc8bed",
+    "9a86adfed01f1ab2"
+   ]
+  },
+  "fixture:switch-modes.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "3664461c293bc634",
+    "87c58d064c95e47d",
+    "20f889d22fcfbc9e",
+    "264db2dded04db76",
+    "4eed7f85654a4da4",
+    "e968c03fdd37d9e6",
+    "a2caeb7eeecd00d4",
+    "cab5ffa8601c99fc"
+   ],
+   "state": [
+    "15a5d7b1466d50ee",
+    "ef21210977057e29",
+    "c5e606808464955f",
+    "9f252b7caa847afb",
+    "1c862d7e0639a5c0",
+    "cf5bf2fe620aa243",
+    "5309fde3f3ff52ef",
+    "855d2643b847e5e6"
+   ],
+   "pose": [
+    "22b9aef031fc3ce0",
+    "2e7de515eed85919",
+    "c0c750cfb5f27c9e",
+    "0334b8d4ee75333b",
+    "a467358709d1b67b",
+    "8ed1515522c9ec98",
+    "96957ac5a2a645a1",
+    "542ad91b6d17ea49"
+   ]
+  },
+  "fixture:switch-modes.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "27fe0dc9b6314bdc",
+    "c6e946e4ac7d30fb",
+    "4023a94ed9126671",
+    "87fed5b8691e7a39",
+    "82282436d041334f",
+    "579baf6361531bac",
+    "869a1c477de82bf0",
+    "f0330c698b93828d"
+   ],
+   "state": [
+    "e761a6f37035454b",
+    "ad724e0d9cd12e37",
+    "64f1ef21b757e336",
+    "ba6e4e7656acdc79",
+    "57829e46282d0fd4",
+    "7f7d2af96fbed997",
+    "ac94579dd6d5c6e3",
+    "65261bf0929d7524"
+   ],
+   "pose": [
+    "e2ba756aca3ad50c",
+    "920655df610be4a1",
+    "eafd09a18169dbae",
+    "947afc7d3a336be4",
+    "b555e6c51188c2b7",
+    "a6087700da115ef0",
+    "090288e713b47c6f",
+    "db1abc9097b45be9"
+   ]
+  },
+  "fixture:uninvited-rbot-routes.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "aafe70e823fd38e3",
+    "d3add557c02bd600",
+    "fd7be5c425edcbcb",
+    "de0f0df9fe770e50",
+    "5287175fb225a386",
+    "596dcbe271cd84ba",
+    "0bb64328a738c4e0",
+    "65820a423049c851"
+   ],
+   "state": [
+    "a46e6705bbd7c0f6",
+    "0706bef26bf16239",
+    "b577ca94b4218896",
+    "750d94473642784c",
+    "f3c1afe08e049a7a",
+    "9633a96f9cf21a77",
+    "8c8cfe5e2e5ac509",
+    "ad995751eb1ea19c"
+   ],
+   "pose": [
+    "ae10a418f90985f5",
+    "fd96f7cfcdd55994",
+    "3180b421fcd113d9",
+    "a70c9e8a28016380",
+    "cc9de8dd1727d9d4",
+    "439c0a9a4f3ce8d6",
+    "ad5f563b7b9b7c4f",
+    "6c3cb6ebc8882b4e"
+   ]
+  },
+  "fixture:uninvited-rbot-routes.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b2d6af15a461a4fc",
+    "b63fdf598509cf22",
+    "f9f861e7272ff68d",
+    "11755a676e500fd7",
+    "5559a222598a127f",
+    "5169432570f1c879",
+    "b930ed2906a90913",
+    "b7cf1a442ec12123"
+   ],
+   "state": [
+    "0eb3564434e0d797",
+    "0540609d57df4913",
+    "e73bc9b9831079e8",
+    "9e948d857fcee025",
+    "43e7ea7a0f533830",
+    "6cd25dba3f30b5bd",
+    "f73f75f8fc79405c",
+    "4c2a1ae4956d0d50"
+   ],
+   "pose": [
+    "147a5d156b4a4053",
+    "6cefade150be5a86",
+    "56806021a320b5bf",
+    "ca724c16435f251c",
+    "80faf8b41ad9ee4c",
+    "f64a20344cbd1f04",
+    "c69ed03d8681442c",
+    "0ef4eef9022cb2b4"
+   ]
+  },
+  "fixture:walk-off.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "dabd9311c375c8d1",
+    "e67294bd422a6bc2",
+    "99c36c8fbfe6a050",
+    "fafcf48d7231c605",
+    "347af4a88aa6b854",
+    "2a2d5f27c03f384f",
+    "6e7ddf25b18c9d07",
+    "7a2db1e11a56d960"
+   ],
+   "state": [
+    "40e2657540aff089",
+    "e54de63fdc2e8773",
+    "49ad9d06a7a61ca8",
+    "524e58688e6ad411",
+    "b895dc3fac77de3c",
+    "a74e7964e327f050",
+    "e46f84d0dc02b4db",
+    "97ff6034ec3dcc4b"
+   ],
+   "pose": [
+    "bd9c93e146c79055",
+    "0b0a7401e5a26993",
+    "bf12bf65b19a4d63",
+    "2f54f6aec344651b",
+    "041586f2e15c17c8",
+    "0957bbc7436f7321",
+    "fd9bb6945520a4c8",
+    "8d7555927def4153"
+   ]
+  },
+  "fixture:walk-off.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "69a8e465a68b0d19",
+    "81df047afae400a0",
+    "340e0c5d2f95b697",
+    "4e11759f90da9f0a",
+    "6438a87327ddf48d",
+    "78e073b367f3d6a6",
+    "bd687f2459345138",
+    "d0098166cd2b1d88"
+   ],
+   "state": [
+    "2ea2c0f77cc41dff",
+    "9bc68e3743220278",
+    "519ca8445cba99c7",
+    "1f6afe1671fdcdf1",
+    "3adf7109bd92b2b8",
+    "25571f03063b2791",
+    "899172724f936879",
+    "a04fb1301d75a466"
+   ],
+   "pose": [
+    "218b15575c7d11ec",
+    "f35aa377e8d00cde",
+    "f1f624460949b21d",
+    "0e96df89e1303357",
+    "fd5dc0d883dfd077",
+    "d5645077e401ef07",
+    "d5b278d582f97d49",
+    "a2e51bdd1507c5ac"
+   ]
+  },
+  "fixture:water-reservoir.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "5251b80558e276a5",
+    "ff7de94434cf7b38",
+    "82541c4746435878",
+    "01c98099a5e34bc5",
+    "d86223476462fa97",
+    "f980eebdaa1f3527",
+    "d61d036e73f5c6a6",
+    "ebd0b7b6e039fdc5"
+   ],
+   "state": [
+    "1d8ff4e53059b21f",
+    "9ff60a9ef913f603",
+    "e756b2ff765a308a",
+    "8dd533b8ea10dd83",
+    "187ec32dad62a4ca",
+    "450a460df81ef1cb",
+    "384d8e175a0f58bf",
+    "929fd5358f26fb8a"
+   ],
+   "pose": [
+    "2de656a05b1d64cd",
+    "78c606a6f507d222",
+    "7ad6e8a6392ac657",
+    "877b89ebaf452794",
+    "3be2dfda312c51c7",
+    "4f434eec6572cc5d",
+    "c5c2491a743eeb26",
+    "554f44fae51cd692"
+   ]
+  },
+  "fixture:water-reservoir.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "4c9e62cd39b7a37e",
+    "548706b730dd3b44",
+    "02a5085856f366b9",
+    "9c79339aec858384",
+    "6a9819903ce0efc9",
+    "e7176b5008f2123f",
+    "5eb640d9db501af1",
+    "0c387c90e6c1c798"
+   ],
+   "state": [
+    "777847fe47097b68",
+    "d049fa2889b85041",
+    "48936bba4bb847db",
+    "f6054a1bf455345f",
+    "fc42085963e94f7e",
+    "298285e98a6a63bd",
+    "80cbd0c8cd449450",
+    "191a756b80147e3c"
+   ],
+   "pose": [
+    "48dc0d0981b21fc1",
+    "a633268fbd7efbef",
+    "570333cf2f272121",
+    "ce23272bd29d019d",
+    "e21939798074f950",
+    "9008c9a6b3ef321b",
+    "0a285ee17d34c448",
+    "ec95fcf348522058"
+   ]
+  },
+  "fixture:water-tunnel.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b07ae7634c83e9f1",
+    "a8fffde784ee55f0",
+    "1b297e61d8f29357",
+    "e4832d5f2a6be36c",
+    "518087ea159c65c5",
+    "71d1062a1efb738b",
+    "3daccbe39df5cca9",
+    "685fa10fa9bcc1f4"
+   ],
+   "state": [
+    "aa0b586e1f621bcb",
+    "a8c264e9ef7b6552",
+    "037b3943762634e9",
+    "211e6d6ddc82c616",
+    "edc13b05a6436959",
+    "a0f5feee54a605af",
+    "67e5bce9c36c51b3",
+    "67577528744a1323"
+   ],
+   "pose": [
+    "285aa0af2bab4fed",
+    "00d574ebef41b7a7",
+    "43b690b15fb3a1f5",
+    "42468449b87d3cd2",
+    "41152d0fae133bf9",
+    "9beb8a8a544e4458",
+    "58736bf1a060e346",
+    "bd226507cf4d24cb"
+   ]
+  },
+  "fixture:water-tunnel.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "99ac9abdd1fd80f9",
+    "6d707da286dcf6bd",
+    "234a5ee601c91161",
+    "12bfc97a066377ab",
+    "27f792a76ec5c37f",
+    "7ec849140b876b9b",
+    "bb7ae6838c0beaa5",
+    "03f9bdceed8472aa"
+   ],
+   "state": [
+    "3cc0153855b8dbb2",
+    "26419cf406104124",
+    "3c46b68aacdfb54f",
+    "d4f2acf97dd260c2",
+    "0c1c9a4f06b0a636",
+    "5f3bd2bd270efee2",
+    "5fd97b80c323d8e4",
+    "68f92467bc4b8185"
+   ],
+   "pose": [
+    "c38280276f1eb908",
+    "eebc47cdb0d427af",
+    "7bd575c57708eea7",
+    "8e3eeb28ccc2732e",
+    "8401e56c9e219736",
+    "ef98c1cc8a189aeb",
+    "4029d315f0cb7580",
+    "df092cabb5e0c8d3"
+   ]
+  },
+  "fixture:waterline-ii-rbot-water.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "18420b72773d4dc1",
+    "184ef60b01f27607",
+    "16f90a58dd33c5f8",
+    "8666a694fc37fabe",
+    "58d19abd98afddc3",
+    "b0acccc2e24a5a31",
+    "0533b274d1e1c4be",
+    "1645e4a7a6394278"
+   ],
+   "state": [
+    "1281751859e3092d",
+    "faa316b58d46de84",
+    "24e6330ffb86cd51",
+    "a216f52474e384e2",
+    "2ede201d4d729cd1",
+    "6651f212cec5e7d2",
+    "e054b3b8b9e31c7f",
+    "6da69602db429870"
+   ],
+   "pose": [
+    "b4981e71f8b50d7f",
+    "af714d8e7abaad38",
+    "abbc4f627db092f3",
+    "5ee715e2ba73f574",
+    "8398a1d2019c5dd5",
+    "a517628ddee48b82",
+    "88d876fca630e066",
+    "116c096e48b5077a"
+   ]
+  },
+  "fixture:waterline-ii-rbot-water.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2521dfff2ef5836b",
+    "4aa345adc8e39c50",
+    "fd2fbaac9e8d46be",
+    "4d16383c0f71eefe",
+    "d229b2825843464a",
+    "6b8715a7f3676a9b",
+    "6c0638dfd21d6afe",
+    "676d3a43483a7916"
+   ],
+   "state": [
+    "9dba4f1806b39313",
+    "11d6a0b1022266e6",
+    "9bee7ce94d1ed00d",
+    "c17a8a628a71c8eb",
+    "17f7c1f2372b326c",
+    "29456b5553e6c297",
+    "123c855a379f9651",
+    "f24253d1f287631a"
+   ],
+   "pose": [
+    "d356bd53fff8f30e",
+    "5cf98b691ca6988e",
+    "b56e099173297fdc",
+    "98c5ee7391f5aff0",
+    "a650c76f9ca866b0",
+    "79407b7971c441fe",
+    "4eec48d005733b63",
+    "15637738d6bc57d1"
+   ]
+  },
+  "hsj.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "80a4072d09c3bb68",
+    "bc6bd9b86c461f4c",
+    "8345bf3b6176b40f",
+    "33dd4249e9fe52ba",
+    "572ec5379f8f0178",
+    "0318ee461e8d7b83",
+    "f3f329fcac579fc7",
+    "c08557d14e042b24"
+   ],
+   "state": [
+    "e5e3b41d6ed1abc1",
+    "e816e2d147c09bd9",
+    "1474762de406d7fb",
+    "86887f31a032109b",
+    "909de4c61f901ab8",
+    "78ae791053f053a9",
+    "fee03c59f593e501",
+    "a3139114a3d267c6"
+   ],
+   "pose": [
+    "d77ba44b094b9d0a",
+    "f785f789654a1a55",
+    "f182fdbd4a92a2c6",
+    "a525e00a8ca386bf",
+    "de215ef6d18ab006",
+    "e07556a73d7dc741",
+    "166d6f057c2ba275",
+    "3ed620fa616f66c7"
+   ]
+  },
+  "hsj.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "3a5c3ffdc3eba920",
+    "9b2f0e6c667f36a5",
+    "1fb0889a4f38e229",
+    "f3b9708058f0e26f",
+    "9ccc6fd02422ca0b",
+    "b020911ab49aa94a",
+    "a79146b1fd456275",
+    "216774c6f37d02fb"
+   ],
+   "state": [
+    "882b23814a1de88b",
+    "d94ddf1b0d910169",
+    "072fb572dbed0ffb",
+    "e50b574697935653",
+    "a8d2c161c6687dbb",
+    "4692eb0ba418865e",
+    "4d547ab552ddcf64",
+    "6802fb101ef581bd"
+   ],
+   "pose": [
+    "bbe4d24aca4649ed",
+    "5c52df04cb609307",
+    "57d224df18917d1c",
+    "c6bd8865ab0d1a73",
+    "2339a39939752331",
+    "1c6fae8b032da23a",
+    "cce8543095866c72",
+    "aa3578775f855b44"
+   ]
+  },
+  "hsj2.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c07c3c55a53ed986",
+    "b9a93a8dacf16e55",
+    "3004fe9a07093f29",
+    "9b80354d050ea0b6",
+    "eb60e6c348ce4494",
+    "c236787f1801715d",
+    "43ae7e144e671f30",
+    "57db8799da946740"
+   ],
+   "state": [
+    "6acdff7c9e57ba7d",
+    "2a48cc281495c91d",
+    "c093d3c060ed46e4",
+    "383a72de0788f989",
+    "92d6f38ff143fcbf",
+    "067faf1e17da7ebe",
+    "c1d3453e284a7acb",
+    "eef255b3f339cca3"
+   ],
+   "pose": [
+    "97a82fb96a0a5d25",
+    "2e4863317eb6ec82",
+    "e7dd943dd0ae87a2",
+    "f2059d554581d016",
+    "deef86b232445ee9",
+    "7467988f5bce0dd5",
+    "3b3360855f7a6c58",
+    "d2a2a421781c9134"
+   ]
+  },
+  "hsj2.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "db0a73f487361fb6",
+    "0551e2b04faa789c",
+    "b08b4478f9f6e4a0",
+    "3d000d810e099684",
+    "6c970b12c85ad1a2",
+    "b7b8beaea216036a",
+    "5ef4e90cabe1df08",
+    "0c1c8885974c9ee3"
+   ],
+   "state": [
+    "b9caf0abfda2d675",
+    "963e35cee42b5112",
+    "d28f609eb01931e9",
+    "64440703f9d7cda8",
+    "28a4f64cb38d5266",
+    "d2a5029427587ebe",
+    "dcf890dd53bb74df",
+    "8370aef8d5cd0cbf"
+   ],
+   "pose": [
+    "bdaeb97f654dc088",
+    "c585020c324bdb18",
+    "3590866a67a3181a",
+    "d426e2b409c69e3c",
+    "4692e0f12c99d397",
+    "224b86d5919550c7",
+    "2cfbcacdb81b3c5a",
+    "ac37ff74b98ca33f"
+   ]
+  },
+  "jk.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "102418522763bb43",
+    "f985524e4b07e0ce",
+    "c17e74834a79d4b8",
+    "6df74e8a903d6aa9",
+    "c78426d7a19d464b",
+    "98f3fdf03b1bbad1",
+    "8140111f47a44b54",
+    "be7f02ccb48a5c8c"
+   ],
+   "state": [
+    "fa39f8867b9c7ed6",
+    "178145b710265959",
+    "9dfc2990b3092304",
+    "cd3563c434b51976",
+    "1b2f573dc0e9d6a5",
+    "da3868386403d53b",
+    "ac2e7e86e1aa9ea5",
+    "56084db7c6ef4b32"
+   ],
+   "pose": [
+    "a7e5aee393516e2b",
+    "4aac410ae4ee6025",
+    "092bb7b1a7de9ae9",
+    "5f096bed7426a2f1",
+    "e76c4ea29a1e0f33",
+    "248f57820c5ea76f",
+    "a1ac4273f6e6e8ad",
+    "9db4a9cf3e99e604"
+   ]
+  },
+  "jk.jump-level.json|medal-route": {
+   "ticks": 1795,
+   "finished": true,
+   "physics": [
+    "5cc7449a3540864f",
+    "1801723386b63cc7",
+    "4016f5be23117f12",
+    "be1ea5a7850fc966",
+    "a3b15deeef720d0c",
+    "f5a7439768571646",
+    "5b69efc81cc35ff7",
+    "e48a3426ec185c9d",
+    "758d51e19a81c0a9",
+    "f46b2c73e068ff81",
+    "3af6bc7efb0e16b9",
+    "06d887876a046782",
+    "5bb0d933c4ae0307",
+    "641afafe97701ff0",
+    "b1c7b782a4dcccf6"
+   ],
+   "state": [
+    "bf7d7ceba21154b8",
+    "f82e0d065cf6e465",
+    "b71b35b9d8cbb513",
+    "4364ec9840fbc84f",
+    "53aaddcf87bd4326",
+    "32f2157acaf60e43",
+    "1e7da2949cdc20f5",
+    "f7249bd81974a148",
+    "9c82ed33eb75da70",
+    "f43914b095f61cb9",
+    "a16f369ec64ce0ab",
+    "6ef2319d3d4f9547",
+    "5d51423f172b39e7",
+    "b9cf42d2592ba6d0",
+    "543ccbb414ed77b5"
+   ],
+   "pose": [
+    "fca594d921cc2086",
+    "6768bd80e741ded3",
+    "f8ba875b0bf5e186",
+    "c0f0e8da17b99400",
+    "df78f2875ba54512",
+    "3843385d91851e60",
+    "2d3d9fc947adedf1",
+    "abc46ff4c2ec65e6",
+    "dcd00e74efb31816",
+    "7e9f41faed41c02b",
+    "5a2616c0643dc4a6",
+    "3d675218b510a061",
+    "50f36d23eb33c4b3",
+    "2e3b8ec040c8148f",
+    "7e8933a7c8ba72d1"
+   ]
+  },
+  "jk.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "538200dbb8f7221f",
+    "47b4062be256df04",
+    "3454545e7b6c8014",
+    "9d00a7d2a4a72135",
+    "1a3bcff86215fbcb",
+    "912fe177175fca12",
+    "a6de3b961c0690e0",
+    "9074cc3d8d3d0f7b"
+   ],
+   "state": [
+    "337107e84fb44179",
+    "35744a62ff5fad3d",
+    "33dc6fca17bef1f1",
+    "963fa4fdd1a8dc22",
+    "95410b7674c8dc67",
+    "7e27b1212f151bbc",
+    "5b124d56a84b40a9",
+    "c6518baa463e85e6"
+   ],
+   "pose": [
+    "39cf73c4c9c48335",
+    "86af078929a02b79",
+    "3dd7384f42d474bd",
+    "d452e314922d628c",
+    "1aaaafb092575721",
+    "e170937d8a262afc",
+    "8e02b26365b09751",
+    "7eee0a70a0a451e9"
+   ]
+  },
+  "lockout1.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d5c69006126c0255",
+    "bf4294a6b2b68a82",
+    "68019d2ce20e82be",
+    "dd5c973ba260c13e",
+    "934941e65776fa46",
+    "f1a0928b199c49bd",
+    "613243ada0e74258",
+    "2b690f4ec83db397"
+   ],
+   "state": [
+    "fe2fbb7b76ed690b",
+    "633fa71047bf0386",
+    "d4c0802ca9321877",
+    "b73d00d82abb8e62",
+    "b5d7f122c7df8baf",
+    "d44009aa950e4425",
+    "32d0431f4a9ee1c8",
+    "65848803164a1332"
+   ],
+   "pose": [
+    "f4163617a585d7e8",
+    "dc864659588813e8",
+    "a0de21f4539d22c8",
+    "9ab42cee58a03c16",
+    "fcf727d077e966d9",
+    "d68b82e3bc827731",
+    "d5e1d1eed8ae1194",
+    "f26a4e169b3bd3a3"
+   ]
+  },
+  "lockout1.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "8d15ce7990c4dd5a",
+    "632351a8b17cf420",
+    "647220e41a1c469d",
+    "ec023f96d7e376cf",
+    "18210a395af663e0",
+    "fb29035584deec33",
+    "ac96ee5f85bfc782",
+    "17c3723ec7dc99ae"
+   ],
+   "state": [
+    "b585ff655da845e0",
+    "600a81f363fd5331",
+    "727ee7c68b920a49",
+    "0501ccfabb2e9e9c",
+    "6083c353939fe8bf",
+    "437faaf517cf461e",
+    "3152a16b9d683c34",
+    "8da25456fcfe4c0f"
+   ],
+   "pose": [
+    "05ad324749e23bf3",
+    "6d25444493e6f52e",
+    "486ab827861038a6",
+    "a758a50a1c25620d",
+    "5385196196038b34",
+    "1847c6e93bbbc3d5",
+    "4f0598d698cfd32d",
+    "9f2b5dcccef6a771"
+   ]
+  },
+  "nine.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "004d119e0b7a4d4f",
+    "e36d80b1131b66fd",
+    "5fd7bc462a479f39",
+    "9712bbf7566b3fa8",
+    "11db3fea7830ce41",
+    "b35b5b628f9e6769",
+    "f8e312fe48e87d62",
+    "f77173a0f9afa850"
+   ],
+   "state": [
+    "65b5dffc1304e247",
+    "850e252543918bd5",
+    "d4640e05c03f96d7",
+    "bae09267676d5377",
+    "bd9e677b931be179",
+    "0cd8806864257db9",
+    "c7b9fbbe1061d8ca",
+    "bceac875aa0a89ad"
+   ],
+   "pose": [
+    "bd8f7daa70548875",
+    "2853676f6f48e7c2",
+    "fa056349e6c25c59",
+    "5f5a58a32ad909ae",
+    "145806a2b80f3af3",
+    "5fbf766211ad6e70",
+    "f550c7c32328e87c",
+    "bc49cec0a0efe798"
+   ]
+  },
+  "nine.jump-level.json|medal-route": {
+   "ticks": 602,
+   "finished": true,
+   "physics": [
+    "34ad8c9f7997d1dc",
+    "4b914a387eeb7e2a",
+    "c998418dcfaf082e",
+    "6a806fff9ec5f8bb",
+    "1a315355099a5d41",
+    "3bcc1d688727dd65"
+   ],
+   "state": [
+    "331b6baad07c3698",
+    "19aa78034ae857b5",
+    "d1ffb4db8d58d709",
+    "61a34d9ea99ddb96",
+    "ea0aed4dec39103c",
+    "ecf3874591db0867"
+   ],
+   "pose": [
+    "f09f1f54c8c1098f",
+    "0ab75700e6b0c38e",
+    "392da1023b591297",
+    "01b7ae7f80418630",
+    "1757837cf77d622f",
+    "56052aa53ef687fd"
+   ]
+  },
+  "nine.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b1adfd6207dbef0b",
+    "7fe8ebdc5d97cb4c",
+    "10090718d7b56f38",
+    "c32111e314ff7dbb",
+    "4c50dfcff105c51f",
+    "8db86c22861d2619",
+    "9e84605630c5a410",
+    "6755db17343fced4"
+   ],
+   "state": [
+    "8b0eb45d397ea2bd",
+    "55f4ab30bcdccc54",
+    "ff1e33d870a84930",
+    "2a913ad0d08bdec5",
+    "37aeae3333821f53",
+    "0a2a8bffd59c22f5",
+    "2099494267d08e3f",
+    "198d5e1ce58d9320"
+   ],
+   "pose": [
+    "af7a7ad23c3742db",
+    "19c41fa2993f6ba0",
+    "4de8a007aaae5390",
+    "c1f4011494b1c2ce",
+    "598eaaf80c196df4",
+    "7d0dca9af3678fe6",
+    "8e79979c31ba55bc",
+    "515f837a9d225cb0"
+   ]
+  },
+  "pinball.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "78f39aa9d86af4cc",
+    "de71262b6c3fe59c",
+    "af3210c159995046",
+    "d869e5613e76aed7",
+    "51f15fe740ec9ed8",
+    "1ffe8024e0394780",
+    "e7a474aec179e8b7",
+    "c5fafbbb4ba50146"
+   ],
+   "state": [
+    "ca0dbafa45574042",
+    "2eff193b62d7faa2",
+    "715cb5e87a47783f",
+    "b7a3f22778d21089",
+    "5412e59f38e3910e",
+    "a6f898018c07bdf4",
+    "3050237ba9a181df",
+    "e1ef77c6b743b3b7"
+   ],
+   "pose": [
+    "44295a5199099c4c",
+    "f47b01e395690588",
+    "554e9f0aa334475b",
+    "374ff70b80a7c78e",
+    "9b873528dca020e2",
+    "5b252626d6351feb",
+    "6bcb3be04f76cc18",
+    "386ec9b34674557a"
+   ]
+  },
+  "pinball.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "886c78ed61073666",
+    "13d6983965907f01",
+    "b4eba79e7c536191",
+    "ebafc40f74e11f61",
+    "b2d83777f2c75b24",
+    "1d119f1b48703add",
+    "66d78a85c011b257",
+    "bd2cbd121f96edde"
+   ],
+   "state": [
+    "5c32177e28233752",
+    "c0e05e1277e3be3d",
+    "0168bb7a06e54b04",
+    "958f15ef56998a19",
+    "1d8685cea43c590b",
+    "a97fe2a2c853c6a4",
+    "43800d56c01a72a6",
+    "088813813b870c36"
+   ],
+   "pose": [
+    "9da01b5b0fea66a0",
+    "3e545c7e7545771b",
+    "77178007f04a5cd5",
+    "41f21d6aeb64da55",
+    "4908ae9102ba6efc",
+    "c7406cbd442c7ffd",
+    "804f76bbe6c8ce61",
+    "a6c446573b807a4e"
+   ]
+  },
+  "rampingup.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b6eb35906494baea",
+    "b449af77bda34089",
+    "0d5d1ec4aaeb8e0a",
+    "5bc4bfbbd71da6b3",
+    "7fe4872cd18f921c",
+    "09e4b7cf6e47a523",
+    "644464317c5e2b52",
+    "ce5d0bb3450aafdb"
+   ],
+   "state": [
+    "1b94f1f5d1e17874",
+    "9c0be5df518f4838",
+    "a5a98906e03016dc",
+    "819ba5c32212a692",
+    "0b803e413f20d341",
+    "a4c35213803a3fc4",
+    "a55e606bf1342c62",
+    "4e393fc96b0ef4d8"
+   ],
+   "pose": [
+    "da8a7738027cc8f6",
+    "f02ed85ac1d8dd97",
+    "7ec776115c29827f",
+    "a71b3e429b098b93",
+    "9d197b5c53f2ab26",
+    "3cf3846c4712af1a",
+    "bfe0c8d7ef4bec0d",
+    "28b7e77abf3752c7"
+   ]
+  },
+  "rampingup.jump-level.json|medal-route": {
+   "ticks": 5705,
+   "finished": true,
+   "physics": [
+    "2284082cb6e913fe",
+    "60e9b5737d2ba8f7",
+    "8c2afcf4c8f06ec6",
+    "3b40ad5ef0ec8ae2",
+    "82a9315a79512fe9",
+    "5f1a2ee82b9f0429",
+    "71e86846a05983bb",
+    "acf8e3e2fc143637",
+    "1e681336d851f11b",
+    "dcf3efdbb0cd653a",
+    "07f77e36d415ce73",
+    "1b72cb7a47e1f955",
+    "1f763f6e6dc93b8f",
+    "8306a0d4480e68d9",
+    "093ef19b6407fded",
+    "36df21ed49ff5335",
+    "fdaf6f16705191f2",
+    "466ef484c754b3d7",
+    "aa606f66a0ff6a67",
+    "6c5ea0d00d47a9c1",
+    "158b6bdfee374515",
+    "75acef0fb9157073",
+    "f6195c49cea95cd6",
+    "3fb4b58a54ae9a33",
+    "f6a7be78426c63e4",
+    "b338cc19dbcdcde0",
+    "ace5d0ddac262afa",
+    "62e1f445d7d2c3dd",
+    "2147653b56325ec5",
+    "c6491b891dbdaa93",
+    "d7ad2ee98a011d27",
+    "f65a90fa50f77043",
+    "9ed8c39ae2a2461f",
+    "b654444d41d1cfca",
+    "d264bfc4b8168c09",
+    "27e7af7a002200de",
+    "84956ef7fb4b9020",
+    "8c1a2463dac7efa6",
+    "696eec747625016e",
+    "dde3acc7c82181f2",
+    "f94acdb828c76fb4",
+    "5601d9c8149d12d4",
+    "a824f0a06427b071",
+    "5736716fe2fd4cbe",
+    "8efb7b47b4f7adae",
+    "4344be2085400a8d",
+    "5240f8bfbe93887c",
+    "2e2f69e8b760a4db"
+   ],
+   "state": [
+    "d3d0b122075cbfca",
+    "cca599e4d7d3ce09",
+    "33d85d946d9e410d",
+    "3273ecab4c11eea8",
+    "b4a3f95e248d0f89",
+    "c3bfc6f0b68ede3e",
+    "83f10eb7e5b4a96e",
+    "87e06949f123d0ef",
+    "1b5b3954abe45e49",
+    "009bf04d16d6e766",
+    "1744b740d71d34ad",
+    "1ff22fa73488deb2",
+    "fa3758a032e4694f",
+    "8e14f6e5d76ac783",
+    "31857213ffe8e0d6",
+    "edc8d6ab3f6b4813",
+    "c9ad2cbf5fe62d61",
+    "7654a63716b548f7",
+    "17b10ffb20b865d0",
+    "61d002cda13a334f",
+    "7a8429e21ee4e37c",
+    "52f5da833952b567",
+    "dcd6e037982fd2e0",
+    "1455e6cff22fee10",
+    "b565b271c014a7bb",
+    "807a513b870c2636",
+    "8472d2e3b04c91c3",
+    "8d1dffee61503477",
+    "e031a3ee1dc28f33",
+    "1249097163233cb3",
+    "23b8476601379c19",
+    "9fc9a3c84836f8f1",
+    "8f5ad605d2e0bcef",
+    "a68885a8b5a7d259",
+    "0d5625c1f3abb958",
+    "92ea784d363470a6",
+    "005046d6a6be33dc",
+    "7747690d2f303961",
+    "35386201d62eaea1",
+    "c622801ec524ec80",
+    "5c74bceb01a00ef3",
+    "e4950a829b2f8120",
+    "c343fb340835f75a",
+    "73af71e59b676266",
+    "5547d59f240d3d40",
+    "233d1236e8caafa7",
+    "07ab2a90a46450ae",
+    "7d0f8dc5266eb9b2"
+   ],
+   "pose": [
+    "8dccc25afb2d66ed",
+    "20e96f17c0d44ef4",
+    "a9d9ddbd46363dc8",
+    "7da6140c5566dd51",
+    "7e0c4bcf87702fc4",
+    "9e1d6c5dafa944e6",
+    "fc2129ec3d95aa07",
+    "ee5e5e75f9f2c9b1",
+    "37fed8366a57e72a",
+    "d4aef5c2fa0d3ded",
+    "a88594b82b46b590",
+    "370cbee5bf24d1ac",
+    "6c163573a1b91cf3",
+    "c62ecb65934166b1",
+    "d48bf95624c3bf59",
+    "239ddb1815b5b5b8",
+    "e3238232b2a0e7ca",
+    "dda6d4962195f86b",
+    "d15f598df50fffc8",
+    "92fa9abfe5dddcbe",
+    "34fe3eb2b64890b1",
+    "86a02a8e9b21cbcf",
+    "e9f50e288351ac1e",
+    "77c67f654af6f7db",
+    "54a2789738c2d0ab",
+    "6870287348ec1ef6",
+    "037121d6bcb760e3",
+    "87b7b05b7625b6ba",
+    "c1f44fbb27c7ddda",
+    "b9cb3ac7b043d17b",
+    "fb5d7c68470ef5b7",
+    "642e8dbc3e635b9b",
+    "0b9edc809e3ca09d",
+    "6f854f079789b36a",
+    "9267b79e4ad19000",
+    "b4732637e60c70c5",
+    "8c41b71e64a6b367",
+    "f62c2605f10cc336",
+    "c63f72023ce77e22",
+    "d06ec36293431b5c",
+    "cdd3910810f5fd9f",
+    "deb4957968049eaa",
+    "dcf4811e7f33b7c8",
+    "4a39fd039847191f",
+    "e7f2d55288a93def",
+    "242db1a775d7ecf3",
+    "3662186643ad2008",
+    "c649ae8370fe9ef9"
+   ]
+  },
+  "rampingup.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "b37f74a902dd869f",
+    "00fe811d9e508ece",
+    "2dd53b881a2fcd30",
+    "0b4f764c18ef4f67",
+    "dd9cdd33ec678bc7",
+    "bf44fcc7b60761ca",
+    "80c45ba8677c085c",
+    "854acfe954650507"
+   ],
+   "state": [
+    "870b1791391c3139",
+    "81062ad6f3721ac0",
+    "990859bd75a89da3",
+    "b10f4f0ed9cb45c7",
+    "56cf6dbc4fc8507c",
+    "d9a00d3acf926bc9",
+    "56bae8a12ac0b6f9",
+    "3164805500e9d88a"
+   ],
+   "pose": [
+    "89f6759f7188d084",
+    "c8172b204d9a162e",
+    "18ad72d8681f8c08",
+    "2c64700a8e16fa3a",
+    "72b1b5b9c4e58c70",
+    "43cf9aa6d8dd502a",
+    "d43ce99f2abd34be",
+    "66a425b6b6984c9f"
+   ]
+  },
+  "scaffold1.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "f8b4719e810332c7",
+    "4f034b34549acee4",
+    "9bff15e2622eb112",
+    "106299c19b548c9d",
+    "947893c3b5a2c2c3",
+    "704d1f8be9c714a2",
+    "a5bd0d1e8cecd481",
+    "d3ea4a2d515d2fe3"
+   ],
+   "state": [
+    "488410d7ec51d8d5",
+    "7e3dcc9853d5822b",
+    "88635dfd7a90ba4d",
+    "f6608a9ab2298e0c",
+    "d8c26593decb4a5f",
+    "e110b16ed2b4029b",
+    "9b80b657d594d46c",
+    "966d4718ea1d966c"
+   ],
+   "pose": [
+    "343a8ea37c1e2940",
+    "9dcd2e85283de92d",
+    "b0dd3c6a6e172ab4",
+    "455d8b92a03459cf",
+    "aba0bd8cb3083a9c",
+    "53fb18624ab816e4",
+    "31513828c9c7bfa8",
+    "8257154057d62fc5"
+   ]
+  },
+  "scaffold1.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "1123ec2a45184a41",
+    "5797b420a31bb582",
+    "8f5ba6ddd6fc9975",
+    "f7f82e6969d623cc",
+    "c5e5d5f2065000bc",
+    "7e0157efe1834477",
+    "018e305777ae8a59",
+    "3f373629a55db424"
+   ],
+   "state": [
+    "973c6f0009c318a2",
+    "9a2f0ad4a5103e94",
+    "8f0f298efa4e143e",
+    "29c97c3f7b9843c8",
+    "21e4aee2de5a152b",
+    "cda7da8c626032f3",
+    "10d86838a75c3077",
+    "0eac7653f8fb385e"
+   ],
+   "pose": [
+    "2e627325cb8cd920",
+    "1ac52418563f33df",
+    "e6f10dc81408628c",
+    "71128e2f1e4ec21e",
+    "7ab835a9cb1ffb42",
+    "b61677d360e8cc02",
+    "dbb8d212dac2ea35",
+    "e2f226bbdcd33485"
+   ]
+  },
+  "scaffold2.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "149836b1d7798557",
+    "8962812541ffd6cb",
+    "28cfa6724da1d032",
+    "41a03791e3e07ed5",
+    "8266be1c5a3fb07b",
+    "bd21bba1d7b4468a",
+    "00d187382038e800",
+    "1e60183224c2d15c"
+   ],
+   "state": [
+    "d61e3cc2bd3d2365",
+    "1902f85fc0f832a3",
+    "3f79d784100a9955",
+    "8fb6301ed4f8623c",
+    "a96c11ca0d6231bf",
+    "6634990261af2315",
+    "23bf5cec77234363",
+    "279d5d383d60fb56"
+   ],
+   "pose": [
+    "5756c74185948526",
+    "c5593eb7bcab30c1",
+    "c3f9c1b8ecdbfccc",
+    "9acd89d54c18829c",
+    "655c051936753061",
+    "e2cb5b0575ac47ac",
+    "0150274934d40d6e",
+    "19990d864f34d3d1"
+   ]
+  },
+  "scaffold2.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d199b3130936f0ab",
+    "3405d39dc6528a71",
+    "ad07e41471092da7",
+    "8800e88467915b68",
+    "cf01aeab6534d3e0",
+    "bcf6a8eb1571e25a",
+    "6b906009ce06eccd",
+    "1d16227351287735"
+   ],
+   "state": [
+    "5531dcbb16ebc898",
+    "922e23b1c7f91e66",
+    "17426a0462a32bac",
+    "963ac18f44176d3f",
+    "db3e088d72130382",
+    "e64c122a09d5081c",
+    "2d0e6e8909aa19a7",
+    "b283bf3f20d68fae"
+   ],
+   "pose": [
+    "baa8c60c9f680736",
+    "96f4ef8888f420be",
+    "1f36f09be3accd2c",
+    "5cbc2c81cab37171",
+    "9377611d567c7d34",
+    "ea7dcab0b580b21a",
+    "fb9ec3e0040e05b1",
+    "9a0b068dabdc8dc6"
+   ]
+  },
+  "scaffold3.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "4f114f3dd932f6c6",
+    "25286dd549086d94",
+    "bcfe4462f06c6881",
+    "7affacefc2bfb1d1",
+    "19dafe44023c4360",
+    "66bbba1461611c96",
+    "1ad57fedb863f3c3",
+    "763eea791ca11cf6"
+   ],
+   "state": [
+    "c9cd34b886159fff",
+    "5ae53d8086b82f19",
+    "970fcee158880147",
+    "fe93a79d7c3e8edb",
+    "9daa960f28d16afe",
+    "1d12adb5193d6a5b",
+    "74337d4499523c68",
+    "6b5355fb77f49d4a"
+   ],
+   "pose": [
+    "6847956fd0fc6452",
+    "3225004b3fcd1c49",
+    "aed0d10b8aca9d7a",
+    "48a5cdd011477737",
+    "bfded725ec3f7033",
+    "16c2a6c6e8d74cf0",
+    "14be89590ed99ea7",
+    "28e65f40a9061d96"
+   ]
+  },
+  "scaffold3.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "ff0063bf4d59d185",
+    "231120d5b31830f9",
+    "aaeea6ec4d69cc2c",
+    "624b64432dbdacf8",
+    "b14b9e36224cd110",
+    "926e3ecde08ca13d",
+    "c6f651e434253d70",
+    "e51236798b5dbe5e"
+   ],
+   "state": [
+    "44b166c988f05949",
+    "a93a0fb631fad0ca",
+    "df7566dad804e5c4",
+    "87e426a405b2a22d",
+    "39346f3ee6a6e681",
+    "53dcbf4d90132c0a",
+    "b471de264b38b29b",
+    "b697489bf26edf0e"
+   ],
+   "pose": [
+    "7f34bed66f771d1a",
+    "521d2b2d3b99c5ff",
+    "caf5ce21aff6e503",
+    "6db484bab63d1ade",
+    "454f335e5ba0ad99",
+    "c434d6dd411ad0e0",
+    "b02aed775133b0a3",
+    "2c06c89b8451a275"
+   ]
+  },
+  "scaffold4.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "663cf689466cef8c",
+    "786e6fd2f5f06c60",
+    "d6268cc143738ca1",
+    "9ebadea98f59f6a4",
+    "2a2ad548eab48820",
+    "cb0cf26be2eb25df",
+    "575e225f92d46758",
+    "7513d35fe88c24a5"
+   ],
+   "state": [
+    "14672341bb043397",
+    "59e8019d31929bdf",
+    "57d5ce7fe581be1c",
+    "83285dc070994b61",
+    "9e04886a2a0a215b",
+    "2a2d844853e3c4e6",
+    "7f9e391d21a6ad6a",
+    "119b291165e921f0"
+   ],
+   "pose": [
+    "112dfcbcbaa47864",
+    "01fac0902f4652bb",
+    "1494da59184b71b2",
+    "38e9106810c95a72",
+    "6ed99a24494fee05",
+    "6f054b61fae5945c",
+    "c202c28a1b44ee64",
+    "db98b018dae088e4"
+   ]
+  },
+  "scaffold4.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "a5ce1f9d79de6bec",
+    "9cbcb839530e46c8",
+    "24496ecb943ed7b6",
+    "21478a918a72dbb6",
+    "c1e4f436c7259b30",
+    "2dd622cb4b1cead6",
+    "4ae63d18d22e25ee",
+    "e57e34097b9a0847"
+   ],
+   "state": [
+    "fc93927ec2ae601b",
+    "d3afe292cff9baa4",
+    "f75454b6e921d1f4",
+    "6f3a300a5a16ee3d",
+    "473bd37d0c2f4e42",
+    "ea24d203e26fdfb4",
+    "365306ffb496418c",
+    "3b7dbed4d4432626"
+   ],
+   "pose": [
+    "8b983d350deac5a8",
+    "a8ca68a4c0985afb",
+    "57d128b0561d288e",
+    "2382777d982dfd39",
+    "0ac7bf113b33447c",
+    "86749adae706e8c9",
+    "6a34c3aa745dc74b",
+    "623605b53e77b03e"
+   ]
+  },
+  "scaffold5.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "76d61b25bc070431",
+    "31328e27819fb270",
+    "3bdc4bf325efcd28",
+    "86ca05c8b1f8f5ef",
+    "da5f80566878a58c",
+    "a2cb942b8a993436",
+    "cdad17a4e8c96a55",
+    "823166e14fea766c"
+   ],
+   "state": [
+    "186bad516c5f4d4c",
+    "5e3704a99d846b0b",
+    "6b9cfa23ab482ae2",
+    "16f4765119dc3210",
+    "de64c0fe7bb2f8c3",
+    "3a9cced4255e82b5",
+    "9bf8139b26557377",
+    "8bc8ab2a59fb6851"
+   ],
+   "pose": [
+    "6ee2a4e0c0d6425a",
+    "826c6deae05258f4",
+    "d181a166ebe0748c",
+    "6a29af4c08e37306",
+    "5daa96c915e6e62b",
+    "33d01ab2e6a35bd3",
+    "b564ce04d840dd3c",
+    "90ac4a192d589bec"
+   ]
+  },
+  "scaffold5.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "17ca82e1f242b214",
+    "d9e9a6f81443989c",
+    "20417b53175c9457",
+    "158769660b699b83",
+    "22796449d2a8def3",
+    "bd90c9ce149ad90d",
+    "bd622a82aa5ac8ae",
+    "04e64e15ad8e3fe9"
+   ],
+   "state": [
+    "63aa924accd11fdc",
+    "3e2c882be6a4e9bb",
+    "f66ad5b1cd727261",
+    "0ec5775764792003",
+    "16bd11bc56ebe02f",
+    "964e8c5b3a98299c",
+    "bedf993f071204a6",
+    "ae009046387e75cd"
+   ],
+   "pose": [
+    "a1c09e60a45ef81d",
+    "2ccee029a8ac2697",
+    "d0f01cce646493b0",
+    "4707b30beefb789d",
+    "725b6fc944016462",
+    "0943d6d5cef6e8d9",
+    "aceb462e2c7dbf28",
+    "7846a02355e52394"
+   ]
+  },
+  "spelunk.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "8965cf57cbc1c86e",
+    "2947a4b370822a97",
+    "59a3eb9faff2a1a1",
+    "2a404ca2386f89b3",
+    "b9c4479cf07f404e",
+    "38a3a6716c914e54",
+    "862159e149436622",
+    "d3e611b4746b6ea5"
+   ],
+   "state": [
+    "3a9ab11e6c23b11e",
+    "5de0d2d2daf98226",
+    "06a023f40f554c20",
+    "307beb25ff8a7657",
+    "b4737bc3985bed4c",
+    "88551401ec33c7ec",
+    "190964d097e1025f",
+    "04eb38c6a91f3e91"
+   ],
+   "pose": [
+    "ac114017767a94b3",
+    "887e31d38a1d02ae",
+    "50e5238ad628c61a",
+    "e1a6ca9ae8cc5bec",
+    "115587b2ec22b3b5",
+    "79b20e360f32a360",
+    "3a2eef94bacbf293",
+    "11e3467e4385d5ae"
+   ]
+  },
+  "spelunk.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7104801fefd7b685",
+    "7a0b39cd9a2e9292",
+    "ee43d4b81b68887b",
+    "bffe88306fd3a2a1",
+    "6d9f3e19719f4254",
+    "4dbcd5dc492c5a4e",
+    "56cddcce8d2d3c52",
+    "79c8fd5aa503e8e5"
+   ],
+   "state": [
+    "8075bcb22e0de4ca",
+    "821b9c9bc9e34d6d",
+    "cd95753d4c8ff8d2",
+    "931d6d39976a222a",
+    "a69aba193e101e95",
+    "2acf702c9bd9495f",
+    "f890769732b60ea7",
+    "b571e97d8b3db68a"
+   ],
+   "pose": [
+    "d08e674dce8faf52",
+    "eb99408b23356779",
+    "106a7fd5e7e29ca8",
+    "22ad8daf3a131774",
+    "7fadedf8b12fda40",
+    "ed9008413852814c",
+    "e8e098f2299a0a76",
+    "286acea49a2d80d7"
+   ]
+  },
+  "spire1.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "bc0229ca11789656",
+    "6fd031984c92288e",
+    "1d9e29ad46a7cb71",
+    "301ce90b1362e6fa",
+    "fcbb83b985374030",
+    "22319555c303caa0",
+    "ecbef05894f22aa0",
+    "9a22cd497f019278"
+   ],
+   "state": [
+    "9edd981e4d81c6e5",
+    "bccbf8ed28254932",
+    "0e3f8f2ea670e964",
+    "e642ddc575c4fd4d",
+    "12580ac77fabc175",
+    "13e85bb4cfc8a147",
+    "4e2d74b8c0712274",
+    "9392b8c79166bef0"
+   ],
+   "pose": [
+    "043f49351f345aad",
+    "bd19a2150dfabd78",
+    "b75beae6925480e7",
+    "fd900bea7eb08d3e",
+    "550bc99f3be4eabc",
+    "095d6141423e8894",
+    "ec7e4b7fe39ebf09",
+    "50cf6afe748401d0"
+   ]
+  },
+  "spire1.jump-level.json|medal-route": {
+   "ticks": 4454,
+   "finished": true,
+   "physics": [
+    "87148202d7373d97",
+    "814a5635fe25bad9",
+    "53a0e2d185968457",
+    "2bc443472a2de77b",
+    "0c9e953ab3d86450",
+    "1fb9d52a46bcaf73",
+    "a1196bb01fb54a58",
+    "e052d950258c7b37",
+    "2ef7cd7f0302a0a0",
+    "c4f4d4e5d6923800",
+    "8ea44b725af571f4",
+    "752f87de0a9bab2c",
+    "830c86d2bd61fc95",
+    "e6d0f677c52d83ad",
+    "deff853b5c540813",
+    "41d33498b508622d",
+    "b8c84974f8d3ecb1",
+    "c31b5ef16844d5ea",
+    "41c2026f127379d8",
+    "a8cb5bb94970d754",
+    "46902c055284ce5f",
+    "e0fd501e79bcde53",
+    "c1c00719510f7953",
+    "cc2572a5a8cf0f4a",
+    "389229b9616c604d",
+    "421dce622d6cb443",
+    "d7d4240ad6dd97de",
+    "9c6216802ef43c4e",
+    "1fa6368cdfefc315",
+    "608be130ab63de7e",
+    "f14db920dd904d9b",
+    "6c9855c993cfaa55",
+    "6d592fb79b553086",
+    "1edfd19c0ea37a66",
+    "80d5dd258bd4fb4d",
+    "bb797bfd762fff23",
+    "d763c088a2481bd0",
+    "8d3fc07216e7d3d3"
+   ],
+   "state": [
+    "3b6e186c8ad664b8",
+    "946b73699eeece31",
+    "c183e2a44222c28f",
+    "a60a683b026a5219",
+    "a572cc866248dea4",
+    "d3c9d3c2a94eafe5",
+    "ec0ee7418f2ac22b",
+    "c1bda61271fc33f2",
+    "3a35750eab3627e2",
+    "873cd468939089b6",
+    "5e398526919ae2da",
+    "2229ba6ab424df21",
+    "eab33b0cad2d76b4",
+    "9e64c43eb84417d4",
+    "20dfa383a4e01c17",
+    "025cbf75498c2810",
+    "ed8eb4c1110a01e1",
+    "929ec115abb67e21",
+    "329b0a701bb2ee0d",
+    "023d5b3d32f4de13",
+    "ddfb45c127899ca8",
+    "e1365fb13c4cefd9",
+    "69ff1170f787d78f",
+    "596125b36e1aac2c",
+    "cf55b6a58f4de4c6",
+    "e018ee1d6c730974",
+    "e1998403c94f8597",
+    "5f337fc76c21f95e",
+    "f088ac0f1a406939",
+    "748723ca38e0fc10",
+    "7ac60dd17e793f44",
+    "13f792b3c149a598",
+    "6cecdc9ca87b5827",
+    "dc7e07a1af92645b",
+    "ed9820c42a222c3e",
+    "c27b1c7daf5465e2",
+    "53ed5eade531beff",
+    "9e810eef7f420c33"
+   ],
+   "pose": [
+    "2e085e2082d277dc",
+    "6c2d75afe75bb979",
+    "83038ec7cc803c24",
+    "4b56d50e273689b9",
+    "cbe3f1f9bf7f1e50",
+    "eb38e8ba565e2d92",
+    "8c52ecdec3e5fca2",
+    "60d21350b23a1429",
+    "cce3167138f9efa1",
+    "e3964d77e298cad3",
+    "94b268d3d3c37053",
+    "f3e16ab3c14abdbb",
+    "0146474bc6861e73",
+    "4cb2ce35c67e0b4e",
+    "4def7db77bddffbd",
+    "e6463a106eef85f6",
+    "69178ad99572a599",
+    "f1e1a5108a0deb44",
+    "961df89db3a71403",
+    "b9ef0bf683591e95",
+    "ad75b2600671b654",
+    "37f721319dac02c9",
+    "1dc10f8267c83a1c",
+    "e82fcb2888b76bd5",
+    "6a02c1ffe1daa63b",
+    "38f721b3c0723ca7",
+    "b1a995d33e9ebdb7",
+    "c4901496b80afb50",
+    "1c4b77d9e9409dfe",
+    "cbabf6f4dd3d4579",
+    "8feaa2c97ecb7a2f",
+    "1be4c4f54401317e",
+    "520a4e0d6aa71797",
+    "958dbdc89c8f06f4",
+    "14d57eb27030afd4",
+    "aad38b0b78e54a79",
+    "b5e0578ffd548b3f",
+    "6fc2d7b36f0a03a6"
+   ]
+  },
+  "spire1.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "c18adc186ac2226d",
+    "cc3100ecaa1335b7",
+    "c48e0bb4d2ea808c",
+    "6def2166244b37d5",
+    "a827414fc59e3684",
+    "97a26cea8f691d99",
+    "1100226bb713166e",
+    "79292c187d15d08e"
+   ],
+   "state": [
+    "4f1637beeea0f0cd",
+    "dd7d736d9e38ddb3",
+    "730c322075154c9e",
+    "97c1dab2fce650c0",
+    "47771596de1bfc79",
+    "f8f416d74ca09d0b",
+    "c9637fe3ea207948",
+    "fe7f272c8ad24ce1"
+   ],
+   "pose": [
+    "d6d67a909b063cec",
+    "c2bd206022be2a88",
+    "f8eab35609ec3c56",
+    "cf942d7b2b0eea98",
+    "a125a6e8e7960e76",
+    "965db4de0a5d9507",
+    "810f374ea4bcc3d0",
+    "0076f5d5e29efee4"
+   ]
+  },
+  "spire2.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7eaafc873af78764",
+    "00d689d096651fee",
+    "7cc096990dfa2ee4",
+    "3cbd4b749eb9dc8e",
+    "6b009bf1fdd41d5e",
+    "18a72e192327aba9",
+    "f8d2b71a4c880b51",
+    "1e633ede1fadce04"
+   ],
+   "state": [
+    "42a06bfa57163bc5",
+    "28d182cb653d8c3a",
+    "6c38d91fbf625b7b",
+    "a1029eb12197eaeb",
+    "ef3e87141e0b7f06",
+    "3d7d60b62c7acb69",
+    "229e887ff94eb12c",
+    "1fa8c36796897b34"
+   ],
+   "pose": [
+    "fe12fea99279ffc7",
+    "ceef81223a96c2ce",
+    "4913035811ffd562",
+    "3728ab835654d489",
+    "d2044ac9153fc8a8",
+    "ad08fdb4db88134d",
+    "5c3a4451b3789bb3",
+    "c61b1f9ae752df00"
+   ]
+  },
+  "spire2.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "682825ff19719842",
+    "2c0578bfa766e648",
+    "e0583e5f6afc1166",
+    "6c0eef50d6fccc76",
+    "cd7b80d6100bf79b",
+    "6645b105c9d1ce61",
+    "8842e688fdf7dc56",
+    "2bed1d73722a2444"
+   ],
+   "state": [
+    "0afb021177e1557b",
+    "a6819fcb0e14ef8a",
+    "7e7a716086882faa",
+    "85dfa9b0ef4de013",
+    "a901efccf1872df2",
+    "828d13c775b013b0",
+    "2c9f0de04ad55641",
+    "e82e065dbda285c5"
+   ],
+   "pose": [
+    "df4b84da4ec3cac0",
+    "f4a9eaf32455d1df",
+    "50d3870184dc6549",
+    "cd522f380455c9f1",
+    "17fd1a639036179a",
+    "d796812d0aedd20e",
+    "40e0c67eef5488e7",
+    "91533c08ff860720"
+   ]
+  },
+  "world1.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "e697a146a546bc2f",
+    "0a752e78d4df2369",
+    "aa0b24a3ec602c47",
+    "ef5673a6f5ca98f5",
+    "f463339a054b2319",
+    "1d95d05d9d4952ce",
+    "39c516a4156c158f",
+    "14f5b1238ed1a1a4"
+   ],
+   "state": [
+    "e8f19c17cf8a9f32",
+    "d4dcf9c1bf28f71a",
+    "acae8ae45dda3c87",
+    "dd4d001ed047b532",
+    "f3f573e57fa64848",
+    "d9127503b82bdac7",
+    "2c2d2c71ef61e18c",
+    "99f6d94fc57dae2a"
+   ],
+   "pose": [
+    "bf1f2f989b24010a",
+    "ac7b437b9f722ab1",
+    "08f85aeed92afb02",
+    "c26d7ee51e474721",
+    "d6b6ade192d0db7a",
+    "e1240bf9ac3c7eb3",
+    "dc5bcd99da04ed71",
+    "e2c8d316e51f9e24"
+   ]
+  },
+  "world1.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "a8e75e333fc36a3d",
+    "133861a9e20817d6",
+    "d14dc4b45c2d1436",
+    "52f6a854208ee278",
+    "476c4d94b434bb89",
+    "4a8d69a1cbe4b2ce",
+    "4c702837e2a22d9c",
+    "780e7dddde9813c4"
+   ],
+   "state": [
+    "3e0d9548a0377132",
+    "e4486237bd6b39cd",
+    "66313fbb33fe1241",
+    "77a45e308f6c7f4c",
+    "37a448fbe60f5f25",
+    "efa0df24fa995e57",
+    "de786bb1145471ac",
+    "5fce6613864a2681"
+   ],
+   "pose": [
+    "ad214a5f952a0e92",
+    "e493d93e05d6d37f",
+    "974c5de48e29174f",
+    "343bd1e54f8fd3dc",
+    "b9985441bfcd64b7",
+    "1341f7766267bc2e",
+    "113c8e1c0ec150b4",
+    "02bdf1214e637dbf"
+   ]
+  }
+ }
+}

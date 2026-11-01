@@ -69,7 +69,7 @@ test('actual tap, hold, running jumps and short drops transfer smoothly into rea
       // Supported sprint swing feet legitimately travel more than five units
       // per tick. Their motor anchors are covered separately; flight and the
       // first support frame retain the tighter whole-rig continuity bound.
-      for(let j=0;j<current.length;j++)if(!wasGrounded||!p.grounded||j<10&&(p.gait?.air??0)>.6)assert.ok(distance(previous[j],current[j])<5,`${mode}, ${facing}, inverted ${inverted}: joint ${j} snapped at ${i}`)
+      for(let j=0;j<current.length;j++)if(!wasGrounded||!p.grounded||j<10&&(p.anim.gait?.air??0)>.6)assert.ok(distance(previous[j],current[j])<5,`${mode}, ${facing}, inverted ${inverted}: joint ${j} snapped at ${i}`)
       for(const arm of [pose.frontArm,pose.backArm])for(const [x,y] of handOutline(arm)) {
         assert.ok(!terrain.some(b=>pointInside(b,p.x+x*p.facing,p.y+y*orient)),'the visible palm must stay outside support')
       }
@@ -81,7 +81,7 @@ test('actual tap, hold, running jumps and short drops transfer smoothly into rea
       previous=current
     }
     assert.ok(lifted&&landed&&prepared,`${mode} needs actual flight, pre-contact preparation and support`)
-    assert.ok(p.footwork.feet.every(foot=>foot.planted),'the final stance comes from the contact motor')
+    assert.ok(p.anim.footwork.feet.every(foot=>foot.planted),'the final stance comes from the contact motor')
     assert.equal(p.hang,null);assert.equal(p.climbing,null)
     if(mode==='tap')assert.ok(peak>45&&peak<60)
     if(mode==='hold'||mode==='run')assert.ok(peak>150&&peak<220)

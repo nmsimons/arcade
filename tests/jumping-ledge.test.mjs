@@ -137,7 +137,7 @@ test('a real catch settles into wall bracing or a straight hang, then stands wit
       if (wasClimbing && p.grounded) {
         didStand = true
         landmarks(pose).forEach((point, i) => assert.ok(distance(worldPoint(point), previous[i]) < .05, `standing must continue the final climb pose: ${distance(worldPoint(point), previous[i])}`))
-        assert.ok(p.footwork.feet.every(foot => foot.planted))
+        assert.ok(p.anim.footwork.feet.every(foot => foot.planted))
       }
       previous = landmarks(pose).map(worldPoint)
     }

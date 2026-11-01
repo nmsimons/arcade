@@ -380,3 +380,27 @@ test('Rbot steps off beside a player occupying the ladder landing and resumes th
   assert.ok(climbed); assert.ok(bot.shots, `stopped at ${bot.x}, ${bot.y}`)
   assert.ok(bot.actor.grounded && bot.actor.contacts?.support?.collider.id !== 'player')
 })
+
+test('a robot or person boarding a ladder below a climber is not its top deck', () => {
+  // Quarantine: a repulsor boarding a tall ladder under a still player pulled
+  // the player down onto its head. The ladder ends beside its deck, so no
+  // platform crosses it, and the robot's body was taken for the landing.
+  for (const body of [{ id: 'robot:0:0', robot: {} }, { id: 'player' }]) {
+    const terrain = [{ x: 420, y: 200, w: 480, h: 100 }, { x: 0, y: 800, w: 1000, h: 100 }]
+    const s = { p: createPlayer({ x: 400, y: 800 }), terrain, ladders: { ladders: [{ x: 400, top: 200, bottom: 800, platform: -1, side: 1 }], ropes: [] },
+      world: staticContactWorld(terrain) }
+    advance(s, 2.5, { climb: true }); advance(s, .3)
+    assert.equal(s.p.climbing?.kind, 'ladder', body.id)
+    const held = s.p.y
+    assert.ok(held < 600, `${body.id}: the climber is well above the ladder's foot`)
+    // A body a little taller than a person, standing at the ladder's foot.
+    const hull = { x: 385, y: 730, w: 30, h: 70 }
+    s.world = { platforms: [...terrain, hull], colliders: [...s.world.colliders, { ...body, platform: hull }] }
+    advance(s, .5)
+    assert.equal(s.p.climbing?.kind, 'ladder', `${body.id}: the grip holds`)
+    assert.ok(Math.abs(s.p.y - held) < .01, `${body.id}: the climber stayed at ${held}, not ${s.p.y}`)
+    // The deck beside the ladder's top is still its exit.
+    advance(s, 8, { climb: true })
+    assert.ok(s.p.grounded && Math.abs(s.p.y - 200) < .01 && s.p.x > 420, `${body.id}: stopped at ${s.p.x}, ${s.p.y}`)
+  }
+})

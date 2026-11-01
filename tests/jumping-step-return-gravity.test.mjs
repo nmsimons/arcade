@@ -15,7 +15,7 @@ test('return preparation reflects and restores its live palms during reversed-gr
   level.props[0].y=100+size
   level.gravityPlates=[{id:'reverse',x:0,y:0,w:1200,h:750,gravity:-1,power:'always'}]
   const run=createRun(level)
-  Object.assign(run.player,{inverted:true,gravity:-TUNING.gravity,footwork:null})
+  Object.assign(run.player,{ inverted:true, gravity:-TUNING.gravity, anim: { ...run.player.anim, footwork:null } })
   run.props[0].vx=side*480
   let previous,previousWrists,wasForce=false,maximum=0,prepared=0,interrupted=0,step=0,airReady=0
   for(let tick=0;tick<180;tick++){

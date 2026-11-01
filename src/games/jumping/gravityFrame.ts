@@ -81,7 +81,8 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     if (!value || seen.has(value)) return
     seen.add(value)
     if (value.slope !== undefined) value.slope = -value.slope
-    for (const palm of value.palms ?? []) { palm.y = -palm.y; palm.ny = -palm.ny }
+    // The presented push and the push rig can share palms from the same contact.
+    for (const palm of value.palms ?? []) if (!seen.has(palm)) { seen.add(palm); palm.y = -palm.y; palm.ny = -palm.ny }
   }
   const footwork = (value: Footwork | null) => {
     if (!value || seen.has(value)) return
@@ -92,7 +93,7 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
       for (const state of [foot.release, foot.settle]) if (state) { state.y = -state.y; state.angle = -state.angle }
     }
   }
-  const caught = (value: { y: number; vy: number; footwork?: Footwork | null; pushing?: Player['pushing']; ledgeReach?: Player['ledgeReach']; climbing?: Climbing | null; waterMotion?: Player['waterMotion']; releaseTurn?: Player['releaseTurn'] }) => {
+  const caught = (value: { y: number; vy: number; anim?: { footwork?: Footwork | null }; pushing?: Player['pushing']; pushRig?: Player['pushing']; ledgeReach?: Player['ledgeReach']; climbing?: Climbing | null; waterMotion?: Player['waterMotion']; releaseTurn?: Player['releaseTurn'] }) => {
     if (seen.has(value)) return
     seen.add(value); value.y = -value.y; value.vy = -value.vy
     if (value.releaseTurn && !seen.has(value.releaseTurn)) {
@@ -112,8 +113,9 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
         for (const hand of value.waterMotion.ceiling.hands) { hand.y *= -1; hand.ny *= -1 }
       }
     }
-    if (value.footwork) footwork(value.footwork)
+    if (value.anim?.footwork) footwork(value.anim.footwork)
     if (value.pushing) hands(value.pushing)
+    if (value.pushRig) hands(value.pushRig)
     if (value.ledgeReach && !seen.has(value.ledgeReach)) { seen.add(value.ledgeReach); value.ledgeReach.y = -value.ledgeReach.y }
     if (value.climbing) climb(value.climbing)
   }
@@ -158,7 +160,7 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     p.wallBrace.normal[1] = -p.wallBrace.normal[1]
     p.wallBrace.wallY = -p.wallBrace.wallY!
   }
-  footwork(p.footwork); hands(p.pushing); hang(p.hang)
+  footwork(p.anim.footwork); hands(p.pushing); hands(p.pushRig ?? null); hang(p.hang)
   if (p.climbing) climb(p.climbing)
   if (allRopes) for (const value of p.ropes ?? []) rope(value)
   if (p.releaseTurn) { p.releaseTurn.angle = -p.releaseTurn.angle; p.releaseTurn.target = -p.releaseTurn.target }

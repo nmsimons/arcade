@@ -94,7 +94,7 @@ for (const dt of [STEP, 1 / 30]) test(`a resting bobbing box carries a rider and
   for (let i = 0; i < Math.round(TUNING.waterBobPeriod * 2 / dt); i++) {
     stepRun(run, NEUTRAL_INPUT, dt); ys.push(p.y)
     assert.equal(p.contacts.support?.collider.prop, b)
-    assert.equal(p.footwork.feet.every(f => f.planted), true)
+    assert.equal(p.anim.footwork.feet.every(f => f.planted), true)
     assert.ok(Math.abs(p.y - b.y + b.size) < .001, 'the visible rider follows the real top surface')
     assert.ok(p.contacts.motion.speed < .05, 'carrying does not trigger steps')
     assert.ok(Math.abs(b.angle) < .001)

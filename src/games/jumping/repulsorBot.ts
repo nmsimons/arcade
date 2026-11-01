@@ -7,7 +7,6 @@ import type { Player, Platform } from './model.ts'
 import { bodyIntersects, bodyPolygon, lineBlocked } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { pulseHit } from './gadgets.ts'
-import { athletePose } from './athlete.ts'
 import { repulseProp } from './propPhysics.ts'
 import { ballShape, boxShape, propHeight } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
@@ -27,6 +26,8 @@ import { BOT_AIR_SPEED_SCALE } from './botMovementTuning.ts'
 import { repulsePlayer } from './actorImpulse.ts'
 import { advanceShove, beginShove, BOT_SHOVE_WINDUP, canShove, SHOVE_RECOVERY, shoveReaches } from './shove.ts'
 import { AWAKENING_SECONDS } from './goal.ts'
+import { athletePose } from './athletePose.ts'
+import { physicsView } from './gameplayPose.ts'
 export { repulsePlayer, REPULSOR_BOT_IMPULSE } from './actorImpulse.ts'
 export { botLastHeard } from './botHearing.ts'
 
@@ -46,7 +47,8 @@ export function createRepulsorActor(x: number, y: number) {
 
 /** The same horizontal proportion transform is used by artwork and the muzzle. */
 export function repulsorBotHand(robot: RobotState) {
-  const actor = robot.actor!, pose = repulsorBotPose(actor, athletePose(actor)), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
+  // Firing decisions use the physics rig, so the robot's animation cannot steer them.
+  const actor = physicsView(robot.actor!), pose = repulsorBotPose(actor, athletePose(actor)), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
   const flip = actor.inverted ? -1 : 1, angle = Math.atan2((arm.end[1] - arm.joint[1]) * flip, (arm.end[0] - arm.joint[0]) * actor.facing)
   const dx = Math.cos(angle), dy = Math.sin(angle), palm = arm.hand ?? arm.end
   const scale = repulsorBotWidthScale(actor), length = Math.hypot(dx * scale, dy)
@@ -234,7 +236,7 @@ function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: Conta
     undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE, airFacing: 'travel', water: run.water })
   airborneFacings.set(actor, actor.facing)
   // A blocked shove must not freeze an EMP-disabled body in its incoming run pose.
-  if (actor.grounded && (actor.contacts?.motion.speed ?? Math.abs(actor.vx)) < .01) actor.gait = gaitPose(0)
+  if (actor.grounded && (actor.contacts?.motion.speed ?? Math.abs(actor.vx)) < .01) actor.anim.gait = gaitPose(0)
   robot.x = actor.x; robot.y = actor.y; robot.vx = actor.vx; robot.facing = actor.facing; robot.angle = actor.groundAngle
   if (actor.grounded && Math.abs(actor.vx) < 1 && Math.abs(actor.vy) < 1) actor.shoveDrift = false
 }

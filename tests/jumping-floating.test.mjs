@@ -162,14 +162,14 @@ for (const dt of [STEP, 1 / 30]) for (const crouch of [false, true]) test(`divin
   assert.equal(grounded, true); assert.equal(releasedContact, false, 'buoyancy and the Down motor retain one continuous support')
   assert.ok(maxRoot - minRoot < 1e-7); assert.ok(maxHead - minHead < .1, 'resting on the floor does not bob the torso')
   assert.equal(run.player.waterMotion.bottom, 1); assert.equal(run.player.crouching, crouch)
-  const stride = run.player.stride, phase = run.player.waterMotion.phase
+  const stride = run.player.anim.stride, phase = run.player.waterMotion.phase
   for (let i = 0; i < Math.round(.5 / dt); i++) stepRun(run, hold, dt)
-  assert.equal(run.player.stride, stride, 'stationary feet do not step'); assert.equal(run.player.waterMotion.phase, phase, 'no traveling stroke at the floor')
+  assert.equal(run.player.anim.stride, stride, 'stationary feet do not step'); assert.equal(run.player.waterMotion.phase, phase, 'no traveling stroke at the floor')
   const x = run.player.x
-  const footAnchors = run.player.footwork.feet.map(f => f.anchorX)
+  const footAnchors = run.player.anim.footwork.feet.map(f => f.anchorX)
   for (let i = 0; i < Math.round(1 / dt); i++) stepRun(run, { ...hold, move: -1 }, dt)
   assert.ok(run.player.x < x - 60); assert.equal(run.player.grounded, true); assert.ok(Math.abs(run.player.vx) <= TUNING.swimHorizontalSpeed + .01)
-  assert.ok(run.player.stride !== stride || run.player.footwork.feet.some((f, i) => Math.abs(f.anchorX - footAnchors[i]) > 14), 'steps follow actual underwater floor travel')
+  assert.ok(run.player.anim.stride !== stride || run.player.anim.footwork.feet.some((f, i) => Math.abs(f.anchorX - footAnchors[i]) > 14), 'steps follow actual underwater floor travel')
   for (let i = 0; i < Math.round(.6 / dt); i++) stepRun(run, NEUTRAL_INPUT, dt)
   assert.equal(run.player.grounded, true); assert.equal(run.player.crouching, false); assert.equal(run.player.y, 920, 'release stands on the bottom with neutral buoyancy')
   for (let i = 0; i < Math.round(.6 / dt); i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true }, dt)
@@ -624,7 +624,7 @@ for (const dt of [STEP, 1 / 30]) test(`a drifting and bobbing floating box in wa
     assert.ok(Math.abs(p.x - b.x) < .001, 'rider remains above the same material point')
     assert.ok(Math.abs(b.angle) < .001, 'a centered weight cannot invent a rocking torque')
     assert.ok(p.contacts.motion.speed < .05, 'carried motion does not become walking')
-    assert.equal(p.footwork.feet.every(f => f.planted), true)
+    assert.equal(p.anim.footwork.feet.every(f => f.planted), true)
     assert.ok(Math.hypot(...athletePose(p).shoulder.map((v, i) => v - shoulder[i])) < .1, 'the balanced pose does not snap while being carried')
     assert.ok(Math.hypot(p.x - previous.x, p.y - previous.y) < dt * 115, 'no carry teleport')
     travel += Math.abs(p.x - previous.x); previous = { x: p.x, y: p.y }
@@ -644,11 +644,11 @@ test('gentle floating-box rocking carries planted feet through rotation without 
     b.vx = 20; b.vy = 20 * Math.cos(i / 120); b.angularVelocity = .15 * Math.cos(i / 60)
     stepRun(run, NEUTRAL_INPUT)
     assert.equal(p.contacts.support?.collider.prop, b)
-    assert.equal(p.footwork.feet.every(f => f.planted), true)
+    assert.equal(p.anim.footwork.feet.every(f => f.planted), true)
     assert.ok(p.contacts.motion.speed < .05)
     const pose = athletePose(p)
     assert.ok(Math.hypot(pose.shoulder[0] - previous.shoulder[0], pose.shoulder[1] - previous.shoulder[1]) < .5)
-    for (const foot of p.footwork.feet) assert.ok(Math.abs(foot.groundAngle - b.angle) < .001)
+    for (const foot of p.anim.footwork.feet) assert.ok(Math.abs(foot.groundAngle - b.angle) < .001)
     previous = pose; tilt = Math.max(tilt, Math.abs(b.angle))
   }
   assert.ok(tilt > .05, 'the fixture actually changes the support angle')

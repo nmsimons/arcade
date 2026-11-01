@@ -115,7 +115,7 @@ test('the JSON test lab exercises all geometry, attachments, saved rope paths an
   const run = createRun(level), original = createRun(level)
   for (let i = 0; i < 120; i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true })
   assert.equal(run.triggers[0].active, true); assert.equal(run.mechanisms[0].active, true); assert.ok(run.mechanisms[0].y < level.mechanisms[0].y)
-  Object.assign(run.player, { x: 2740, y: 1400, grounded: true, footwork: null })
+  Object.assign(run.player, { x: 2740, y: 1400, grounded: true, anim: { ...run.player.anim, footwork: null } })
   for (let i = 0; i < 120; i++) stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.triggers[1].active, true); assert.equal(run.mechanisms[1].active, true)
   assert.equal(run.mechanisms[2].active, true); assert.ok(run.mechanisms[2].x > level.mechanisms[2].x)

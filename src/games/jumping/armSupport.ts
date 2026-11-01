@@ -1,4 +1,4 @@
-import type { Player } from './model.ts'
+import type { Player } from './characterTypes.ts'
 import { climbGait } from './climbables.ts'
 import { climbFrame, ladderMantleProgress, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME } from './ledge.ts'
 
@@ -32,20 +32,20 @@ export function rightArmSupporting(p: Player): boolean {
     return climbGait(c.distance, c.rope?.definition.length, c.ladder ? c.ladder.bottom - c.ladder.top : undefined).hands[hand].planted
   }
   if (p.wallBrace?.active && p.wallBrace.hands[hand] > .01) return true
-  if (p.contacts?.push?.hands && p.pushing?.palms?.[hand] && (p.pushing.load ?? 0) > .01) return true
+  // The motor's push rig, never the presented one, decides a loaded palm.
+  if (p.contacts?.push?.hands && p.pushRig?.palms?.[hand] && (p.pushRig.load ?? 0) > .01) return true
   const motion = p.waterMotion
   if (motion?.ceiling && motion.ceiling.amount > .01 && motion.ceiling.load > 0 && motion.ceiling.hands[hand]) return true
-  // The dive recovery plants the front palm; the other arm remains available.
-  if (!hand && motion?.landing && !motion.landing.leaving && motion.landing.time < .54) return true
   const recovery = p.freeFall?.recovery
   return recovery != null && recovery >= .18 && recovery < .48
 }
 
-/** Keep the ordinary traversal/reach pose even when its hand is between grips.
- * An explicit, legal aim may use that free hand; passive carry never replaces it. */
+/** Keep the ordinary traversal pose even when its hand is between grips.
+ * An explicit, legal aim may use that free hand; passive carry never replaces it.
+ * Gameplay reads this, so it uses physical state only, never animation. */
 export function rightArmAnimating(p: Player): boolean {
-  return rightArmSupporting(p) || !!(p.climbing || p.hang || p.mantle || p.ledgeReach
-    || p.pushing && Math.max(p.pushing.amount, p.pushing.ready ?? 0) > .001
+  return rightArmSupporting(p) || !!(p.climbing || p.hang || p.mantle
+    || p.pushRig && Math.max(p.pushRig.amount, p.pushRig.ready ?? 0) > .001
     || p.wallBrace && p.wallBrace.hands[p.facing < 0 ? 1 : 0] > .001
-    || p.waterMotion?.landing || p.waterMotion?.ceiling || p.releaseTurn || p.freeFall || p.ragdoll)
+    || p.waterMotion?.ceiling || p.releaseTurn || p.freeFall)
 }

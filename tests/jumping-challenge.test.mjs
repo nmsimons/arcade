@@ -62,7 +62,7 @@ test('elevators carry the player and reverse above them without crushing or trap
   weightPlate(level)
   const run = createRun(level), lift = run.mechanisms[0]; run.started = true
   Object.assign(run.player, { x: 760, y: 890 }); advance(run, 320); assert.equal(run.player.y, 590)
-  Object.assign(run.player, { x: 760, y: 920, footwork: null }); lift.y = 750; lift.direction = 1; lift.wait = 0
+  Object.assign(run.player, { x: 760, y: 920, anim: { ...run.player.anim, footwork: null } }); lift.y = 750; lift.direction = 1; lift.wait = 0
   advance(run, 250); assert.ok(lift.y + lift.definition.h <= run.player.y - 62 + .01)
   assert.equal(lift.direction, -1, 'contact underneath turns the elevator back upward')
   advance(run, 130, { move: 1 })
@@ -78,17 +78,17 @@ test('a thin gate rises while pressed and closes on release without crushing a p
   const run = createRun(level), gate = run.mechanisms[0], anchor = mechanismAnchor(gate.definition)
   advance(run, 180, { move: 1 })
   assert.ok(run.player.x < 600); assert.equal(gate.y, 740)
-  Object.assign(run.player, { x: 340, vx: 0, footwork: null }); advance(run, 60)
+  Object.assign(run.player, { x: 340, vx: 0, anim: { ...run.player.anim, footwork: null } }); advance(run, 60)
   assert.equal(gate.active, true)
   advance(run, 360)
   assert.equal(gate.y, anchor.y); assert.equal(gate.definition.h, 180)
-  Object.assign(run.player, { x: 610, vx: 0, footwork: null }); advance(run, 360)
+  Object.assign(run.player, { x: 610, vx: 0, anim: { ...run.player.anim, footwork: null } }); advance(run, 360)
   assert.equal(gate.active, false)
   assert.equal(gate.y, anchor.y, 'obstruction reopens the gate instead of pinning the player')
   assert.ok(gate.y + gate.definition.h <= run.player.y - 62 + .01)
   advance(run, 80, { move: 1 }); assert.ok(run.player.x > 660)
   advance(run, 420); assert.equal(gate.y, 740)
-  Object.assign(run.player, { x: 340, vx: 0, footwork: null }); advance(run, 360)
+  Object.assign(run.player, { x: 340, vx: 0, anim: { ...run.player.anim, footwork: null } }); advance(run, 360)
   assert.equal(gate.y, anchor.y)
   const restarted = createRun(level)
   assert.equal(restarted.mechanisms[0].y, 740); assert.equal(restarted.mechanisms[0].active, false)
@@ -99,7 +99,7 @@ test('a suspended elevator keeps its anchor fixed while carrying a rider through
   weightPlate(level)
   const run = createRun(level), lift = run.mechanisms[0], anchor = mechanismAnchor(lift.definition)
   run.started = true
-  Object.assign(run.player, { x: 750, y: 890, footwork: null })
+  Object.assign(run.player, { x: 750, y: 890, anim: { ...run.player.anim, footwork: null } })
   let reachedAnchor = false, returned = false
   for (let i = 0; i < 1100; i++) {
     advance(run, 1)
@@ -183,9 +183,9 @@ for (const mode of ['weight', 'touch']) for (const kind of ['gate', 'lift']) tes
   assert.equal(run.triggers[0].active, false); assert.equal(mechanism.active, false)
   advance(run, 300)
   assert.equal(mechanism.y, kind === 'gate' ? 740 : y)
-  Object.assign(run.player, { x: 340, y: 820, vy: 0, grounded: false, footwork: null }); advance(run, 1)
+  Object.assign(run.player, { x: 340, y: 820, vy: 0, grounded: false, anim: { ...run.player.anim, footwork: null } }); advance(run, 1)
   assert.equal(run.triggers[0].active, false, 'passing above a plate does not press it')
-  Object.assign(run.player, { y: 920, vy: 0, grounded: true, footwork: null }); advance(run, 60)
+  Object.assign(run.player, { y: 920, vy: 0, grounded: true, anim: { ...run.player.anim, footwork: null } }); advance(run, 60)
   assert.equal(mechanism.active, true)
 })
 test('pushers spot distant players, close the distance quickly, and repeat their attacks', () => {
@@ -211,7 +211,7 @@ test('loose crates displace players, stop at obstacles, and provide stable suppo
   const level = blankTrial(); level.props = [{ kind: 'box', x: 1000, y: 920, size: 80 }]
   const run = createRun(level); run.started = true; run.props[0].vx = 240; Object.assign(run.player, { x: 1053, y: 920 })
   advance(run, 30); assert.ok(run.player.x > 1065); assert.ok(run.player.x - 12 >= run.props[0].x + 40 - .01)
-  Object.assign(run.player, { x: run.props[0].x, y: 840, vx: 0, footwork: null }); advance(run, 240)
+  Object.assign(run.player, { x: run.props[0].x, y: 840, vx: 0, anim: { ...run.player.anim, footwork: null } }); advance(run, 240)
   assert.ok(Math.abs(run.player.y - 840) < .01)
 })
 test('a lift landing is a passable seam in either direction', () => {
@@ -251,18 +251,18 @@ for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} switche
   run.started = true
   Object.assign(p, { x: 800, y: 860, grounded: false })
   advance(run, 1); assert.equal(run.goalLit, false)
-  Object.assign(p, { x: 800 + direction * 44, y: 920, grounded: true, vy: 0, footwork: null })
+  Object.assign(p, { x: 800 + direction * 44, y: 920, grounded: true, vy: 0, anim: { ...p.anim, footwork: null } })
   advance(run, 1); assert.equal(run.goalLit, false, 'standing at the pole is not plate contact')
-  Object.assign(p, { x: door.x + door.w / 2, footwork: null })
+  Object.assign(p, { x: door.x + door.w / 2, anim: { ...p.anim, footwork: null } })
   advance(run, 120); assert.equal(run.exit, null, 'the closed hidden door is inactive')
-  Object.assign(p, { x: 520, footwork: null })
+  Object.assign(p, { x: 520, anim: { ...p.anim, footwork: null } })
   advance(run, 20); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
   const time = run.elapsed
   advance(run, 600); assert.equal(run.finished, false); assert.equal(run.exit, null); assert.ok(Math.abs(run.elapsed - time - 5) < 1e-9)
   assert.equal(run.grade, null, 'opening the door does not award a medal')
-  Object.assign(p, { x: door.x + door.w / 2, y: 800, vy: 0, grounded: false, footwork: null })
+  Object.assign(p, { x: door.x + door.w / 2, y: 800, vy: 0, grounded: false, anim: { ...p.anim, footwork: null } })
   advance(run, 1); assert.equal(run.exit, null, 'airborne passage does not enter the doorway')
-  Object.assign(p, { x: 800, y: 920, vx: 0, vy: 0, grounded: true, footwork: null })
+  Object.assign(p, { x: 800, y: 920, vx: 0, vy: 0, grounded: true, anim: { ...p.anim, footwork: null } })
   for (let i = 0; i < 120 && !run.exit; i++) advance(run, 1, { move: direction })
   assert.ok(run.exit); assert.equal(run.finished, false)
   const captured = run.exit.fromX, finishTime = run.elapsed

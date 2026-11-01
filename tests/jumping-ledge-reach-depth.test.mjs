@@ -8,7 +8,7 @@ for (const side of [-1, 1]) for (const inverted of [false, true]) {
   test(`an approaching ledge retains a folded arm before gradually reaching: side=${side}, inverted=${inverted}`, () => {
     const p = createPlayer({ x: side > 0 ? 486 : 1214, y: 442 })
     const wall = { x: 500, y: 400, w: 700, h: 80 }
-    Object.assign(p, { grounded: false, facing: side, vy: 400, gait: gaitPose(200, true), terrain: [wall] })
+    Object.assign(p, { grounded: false, facing: side, vy: 400, anim: { ...p.anim, gait: gaitPose(200, true) }, terrain: [wall] })
     if (inverted) { mirrorPlayerState(p); p.inverted = true; p.terrain = [mirrorPlatform(wall)] }
     const free = athletePose(p)
     // The approved larger palm needs a slightly different bend beside the lip;

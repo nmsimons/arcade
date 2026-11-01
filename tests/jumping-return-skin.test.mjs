@@ -17,7 +17,7 @@ test('complete returning-step skin clears the ledge and moving props, including 
    level.gravityPlates=[{id:'reverse',x:0,y:0,w:1200,h:750,gravity:-1,power:'always'}]
   }
   const run=createRun(level)
-  if(inverted)Object.assign(run.player,{inverted:true,gravity:-TUNING.gravity,footwork:null})
+  if(inverted)Object.assign(run.player,{ inverted:true, gravity:-TUNING.gravity, anim: { ...run.player.anim, footwork:null } })
   run.props[0].vx=side*480
   let loaded=0
   for(let tick=0;tick<180;tick++){

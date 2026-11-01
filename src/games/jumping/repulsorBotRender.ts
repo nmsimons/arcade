@@ -1,10 +1,10 @@
 import type { RobotState } from './challenge.ts'
-import { drawAthlete } from './athlete.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { REPULSOR_BOT_WINDUP, repulsorBotHand } from './repulsorBot.ts'
 import { repulsorBotPresentation, repulsorBotWidthScale } from './repulsorBotRig.ts'
 import { robotHeadlightPose } from './robotHeadlight.ts'
 import { ROBOT_PALETTE } from './equipmentPalette.ts'
+import { drawAthlete } from './athleteDraw.ts'
 
 /** The player's solved walk, feet, grips and arm animation with stockier proportions. */
 export function drawRepulsorBot(ctx: CanvasRenderingContext2D, robot: RobotState, powered: boolean, paint: WorldPaint, headlightFade = 0) {

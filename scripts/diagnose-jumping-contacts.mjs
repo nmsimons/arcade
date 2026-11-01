@@ -44,15 +44,15 @@ function measure(run, inputs) {
         Math.abs(Math.hypot(...limb.joint.map((v, i) => v - limb.root[i]), limb.jointDepth ?? 0) - (leg ? 15 : 10)),
         Math.abs(Math.hypot(...limb.end.map((v, i) => v - limb.joint[i]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - (leg ? 14.5 : 9)))
     }
-    for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) if (leg.planted && p.footwork && !p.mantle && !p.hang && !p.climbing) {
-      const foot = p.footwork.feet[i]
+    for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) if (leg.planted && p.anim.footwork && !p.mantle && !p.hang && !p.climbing) {
+      const foot = p.anim.footwork.feet[i]
       if (!foot.planted) result.unownedPlantedFeet++
       result.maximumPlantedAnkleError = Math.max(result.maximumPlantedAnkleError, distance(world(p, leg.end), [foot.x, foot.y]))
     }
     if (p.contacts?.push?.hands && p.pushing?.palms) {
       // Mechanical pressure is immediate during a blocked release/reach, but
       // the hands visibly establish their brace before any object travels.
-      const reaching = !!p.dryTurn?.reaching
+      const reaching = !!p.anim.dryTurn?.reaching
       if (reaching) result.reachingFrames++; else result.forceFrames++
       for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
         if (!arm.hand) { result.missingPalms++; continue }

@@ -20,7 +20,7 @@ const setup = (side, size = 30) => {
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: side === 1 ? wall : wall - 20, y: 820, w: 20, h: 100, travel: 100 }]
   level.props = [{ kind: 'ball', x: wall - side * size / 2, y: 920, size }]
   const run = createRun(level), p = run.player, ball = run.props[0], x = wall - side * 12.5
-  Object.assign(p, { x, y: platformSurface(ballShape(ball), x).y, facing: side, footwork: null })
+  Object.assign(p, { x, y: platformSurface(ballShape(ball), x).y, facing: side, anim: { ...p.anim, footwork: null } })
   run.started = true
   return { run, p, ball, wall }
 }

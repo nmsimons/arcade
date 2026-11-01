@@ -127,7 +127,9 @@ export function ropeTurnHasSupport(p: Player, gravity: number, terrain: readonly
 export function finishGravityTurn(p: Player) {
   const turn = p.climbing?.turn ?? p.releaseTurn
   if (!turn || Math.abs(turn.angle - turn.target) > 1e-6) return
-  if (p.releaseTurn?.pose && (p.releaseTurn.time ?? 0) < .18) return
+  // Every released turn captures its outgoing rig at time 0; hold the physical
+  // turn for that blend without reading the captured pose itself.
+  if (p.releaseTurn && (p.releaseTurn.time ?? 0) < .18) return
   if (p.climbing?.caught.releaseTurn && p.climbing.time < .16) return
   if (Math.abs(turn.angle) > 3) {
     p.inverted = !p.inverted; p.facing = -p.facing

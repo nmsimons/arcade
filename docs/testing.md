@@ -28,6 +28,40 @@ Run the affected checks after each fix. These test locations are included in the
 existing unit and browser CI jobs; a separate manual regression command must not
 be the only way to exercise a reported bug.
 
+## UJG golden traces and the fast tier
+
+`tests/jumping-golden-traces.test.mjs` replays fixed input scripts on every
+built-in level: two seeded explorers per level (a runner and a climber, eight
+seconds each) and every recorded medal route. Each tick it hashes three things,
+and `tests/fixtures/jumping-golden-traces.json` keeps a running hash every
+second of gameplay:
+
+- **physics:** positions, velocities, motor modes and timers of the player,
+  props, ropes, robots and mechanisms, plus run counters. Presentation blends
+  are excluded.
+- **state:** every mutable field of the run, including animation state.
+- **pose:** `presentedAthletePose` for the player and every robot actor, every
+  second tick.
+
+The simulation is deterministic, so a change that claims to preserve behaviour
+must reproduce every hash bit for bit. Never re-record physics for such a
+change. Re-record a kind only when changing it is the intent, and say which
+kind and why: `node scripts/jumping-golden.mjs --write --kinds pose`. To find a
+divergence, run `node scripts/jumping-golden.mjs --only <level>`, then
+`--print '<level>|<script>' --kinds physics --from <tick> --to <tick>` in both
+versions and diff the output; `--source <checkout>` replays another checkout's
+game code with the same scripts.
+
+`npm run test:fast` runs every UJG unit test except the stress-level routes and
+the long whole-skin acceptance sweeps, in about a minute and a half on a
+12-core machine. Run the full `npm test` before finishing a change.
+`node scripts/benchmark-jumping-simulation.mjs` times each tick and each 60 Hz
+frame (two ticks plus pose solving) per level over the same scripts; save a
+result with `--output` and compare a later run with `--compare`. On Arm Windows
+machines, install dependencies with Arm64 Node (`node -p process.arch` prints
+`arm64`). x64 Node runs under emulation there, so builds can fail and timings
+are not native.
+
 ## Game acceptance coverage
 
 Node imports the same `createGameSession` used by React. `sessionReplay.mjs`

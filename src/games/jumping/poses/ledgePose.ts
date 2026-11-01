@@ -83,7 +83,7 @@ export function prepareReturningStepPose(p: Player): AthletePose {
   const direction = preparation.direction, t = preparation.amount
   let target = athletePose({ ...p, mantle: null, hang: null, climbing: null,
     freeFall: null, sliding: null, wallBrace: null, grounded: false, landing: 0,
-    anim: { ...p.anim, dryTurn: null, slideEntry: null, footwork: null, look: 0, gait: { ...(p.anim.gait ?? gaitPose(p.vx,true)), air: 1 } },
+    anim: { ...p.anim, dryTurn: null, slideEntry: null, footwork: null, recovery: null, look: 0, gait: { ...(p.anim.gait ?? gaitPose(p.vx,true)), air: 1 } },
     facing: direction,
     // Forecast the incoming working stance. The returning step owns this
     // deliberate body repositioning; the live unloaded contact stays separate.

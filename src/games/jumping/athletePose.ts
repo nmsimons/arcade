@@ -219,6 +219,7 @@ export function resolveAthletePose(p: Player, deferLooseClearance = false): Athl
   if (p.waterMotion && !p.jumpLift && !p.waterJump) return waterPose(p)
   if (p.anim.dryTurn) return capturedPose(p.anim.dryTurn, p.facing)
   if (p.anim.slideEntry) return capturedPose(p.anim.slideEntry, p.facing)
+  if (p.anim.recovery) return p.anim.recovery.pose
   if ((p.freeFall?.amount ?? 0) > 0) return fallPose(p, deferLooseClearance)
   return locomotionPose(p)
 }

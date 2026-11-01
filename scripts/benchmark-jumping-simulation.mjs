@@ -21,7 +21,8 @@ const args = process.argv.slice(2)
 const option = name => { const at = args.indexOf(name); return at < 0 ? undefined : args[at + 1] }
 const only = option('--only'), output = option('--output'), compare = option('--compare')
 const game = await loadGame(option('--source'))
-const entries = goldenScripts(game).filter(entry => !only || entry.key.includes(only))
+// Built-in levels only by default; pass --fixtures to include the mechanism fixtures.
+const entries = goldenScripts(game).filter(entry => (args.includes('--fixtures') || !entry.file.startsWith('fixture:')) && (!only || entry.key.includes(only)))
 if (!entries.length) throw new Error(`No scripts match ${only}`)
 
 const stats = values => {
@@ -29,7 +30,7 @@ const stats = values => {
   return { mean: values.reduce((sum, v) => sum + v, 0) / values.length, p50: pick(.5), p95: pick(.95), max: sorted.at(-1) }
 }
 function replay(entry, timed) {
-  const level = game.parseLevel(JSON.parse(readFileSync(new URL(entry.file, game.levelsRoot), 'utf8')))
+  const level = game.parseLevel(JSON.parse(readFileSync(new URL(entry.url), 'utf8')))
   const run = game.createRun(level)
   game.stepRun(run, game.NEUTRAL_INPUT, game.entranceDuration(run.entrance))
   const ticks = [], frames = [], poses = []

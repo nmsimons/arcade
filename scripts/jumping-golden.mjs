@@ -26,7 +26,7 @@ if (print) {
   const game = await loadGame(source), entry = goldenScripts(game).find(candidate => candidate.key === print)
   if (!entry) throw new Error(`No trace ${print}`)
   const from = Number(option('--from') ?? 0), to = Number(option('--to') ?? Infinity)
-  traceScript(game, entry.file, entry.script, { kinds, onTick(tick, values) {
+  traceScript(game, entry.url, entry.script, { kinds, onTick(tick, values) {
     if (tick >= from && tick <= to) for (const kind of kinds) if (values[kind] !== undefined) console.log(`${tick} ${kind} ${values[kind]}`)
   } })
   process.exit(0)

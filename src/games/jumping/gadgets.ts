@@ -10,6 +10,7 @@ import { faceRobotToward, repulseRobot, robotPlatforms } from './robotPhysics.ts
 import { setPropCarried, repulseProp } from './propPhysics.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { athletePose } from './athletePose.ts'
+import { gameplayPose } from './gameplayPose.ts'
 
 export type GadgetKind = 'emp' | 'repulsor'
 export const GADGET_SIZE = 40
@@ -52,7 +53,7 @@ export function advanceGadgetDisables(run: Run, dt: number) {
 /** The same sleeve hull and forearm axis drive artwork, clearance and firing. */
 export function heldToolFrame(p: Player, tool = p.heldTool): ToolFrame | null {
   if (!tool) return null
-  const pose = athletePose(tool === p.heldTool ? p : { ...p, heldTool: tool })
+  const pose = gameplayPose(tool === p.heldTool ? p : { ...p, heldTool: tool })
   const arm = p.facing < 0 ? pose.backArm : pose.frontArm
   const flip = p.inverted ? -1 : 1
   const dx = (arm.end[0] - arm.joint[0]) * p.facing, dy = (arm.end[1] - arm.joint[1]) * flip

@@ -125,3 +125,63 @@ it touches. `model.ts` and `stepUp.ts` touch most of them; the rest are single
 reads or resets in `actorImpulse.ts`, `armSupport.ts`, `botHearing.ts`,
 `challenge.ts`, `climbables.ts`, `gadgets.ts`, `goal.ts`, `gravityFrame.ts`,
 `playerContacts.ts`, `repulsorBot.ts` and `shove.ts`.
+
+## Phase 4: gameplay reads physics, not animation
+
+Phase 4 ran before Phase 3, for the reason given above. Its test is direct:
+with every presentation pipeline switched off (dry turn, slide entry and their
+captures, footwork, gait, look, fall clearance, moving recovery, returning-step
+preparation, impact ragdoll, push anticipation and the presented push, ledge
+reach, presented water clearance and the gadget arm easing), physics hashes are
+identical to a normal run in all 175 golden traces. The golden set now includes
+34 mechanism fixture levels from `tests/fixtures/jumping/`, which caught a
+misclassification that the built-in levels did not exercise (the swimming lean
+toward a small prop changes the push hands, so it is physics).
+
+What gameplay reads instead:
+
+- **Push grip.** `p.pushGrip` records how established a real push contact is,
+  eased like the presented palms but ignoring anticipation. The swimming push
+  load, the low swimming push reach and the water-bob rest check read it. The
+  presented `p.pushing` rig is presentation only.
+- **Arm support.** `rightArmSupporting` and `rightArmAnimating` use physical
+  state: a loaded push supports a palm while its contact resists more than the
+  body moves. The presented push amount, ledge reach, water-landing palm and
+  impact ragdoll no longer gate aiming or firing.
+- **Physics rig.** `gameplayPose.ts` solves the rig from `physicsView(p)`: the
+  player with animation state, the presented push and reach, the fall clearance
+  offset, captured turn poses, the water-landing pose and the animation kept by
+  catches all at rest. The held tool frame, the repulsor robot's palm and firing
+  line, rope catches during a gravity turn, the swimming hull and hands, the
+  ceiling brace, the water-landing floor hand, the lean toward small props and
+  the hull's water clearance offset use it.
+- **Fall timer.** A steered get-up from a prone recovery now ends the physical
+  fall 0.1 s after steering begins (`freeFall.getUp`). The presented get-up
+  blend is `p.anim.recovery` and can outlast the fall.
+- **Footfalls.** Robots hear a running footfall every 40 units of grounded
+  travel, with the existing 0.2 s cooldown, instead of when an animated foot
+  plants.
+- **Turn completion.** A gravity turn waits for its own timer, not for the
+  captured pose's existence.
+- **Water clearance.** The hull keeps `waterMotion.bodyOffset`, solved from the
+  physics rig. The presented swimmer keeps its own `p.anim.waterClearance`.
+
+Behaviour against fcafc46, comparing positions and velocities over the same
+scripts: 7 of 175 traces change, all of them robot decisions or a swimming
+push. A Quarantine robot hears a footfall and starts chasing at 3.05 s; robot
+palms move the Quarantine II robot and four Rbot fixture routes (Aloft twice,
+Quarantine II force field, Uninvited); and the small-water-prop runner reaches
+its prop with a hull that no longer leans with the presented push hands. All 17
+medal routes replay with identical positions, times and grades.
+
+The gadget test that required the gameplay sleeve to equal the presented
+forearm now requires it with animation at rest, and a new test requires that
+no animation state moves the gameplay sleeve. While walking or turning, the
+drawn sleeve can sit a few units from the sleeve that collides and fires.
+
+Not verified by playtesting: robot hearing on the Rbot levels, the gadget
+muzzle against the drawn sleeve while walking and turning, small-prop swimming
+pushes, and a steered get-up's timing. The issue suggested simplified analytic
+rigs for these queries; the physics rig reuses the full pose solver with
+animation at rest instead, which keeps the poses' clearance rules. Phase 5
+measures its cost.

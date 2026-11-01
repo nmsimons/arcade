@@ -27,6 +27,7 @@ import { repulsePlayer } from './actorImpulse.ts'
 import { advanceShove, beginShove, BOT_SHOVE_WINDUP, canShove, SHOVE_RECOVERY, shoveReaches } from './shove.ts'
 import { AWAKENING_SECONDS } from './goal.ts'
 import { athletePose } from './athletePose.ts'
+import { physicsView } from './gameplayPose.ts'
 export { repulsePlayer, REPULSOR_BOT_IMPULSE } from './actorImpulse.ts'
 export { botLastHeard } from './botHearing.ts'
 
@@ -46,7 +47,8 @@ export function createRepulsorActor(x: number, y: number) {
 
 /** The same horizontal proportion transform is used by artwork and the muzzle. */
 export function repulsorBotHand(robot: RobotState) {
-  const actor = robot.actor!, pose = repulsorBotPose(actor, athletePose(actor)), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
+  // Firing decisions use the physics rig, so the robot's animation cannot steer them.
+  const actor = physicsView(robot.actor!), pose = repulsorBotPose(actor, athletePose(actor)), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
   const flip = actor.inverted ? -1 : 1, angle = Math.atan2((arm.end[1] - arm.joint[1]) * flip, (arm.end[0] - arm.joint[0]) * actor.facing)
   const dx = Math.cos(angle), dy = Math.sin(angle), palm = arm.hand ?? arm.end
   const scale = repulsorBotWidthScale(actor), length = Math.hypot(dx * scale, dy)

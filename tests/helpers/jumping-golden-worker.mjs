@@ -5,7 +5,7 @@ const game = await loadGame(workerData.source)
 const scripts = new Map(goldenScripts(game).map(entry => [entry.key, entry]))
 parentPort.on('message', key => {
   try {
-    const { file, script } = scripts.get(key)
-    parentPort.postMessage({ key, result: traceScript(game, file, script, { kinds: workerData.kinds }) })
+    const { url, script } = scripts.get(key)
+    parentPort.postMessage({ key, result: traceScript(game, url, script, { kinds: workerData.kinds }) })
   } catch (error) { parentPort.postMessage({ key, error: error?.stack ?? String(error) }) }
 })

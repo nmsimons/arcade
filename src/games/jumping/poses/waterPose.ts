@@ -3,6 +3,7 @@ import { handGeometry, pushPalmFrame } from '../androidHand.ts'
 import { WATER_LANDING_RELEASE, WATER_LANDING_TIME } from '../athleteAnimation.ts'
 import { clearAirborneFoot, clearBody, clearLimb } from '../athleteClearance.ts'
 import { athletePose } from '../athletePose.ts'
+import { physicsView } from '../gameplayPose.ts'
 import { FOREARM, MIN_KNEE_OPENING, TAU, UPPER_ARM, add, lerp, mix, mixAngle, reflectAthletePose, rotatePose, smooth, solve, solveNear, solveRear, transferPose } from '../athleteRig.ts'
 import type { AthletePose, Leg } from '../athleteRig.ts'
 import type { Prop } from '../challenge.ts'
@@ -123,7 +124,7 @@ export function waterPose(p: Player): AthletePose {
     const planted = athletePose({ ...p, waterMotion: undefined, freeFall: null, landing: 0,
       // This is the water floor-contact endpoint, including its release blend.
       // A buoyant lift must not make that endpoint adopt dry apex balance.
-      anim: { ...p.anim, gait: { ...(p.anim.gait ?? gaitPose(p.vx)), air: 0 } } })
+      anim: { ...p.anim, recovery: null, gait: { ...(p.anim.gait ?? gaitPose(p.vx)), air: 0 } } })
     pose = motion.bottom >= 1 ? planted : transferPose(pose, planted, [0, 0], motion.bottom, [0, 0], 0, true)
   }
   const propLean = motion.propLean ?? 0
@@ -158,7 +159,8 @@ export function waterPose(p: Player): AthletePose {
   }
   if (p.terrain && !p.grounded) {
     if (motion.ceiling?.amount) pose = waterCeilingPose(p, pose)
-    const cleared = clearBody(p, pose, motion.bodyOffset)
+    // Presentation starts from its own offset; the physics rig (no animation) from the hull's.
+    const cleared = clearBody(p, pose, p.anim.waterClearance?.offset ?? motion.bodyOffset)
     pose = { ...cleared.pose, waterOffset: cleared.offset }
   }
   if (pushing && p.pushing?.palms) {
@@ -227,8 +229,9 @@ export function waterPose(p: Player): AthletePose {
 /** A small convex core follows the visible head and torso through pitch/yaw.
  * Free strokes provide its construction; limb clearance never changes physics. */
 export function swimmingBodyOutline(p: Player): Point[] {
-  const motion = p.waterMotion!
-  const pose = waterPose({ ...p, terrain: undefined, ledgeReach: null,
+  // The collision hull comes from the physics rig, including its clearance offset.
+  const view = physicsView(p), motion = view.waterMotion!
+  const pose = waterPose({ ...view, terrain: undefined,
     waterMotion: { ...motion, ceiling: undefined, wall: undefined, floor: undefined } })
   const points: Point[] = []
   for (const [center, radius] of [[pose.hip, 3.7], [pose.waist, 2.8], [pose.shoulder, 2.4], [pose.head, 6.25]] as const) {
@@ -282,7 +285,7 @@ export function swimmingLedgeReach(p: Player, edgeX: number, edgeY: number) {
   if ((motion.leadHeading ?? motion.heading ?? p.facing) * p.facing < .35) return 0
   const pose = waterPose({ ...p, terrain: undefined, ledgeReach: null,
     waterMotion: { ...motion, wall: undefined } })
-  const offset = motion.bodyOffset ?? [0, 0]
+  const offset = p.anim.waterClearance?.offset ?? motion.bodyOffset ?? [0, 0]
   const edge: Point = [(edgeX - p.x) * p.facing, edgeY - p.y]
   let distance = 0
   for (const [arm, wrist] of [[pose.frontArm, FRONT_WRIST], [pose.backArm, BACK_WRIST]] as const) {
@@ -300,7 +303,8 @@ export function swimmingLedgeReach(p: Player, edgeX: number, edgeY: number) {
 export function swimmingPushHands(p: Player, prop: Prop, direction: number) {
   const motion = p.waterMotion
   if (!motion || (motion.leadHeading ?? motion.heading ?? p.facing) * direction < .35) return null
-  const pose = waterPose({ ...p, terrain: undefined, pushing: null, waterMotion: { ...motion, ceiling: undefined } })
+  const view = physicsView(p)
+  const pose = waterPose({ ...view, terrain: undefined, waterMotion: { ...view.waterMotion!, ceiling: undefined } })
   const offset = motion.bodyOffset ?? [0, 0]
   pose.shoulder = add(pose.shoulder, offset)
   pose.waist = add(pose.waist, offset)
@@ -364,7 +368,7 @@ export function waterLandingPose(p: Player): AthletePose {
   const target = landing.leaving
     ? waterPose({ ...p, waterMotion: { ...motion, landing: undefined, bottom: 0 } })
     : athletePose({ ...p, waterMotion: undefined, freeFall: null, landing: 0,
-      anim: { ...p.anim, dryTurn: null, slideEntry: null, footwork: null, gait: gaitPose(0) } })
+      anim: { ...p.anim, dryTurn: null, slideEntry: null, footwork: null, recovery: null, gait: gaitPose(0) } })
   const angle = (pose: AthletePose) => Math.atan2(pose.shoulder[1] - pose.hip[1], pose.shoulder[0] - pose.hip[0])
   let delta = Math.atan2(Math.sin(angle(target) - angle(from)), Math.cos(angle(target) - angle(from)))
   // A nearly vertical dive has two similar half-turns available. Continue

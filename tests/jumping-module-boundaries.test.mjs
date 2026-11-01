@@ -11,32 +11,41 @@ import ts from 'typescript'
 // coupling is replaced; a new pose or animation import from the simulation
 // needs a deliberate entry here.
 const root = fileURLToPath(new URL('../src/games/jumping/', import.meta.url))
-const POSE_FAMILY = /^(athleteRig|athletePose|athleteClearance|athleteAnimation|footwork|poses\/\w+)\.ts$/
+const POSE_FAMILY = /^(athleteRig|athletePose|athleteClearance|athleteAnimation|footwork|gameplayPose|poses\/\w+)\.ts$/
 const DRAWING = /^(athleteDraw|athleteShadow|androidArtwork|sleeveArtwork|render|\w+Render|\w+Artwork)\.ts$/
 const ALLOWED = {
+  // Animation started or advanced inside the movement step (Phase 3 moves these).
   'actorImpulse.ts': { 'athleteAnimation.ts': ['startImpactRagdoll'] },
   'challenge.ts': { 'footwork.ts': ['advanceFootwork'] },
-  'gadgets.ts': { 'athletePose.ts': ['athletePose'] },
   'goal.ts': { 'footwork.ts': ['advanceFootwork'] },
-  'ledge.ts': { 'footwork.ts': ['wallToeBrace'] },
   'level.ts': { 'footwork.ts': ['advanceFootwork'] },
   'model.ts': {
     'athleteAnimation.ts': ['advanceDryTurn', 'advanceImpactRagdoll', 'advanceMovingRecovery', 'advanceReturningStepPreparation', 'advanceSlideEntry',
       'advanceWaterCeiling', 'advanceWaterLanding', 'advanceWaterPropReach', 'captureDryTurn', 'captureRopeTurnRelease', 'captureSlideEntry',
-      'dryTurnDirection', 'settleFallClearance', 'settleWaterClearance', 'startImpactRagdoll'],
+      'dryTurnDirection', 'settleFallClearance', 'settlePresentedWaterClearance', 'settleWaterClearance', 'startImpactRagdoll'],
+    // Captured turn poses and the presented ledge reach; gameplay never reads them.
     'athletePose.ts': ['athletePose', 'dryLedgeReach', 'dryLedgeReachPose'],
     'footwork.ts': ['advanceFootwork'],
+    // Rope catches during a gravity turn use the physics rig.
+    'gameplayPose.ts': ['gameplayPose'],
     'poses/waterPose.ts': ['swimmingLedgeReach'],
   },
+  // Presentation computed in the step: push anticipation and the interrupted-step rig.
   'playerContacts.ts': {
     'athleteAnimation.ts': ['retainInterruptedStepPose'],
     'athletePose.ts': ['dryPreparationFacesForward'],
+    // The swimming hull and hands, solved from the physics rig.
     'poses/waterPose.ts': ['swimmingBodyOutline', 'swimmingPushHands', 'swimmingTerrainOutline'],
   },
   'propPhysics.ts': { 'poses/waterPose.ts': ['swimmingTerrainOutline'] },
-  'repulsorBot.ts': { 'athletePose.ts': ['athletePose'] },
-  'stepUp.ts': { 'footwork.ts': ['FOOT_CONTACT'] },
+  // The gameplay sleeve uses the physics rig; the displayed arm easing uses the animated pose.
+  'gadgets.ts': { 'athletePose.ts': ['athletePose'], 'gameplayPose.ts': ['gameplayPose'] },
+  // The robot's palm and firing line use the physics rig.
+  'repulsorBot.ts': { 'athletePose.ts': ['athletePose'], 'gameplayPose.ts': ['physicsView'] },
   'repulsorBotRig.ts': { 'athletePose.ts': ['awakeningPose', 'presentedAthletePose'] },
+  // Foot contact geometry and the toe brace profile.
+  'ledge.ts': { 'footwork.ts': ['wallToeBrace'] },
+  'stepUp.ts': { 'footwork.ts': ['FOOT_CONTACT'] },
 }
 
 /** Runtime (non-type) imports of a module: [{ module, names }] relative to root. */
@@ -88,8 +97,8 @@ test('simulation modules use poses and animation only through the listed couplin
 // the whole object. These are the in-step animation calls and their state
 // handling (Phase 3) and the gameplay reads of animation (Phase 4).
 const ANIM_FIELDS = {
-  'actorImpulse.ts': ['dryTurn'], 'armSupport.ts': ['ragdoll'], 'botHearing.ts': ['footwork'], 'challenge.ts': ['ragdoll'],
-  'climbables.ts': ['*'], 'gadgets.ts': ['dryTurn'], 'goal.ts': ['footwork'], 'gravityFrame.ts': ['footwork'],
+  'actorImpulse.ts': ['dryTurn'], 'challenge.ts': ['ragdoll'], 'climbables.ts': ['*'], 'gadgets.ts': ['dryTurn'],
+  'goal.ts': ['footwork'], 'gravityFrame.ts': ['footwork'],
   'model.ts': ['dryTurn', 'footwork', 'gait', 'look', 'ragdoll', 'slideEntry', 'stride'],
   'playerContacts.ts': ['dryTurn', 'footwork', 'slideEntry'], 'repulsorBot.ts': ['gait'], 'shove.ts': ['dryTurn'],
   'stepUp.ts': ['dryTurn', 'footwork', 'gait', 'stride'],

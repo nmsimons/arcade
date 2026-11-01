@@ -331,7 +331,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
           if (!body.some(contact => contact.collider === c)) {
             const nx = (palms[0].nx + palms[1].nx) / 2, ny = (palms[0].ny + palms[1].ny) / 2, length = Math.hypot(nx, ny)
             const normal: Vec = [nx / length, ny / length]
-            const amount = p.pushing?.colliderId === c.id ? p.pushing.amount : 0
+            const amount = p.pushGrip?.colliderId === c.id ? p.pushGrip.amount : 0
             const load = Math.max(0, -normal[0] * input.move * TUNING.airAcceleration) * Math.min(1, amount + dt / .14)
             body.push({ collider: c, normal, point: [palms[0].x, palms[0].y], load })
           }
@@ -464,6 +464,21 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
   })
   candidates.sort((a, b) => (a.wallX - b.wallX) * direction || a.collider.id.localeCompare(b.collider.id))
   return candidates[0] ?? null
+}
+
+/** The motor's own record of how established a real push contact is. It eases
+ * like the presented palms but ignores anticipation, so animation cannot change it. */
+export function updatePushGrip(p: Player, contact: PushContact | null, dt: number) {
+  if (contact?.passive || contact?.anticipation !== undefined) contact = null
+  if (contact?.hands && (p.grounded || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
+    const previous = p.pushGrip?.direction === contact.direction && p.pushGrip.colliderId === contact.collider.id ? p.pushGrip.amount : 0
+    p.pushGrip = { colliderId: contact.collider.id, direction: contact.direction,
+      amount: previous + Math.max(-dt / .16, Math.min(dt / .14, (contact.reach ?? 1) - previous)) }
+  } else if (p.pushGrip) {
+    const amount = Math.max(0, p.pushGrip.amount - dt / .16)
+    p.pushGrip = amount && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushGrip.direction === p.facing
+      ? { ...p.pushGrip, amount } : null
+  }
 }
 
 /** Presentation consumes the solved contact; it never moves the player. */

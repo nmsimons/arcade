@@ -298,7 +298,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
         ? push.direction * Math.max(0, Math.min(maximum, (target - b.vx) * push.direction * response))
         : Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
       const point = lowSwimPush && b.kind === 'ball' && contact ? { x: contact.point[0], y: contact.point[1] } : body.position
-      const reach = lowSwimPush ? (push.reach ?? 1) * Math.min(1, (run.player.pushing?.amount ?? 0) + dt / .14) : 1
+      const reach = lowSwimPush ? (push.reach ?? 1) * Math.min(1, (run.player.pushGrip?.amount ?? 0) + dt / .14) : 1
       Body.applyForce(body, point, { x: body.mass * acceleration * reach / propWeightScale(b) / 1e6, y: 0 })
     } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load

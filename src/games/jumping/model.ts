@@ -11,7 +11,7 @@ import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
-import { anticipatePush, constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushingPose } from './playerContacts.ts'
+import { anticipatePush, constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushGrip, updatePushingPose } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
@@ -29,13 +29,16 @@ import type { JumpInput, Platform, Player } from './characterTypes.ts'
 export { gaitPose } from './gait.ts'
 export type { GaitPose } from './gait.ts'
 import { gaitPose } from './gait.ts'
-import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceReturningStepPreparation, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, settleFallClearance, settleWaterClearance, startImpactRagdoll } from './athleteAnimation.ts'
+import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceReturningStepPreparation, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, settlePresentedWaterClearance, dryTurnDirection, settleFallClearance, settleWaterClearance, startImpactRagdoll } from './athleteAnimation.ts'
 import { athletePose, dryLedgeReach, dryLedgeReachPose } from './athletePose.ts'
+import { gameplayPose } from './gameplayPose.ts'
 import { swimmingLedgeReach } from './poses/waterPose.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athleteAnimation.ts'
 import type { AthletePose } from './athleteRig.ts'
 
 export const STEP = 1 / 120
+/** A steered get-up from a prone recovery takes this long. */
+const STEERED_GET_UP = .1
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
 interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
@@ -51,7 +54,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
     grabCooldown: 0, ladderJumpGrace: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, landing: 0, landingImpact: 0,
     freeFall: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0, waterPushOff: false,
     crouching: false, crouch: 0, reach: 0, airBoost: { x: 0, lift: 0, time: 0 }, contacts: null,
-    anim: { dryTurn: null, slideEntry: null, footwork: null, stride: 0, gait: null, look: 0, ragdoll: null }, gravity: TUNING.gravity, inverted: false, waterJump: false, swimAcceleration: 0 }
+    anim: { dryTurn: null, slideEntry: null, footwork: null, stride: 0, gait: null, look: 0, ragdoll: null, recovery: null, waterClearance: null }, gravity: TUNING.gravity, inverted: false, waterJump: false, swimAcceleration: 0 }
 }
 export function airBoostStrength(p: Player) {
   if (p.grounded || p.hang || p.mantle || p.climbing || p.waterMotion || p.wallBrace?.active || p.sliding?.active) return 0
@@ -249,7 +252,10 @@ function advanceFreeFall(p: Player, dt: number, floating = false, swimming = fal
     p.freeFall = null
   } else if (p.freeFall && p.freeFall.recovery !== null && p.grounded) {
     p.freeFall.recovery += dt
-    if (p.freeFall.recovery >= TUNING.fallRecoveryTime && !p.freeFall.moving) { p.freeFall = null; p.landing = 0 }
+    if (p.freeFall.getUp !== undefined) p.freeFall.getUp += dt
+    // Steering gets up faster. The motor ends the fall on its own clock; the
+    // presented get-up blends on in the animation.
+    if (p.freeFall.recovery >= TUNING.fallRecoveryTime || (p.freeFall.getUp ?? 0) >= STEERED_GET_UP - 1e-9) { p.freeFall = null; p.landing = 0 }
   } else if (!p.grounded && floating) {
     // Steering and gliding retain the extended rig. A quiet rest unwinds into
     // upright floating while submerged neutral control still holds the depth.
@@ -410,7 +416,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     const resting = swimStrength > .2 && swimStrength < .95 && floatDrag > 0
       && !p.grounded && !p.hang && !p.mantle && !p.climbing && !p.releaseTurn && !p.jumpLift && !p.waterJump
       && !input.jump && !input.descend && !input.drop && Math.abs(input.move) < .01
-      && (p.waterMotion?.amount ?? 0) < .05 && !p.pushing?.amount && Math.hypot(p.vx, p.vy) < 12
+      && (p.waterMotion?.amount ?? 0) < .05 && !p.pushGrip?.amount && Math.hypot(p.vx, p.vy) < 12
     p.waterBob = advanceWaterBob(p.waterBob, dt, resting, p.x)
   }
   const gravity = gravityOverride ?? (gravityField ? playerGravity(gravityField, p) + (swimStrength ? waterBobAcceleration(p.waterBob, floatDrag) : 0) : TUNING.gravity)
@@ -685,6 +691,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       if (!p.waterMotion.landing) p.waterMotion.bottom = 1
     }
     settleWaterClearance(p, dt)
+    settlePresentedWaterClearance(p, dt)
   }
   if (gravityOverride === undefined) { finishGravityTurn(p); turnToGravity(p, orientationGravity) }
 }
@@ -719,6 +726,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   // takes precedence over object preparation; do not combine two targets.
   if (!p.waterMotion && contacts.push?.hands) p.ledgeReach = null
   const preparation = contacts.push || !p.waterMotion && p.ledgeReach ? null : anticipatePush(p, input, world)
+  updatePushGrip(p, contacts.push ?? null, dt)
   updatePushingPose(p, contacts.push ?? preparation, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
   // A rolling ball remains an obstruction for the motor, but the published
   // working contacts and rig must release once the shove supplies no force.
@@ -742,7 +750,10 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   }
   // Residual flight drift or a contact correction is not a requested step.
   // Only active steering starts the faster get-up after a prone impact.
-  advanceMovingRecovery(p, dt, Math.abs(input.move) > .01 && Math.abs(contacts.motion.x) > .05, turnFrame)
+  // Residual drift is not steering; only an actual step starts the faster get-up.
+  const steering = Math.abs(input.move) > .01 && Math.abs(contacts.motion.x) > .05
+  if (steering && p.grounded && p.freeFall && p.freeFall.recovery !== null) p.freeFall.getUp ??= 0
+  advanceMovingRecovery(p, dt, steering, turnFrame)
   advanceDryTurn(p, input, dt, turnFrame)
   advanceSlideEntry(p, dt, slideEntryFrame, input)
 }
@@ -976,7 +987,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     }
   }
   if (!p.hang && !p.climbing && p.grabCooldown === 0 && !input.detach && (requestedClimb || !p.grounded)) {
-    const pose = p.releaseTurn ? athletePose(p) : null
+    const pose = p.releaseTurn ? gameplayPose(p) : null
     const point = ([x, y]: readonly [number, number]): [number, number] => [p.x + x * p.facing, p.y + y]
     const found = pose ? findRope(p, platforms, { hands: [pose.frontArm.end, pose.backArm.end].map(point), shoulder: point(pose.shoulder) })
       : requestedClimb ? climbOption : findRope(p, platforms)

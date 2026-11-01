@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 
@@ -65,16 +65,31 @@ export function exploreScript(file, profile, ticks = EXPLORE_TICKS) {
   return segments
 }
 
-/** Every built-in level gets both explore profiles; recorded medal routes are added
- * for levels that have one. Routes traverse ropes, water, props and mechanisms. */
+const FIXTURES = new URL('../fixtures/jumping/', import.meta.url)
+/** Mechanism fixture levels: small focused layouts for water props, Rbot routes,
+ * rope windows, lips and switches that the built-in levels exercise rarely. */
+function fixtureLevels(game) {
+  return readdirSync(FIXTURES).filter(name => name.endsWith('.json')).sort().filter(name => {
+    try {
+      const level = game.parseLevel(JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8')))
+      return !!level.entrance && Array.isArray(level.platforms) && Array.isArray(level.props) && !!game.createPreviewRun(level)
+    } catch { return false }
+  })
+}
+
+/** Every built-in level and mechanism fixture gets both explore profiles; recorded
+ * medal routes are added for levels that have one. */
 export function goldenScripts(game) {
   const catalog = JSON.parse(readFileSync(new URL('index.json', game.levelsRoot), 'utf8'))
   const medals = JSON.parse(readFileSync(new URL('../fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
   const routes = new Map(medals.runs.map(run => [run.file, run.trace]))
-  return catalog.levels.flatMap(file => [
-    ...Object.keys(PROFILES).map(profile => ({ key: `${file}|${profile}`, file, script: exploreScript(file, profile) })),
-    ...routes.has(file) ? [{ key: `${file}|medal-route`, file, script: routes.get(file) }] : [],
+  const builtIn = catalog.levels.flatMap(file => [
+    ...Object.keys(PROFILES).map(profile => ({ key: `${file}|${profile}`, file, url: new URL(file, game.levelsRoot).href, script: exploreScript(file, profile) })),
+    ...routes.has(file) ? [{ key: `${file}|medal-route`, file, url: new URL(file, game.levelsRoot).href, script: routes.get(file) }] : [],
   ])
+  const fixtures = fixtureLevels(game).flatMap(name => Object.keys(PROFILES).map(profile => ({ key: `fixture:${name}|${profile}`,
+    file: `fixture:${name}`, url: new URL(name, FIXTURES).href, script: exploreScript(`fixture:${name}`, profile) })))
+  return [...builtIn, ...fixtures]
 }
 
 const optional = value => value ?? null
@@ -90,7 +105,8 @@ function actor(p) {
     hang && [hang.platform, hang.side, hang.edgeX, hang.edgeY, hang.time, hang.queued, hang.braced, !!hang.dropLocked, !!hang.upLocked],
     mantle && [mantle.edgeX, mantle.edgeY, mantle.side, mantle.toX, mantle.toY, mantle.time, mantle.braced, optional(mantle.platform), !!mantle.returning, !!mantle.crouched],
     climb && [climb.kind, climb.index, climb.distance, climb.time, climb.direction, climb.swing, climb.swingVelocity],
-    p.pushing && [p.pushing.direction, optional(p.pushing.colliderId)],
+    p.pushGrip && [p.pushGrip.colliderId, p.pushGrip.direction, p.pushGrip.amount],
+    p.freeFall && [p.freeFall.time, p.freeFall.amount, p.freeFall.recovery, optional(p.freeFall.getUp)],
     p.shove && [p.shove.time, p.shove.windup, p.shove.direction, p.shove.struck], optional(p.stagger),
     p.heldTool && [p.heldTool.kind, p.heldTool.angle, p.heldTool.aiming],
     p.releaseTurn && [p.releaseTurn.angle, p.releaseTurn.target],
@@ -147,8 +163,8 @@ function staticObjects(run) {
 
 /** Replay one script, returning checkpoint hashes for the requested kinds.
  * `onTick` receives the projections for printing per-tick values. */
-export function traceScript(game, file, script, { kinds = KINDS, onTick } = {}) {
-  const level = game.parseLevel(JSON.parse(readFileSync(new URL(file, game.levelsRoot), 'utf8')))
+export function traceScript(game, url, script, { kinds = KINDS, onTick } = {}) {
+  const level = game.parseLevel(JSON.parse(readFileSync(new URL(url), 'utf8')))
   const run = game.createRun(level)
   game.stepRun(run, game.NEUTRAL_INPUT, game.entranceDuration(run.entrance))
   const statics = staticObjects(run)

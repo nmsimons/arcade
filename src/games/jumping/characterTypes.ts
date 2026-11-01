@@ -29,6 +29,10 @@ export interface CharacterAnimation {
   /** Positive looks up, negative looks down. */
   look: number
   ragdoll: ImpactRagdoll | null
+  /** The get-up blend from a prone recovery toward the moving gait. It can outlast the physical fall. */
+  recovery: { pose: AthletePose; time: number; facing: number } | null
+  /** The presented swimmer's clearance offset. The swimming hull uses its own `waterMotion.bodyOffset`. */
+  waterClearance: { offset: [number, number]; facing: number } | null
 }
 /** The animation fields a hang, climb or step retains from before its catch.
  * Poses and restores apply them over the current animation, field by field. */
@@ -47,6 +51,9 @@ export interface Player {
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
   pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
+  /** How established the physical hand contact is, from real push contacts only.
+   * The motor reads this; the presented `pushing` rig also eases toward anticipated contacts. */
+  pushGrip?: { colliderId: string; direction: number; amount: number } | null
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; outwardSlope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
@@ -58,7 +65,7 @@ export interface Player {
     ladder?: { climb: Climbing; x: number; y: number; entry: number };
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
-  freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
+  freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; impact?: { vx: number; vy: number; gait: GaitPose | null }; /** Seconds since steering began during a grounded recovery; a steered get-up ends the fall early. */ getUp?: number } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
   airBoost: { x: number; lift: number; time: number } // Presentation of applied air-control forces.

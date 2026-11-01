@@ -1,6 +1,7 @@
 // Animation state advanced by the movement step: turns, slide entry, recoveries, water presentation and the impact ragdoll.
 import { clearAirborneFoot, clearBody, clearLimb, clearSlidingJoint } from './athleteClearance.ts'
 import { articulateAnkles, athletePose } from './athletePose.ts'
+import { physicsView } from './gameplayPose.ts'
 import { FOREARM, HEAD_RADIUS, MIN_KNEE_OPENING, UPPER_ARM, add, clamp, lerp, reflectAthletePose, rotatePose, smooth, solveNear, transferPose } from './athleteRig.ts'
 import type { AthletePose } from './athleteRig.ts'
 import { FOOT_CONTACT, advanceFootwork, footPoint } from './footwork.ts'
@@ -60,7 +61,7 @@ export function captureRopeTurnRelease(p: Player): NonNullable<Player['releaseTu
  * Relax the presentation offset as space opens; drawing never changes it. */
 export function settleFallClearance(p: Player, dt: number, previousFacing: number) {
   const fall = p.freeFall
-  if (!fall?.amount || p.waterMotion || fall.moving) return
+  if (!fall?.amount || p.waterMotion || p.anim.recovery) return
   const offset = fall.bodyOffset ?? [0, 0]
   if (p.facing !== previousFacing) offset[0] *= -1
   const relaxed = offset.map(v => v - Math.sign(v) * Math.min(Math.abs(v), dt * 240)) as Point
@@ -73,23 +74,23 @@ export function settleFallClearance(p: Player, dt: number, previousFacing: numbe
  * when this handoff is complete. */
 export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean, captured?: DryTurnFrame | null) {
   const fall = p.freeFall
-  if (!fall || fall.recovery === null || !p.grounded) return
-  if (!fall.moving && !traveling) return
-  if (!fall.moving) {
+  if (!p.grounded) { p.anim.recovery = null; return }
+  if (!p.anim.recovery) {
+    if (!fall || fall.recovery === null || !traveling) return
     // The first steering press may already have changed mechanical facing.
     // Seed from the actual preceding rig, expressed in the new local frame.
     const source = captured?.pose ?? athletePose(p)
     p.anim.ragdoll = null
-    fall.moving = { pose: captured && captured.facing !== p.facing ? reflectAthletePose(source) : source,
+    p.anim.recovery = { pose: captured && captured.facing !== p.facing ? reflectAthletePose(source) : source,
       time: 0, facing: p.facing }
   }
-  const motion = fall.moving
+  const motion = p.anim.recovery
   if (motion.facing !== p.facing) {
     motion.pose = reflectAthletePose(motion.pose)
     motion.facing = p.facing
   }
   motion.time += dt
-  const target = athletePose({ ...p, freeFall: null, anim: { ...p.anim, ragdoll: null, dryTurn: null }, landing: 0 })
+  const target = athletePose({ ...p, freeFall: null, anim: { ...p.anim, ragdoll: null, dryTurn: null, recovery: null }, landing: 0 })
   const fraction = Math.min(1, dt / Math.max(dt, .1 - motion.time + dt))
   const from = motion.pose
   const points = (pose: AthletePose) => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -110,7 +111,7 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean,
     t = low; next = sample(t)
   }
   motion.pose = next
-  if (t === 1) { p.freeFall = null; p.landing = 0 }
+  if (t === 1) p.anim.recovery = null
 }
 
 /** Seed from the actual outgoing rig; impulse and pose use the same local
@@ -462,7 +463,8 @@ export function advanceWaterPropReach(p: Player, input: JumpInput, dt: number, w
     const candidates = world.colliders.filter(c => c.prop && smallSubmergedProp(c.prop)
       && (c.prop.x - p.x) * direction > 8 && (c.prop.x - p.x) * direction < 90 && Math.abs(c.prop.y - p.y) < 80)
     if (candidates.length) {
-      const pose = waterPose({ ...p, terrain: undefined, pushing: null, waterMotion: { ...motion, propLean: 0 } })
+      // The lean changes the swimming push hands, so it is solved from the physics rig.
+      const pose = waterPose({ ...physicsView(p), terrain: undefined, waterMotion: { ...motion, propLean: 0 } })
       const shoulder: Point = [p.x + pose.shoulder[0] * p.facing, p.y + pose.shoulder[1]]
       for (const c of candidates) {
         const hands = propPushHands(c.prop!, p.x, p.y, direction, -pose.shoulder[1], 70)
@@ -486,7 +488,7 @@ export function advanceWaterCeiling(p: Player, input: JumpInput, dt: number, wor
   const ascending = input.climb || (input.swimVertical ?? 0) < -.01 || p.vy < -6
   let target: NonNullable<Player['waterMotion']>['ceiling'], wanted = 0, load = 0
   if (!p.grounded && !motion.landing && (ascending || previous?.amount)) {
-    const source = waterPose({ ...p, waterMotion: { ...motion, ceiling: undefined } })
+    const view = physicsView(p), source = waterPose({ ...view, waterMotion: { ...view.waterMotion!, ceiling: undefined } })
     const x = p.x + source.head[0] * p.facing + p.vx * .04, y = p.y + source.head[1] - HEAD_RADIUS
     let nearest = Infinity
     for (const collider of world.colliders) {
@@ -544,13 +546,15 @@ export function advanceWaterLanding(p: Player, input: JumpInput, dt: number, inc
     }
     return
   }
-  if (motion.amount < .65 || motion.dive < .25 || incomingVy <= 0 || p.pushing?.amount || input.climb || (input.swimVertical ?? 0) < -.01) return
-  const pose = waterPose(p), arm = pose.frontArm
+  if (motion.amount < .65 || motion.dive < .25 || incomingVy <= 0 || p.pushGrip?.amount || input.climb || (input.swimVertical ?? 0) < -.01) return
+  // The landing changes contacts, so the floor hand comes from the physics rig;
+  // the animated pose is kept only as the presentation's outgoing source.
+  const arm = waterPose(physicsView(p)).frontArm
   const point = arm.hand ?? arm.end, x = p.x + point[0] * p.facing, y = p.y + point[1]
   const surface = groundAt(p.terrain ?? [], x, y, p.grounded ? 12 : 2, s => s.y >= y - .2 && canGrip(s.angle))
   if (!surface) return
   const approach = Math.max(0, incomingVy * Math.cos(surface.angle) - p.vx * Math.sin(surface.angle))
-  motion.landing = { pose, y: p.y, facing: p.facing, time: 0, load: clamp(approach / TUNING.diveSpeed), hand: { x, y: surface.y, angle: surface.angle } }
+  motion.landing = { pose: waterPose(p), y: p.y, facing: p.facing, time: 0, load: clamp(approach / TUNING.diveSpeed), hand: { x, y: surface.y, angle: surface.angle } }
   motion.bottom = 0; delete motion.floor
 }
 /** Retain the side of a corner that already cleared the body, then relax that
@@ -561,5 +565,17 @@ export function settleWaterClearance(p: Player, dt: number) {
   if (p.grounded) { delete motion.bodyOffset; return }
   const relax = (v: number) => v - Math.sign(v) * Math.min(Math.abs(v), dt * 40)
   motion.bodyOffset = (motion.bodyOffset ?? [0, 0]).map(relax) as Point
-  motion.bodyOffset = waterPose(p).waterOffset ?? [0, 0]
+  // The offset moves the swimming hull, so it is solved from the physics rig.
+  motion.bodyOffset = waterPose(physicsView(p)).waterOffset ?? [0, 0]
+}
+
+/** The presented swimmer clears its own animated rig, starting from the last
+ * presented offset, independently of the hull's physics clearance. */
+export function settlePresentedWaterClearance(p: Player, dt: number) {
+  if (!p.waterMotion || p.grounded) { p.anim.waterClearance = null; return }
+  const relax = (v: number) => v - Math.sign(v) * Math.min(Math.abs(v), dt * 40)
+  const previous = p.anim.waterClearance
+  const offset: Point = previous ? [previous.offset[0] * (previous.facing === p.facing ? 1 : -1), previous.offset[1]] : [0, 0]
+  p.anim.waterClearance = { offset: offset.map(relax) as Point, facing: p.facing }
+  p.anim.waterClearance = { offset: waterPose(p).waterOffset ?? [0, 0], facing: p.facing }
 }

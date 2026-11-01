@@ -55,11 +55,10 @@ export function landingPreparation(p: Player): number {
 }
 export function fallRecoveryPose(p: Player): AthletePose {
   const fall = p.freeFall!, recovery = fall.recovery
-  if (fall.moving) return fall.moving.pose
   const impact = fall.impact
   const source = athletePose({ ...p, ...(impact && { vx: impact.vx, vy: impact.vy }), freeFall: null, grounded: false,
     groundAngle: 0, landing: 0, pushing: null, ledgeReach: null, wallBrace: null, sliding: null,
-    anim: { ...p.anim, ...(impact && { gait: impact.gait }), ragdoll: null, footwork: null } })
+    anim: { ...p.anim, ...(impact && { gait: impact.gait }), ragdoll: null, footwork: null, recovery: null } })
   const prone = fallFrame(p)
   // Bend through depth as the limbs fold across the torso; interpolating only
   // their projected joints would flip an elbow or knee through a straight limb.
@@ -73,7 +72,7 @@ export function fallRecoveryPose(p: Player): AthletePose {
   const kneeling = fallFrame(p, 1), crouched = fallFrame(p, 2)
   if (recovery < .48) return blend(prone, kneeling, smooth((recovery - .18) / .3))
   if (recovery < .7) return blend(kneeling, crouched, smooth((recovery - .48) / .22))
-  const standing = athletePose({ ...p, freeFall: null, anim: { ...p.anim, ragdoll: null }, landing: 0 })
+  const standing = athletePose({ ...p, freeFall: null, anim: { ...p.anim, ragdoll: null, recovery: null }, landing: 0 })
   return blend(crouched, standing, smooth((recovery - .7) / (TUNING.fallRecoveryTime - .7)))
 }
 
@@ -109,7 +108,7 @@ export function clearLoosePose(p: Player, source: AthletePose, initial?: Point, 
 }
 
 export function fallPose(p: Player, deferClearance = false): AthletePose {
-  const source = fallRecoveryPose(p), offset = p.freeFall?.moving ? undefined : p.freeFall?.bodyOffset
+  const source = fallRecoveryPose(p), offset = p.anim.recovery ? undefined : p.freeFall?.bodyOffset
   // Preserve the settled balance offset when recoil will clear the final rig.
   return deferClearance ? rotatePose(source, 0, 1, [0, 0], offset)
     : clearLoosePose(p, source, offset, true)

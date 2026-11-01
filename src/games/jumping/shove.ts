@@ -25,7 +25,7 @@ const EMPTY_WORLD: ContactWorld = { platforms: [], colliders: [] }
 interface ShoveContact { palms: [PushPalm, PushPalm]; prop?: Prop; robot?: RobotState; player?: Player }
 
 export const canShove = (actor: Player) => !actor.climbing && !actor.hang && !actor.mantle && !actor.releaseTurn
-  && !rightArmSupporting({ ...actor, pushing: null, wallBrace: actor.grounded ? null : actor.wallBrace })
+  && !rightArmSupporting({ ...actor, pushing: null, contacts: actor.contacts && { ...actor.contacts, push: null }, wallBrace: actor.grounded ? null : actor.wallBrace })
   && !(actor.stagger && actor.stagger > 0)
 
 /** Arm's reach, matching height and a clear physical path; proximity alone cannot hit through cover. */

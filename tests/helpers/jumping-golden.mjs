@@ -21,8 +21,8 @@ import { pathToFileURL } from 'node:url'
 // sin, atan2, exp, pow and the other transcendental functions in its own C++
 // library, and arm64 builds fuse multiply-adds in it, so arm64 and x64 can
 // differ in a result's last bit. Motion grows that into a different trace
-// within seconds. Each math library therefore keeps its own set, chosen by
-// mathFingerprint().
+// within seconds, and Linux and macOS x64 builds differ too. A set therefore
+// records its math library's mathFingerprint() and is checked only there.
 
 export const CHECKPOINT = 120
 export const POSE_EVERY = 2
@@ -235,8 +235,8 @@ export function readGolden(math = mathFingerprint()) {
 
 /** Why this process has no golden set, and how to record one. */
 export function missingGolden(math = mathFingerprint()) {
-  return `No golden traces are recorded for this math library (${process.platform} ${process.arch}, fingerprint ${math}). `
-    + 'Record them with node scripts/jumping-golden.mjs --write (docs/testing.md).'
+  return `No golden traces are recorded for this math library (${process.platform} ${process.arch}, fingerprint ${math}); `
+    + 'the recorded hashes are checked on Apple Silicon (docs/testing.md).'
 }
 
 /** First differing checkpoint per kind, in seconds of gameplay, or null when equal. */

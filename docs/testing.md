@@ -58,19 +58,14 @@ reads animation ([design note](jumping-animation.md)).
 
 The hashes hold only for the CPU's math library. V8's `sin`, `atan2`, `exp`,
 `pow` and similar functions can differ in the last bit between arm64 and x64
-(arm64 builds fuse multiply-adds), and motion grows that into a different
-trace within seconds. So each library keeps its own set: `arm64.json` and
-`x64.json`. The script and the test pick the set whose `math` fingerprint
-matches the running Node (`mathFingerprint()` in
-`tests/helpers/jumping-golden.mjs`). On a machine with no matching set the
-replays are skipped, but CI (x64 Linux) fails instead.
-
-Record an intended change in both sets, with the same `--kinds` and `--note`.
-On Apple Silicon, record the x64 set under Rosetta with an x64 Node from
-nodejs.org (the `darwin-x64` archive for the `.nvmrc` major):
-`arch -x86_64 <x64 node> scripts/jumping-golden.mjs --write --kinds physics --note '...'`.
-macOS x64 under Rosetta and Linux x64 share a fingerprint. Run a check the
-same way to reproduce a CI-only divergence.
+(arm64 builds fuse multiply-adds), and between Linux and macOS x64 builds.
+Motion grows that into a different trace within seconds. The recorded set,
+`tests/fixtures/jumping-golden-traces/arm64.json`, stores a fingerprint of
+those functions (`mathFingerprint()` in `tests/helpers/jumping-golden.mjs`), and
+the replay runs only where the fingerprint matches: on Apple Silicon, not in
+CI. Run the golden test locally before pushing a change to UJG simulation code.
+The cadence checks compare against the same machine's run at the default
+cadence, so they run everywhere, CI included.
 
 `npm run test:fast` runs every UJG unit test except the stress-level routes and
 the long whole-skin acceptance sweeps, in about two minutes on an 18-core

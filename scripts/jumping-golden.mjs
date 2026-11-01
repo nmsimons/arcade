@@ -17,10 +17,8 @@ import { CHECKPOINT, GOLDEN, KINDS, compareTrace, goldenScripts, loadGame, mathF
 // Physics hashes must not be re-recorded for a change that claims to preserve
 // behaviour. Record a kind only when its change is intended, and say so.
 //
-// Hashes are kept per math library (arm64 and x64 differ). Checking and
-// recording use this process's set, so record an intended change on both: on
-// Apple Silicon, run the same command again under Rosetta with an x64 Node,
-// arch -x86_64 <x64 node> scripts/jumping-golden.mjs --write ... (docs/testing.md).
+// Hashes hold only for the math library that recorded them (arm64 and x64
+// differ), so checking and recording use the set matching this process.
 
 const args = process.argv.slice(2)
 const option = name => { const at = args.indexOf(name); return at < 0 ? undefined : args[at + 1] }

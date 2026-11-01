@@ -331,7 +331,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
           if (!body.some(contact => contact.collider === c)) {
             const nx = (palms[0].nx + palms[1].nx) / 2, ny = (palms[0].ny + palms[1].ny) / 2, length = Math.hypot(nx, ny)
             const normal: Vec = [nx / length, ny / length]
-            const amount = p.pushGrip?.colliderId === c.id ? p.pushGrip.amount : 0
+            const amount = p.pushRig?.colliderId === c.id ? p.pushRig.amount : 0
             const load = Math.max(0, -normal[0] * input.move * TUNING.airAcceleration) * Math.min(1, amount + dt / .14)
             body.push({ collider: c, normal, point: [palms[0].x, palms[0].y], load })
           }
@@ -466,28 +466,13 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
   return candidates[0] ?? null
 }
 
-/** The motor's own record of how established a real push contact is. It eases
- * like the presented palms but ignores anticipation, so animation cannot change it. */
-export function updatePushGrip(p: Player, contact: PushContact | null, dt: number) {
-  if (contact?.passive || contact?.anticipation !== undefined) contact = null
-  if (contact?.hands && (p.grounded || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
-    const previous = p.pushGrip?.direction === contact.direction && p.pushGrip.colliderId === contact.collider.id ? p.pushGrip.amount : 0
-    p.pushGrip = { colliderId: contact.collider.id, direction: contact.direction,
-      amount: previous + Math.max(-dt / .16, Math.min(dt / .14, (contact.reach ?? 1) - previous)) }
-  } else if (p.pushGrip) {
-    const amount = Math.max(0, p.pushGrip.amount - dt / .16)
-    p.pushGrip = amount && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushGrip.direction === p.facing
-      ? { ...p.pushGrip, amount } : null
-  }
-}
-
-/** Presentation consumes the solved contact; it never moves the player. */
-export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
+/** The next push rig for one step: hands on the contact, easing in and out. */
+function nextPushPose(p: Player, current: Player['pushing'], contact: PushContact | null, dt: number, speed: number, motion: readonly [number, number]): Player['pushing'] {
   if (contact?.passive) contact = null
   if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
-    const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing : null
+    const previous = current?.direction === contact.direction && current.colliderId === contact.collider.id ? current : null
     let hands = contact.hands
     if (contact.anticipation !== undefined && contact.collider.prop && previous?.height !== undefined && hands.height !== undefined) {
       // Losing force contact must not teleport a crouched palm to a lower
@@ -502,7 +487,7 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
     // deliver. Ease its presentation independently of the hand-contact blend.
     const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
     const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
-    p.pushing = { ...hands, colliderId: contact.collider.id, direction: contact.direction,
+    return { ...hands, colliderId: contact.collider.id, direction: contact.direction,
       // A prop has already received this tick's force. Its working palms must
       // be established now; resistance still loads the body gradually above.
       amount: contact.anticipation === undefined
@@ -516,19 +501,31 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
         : p.anim.dryTurn?.step ? contact.anticipation
           : (previous?.ready ?? 0) + (contact.anticipation - (previous?.ready ?? 0)) * (1 - Math.exp(-dt / .045)),
       effort: contact.effort, load }
-  } else if (p.pushing) {
+  } else if (current) {
     // Force-bearing prop palms used the full ready stance, even when the
     // timed contact blend was young. Release that actual outgoing weight.
-    const amount = Math.max(0, Math.max(p.pushing.amount, p.pushing.effort ? p.pushing.ready ?? 0 : 0) - dt / .16)
-    const ready = Math.max(0, (p.pushing.ready ?? 0) - dt / .16)
-    p.pushing = (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
+    const amount = Math.max(0, Math.max(current.amount, current.effort ? current.ready ?? 0 : 0) - dt / .16)
+    const ready = Math.max(0, (current.ready ?? 0) - dt / .16)
+    return (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && current.direction === p.facing
       // Released palms relax with the outgoing body. Keeping their old world
       // coordinates pins the arms behind a running player and can fold the
       // trunk or flip an elbow as the shoulders pass the abandoned contact.
-      ? { ...p.pushing, wallX: p.pushing.wallX + motion[0],
-        palms: p.pushing.palms?.map(palm => ({ ...palm, x: palm.x + motion[0], y: palm.y + motion[1] })) as PushHands['palms'],
-        amount, ready, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
+      ? { ...current, wallX: current.wallX + motion[0],
+        palms: current.palms?.map(palm => ({ ...palm, x: palm.x + motion[0], y: palm.y + motion[1] })) as PushHands['palms'],
+        amount, ready, effort: 0, load: (current.load ?? 0) * Math.exp(-dt / .08) } : null
   }
+  return null
+}
+
+/** Presentation consumes the solved contact and anticipation; it never moves the player. */
+export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
+  p.pushing = nextPushPose(p, p.pushing, contact, dt, speed, motion)
+}
+
+/** The motor's push rig: the same hands and easing from real contacts only,
+ * without anticipation, so animation can never change it. Gameplay reads this. */
+export function updatePushRig(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
+  p.pushRig = nextPushPose(p, p.pushRig ?? null, contact?.anticipation === undefined ? contact : null, dt, speed, motion)
 }
 
 /** Transport the body and its planted anchors before measuring locomotion. */

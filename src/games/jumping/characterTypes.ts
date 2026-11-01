@@ -56,9 +56,9 @@ export interface Player {
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
   pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
-  /** How established the physical hand contact is, from real push contacts only.
-   * The motor reads this; the presented `pushing` rig also eases toward anticipated contacts. */
-  pushGrip?: { colliderId: string; direction: number; amount: number } | null
+  /** The motor's push rig: `pushing`'s hands and easing from real contacts only.
+   * Gameplay reads this; the presented `pushing` also eases toward anticipated contacts. */
+  pushRig?: Player['pushing']
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; outwardSlope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;

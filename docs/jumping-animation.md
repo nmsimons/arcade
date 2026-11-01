@@ -140,18 +140,19 @@ toward a small prop changes the push hands, so it is physics).
 
 What gameplay reads instead:
 
-- **Push grip.** `p.pushGrip` records how established a real push contact is,
-  eased like the presented palms but ignoring anticipation. The swimming push
-  load, the low swimming push reach and the water-bob rest check read it. The
-  presented `p.pushing` rig is presentation only.
-- **Arm support.** `rightArmSupporting` and `rightArmAnimating` use physical
-  state: a loaded push supports a palm while its contact resists more than the
-  body moves. The presented push amount, ledge reach, water-landing palm and
-  impact ragdoll no longer gate aiming or firing.
+- **Push rig.** `p.pushRig` is the motor's copy of the push rig: the same
+  hands and easing as the presented `p.pushing` (one shared function), from
+  real contacts only, without anticipation. The swimming push load, the low
+  swimming push reach, the water-bob rest check, the arm-support rules and the
+  physics rig's water poses read it. The presented `p.pushing` adds
+  anticipation and is presentation only.
+- **Arm support.** `rightArmSupporting` and `rightArmAnimating` read the push
+  rig instead of the presented push, and no longer read ledge reach, the
+  water-landing palm or the impact ragdoll.
 - **Physics rig.** `gameplayPose.ts` solves the rig from `physicsView(p)`: the
-  player with animation state, the presented push and reach, the fall clearance
-  offset, captured turn poses, the water-landing pose and the animation kept by
-  catches all at rest. The held tool frame, the repulsor robot's palm and firing
+  player with animation state, ledge reach, the fall clearance offset, captured
+  turn poses, the water-landing pose and the animation kept by catches all at
+  rest, and the push rig in place of the presented push. The held tool frame, the repulsor robot's palm and firing
   line, rope catches during a gravity turn, the swimming hull and hands, the
   ceiling brace, the water-landing floor hand, the lean toward small props and
   the hull's water clearance offset use it.
@@ -167,12 +168,16 @@ What gameplay reads instead:
   physics rig. The presented swimmer keeps its own `p.anim.waterClearance`.
 
 Behaviour against fcafc46, comparing positions and velocities over the same
-scripts: 7 of 175 traces change, all of them robot decisions or a swimming
-push. A Quarantine robot hears a footfall and starts chasing at 3.05 s; robot
-palms move the Quarantine II robot and four Rbot fixture routes (Aloft twice,
-Quarantine II force field, Uninvited); and the small-water-prop runner reaches
-its prop with a hull that no longer leans with the presented push hands. All 17
-medal routes replay with identical positions, times and grades.
+scripts: 6 of 175 traces change, all of them repulsor robot decisions. A
+Quarantine robot hears a footfall and starts chasing at 3.05 s, and robot palms
+move the Quarantine II robot and four Rbot fixture routes (Aloft twice,
+Quarantine II force field, Uninvited). All 17 medal routes replay with
+identical positions, times and grades.
+
+An earlier version cleared the push from the physics rig entirely. That
+changed swimming pushes slightly, and the Buoyancy keyboard route, which steers
+to waypoints, then failed 10 of 24 repeats under six-worker browser load
+(fcafc46: 1 of 36). With the push rig it passes 24 of 24.
 
 The gadget test that required the gameplay sleeve to equal the presented
 forearm now requires it with animation at rest, and a new test requires that
@@ -180,8 +185,8 @@ no animation state moves the gameplay sleeve. While walking or turning, the
 drawn sleeve can sit a few units from the sleeve that collides and fires.
 
 Not verified by playtesting: robot hearing on the Rbot levels, the gadget
-muzzle against the drawn sleeve while walking and turning, small-prop swimming
-pushes, and a steered get-up's timing. The issue suggested simplified analytic
+muzzle against the drawn sleeve while walking and turning, the water levels
+(Waterline, Buoyancy, Drain), and a steered get-up's timing. The issue suggested simplified analytic
 rigs for these queries; the physics rig reuses the full pose solver with
 animation at rest instead, which keeps the poses' clearance rules. Phase 5
 measures its cost.

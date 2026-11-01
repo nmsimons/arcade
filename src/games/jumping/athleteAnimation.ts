@@ -466,7 +466,7 @@ export function advanceWaterPropReach(p: Player, input: JumpInput, dt: number, w
       && (c.prop.x - p.x) * direction > 8 && (c.prop.x - p.x) * direction < 90 && Math.abs(c.prop.y - p.y) < 80)
     if (candidates.length) {
       // The lean changes the swimming push hands, so it is solved from the physics rig.
-      const pose = waterPose({ ...physicsView(p), terrain: undefined, waterMotion: { ...motion, propLean: 0 } })
+      const pose = waterPose({ ...physicsView(p), terrain: undefined, pushing: null, waterMotion: { ...motion, propLean: 0 } })
       const shoulder: Point = [p.x + pose.shoulder[0] * p.facing, p.y + pose.shoulder[1]]
       for (const c of candidates) {
         const hands = propPushHands(c.prop!, p.x, p.y, direction, -pose.shoulder[1], 70)
@@ -548,7 +548,7 @@ export function advanceWaterLanding(p: Player, input: JumpInput, dt: number, inc
     }
     return
   }
-  if (motion.amount < .65 || motion.dive < .25 || incomingVy <= 0 || p.pushGrip?.amount || input.climb || (input.swimVertical ?? 0) < -.01) return
+  if (motion.amount < .65 || motion.dive < .25 || incomingVy <= 0 || p.pushRig?.amount || input.climb || (input.swimVertical ?? 0) < -.01) return
   // The landing changes contacts, so the floor hand comes from the physics rig;
   // the animated pose is kept only as the presentation's outgoing source.
   const arm = waterPose(physicsView(p)).frontArm

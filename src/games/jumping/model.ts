@@ -10,7 +10,7 @@ import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
-import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushGrip } from './playerContacts.ts'
+import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushRig } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
@@ -216,7 +216,7 @@ function tryWallJump(p: Player, platforms: readonly Platform[]) {
   launch(p, TUNING.wallJumpSpeed, TUNING.wallJumpHeldSpeed)
   p.vx = -brace.direction * TUNING.wallJumpPush; p.facing = -brace.direction
   p.wallJump = { direction: -brace.direction, time: 0 }; p.wallJumpBuffer = 0
-  p.grabCooldown = .22; p.wallBrace = null; p.pushing = null; p.ledgeReach = null; p.anim.footwork = null
+  p.grabCooldown = .22; p.wallBrace = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null; p.anim.footwork = null
 }
 function absorbLanding(p: Player, downwardSpeed: number) {
   // Capture the impact before the collision removes vertical velocity.
@@ -399,7 +399,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     const resting = swimStrength > .2 && swimStrength < .95 && floatDrag > 0
       && !p.grounded && !p.hang && !p.mantle && !p.climbing && !p.releaseTurn && !p.jumpLift && !p.waterJump
       && !input.jump && !input.descend && !input.drop && Math.abs(input.move) < .01
-      && (p.waterMotion?.amount ?? 0) < .05 && !p.pushGrip?.amount && Math.hypot(p.vx, p.vy) < 12
+      && (p.waterMotion?.amount ?? 0) < .05 && !p.pushRig?.amount && Math.hypot(p.vx, p.vy) < 12
     p.waterBob = advanceWaterBob(p.waterBob, dt, resting, p.x)
   }
   const gravity = gravityOverride ?? (gravityField ? playerGravity(gravityField, p) + (swimStrength ? waterBobAcceleration(p.waterBob, floatDrag) : 0) : TUNING.gravity)
@@ -691,7 +691,7 @@ function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
   // Do not apply recoil again before the next controller tick releases it.
   p.anim.ragdoll = null
   p.grounded = false; p.coyote = 0
-  p.anim.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.ledgeReach = null
+  p.anim.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null
   p.freeFall = null; p.anim.dryTurn = null; p.anim.slideEntry = null
   p.contacts = null
 }
@@ -711,7 +711,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   // Presented push preparation is solved before the contacts are published,
   // as it always was, when animating every step.
   const preparation = cadence(p) === 'tick' ? preparePush(p, input, world, contacts) : undefined
-  updatePushGrip(p, contacts.push ?? null, dt)
+  updatePushRig(p, contacts.push ?? null, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
   if (preparation !== undefined) presentPush(p, contacts, preparation, dt)
   // A rolling ball remains an obstruction for the motor, but the published
   // working contacts and rig must release once the shove supplies no force.
@@ -815,7 +815,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         gravity: (rider.gravity ?? gravity) * 1400 / TUNING.gravity } : null, gravityField, frameDirection)
     }
   }
-  if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.crouching = !!p.mantle?.crouched; p.crouch = Number(p.crouching); p.reach = 0; p.anim.footwork = null; p.ledgeReach = null; p.landing = 0 }
+  if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.pushRig = null; p.crouching = !!p.mantle?.crouched; p.crouch = Number(p.crouching); p.reach = 0; p.anim.footwork = null; p.ledgeReach = null; p.landing = 0 }
   if (p.mantle) {
     const m = p.mantle
     if (m.ladder) {
@@ -881,7 +881,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         const source = m.step.caught, ground = groundAt(platforms, p.x, p.y, .2, surface => canGrip(surface.angle))
         p.mantle = null; p.grounded = !!ground; p.coyote = ground ? TUNING.coyoteTime : 0
         p.groundAngle = ground?.angle ?? 0; p.anim.stride = source.anim.stride; p.anim.gait = source.anim.gait; p.anim.footwork = source.anim.footwork ?? null
-        p.pushing = source.pushing ?? null; p.anim.dryTurn = source.anim.dryTurn ?? null
+        p.pushing = source.pushing ?? null; p.pushRig = source.pushRig ?? null; p.anim.dryTurn = source.anim.dryTurn ?? null
         p.grabCooldown = .25; p.stepIntent = null
         if (m.step.jumpQueued && ground) launch(p)
         return
@@ -946,7 +946,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const climbable = transfer ?? findRope({ ...p, x: edge.edgeX - edge.side * 14, y: edge.edgeY + TUNING.hangReach, facing: edge.side }, platforms)
       p.mantle = { ...edge, toX: edge.edgeX + inset * edge.side, toY: edge.edgeY + inset * (edge.slope ?? 0), time: 0, braced, crouched, inset,
         descending: { platform: edge.platform, caught, climbable } }
-      p.facing = edge.side; p.grounded = false; p.vx = 0; p.vy = 0; p.coyote = 0; p.anim.footwork = null; p.pushing = null
+      p.facing = edge.side; p.grounded = false; p.vx = 0; p.vy = 0; p.coyote = 0; p.anim.footwork = null; p.pushing = null; p.pushRig = null
       cancelJumpInput(p); return
     }
   }
@@ -1258,7 +1258,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     && !p.sliding?.active && p.grabCooldown === 0) {
     const step = findStepUp(p, move, dt, world, stepIntent)
     if (step) {
-      p.mantle = step; p.grounded = false; p.vy = 0; p.pushing = null; p.ledgeReach = null; p.wallBrace = null
+      p.mantle = step; p.grounded = false; p.vy = 0; p.pushing = null; p.pushRig = null; p.ledgeReach = null; p.wallBrace = null
       p.landing = 0; p.coyote = 0; p.buffer = 0
       return
     }

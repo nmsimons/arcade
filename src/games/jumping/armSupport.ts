@@ -1,5 +1,4 @@
 import type { Player } from './characterTypes.ts'
-import { TUNING } from './movementTuning.ts'
 import { climbGait } from './climbables.ts'
 import { climbFrame, ladderMantleProgress, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME } from './ledge.ts'
 
@@ -33,9 +32,8 @@ export function rightArmSupporting(p: Player): boolean {
     return climbGait(c.distance, c.rope?.definition.length, c.ladder ? c.ladder.bottom - c.ladder.top : undefined).hands[hand].planted
   }
   if (p.wallBrace?.active && p.wallBrace.hands[hand] > .01) return true
-  // A loaded push supports the palm while it resists more than the body moves.
-  const push = p.contacts?.push
-  if (push?.hands?.palms?.[hand] && push.anticipation === undefined && push.effort - (p.contacts?.motion.speed ?? 0) / TUNING.runSpeed > .01) return true
+  // The motor's push rig, never the presented one, decides a loaded palm.
+  if (p.contacts?.push?.hands && p.pushRig?.palms?.[hand] && (p.pushRig.load ?? 0) > .01) return true
   const motion = p.waterMotion
   if (motion?.ceiling && motion.ceiling.amount > .01 && motion.ceiling.load > 0 && motion.ceiling.hands[hand]) return true
   const recovery = p.freeFall?.recovery
@@ -47,7 +45,7 @@ export function rightArmSupporting(p: Player): boolean {
  * Gameplay reads this, so it uses physical state only, never animation. */
 export function rightArmAnimating(p: Player): boolean {
   return rightArmSupporting(p) || !!(p.climbing || p.hang || p.mantle
-    || (p.pushGrip?.amount ?? 0) > .001
+    || p.pushRig && Math.max(p.pushRig.amount, p.pushRig.ready ?? 0) > .001
     || p.wallBrace && p.wallBrace.hands[p.facing < 0 ? 1 : 0] > .001
     || p.waterMotion?.ceiling || p.releaseTurn || p.freeFall)
 }

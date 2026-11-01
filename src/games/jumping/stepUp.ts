@@ -11,7 +11,7 @@ import { FOOT_CONTACT } from './footwork.ts'
 import type { PushHands } from './propGeometry.ts'
 
 export interface StepUp {
-  caught: Climbing['caught'] & { pushing?: Player['pushing'] }
+  caught: Climbing['caught'] & { pushing?: Player['pushing']; pushRig?: Player['pushing'] }
   duration: number
   rise: number
   lead: 0 | 1
@@ -126,7 +126,7 @@ export function findStepUp(p: Player, move: number, dt: number, world: ContactWo
       if (p.stepIntent.time < .2) return null
     }
     const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, anim: { stride: p.anim.stride, gait: p.anim.gait, footwork: p.anim.footwork, dryTurn: p.anim.dryTurn }, grounded: p.grounded,
-      pushing: tall ? p.pushing : undefined, freeFall: p.freeFall,
+      pushing: tall ? p.pushing : undefined, pushRig: tall ? p.pushRig : undefined, freeFall: p.freeFall,
       ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
     const lead = p.anim.footwork?.feet[0].planted && !p.anim.footwork.feet[1].planted ? 1 : 0
     // Keep the usual stride when it fits. Short steps can plant nearer the lip

@@ -18,11 +18,11 @@ function neutralClimb(climb: Climb | null | undefined): Climb | null | undefined
 }
 
 /** The player with every animation-produced value at rest: animation state,
- * the presented push and ledge reach, the fall clearance offset, captured turn
+ * the presented push (replaced by the motor's push rig) and ledge reach, the fall clearance offset, captured turn
  * poses, the water landing pose and the animation kept by catches. */
 export function physicsView(p: Player): Player {
   const motion = p.waterMotion, fall = p.freeFall, turn = p.releaseTurn, mantle = p.mantle
-  return { ...p, anim: { ...NEUTRAL }, pushing: null, ledgeReach: null,
+  return { ...p, anim: { ...NEUTRAL }, pushing: p.pushRig ?? null, ledgeReach: null,
     freeFall: fall && { time: fall.time, amount: fall.amount, recovery: fall.recovery, ...(fall.impact ? { impact: { ...fall.impact, gait: null } } : {}) },
     ...(turn ? { releaseTurn: { ...turn, pose: undefined } } : {}),
     // The water clearance offset and prop lean are physics: the hull and hands include them.

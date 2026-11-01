@@ -106,7 +106,7 @@ function actor(p) {
     hang && [hang.platform, hang.side, hang.edgeX, hang.edgeY, hang.time, hang.queued, hang.braced, !!hang.dropLocked, !!hang.upLocked],
     mantle && [mantle.edgeX, mantle.edgeY, mantle.side, mantle.toX, mantle.toY, mantle.time, mantle.braced, optional(mantle.platform), !!mantle.returning, !!mantle.crouched],
     climb && [climb.kind, climb.index, climb.distance, climb.time, climb.direction, climb.swing, climb.swingVelocity],
-    p.pushGrip && [p.pushGrip.colliderId, p.pushGrip.direction, p.pushGrip.amount],
+    p.pushRig && [p.pushRig.colliderId, p.pushRig.direction, p.pushRig.amount],
     p.freeFall && [p.freeFall.time, p.freeFall.amount, p.freeFall.recovery, optional(p.freeFall.getUp)],
     p.shove && [p.shove.time, p.shove.windup, p.shove.direction, p.shove.struck], optional(p.stagger),
     p.heldTool && [p.heldTool.kind, p.heldTool.angle, p.heldTool.aiming],

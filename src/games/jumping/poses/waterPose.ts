@@ -304,7 +304,7 @@ export function swimmingPushHands(p: Player, prop: Prop, direction: number) {
   const motion = p.waterMotion
   if (!motion || (motion.leadHeading ?? motion.heading ?? p.facing) * direction < .35) return null
   const view = physicsView(p)
-  const pose = waterPose({ ...view, terrain: undefined, waterMotion: { ...view.waterMotion!, ceiling: undefined } })
+  const pose = waterPose({ ...view, terrain: undefined, pushing: null, waterMotion: { ...view.waterMotion!, ceiling: undefined } })
   const offset = motion.bodyOffset ?? [0, 0]
   pose.shoulder = add(pose.shoulder, offset)
   pose.waist = add(pose.waist, offset)

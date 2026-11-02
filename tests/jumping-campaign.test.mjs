@@ -92,6 +92,7 @@ test('wing levels need one door per course and bulkheads both ways', () => {
   assert.deepEqual(campaignProblems(value, world), [
     'The Orientation wing level has 2 doors for “o1”. Give each course one door.',
     'The Orientation wing level has no door for “o2”. Give each course one door.',
+    'The Orientation wing level needs one door to the opening level “Wake”.',
     "Course door “door-f1” in the Orientation wing leads to “f1”, which is not one of that wing's courses.",
     'The Freight wing level has no door for “f1”. Give each course one door.',
     'The Freight wing level needs a bulkhead to the concourse.',

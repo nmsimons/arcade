@@ -120,7 +120,10 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
       const doors = level.courseDoors.filter(door => door.course === course).length
       if (doors !== 1) issues.push(`The ${wing.name} wing level has ${doors || 'no'} door${doors > 1 ? 's' : ''} for ${name(course)}. Give each course one door.`)
     }
-    for (const door of level.courseDoors) if (!wing.courses.includes(door.course)) issues.push(`Course door “${door.id}” in the ${wing.name} wing leads to ${name(door.course)}, which is not one of that wing's courses.`)
+    // The opening level has its door in the first wing, like every other level.
+    const entry = wing === campaign.wings[0]
+    if (entry && level.courseDoors.filter(door => door.course === campaign.opening).length !== 1) issues.push(`The ${wing.name} wing level needs one door to the opening level ${name(campaign.opening)}.`)
+    for (const door of level.courseDoors) if (!wing.courses.includes(door.course) && !(entry && door.course === campaign.opening)) issues.push(`Course door “${door.id}” in the ${wing.name} wing leads to ${name(door.course)}, which is not one of that wing's courses.`)
     if (!level.bulkheads.some(bulkhead => bulkhead.to === 'concourse')) issues.push(`The ${wing.name} wing level needs a bulkhead to the concourse.`)
     // Arriving through a bulkhead places the robot at the matching bulkhead on the far side.
     if (concourse && !concourse.bulkheads.some(bulkhead => bulkhead.to === wing.id)) issues.push(`The concourse needs a bulkhead to the ${wing.name} wing.`)

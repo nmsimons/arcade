@@ -7,7 +7,7 @@
   "width": 4200,
   "height": 720,
   "floor": 720,
-  "entrance": { "name": "From the charging room", "x": 160, "y": 720 },
+  "entrance": { "name": "Wake door", "x": 220, "y": 720 },
   "platforms": [],
   "checkpoints": [],
   "climbables": { "ladders": [], "ropes": [] },
@@ -16,6 +16,7 @@
   "triggers": [],
   "robots": [],
   "courseDoors": [
+    { "name": "Wake", "id": "door-wake", "x": 220, "y": 720, "course": "1986ae30-4b97-4815-a35a-cfe3852bca9e" },
     { "name": "Leaps and Bounds I", "id": "door-leaps-and-bounds-i", "x": 700, "y": 720, "course": "4a6b61ae-b74f-4305-97ba-8c0a282aaf80" },
     { "name": "First Gap", "id": "door-first-gap", "x": 1050, "y": 720, "course": "a90ceb11-5e2a-4b24-80f2-73648ffab13d" },
     { "name": "Second Gap", "id": "door-second-gap", "x": 1400, "y": 720, "course": "first-leap" },

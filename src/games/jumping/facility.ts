@@ -69,16 +69,16 @@ export function facilityStart(campaign: Campaign, progress: FacilityProgress, sa
 }
 
 /**
- * Where a finished run leads. The opening opens into the first wing, a course
- * returns the robot to its own door, and a bulkhead leads to the matching
+ * Where a finished run leads. The opening and every course return the robot to
+ * their door (a new game's opening, to its door in the first wing), and a bulkhead leads to the matching
  * bulkhead on the far side. Passing the final course leads into the escape
  * levels, each opening into the next. Null when the facility has nowhere to go,
  * as after the last escape level.
  */
 export function nextPlace(campaign: Campaign, place: FacilityPlace, departure: HubDoor | null, levels: Levels, passed = true): FacilityPlace | null {
   if (place.kind === 'opening') {
-    const first = hubLevel(levels, campaign.wings[0].level)
-    return first ? { kind: 'hub', level: first.id, arrival: { kind: 'entrance' } } : null
+    const first = hubLevel(levels, campaign.wings[0].level), door = first?.courseDoors.find(d => d.course === campaign.opening)
+    return first ? { kind: 'hub', level: first.id, arrival: door ? { kind: 'door', id: door.id } : { kind: 'entrance' } } : null
   }
   if (place.kind === 'escape') {
     const index = place.index + 1, level = campaign.escape[index]
@@ -114,6 +114,12 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
   const open = new Set<string>(), placards = new Map<string, string[]>()
   for (const board of level.evaluationBoards) placards.set(board.id, evaluationLines(campaign, progress))
   for (const door of level.courseDoors) {
+    // The opening's door is always open; it has no deadline or grade.
+    const opening = levels.get(door.course)
+    if (door.course === campaign.opening && opening) {
+      open.add(door.id); placards.set(door.id, [opening.name.toUpperCase()])
+      continue
+    }
     // The dispatch door stays sealed until the evaluation is complete.
     if (door.course === campaign.finalCourse) {
       if (progress.complete) open.add(door.id)

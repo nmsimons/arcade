@@ -185,8 +185,9 @@ editing or playtesting.
    completion. Ordinary levels retain their current doorway-entry scoring.
 4. Unlocked courses remain available for replay through their doors. Slower runs
    never reduce grades, remove completion, or relock areas. Optional diversions
-   never delay the next required unlock. A new game starts in Wake. Afterward,
-   starting the game resumes where the robot was last autosaved.
+   never delay the next required unlock. A new game starts in Wake, which has
+   its door in the first wing like every other level. Afterward, starting the
+   game resumes where the robot was last autosaved.
 5. The evaluation completes when every required course is passed. Its release
    opens the escape route, whose levels are untimed. Escaping completes the
    campaign; no grade above D is required for the ending.

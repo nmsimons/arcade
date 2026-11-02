@@ -314,8 +314,9 @@ library.
 
 ### Starting the game
 
-`/lab` opens the facility instead of the grid. A new save starts in Wake, whose
-exit leads into the Orientation wing. Afterward, the robot resumes where it was
+`/lab` opens the facility instead of the grid. A new save starts in Wake.
+Wake has a door at the start of the Orientation wing like every other level:
+finishing Wake steps the robot out of that door, and the door leads back in. Afterward, the robot resumes where it was
 last autosaved: at the door it came through, or at a course's door if it left
 mid-course. A place that has since closed or disappeared resumes at the first
 wing's entrance. The autosaved place is the only new saved value; doors, lamps,

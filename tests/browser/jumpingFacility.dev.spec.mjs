@@ -20,7 +20,7 @@ async function openFacility(page, completed = {}, place) {
 }
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 
-test('a new save starts in Wake and exits into the Orientation wing', async ({ page }) => {
+test('a new save starts in Wake and exits through its door into the Orientation wing', async ({ page }) => {
   test.setTimeout(120000)
   await openFacility(page)
   await expect(page.getByRole('img', { name: 'Wake: reach the exit' })).toBeVisible()
@@ -33,7 +33,7 @@ test('a new save starts in Wake and exits into the Orientation wing', async ({ p
   await expect.poll(async () => { await advanceJumpingSimulation(page, 480); return page.locator('.jumping-game > canvas').getAttribute('aria-label') },
     { timeout: 60000 }).toBe('Orientation wing')
   await page.keyboard.up('ArrowRight')
-  expect(await saved(page)).toEqual({ place: { kind: 'hub', level: 'facility-orientation', arrival: { kind: 'entrance' } } })
+  expect(await saved(page), 'stepped out of Wake\'s door').toEqual({ place: { kind: 'hub', level: 'facility-orientation', arrival: { kind: 'door', id: 'door-wake' } } })
 })
 
 test('a returning save resumes at its autosaved door', async ({ page }) => {

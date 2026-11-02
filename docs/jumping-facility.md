@@ -227,8 +227,10 @@ routes in place of medal routes).
 
 ### The campaign file
 
-Campaign structure lives in one file beside `index.json`, separate from level
-geometry as the canon requires. Proposed shape:
+Campaign structure lives in `public/levels/jumping-campaign.json`, separate from
+level geometry as the canon requires. It sits beside the built-in collection
+rather than inside it, so level packs keep their format (level JSON and
+`index.json` only). `src/games/jumping/campaign.ts` reads and checks it:
 
 ```json
 {
@@ -246,20 +248,31 @@ geometry as the canon requires. Proposed shape:
     "name": "Water",
     "level": "<water wing level id>",
     "courses": ["…"],
-    "clearance": { "courses": ["…"], "count": 6 }
-  }],
-  "certification": [{ "door": "door-freight-advanced", "wing": "freight", "course": "<advanced course id>", "sources": ["…"] }],
-  "finalCourse": "5d45678a-5104-43be-9647-2a2bbd6ff932",
-  "escape": ["d52a327a-3f29-4c04-b501-3ee77d6e2e42", "13b9b9d7-7937-4989-bc03-21238e7e58f2", "b42dcd81-427a-4c2b-9c9b-a231874bef5b"]
+    "clearance": { "wings": ["freight", "construction"], "courses": ["…"], "count": 6 }
+  }]
 }
 ```
 
-Validation (`npm run levels:check`) must confirm that every required course has
-exactly one door, every door's course exists, every wing is reachable through
-clearance, clearance never depends on its own wing, certification sources are
-timed required courses, and no coin, coin switch, clock or time pickup appears
-in a wing, the concourse or an escape level. `index.json` keeps loading every
-level for the development library.
+- **The first wing** opens once the opening level is passed, and passing all of
+  its courses opens the concourse. It cannot have a clearance.
+- **Every other wing** opens off the concourse. Without a clearance it opens
+  with the concourse; with one, once `count` of the named courses are passed.
+  A clearance names courses, whole wings, or both; `count` defaults to all of
+  them.
+- **Within a wing,** a door opens once the door before it is passed. A pass
+  carried over from the level grid keeps its door passed and opens the next one.
+- **`level` and `concourse`** name hub levels and stay optional until those
+  levels exist.
+
+`npm run levels:check` confirms that every course exists and is timed, no course
+appears twice or doubles as the opening, hub levels exist, every wing can open
+through clearance, and no clearance depends on its own wing. Still to add, as
+the objects arrive: every required course has exactly one door, every door's
+course exists, certification sources are timed required courses, and no coin,
+coin switch, clock or time pickup appears in a wing, the concourse or an escape
+level. Certification doors, the final course and the escape route join the file
+with the release. `index.json` keeps loading every level for the development
+library.
 
 ## Flows
 

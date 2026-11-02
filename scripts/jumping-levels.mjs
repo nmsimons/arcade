@@ -2,8 +2,12 @@ import { lstat, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises
 import { resolve, join } from 'node:path'
 import { compareFileNames, decodeLevelManifest, decodeLevelFile, isLevelFileName, playableLevelFile } from '../src/games/jumping/levelAssets.ts'
 import { MAX_LEVEL_BYTES, checkCollectionSize, textBytes } from '../src/games/jumping/levelLimits.ts'
+import { campaignProblems, parseCampaign } from '../src/games/jumping/campaign.ts'
 
 const source = resolve('public/levels/jumping')
+// The facility's structure sits beside the collection, not in it, so level
+// packs keep their format: only level JSON and index.json.
+const campaignSource = resolve('public/levels/jumping-campaign.json')
 async function entries(root) {
   const directory = await lstat(root)
   if (!directory.isDirectory() || directory.isSymbolicLink()) throw new Error(`Level assets must use a regular directory: ${root}`)
@@ -21,16 +25,22 @@ async function entries(root) {
   return files.map(file => file.name).sort(compareFileNames)
 }
 async function inspect(root) {
-  const names = await entries(root), contents = new Map(), ids = new Set()
+  const names = await entries(root), contents = new Map(), levels = new Map()
   for (const name of names) {
     const text = await readFile(join(root, name), 'utf8')
     if (name === 'index.json') { decodeLevelManifest(text); continue }
     const file = playableLevelFile({ fileName: name, level: decodeLevelFile(text) })
-    if (ids.has(file.level.id)) throw new Error(`${name}: duplicate level ID.`)
-    ids.add(file.level.id); contents.set(name, text)
+    if (levels.has(file.level.id)) throw new Error(`${name}: duplicate level ID.`)
+    levels.set(file.level.id, file.level); contents.set(name, text)
   }
   const previous = names.includes('index.json') ? decodeLevelManifest(await readFile(join(root, 'index.json'), 'utf8')) : undefined
-  return { contents, previous }
+  return { contents, previous, levels: [...levels.values()] }
+}
+async function checkCampaign(levels) {
+  const text = await readFile(campaignSource, 'utf8')
+  if (textBytes(text) > MAX_LEVEL_BYTES) throw new Error('jumping-campaign.json exceeds 1 MB.')
+  const problems = campaignProblems(parseCampaign(JSON.parse(text)), levels)
+  if (problems.length) throw new Error(`jumping-campaign.json: ${problems.join(' ')}`)
 }
 async function index(root) {
   const { contents, previous } = await inspect(root), levels = [...contents.keys()]
@@ -62,9 +72,10 @@ if (mode === 'index') {
   for (const name of previous?.levels ?? []) if (!contents.has(name)) await rm(join(target, name), { force: true })
   console.log(`Copied ${manifest.levels.length} validated JSON levels to ${target}; no JavaScript build required.`)
 } else if (mode === 'check') {
-  const root = resolve(process.argv[3] ?? source), { previous, contents } = await inspect(root)
+  const root = resolve(process.argv[3] ?? source), { previous, contents, levels } = await inspect(root)
   if (!previous || previous.levels.length !== contents.size || previous.levels.some(name => !contents.has(name))) {
     throw new Error('The built-in index must list every level exactly once. Run npm run levels:index.')
   }
-  console.log(`Validated ${contents.size} built-in levels.`)
+  if (root === source) await checkCampaign(levels)
+  console.log(`Validated ${contents.size} built-in levels${root === source ? ' and the campaign' : ''}.`)
 } else throw new Error('Use index, sync, or check, optionally followed by the level asset directory.')

@@ -7,7 +7,7 @@
   "width": 5650,
   "height": 720,
   "floor": 720,
-  "entrance": { "name": "From Company", "x": 1970, "y": 720 },
+  "entrance": { "name": "From Orientation", "x": 1970, "y": 720 },
   "platforms": [],
   "checkpoints": [],
   "climbables": { "ladders": [], "ropes": [] },
@@ -16,12 +16,7 @@
   "triggers": [],
   "robots": [],
   "courseDoors": [
-    { "name": "Wake", "id": "door-wake", "x": 220, "y": 720, "course": "1986ae30-4b97-4815-a35a-cfe3852bca9e" },
-    { "name": "Leaps and Bounds I", "id": "door-leaps-and-bounds-i", "x": 570, "y": 720, "course": "4a6b61ae-b74f-4305-97ba-8c0a282aaf80" },
-    { "name": "First Gap", "id": "door-first-gap", "x": 920, "y": 720, "course": "a90ceb11-5e2a-4b24-80f2-73648ffab13d" },
-    { "name": "Second Gap", "id": "door-second-gap", "x": 1270, "y": 720, "course": "first-leap" },
-    { "name": "A Little Swing", "id": "door-a-little-swing", "x": 1620, "y": 720, "course": "one-rope" },
-    { "name": "Company", "id": "door-company", "x": 1970, "y": 720, "course": "56543b79-4781-415f-be5c-e40facf059b0" },
+    { "name": "Orientation", "id": "door-orientation", "x": 1970, "y": 720, "course": "lab-orientation" },
     { "name": "Dispatch door", "id": "dispatch-door", "x": 4250, "y": 720, "course": "5d45678a-5104-43be-9647-2a2bbd6ff932" }
   ],
   "bulkheads": [
@@ -37,8 +32,8 @@
     { "name": "Evaluation board", "id": "evaluation", "x": 3650, "y": 330, "w": 460, "h": 250 }
   ],
   "texts": [
-    { "x": 160, "y": 540, "w": 300, "h": 40, "text": "ORIENTATION", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 160, "y": 578, "w": 320, "h": 24, "text": "WAKE · BASIC CONTROLS · COMPANY", "fontSize": 12, "align": "left", "style": "official" },
+    { "x": 1700, "y": 540, "w": 300, "h": 40, "text": "ORIENTATION", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 1700, "y": 578, "w": 320, "h": 24, "text": "WAKE · BASIC CONTROLS · COMPANY", "fontSize": 12, "align": "left", "style": "official" },
     { "x": 3650, "y": 260, "w": 460, "h": 50, "text": "CONCOURSE", "fontSize": 36, "align": "center", "style": "official" },
     { "x": 4180, "y": 540, "w": 200, "h": 40, "text": "DISPATCH", "fontSize": 20, "align": "left", "style": "official" }
   ]

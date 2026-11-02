@@ -12,18 +12,21 @@
   boards (`hub.ts`). Up enters an open door. Placards show a course's name and D
   deadline, then its best time and grade; closed bulkheads show the clearance
   still needed.
-- The facility loop (`facility.ts` and the game shell): Wake, then the
-  introduction, then the concourse; a course returns the robot to its door, a
+- The facility loop (`facility.ts` and the game shell): Orientation, then the
+  concourse; a course returns the robot to its door, a
   bulkhead leads to the matching bulkhead beyond it. The robot's place autosaves on every move,
   and a returning save resumes there. The pause screen uses the phosphor style,
   with Leave course in courses.
-- The opening sequence: Wake, then the introduction (Leaps and Bounds I, First
-  Gap, Second Gap, A Little Swing), then Company, where the Repulsorbot is first
-  met, then the concourse. The introduction and Company play untimed in the
-  facility, without wall clocks; their files stay timed courses for the level
-  grid until a single designed controls hall replaces the four tutorial rooms.
-  Wake and each introduction level have a door in the concourse's Orientation
-  row for replays.
+- The opening, Orientation (`Orientation.jump-level.json`): one untimed level
+  that starts in Wake's charging pod at night. Its power plate opens a gate
+  onto a day-lit training hall with the four tutorial lessons in their proven
+  geometry (the crate, a tap-jump gap and a held-jump gap with puddle ladders, a
+  plate that opens the swing room, and the rope over a pool). A service stair
+  then leads down into Company's dark cave, where the Repulsorbot wakes as the
+  robot climbs the rope to Service access, the exit onto the concourse. A
+  headless test plays it end to end with ordinary inputs. Wake, the four
+  tutorial levels and Company stay in the level grid but leave the campaign.
+  Orientation's golden traces await recording on Apple Silicon.
 - Every wing as stub hubs: Movement (Hop Skip Jump I and II, A Bigger Swing,
   Leaps and Bounds II, Slow is Smooth), Freight (8), Construction (7), Targets
   (4), Water (3), Security (6) and an Assessment wing for Escapade and World I,
@@ -91,7 +94,7 @@ work on next. Progress opens access; it never changes what the robot can do.
 ```
                         ┌───────── shortcut ─────────┐
                         │                            │
- Wake ─► Introduction ─► Company ─► CONCOURSE ◄─► Freight wing ──┘
+ Orientation ─► CONCOURSE ◄─► Freight wing ──┘
          (linear)       board        ◄─► Construction wing ─┐
                         dispatch     ◄─► Water wing         │ shortcut
                         door         ◄─► Targets wing ◄─────┘
@@ -103,9 +106,8 @@ work on next. Progress opens access; it never changes what the robot can do.
 ### The concourse
 
 The central hall. It holds the evaluation board, wall maps, and the sealed exterior dispatch door, which is visible from the first visit so
-the goal is always in view. Every wing's entrance opens off it. Company leads
-into it; finishing the introduction and Company opens it. Its Orientation row
-holds doors back into Wake and the introduction levels.
+the goal is always in view. Every wing's entrance opens off it. Orientation
+leads into it, and its door there leads back in for replays.
 
 ### Wings by discipline
 
@@ -179,7 +181,7 @@ courses that provide them. A wing opens through clearance: its bulkhead opens
 once named courses are passed, and the bulkhead's placard shows what remains
 ("CLEARANCE: FREIGHT 6 / 8"). The draft below is for the review to settle:
 
-- The introduction is linear and opens the concourse.
+- Orientation opens the concourse.
 - Freight, Construction and Targets open with the concourse.
 - Water and Security open later, through clearance from the earlier wings.
   Security carries much of the deterioration and the response-unit story.
@@ -280,7 +282,7 @@ rather than inside it, so level packs keep their format (level JSON and
 {
   "version": 1,
   "opening": "<Wake>",
-  "introduction": ["<Leaps and Bounds I>", "<First Gap>", "<Second Gap>", "<A Little Swing>", "<Company>"],
+  "introduction": [],
   "concourse": "<concourse level id>",
   "wings": [{
     "id": "movement",
@@ -300,10 +302,11 @@ rather than inside it, so level packs keep their format (level JSON and
 }
 ```
 
-- **A new game** plays the opening, then the introduction in order. The
-  introduction plays untimed in the facility, without wall clocks, so a
-  completion passes it. Finishing the last introduction level opens the
-  concourse and steps the robot out of that level's door there.
+- **A new game** plays the opening, then any `introduction` levels in order
+  (currently none: Orientation is one level). Introduction levels play untimed
+  in the facility, without wall clocks, so a completion passes them. Finishing
+  the last of these levels opens the concourse and steps the robot out of its
+  door there.
 - **Every wing** opens off the concourse. Without a clearance it opens with the
   concourse; with one, once `count` of the named courses are passed. A
   clearance names courses, whole wings, or both; `count` defaults to all of
@@ -330,10 +333,9 @@ course-equipment rule for escape levels once they are redesigned as untimed.
 
 ### Starting the game
 
-`/lab` opens the facility instead of the grid. A new save starts in Wake.
-Wake's exit leads into the introduction, and Company's exit opens onto the
-concourse. Wake and each introduction level have a door in the concourse for
-replays, like every other level. Afterward, the robot resumes where it was
+`/lab` opens the facility instead of the grid. A new save starts in Orientation's charging pod.
+Orientation's exit opens onto the concourse, and its door there leads back in
+for replays, like every other level. Afterward, the robot resumes where it was
 last autosaved: at the door it came through, or at a course's door if it left
 mid-course. A place that has since closed or disappeared resumes at the first
 wing's entrance. The autosaved place is the only new saved value; doors, lamps,

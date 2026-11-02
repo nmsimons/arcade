@@ -155,7 +155,7 @@ remain.
 | Phase | Place | Player experience | Environmental development |
 | --- | --- | --- | --- |
 | Wake | Charging bay | Discover movement, the empty bay, and the need to find a way out. | Local power returns; requests for an operator go unanswered. |
-| Orientation | Introduction, then Company | Learn the basic controls with safe recovery, in a fixed order, untimed; then meet the first response unit. | Intact course labels explain what the facility used to do; "not everyone left". |
+| Orientation | One untimed level: charging room, training hall, Company's cave | Wake, learn the basic controls with safe recovery, then meet the first response unit and escape it. | Intact course labels explain what the facility used to do; "not everyone left". |
 | Working wings | Discipline wings, in parallel | Combine known skills and choose where to go next. | Unfinished jobs and maintenance markings reveal abandonment. |
 | Deterioration | Deep ends and late wings | Adapt known skills around visible failures. | Flooded basins, damaged access, and surviving machinery change the exercises and the corridors between them. |
 | Release | Escape route | Leave the evaluation behind; after the final course, the climb and caves are untimed and ungraded. | The released freight route has collapsed; the robot improvises its own way. |
@@ -171,14 +171,16 @@ editing or playtesting.
 
 ## Required progression
 
-1. The opening is available on a new save. Its exit leads into the
-   introduction: untimed rooms that teach the basic controls in a fixed order,
-   ending with Company, where the first response unit wakes. Company's exit
-   opens onto the concourse, and every wing opens off the concourse.
+1. The opening, Orientation, is available on a new save. It is one untimed
+   level: Wake's night-lit charging room, a day-lit training hall that teaches
+   the basic controls in a fixed order (jump, gap jumps, plates, the rope), and
+   Company's dark cave, where the first response unit wakes and the robot climbs
+   out ahead of it. Its exit opens onto the concourse, and every wing opens off
+   the concourse.
 2. Each wing's courses form a fixed sequence. Finishing a timed required course
    at D or better unlocks the next course in its wing and lights its door. D is
-   a realistic first-run deadline, not a free pass. An untimed introduction
-   unlocks its successor on completion. Coin surplus, optional-area completion,
+   a realistic first-run deadline, not a free pass. An untimed level unlocks
+   its successor on completion. Coin surplus, optional-area completion,
    and total campaign average cannot add a requirement. Wings open by clearance,
    and the order in which the player works through open wings is theirs.
 3. Completion is recorded at the level's actual finish, after its completion
@@ -186,8 +188,8 @@ editing or playtesting.
    completion. Ordinary levels retain their current doorway-entry scoring.
 4. Unlocked courses remain available for replay through their doors. Slower runs
    never reduce grades, remove completion, or relock areas. Optional diversions
-   never delay the next required unlock. A new game starts in Wake. Wake and
-   each introduction level keep a door on the concourse, like every other
+   never delay the next required unlock. A new game starts in Orientation's
+   charging pod. Orientation keeps a door on the concourse, like every other
    level, for replays. Afterward, starting the game resumes where the robot was
    last autosaved.
 5. The evaluation completes when every required course is passed. Its release
@@ -273,7 +275,8 @@ Teach movement through one small, recoverable action and let the player discover
 the empty adjoining space. The required route should be legible without waiting
 for a message or standing through repeated diagnostics. A small optional look
 around may reward curiosity. The opening has no medal pressure or required
-collectibles. Its finish leads into the introduction.
+collectibles. In Orientation its power plate opens the training access gate,
+letting the training hall's daylight into the room.
 
 The first implementation is [Wake](../public/levels/jumping/Wake.jump-level.json),
 placed first in the built-in collection. Keep it simple, beautiful, and a little
@@ -299,9 +302,9 @@ this small room at normal speed.
 
 Charging-bay entrances and untimed levels are reusable studio choices with
 pause, restart, automatic input handoff, and saved completion. Ordinary levels
-retain their doorway entrance and scoring. Completing Wake leads into the
-introduction; once the concourse opens, timed courses require D or better to
-light the next door.
+retain their doorway entrance and scoring. Completing Orientation opens the
+concourse; from there, timed courses require D or better to light the next
+door.
 
 ![The robot enclosed behind the pod glass on its raised plinth as local power returns.](images/lab-wake-pod.png)
 

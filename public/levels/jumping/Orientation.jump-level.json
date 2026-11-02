@@ -1,0 +1,767 @@
+{
+  "version": 2,
+  "id": "lab-orientation",
+  "name": "Orientation",
+  "width": 8700,
+  "height": 1100,
+  "platforms": [
+    {
+      "name": "Charging pod plinth",
+      "x": 120,
+      "y": 640,
+      "w": 160,
+      "h": 60,
+      "material": "steel"
+    },
+    {
+      "name": "Charging room floor",
+      "x": 0,
+      "y": 700,
+      "w": 1740,
+      "h": 400
+    },
+    {
+      "name": "Charging room partition",
+      "x": 1720,
+      "y": 0,
+      "w": 20,
+      "h": 580
+    },
+    {
+      "name": "Training floor",
+      "x": 1740,
+      "y": 700,
+      "w": 1660,
+      "h": 400
+    },
+    {
+      "name": "Training floor",
+      "x": 3640,
+      "y": 700,
+      "w": 760,
+      "h": 400
+    },
+    {
+      "name": "Training floor",
+      "x": 4780,
+      "y": 700,
+      "w": 720,
+      "h": 400
+    },
+    {
+      "name": "Swing room partition",
+      "x": 5000,
+      "y": 0,
+      "w": 20,
+      "h": 580
+    },
+    {
+      "name": "Training floor",
+      "x": 6100,
+      "y": 700,
+      "w": 400,
+      "h": 400
+    },
+    {
+      "name": "Service stair",
+      "x": 6500,
+      "y": 750,
+      "w": 60,
+      "h": 350
+    },
+    {
+      "name": "Service stair",
+      "x": 6560,
+      "y": 800,
+      "w": 60,
+      "h": 300
+    },
+    {
+      "name": "Service stair",
+      "x": 6620,
+      "y": 850,
+      "w": 60,
+      "h": 250
+    },
+    {
+      "name": "Service stair",
+      "x": 6680,
+      "y": 900,
+      "w": 60,
+      "h": 200
+    },
+    {
+      "name": "Service stair",
+      "x": 6740,
+      "y": 950,
+      "w": 60,
+      "h": 150
+    },
+    {
+      "name": "Service stair",
+      "x": 6800,
+      "y": 1000,
+      "w": 60,
+      "h": 100
+    },
+    {
+      "name": "Service stair",
+      "x": 6860,
+      "y": 1050,
+      "w": 60,
+      "h": 50
+    },
+    {
+      "name": "Service gantry",
+      "x": 8100,
+      "y": 350,
+      "w": 500,
+      "h": 25,
+      "zIndex": 1,
+      "material": "steel"
+    },
+    {
+      "name": "Response bay plinth",
+      "x": 8485,
+      "y": 1060,
+      "w": 215,
+      "h": 40,
+      "zIndex": 2,
+      "material": "steel"
+    },
+    {
+      "name": "Settled cave floor",
+      "x": 6900,
+      "y": 1025,
+      "w": 1800,
+      "h": 75,
+      "material": "earth",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          20,
+          25
+        ],
+        [
+          125,
+          25
+        ],
+        [
+          250,
+          50
+        ],
+        [
+          550,
+          30
+        ],
+        [
+          815,
+          50
+        ],
+        [
+          1040,
+          35
+        ],
+        [
+          1300,
+          60
+        ],
+        [
+          1645,
+          35
+        ],
+        [
+          1800,
+          35
+        ],
+        [
+          1800,
+          75
+        ],
+        [
+          0,
+          75
+        ]
+      ]
+    },
+    {
+      "name": "Rock overhang",
+      "x": 6900,
+      "y": 200,
+      "w": 915,
+      "h": 740,
+      "zIndex": 4,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          915,
+          0
+        ],
+        [
+          850,
+          260
+        ],
+        [
+          830,
+          590
+        ],
+        [
+          645,
+          650
+        ],
+        [
+          455,
+          665
+        ],
+        [
+          240,
+          665
+        ],
+        [
+          105,
+          695
+        ],
+        [
+          0,
+          740
+        ]
+      ]
+    },
+    {
+      "name": "Rock above the cave",
+      "x": 6900,
+      "y": 0,
+      "w": 915,
+      "h": 220,
+      "zIndex": 4
+    },
+    {
+      "name": "Stair landing",
+      "x": 6820,
+      "y": 1025,
+      "w": 80,
+      "h": 75
+    }
+  ],
+  "entrance": {
+    "name": "Charging pod 01",
+    "x": 200,
+    "y": 640,
+    "kind": "charging-bay"
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [
+      {
+        "x": 3420,
+        "top": 700,
+        "bottom": 1100,
+        "platform": -1,
+        "side": -1
+      },
+      {
+        "x": 4420,
+        "top": 700,
+        "bottom": 1100,
+        "platform": -1,
+        "side": -1
+      },
+      {
+        "x": 5520,
+        "top": 700,
+        "bottom": 1100,
+        "platform": -1,
+        "side": -1
+      },
+      {
+        "x": 8165,
+        "top": 350,
+        "bottom": 565,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 8165,
+        "top": 915,
+        "bottom": 1100,
+        "platform": -1,
+        "side": 1
+      }
+    ],
+    "ropes": [
+      {
+        "x": 5800,
+        "y": 200,
+        "length": 390,
+        "segments": 49
+      },
+      {
+        "x": 8100,
+        "y": 350,
+        "length": 625,
+        "segments": 79,
+        "anchor": {
+          "platform": 15,
+          "x": 0,
+          "y": 0
+        }
+      }
+    ]
+  },
+  "timing": "untimed",
+  "floorMaterial": "earth",
+  "floor": 1100,
+  "goal": {
+    "name": "Service access",
+    "x": 8464,
+    "y": 350,
+    "flipX": true
+  },
+  "times": {
+    "a": 10,
+    "b": 20,
+    "c": 40,
+    "d": 60
+  },
+  "props": [
+    {
+      "name": "Training crate",
+      "kind": "box",
+      "x": 2440,
+      "y": 700,
+      "size": 200
+    },
+    {
+      "kind": "box",
+      "x": 8222.5,
+      "y": 350,
+      "size": 45,
+      "branded": true
+    },
+    {
+      "name": "Abandoned service case",
+      "kind": "box",
+      "x": 8660,
+      "y": 1060,
+      "size": 35,
+      "weight": "heavy"
+    },
+    {
+      "kind": "ball",
+      "x": 8199.91969649557,
+      "y": 1084.8981831306132,
+      "size": 39.83939299113831
+    },
+    {
+      "kind": "ball",
+      "x": 7721.555677096405,
+      "y": 1074.8886458071893,
+      "size": 54.888645807189164
+    },
+    {
+      "kind": "ball",
+      "x": 7765,
+      "y": 1071.617539816897,
+      "size": 30
+    },
+    {
+      "name": "Service isolation sleeve",
+      "kind": "box",
+      "x": 7418,
+      "y": 1056.6,
+      "size": 40,
+      "gadget": "emp"
+    }
+  ],
+  "mechanisms": [
+    {
+      "name": "Training access",
+      "id": "training-access",
+      "kind": "gate",
+      "x": 1720,
+      "y": 580,
+      "w": 20,
+      "h": 120,
+      "travel": 120
+    },
+    {
+      "name": "Swing room gate",
+      "id": "swing-gate",
+      "kind": "gate",
+      "x": 5000,
+      "y": 580,
+      "w": 20,
+      "h": 120,
+      "travel": 120
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Local power",
+      "showWires": true,
+      "wireHeight": 220,
+      "wireTerminal": {
+        "x": 570,
+        "y": 675
+      },
+      "x": 520,
+      "y": 700,
+      "w": 100,
+      "targets": [
+        "training-access",
+        "access-light",
+        "power-ready"
+      ],
+      "mode": "weight",
+      "behavior": "switch"
+    },
+    {
+      "name": "Swing room plate",
+      "x": 4000,
+      "y": 700,
+      "w": 120,
+      "targets": [
+        "swing-gate"
+      ],
+      "mode": "touch",
+      "behavior": "switch",
+      "startsOn": false
+    }
+  ],
+  "robots": [
+    {
+      "name": "Response unit",
+      "x": 8560,
+      "y": 1060,
+      "left": 8480,
+      "right": 8650,
+      "kind": "repulsor",
+      "chargingBay": true
+    }
+  ],
+  "timers": [],
+  "pickups": [],
+  "texts": [
+    {
+      "x": 145,
+      "y": 480,
+      "w": 105,
+      "h": 30,
+      "text": "STANDBY / 01",
+      "fontSize": 14,
+      "align": "center",
+      "style": "official"
+    },
+    {
+      "name": "Operator terminal",
+      "x": 305,
+      "y": 565,
+      "w": 130,
+      "h": 120,
+      "text": "OPERATOR CONNECTION:\nNO RESPONSE",
+      "fontSize": 12,
+      "align": "left",
+      "style": "terminal"
+    },
+    {
+      "x": 1490,
+      "y": 630,
+      "w": 120,
+      "h": 65,
+      "text": "TRAINING COURSE",
+      "fontSize": 18,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 1380,
+      "y": 90,
+      "w": 280,
+      "h": 100,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    },
+    {
+      "x": 1570,
+      "y": 640,
+      "w": 140,
+      "h": 35,
+      "text": " →",
+      "fontSize": 28,
+      "align": "left"
+    },
+    {
+      "x": 1455,
+      "y": 575,
+      "w": 65,
+      "h": 70,
+      "text": "The only way out is through",
+      "fontSize": 12,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -20
+    },
+    {
+      "x": 2260,
+      "y": 420,
+      "w": 320,
+      "h": 100,
+      "text": "Don't over think it",
+      "fontSize": 28,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -5
+    },
+    {
+      "x": 3215,
+      "y": 440,
+      "w": 155,
+      "h": 85,
+      "text": "Run up.\nTap jump.",
+      "fontSize": 32,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 3435,
+      "y": 920,
+      "w": 180,
+      "h": 100,
+      "text": "Hold up\nto climb.",
+      "fontSize": 24,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 4140,
+      "y": 395,
+      "w": 205,
+      "h": 225,
+      "text": "Run up, hold jump",
+      "fontSize": 40,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 6250,
+      "y": 600,
+      "w": 230,
+      "h": 30,
+      "text": "SERVICE ACCESS ↓",
+      "fontSize": 16,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "name": "Response bay stencil",
+      "x": 8470,
+      "y": 870,
+      "w": 180,
+      "h": 34,
+      "text": "RESPONSE UNIT\nSTANDBY",
+      "fontSize": 13,
+      "align": "center",
+      "style": "official"
+    },
+    {
+      "name": "Unanswered operator terminal",
+      "x": 8475,
+      "y": 745,
+      "w": 185,
+      "h": 68,
+      "text": "OPERATOR CONNECTION:\nNO RESPONSE",
+      "fontSize": 12,
+      "align": "left",
+      "style": "terminal"
+    },
+    {
+      "name": "Service access stencil",
+      "x": 8445,
+      "y": 285,
+      "w": 200,
+      "h": 34,
+      "text": "SERVICE ACCESS →",
+      "fontSize": 16,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "name": "Last shift graffiti",
+      "x": 7175,
+      "y": 1000,
+      "w": 230,
+      "h": 45,
+      "text": "not everyone left",
+      "fontSize": 20,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -5
+    },
+    {
+      "name": "Facility mark",
+      "x": 8310,
+      "y": 535,
+      "w": 220,
+      "h": 85,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    },
+    {
+      "name": "Isolation tool stencil",
+      "x": 7335,
+      "y": 1020,
+      "w": 165,
+      "h": 30,
+      "text": "EMP",
+      "fontSize": 13,
+      "align": "center",
+      "style": "official"
+    },
+    {
+      "x": 7270,
+      "y": 1040,
+      "w": 275,
+      "h": 24,
+      "text": "You might need this ->",
+      "fontSize": 12,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": 5
+    }
+  ],
+  "wallLights": [
+    {
+      "name": "Local power indicator",
+      "id": "power-ready",
+      "x": 670,
+      "y": 628
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "first-gap-puddle",
+      "x": 3400,
+      "y": 1060,
+      "w": 240,
+      "h": 40,
+      "gravity": -1,
+      "effect": "water"
+    },
+    {
+      "id": "second-gap-puddle",
+      "x": 4400,
+      "y": 1060,
+      "w": 380,
+      "h": 40,
+      "gravity": -1,
+      "effect": "water"
+    },
+    {
+      "id": "swing-pool",
+      "x": 5500,
+      "y": 820,
+      "w": 600,
+      "h": 280,
+      "gravity": -1,
+      "effect": "water"
+    }
+  ],
+  "environment": {
+    "kind": "interior",
+    "lighting": "regions",
+    "baseLighting": "night",
+    "walls": [
+      {
+        "kind": "facility",
+        "name": "Training hall",
+        "lighting": "day",
+        "x": 1740,
+        "y": 0,
+        "w": 4760,
+        "h": 1100
+      }
+    ]
+  },
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "bay-light",
+        "x": 330,
+        "y": 450,
+        "intensity": 100,
+        "direction": 100,
+        "spread": 105,
+        "power": "always",
+        "flicker": true,
+        "name": "Bay work light"
+      },
+      {
+        "id": "access-light",
+        "x": 1450,
+        "y": 445,
+        "intensity": 100,
+        "direction": 80,
+        "spread": 90,
+        "power": "switched",
+        "wireTerminal": {
+          "x": 1430,
+          "y": 445
+        },
+        "name": "Training access light"
+      },
+      {
+        "id": "company-approach-light",
+        "x": 7210,
+        "y": 915,
+        "intensity": 100,
+        "direction": 80,
+        "spread": 110,
+        "power": "always",
+        "flicker": true,
+        "name": "Failing service light"
+      },
+      {
+        "id": "company-bay-light",
+        "x": 8470,
+        "y": 855,
+        "intensity": 100,
+        "direction": 65,
+        "spread": 100,
+        "power": "always",
+        "name": "Response bay work light"
+      },
+      {
+        "id": "company-route-light",
+        "x": 8025,
+        "y": 235,
+        "intensity": 100,
+        "direction": 75,
+        "spread": 80,
+        "power": "always",
+        "name": "Rope service light"
+      },
+      {
+        "id": "company-exit-light",
+        "x": 8555,
+        "y": 235,
+        "intensity": 100,
+        "direction": 115,
+        "spread": 120,
+        "power": "always",
+        "name": "Gantry access light"
+      }
+    ]
+  }
+}

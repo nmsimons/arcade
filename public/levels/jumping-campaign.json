@@ -1,13 +1,7 @@
 {
   "version": 1,
-  "opening": "1986ae30-4b97-4815-a35a-cfe3852bca9e",
-  "introduction": [
-    "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
-    "a90ceb11-5e2a-4b24-80f2-73648ffab13d",
-    "first-leap",
-    "one-rope",
-    "56543b79-4781-415f-be5c-e40facf059b0"
-  ],
+  "opening": "lab-orientation",
+  "introduction": [],
   "concourse": "facility-concourse",
   "wings": [
     {

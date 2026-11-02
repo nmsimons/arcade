@@ -194,6 +194,6 @@ test('the built-in campaign names valid built-in levels', () => {
   const value = parseCampaign(JSON.parse(readFileSync(new URL('../public/levels/jumping-campaign.json', import.meta.url), 'utf8')))
   assert.deepEqual(campaignProblems(value, builtIns), [])
   const name = id => builtIns.find(level => level.id === id)?.name
-  assert.equal(name(value.opening), 'Wake')
-  assert.deepEqual(value.introduction.map(name), ['Leaps and Bounds I', 'First Gap', 'Second Gap', 'A Little Swing', 'Company'])
+  assert.equal(name(value.opening), 'Orientation')
+  assert.deepEqual(value.introduction, [], 'Orientation holds Wake, the controls hall and Company in one level')
 })

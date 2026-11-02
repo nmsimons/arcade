@@ -12,8 +12,9 @@ import { stepFootOffsets } from '../stepUp.ts'
 import { gaitPose } from '../gait.ts'
 import type { Player } from '../characterTypes.ts'
 
-/** The wrist reaches the corner; the palm rests on top instead of pointing through it. */
-export function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact: number, lift = 0, forward = false): Limb {
+/** The wrist reaches the corner; the palm rests on top instead of pointing through it.
+ * `carry` limits how far the palm follows a contact that the solved wrist falls short of. */
+export function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact: number, lift = 0, forward = false, carry = Infinity): Limb {
   const target = solve(root, wrist, UPPER_ARM, FOREARM, 1)
   const angles = (limb: Limb) => {
     const upper = Math.atan2(limb.joint[0] - limb.root[0], limb.joint[1] - limb.root[1])
@@ -37,8 +38,12 @@ export function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, 
   const palm = handGeometry(free)
   const freePalm: Point = [palm.palm[0] - free.end[0], palm.palm[1] - free.end[1]]
   // The IK solver can tuck an out-of-reach wrist slightly inward. Keep the
-  // loaded palm on its actual contact instead of carrying that shortfall.
-  const contactPalm: Point = [grip[0] - target.end[0], grip[1] - target.end[1]]
+  // loaded palm on its actual contact instead of carrying that shortfall, up
+  // to `carry` units. Beyond that the palm keeps its place beside the wrist,
+  // since the hand is drawn joined to the wrist wherever it lies.
+  const dx = wrist[0] - target.end[0], dy = wrist[1] - target.end[1], shortfall = Math.hypot(dx, dy)
+  const contactPalm: Point = shortfall <= carry ? [grip[0] - target.end[0], grip[1] - target.end[1]]
+    : [grip[0] - wrist[0] + dx * carry / shortfall, grip[1] - wrist[1] + dy * carry / shortfall]
   return { ...arm, hand: add(arm.end, mix(freePalm, contactPalm, contact)), handAngle: mixAngle(palm.angle, 0, contact),
     handOpen: (free.handOpen ?? 0) * (1 - contact) }
 }

@@ -15,6 +15,9 @@ import { wallBracePose } from './wallBracePose.ts'
 import { gaitPose } from '../gait.ts'
 import type { Player } from '../characterTypes.ts'
 
+/** The most a prop push palm moves past its solved wrist to stay on the surface. */
+const PUSH_PALM_CARRY = 2
+
 /** Ground and air locomotion: gait, crouch, landing, flight, reach and pushing. */
 export function locomotionPose(p: Player): AthletePose {
   // Sliding blends from the same locomotion pose on contact and release. A
@@ -216,7 +219,10 @@ export function locomotionPose(p: Player): AthletePose {
       if (palm) {
         const point: Point = [(palm.x - p.x) * p.facing - preparationOffset, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
         const frame = pushPalmFrame(point, normal)
-        const result = grippingArm(arm.root, frame.wrist, frame.palm, arm, pushing, 0, preparationOffset > 0)
+        // Anticipation starts a quarter second out, often far beyond arm's
+        // reach, and a released push fades while the body leaves. The arm
+        // rises toward the prop; the palm must not stretch out to it.
+        const result = grippingArm(arm.root, frame.wrist, frame.palm, arm, pushing, 0, preparationOffset > 0, PUSH_PALM_CARRY)
         result.handAngle = mixAngle(handGeometry(arm).angle, frame.angle, pushing)
         result.handOpen = lerp(arm.handOpen ?? 0, 1, pushing)
         return result

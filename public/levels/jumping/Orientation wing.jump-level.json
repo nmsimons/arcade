@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "facility-orientation",
+  "name": "Orientation wing",
+  "kind": "hub",
+  "timing": "untimed",
+  "width": 2400,
+  "height": 720,
+  "floor": 720,
+  "entrance": { "name": "From the charging room", "x": 160, "y": 720 },
+  "platforms": [],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    { "name": "Leaps and Bounds I", "id": "door-leaps-and-bounds-1", "x": 700, "y": 720, "course": "4a6b61ae-b74f-4305-97ba-8c0a282aaf80" },
+    { "name": "First Gap", "id": "door-first-gap", "x": 1050, "y": 720, "course": "a90ceb11-5e2a-4b24-80f2-73648ffab13d" },
+    { "name": "Second Gap", "id": "door-second-gap", "x": 1400, "y": 720, "course": "first-leap" },
+    { "name": "A Little Swing", "id": "door-a-little-swing", "x": 1750, "y": 720, "course": "one-rope" }
+  ],
+  "bulkheads": [
+    { "name": "Concourse bulkhead", "id": "orientation-to-concourse", "x": 2220, "y": 720, "to": "concourse" }
+  ],
+  "chargingBays": [
+    { "name": "Orientation bay", "id": "orientation-bay", "x": 400, "y": 720 }
+  ],
+  "texts": [
+    { "x": 520, "y": 540, "w": 220, "h": 40, "text": "ORIENTATION", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 520, "y": 578, "w": 260, "h": 24, "text": "MOVEMENT BASICS · COURSES 1–4", "fontSize": 12, "align": "left", "style": "official" },
+    { "x": 2030, "y": 540, "w": 220, "h": 40, "text": "CONCOURSE →", "fontSize": 24, "align": "left", "style": "official" }
+  ]
+}

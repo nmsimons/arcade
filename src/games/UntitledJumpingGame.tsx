@@ -21,8 +21,12 @@ import { cancelGadgetInput } from './jumping/gadgets'
 import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
 import { setAnimationCadence } from './jumping/characterAnimation'
-import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
+import { blankTrial, copyLevel, levelProblems, isHubLevel, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, RunLevel } from './jumping/level'
+import { facilityProgress, loadCampaign } from './jumping/campaign'
+import type { Campaign } from './jumping/campaign'
+import { arrivalLevel, facilityStart, hubPresentation, nextPlace, readFacilitySave, saveFacilityBay } from './jumping/facility'
+import type { FacilityPlace } from './jumping/facility'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration } from './jumping/goal'
@@ -38,7 +42,7 @@ import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { LevelProgress } from './jumping/LevelProgress'
 import { JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
-import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
+import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_FACILITY, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import { JumpingAudioState } from './jumping/audioState'
 import { JumpingMotionDiagnostics } from './jumping/motionDiagnostics'
 import { PerformanceMonitor } from './jumping/performanceMonitor'
@@ -170,6 +174,55 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   function bestTime(id: string) { return bestTimes[id] ?? readBest({ getItem: () => savedTimes }, id) }
   const best = bestTime(recordKey)
   const unlocked = unlockedLevels(catalog.files, file => passedLevel(file.level, bestTime(file.level.id), completed(file.level.id)))
+  // The facility (development builds): the place the robot is in and the campaign it follows.
+  const facility = useRef<FacilityPlace | null>(null), campaignRef = useRef<Campaign | null>(null), lastBay = useRef<string | null>(null)
+  const [facilityWhere, setFacilityWhere] = useState<'course' | 'hub' | null>(null)
+  const [facilityNotice, setFacilityNotice] = useState('')
+  const levelsById = new Map(catalog.files.map(file => [file.level.id, file.level]))
+  /** Doors read saved records directly, so a course just finished counts at once. */
+  function passedNow(id: string) {
+    const level = levelsById.get(id)
+    return !!level && passedLevel(level, bestTimes[id] ?? readBest(playerStorage, id), !!completedLevels[id] || readCompleted(playerStorage, id))
+  }
+  function presentHub(target: Run | null) {
+    const campaign = campaignRef.current, place = facility.current
+    if (!campaign || !target?.hub || place?.kind !== 'hub' || !isHubLevel(target.level)) return
+    const { open, placards } = hubPresentation(campaign, facilityProgress(campaign, passedNow), target.level, levelsById, id => bestTimes[id] ?? readBest(playerStorage, id))
+    target.hub.open = open; target.hub.placards = placards
+  }
+  function enterPlace(place: FacilityPlace) {
+    const level = levelsById.get(place.level)
+    if (!level) { leaveFacility('That part of the facility is unavailable.'); return }
+    facility.current = place; lastBay.current = null
+    setFacilityWhere(place.kind === 'hub' ? 'hub' : place.kind === 'course' ? 'course' : null)
+    void beginPlay(place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level, false, place.kind === 'hub' ? `hub:${level.id}` : level.id)
+  }
+  async function startFacility() {
+    try { campaignRef.current ??= await loadCampaign(import.meta.env.BASE_URL) }
+    catch (error) { leaveFacility(`Could not open the facility: ${(error as Error).message}`); return }
+    const campaign = campaignRef.current
+    enterPlace(facilityStart(campaign, facilityProgress(campaign, passedNow), readFacilitySave(playerStorage), levelsById))
+  }
+  function leaveFacility(notice = '') {
+    facility.current = null; setFacilityWhere(null)
+    if (notice) setRouteNotice(notice)
+    if (location.pathname !== JUMPING_MENU) navigate(JUMPING_MENU, { replace: true })
+  }
+  function leaveCourse() {
+    const place = facility.current
+    if (place?.kind === 'course') enterPlace({ kind: 'hub', level: place.hub, arrival: { kind: 'door', id: place.door } })
+  }
+  function returnToBay() {
+    const campaign = campaignRef.current
+    if (campaign) enterPlace(facilityStart(campaign, facilityProgress(campaign, passedNow), readFacilitySave(playerStorage), levelsById))
+  }
+  /** Passing a charging bay makes it the resume point; it is the facility's only saved position. */
+  const recordBay = useEffectEvent(() => {
+    const place = facility.current, bay = run.current?.hub?.bay
+    if (place?.kind !== 'hub' || !bay || bay === lastBay.current) return
+    lastBay.current = bay
+    try { saveFacilityBay(playerStorage, place.level, bay) } catch { /* The bay is kept for this visit only. */ }
+  })
   const [saveError, setSaveError] = useState(false)
   const terrain = useRef(levelTerrain(initialRun.level))
   const activeLevel = useRef<JumpLevel>(initialRun.level), rules = useRef(levelRules(initialRun.level))
@@ -233,6 +286,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     if (preparedStart.current?.run) {
       const world = clonePreparedLevel(preparedStart.current)
       run.current = world.run; player.current = world.player!
+      presentHub(world.run)
       lightingRenderer.state.reset()
       if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
     }
@@ -252,6 +306,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       preparedStart.current = prepared
       const world = clonePreparedLevel(prepared)
       run.current = world.run; player.current = world.player!
+      presentHub(world.run)
       lightingRenderer.state.reset()
       if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
       activePlayKey.current = location.key
@@ -320,6 +375,13 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       navigate(JUMPING_MENU, { replace: true }); return
     }
     if (devEditing && builtIn.restoring) return
+    if (route.screen !== 'facility' && facility.current) { facility.current = null; setFacilityWhere(null) }
+    if (route.screen === 'facility') {
+      if (!import.meta.env.DEV) { navigate(JUMPING_MENU, { replace: true }); return }
+      setTesting(false); void startFacility()
+      handledRoute.current = location.key
+      return
+    }
     if (route.screen === 'playtest') {
       const draft = playtests.current.get(location.state?.testId)
       if (draft?.path === location.pathname) {
@@ -390,6 +452,14 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   useEffect(() => { followRoute() }, [location.key, location.pathname, catalog.files, builtIn.restoring, builtIn.busy])
   const finishRun = useEffectEvent(() => {
     if (!run.current?.finished || screenRef.current !== 'playing') return
+    // In the facility, a hub run ends at the door the robot took, without a record.
+    const place = facility.current, campaign = campaignRef.current
+    if (place?.kind === 'hub') {
+      const next = campaign && nextPlace(campaign, place, run.current.hub?.departure ?? null, levelsById)
+      if (next) enterPlace(next); else leaveFacility('That door leads nowhere yet.')
+      return
+    }
+    const previousBest = bestTime(recordKey)
     setResult({ elapsed: run.current.elapsed, grade: run.current.grade ?? 'A' })
     setSaveError(false)
     if (!testing) {
@@ -407,6 +477,15 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         }
         setSaveError(true)
       }
+    }
+    // A facility course returns the robot to its door, where the placard shows
+    // the record; the live region announces it instead of a result dialog.
+    if (place && campaign && !testing) {
+      const level = run.current.level, { elapsed, failed, grade } = run.current
+      if (level.timing !== 'untimed') setFacilityNotice(failed ? `${level.name} not passed. ${formatTime(elapsed)}.`
+        : `${level.name} passed. Grade ${grade}, ${formatTime(elapsed)}${previousBest === null || elapsed < previousBest ? ', personal best' : ''}.`)
+      const next = nextPlace(campaign, place, null, levelsById)
+      if (next) { enterPlace(next); return }
     }
     const goal = run.current.level.goal
     if (!run.current.failed && goal && (goal.kind === 'bus' || goal.ending === 'bus')) {
@@ -651,6 +730,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
           accumulator -= STEP
           if (run.current?.finished) { finishRun(); accumulator = 0; break }
         }
+        recordBay()
         sound.update(audioState.drain())
       } else { accumulator = 0; motion?.reset() }
       advanceEnding(dt)
@@ -692,7 +772,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   }, [audioState, lightingRenderer, performanceMonitor, adaptiveLighting, touch])
 
   return <div className={`jumping-game${screen === 'playing' && !devOpen ? ' jumping-playing' : ''}`} ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
-    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the exit` : `${LAB_NAME} movement playground`}
+    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? isHubLevel(trial) ? trial.name : `${trial.name}: reach the exit` : `${LAB_NAME} movement playground`}
       onPointerDown={event => { if (event.pointerType === 'mouse' && event.button === 0 && screenRef.current === 'playing') { touch.gadgetAction('use'); canvasRef.current?.focus() } }} />
     {screen === 'playing' && <>
       {!devOpen && <JumpingTouchControls canvasRef={canvasRef} reader={touch} active available={touchAvailable}
@@ -701,6 +781,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
+        {facilityWhere && <span role="status" aria-live="polite" data-testid="facility-notice">{facilityNotice}</span>}
         <span className="jumping-state">{metrics.state}</span>
         {challenge && trial.timing !== 'untimed' && <span className="jumping-grade-status">Grade {metrics.grade}{metrics.grade === 'F' ? ' · Exploration run; restart to progress.' : ` · ${Math.ceil(metrics.remaining)} seconds remaining`}</span>}
         {challenge && trial.timing !== 'untimed' && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}
@@ -721,6 +802,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen(pauseReturn.current)}
+      facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse, onBay: returnToBay } : undefined}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label={LAB_NAME} focusKey="jumping-menu"
       onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">
@@ -729,7 +811,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
           <div className="jumping-menu-heading jumping-brand-heading">
             <LabLogo />
           </div>
-          <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button>{devEditing && <button disabled={builtIn.refreshing} onClick={openBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button>}</div>
+          <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button>{devEditing && <button disabled={builtIn.refreshing} onClick={openBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button>}
+            {import.meta.env.DEV && <button onClick={() => visit(JUMPING_FACILITY)}>Facility</button>}</div>
           <AccountSurface />
         </div>
           {devEditing && <div className="jumping-library-bar">
@@ -756,7 +839,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
               const dialog = event.currentTarget.closest<HTMLElement>('.game-dialog')
               if (dialog) dialog.dataset.inputMethod = 'pointer'
             }
-          }}>{files.map((file, index) => {
+          }}>{files.filter(file => !('level' in file) || !isHubLevel(file.level)).map((file, index) => {
             if ('missing' in file) return <div key={file.fileName} className="jumping-level-tile jumping-missing-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)}>
               <div className="jumping-level-card"><MissingLevelNotice fileName={file.fileName} compact /></div>
               {devEditing && <div className="jumping-level-tile-actions"><DeleteLevelButton fileName={file.fileName} primary disabled={builtIn.busy || !builtIn.canWrite} onClick={() => void deleteFile(file)} /></div>}

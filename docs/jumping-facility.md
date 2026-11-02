@@ -1,7 +1,32 @@
 # The facility: wings, course doors and the evaluation
 
-**Proposed design spec, November 1, 2026. Not implemented.** Tracked in
+**Proposed design spec, November 1, 2026. First slice in progress.** Tracked in
 [issue #91](https://github.com/nmsimons/arcade/issues/91).
+
+**Status (November 2, 2026).** Development builds open the facility at
+`/lab/facility`, or from the **Facility** button on the level menu. What exists:
+
+- The campaign file and wing progression (`campaign.ts`), checked by
+  `npm run levels:check`.
+- Hub levels (`"kind": "hub"`) with course doors, bulkheads and charging bays
+  (`hub.ts`). Up enters an open door. Placards show a course's name and D
+  deadline, then its best time and grade; closed bulkheads show the clearance
+  still needed.
+- The facility loop (`facility.ts` and the game shell): Wake, then the
+  Orientation wing; a course returns the robot to its door, a bulkhead leads to
+  the matching bulkhead beyond it, and the game resumes at the last bay passed.
+  The pause screen uses the phosphor style, with Leave course and Return to
+  charging bay.
+- Stub layouts for the Orientation wing, the concourse and a Freight wing with
+  Level Five and Boxes. They are flat corridors for testing the loop, not
+  designed wings.
+
+Not yet built: the evaluation board, the sealed dispatch door, preparing a
+course while the robot approaches its door (the "Preparing level" dialog still
+appears), the door closing behind the robot, the cloud save slot for the last
+bay (it is saved on this device only), studio tools for hub objects, wing art,
+and golden traces for hub levels (record them on Apple Silicon once the layouts
+settle; `tests/helpers/jumping-golden.mjs` leaves hubs out until then).
 
 This specifies how L.A.B. replaces its level grid with the facility itself: a
 connected building the robot explores freely, with discipline wings around a

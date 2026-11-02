@@ -30,7 +30,7 @@ export const hubDoorBounds = entranceDoor
 export const hubDoorFits = (door: Pick<CourseDoor, 'x' | 'y'>, terrain: readonly Platform[], width: number, height: number) => entranceFits(door, terrain, width, height)
 export const hubBayBounds = (bay: Pick<HubBay, 'x' | 'y'>) => chargingBayBounds(bay)
 /** A placard hangs on the wall to the right of its door. */
-export const placardBounds = (door: Pick<CourseDoor, 'x' | 'y'>) => ({ x: door.x + 32, y: door.y - 78, w: 100, h: 56 })
+export const placardBounds = (door: Pick<CourseDoor, 'x' | 'y'>) => ({ x: door.x + 32, y: door.y - 80, w: 120, h: 66 })
 
 /** Placards are small message screens, dark while their door is locked. */
 export function hubPlacard(door: Pick<CourseDoor, 'x' | 'y'>, lines: readonly string[]): WallText {

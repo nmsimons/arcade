@@ -15,6 +15,7 @@ import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
 import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
+import { drawHubDoors } from './hub.ts'
 import { drawLandscape, hasRegionLighting } from './environment.ts'
 import { EnvironmentLighting, environmentBufferBytes } from './environmentLighting.ts'
 import { drawWallWiring, hasWallWiring } from './wallWiring.ts'
@@ -530,7 +531,9 @@ export class LightingRenderer {
       }
     }
     const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}:${run.level.platforms.map(p => p.groundCover).join(',')}`
-    const backgroundKey = `${dayKey}:${document.fonts.status}`
+    // Hub doors and placards are static during a hub run and belong to the cached background.
+    const hubKey = 'hub' in run && run.hub ? `:${[...run.hub.open].join()}:${[...run.hub.placards].map(([id, lines]) => id + lines.join('/')).join()}` : ''
+    const backgroundKey = `${dayKey}:${document.fonts.status}${hubKey}`
     const stableDayView = cacheAmbient && this.dayBackgroundCandidate === backgroundKey
     this.dayBackgroundCandidate = cacheAmbient ? backgroundKey : undefined
     if (!cacheAmbient) this.dayBackground = undefined
@@ -713,6 +716,7 @@ export class LightingRenderer {
           drawLevelBackdrop(correction.ctx, run.level,
             { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }, view.zoom, false)
           drawWallTexts(correction.ctx, run.level.texts ?? [], false)
+          drawHubDoors(correction.ctx, run.level, run.hub, false, paintNormally)
           drawTerrain(correction.ctx, run.terrain, run.level.platforms, run.level)
           correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'multiply'; drawField(correction.ctx)
           correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.drawImage(this.dayAmbient.buffer.canvas, 0, 0)

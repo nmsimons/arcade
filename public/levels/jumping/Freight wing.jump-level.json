@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "facility-freight",
+  "name": "Freight wing",
+  "kind": "hub",
+  "timing": "untimed",
+  "width": 1600,
+  "height": 720,
+  "floor": 720,
+  "entrance": { "name": "Freight entrance", "x": 200, "y": 720 },
+  "platforms": [],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    { "name": "Level Five", "id": "door-level-five", "x": 800, "y": 720, "course": "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd" },
+    { "name": "Boxes", "id": "door-boxes", "x": 1150, "y": 720, "course": "06b6058e-4448-4c6a-81a2-e936a70fda0a" }
+  ],
+  "bulkheads": [
+    { "name": "Concourse bulkhead", "id": "freight-to-concourse", "x": 200, "y": 720, "to": "concourse" }
+  ],
+  "chargingBays": [
+    { "name": "Freight bay", "id": "freight-bay", "x": 440, "y": 720 }
+  ],
+  "texts": [
+    { "x": 600, "y": 540, "w": 200, "h": 40, "text": "FREIGHT", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 600, "y": 578, "w": 260, "h": 24, "text": "CARGO · PLATES · GATES", "fontSize": 12, "align": "left", "style": "official" }
+  ]
+}

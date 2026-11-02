@@ -1,5 +1,16 @@
 import { isHubLevel, isPuzzleLevel } from './level.ts'
 import type { JumpLevel } from './level.ts'
+import { readLevelResponse } from './levelLimits.ts'
+
+/** Like the levels, the campaign is a public asset fetched afresh, never bundled. */
+export async function loadCampaign(base: string, fetchFile: typeof fetch = fetch): Promise<Campaign> {
+  const response = await fetchFile(`${base.replace(/\/?$/, '/')}levels/jumping-campaign.json`, { cache: 'no-store' })
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {})
+    throw new Error(`Could not load the campaign (HTTP ${response.status}).`)
+  }
+  return parseCampaign(JSON.parse(await readLevelResponse(response, () => {})))
+}
 
 /**
  * Courses that must be passed before a wing opens: the listed courses plus
@@ -21,7 +32,7 @@ export interface WingProgress {
   doors: { course: string; state: DoorState }[]
   clearance?: { passed: number; count: number }
 }
-export interface FacilityProgress { concourseOpen: boolean; wings: WingProgress[]; required: number; passed: number; complete: boolean }
+export interface FacilityProgress { started: boolean; concourseOpen: boolean; wings: WingProgress[]; required: number; passed: number; complete: boolean }
 
 export function parseCampaign(value: unknown): Campaign {
   const fail = (): never => { throw new Error('This file is not a valid campaign.') }
@@ -151,7 +162,7 @@ export function facilityProgress(campaign: Campaign, passed: (course: string) =>
     total += doors.length; done += count
     return { id: wing.id, open, passed: count, doors, ...(clearance ? { clearance } : {}) }
   })
-  return { concourseOpen, wings, required: total, passed: done, complete: total > 0 && done === total }
+  return { started, concourseOpen, wings, required: total, passed: done, complete: total > 0 && done === total }
 }
 
 /** Whether a direct link may start this course: its wing is open and its door is not locked. */

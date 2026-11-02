@@ -10,15 +10,18 @@ function RestartIcon() {
   </svg>
 }
 
-export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, onResume, onRestart, onBuilder, onLevels, onExit }: {
+/** In the facility, the pause screen offers moves within the building instead of the level menu. */
+export interface FacilityPauseActions { where: 'course' | 'hub'; onLeave: () => void; onBay: () => void }
+export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, facility, onResume, onRestart, onBuilder, onLevels, onExit }: {
   name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean; canEdit: boolean
+  facility?: FacilityPauseActions
   onResume: () => void; onRestart: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
   const [controls, setControls] = useState(false)
   const touchReference = touchControls && !connected
   return <KeyboardDialog label="Game paused" focusKey={controls ? 'jumping-controls' : 'jumping-paused'}
     onClose={() => controls ? setControls(false) : onResume()} className="jumping-overlay jumping-dialog-overlay">
-    <div className={`jumping-dialog-panel jumping-pause${controls ? ' jumping-controls-open' : ''}${controls && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
+    <div className={`jumping-dialog-panel jumping-pause${facility ? ' jumping-pause-system' : ''}${controls ? ' jumping-controls-open' : ''}${controls && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
       <header className="jumping-dialog-heading">
         <div className="jumping-dialog-kicker"><p title={name}>{name}</p><span className="jumping-dialog-light" aria-hidden="true" /></div>
         <h2>{controls ? 'Controls.' : 'Paused.'}</h2>
@@ -60,8 +63,10 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
         </> : <>
           <nav className="jumping-dialog-actions" aria-label="Pause actions">
             <button data-initial-focus onClick={onResume}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
-            <button onClick={onRestart}>{challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
-            <button onClick={onLevels}>Level menu</button>
+            {facility?.where === 'hub' ? <button onClick={facility.onBay}>Return to charging bay</button> : <>
+              <button onClick={onRestart}>{facility ? 'Restart course' : challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
+              {facility ? <button onClick={facility.onLeave}>Leave course</button> : <button onClick={onLevels}>Level menu</button>}
+            </>}
             <button onClick={() => setControls(true)}>Controls</button>
           </nav>
         </>}

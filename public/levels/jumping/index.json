@@ -46,6 +46,9 @@
     "Ascent.jump-level.json",
     "ascent2.jump-level.json",
     "spelunk.jump-level.json",
-    "exit.jump-level.json"
+    "exit.jump-level.json",
+    "Concourse.jump-level.json",
+    "Freight wing.jump-level.json",
+    "Orientation wing.jump-level.json"
   ]
 }

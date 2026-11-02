@@ -1,10 +1,12 @@
 {
   "version": 1,
   "opening": "1986ae30-4b97-4815-a35a-cfe3852bca9e",
+  "concourse": "facility-concourse",
   "wings": [
     {
       "id": "orientation",
       "name": "Orientation",
+      "level": "facility-orientation",
       "courses": [
         "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
         "a90ceb11-5e2a-4b24-80f2-73648ffab13d",
@@ -16,6 +18,7 @@
     {
       "id": "freight",
       "name": "Freight",
+      "level": "facility-freight",
       "courses": [
         "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
         "06b6058e-4448-4c6a-81a2-e936a70fda0a"

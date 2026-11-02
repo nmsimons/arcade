@@ -7,7 +7,7 @@ import { physicsView } from '../gameplayPose.ts'
 import { FOREARM, MIN_KNEE_OPENING, TAU, UPPER_ARM, add, lerp, mix, mixAngle, reflectAthletePose, rotatePose, smooth, solve, solveNear, solveRear, transferPose } from '../athleteRig.ts'
 import type { AthletePose, Leg } from '../athleteRig.ts'
 import type { Prop } from '../challenge.ts'
-import { bodyPolygon } from '../geometry.ts'
+import { bodyPolygon, withTerrainQueries } from '../geometry.ts'
 import { BACK_GRIP, BACK_WRIST, FRONT_GRIP, FRONT_WRIST } from '../ledge.ts'
 import type { Limb, Point } from '../limbPose.ts'
 import { TUNING } from '../movementTuning.ts'
@@ -18,9 +18,27 @@ import type { Player } from '../characterTypes.ts'
 
 /** Breaststroke coordinates the pull, recovery, kick and glide. Submerged
  * steering leads through the chest and neck while the hips and feet trail. */
+let bodySolves = 0, limbFits = 0
+/** Swimming body solves and limb fits since the module loaded; tests count
+ * them instead of timing work. */
+export const waterPoseWork = () => ({ bodySolves, limbFits })
+
 export function waterPose(p: Player): AthletePose {
+  if (p.waterMotion!.landing) return waterLandingPose(p)
+  return fitWaterLimbs(p, waterBodyPose(p))
+}
+
+/** waterPose up to its body clearance. The hips, waist, shoulders, head and
+ * `waterOffset` are final; the hands, braces and terrain fitting of the limbs
+ * are not applied. Callers that read only those parts skip the limb clearance,
+ * which is most of the cost of a submerged pose. */
+export function waterBodyPose(p: Player): AthletePose {
+  // Read-only: its body clearance queries share one terrain scope.
+  return withTerrainQueries(() => solveWaterBody(p))
+}
+function solveWaterBody(p: Player): AthletePose {
+  bodySolves++
   const motion = p.waterMotion!
-  const clearancePlayer = p.terrain ? { ...p, terrain: p.terrain.filter(b => !b.looseProp) } : p
   if (motion.landing) return waterLandingPose(p)
   const pushing = !p.grounded ? smooth(p.pushing?.amount ?? 0) : 0
   const floatHip: Point = [0, -31.4], floatWaist: Point = [.2, -38], floatShoulder: Point = [.5, -48], floatHead: Point = [2.8, -55.3]
@@ -163,6 +181,16 @@ export function waterPose(p: Player): AthletePose {
     const cleared = clearBody(p, pose, p.anim.waterClearance?.offset ?? motion.bodyOffset)
     pose = { ...cleared.pose, waterOffset: cleared.offset }
   }
+  return pose
+}
+
+/** Fit the limbs of a waterBodyPose to pressed palms, wall, floor and ceiling
+ * braces, ledge reach and terrain. Only arms and legs change. */
+function fitWaterLimbs(p: Player, pose: AthletePose): AthletePose {
+  limbFits++
+  const motion = p.waterMotion!
+  const pushing = !p.grounded ? smooth(p.pushing?.amount ?? 0) : 0
+  const clearancePlayer = p.terrain ? { ...p, terrain: p.terrain.filter(b => !b.looseProp) } : p
   if (pushing && p.pushing?.palms) {
     const press = (arm: Limb, index: number) => {
       const palm = p.pushing!.palms![index]
@@ -231,7 +259,8 @@ export function waterPose(p: Player): AthletePose {
 export function swimmingBodyOutline(p: Player): Point[] {
   // The collision hull comes from the physics rig, including its clearance offset.
   const view = physicsView(p), motion = view.waterMotion!
-  const pose = waterPose({ ...view, terrain: undefined,
+  // Only the torso and head are read, and those are final in the body pose.
+  const pose = waterBodyPose({ ...view, terrain: undefined,
     waterMotion: { ...motion, ceiling: undefined, wall: undefined, floor: undefined } })
   const points: Point[] = []
   for (const [center, radius] of [[pose.hip, 3.7], [pose.waist, 2.8], [pose.shoulder, 2.4], [pose.head, 6.25]] as const) {

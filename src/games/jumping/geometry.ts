@@ -27,13 +27,31 @@ interface BoundaryGeometry {
 }
 const boundaries = new WeakMap<Platform, BoundaryGeometry>()
 let queryGeometry: WeakMap<Platform, BoundaryGeometry> | undefined
+let queryBoxes: WeakMap<readonly Platform[], Float64Array> | undefined
 /** A synchronous, read-only solve can validate each outline once, even when
  * hundreds of limb samples revisit it. Edits between solves are still checked. */
 export function withTerrainQueries<T>(query: () => T): T {
   if (queryGeometry) return query()
-  queryGeometry = new WeakMap()
+  queryGeometry = new WeakMap(); queryBoxes = new WeakMap()
   try { return query() }
-  finally { queryGeometry = undefined }
+  finally { queryGeometry = undefined; queryBoxes = undefined }
+}
+/** Inside withTerrainQueries, each solid's box as flat x, x + w, y, y + h, in
+ * list order. A level's solids come in many object shapes, so scanning flat
+ * numbers is much faster than reading every platform. Undefined outside a
+ * scope, where the list or its solids may change between queries. */
+export function terrainBoxes(terrain: readonly Platform[]): Float64Array | undefined {
+  if (!queryBoxes) return undefined
+  let boxes = queryBoxes.get(terrain)
+  if (!boxes) {
+    boxes = new Float64Array(terrain.length * 4)
+    for (let i = 0; i < terrain.length; i++) {
+      const b = terrain[i]
+      boxes[4 * i] = b.x; boxes[4 * i + 1] = b.x + b.w; boxes[4 * i + 2] = b.y; boxes[4 * i + 3] = b.y + b.h
+    }
+    queryBoxes.set(terrain, boxes)
+  }
+  return boxes
 }
 const sameOutline = (outline: Platform['polygon'], saved: number[]) => (outline?.length ?? 0) * 2 === saved.length
   && (!outline || outline.every((p, i) => p[0] === saved[i * 2] && p[1] === saved[i * 2 + 1]))

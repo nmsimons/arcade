@@ -17,9 +17,9 @@ jobs:
     outputs:
       fast: ${{ steps.scope.outputs.fast }}
       playwright-image: ${{ steps.browser-image.outputs.image }}
-    # Full replay coverage can take fourteen minutes before lint and build.
-    # Leave room for setup, artifact upload and runner cleanup as well.
-    timeout-minutes: 20
+    # Install, advisories, lint, build and upload take a few minutes. Unit
+    # tests run in their own job so the browser shards don't wait for them.
+    timeout-minutes: 15
     permissions:
       contents: read
       actions: read
@@ -56,12 +56,6 @@ jobs:
         run: npm ci
       - name: Check dependency advisories
         run: npm run security:check
-      - name: Test gameplay and saves
-        if: steps.scope.outputs.fast != 'true'
-        run: npm test
-        env:
-          # The golden traces job replays them alongside the browser shards.
-          SKIP_UJG_GOLDEN: '1'
       - name: Lint
         run: npm run lint
       - name: Build
@@ -79,6 +73,32 @@ jobs:
           path: dist/web/
           retention-days: 1
           if-no-files-found: error
+
+  unit:
+    needs: validate
+    runs-on: ubuntu-latest
+    name: Gameplay and save tests
+    # npm test takes 8 to 18 minutes depending on the runner. It runs beside
+    # the browser shards instead of delaying them.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        if: needs.validate.outputs.fast != 'true'
+      - uses: actions/setup-node@v7
+        if: needs.validate.outputs.fast != 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+        if: needs.validate.outputs.fast != 'true'
+      - name: Test gameplay and saves
+        if: needs.validate.outputs.fast != 'true'
+        run: npm test
+        env:
+          # The golden traces job replays them.
+          SKIP_UJG_GOLDEN: '1'
 
   browser:
     needs: validate
@@ -156,7 +176,7 @@ jobs:
         run: node --test tests/jumping-golden-traces.test.mjs
 
   deploy:
-    needs: [validate, browser, golden]
+    needs: [validate, unit, browser, golden]
     if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
     name: Deploy validated site

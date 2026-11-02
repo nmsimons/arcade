@@ -561,13 +561,12 @@ function enterDoorway(run: Run, toX: number) {
 }
 /**
  * A fresh Up press in an open doorway enters it; walking or running past never
- * does. Standing at a charging bay records it as the resume point.
+ * does.
  */
 function stepHubDoors(run: Run, hub: HubState, input: JumpInput) {
   const p = run.player, level = run.level, pressed = input.climb && !hub.climbHeld
   hub.climbHeld = input.climb
   if (p.inverted || !p.grounded || p.hang || p.mantle || p.climbing) return
-  for (const bay of level.chargingBays ?? []) if (Math.abs(p.x - bay.x) < 30 && Math.abs(p.y - bay.y) < 2) hub.bay = bay.id
   if (!pressed || p.sliding) return
   const doors: HubDoor[] = [...(level.courseDoors ?? []).map(door => ({ kind: 'course' as const, door })), ...(level.bulkheads ?? []).map(door => ({ kind: 'bulkhead' as const, door }))]
   const target = doors.find(({ door }) => hub.open.has(door.id) && Math.abs(p.y - door.y) < 2 && Math.abs(p.x - door.x) < hubDoorBounds(door).w / 2)

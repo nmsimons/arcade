@@ -5,25 +5,41 @@ import { isHubLevel, isPuzzleLevel } from './level.ts'
 import type { HubLevel, JumpLevel } from './level.ts'
 import type { HubDoor } from './hub.ts'
 
-/** How the robot enters a hub: its default entrance, out of a door, or waking in a bay. */
-export type Arrival = { kind: 'entrance' } | { kind: 'door'; id: string } | { kind: 'bay'; id: string }
+/** How the robot enters a hub: at its default entrance, or out of a door or bulkhead. */
+export type Arrival = { kind: 'entrance' } | { kind: 'door'; id: string }
 export type FacilityPlace =
   | { kind: 'opening'; level: string }
   | { kind: 'hub'; level: string; arrival: Arrival }
   | { kind: 'course'; level: string; hub: string; door: string }
   | { kind: 'escape'; level: string; index: number }
 
-/** The last charging bay passed is the facility's only saved position. */
+/**
+ * The facility autosaves where the robot is: the hub and the door it came
+ * through, the door of the course it is playing, or its escape level. Course
+ * records save as they always have; together they are the whole save.
+ */
 export const FACILITY_KEY = 'arcade.jumping.facility.v1'
-export interface FacilitySave { bay?: { level: string; id: string } }
+export type SavedPlace = Extract<FacilityPlace, { kind: 'hub' | 'escape' }>
+export interface FacilitySave { place?: SavedPlace }
 export function readFacilitySave(storage: Pick<Storage, 'getItem'>): FacilitySave {
   try {
-    const bay = JSON.parse(storage.getItem(FACILITY_KEY) ?? '{}')?.bay
-    return typeof bay?.level === 'string' && typeof bay?.id === 'string' ? { bay: { level: bay.level, id: bay.id } } : {}
-  } catch { return {} }
+    const place = JSON.parse(storage.getItem(FACILITY_KEY) ?? '{}')?.place
+    if (place?.kind === 'hub' && typeof place.level === 'string') {
+      const door = place.arrival?.kind === 'door' && typeof place.arrival.id === 'string' ? place.arrival.id as string : undefined
+      return { place: { kind: 'hub', level: place.level, arrival: door ? { kind: 'door', id: door } : { kind: 'entrance' } } }
+    }
+    if (place?.kind === 'escape' && typeof place.level === 'string' && Number.isInteger(place.index) && place.index >= 0) return { place: { kind: 'escape', level: place.level, index: place.index } }
+  } catch { /* An unreadable save resumes at the first wing. */ }
+  return {}
 }
-export function saveFacilityBay(storage: Pick<Storage, 'setItem'>, level: string, id: string) {
-  storage.setItem(FACILITY_KEY, JSON.stringify({ bay: { level, id } }))
+/** A course resumes at its door; the opening is never saved. */
+export function savedPlace(place: FacilityPlace): SavedPlace | undefined {
+  if (place.kind === 'course') return { kind: 'hub', level: place.hub, arrival: { kind: 'door', id: place.door } }
+  return place.kind === 'opening' ? undefined : place
+}
+export function saveFacilityPlace(storage: Pick<Storage, 'setItem'>, place: FacilityPlace) {
+  const saved = savedPlace(place)
+  if (saved) storage.setItem(FACILITY_KEY, JSON.stringify({ place: saved }))
 }
 
 type Levels = ReadonlyMap<string, JumpLevel>
@@ -35,12 +51,20 @@ const hubOpen = (campaign: Campaign, progress: FacilityProgress, id: string) => 
   return place === 'concourse' ? progress.concourseOpen : !!progress.wings.find(wing => wing.id === place)?.open
 }
 
-/** A new save starts in the opening level; otherwise the robot wakes in the last bay it passed. */
+/**
+ * A new save starts in the opening level. Otherwise the robot resumes where it
+ * was autosaved, or at the first wing's entrance if that place is now closed
+ * or gone.
+ */
 export function facilityStart(campaign: Campaign, progress: FacilityProgress, save: FacilitySave, levels: Levels): FacilityPlace {
   const first = hubLevel(levels, campaign.wings[0].level)
   if (!progress.started || !first) return { kind: 'opening', level: campaign.opening }
-  const bay = save.bay, saved = bay && hubLevel(levels, bay.level)
-  if (bay && saved?.chargingBays.some(b => b.id === bay.id) && hubOpen(campaign, progress, bay.level)) return { kind: 'hub', level: bay.level, arrival: { kind: 'bay', id: bay.id } }
+  const place = save.place, hub = place?.kind === 'hub' ? hubLevel(levels, place.level) : undefined
+  if (place?.kind === 'hub' && hub && hubOpen(campaign, progress, hub.id)) {
+    const door = place.arrival.kind === 'door' ? place.arrival.id : undefined
+    return { kind: 'hub', level: hub.id, arrival: door && [...hub.courseDoors, ...hub.bulkheads].some(d => d.id === door) ? place.arrival : { kind: 'entrance' } }
+  }
+  if (place?.kind === 'escape' && progress.complete && campaign.escape[place.index] === place.level && levels.has(place.level)) return place
   return { kind: 'hub', level: first.id, arrival: { kind: 'entrance' } }
 }
 
@@ -74,13 +98,9 @@ export function nextPlace(campaign: Campaign, place: FacilityPlace, departure: H
   return { kind: 'hub', level: target.id, arrival: bulkhead ? { kind: 'door', id: bulkhead.id } : { kind: 'entrance' } }
 }
 
-/** The hub as the robot arrives. A bay arrival replaces that bay with the waking pod. */
+/** The hub as the robot arrives: its entrance moves to the door it steps out of. */
 export function arrivalLevel(level: HubLevel, arrival: Arrival): HubLevel {
   if (arrival.kind === 'entrance') return level
-  if (arrival.kind === 'bay') {
-    const bay = level.chargingBays.find(b => b.id === arrival.id)
-    return bay ? { ...level, entrance: { x: bay.x, y: bay.y, kind: 'charging-bay' }, chargingBays: level.chargingBays.filter(b => b !== bay) } : level
-  }
   const door = [...level.courseDoors, ...level.bulkheads].find(d => d.id === arrival.id)
   return door ? { ...level, entrance: { x: door.x, y: door.y } } : level
 }

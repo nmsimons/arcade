@@ -8,15 +8,15 @@
 
 - The campaign file and wing progression (`campaign.ts`), checked by
   `npm run levels:check`.
-- Hub levels (`"kind": "hub"`) with course doors, bulkheads and charging bays
-  (`hub.ts`). Up enters an open door. Placards show a course's name and D
+- Hub levels (`"kind": "hub"`) with course doors, bulkheads and evaluation
+  boards (`hub.ts`). Up enters an open door. Placards show a course's name and D
   deadline, then its best time and grade; closed bulkheads show the clearance
   still needed.
 - The facility loop (`facility.ts` and the game shell): Wake, then the
   Orientation wing; a course returns the robot to its door, a bulkhead leads to
-  the matching bulkhead beyond it, and the game resumes at the last bay passed.
-  The pause screen uses the phosphor style, with Leave course and Return to
-  charging bay.
+  the matching bulkhead beyond it. The robot's place autosaves on every move,
+  and a returning save resumes there. The pause screen uses the phosphor style,
+  with Leave course in courses.
 - Every wing in the draft grouping below, as stub hubs: Orientation (9 courses),
   Freight (8), Construction (7), Targets (4), Water (3), Security (7) and an
   Assessment wing for Escapade and World I, the two unplaced levels: 40 required
@@ -24,8 +24,7 @@
   Freight and Construction; 12 of Freight, Construction and Targets; 6 of Water
   and Security). The stubs are flat corridors that make the campaign playable
   end to end, not designed wings.
-- The concourse, with a bulkhead to every wing, a charging bay, the evaluation
-  board (the total, then each wing's passes or SEALED) and the dispatch door.
+- The concourse, with a bulkhead to every wing, the evaluation board (the total, then each wing's passes or SEALED) and the dispatch door.
 - The release: when all 40 courses are passed, the dispatch door opens onto
   Ascent I, the final course. Passing it leads through Ascent II, Spelunk and
   Exit, each opening into the next; after the bus departs, the closing card
@@ -34,8 +33,8 @@
 
 Not yet built: preparing a course while the robot approaches its door (the
 "Preparing level" dialog still appears), the door closing behind the robot,
-lamps and grade letters on the board, the cloud save slot for the last bay (it
-is saved on this device only), studio tools for hub objects, wing layouts and
+lamps and grade letters on the board, the cloud save slot for the autosaved
+place (it is saved on this device only), studio tools for hub objects, wing layouts and
 art, shortcuts, certification doors, and golden traces for hub levels (record
 them on Apple Silicon once the layouts settle; `tests/helpers/jumping-golden.mjs`
 leaves hubs out until then).
@@ -68,7 +67,7 @@ the text. What breaks it is everything between runs:
 | Try again | Walk back in, or **Restart course** from the pause screen |
 | Level menu | **Leave course** from the pause screen returns to its door |
 | Preparing level | The door closes while the course loads behind it |
-| Continue | The game resumes at the charging bay the robot last passed |
+| Continue | The game resumes where the robot was last autosaved |
 | Certification shortfall text | The certification door's placard |
 
 Course levels themselves do not change, apart from visual reskins to match
@@ -86,7 +85,7 @@ work on next. Progress opens access; it never changes what the robot can do.
                         ┌───────── shortcut ─────────┐
                         │                            │
  Wake ─► Orientation ─► CONCOURSE ◄─► Freight wing ──┘
-         (linear)       board, bay   ◄─► Construction wing ─┐
+         (linear)       board        ◄─► Construction wing ─┐
                         dispatch     ◄─► Water wing         │ shortcut
                         door         ◄─► Targets wing ◄─────┘
                           │          ◄─► Security wing (opens later)
@@ -96,8 +95,7 @@ work on next. Progress opens access; it never changes what the robot can do.
 
 ### The concourse
 
-The central hall. It holds the evaluation board, a charging bay, wall maps,
-and the sealed exterior dispatch door, which is visible from the first visit so
+The central hall. It holds the evaluation board, wall maps, and the sealed exterior dispatch door, which is visible from the first visit so
 the goal is always in view. Every wing's entrance opens off it. Orientation
 leads into it; passing Orientation's courses opens it.
 
@@ -157,12 +155,13 @@ Wing-to-wing and concourse-to-wing connections cross level files through
 bulkheads. Each bulkhead preloads the level beyond it while the robot
 approaches, so the swap is hidden behind a door that closes and reopens.
 
-### Charging bays
+### Autosave
 
-Charging bays are the facility's save points. There is one in the concourse and
-one near each wing's entrance; Wake's pod is the first. Walking past an empty
-bay lights it and records it as the resume point. Starting the game resumes
-there. A bay needs no input and offers no menu.
+The facility has no save points to visit; Wake's pod is the game's only
+charging bay. The game autosaves the robot's place whenever it moves: the hub
+and the door or bulkhead it came through, the door of the course it is playing,
+or its escape level. Course records save when a course finishes, as they always
+have. Together they are the whole save.
 
 ### Access and clearance
 
@@ -315,11 +314,14 @@ library.
 
 ### Starting the game
 
-`/lab` opens the facility instead of the grid. A new save starts in Wake.
-Otherwise the robot resumes at the last charging bay it passed. That bay is the
-only new saved value; doors, lamps, bulkheads and shortcuts are all derived from
-best times and completions, which already sync through account backups. The bay
-needs a small new allowlisted save slot (see
+`/lab` opens the facility instead of the grid. A new save starts in Wake, whose
+exit leads into the Orientation wing. Afterward, the robot resumes where it was
+last autosaved: at the door it came through, or at a course's door if it left
+mid-course. A place that has since closed or disappeared resumes at the first
+wing's entrance. The autosaved place is the only new saved value; doors, lamps,
+bulkheads and shortcuts are all derived from best times and completions, which
+already sync through account backups. The place needs a small new allowlisted
+save slot (see
 [account cloud saves](account-cloud-saves.md)). Wing world state (props moved,
 switches pressed) resets each time a wing loads; nothing else in a wing needs
 saving.
@@ -349,11 +351,11 @@ Its actions depend on where the robot is:
 | Where | Actions |
 | --- | --- |
 | Course | Resume, Restart course, Leave course, Controls, Back to arcade |
-| Wing or concourse | Resume, Return to charging bay, Controls, Back to arcade |
+| Wing or concourse | Resume, Controls, Back to arcade |
 | Escape route | Resume, Restart from entrance, Return to the facility, Controls, Back to arcade |
 
-**Return to charging bay** puts the robot back at its last bay, so no traversal
-can strand it. Development builds add **Level studio** as today. The controls
+If wing layouts ever risk stranding the robot, add a way back to the last
+door here. Development builds add **Level studio** as today. The controls
 reference keeps its current content.
 
 ## Authoring rules for wings
@@ -401,7 +403,7 @@ It precedes building any wing beyond Orientation.
 ## Engineering notes
 
 - **Session.** The game shell gains a facility mode: the default screen becomes
-  a wing run (an untimed level run with door, bulkhead and bay handling) instead
+  a wing run (an untimed level run with door and bulkhead handling) instead
   of the menu. A course run returns to a freshly loaded wing.
   `JumpingResultDialog` remains for studio playtests and the development
   library only.
@@ -414,7 +416,7 @@ It precedes building any wing beyond Orientation.
   The grid moves to a development-only route (for example `/lab/library`) with
   the stress tests and the studio.
 - **Studio.** New tools: Course door (with a course picker), Bulkhead (with a
-  target wing), Charging bay, Evaluation board, Wall map, Sealed door, and later
+  target wing), Evaluation board, Wall map, Sealed door, and later
   Transit button. Playtesting a wing in the studio can enter real courses and
   cross bulkheads.
 - **Accessibility.** Placard, board and map content is mirrored in the visually
@@ -440,7 +442,7 @@ It precedes building any wing beyond Orientation.
   - finishing returns to the door with the placard and board updated;
   - an F run keeps the next door dark;
   - clearance opens a bulkhead exactly at its threshold;
-  - charging bays record the resume point, and reload resumes there;
+  - the autosave records the robot's place, and reload resumes there;
   - shortcuts stay open after reload;
   - a direct link to a locked course is refused;
   - automated routes for the adjacency and return budgets, using normal
@@ -455,10 +457,10 @@ It precedes building any wing beyond Orientation.
 1. **Canon and this spec.** Done in this change.
 2. **First slice, behind a development flag.** Wake; a short Orientation wing
    with four doors (Leaps and Bounds I, First Gap, Second Gap, A Little Swing)
-   and its placards; a concourse stub with the board, a charging bay and the
-   sealed dispatch door; one discipline wing entrance with two doors behind a
+   and its placards; a concourse stub with the board and the sealed dispatch
+   door; one discipline wing entrance with two doors behind a
    bulkhead, to test moving between wings; Up to enter; return to the door; the
-   phosphor pause screen; resume at the last bay.
+   phosphor pause screen; resume at the autosaved place.
 3. **Playtest gate.** Normal-speed play from a fresh save: walking time, door
    readability, whether the building feels like a place rather than a menu,
    whether the wing identities read, mood. Automated checks cannot answer these.

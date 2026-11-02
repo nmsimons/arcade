@@ -11,7 +11,7 @@ function RestartIcon() {
 }
 
 /** In the facility, the pause screen offers moves within the building instead of the level menu. */
-export interface FacilityPauseActions { where: 'course' | 'hub' | 'escape'; onLeave: () => void; onBay: () => void }
+export interface FacilityPauseActions { where: 'course' | 'hub' | 'escape'; onLeave: () => void }
 export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, facility, onResume, onRestart, onBuilder, onLevels, onExit }: {
   name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean; canEdit: boolean
   facility?: FacilityPauseActions
@@ -63,7 +63,7 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
         </> : <>
           <nav className="jumping-dialog-actions" aria-label="Pause actions">
             <button data-initial-focus onClick={onResume}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
-            {facility?.where === 'hub' ? <button onClick={facility.onBay}>Return to charging bay</button> : <>
+            {facility?.where === 'hub' ? null : <>
               <button onClick={onRestart}>{facility ? facility.where === 'escape' ? 'Restart from entrance' : 'Restart course' : challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
               {facility ? <button onClick={facility.onLeave}>{facility.where === 'escape' ? 'Return to the facility' : 'Leave course'}</button> : <button onClick={onLevels}>Level menu</button>}
             </>}

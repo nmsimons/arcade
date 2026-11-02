@@ -130,9 +130,8 @@ validated campaign. Assign levels deliberately; do not infer story membership
 from filenames or make every future built-in mandatory automatically.
 
 The facility is one connected building that the robot explores freely, in the
-manner of a metroidvania. A central concourse holds the evaluation board, a
-charging bay and the sealed exterior dispatch door, visible from the first
-visit. Wings open off the concourse. Each wing houses one training discipline
+manner of a metroidvania. A central concourse holds the evaluation board and
+the sealed exterior dispatch door, visible from the first visit. Wings open off the concourse. Each wing houses one training discipline
 (movement, freight, construction, water, security and so on), groups the
 courses of that discipline behind its doors, and has its own look: palette,
 lighting, signage, machines and sound. A sense of place matters more than
@@ -186,8 +185,8 @@ editing or playtesting.
    completion. Ordinary levels retain their current doorway-entry scoring.
 4. Unlocked courses remain available for replay through their doors. Slower runs
    never reduce grades, remove completion, or relock areas. Optional diversions
-   never delay the next required unlock. Starting the game resumes at the
-   charging bay the robot last passed.
+   never delay the next required unlock. A new game starts in Wake. Afterward,
+   starting the game resumes where the robot was last autosaved.
 5. The evaluation completes when every required course is passed. Its release
    opens the escape route, whose levels are untimed. Escaping completes the
    campaign; no grade above D is required for the ending.
@@ -201,8 +200,10 @@ The authoring library and playtests remain unrestricted. Direct play links also
 respect progression. Use stable level IDs for progress. Older saved times count
 when they meet the current D deadline; an older completion flag alone cannot
 prove a timed pass. Untimed completion remains saved independently of best time.
-Doors, lamps and bulkheads are derived from these records. The last charging
-bay is the only new saved position.
+Doors, lamps and bulkheads are derived from these records. The only new saved
+value is the robot's autosaved place: the hub and the door it came through,
+the door of the course it is playing, or its escape level. Wake's pod is the
+game's only charging bay; the facility has no save points to visit.
 
 The wall clock counts down to the D deadline while showing the current A/B/C/D
 grade. Passing D permanently makes that run F: the timer dims at zero and time

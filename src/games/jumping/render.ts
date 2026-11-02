@@ -61,7 +61,6 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   } else drawCourseWall(ctx, level, view, zoom)
   if (includeWallArt) drawWallWiring(ctx, level)
   if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
-  for (const bay of level.chargingBays ?? []) drawChargingBay(ctx, bay)
   for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
   ctx.restore()
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])

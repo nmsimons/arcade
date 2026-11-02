@@ -27,9 +27,6 @@
     { "name": "Security bulkhead", "id": "concourse-to-security", "x": 3190, "y": 720, "to": "security" },
     { "name": "Assessment bulkhead", "id": "concourse-to-assessment", "x": 3560, "y": 720, "to": "assessment" }
   ],
-  "chargingBays": [
-    { "name": "Concourse bay", "id": "concourse-bay", "x": 1720, "y": 720 }
-  ],
   "evaluationBoards": [
     { "name": "Evaluation board", "id": "evaluation", "x": 1850, "y": 330, "w": 460, "h": 250 }
   ],

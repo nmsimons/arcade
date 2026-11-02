@@ -265,7 +265,6 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
-  for (const bay of level.chargingBays ?? []) drawChargingBayCover(ctx, bay, undefined, paint, nightModeEnabled(level.lighting))
   if (!editor) drawGadgets(ctx, run, paint, playerExposure)
   if (goal?.kind === 'bus') drawGoal(ctx, goal, run.goalLit, paint, run.busDeparture, run.exit?.elapsed ?? 0)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface

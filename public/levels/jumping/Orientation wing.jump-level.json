@@ -29,12 +29,9 @@
   "bulkheads": [
     { "name": "Concourse bulkhead", "id": "orientation-to-concourse", "x": 3900, "y": 720, "to": "concourse" }
   ],
-  "chargingBays": [
-    { "name": "Orientation bay", "id": "orientation-bay", "x": 400, "y": 720 }
-  ],
   "texts": [
-    { "x": 520, "y": 540, "w": 260, "h": 40, "text": "ORIENTATION", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 520, "y": 578, "w": 320, "h": 24, "text": "MOVEMENT BASICS · 9 COURSES", "fontSize": 12, "align": "left", "style": "official" },
+    { "x": 400, "y": 540, "w": 260, "h": 40, "text": "ORIENTATION", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 400, "y": 578, "w": 320, "h": 24, "text": "MOVEMENT BASICS · 9 COURSES", "fontSize": 12, "align": "left", "style": "official" },
     { "x": 3710, "y": 540, "w": 260, "h": 40, "text": "CONCOURSE →", "fontSize": 24, "align": "left", "style": "official" }
   ]
 }

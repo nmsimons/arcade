@@ -24,11 +24,8 @@
   "bulkheads": [
     { "name": "Concourse bulkhead", "id": "targets-to-concourse", "x": 200, "y": 720, "to": "concourse" }
   ],
-  "chargingBays": [
-    { "name": "Targets bay", "id": "targets-bay", "x": 440, "y": 720 }
-  ],
   "texts": [
-    { "x": 560, "y": 540, "w": 260, "h": 40, "text": "TARGETS", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 560, "y": 578, "w": 320, "h": 24, "text": "COINS · BALL PHYSICS · 4 COURSES", "fontSize": 12, "align": "left", "style": "official" }
+    { "x": 400, "y": 540, "w": 260, "h": 40, "text": "TARGETS", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 400, "y": 578, "w": 320, "h": 24, "text": "COINS · BALL PHYSICS · 4 COURSES", "fontSize": 12, "align": "left", "style": "official" }
   ]
 }

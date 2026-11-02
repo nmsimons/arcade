@@ -25,7 +25,7 @@ import { blankTrial, copyLevel, levelProblems, isHubLevel, isPuzzleLevel, levelR
 import type { JumpLevel, RunLevel } from './jumping/level'
 import { facilityProgress, loadCampaign } from './jumping/campaign'
 import type { Campaign } from './jumping/campaign'
-import { arrivalLevel, dispatchPlace, facilityStart, hubPresentation, nextPlace, readFacilitySave, saveFacilityBay } from './jumping/facility'
+import { arrivalLevel, dispatchPlace, facilityStart, hubPresentation, nextPlace, readFacilitySave, saveFacilityPlace } from './jumping/facility'
 import type { FacilityPlace } from './jumping/facility'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
@@ -175,7 +175,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const best = bestTime(recordKey)
   const unlocked = unlockedLevels(catalog.files, file => passedLevel(file.level, bestTime(file.level.id), completed(file.level.id)))
   // The facility (development builds): the place the robot is in and the campaign it follows.
-  const facility = useRef<FacilityPlace | null>(null), campaignRef = useRef<Campaign | null>(null), lastBay = useRef<string | null>(null)
+  const facility = useRef<FacilityPlace | null>(null), campaignRef = useRef<Campaign | null>(null)
   const [facilityWhere, setFacilityWhere] = useState<'course' | 'hub' | 'escape' | null>(null)
   const [facilityNotice, setFacilityNotice] = useState('')
   const levelsById = new Map(catalog.files.map(file => [file.level.id, file.level]))
@@ -193,8 +193,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   function enterPlace(place: FacilityPlace) {
     const level = levelsById.get(place.level)
     if (!level) { leaveFacility('That part of the facility is unavailable.'); return }
-    facility.current = place; lastBay.current = null
+    facility.current = place
     setFacilityWhere(place.kind === 'opening' ? null : place.kind)
+    // Autosave where the robot is; course records save when a course finishes.
+    try { saveFacilityPlace(playerStorage, place) } catch { /* The place is kept for this visit only. */ }
     void beginPlay(place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level, false, place.kind === 'hub' ? `hub:${level.id}` : level.id)
   }
   async function startFacility() {
@@ -217,17 +219,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     const campaign = campaignRef.current, place = campaign && dispatchPlace(campaign, levelsById)
     if (place) enterPlace(place); else leaveFacility()
   }
-  function returnToBay() {
-    const campaign = campaignRef.current
-    if (campaign) enterPlace(facilityStart(campaign, facilityProgress(campaign, passedNow), readFacilitySave(playerStorage), levelsById))
-  }
-  /** Passing a charging bay makes it the resume point; it is the facility's only saved position. */
-  const recordBay = useEffectEvent(() => {
-    const place = facility.current, bay = run.current?.hub?.bay
-    if (place?.kind !== 'hub' || !bay || bay === lastBay.current) return
-    lastBay.current = bay
-    try { saveFacilityBay(playerStorage, place.level, bay) } catch { /* The bay is kept for this visit only. */ }
-  })
   const [saveError, setSaveError] = useState(false)
   const terrain = useRef(levelTerrain(initialRun.level))
   const activeLevel = useRef<JumpLevel>(initialRun.level), rules = useRef(levelRules(initialRun.level))
@@ -735,7 +726,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
           accumulator -= STEP
           if (run.current?.finished) { finishRun(); accumulator = 0; break }
         }
-        recordBay()
         sound.update(audioState.drain())
       } else { accumulator = 0; motion?.reset() }
       advanceEnding(dt)
@@ -808,7 +798,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       {...facilityWhere === 'escape' ? { onLevels: returnToFacility, levelsLabel: 'Return to the facility' } : { onLevels: showMenu }} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen(pauseReturn.current)}
-      facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse, onBay: returnToBay } : undefined}
+      facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse } : undefined}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label={LAB_NAME} focusKey="jumping-menu"
       onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">

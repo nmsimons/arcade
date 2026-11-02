@@ -11,7 +11,6 @@ const hubFile = overrides => ({
   props: [], mechanisms: [], triggers: [], robots: [],
   courseDoors: [{ id: 'door-one', x: 600, y: 920, course: 'one' }, { id: 'door-two', x: 900, y: 920, course: 'two' }],
   bulkheads: [{ id: 'to-concourse', x: 1300, y: 920, to: 'concourse' }],
-  chargingBays: [{ id: 'bay', x: 1550, y: 920 }],
   evaluationBoards: [{ id: 'board', x: 200, y: 500, w: 300, h: 160 }],
   ...overrides,
 })
@@ -30,30 +29,27 @@ test('hub levels parse with doors and bays but no goal or grade times', () => {
   assert.equal(isPuzzleLevel(level), false)
   assert.deepEqual(level.courseDoors.map(door => door.course), ['one', 'two'])
   assert.deepEqual(level.bulkheads[0], { id: 'to-concourse', x: 1300, y: 920, to: 'concourse' })
-  assert.deepEqual(level.chargingBays[0], { id: 'bay', x: 1550, y: 920 })
   assert.deepEqual(level.evaluationBoards[0], { id: 'board', x: 200, y: 500, w: 300, h: 160 })
   assert.deepEqual(levelProblems(level), [])
-  const minimal = parseLevel(hubFile({ courseDoors: undefined, bulkheads: undefined, chargingBays: undefined, evaluationBoards: undefined }))
-  assert.deepEqual([minimal.courseDoors, minimal.bulkheads, minimal.chargingBays, minimal.evaluationBoards], [[], [], [], []])
+  const minimal = parseLevel(hubFile({ courseDoors: undefined, bulkheads: undefined, evaluationBoards: undefined }))
+  assert.deepEqual([minimal.courseDoors, minimal.bulkheads, minimal.evaluationBoards], [[], [], []])
 })
 
 test('hub structure is rejected outside hubs and in malformed hubs', () => {
-  const course = { ...hubFile(), kind: undefined, timing: undefined, courseDoors: undefined, bulkheads: undefined, chargingBays: undefined, evaluationBoards: undefined,
+  const course = { ...hubFile(), kind: undefined, timing: undefined, courseDoors: undefined, bulkheads: undefined, evaluationBoards: undefined,
     goal: { x: 1620, y: 920 }, times: { a: 10, b: 20, c: 40, d: 60 } }
   assert.equal(isPuzzleLevel(parseLevel(course)), true)
   for (const broken of [
     { ...course, courseDoors: [] },
-    { ...course, chargingBays: [] },
     { ...course, evaluationBoards: [] },
     hubFile({ evaluationBoards: [{ id: 'board', x: 1700, y: 500, w: 300, h: 160 }] }),
-    hubFile({ evaluationBoards: [{ id: 'bay', x: 200, y: 500, w: 300, h: 160 }] }),
+    hubFile({ evaluationBoards: [{ id: 'door-one', x: 200, y: 500, w: 300, h: 160 }] }),
     hubFile({ kind: 'wing' }),
     hubFile({ timing: undefined }),
     hubFile({ goal: { x: 1620, y: 920 } }),
     hubFile({ times: { a: 10, b: 20, c: 40, d: 60 } }),
     hubFile({ bulkheads: [{ id: 'to-concourse', x: 1300, y: 920, to: 'The Concourse' }] }),
     hubFile({ courseDoors: [{ id: 'door-one', x: 600, y: 920 }] }),
-    hubFile({ chargingBays: [{ id: 'door-one', x: 1550, y: 920 }] }),
   ]) assert.throws(() => parseLevel(broken), /not a valid jumping level/)
 })
 
@@ -95,13 +91,12 @@ test('locked doors ignore Up, and bulkheads enter like course doors', () => {
   assert.equal(bulkhead.hub.departure?.door.to, 'concourse')
 })
 
-test('running past doors with Up held never enters one, and passing a bay records it', () => {
+test('running past doors with Up held never enters one', () => {
   const run = hubRun(['door-one', 'door-two', 'to-concourse'])
   for (let i = 0; i < 2400 && run.player.x < 1600; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1, climb: true })
   assert.ok(run.player.x >= 1600, `reached x ${run.player.x}`)
   assert.equal(run.hub.departure, null)
   assert.equal(run.exit, null)
-  assert.equal(run.hub.bay, 'bay')
   // Up already held on arrival must be released and pressed again.
   const held = hubRun()
   steps(held, { climb: true }, 5)

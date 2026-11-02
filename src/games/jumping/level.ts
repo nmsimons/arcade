@@ -18,8 +18,8 @@ import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
-import { HUB_TARGET, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_HUB_BAYS, hubBayBounds, hubDoorFits } from './hub.ts'
-import type { Bulkhead, CourseDoor, EvaluationBoard, HubBay } from './hub.ts'
+import { HUB_TARGET, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorFits } from './hub.ts'
+import type { Bulkhead, CourseDoor, EvaluationBoard } from './hub.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
@@ -89,7 +89,7 @@ export interface JumpLevel {
   forceFields?: ForceField[]
   texts?: WallText[]
   pickups?: Pickup[]
-  kind?: 'hub'; courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; chargingBays?: HubBay[]; evaluationBoards?: EvaluationBoard[]
+  kind?: 'hub'; courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[]
 }
 export interface PuzzleLevel extends JumpLevel {
   height: number; floor: number; goal: Goal; times: TimeTargets
@@ -100,7 +100,7 @@ export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.g
 export interface HubLevel extends JumpLevel {
   kind: 'hub'; timing: 'untimed'; height: number; floor: number; goal?: never; times?: never
   props: PropDefinition[]; mechanisms: Mechanism[]; triggers: Trigger[]; robots: Pusher[]
-  courseDoors: CourseDoor[]; bulkheads: Bulkhead[]; chargingBays: HubBay[]; evaluationBoards: EvaluationBoard[]
+  courseDoors: CourseDoor[]; bulkheads: Bulkhead[]; evaluationBoards: EvaluationBoard[]
 }
 export const isHubLevel = (level: JumpLevel): level is HubLevel => level.kind === 'hub'
 /** Levels that run as a complete world, with props, mechanisms and robots. */
@@ -251,10 +251,6 @@ function hubProblems(level: HubLevel, terrain: Platform[]): string[] {
   const label = (kind: string, item: { id: string; name?: string }) => `${kind} “${item.name ?? item.id}”`
   for (const door of level.courseDoors) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${label('course door', door)} on a continuous flat surface, with a clear doorway inside the level.`)
   for (const door of level.bulkheads) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${label('bulkhead', door)} on a continuous flat surface, with a clear doorway inside the level.`)
-  for (const bay of level.chargingBays) {
-    const b = hubBayBounds(bay)
-    if (!hubDoorFits(bay, terrain, level.width, height) || b.x < 0 || b.y < 0 || b.x + b.w > level.width) issues.push(`Place ${label('charging bay', bay)} on a continuous flat surface inside the level.`)
-  }
   const courses = new Set<string>()
   for (const door of level.courseDoors) {
     if (courses.has(door.course)) issues.push(`Two course doors lead to “${door.course}”. Give each course one door.`)
@@ -408,7 +404,7 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.kind !== undefined && v.kind !== 'hub') fail()
   const hub = v.kind === 'hub'
   if (hub && (goal !== undefined || v.timing !== 'untimed' || v.times !== undefined)) fail()
-  if (!hub && ['courseDoors', 'bulkheads', 'chargingBays', 'evaluationBoards'].some(key => v[key] !== undefined)) fail()
+  if (!hub && ['courseDoors', 'bulkheads', 'evaluationBoards'].some(key => v[key] !== undefined)) fail()
   if (goal !== undefined || hub) {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
     if (hub) level.kind = 'hub'
@@ -560,13 +556,12 @@ export function parseLevel(value: unknown): JumpLevel {
         if (typeof d.to !== 'string' || !HUB_TARGET.test(d.to)) fail()
         return { ...base, to: d.to as string }
       })
-      level.chargingBays = list(v.chargingBays ?? [], MAX_HUB_BAYS).map(item => hubObject(item).base)
       level.evaluationBoards = list(v.evaluationBoards ?? [], MAX_EVALUATION_BOARDS).map(item => {
         const { d, base } = hubObject(item), w = num(d.w, 120, 1200), h = num(d.h, 60, 600)
         if (base.x + w > width || base.y + h > level.floor!) fail()
         return { ...base, w, h }
       })
-      const hubIds = [...level.courseDoors, ...level.bulkheads, ...level.chargingBays, ...level.evaluationBoards].map(item => item.id)
+      const hubIds = [...level.courseDoors, ...level.bulkheads, ...level.evaluationBoards].map(item => item.id)
       if (new Set(hubIds).size !== hubIds.length) fail()
     }
   } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'floatSwitches', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()

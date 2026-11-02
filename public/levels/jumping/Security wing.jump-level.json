@@ -27,11 +27,8 @@
   "bulkheads": [
     { "name": "Concourse bulkhead", "id": "security-to-concourse", "x": 200, "y": 720, "to": "concourse" }
   ],
-  "chargingBays": [
-    { "name": "Security bay", "id": "security-bay", "x": 440, "y": 720 }
-  ],
   "texts": [
-    { "x": 560, "y": 540, "w": 260, "h": 40, "text": "SECURITY", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 560, "y": 578, "w": 320, "h": 24, "text": "RESPONSE UNITS · FIELDS · EMP · 7 COURSES", "fontSize": 12, "align": "left", "style": "official" }
+    { "x": 400, "y": 540, "w": 260, "h": 40, "text": "SECURITY", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 400, "y": 578, "w": 320, "h": 24, "text": "RESPONSE UNITS · FIELDS · EMP · 7 COURSES", "fontSize": 12, "align": "left", "style": "official" }
   ]
 }

@@ -28,11 +28,8 @@
   "bulkheads": [
     { "name": "Concourse bulkhead", "id": "freight-to-concourse", "x": 200, "y": 720, "to": "concourse" }
   ],
-  "chargingBays": [
-    { "name": "Freight bay", "id": "freight-bay", "x": 440, "y": 720 }
-  ],
   "texts": [
-    { "x": 560, "y": 540, "w": 260, "h": 40, "text": "FREIGHT", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 560, "y": 578, "w": 320, "h": 24, "text": "CARGO · PLATES · GATES · LIFTS · 8 COURSES", "fontSize": 12, "align": "left", "style": "official" }
+    { "x": 400, "y": 540, "w": 260, "h": 40, "text": "FREIGHT", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 400, "y": 578, "w": 320, "h": 24, "text": "CARGO · PLATES · GATES · LIFTS · 8 COURSES", "fontSize": 12, "align": "left", "style": "official" }
   ]
 }

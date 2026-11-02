@@ -23,11 +23,8 @@
   "bulkheads": [
     { "name": "Concourse bulkhead", "id": "water-to-concourse", "x": 200, "y": 720, "to": "concourse" }
   ],
-  "chargingBays": [
-    { "name": "Water bay", "id": "water-bay", "x": 440, "y": 720 }
-  ],
   "texts": [
-    { "x": 560, "y": 540, "w": 260, "h": 40, "text": "WATER", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 560, "y": 578, "w": 320, "h": 24, "text": "BUOYANCY · FLOODING · FLOAT SWITCHES · 3 COURSES", "fontSize": 12, "align": "left", "style": "official" }
+    { "x": 400, "y": 540, "w": 260, "h": 40, "text": "WATER", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 400, "y": 578, "w": 320, "h": 24, "text": "BUOYANCY · FLOODING · FLOAT SWITCHES · 3 COURSES", "fontSize": 12, "align": "left", "style": "official" }
   ]
 }

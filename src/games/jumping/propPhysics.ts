@@ -460,7 +460,6 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     }
     return true
   }
-  const candidates = new Map([...world.bodies.values()].map(body => [body, solids.filter(other => other !== body)]))
   // Recompute normals at joins after the solver's position iterations. A ball
   // reaching the flat floor can have a new contact that the old ramp normal
   // alone cannot separate, even with more iterations of that old contact.
@@ -527,7 +526,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   // inactive cached pairs, so check the current hulls with a small tolerance.
   const liveContacts = contacts.filter(c => !c.bodyA.isSleeping && !c.bodyB.isSleeping)
   for (const body of world.bodies.values()) if (body.isSleeping) {
-    liveContacts.push(...roundQuery(contactProbe(body, .01), candidates.get(body)!).map(hit => ({ ...hit, bodyA: hit.parentA, bodyB: hit.parentB })))
+    liveContacts.push(...roundQuery(contactProbe(body, .01), solids.filter(other => other !== body)).map(hit => ({ ...hit, bodyA: hit.parentA, bodyB: hit.parentB })))
   }
   const supported = new Set<Matter.Body>()
   for (let pass = 0; pass <= run.props.length; pass++) {

@@ -12,7 +12,7 @@ interface Geometry {
 interface CachedCollision { body: number; other: number; hit: Matter.Collision | null }
 interface CachedPenetration { body: number; other: number; hit: CollisionPenetration | null }
 
-interface Neighborhood { bounds: Matter.Bounds; neighbors?: Matter.Body[]; index: number }
+interface Neighborhood { bounds: Matter.Bounds; neighbors?: Matter.Body[]; index: number; slot: number }
 
 /** Conservative, ordered broad phase for a synchronous correction solve.
  * Small translations stay inside a padded envelope. Only leaving it rebuilds
@@ -20,13 +20,30 @@ interface Neighborhood { bounds: Matter.Bounds; neighbors?: Matter.Body[]; index
  */
 class CorrectionNeighborhoods {
   private entries = new Map<Matter.Body, Neighborhood>()
+  // The entries in map order, with their envelopes as flat min x, min y, max x,
+  // max y. Scanning hundreds of terrain pieces per prop each tick is much faster
+  // on numbers than on the bodies' bounds objects; the tests are Bounds.overlaps.
+  private order: [Matter.Body, Neighborhood][]
+  private envelopes: Float64Array
   constructor(bodies: readonly Matter.Body[]) {
     // Only queried bodies need adjacency. Hundreds of static terrain pieces
     // must not trigger an all-pairs terrain/terrain solve every physics tick.
-    bodies.forEach((body, index) => this.entries.set(body, { bounds: this.envelope(body), index }))
+    bodies.forEach((body, index) => this.entries.set(body, { bounds: this.envelope(body), index, slot: 0 }))
+    this.order = [...this.entries]
+    this.envelopes = new Float64Array(this.order.length * 4)
+    this.order.forEach(([, entry], slot) => { entry.slot = slot; this.store(entry) })
   }
   private envelope(body: Matter.Body): Matter.Bounds {
     return { min: { x: body.bounds.min.x - 1, y: body.bounds.min.y - 1 }, max: { x: body.bounds.max.x + 1, y: body.bounds.max.y + 1 } }
+  }
+  private store(entry: Neighborhood) {
+    const at = entry.slot * 4, { min, max } = entry.bounds
+    this.envelopes[at] = min.x; this.envelopes[at + 1] = min.y; this.envelopes[at + 2] = max.x; this.envelopes[at + 3] = max.y
+  }
+  /** Bounds.overlaps(entry.bounds, the envelope in slot). */
+  private overlaps(entry: Neighborhood, slot: number) {
+    const e = this.envelopes, a = entry.slot * 4, b = slot * 4
+    return e[a] <= e[b + 2] && e[a + 2] >= e[b] && e[a + 3] >= e[b + 1] && e[a + 1] <= e[b + 3]
   }
   invalidate(body: Matter.Body) {
     const entry = this.entries.get(body)
@@ -34,10 +51,12 @@ class CorrectionNeighborhoods {
     const bounds = body.bounds, old = entry.bounds
     if (bounds.min.x >= old.min.x && bounds.min.y >= old.min.y && bounds.max.x <= old.max.x && bounds.max.y <= old.max.y) return
     entry.bounds = this.envelope(body)
+    this.store(entry)
     entry.neighbors = undefined
-    for (const [other, candidate] of this.entries) {
+    for (let slot = 0; slot < this.order.length; slot++) {
+      const [other, candidate] = this.order[slot]
       if (other === body || !candidate.neighbors) continue
-      const index = candidate.neighbors.indexOf(body), nearby = Matter.Bounds.overlaps(entry.bounds, candidate.bounds)
+      const index = candidate.neighbors.indexOf(body), nearby = this.overlaps(entry, slot)
       if (nearby) {
         if (index < 0) {
           const at = candidate.neighbors.findIndex(neighbor => this.entries.get(neighbor)!.index > entry.index)
@@ -48,8 +67,13 @@ class CorrectionNeighborhoods {
   }
   forBody(body: Matter.Body) {
     const entry = this.entries.get(body)!
-    return entry.neighbors ??= [...this.entries].flatMap(([other, candidate]) =>
-      other !== body && Matter.Bounds.overlaps(entry.bounds, candidate.bounds) ? [other] : [])
+    if (entry.neighbors) return entry.neighbors
+    const neighbors: Matter.Body[] = []
+    for (let slot = 0; slot < this.order.length; slot++) {
+      const other = this.order[slot][0]
+      if (other !== body && this.overlaps(entry, slot)) neighbors.push(other)
+    }
+    return entry.neighbors = neighbors
   }
 }
 

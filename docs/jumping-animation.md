@@ -14,7 +14,7 @@ safety net is described in [testing](testing.md#ujg-golden-traces-and-the-fast-t
 | 2. `Player.anim` | Done for turns, slide entry, footwork, stride, gait, look and the ragdoll; physics and pose hashes identical. |
 | 4. Gameplay reads physics | Done, ahead of Phase 3. The one intended physics change; see below for what moved. |
 | 3. Animation cadence | Done: per-step, per-frame or off. The game animates visible actors every step and skips off-screen robots. |
-| 5. Hot spots | Partly: operation-count guard and profiles; the optimizations themselves are not started. |
+| 5. Hot spots | Partly: operation-count guards and six exact optimizations (22% lower mean tick, 25% lower p95 frame over all scripts); remaining targets listed below. |
 
 Deviations from the issue, each explained in its section: the phases ran in the
 order 0, 1, 2, 4, 3; the game does not animate once per drawn frame; physics
@@ -276,13 +276,15 @@ decision.
 
 ## Phase 5: hot spots after the split
 
-`tests/jumping-animation-cadence.test.mjs` now counts rig solves instead of
-timing them: on the Boxes medal route, physics without animation solves none,
-while animating every step solves more than a hundred. A gameplay change that
-reintroduces a pose solve into the dry movement step fails it.
+`tests/jumping-animation-cadence.test.mjs` counts work instead of timing it. On
+the Boxes medal route, physics without animation solves no rig, while animating
+every step solves more than a hundred. On a Waterline II explorer script,
+physics without animation fits swimming limbs fewer than once per twenty body
+solves (`waterPoseWork`). A change that puts a full pose solve back into the dry
+movement step, or limb fitting back into the swimming hull, fails them.
 
-CPU profiles of physics alone (`--cadence off`) on the heaviest levels, as
-shares of profiled samples:
+CPU profiles of physics alone (`--cadence off`) before this work, as shares of
+profiled samples:
 
 | Level | Largest costs |
 |---|---|
@@ -290,10 +292,49 @@ shares of profiled samples:
 | Quarantine II | rope solver 22% self |
 | Exit | prop collision queries 12.5% self, matter.js 9% |
 
-These are the next targets. The swimming queries rebuild the same water rig
-several times per step, so a per-step cache of the physics-rig water pose, or
-the simplified swimming skeleton the issue proposed, is the larger opportunity.
-Neither was attempted here: each changes the hottest water code, and any cache
-needs an exact account of what the water pose reads. The rope solver already
-culls distant terrain and sleeps idle ropes; what remains is its constraint
-iteration.
+### Optimizations
+
+Each change leaves every golden physics, state and pose hash identical. They
+remove work or change how values are read, never the arithmetic.
+
+| Change | Where | Why it was slow |
+|---|---|---|
+| `waterBodyPose` stops `waterPose` after its body clearance. The swimming hull, the physics and presented clearance offsets, and the ceiling search use it. | `poses/waterPose.ts`, `athleteAnimation.ts` | They read only the torso, head and offset, but first fitted all four limbs to terrain, up to four passes per leg. The hull alone is built about 17 times per swimming tick. |
+| The rope solver reads padded terrain boxes from a flat array. | `climbables.ts` | Every pass tests every particle against every nearby solid: about 17,500 tests per solve on Scaffold V, 0.4% of them hits. Solids come in many object shapes, so V8 cannot specialize the property reads. |
+| Prop correction neighborhoods keep their padded bounds in a flat array and scan it in order. | `collisionQueries.ts` | Each tick rebuilt every prop's neighbor list by spreading a map of all solids and calling `Bounds.overlaps` on each. |
+| Sleeping props build their candidate list only when used. | `propPhysics.ts` | A filtered copy of all solids was made for every prop each tick. |
+| Inside `withTerrainQueries`, `bodyIntrusion` reads solid boxes from a flat array kept for that scope (`terrainBoxes`). Animation steps and the water body pose now run inside a scope. | `geometry.ts`, `athleteClearance.ts`, `characterAnimation.ts` | Every clearance sample scanned all colliders (96 objects in 13 shapes on Exit), and half the samples ran outside any scope. |
+| `findRope` skips rope segments whose box is more than 26 units from every hand. | `climbables.ts` | It built path arrays for every segment of every rope on each call, though only a gap under 25 units can grab. |
+
+Measured with `scripts/benchmark-jumping-simulation.mjs --source`, alternating
+`main` (d43fcea) and this branch, best of three runs each, on an Apple M5 Pro
+(Node 25.9) with other load on the machine:
+
+| Level | Mean tick | p95 frame |
+|---|---|---|
+| All scripts | 0.398 → 0.312 ms (−22%) | 2.61 → 1.97 ms (−25%) |
+| Exit | 1.34 → 1.00 ms (−25%) | 7.13 → 5.86 ms (−18%) |
+| Waterline II | 1.17 → 0.73 ms (−38%) | 4.18 → 2.36 ms (−44%) |
+| Scaffold V | 1.14 → 0.74 ms (−35%) | 4.83 → 2.76 ms (−43%) |
+| Ascent I | 0.91 → 0.48 ms (−48%) | 5.74 → 4.11 ms (−29%) |
+| World I | 1.06 → 0.95 ms (−10%) | 3.78 → 3.46 ms (−9%) |
+| Tower I | 0.80 → 0.63 ms (−21%) | 3.00 → 2.26 ms (−25%) |
+| Quarantine III | 0.56 → 0.37 ms (−34%) | 2.45 → 1.51 ms (−38%) |
+
+Single benchmark runs vary by 15–20% under load, and in back-to-back A/B runs
+the checkout that runs first is about 3% slower. Alternate the order and keep
+the best of several runs before attributing a few percent to a change.
+
+### Remaining targets
+
+- The swimming hull is still built about 20 times per swimming tick from the
+  same state. A cache needs an exact account of what the body pose reads,
+  including a full dry pose when the swimmer rests on the pool floor.
+- `syncPlatforms` runs about five times per tick and rebuilds every collider and
+  prop shape. `ledgeExposed` and `groundAt` scan every collider outside terrain
+  scopes. These dominate World I and stay large on Exit and the Towers.
+- The common cause of the scans above is that platforms come in many object
+  shapes. Building them with one shape would speed every scan at once, but
+  touches every place a platform is created.
+- The rope solver's constraint iteration (passes times particles) and matter.js
+  on the prop-heavy levels.

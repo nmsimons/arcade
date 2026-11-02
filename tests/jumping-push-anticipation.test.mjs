@@ -5,7 +5,10 @@ import {anticipatePush,playerContacts,updatePushingPose} from '../src/games/jump
 import {boxShape} from '../src/games/jumping/propGeometry.ts'
 import {createRun,stepRun} from './helpers/jumping-active-run.mjs'
 import {blankTrial} from '../src/games/jumping/level.ts'
-import {athletePose} from '../src/games/jumping/athlete.ts'
+import {athletePose,presentedAthletePose} from '../src/games/jumping/athlete.ts'
+import {handGeometry} from '../src/games/jumping/androidHand.ts'
+import {parseLevel} from '../src/games/jumping/level.ts'
+import {readFileSync} from 'node:fs'
 
 test('grounded hand preparation uses closing speed and cannot reach through a nearer solid',()=>{
  for(const direction of [-1,1]){
@@ -130,4 +133,26 @@ test('an unloaded falling reach transfers its whole outgoing rig into a brief ba
   assert.ok(Math.abs(run.player.y-500)<.01,'the lower ledge is reached normally')
   assert.ok(run.props[0].x<646,'the real ball yields')
  }
+})
+
+test('an early reach toward a distant prop keeps each palm beside its wrist',()=>{
+ // Running into a rolling ball starts anticipation about 200 units out. The
+ // wrist stops at full reach; the palm used to follow the contact, up to 42
+ // units past it on this route, drawn as a stretched rubber arm.
+ const medals=JSON.parse(readFileSync(new URL('./fixtures/jumping-builtin-medal-runs.json',import.meta.url),'utf8'))
+ const file='Drain.json',route=medals.runs.find(run=>run.file===file).trace
+ const run=createRun(parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`,import.meta.url),'utf8'))))
+ let tick=0,frames=0,widest=0
+ for(const {frames:count,input} of route)for(let i=0;i<count&&!run.finished;i++){
+  stepRun(run,{...NEUTRAL_INPUT,...input})
+  if(++tick%2||!run.player.pushing)continue
+  frames++
+  const pose=presentedAthletePose(run.player)
+  for(const arm of [pose.frontArm,pose.backArm]){
+   const palm=handGeometry(arm).palm
+   widest=Math.max(widest,Math.hypot(palm[0]-arm.end[0],palm[1]-arm.end[1]))
+  }
+ }
+ assert.ok(frames>20,`the route pushes or prepares to (${frames} frames)`)
+ assert.ok(widest<3.6,`a push palm drawn ${widest.toFixed(2)} units from its wrist`)
 })

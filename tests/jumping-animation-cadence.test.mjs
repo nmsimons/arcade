@@ -88,3 +88,18 @@ test('physics without animation solves no rig on a dry pushing level; animating 
   assert.equal(solvesFor('off'), 0, 'headless physics and off-screen robots skip every pose solve')
   assert.ok(solvesFor('tick') > 100, 'animating every step captures its turns and pushes')
 })
+
+test('physics fits swimming limbs only where hands or a landing need them', async () => {
+  const { waterPoseWork } = await import('../src/games/jumping/poses/waterPose.ts')
+  const { exploreScript } = await import('./helpers/jumping-golden.mjs')
+  const file = 'Waterline2.jump-level.json'
+  const run = createRun(parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`, import.meta.url), 'utf8'))))
+  for (const actor of [run.player, ...run.robots.flatMap(robot => robot.actor ? [robot.actor] : [])]) setAnimationCadence(actor, 'off')
+  const before = waterPoseWork()
+  for (const { frames, input } of exploreScript(file, 'runner')) for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input })
+  const after = waterPoseWork(), bodies = after.bodySolves - before.bodySolves, limbs = after.limbFits - before.limbFits
+  // The swimming hull, its clearance offset and the ceiling search read only
+  // the torso and head, so they stop at the body pose.
+  assert.ok(bodies > 1000, `the explorer swims (${bodies} body solves)`)
+  assert.ok(limbs * 20 < bodies, `${limbs} limb fits for ${bodies} body solves`)
+})

@@ -1,17 +1,20 @@
 {
   "version": 1,
   "opening": "1986ae30-4b97-4815-a35a-cfe3852bca9e",
+  "introduction": [
+    "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
+    "a90ceb11-5e2a-4b24-80f2-73648ffab13d",
+    "first-leap",
+    "one-rope",
+    "56543b79-4781-415f-be5c-e40facf059b0"
+  ],
   "concourse": "facility-concourse",
   "wings": [
     {
-      "id": "orientation",
-      "name": "Orientation",
-      "level": "facility-orientation",
+      "id": "movement",
+      "name": "Movement",
+      "level": "facility-movement",
       "courses": [
-        "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
-        "a90ceb11-5e2a-4b24-80f2-73648ffab13d",
-        "first-leap",
-        "one-rope",
         "ff487efc-cbdb-42f0-85c0-8df2b69532b4",
         "d810f5f5-1a01-431f-804b-575b1b731a3d",
         "e784fe84-2ab2-427c-b5a2-1d1fec663e5c",
@@ -86,7 +89,6 @@
       "level": "facility-security",
       "courses": [
         "243237ee-296d-40f6-abd4-950eee0bbffc",
-        "56543b79-4781-415f-be5c-e40facf059b0",
         "ujg-uninvited-company-v2",
         "e7940f79-5502-451a-a373-9b63e4df1e11",
         "dbf1b51d-bf10-4c7a-aa35-0d769445c766",

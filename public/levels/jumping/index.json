@@ -49,11 +49,11 @@
     "exit.jump-level.json",
     "Concourse.jump-level.json",
     "Freight wing.jump-level.json",
-    "Orientation wing.jump-level.json",
     "Assessment wing.jump-level.json",
     "Construction wing.jump-level.json",
     "Security wing.jump-level.json",
     "Targets wing.jump-level.json",
-    "Water wing.jump-level.json"
+    "Water wing.jump-level.json",
+    "Movement wing.jump-level.json"
   ]
 }

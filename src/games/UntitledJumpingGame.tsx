@@ -23,9 +23,9 @@ import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumpi
 import { setAnimationCadence } from './jumping/characterAnimation'
 import { blankTrial, copyLevel, levelProblems, isHubLevel, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, RunLevel } from './jumping/level'
-import { facilityProgress, loadCampaign } from './jumping/campaign'
+import { facilityPassed, facilityProgress, loadCampaign } from './jumping/campaign'
 import type { Campaign } from './jumping/campaign'
-import { arrivalLevel, dispatchPlace, facilityStart, hubPresentation, nextPlace, readFacilitySave, saveFacilityPlace } from './jumping/facility'
+import { arrivalLevel, dispatchPlace, facilityLevel, facilityStart, hubPresentation, nextPlace, readFacilitySave, saveFacilityPlace } from './jumping/facility'
 import type { FacilityPlace } from './jumping/facility'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
@@ -176,13 +176,14 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const unlocked = unlockedLevels(catalog.files, file => passedLevel(file.level, bestTime(file.level.id), completed(file.level.id)))
   // The facility (development builds): the place the robot is in and the campaign it follows.
   const facility = useRef<FacilityPlace | null>(null), campaignRef = useRef<Campaign | null>(null)
-  const [facilityWhere, setFacilityWhere] = useState<'course' | 'hub' | 'escape' | null>(null)
+  const [facilityWhere, setFacilityWhere] = useState<'introduction' | 'course' | 'hub' | 'escape' | null>(null)
   const [facilityNotice, setFacilityNotice] = useState('')
   const levelsById = new Map(catalog.files.map(file => [file.level.id, file.level]))
   /** Doors read saved records directly, so a course just finished counts at once. */
   function passedNow(id: string) {
-    const level = levelsById.get(id)
-    return !!level && passedLevel(level, bestTimes[id] ?? readBest(playerStorage, id), !!completedLevels[id] || readCompleted(playerStorage, id))
+    const level = levelsById.get(id), campaign = campaignRef.current
+    if (!level || !campaign) return false
+    return facilityPassed(campaign, level, bestTimes[id] ?? readBest(playerStorage, id), !!completedLevels[id] || readCompleted(playerStorage, id))
   }
   function presentHub(target: Run | null) {
     const campaign = campaignRef.current, place = facility.current
@@ -197,7 +198,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     setFacilityWhere(place.kind === 'opening' ? null : place.kind)
     // Autosave where the robot is; course records save when a course finishes.
     try { saveFacilityPlace(playerStorage, place) } catch { /* The place is kept for this visit only. */ }
-    void beginPlay(place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level, false, place.kind === 'hub' ? `hub:${level.id}` : level.id)
+    const play = place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : campaignRef.current ? facilityLevel(campaignRef.current, level) : level
+    void beginPlay(play, false, place.kind === 'hub' ? `hub:${level.id}` : level.id)
   }
   async function startFacility() {
     try { campaignRef.current ??= await loadCampaign(import.meta.env.BASE_URL) }

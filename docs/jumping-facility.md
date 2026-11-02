@@ -13,14 +13,21 @@
   deadline, then its best time and grade; closed bulkheads show the clearance
   still needed.
 - The facility loop (`facility.ts` and the game shell): Wake, then the
-  Orientation wing; a course returns the robot to its door, a bulkhead leads to
-  the matching bulkhead beyond it. The robot's place autosaves on every move,
+  introduction, then the concourse; a course returns the robot to its door, a
+  bulkhead leads to the matching bulkhead beyond it. The robot's place autosaves on every move,
   and a returning save resumes there. The pause screen uses the phosphor style,
   with Leave course in courses.
-- Every wing in the draft grouping below, as stub hubs: Orientation (9 courses),
-  Freight (8), Construction (7), Targets (4), Water (3), Security (7) and an
-  Assessment wing for Escapade and World I, the two unplaced levels: 40 required
-  courses. Water, Security and Assessment open through draft clearances (8 of
+- The opening sequence: Wake, then the introduction (Leaps and Bounds I, First
+  Gap, Second Gap, A Little Swing), then Company, where the Repulsorbot is first
+  met, then the concourse. The introduction and Company play untimed in the
+  facility, without wall clocks; their files stay timed courses for the level
+  grid until a single designed controls hall replaces the four tutorial rooms.
+  Wake and each introduction level have a door in the concourse's Orientation
+  row for replays.
+- Every wing as stub hubs: Movement (Hop Skip Jump I and II, A Bigger Swing,
+  Leaps and Bounds II, Slow is Smooth), Freight (8), Construction (7), Targets
+  (4), Water (3), Security (6) and an Assessment wing for Escapade and World I,
+  the two unplaced levels: 35 required courses. Water, Security and Assessment open through draft clearances (8 of
   Freight and Construction; 12 of Freight, Construction and Targets; 6 of Water
   and Security). The stubs are flat corridors that make the campaign playable
   end to end, not designed wings.
@@ -84,7 +91,7 @@ work on next. Progress opens access; it never changes what the robot can do.
 ```
                         ┌───────── shortcut ─────────┐
                         │                            │
- Wake ─► Orientation ─► CONCOURSE ◄─► Freight wing ──┘
+ Wake ─► Introduction ─► Company ─► CONCOURSE ◄─► Freight wing ──┘
          (linear)       board        ◄─► Construction wing ─┐
                         dispatch     ◄─► Water wing         │ shortcut
                         door         ◄─► Targets wing ◄─────┘
@@ -96,8 +103,9 @@ work on next. Progress opens access; it never changes what the robot can do.
 ### The concourse
 
 The central hall. It holds the evaluation board, wall maps, and the sealed exterior dispatch door, which is visible from the first visit so
-the goal is always in view. Every wing's entrance opens off it. Orientation
-leads into it; passing Orientation's courses opens it.
+the goal is always in view. Every wing's entrance opens off it. Company leads
+into it; finishing the introduction and Company opens it. Its Orientation row
+holds doors back into Wake and the introduction levels.
 
 ### Wings by discipline
 
@@ -171,7 +179,7 @@ courses that provide them. A wing opens through clearance: its bulkhead opens
 once named courses are passed, and the bulkhead's placard shows what remains
 ("CLEARANCE: FREIGHT 6 / 8"). The draft below is for the review to settle:
 
-- Orientation is linear and opens the concourse.
+- The introduction is linear and opens the concourse.
 - Freight, Construction and Targets open with the concourse.
 - Water and Security open later, through clearance from the earlier wings.
   Security carries much of the deterioration and the response-unit story.
@@ -271,52 +279,61 @@ rather than inside it, so level packs keep their format (level JSON and
 ```json
 {
   "version": 1,
-  "opening": "1986ae30-4b97-4815-a35a-cfe3852bca9e",
+  "opening": "<Wake>",
+  "introduction": ["<Leaps and Bounds I>", "<First Gap>", "<Second Gap>", "<A Little Swing>", "<Company>"],
   "concourse": "<concourse level id>",
   "wings": [{
-    "id": "orientation",
-    "name": "Orientation",
-    "level": "<orientation wing level id>",
-    "courses": ["4a6b61ae-b74f-4305-97ba-8c0a282aaf80", "a90ceb11-5e2a-4b24-80f2-73648ffab13d", "first-leap", "one-rope"],
+    "id": "movement",
+    "name": "Movement",
+    "level": "<movement wing level id>",
+    "courses": ["<Hop Skip Jump I>", "…"],
     "clearance": null
   }, {
     "id": "water",
     "name": "Water",
     "level": "<water wing level id>",
     "courses": ["…"],
-    "clearance": { "wings": ["freight", "construction"], "courses": ["…"], "count": 6 }
-  }]
+    "clearance": { "wings": ["freight", "construction"], "count": 8 }
+  }],
+  "finalCourse": "<Ascent I>",
+  "escape": ["<Ascent II>", "<Spelunk>", "<Exit>"]
 }
 ```
 
-- **The first wing** opens once the opening level is passed, and passing all of
-  its courses opens the concourse. It cannot have a clearance.
-- **Every other wing** opens off the concourse. Without a clearance it opens
-  with the concourse; with one, once `count` of the named courses are passed.
-  A clearance names courses, whole wings, or both; `count` defaults to all of
+- **A new game** plays the opening, then the introduction in order. The
+  introduction plays untimed in the facility, without wall clocks, so a
+  completion passes it. Finishing the last introduction level opens the
+  concourse and steps the robot out of that level's door there.
+- **Every wing** opens off the concourse. Without a clearance it opens with the
+  concourse; with one, once `count` of the named courses are passed. A
+  clearance names courses, whole wings, or both; `count` defaults to all of
   them.
 - **Within a wing,** a door opens once the door before it is passed. A pass
   carried over from the level grid keeps its door passed and opens the next one.
+- **The concourse** holds one door to the opening and to each introduction level,
+  for replays, and the dispatch door to `finalCourse`. Passing the final course
+  leads through `escape` in order.
 - **`level` and `concourse`** name hub levels and stay optional until those
   levels exist.
 
-`npm run levels:check` confirms that every course exists and is timed, no course
-appears twice or doubles as the opening, hub levels exist, every wing can open
-through clearance, and no clearance depends on its own wing. Still to add, as
-the objects arrive: every required course has exactly one door, every door's
-course exists, certification sources are timed required courses, and no coin,
-coin switch, clock or time pickup appears in a wing, the concourse or an escape
-level. Certification doors, the final course and the escape route join the file
-with the release. `index.json` keeps loading every level for the development
-library.
+`npm run levels:check` confirms that every level exists and has one role (the
+opening, an introduction level, one wing's course, the final course or an
+escape level), that wing courses and the final course are timed, that hub
+levels exist, that each wing course has exactly one door in its wing, that the
+concourse has its opening, introduction and dispatch doors and no others, that
+bulkheads join each wing and the concourse both ways, and that every wing can
+open through clearance. Still to add: certification doors and sources, and the
+course-equipment rule for escape levels once they are redesigned as untimed.
+`index.json` keeps loading every level for the development library.
 
 ## Flows
 
 ### Starting the game
 
 `/lab` opens the facility instead of the grid. A new save starts in Wake.
-Wake has a door at the start of the Orientation wing like every other level:
-finishing Wake steps the robot out of that door, and the door leads back in. Afterward, the robot resumes where it was
+Wake's exit leads into the introduction, and Company's exit opens onto the
+concourse. Wake and each introduction level have a door in the concourse for
+replays, like every other level. Afterward, the robot resumes where it was
 last autosaved: at the door it came through, or at a course's door if it left
 mid-course. A place that has since closed or disappeared resumes at the first
 wing's entrance. The autosaved place is the only new saved value; doors, lamps,

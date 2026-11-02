@@ -155,7 +155,7 @@ remain.
 | Phase | Place | Player experience | Environmental development |
 | --- | --- | --- | --- |
 | Wake | Charging bay | Discover movement, the empty bay, and the need to find a way out. | Local power returns; requests for an operator go unanswered. |
-| Orientation | First wing | Learn individual movement with safe recovery, in a fixed order. | Intact course labels explain what the facility used to do. |
+| Orientation | Introduction, then Company | Learn the basic controls with safe recovery, in a fixed order, untimed; then meet the first response unit. | Intact course labels explain what the facility used to do; "not everyone left". |
 | Working wings | Discipline wings, in parallel | Combine known skills and choose where to go next. | Unfinished jobs and maintenance markings reveal abandonment. |
 | Deterioration | Deep ends and late wings | Adapt known skills around visible failures. | Flooded basins, damaged access, and surviving machinery change the exercises and the corridors between them. |
 | Release | Escape route | Leave the evaluation behind; after the final course, the climb and caves are untimed and ungraded. | The released freight route has collapsed; the robot improvises its own way. |
@@ -171,9 +171,10 @@ editing or playtesting.
 
 ## Required progression
 
-1. The opening is available on a new save. Completing it opens the first wing,
-   where the first course door is lit. Passing the first wing's courses opens
-   the concourse.
+1. The opening is available on a new save. Its exit leads into the
+   introduction: untimed rooms that teach the basic controls in a fixed order,
+   ending with Company, where the first response unit wakes. Company's exit
+   opens onto the concourse, and every wing opens off the concourse.
 2. Each wing's courses form a fixed sequence. Finishing a timed required course
    at D or better unlocks the next course in its wing and lights its door. D is
    a realistic first-run deadline, not a free pass. An untimed introduction
@@ -185,9 +186,10 @@ editing or playtesting.
    completion. Ordinary levels retain their current doorway-entry scoring.
 4. Unlocked courses remain available for replay through their doors. Slower runs
    never reduce grades, remove completion, or relock areas. Optional diversions
-   never delay the next required unlock. A new game starts in Wake, which has
-   its door in the first wing like every other level. Afterward, starting the
-   game resumes where the robot was last autosaved.
+   never delay the next required unlock. A new game starts in Wake. Wake and
+   each introduction level keep a door on the concourse, like every other
+   level, for replays. Afterward, starting the game resumes where the robot was
+   last autosaved.
 5. The evaluation completes when every required course is passed. Its release
    opens the escape route, whose levels are untimed. Escaping completes the
    campaign; no grade above D is required for the ending.
@@ -271,7 +273,7 @@ Teach movement through one small, recoverable action and let the player discover
 the empty adjoining space. The required route should be legible without waiting
 for a message or standing through repeated diagnostics. A small optional look
 around may reward curiosity. The opening has no medal pressure or required
-collectibles. Its finish releases the bay into the first wing.
+collectibles. Its finish leads into the introduction.
 
 The first implementation is [Wake](../public/levels/jumping/Wake.jump-level.json),
 placed first in the built-in collection. Keep it simple, beautiful, and a little
@@ -297,9 +299,9 @@ this small room at normal speed.
 
 Charging-bay entrances and untimed levels are reusable studio choices with
 pause, restart, automatic input handoff, and saved completion. Ordinary levels
-retain their doorway entrance and scoring. Completing Wake opens the first wing
-and its first course; timed courses then require D or better to light the next
-door.
+retain their doorway entrance and scoring. Completing Wake leads into the
+introduction; once the concourse opens, timed courses require D or better to
+light the next door.
 
 ![The robot enclosed behind the pod glass on its raised plinth as local power returns.](images/lab-wake-pod.png)
 

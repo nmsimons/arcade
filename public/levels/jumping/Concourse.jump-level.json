@@ -4,10 +4,10 @@
   "name": "Concourse",
   "kind": "hub",
   "timing": "untimed",
-  "width": 3800,
+  "width": 5650,
   "height": 720,
   "floor": 720,
-  "entrance": { "name": "Concourse floor", "x": 1600, "y": 720 },
+  "entrance": { "name": "From Company", "x": 1970, "y": 720 },
   "platforms": [],
   "checkpoints": [],
   "climbables": { "ladders": [], "ropes": [] },
@@ -16,22 +16,30 @@
   "triggers": [],
   "robots": [],
   "courseDoors": [
-    { "name": "Dispatch door", "id": "dispatch-door", "x": 2460, "y": 720, "course": "5d45678a-5104-43be-9647-2a2bbd6ff932" }
+    { "name": "Wake", "id": "door-wake", "x": 220, "y": 720, "course": "1986ae30-4b97-4815-a35a-cfe3852bca9e" },
+    { "name": "Leaps and Bounds I", "id": "door-leaps-and-bounds-i", "x": 570, "y": 720, "course": "4a6b61ae-b74f-4305-97ba-8c0a282aaf80" },
+    { "name": "First Gap", "id": "door-first-gap", "x": 920, "y": 720, "course": "a90ceb11-5e2a-4b24-80f2-73648ffab13d" },
+    { "name": "Second Gap", "id": "door-second-gap", "x": 1270, "y": 720, "course": "first-leap" },
+    { "name": "A Little Swing", "id": "door-a-little-swing", "x": 1620, "y": 720, "course": "one-rope" },
+    { "name": "Company", "id": "door-company", "x": 1970, "y": 720, "course": "56543b79-4781-415f-be5c-e40facf059b0" },
+    { "name": "Dispatch door", "id": "dispatch-door", "x": 4250, "y": 720, "course": "5d45678a-5104-43be-9647-2a2bbd6ff932" }
   ],
   "bulkheads": [
-    { "name": "Orientation bulkhead", "id": "concourse-to-orientation", "x": 220, "y": 720, "to": "orientation" },
-    { "name": "Freight bulkhead", "id": "concourse-to-freight", "x": 620, "y": 720, "to": "freight" },
-    { "name": "Construction bulkhead", "id": "concourse-to-construction", "x": 990, "y": 720, "to": "construction" },
-    { "name": "Targets bulkhead", "id": "concourse-to-targets", "x": 1360, "y": 720, "to": "targets" },
-    { "name": "Water bulkhead", "id": "concourse-to-water", "x": 2820, "y": 720, "to": "water" },
-    { "name": "Security bulkhead", "id": "concourse-to-security", "x": 3190, "y": 720, "to": "security" },
-    { "name": "Assessment bulkhead", "id": "concourse-to-assessment", "x": 3560, "y": 720, "to": "assessment" }
+    { "name": "Movement bulkhead", "id": "concourse-to-movement", "x": 2400, "y": 720, "to": "movement" },
+    { "name": "Freight bulkhead", "id": "concourse-to-freight", "x": 2770, "y": 720, "to": "freight" },
+    { "name": "Construction bulkhead", "id": "concourse-to-construction", "x": 3140, "y": 720, "to": "construction" },
+    { "name": "Targets bulkhead", "id": "concourse-to-targets", "x": 3510, "y": 720, "to": "targets" },
+    { "name": "Water bulkhead", "id": "concourse-to-water", "x": 4650, "y": 720, "to": "water" },
+    { "name": "Security bulkhead", "id": "concourse-to-security", "x": 5020, "y": 720, "to": "security" },
+    { "name": "Assessment bulkhead", "id": "concourse-to-assessment", "x": 5390, "y": 720, "to": "assessment" }
   ],
   "evaluationBoards": [
-    { "name": "Evaluation board", "id": "evaluation", "x": 1850, "y": 330, "w": 460, "h": 250 }
+    { "name": "Evaluation board", "id": "evaluation", "x": 3650, "y": 330, "w": 460, "h": 250 }
   ],
   "texts": [
-    { "x": 1850, "y": 260, "w": 460, "h": 50, "text": "CONCOURSE", "fontSize": 36, "align": "center", "style": "official" },
-    { "x": 2390, "y": 540, "w": 200, "h": 40, "text": "DISPATCH", "fontSize": 20, "align": "left", "style": "official" }
+    { "x": 160, "y": 540, "w": 300, "h": 40, "text": "ORIENTATION", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 160, "y": 578, "w": 320, "h": 24, "text": "WAKE · BASIC CONTROLS · COMPANY", "fontSize": 12, "align": "left", "style": "official" },
+    { "x": 3650, "y": 260, "w": 460, "h": 50, "text": "CONCOURSE", "fontSize": 36, "align": "center", "style": "official" },
+    { "x": 4180, "y": 540, "w": 200, "h": 40, "text": "DISPATCH", "fontSize": 20, "align": "left", "style": "official" }
   ]
 }

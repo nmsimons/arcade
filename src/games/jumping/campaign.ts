@@ -1,6 +1,7 @@
 import { isHubLevel, isPuzzleLevel } from './level.ts'
 import type { JumpLevel } from './level.ts'
 import { readLevelResponse } from './levelLimits.ts'
+import { passedLevel } from './progression.ts'
 
 /** Like the levels, the campaign is a public asset fetched afresh, never bundled. */
 export async function loadCampaign(base: string, fetchFile: typeof fetch = fetch): Promise<Campaign> {
@@ -19,14 +20,16 @@ export async function loadCampaign(base: string, fetchFile: typeof fetch = fetch
 export interface Clearance { courses: string[]; wings: string[]; count?: number }
 export interface CampaignWing { id: string; name: string; level?: string; courses: string[]; clearance: Clearance | null }
 /**
- * The facility's structure, kept apart from level geometry. The first wing
- * opens once the opening level is passed, and passing all of its courses opens
- * the concourse. Every other wing opens off the concourse when its clearance is
- * met; a wing without clearance opens with the concourse. When every wing
- * course is passed, the concourse's dispatch door opens onto the final course;
- * passing it leads through the escape levels in order.
+ * The facility's structure, kept apart from level geometry. A new game plays
+ * the opening level, then the introduction's levels in order; finishing them
+ * opens the concourse. Every wing opens off the concourse, with it or once its
+ * clearance is met. When every wing course is passed, the concourse's dispatch
+ * door opens onto the final course; passing it leads through the escape levels.
  */
-export interface Campaign { version: 1; opening: string; concourse?: string; wings: CampaignWing[]; finalCourse?: string; escape: string[] }
+export interface Campaign {
+  version: 1; opening: string; introduction: string[]; concourse?: string; wings: CampaignWing[]
+  finalCourse?: string; escape: string[]
+}
 
 export type DoorState = 'locked' | 'open' | 'passed'
 export interface WingProgress {
@@ -34,7 +37,10 @@ export interface WingProgress {
   doors: { course: string; state: DoorState }[]
   clearance?: { passed: number; count: number }
 }
-export interface FacilityProgress { started: boolean; concourseOpen: boolean; wings: WingProgress[]; required: number; passed: number; complete: boolean }
+export interface FacilityProgress {
+  started: boolean; introduction: boolean[]; concourseOpen: boolean
+  wings: WingProgress[]; required: number; passed: number; complete: boolean
+}
 
 export function parseCampaign(value: unknown): Campaign {
   const fail = (): never => { throw new Error('This file is not a valid campaign.') }
@@ -59,7 +65,8 @@ export function parseCampaign(value: unknown): Campaign {
     }
     return { id: w.id as string, name: w.name as string, ...(w.level === undefined ? {} : { level: id(w.level) }), courses, clearance }
   })
-  return { version: 1, opening: id(v.opening), ...(v.concourse === undefined ? {} : { concourse: id(v.concourse) }), wings,
+  return { version: 1, opening: id(v.opening), introduction: v.introduction === undefined ? [] : ids(v.introduction, 20),
+    ...(v.concourse === undefined ? {} : { concourse: id(v.concourse) }), wings,
     ...(v.finalCourse === undefined ? {} : { finalCourse: id(v.finalCourse) }), escape: v.escape === undefined ? [] : ids(v.escape, 10) }
 }
 
@@ -76,7 +83,17 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
   const issues: string[] = [], byId = new Map(levels.map(level => [level.id, level]))
   const name = (id: string) => byId.has(id) ? `“${byId.get(id)!.name}”` : `“${id}”`
   if (!byId.has(campaign.opening)) issues.push(`The opening level ${name(campaign.opening)} is not in the collection.`)
-  const wingIds = new Set<string>(), owners = new Map<string, string>()
+  // Each level has one role: the opening, an introduction level, one wing's course, the final course or an escape level.
+  const roles = new Map<string, string>([[campaign.opening, 'the opening']])
+  for (const id of campaign.introduction) {
+    const level = byId.get(id)
+    if (!level) issues.push(`The introduction level ${name(id)} is not in the collection.`)
+    else if (!isPuzzleLevel(level)) issues.push(`The introduction level ${name(id)} has no exit to lead onward.`)
+    if (roles.get(id) === 'an introduction level') issues.push(`The introduction lists ${name(id)} twice.`)
+    else if (roles.has(id)) issues.push(`${name(id)} is listed as ${roles.get(id)} and in the introduction.`)
+    else roles.set(id, 'an introduction level')
+  }
+  const wingIds = new Set<string>()
   for (const wing of campaign.wings) {
     if (wingIds.has(wing.id)) issues.push(`Two wings use the ID “${wing.id}”.`)
     wingIds.add(wing.id)
@@ -84,35 +101,43 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
       const level = byId.get(course)
       if (!level) issues.push(`The ${wing.name} wing lists ${name(course)}, which is not in the collection.`)
       else if (!isPuzzleLevel(level) || level.timing === 'untimed') issues.push(`The ${wing.name} wing lists ${name(course)}, which is not a timed course.`)
-      if (course === campaign.opening) issues.push(`The opening level cannot also be a course in the ${wing.name} wing.`)
-      if (owners.has(course)) issues.push(`${name(course)} appears in both the ${owners.get(course)} and ${wing.name} wings.`)
-      else owners.set(course, wing.name)
+      if (roles.has(course)) issues.push(`${name(course)} is listed as ${roles.get(course)} and in the ${wing.name} wing.`)
+      else roles.set(course, `a ${wing.name} course`)
     }
   }
   if (campaign.finalCourse !== undefined) {
     const level = byId.get(campaign.finalCourse)
     if (!level) issues.push(`The final course ${name(campaign.finalCourse)} is not in the collection.`)
     else if (!isPuzzleLevel(level) || level.timing === 'untimed') issues.push(`The final course ${name(campaign.finalCourse)} is not a timed course.`)
-    if (owners.has(campaign.finalCourse) || campaign.finalCourse === campaign.opening) issues.push(`The final course ${name(campaign.finalCourse)} is already used as a wing course or the opening.`)
+    if (roles.has(campaign.finalCourse)) issues.push(`The final course ${name(campaign.finalCourse)} is already listed as ${roles.get(campaign.finalCourse)}.`)
+    else roles.set(campaign.finalCourse, 'the final course')
   }
   for (const id of campaign.escape) {
     if (!byId.has(id)) issues.push(`The escape level ${name(id)} is not in the collection.`)
-    else if (owners.has(id) || id === campaign.opening || id === campaign.finalCourse) issues.push(`The escape level ${name(id)} is already used elsewhere in the campaign.`)
+    else if (roles.get(id) === 'an escape level') issues.push(`The escape route lists ${name(id)} twice.`)
+    else if (roles.has(id)) issues.push(`The escape level ${name(id)} is already listed as ${roles.get(id)}.`)
+    else roles.set(id, 'an escape level')
   }
-  if (new Set(campaign.escape).size !== campaign.escape.length) issues.push('The escape route lists a level twice.')
   const hubs: [string, string | undefined][] = [['concourse', campaign.concourse], ...campaign.wings.map((wing): [string, string | undefined] => [`${wing.name} wing`, wing.level])]
   for (const [label, id] of hubs) {
     if (id === undefined) continue
     if (!byId.has(id)) issues.push(`The ${label} level ${name(id)} is not in the collection.`)
-    else if (owners.has(id) || id === campaign.opening) issues.push(`The ${label} level ${name(id)} is already used as a course or the opening.`)
+    else if (roles.has(id)) issues.push(`The ${label} level ${name(id)} is already listed as ${roles.get(id)}.`)
     else if (!isHubLevel(byId.get(id)!)) issues.push(`The ${label} level ${name(id)} is not a hub level.`)
   }
   // Doors and bulkheads are checked once their hub levels exist.
   const hub = (id?: string) => { const level = id === undefined ? undefined : byId.get(id); return level && isHubLevel(level) ? level : undefined }
   const concourse = hub(campaign.concourse)
-  // The concourse's only course door is the dispatch door to the final course.
-  if (concourse?.courseDoors.some(door => door.course !== campaign.finalCourse)) issues.push('The concourse has course doors. Courses belong in wings; only the dispatch door leads to the final course.')
-  if (concourse && campaign.finalCourse && concourse.courseDoors.filter(door => door.course === campaign.finalCourse).length !== 1) issues.push('The concourse needs one dispatch door to the final course.')
+  if (concourse) {
+    // The concourse holds a door to the opening and to each introduction level,
+    // so they can be replayed, and the dispatch door to the final course.
+    const allowed = [campaign.opening, ...campaign.introduction, ...campaign.finalCourse ? [campaign.finalCourse] : []]
+    for (const id of allowed) {
+      const doors = concourse.courseDoors.filter(door => door.course === id).length
+      if (doors !== 1) issues.push(`The concourse needs one ${id === campaign.finalCourse ? 'dispatch door to the final course' : `door to ${name(id)}`}.`)
+    }
+    if (concourse.courseDoors.some(door => !allowed.includes(door.course))) issues.push('The concourse has course doors. Courses belong in wings; the concourse holds only the opening, introduction and dispatch doors.')
+  }
   for (const wing of campaign.wings) {
     const level = hub(wing.level)
     if (!level) continue
@@ -120,10 +145,7 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
       const doors = level.courseDoors.filter(door => door.course === course).length
       if (doors !== 1) issues.push(`The ${wing.name} wing level has ${doors || 'no'} door${doors > 1 ? 's' : ''} for ${name(course)}. Give each course one door.`)
     }
-    // The opening level has its door in the first wing, like every other level.
-    const entry = wing === campaign.wings[0]
-    if (entry && level.courseDoors.filter(door => door.course === campaign.opening).length !== 1) issues.push(`The ${wing.name} wing level needs one door to the opening level ${name(campaign.opening)}.`)
-    for (const door of level.courseDoors) if (!wing.courses.includes(door.course) && !(entry && door.course === campaign.opening)) issues.push(`Course door “${door.id}” in the ${wing.name} wing leads to ${name(door.course)}, which is not one of that wing's courses.`)
+    for (const door of level.courseDoors) if (!wing.courses.includes(door.course)) issues.push(`Course door “${door.id}” in the ${wing.name} wing leads to ${name(door.course)}, which is not one of that wing's courses.`)
     if (!level.bulkheads.some(bulkhead => bulkhead.to === 'concourse')) issues.push(`The ${wing.name} wing level needs a bulkhead to the concourse.`)
     // Arriving through a bulkhead places the robot at the matching bulkhead on the far side.
     if (concourse && !concourse.bulkheads.some(bulkhead => bulkhead.to === wing.id)) issues.push(`The concourse needs a bulkhead to the ${wing.name} wing.`)
@@ -131,9 +153,7 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
   for (const [label, id] of hubs) for (const bulkhead of hub(id)?.bulkheads ?? []) {
     if (bulkhead.to !== 'concourse' && !wingIds.has(bulkhead.to)) issues.push(`Bulkhead “${bulkhead.id}” in the ${label} leads to an unknown wing, “${bulkhead.to}”.`)
   }
-  const [entry, ...rest] = campaign.wings
-  if (entry.clearance) issues.push(`The ${entry.name} wing opens after the opening level, so it cannot have a clearance.`)
-  for (const wing of rest) {
+  for (const wing of campaign.wings) {
     const clearance = wing.clearance
     if (!clearance) continue
     for (const id of clearance.wings) {
@@ -142,22 +162,30 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
     }
     for (const course of clearance.courses) {
       if (wing.courses.includes(course)) issues.push(`The ${wing.name} wing's clearance cannot depend on its own course ${name(course)}.`)
-      else if (!owners.has(course)) issues.push(`The ${wing.name} wing's clearance names ${name(course)}, which is not a campaign course.`)
+      else if (!campaign.wings.some(w => w.courses.includes(course))) issues.push(`The ${wing.name} wing's clearance names ${name(course)}, which is not a wing course.`)
     }
     const available = clearanceCourses(campaign, clearance).length
     if (clearance.count !== undefined && clearance.count > available) issues.push(`The ${wing.name} wing's clearance needs ${clearance.count} courses but names only ${available}.`)
   }
   // Open wings as if every course in an open wing were passed. Any wing left
   // closed waits on courses that only it, or another closed wing, can provide.
-  const open = new Set([entry.id])
+  const open = new Set<string>()
   const reachable = (course: string) => campaign.wings.some(wing => open.has(wing.id) && wing.courses.includes(course))
   const ready = ({ clearance }: CampaignWing) => !clearance || clearanceCourses(campaign, clearance).filter(reachable).length >= clearanceCount(campaign, clearance)
   for (let changed = true; changed;) {
     changed = false
-    for (const wing of rest) if (!open.has(wing.id) && ready(wing)) { open.add(wing.id); changed = true }
+    for (const wing of campaign.wings) if (!open.has(wing.id) && ready(wing)) { open.add(wing.id); changed = true }
   }
-  for (const wing of rest) if (!open.has(wing.id)) issues.push(`The ${wing.name} wing can never open: its clearance needs courses that are only behind it.`)
+  for (const wing of campaign.wings) if (!open.has(wing.id)) issues.push(`The ${wing.name} wing can never open: its clearance needs courses that are only behind it.`)
   return issues
+}
+
+/**
+ * Introduction levels play untimed in the facility, so a completion passes
+ * them; everything else uses the ordinary pass rule.
+ */
+export function facilityPassed(campaign: Campaign, level: JumpLevel, best: number | null, completed: boolean) {
+  return campaign.introduction.includes(level.id) ? completed || passedLevel(level, best, completed) : passedLevel(level, best, completed)
 }
 
 /**
@@ -166,22 +194,22 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
  * passed, so a pass carried over from the level grid still opens the next door.
  */
 export function facilityProgress(campaign: Campaign, passed: (course: string) => boolean): FacilityProgress {
-  const [entry] = campaign.wings, started = passed(campaign.opening)
-  const concourseOpen = started && entry.courses.every(passed)
+  const started = passed(campaign.opening), introduction = campaign.introduction.map(passed)
+  const concourseOpen = started && introduction.every(Boolean)
   let total = 0, done = 0
-  const wings = campaign.wings.map((wing, index): WingProgress => {
+  const wings = campaign.wings.map((wing): WingProgress => {
     let clearance: WingProgress['clearance']
     if (wing.clearance) {
       const count = clearanceCount(campaign, wing.clearance)
       clearance = { passed: Math.min(count, clearanceCourses(campaign, wing.clearance).filter(passed).length), count }
     }
-    const open = index === 0 ? started : concourseOpen && (!clearance || clearance.passed >= clearance.count)
+    const open = concourseOpen && (!clearance || clearance.passed >= clearance.count)
     const doors = wing.courses.map((course, i) => ({ course, state: (passed(course) ? 'passed' : open && (i === 0 || passed(wing.courses[i - 1])) ? 'open' : 'locked') as DoorState }))
     const count = doors.filter(door => door.state === 'passed').length
     total += doors.length; done += count
     return { id: wing.id, open, passed: count, doors, ...(clearance ? { clearance } : {}) }
   })
-  return { started, concourseOpen, wings, required: total, passed: done, complete: total > 0 && done === total }
+  return { started, introduction, concourseOpen, wings, required: total, passed: done, complete: total > 0 && done === total }
 }
 
 /** Whether a direct link may start this course: its wing is open and its door is not locked. */

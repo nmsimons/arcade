@@ -15,7 +15,7 @@ import { TUNING } from './movementTuning.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import { fallRecoveryPose } from './poses/fallPose.ts'
 import { transferPushTurn, transferReachingPushTurn } from './poses/turnPose.ts'
-import { waterLandingPose, waterPose } from './poses/waterPose.ts'
+import { waterBodyPose, waterLandingPose, waterPose } from './poses/waterPose.ts'
 import { propPushHands, smallSubmergedProp } from './propGeometry.ts'
 import { groundAt } from './terrain.ts'
 import { gaitPose } from './gait.ts'
@@ -490,7 +490,7 @@ export function advanceWaterCeiling(p: Player, input: JumpInput, dt: number, wor
   const ascending = input.climb || (input.swimVertical ?? 0) < -.01 || p.vy < -6
   let target: NonNullable<Player['waterMotion']>['ceiling'], wanted = 0, load = 0
   if (!p.grounded && !motion.landing && (ascending || previous?.amount)) {
-    const view = physicsView(p), source = waterPose({ ...view, waterMotion: { ...view.waterMotion!, ceiling: undefined } })
+    const view = physicsView(p), source = waterBodyPose({ ...view, waterMotion: { ...view.waterMotion!, ceiling: undefined } })
     const x = p.x + source.head[0] * p.facing + p.vx * .04, y = p.y + source.head[1] - HEAD_RADIUS
     let nearest = Infinity
     for (const collider of world.colliders) {
@@ -568,7 +568,7 @@ export function settleWaterClearance(p: Player, dt: number) {
   const relax = (v: number) => v - Math.sign(v) * Math.min(Math.abs(v), dt * 40)
   motion.bodyOffset = (motion.bodyOffset ?? [0, 0]).map(relax) as Point
   // The offset moves the swimming hull, so it is solved from the physics rig.
-  motion.bodyOffset = waterPose(physicsView(p)).waterOffset ?? [0, 0]
+  motion.bodyOffset = waterBodyPose(physicsView(p)).waterOffset ?? [0, 0]
 }
 
 /** The presented swimmer clears its own animated rig, starting from the last
@@ -579,5 +579,5 @@ export function settlePresentedWaterClearance(p: Player, dt: number) {
   const previous = p.anim.waterClearance
   const offset: Point = previous ? [previous.offset[0] * (previous.facing === p.facing ? 1 : -1), previous.offset[1]] : [0, 0]
   p.anim.waterClearance = { offset: offset.map(relax) as Point, facing: p.facing }
-  p.anim.waterClearance = { offset: waterPose(p).waterOffset ?? [0, 0], facing: p.facing }
+  p.anim.waterClearance = { offset: waterBodyPose(p).waterOffset ?? [0, 0], facing: p.facing }
 }

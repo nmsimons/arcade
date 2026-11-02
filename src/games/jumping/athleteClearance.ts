@@ -4,7 +4,7 @@ import { anticipateSlideLanding } from './athleteAnimation.ts'
 import { FOREARM, HEAD_RADIUS, MIN_KNEE_OPENING, TAU, UPPER_ARM, add, clamp, lerp, mix, rotatePose, solve, solveNear, solveRear } from './athleteRig.ts'
 import type { AthletePose, Leg } from './athleteRig.ts'
 import { FOOT_CONTACT, footPoint } from './footwork.ts'
-import { nearbyBoundary, nearestBoundary, platformOutline, pointInside } from './geometry.ts'
+import { nearbyBoundary, nearestBoundary, platformOutline, pointInside, terrainBoxes } from './geometry.ts'
 import { mirrorPlatform } from './gravityFrame.ts'
 import type { Limb, Point } from './limbPose.ts'
 import { TUNING } from './movementTuning.ts'
@@ -78,8 +78,11 @@ function clearanceBoundary(p: Player, solid: Platform, x: number, y: number, ori
 }
 export function bodyIntrusion(p: Player, point: Point, radius: number, visibleBall?: Platform, origin?: Point) {
   const x = p.x + point[0] * p.facing, y = p.y + point[1]
-  for (const b of p.terrain ?? []) {
-    if (x < b.x - radius || x > b.x + b.w + radius || y < b.y - radius || y > b.y + b.h + radius) continue
+  const terrain = p.terrain ?? [], boxes = terrainBoxes(terrain)
+  for (let i = 0; i < terrain.length; i++) {
+    const b = terrain[i]
+    if (boxes ? x < boxes[4 * i] - radius || x > boxes[4 * i + 1] + radius || y < boxes[4 * i + 2] - radius || y > boxes[4 * i + 3] + radius
+      : x < b.x - radius || x > b.x + b.w + radius || y < b.y - radius || y > b.y + b.h + radius) continue
     if (b === visibleBall) {
       // A loaded ball palm touches the drawn circle; its circumscribed motor
       // polygon's narrow outer rim must not dislodge that visible contact.

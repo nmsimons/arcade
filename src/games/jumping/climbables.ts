@@ -343,6 +343,11 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
   const nearby = platforms.filter(b => b.x < right + 96 && b.x + b.w > left - 96 && b.y < bottom + 96 && b.y + b.h > top - 96
     && (!(b.polygon || b.profile) || polygonIntersects(sweepBounds, b)))
   if (ropeCanSleep(rope, nearby, !!load)) return
+  // Every pass tests every particle against these padded boxes and almost all
+  // tests miss. Terrain shapes vary, so reading the boxes from flat numbers is
+  // much faster than from the platforms; the bounds are the same expressions.
+  const contactBounds = new Float64Array(nearby.length * 4)
+  nearby.forEach((b, k) => contactBounds.set([b.x - ROPE_CLEARANCE, b.x + b.w + ROPE_CLEARANCE, b.y - ROPE_CLEARANCE, b.y + b.h + ROPE_CLEARANCE], 4 * k))
   const playerTerrain = load?.body?.platforms
   const bodyTerrain = playerTerrain ? nearby.filter(b => playerTerrain.includes(b)) : nearby
   const before = nodes.map(node => [node.x, node.y] as Point), previousBends = rope.bends.slice()
@@ -428,10 +433,10 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
       a.x += dx * correction * wa; a.y += dy * correction * wa
       b.x -= dx * correction * wb; b.y -= dy * correction * wb
     }
-    if (nearby.length) for (let i = 1; i < nodes.length; i++) for (const b of nearby) {
+    if (nearby.length) for (let i = 1; i < nodes.length; i++) for (let k = 0; k < nearby.length; k++) {
       const n = nodes[i]
-      if (n.x <= b.x - ROPE_CLEARANCE || n.x >= b.x + b.w + ROPE_CLEARANCE || n.y <= b.y - ROPE_CLEARANCE || n.y >= b.y + b.h + ROPE_CLEARANCE) continue
-      const inside = pointInside(b, n.x, n.y)
+      if (n.x <= contactBounds[4 * k] || n.x >= contactBounds[4 * k + 1] || n.y <= contactBounds[4 * k + 2] || n.y >= contactBounds[4 * k + 3]) continue
+      const b = nearby[k], inside = pointInside(b, n.x, n.y)
       const edge = inside ? nearestBoundary(b, n.x, n.y) : nearbyBoundary(b, n.x, n.y, ROPE_CLEARANCE)
       if (!edge) continue
       if (inside) {
@@ -599,12 +604,18 @@ export function findClimbable(p: Player, world: ClimbableWorld, terrain: readonl
 /** Ropes can be caught in flight independently of ladder input. */
 export function findRope(p: Player, terrain: readonly Platform[] = [], reach?: { hands: Point[]; shoulder: Point }): Climbing | null {
   let nearest: { rope: RopeState; index: number; distance: number; gap: number } | null = null
+  const hands = reach?.hands ?? [[p.x + p.facing * 10, p.y - 56]]
   for (const [index, rope] of (p.ropes ?? []).entries()) for (let j = 0; j < rope.nodes.length - 1; j++) {
     const start = rope.nodes[j], end = rope.nodes[j + 1], bend = rope.bends[j]
+    // A hand more than 26 units outside the segment's box is at least that far
+    // from every point on it, so it cannot meet the 25-unit grab gap below.
+    const left = Math.min(start.x, end.x, bend?.[0] ?? start.x), right = Math.max(start.x, end.x, bend?.[0] ?? start.x)
+    const top = Math.min(start.y, end.y, bend?.[1] ?? start.y), bottom = Math.max(start.y, end.y, bend?.[1] ?? start.y)
+    if (hands.every(([x, y]) => x < left - 26 || x > right + 26 || y < top - 26 || y > bottom + 26)) continue
     const path: Point[] = [[start.x, start.y], ...(bend ? [bend] : []), [end.x, end.y]]
     const lengths = path.slice(1).map((p, i) => Math.hypot(p[0] - path[i][0], p[1] - path[i][1]))
     const length = lengths.reduce((sum, part) => sum + part, 0) || 1
-    for (const [handX, handY] of reach?.hands ?? [[p.x + p.facing * 10, p.y - 56]]) {
+    for (const [handX, handY] of hands) {
       let travel = 0
       for (let k = 1; k < path.length; k++) {
         const a = path[k - 1], b = path[k], dx = b[0] - a[0], dy = b[1] - a[1]

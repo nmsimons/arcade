@@ -29,6 +29,13 @@ test('LAB opens at /lab from the selector and retired URLs return to the arcade'
   }
 })
 
+test('the facility stays development-only; production returns its link to the level menu',async({page})=>{
+  await page.goto('/lab/facility')
+  await expect(page).toHaveURL(/\/lab$/)
+  await expect(page.getByRole('dialog',{name:'L.A.B. Experiments',exact:true})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Facility',exact:true})).toHaveCount(0)
+})
+
 test('selector loads no games and navigation restores keyboard focus',async({page})=>{
   const scripts=[];page.on('request',r=>{if(r.resourceType()==='script')scripts.push(r.url())})
   await page.goto('/')

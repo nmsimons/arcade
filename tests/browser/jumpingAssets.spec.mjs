@@ -42,7 +42,8 @@ test('a missing index reports the failure and page reload recovers without a com
   const root = new URL('../../public/levels/jumping/', import.meta.url)
   const manifest = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
   const files = manifest.order === 'listed' ? manifest.levels : [...manifest.levels].sort()
-  const builtIns = await Promise.all(files.map(async name => JSON.parse(await readFile(new URL(name, root), 'utf8'))))
+  // Facility hubs share the collection but never appear as level tiles.
+  const builtIns = (await Promise.all(files.map(async name => JSON.parse(await readFile(new URL(name, root), 'utf8'))))).filter(level => level.kind !== 'hub')
   await unlockJumpingLevels(page, builtIns)
   let failing = true
   await page.route('**/levels/jumping/index.json', route => failing ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue())

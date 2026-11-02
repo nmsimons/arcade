@@ -56,9 +56,16 @@ const hubOpen = (campaign: Campaign, progress: FacilityProgress, id: string) => 
   return place === 'concourse' ? progress.concourseOpen : !!progress.wings.find(wing => wing.id === place)?.open
 }
 
-/** The opening and introduction levels play untimed in the facility, without wall clocks. */
-export function facilityLevel(campaign: Campaign, level: JumpLevel): JumpLevel {
-  return campaign.introduction.includes(level.id) && level.timing !== 'untimed' ? { ...level, timing: 'untimed', timers: [] } : level
+/**
+ * A level as the facility plays it. Introduction levels play untimed, without
+ * wall clocks. Re-entering a level through its door starts at its return
+ * entrance when it has one, as Orientation does at its far end.
+ */
+export function facilityLevel(campaign: Campaign, level: JumpLevel, place?: FacilityPlace): JumpLevel {
+  let played = level
+  if (campaign.introduction.includes(level.id) && level.timing !== 'untimed') played = { ...played, timing: 'untimed', timers: [] }
+  if (place?.kind === 'course' && level.returnEntrance) played = { ...played, entrance: level.returnEntrance }
+  return played
 }
 
 /**

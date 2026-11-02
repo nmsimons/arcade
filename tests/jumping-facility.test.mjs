@@ -155,3 +155,16 @@ test('the evaluation board shows the total and each wing, then the release', () 
   assert.deepEqual(hubPresentation(campaign, progress(introduced), levels.get('hall'), levels, () => null).placards.get('board'),
     ['EVALUATION 0 / 5', 'MOVEMENT 0/2', 'FREIGHT 0/2', 'WATER SEALED'])
 })
+
+test('a return entrance is an ordinary doorway, clear of the exit, used only when re-entering', async () => {
+  const { levelProblems, parseLevel } = await import('../src/games/jumping/level.ts')
+  const file = { ...blankTrial(), id: 'room', name: 'Room', props: [], mechanisms: [], triggers: [], robots: [], returnEntrance: { name: 'Back door', x: 1300, y: 920 } }
+  const level = parseLevel(file)
+  assert.deepEqual(level.returnEntrance, { name: 'Back door', x: 1300, y: 920 })
+  assert.deepEqual(levelProblems(level), [])
+  assert.throws(() => parseLevel({ ...file, returnEntrance: { x: 1300, y: 920, kind: 'charging-bay' } }), /not a valid jumping level/)
+  assert.deepEqual(levelProblems(parseLevel({ ...file, returnEntrance: { x: 1720, y: 920 } })), ['Keep the return entrance clear of the exit doorway, or the robot would leave as it arrives.'])
+  // The facility starts a re-entry there; a new game's opening keeps its own entrance.
+  assert.deepEqual(facilityLevel(campaign, level, { kind: 'course', level: 'room', hub: 'hall', door: 'door-room' }).entrance, level.returnEntrance)
+  assert.deepEqual(facilityLevel(campaign, level, { kind: 'opening', level: 'room' }).entrance, level.entrance)
+})

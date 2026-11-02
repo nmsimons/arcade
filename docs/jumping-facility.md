@@ -21,9 +21,12 @@
   that starts in Wake's charging pod at night. Its power plate opens a gate
   onto a day-lit training hall with the four tutorial lessons in their proven
   geometry (the crate, a tap-jump gap and a held-jump gap with puddle ladders, a
-  plate that opens the swing room, and the rope over a pool). A service stair
-  then leads down into Company's dark cave, where the Repulsorbot wakes as the
-  robot climbs the rope to Service access, the exit onto the concourse. A
+  plate that opens the swing room, and the rope over a pool). The hall's own
+  exit to the concourse has caved in; just before it, a hole in the broken
+  floor drops the robot into Company's dark cave, where the Repulsorbot wakes as
+  the robot climbs the rope to Service access, the other way to the concourse.
+  Re-entering Orientation from the concourse starts at that far end, beside
+  Service access (the level's `returnEntrance`). A
   headless test plays it end to end with ordinary inputs. Wake, the four
   tutorial levels and Company stay in the level grid but leave the campaign.
   Orientation's golden traces await recording on Apple Silicon.

@@ -765,6 +765,13 @@ Choose **Object → Entrance → Charging bay** while the entrance is selected;
 **Door** restores the ordinary entrance. Both styles preview, save, and reopen. The pod has a 102-by-126 artwork outline
 for selection; its collision and start validation keep the clear 40-by-80 footprint.
 
+An optional `returnEntrance: { name?, x, y }` marks where the facility starts
+the level when the robot re-enters it through its door, such as Orientation's
+far end beside its exit. It is an ordinary doorway (no `kind`) with the same
+flat 40-by-80 footprint as the entrance, and it must stay clear of the exit
+doorway so the robot does not leave as it arrives. New games, the level grid
+and playtests keep using `entrance`. The studio does not edit it yet.
+
 `timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
 level** in the studio. The world and animation time still advance, but the
 score stays zero, time pickups cannot change it, and no medal or personal best

@@ -51,7 +51,7 @@ test('a new save wakes in Orientation, an untimed opening level', async ({ page 
   expect(await saved(page), 'the opening is never autosaved').toBeNull()
 })
 
-test('a finished opening starts at the concourse, whose Orientation door leads back in', async ({ page }, info) => {
+test('a finished opening starts at the concourse, whose Orientation door leads back in at the far end', async ({ page }, info) => {
   test.setTimeout(240000)
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await openFacility(page, INTRODUCED)
@@ -63,8 +63,10 @@ test('a finished opening starts at the concourse, whose Orientation door leads b
   await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
   await expect(page.getByRole('img', { name: 'Orientation: reach the exit' })).toBeVisible()
   expect(await saved(page), 'a level resumes at its door').toEqual({ place: { kind: 'hub', level: 'facility-concourse', arrival: { kind: 'door', id: 'door-orientation' } } })
-  await expect.poll(async () => { await page.clock.runFor(16); return page.locator('.jumping-state').innerText() }).toBe('Waking up')
   await finishJumpingEntrance(page)
+  // Re-entering starts at the far end, on the gantry beside Service access.
+  expect(Math.round((await motion(page)).y)).toBe(350)
+  expect(Math.abs((await motion(page)).x - 8520), 'starts beside Service access').toBeLessThan(16)
   await expect(page.getByTestId('level-time'), 'the replayed opening stays untimed').toHaveCount(0)
   await page.keyboard.press('Escape')
   const pause = page.getByRole('dialog', { name: 'Game paused' })

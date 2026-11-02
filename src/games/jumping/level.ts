@@ -14,7 +14,7 @@ import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { MAX_CURVE_POINTS, terrainCurveOutline } from './terrainCurves.ts'
-import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { chargingBayBounds, entranceDoor, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
@@ -75,6 +75,8 @@ export interface JumpLevel {
   lighting?: LightingDefinition
   environment?: LevelEnvironment
   entrance: Entrance; checkpoints: Checkpoint[]; platforms: Platform[]
+  /** Where re-entering this level from the facility starts: an ordinary doorway, usually near its exit. */
+  returnEntrance?: Entrance
   timing?: 'untimed'
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
@@ -162,6 +164,13 @@ export function snapToGround(level: JumpLevel, x: number, y: number): Checkpoint
 export function spawnProblem(level: JumpLevel): string | null {
   if (!entranceFits(level.entrance, levelTerrain(level), level.width, levelHeight(level)))
     return `Place ${objectReference(level, 'entrance')} on a continuous flat surface, with a clear doorway inside the level.`
+  if (level.returnEntrance && !entranceFits(level.returnEntrance, levelTerrain(level), level.width, levelHeight(level)))
+    return 'Place the return entrance on a continuous flat surface, with a clear doorway inside the level.'
+  if (level.returnEntrance && level.goal && !level.goal.kind) {
+    const door = goalDoor(level.goal), start = entranceDoor(level.returnEntrance)
+    if (Math.abs(level.returnEntrance.y - level.goal.y) < 2 && start.x < door.x + door.w + 30 && start.x + start.w > door.x - 30)
+      return 'Keep the return entrance clear of the exit doorway, or the robot would leave as it arrives.'
+  }
   return null
 }
 export function levelProblems(level: JumpLevel): string[] {
@@ -394,6 +403,11 @@ export function parseLevel(value: unknown): JumpLevel {
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
     platforms, entrance: { ...entrance, ...(entranceKind ? { kind: entranceKind as 'charging-bay' } : {}) }, checkpoints, climbables: { ladders, ropes },
     ...(v.timing ? { timing: v.timing as 'untimed' } : {}) }
+  if (v.returnEntrance !== undefined) {
+    if (object(v.returnEntrance).kind !== undefined) fail()
+    level.returnEntrance = point(v.returnEntrance)
+    if (level.returnEntrance.x > width) fail()
+  }
   if (v.toggleGroups !== undefined) level.toggleGroups = parseToggleGroups(v.toggleGroups, fail)
   if (v.floorMaterial !== undefined) {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()

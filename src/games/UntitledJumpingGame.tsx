@@ -198,7 +198,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     setFacilityWhere(place.kind === 'opening' ? null : place.kind)
     // Autosave where the robot is; course records save when a course finishes.
     try { saveFacilityPlace(playerStorage, place) } catch { /* The place is kept for this visit only. */ }
-    const play = place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : campaignRef.current ? facilityLevel(campaignRef.current, level) : level
+    const play = place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : campaignRef.current ? facilityLevel(campaignRef.current, level, place) : level
     void beginPlay(play, false, place.kind === 'hub' ? `hub:${level.id}` : level.id)
   }
   async function startFacility() {

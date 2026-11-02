@@ -190,7 +190,8 @@ editing or playtesting.
    never reduce grades, remove completion, or relock areas. Optional diversions
    never delay the next required unlock. A new game starts in Orientation's
    charging pod. Orientation keeps a door on the concourse, like every other
-   level, for replays. Afterward, starting the game resumes where the robot was
+   level; re-entering through it starts at the level's far end, beside Service
+   access. Afterward, starting the game resumes where the robot was
    last autosaved.
 5. The evaluation completes when every required course is passed. Its release
    opens the escape route, whose levels are untimed. Escaping completes the

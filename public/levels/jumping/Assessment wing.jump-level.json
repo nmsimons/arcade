@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "facility-assessment",
+  "name": "Assessment wing",
+  "kind": "hub",
+  "timing": "untimed",
+  "width": 1450,
+  "height": 720,
+  "floor": 720,
+  "entrance": { "name": "Assessment entrance", "x": 200, "y": 720 },
+  "platforms": [],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    { "name": "Escapade", "id": "door-escapade", "x": 800, "y": 720, "course": "ab914f1b-985f-4992-9e03-44506d00cb33" },
+    { "name": "World I", "id": "door-world-i", "x": 1150, "y": 720, "course": "9c86c84f-5cd0-4cfa-9c78-b257fe402ab1" }
+  ],
+  "bulkheads": [
+    { "name": "Concourse bulkhead", "id": "assessment-to-concourse", "x": 200, "y": 720, "to": "concourse" }
+  ],
+  "chargingBays": [
+    { "name": "Assessment bay", "id": "assessment-bay", "x": 440, "y": 720 }
+  ],
+  "texts": [
+    { "x": 560, "y": 540, "w": 260, "h": 40, "text": "ASSESSMENT", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 560, "y": 578, "w": 320, "h": 24, "text": "MIXED SKILLS · 2 COURSES", "fontSize": 12, "align": "left", "style": "official" }
+  ]
+}

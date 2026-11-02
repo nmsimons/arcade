@@ -4,7 +4,7 @@
   "name": "Freight wing",
   "kind": "hub",
   "timing": "untimed",
-  "width": 1600,
+  "width": 3550,
   "height": 720,
   "floor": 720,
   "entrance": { "name": "Freight entrance", "x": 200, "y": 720 },
@@ -17,7 +17,13 @@
   "robots": [],
   "courseDoors": [
     { "name": "Level Five", "id": "door-level-five", "x": 800, "y": 720, "course": "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd" },
-    { "name": "Boxes", "id": "door-boxes", "x": 1150, "y": 720, "course": "06b6058e-4448-4c6a-81a2-e936a70fda0a" }
+    { "name": "Boxes", "id": "door-boxes", "x": 1150, "y": 720, "course": "06b6058e-4448-4c6a-81a2-e936a70fda0a" },
+    { "name": "Balls", "id": "door-balls", "x": 1500, "y": 720, "course": "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878" },
+    { "name": "Turnaround", "id": "door-turnaround", "x": 1850, "y": 720, "course": "ujg-turnaround-v2" },
+    { "name": "jk", "id": "door-jk", "x": 2200, "y": 720, "course": "5adc6677-fb33-4064-a4ce-507e37130bc4" },
+    { "name": "Tower I", "id": "door-tower-i", "x": 2550, "y": 720, "course": "16f44bef-1ff7-42d7-ad5a-f8966310cd4b" },
+    { "name": "Nine", "id": "door-nine", "x": 2900, "y": 720, "course": "9369b0ce-0963-4681-bbcd-50dc5059d9df" },
+    { "name": "Tower II", "id": "door-tower-ii", "x": 3250, "y": 720, "course": "105e88ac-240d-49b1-b45d-4cc9c225b32e" }
   ],
   "bulkheads": [
     { "name": "Concourse bulkhead", "id": "freight-to-concourse", "x": 200, "y": 720, "to": "concourse" }
@@ -26,7 +32,7 @@
     { "name": "Freight bay", "id": "freight-bay", "x": 440, "y": 720 }
   ],
   "texts": [
-    { "x": 600, "y": 540, "w": 200, "h": 40, "text": "FREIGHT", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 600, "y": 578, "w": 260, "h": 24, "text": "CARGO · PLATES · GATES", "fontSize": 12, "align": "left", "style": "official" }
+    { "x": 560, "y": 540, "w": 260, "h": 40, "text": "FREIGHT", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 560, "y": 578, "w": 320, "h": 24, "text": "CARGO · PLATES · GATES · LIFTS · 8 COURSES", "fontSize": 12, "align": "left", "style": "official" }
   ]
 }

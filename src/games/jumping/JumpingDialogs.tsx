@@ -11,7 +11,7 @@ function RestartIcon() {
 }
 
 /** In the facility, the pause screen offers moves within the building instead of the level menu. */
-export interface FacilityPauseActions { where: 'course' | 'hub'; onLeave: () => void; onBay: () => void }
+export interface FacilityPauseActions { where: 'course' | 'hub' | 'escape'; onLeave: () => void; onBay: () => void }
 export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, facility, onResume, onRestart, onBuilder, onLevels, onExit }: {
   name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean; canEdit: boolean
   facility?: FacilityPauseActions
@@ -64,8 +64,8 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
           <nav className="jumping-dialog-actions" aria-label="Pause actions">
             <button data-initial-focus onClick={onResume}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
             {facility?.where === 'hub' ? <button onClick={facility.onBay}>Return to charging bay</button> : <>
-              <button onClick={onRestart}>{facility ? 'Restart course' : challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
-              {facility ? <button onClick={facility.onLeave}>Leave course</button> : <button onClick={onLevels}>Level menu</button>}
+              <button onClick={onRestart}>{facility ? facility.where === 'escape' ? 'Restart from entrance' : 'Restart course' : challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
+              {facility ? <button onClick={facility.onLeave}>{facility.where === 'escape' ? 'Return to the facility' : 'Leave course'}</button> : <button onClick={onLevels}>Level menu</button>}
             </>}
             <button onClick={() => setControls(true)}>Controls</button>
           </nav>
@@ -79,13 +79,13 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
   </KeyboardDialog>
 }
 
-export function JumpingResultDialog({ level, elapsed, grade, best, testing, saveError, canEdit, onNext, onRetry, onBuilder, onLevels, onExit }: {
+export function JumpingResultDialog({ level, elapsed, grade, best, testing, saveError, canEdit, onNext, onRetry, onBuilder, onLevels, levelsLabel = 'Level menu', onExit }: {
   level: PuzzleLevel; elapsed: number; grade: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
-  onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
+  onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; levelsLabel?: string; onExit: () => void
 }) {
   const ending = level.goal.kind === 'overlook' || level.goal.kind === 'walk-off' || level.goal.kind === 'bus'
   const primary = testing && canEdit ? onBuilder : ending ? onLevels : onNext ?? onRetry
-  const primaryLabel = testing && canEdit ? 'Return to builder' : ending ? 'Level menu' : onNext ? 'Next level' : 'Try again'
+  const primaryLabel = testing && canEdit ? 'Return to builder' : ending ? levelsLabel : onNext ? 'Next level' : 'Try again'
   const time = formatTime(elapsed), [wholeTime, fraction] = time.split('.')
   return <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={ending ? onLevels : onRetry} className={`jumping-overlay jumping-dialog-overlay${ending ? ' jumping-ending' : ''}`}>
     <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
@@ -112,7 +112,7 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
       </nav>
       <footer className="jumping-result-destinations">
         <nav className="jumping-dialog-actions" aria-label="Other destinations">
-          {!ending && <button onClick={onLevels}>Level menu</button>}
+          {!ending && <button onClick={onLevels}>{levelsLabel}</button>}
           <button onClick={onExit}>Back to arcade</button>
         </nav>
         {saveError && <p className="jumping-result-storage" role="status">{level.timing === 'untimed' ? 'Your completion is kept' : 'Your time is kept'} for this visit. Browser storage is unavailable.</p>}

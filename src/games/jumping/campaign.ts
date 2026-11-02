@@ -22,9 +22,11 @@ export interface CampaignWing { id: string; name: string; level?: string; course
  * The facility's structure, kept apart from level geometry. The first wing
  * opens once the opening level is passed, and passing all of its courses opens
  * the concourse. Every other wing opens off the concourse when its clearance is
- * met; a wing without clearance opens with the concourse.
+ * met; a wing without clearance opens with the concourse. When every wing
+ * course is passed, the concourse's dispatch door opens onto the final course;
+ * passing it leads through the escape levels in order.
  */
-export interface Campaign { version: 1; opening: string; concourse?: string; wings: CampaignWing[] }
+export interface Campaign { version: 1; opening: string; concourse?: string; wings: CampaignWing[]; finalCourse?: string; escape: string[] }
 
 export type DoorState = 'locked' | 'open' | 'passed'
 export interface WingProgress {
@@ -57,7 +59,8 @@ export function parseCampaign(value: unknown): Campaign {
     }
     return { id: w.id as string, name: w.name as string, ...(w.level === undefined ? {} : { level: id(w.level) }), courses, clearance }
   })
-  return { version: 1, opening: id(v.opening), ...(v.concourse === undefined ? {} : { concourse: id(v.concourse) }), wings }
+  return { version: 1, opening: id(v.opening), ...(v.concourse === undefined ? {} : { concourse: id(v.concourse) }), wings,
+    ...(v.finalCourse === undefined ? {} : { finalCourse: id(v.finalCourse) }), escape: v.escape === undefined ? [] : ids(v.escape, 10) }
 }
 
 /** The distinct campaign courses a clearance counts, in campaign order. */
@@ -86,6 +89,17 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
       else owners.set(course, wing.name)
     }
   }
+  if (campaign.finalCourse !== undefined) {
+    const level = byId.get(campaign.finalCourse)
+    if (!level) issues.push(`The final course ${name(campaign.finalCourse)} is not in the collection.`)
+    else if (!isPuzzleLevel(level) || level.timing === 'untimed') issues.push(`The final course ${name(campaign.finalCourse)} is not a timed course.`)
+    if (owners.has(campaign.finalCourse) || campaign.finalCourse === campaign.opening) issues.push(`The final course ${name(campaign.finalCourse)} is already used as a wing course or the opening.`)
+  }
+  for (const id of campaign.escape) {
+    if (!byId.has(id)) issues.push(`The escape level ${name(id)} is not in the collection.`)
+    else if (owners.has(id) || id === campaign.opening || id === campaign.finalCourse) issues.push(`The escape level ${name(id)} is already used elsewhere in the campaign.`)
+  }
+  if (new Set(campaign.escape).size !== campaign.escape.length) issues.push('The escape route lists a level twice.')
   const hubs: [string, string | undefined][] = [['concourse', campaign.concourse], ...campaign.wings.map((wing): [string, string | undefined] => [`${wing.name} wing`, wing.level])]
   for (const [label, id] of hubs) {
     if (id === undefined) continue
@@ -96,7 +110,9 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
   // Doors and bulkheads are checked once their hub levels exist.
   const hub = (id?: string) => { const level = id === undefined ? undefined : byId.get(id); return level && isHubLevel(level) ? level : undefined }
   const concourse = hub(campaign.concourse)
-  if (concourse?.courseDoors.length) issues.push('The concourse has course doors. Courses belong in wings.')
+  // The concourse's only course door is the dispatch door to the final course.
+  if (concourse?.courseDoors.some(door => door.course !== campaign.finalCourse)) issues.push('The concourse has course doors. Courses belong in wings; only the dispatch door leads to the final course.')
+  if (concourse && campaign.finalCourse && concourse.courseDoors.filter(door => door.course === campaign.finalCourse).length !== 1) issues.push('The concourse needs one dispatch door to the final course.')
   for (const wing of campaign.wings) {
     const level = hub(wing.level)
     if (!level) continue

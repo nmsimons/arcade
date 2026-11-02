@@ -11,7 +11,12 @@
         "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
         "a90ceb11-5e2a-4b24-80f2-73648ffab13d",
         "first-leap",
-        "one-rope"
+        "one-rope",
+        "ff487efc-cbdb-42f0-85c0-8df2b69532b4",
+        "d810f5f5-1a01-431f-804b-575b1b731a3d",
+        "e784fe84-2ab2-427c-b5a2-1d1fec663e5c",
+        "d5e4ea37-a26f-46b9-8c84-d2b36840368b",
+        "ade313c6-a64a-48ea-a77e-85e0565acaf8"
       ],
       "clearance": null
     },
@@ -21,9 +26,103 @@
       "level": "facility-freight",
       "courses": [
         "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
-        "06b6058e-4448-4c6a-81a2-e936a70fda0a"
+        "06b6058e-4448-4c6a-81a2-e936a70fda0a",
+        "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878",
+        "ujg-turnaround-v2",
+        "5adc6677-fb33-4064-a4ce-507e37130bc4",
+        "16f44bef-1ff7-42d7-ad5a-f8966310cd4b",
+        "9369b0ce-0963-4681-bbcd-50dc5059d9df",
+        "105e88ac-240d-49b1-b45d-4cc9c225b32e"
       ],
       "clearance": null
+    },
+    {
+      "id": "construction",
+      "name": "Construction",
+      "level": "facility-construction",
+      "courses": [
+        "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
+        "5b6e15bf-38a0-4baf-951a-204c2abc7e21",
+        "11234f12-817c-4966-a141-54e70573fae0",
+        "16782da7-ca7e-40e6-a383-106746fd8df8",
+        "ab711d55-3d87-4933-a858-12029b54589c",
+        "363a26b8-1f98-4c5f-8fd3-8451b8455501",
+        "d4b07ef9-80a6-46c1-917c-19ad1902dc69"
+      ],
+      "clearance": null
+    },
+    {
+      "id": "targets",
+      "name": "Targets",
+      "level": "facility-targets",
+      "courses": [
+        "70595ea8-5dec-420a-83bf-cdf1065aab1f",
+        "38681eca-a164-4f9a-9113-c3ba119ed3ed",
+        "f647e38f-d47e-4628-b322-b89e98882202",
+        "19f66cc5-2de3-4a7f-9a4d-7df4092a7354"
+      ],
+      "clearance": null
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "level": "facility-water",
+      "courses": [
+        "7fdfaebe-18c3-431e-b9f4-3faba6b18cfe",
+        "ecbb07bd-b1dd-476c-b09b-82eb321515e9",
+        "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a"
+      ],
+      "clearance": {
+        "wings": [
+          "freight",
+          "construction"
+        ],
+        "count": 8
+      }
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "level": "facility-security",
+      "courses": [
+        "243237ee-296d-40f6-abd4-950eee0bbffc",
+        "56543b79-4781-415f-be5c-e40facf059b0",
+        "ujg-uninvited-company-v2",
+        "e7940f79-5502-451a-a373-9b63e4df1e11",
+        "dbf1b51d-bf10-4c7a-aa35-0d769445c766",
+        "8f8e6552-55a6-4b36-9fce-24a0d43619f0",
+        "a9e72a69-c1f9-4b12-8670-4ecdafb342ee"
+      ],
+      "clearance": {
+        "wings": [
+          "freight",
+          "construction",
+          "targets"
+        ],
+        "count": 12
+      }
+    },
+    {
+      "id": "assessment",
+      "name": "Assessment",
+      "level": "facility-assessment",
+      "courses": [
+        "ab914f1b-985f-4992-9e03-44506d00cb33",
+        "9c86c84f-5cd0-4cfa-9c78-b257fe402ab1"
+      ],
+      "clearance": {
+        "wings": [
+          "water",
+          "security"
+        ],
+        "count": 6
+      }
     }
+  ],
+  "finalCourse": "5d45678a-5104-43be-9647-2a2bbd6ff932",
+  "escape": [
+    "d52a327a-3f29-4c04-b501-3ee77d6e2e42",
+    "13b9b9d7-7937-4989-bc03-21238e7e58f2",
+    "b42dcd81-427a-4c2b-9c9b-a231874bef5b"
   ]
 }

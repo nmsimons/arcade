@@ -12,6 +12,7 @@ const hubFile = overrides => ({
   courseDoors: [{ id: 'door-one', x: 600, y: 920, course: 'one' }, { id: 'door-two', x: 900, y: 920, course: 'two' }],
   bulkheads: [{ id: 'to-concourse', x: 1300, y: 920, to: 'concourse' }],
   chargingBays: [{ id: 'bay', x: 1550, y: 920 }],
+  evaluationBoards: [{ id: 'board', x: 200, y: 500, w: 300, h: 160 }],
   ...overrides,
 })
 const hubRun = (open = ['door-one', 'to-concourse'], overrides) => {
@@ -30,18 +31,22 @@ test('hub levels parse with doors and bays but no goal or grade times', () => {
   assert.deepEqual(level.courseDoors.map(door => door.course), ['one', 'two'])
   assert.deepEqual(level.bulkheads[0], { id: 'to-concourse', x: 1300, y: 920, to: 'concourse' })
   assert.deepEqual(level.chargingBays[0], { id: 'bay', x: 1550, y: 920 })
+  assert.deepEqual(level.evaluationBoards[0], { id: 'board', x: 200, y: 500, w: 300, h: 160 })
   assert.deepEqual(levelProblems(level), [])
-  const minimal = parseLevel(hubFile({ courseDoors: undefined, bulkheads: undefined, chargingBays: undefined }))
-  assert.deepEqual([minimal.courseDoors, minimal.bulkheads, minimal.chargingBays], [[], [], []])
+  const minimal = parseLevel(hubFile({ courseDoors: undefined, bulkheads: undefined, chargingBays: undefined, evaluationBoards: undefined }))
+  assert.deepEqual([minimal.courseDoors, minimal.bulkheads, minimal.chargingBays, minimal.evaluationBoards], [[], [], [], []])
 })
 
 test('hub structure is rejected outside hubs and in malformed hubs', () => {
-  const course = { ...hubFile(), kind: undefined, timing: undefined, courseDoors: undefined, bulkheads: undefined, chargingBays: undefined,
+  const course = { ...hubFile(), kind: undefined, timing: undefined, courseDoors: undefined, bulkheads: undefined, chargingBays: undefined, evaluationBoards: undefined,
     goal: { x: 1620, y: 920 }, times: { a: 10, b: 20, c: 40, d: 60 } }
   assert.equal(isPuzzleLevel(parseLevel(course)), true)
   for (const broken of [
     { ...course, courseDoors: [] },
     { ...course, chargingBays: [] },
+    { ...course, evaluationBoards: [] },
+    hubFile({ evaluationBoards: [{ id: 'board', x: 1700, y: 500, w: 300, h: 160 }] }),
+    hubFile({ evaluationBoards: [{ id: 'bay', x: 200, y: 500, w: 300, h: 160 }] }),
     hubFile({ kind: 'wing' }),
     hubFile({ timing: undefined }),
     hubFile({ goal: { x: 1620, y: 920 } }),

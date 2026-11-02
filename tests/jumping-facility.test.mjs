@@ -2,22 +2,23 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { facilityProgress, parseCampaign } from '../src/games/jumping/campaign.ts'
-import { arrivalLevel, facilityStart, FACILITY_KEY, hubPresentation, nextPlace, readFacilitySave, saveFacilityBay } from '../src/games/jumping/facility.ts'
+import { arrivalLevel, dispatchPlace, evaluationLines, facilityStart, FACILITY_KEY, hubPresentation, nextPlace, readFacilitySave, saveFacilityBay } from '../src/games/jumping/facility.ts'
 
 const course = (id, name) => ({ ...blankTrial(), id, name, times: { a: 10, b: 20, c: 40, d: 75 } })
 const door = (id, x, course) => ({ id, x, y: 920, course })
 const bulkhead = (id, x, to) => ({ id, x, y: 920, to })
-const hub = (id, courseDoors, bulkheads, chargingBays = []) => ({ ...blankTrial(), id, name: id, kind: 'hub', timing: 'untimed',
-  goal: undefined, times: undefined, entrance: { x: 160, y: 920 }, courseDoors, bulkheads, chargingBays })
+const hub = (id, courseDoors, bulkheads, chargingBays = [], evaluationBoards = []) => ({ ...blankTrial(), id, name: id, kind: 'hub', timing: 'untimed',
+  goal: undefined, times: undefined, entrance: { x: 160, y: 920 }, courseDoors, bulkheads, chargingBays, evaluationBoards })
 const campaign = parseCampaign({ version: 1, opening: 'wake', concourse: 'hall', wings: [
   { id: 'orientation', name: 'Orientation', level: 'o-hub', courses: ['o1', 'o2'] },
   { id: 'freight', name: 'Freight', level: 'f-hub', courses: ['f1', 'f2'] },
   { id: 'water', name: 'Water', level: 'w-hub', courses: ['w1'], clearance: { wings: ['freight'] } },
-] })
+], finalCourse: 'final', escape: ['climb', 'bus'] })
 const levels = new Map([
-  { ...course('wake', 'Wake'), timing: 'untimed' }, course('o1', 'First Gap'), course('o2', 'Second Gap'), course('f1', 'Boxes'), course('f2', 'Balls'), course('w1', 'Buoyancy'),
+  { ...course('wake', 'Wake'), timing: 'untimed' }, course('o1', 'First Gap'), course('o2', 'Second Gap'), course('f1', 'Boxes'), course('f2', 'Balls'), course('w1', 'Buoyancy'), course('final', 'Ascent I'), course('climb', 'Ascent II'), { ...course('bus', 'Exit'), timing: 'untimed' },
   hub('o-hub', [door('door-o1', 400, 'o1'), door('door-o2', 700, 'o2')], [bulkhead('o-to-hall', 1500, 'concourse')], [{ id: 'o-bay', x: 250, y: 920 }]),
-  hub('hall', [], [bulkhead('hall-to-o', 300, 'orientation'), bulkhead('hall-to-f', 900, 'freight'), bulkhead('hall-to-w', 1200, 'water')], [{ id: 'hall-bay', x: 600, y: 920 }]),
+  hub('hall', [door('dispatch', 1500, 'final')], [bulkhead('hall-to-o', 300, 'orientation'), bulkhead('hall-to-f', 900, 'freight'), bulkhead('hall-to-w', 1200, 'water')],
+    [{ id: 'hall-bay', x: 600, y: 920 }], [{ id: 'board', x: 700, y: 500, w: 400, h: 200 }]),
   hub('f-hub', [door('door-f1', 600, 'f1'), door('door-f2', 900, 'f2')], [bulkhead('f-to-hall', 200, 'concourse')]),
   hub('w-hub', [door('door-w1', 600, 'w1')], [bulkhead('w-to-hall', 200, 'concourse')]),
 ].map(level => [level.id, level]))
@@ -89,4 +90,29 @@ test('placards show the deadline, then the best time and grade; closed bulkheads
   assert.deepEqual([...hall.open], ['hall-to-o', 'hall-to-f'])
   assert.deepEqual(hall.placards.get('hall-to-f'), ['FREIGHT'])
   assert.deepEqual(hall.placards.get('hall-to-w'), ['WATER', 'CLEARANCE 0/2'])
+})
+
+test('the dispatch door opens when the evaluation is complete and leads through the escape route', () => {
+  const all = ['wake', 'o1', 'o2', 'f1', 'f2', 'w1']
+  const sealed = hubPresentation(campaign, progress(all.slice(0, -1)), levels.get('hall'), levels, () => 20)
+  assert.equal(sealed.open.has('dispatch'), false)
+  assert.deepEqual(sealed.placards.get('dispatch'), ['DISPATCH', 'SEALED'])
+  const released = hubPresentation(campaign, progress(all), levels.get('hall'), levels, () => 20)
+  assert.equal(released.open.has('dispatch'), true)
+  assert.deepEqual(released.placards.get('dispatch'), ['DISPATCH', 'UNIT RELEASED'])
+  const final = { kind: 'course', level: 'final', hub: 'hall', door: 'dispatch' }
+  assert.deepEqual(nextPlace(campaign, final, null, levels, false), { kind: 'hub', level: 'hall', arrival: { kind: 'door', id: 'dispatch' } })
+  const climb = nextPlace(campaign, final, null, levels, true)
+  assert.deepEqual(climb, { kind: 'escape', level: 'climb', index: 0 })
+  const bus = nextPlace(campaign, climb, null, levels, false)
+  assert.deepEqual(bus, { kind: 'escape', level: 'bus', index: 1 })
+  assert.equal(nextPlace(campaign, bus, null, levels), null)
+  assert.deepEqual(dispatchPlace(campaign, levels), { kind: 'hub', level: 'hall', arrival: { kind: 'door', id: 'dispatch' } })
+})
+
+test('the evaluation board shows the total and each wing, then the release', () => {
+  assert.deepEqual(evaluationLines(campaign, progress(['wake', 'o1', 'o2', 'f1'])), ['EVALUATION 3 / 5', 'ORIENTATION 2/2', 'FREIGHT 1/2', 'WATER SEALED'])
+  assert.deepEqual(evaluationLines(campaign, progress(['wake', 'o1', 'o2', 'f1', 'f2', 'w1'])),
+    ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH', 'ORIENTATION 2/2', 'FREIGHT 2/2', 'WATER 1/1'])
+  assert.deepEqual(hubPresentation(campaign, progress(['wake']), levels.get('hall'), levels, () => null).placards.get('board'), ['EVALUATION 0 / 5', 'ORIENTATION 0/2', 'FREIGHT SEALED', 'WATER SEALED'])
 })

@@ -100,7 +100,26 @@ test('wing levels need one door per course and bulkheads both ways', () => {
   ])
   assert.deepEqual(campaignProblems(campaign({ concourse: 'plain' }), world), ['The concourse level “plain” is not a hub level.'])
   assert.deepEqual(campaignProblems(campaign({ concourse: 'hall' }), [...world.slice(0, -3), hub('hall', [door('o1')], [to('orientation'), to('freight'), to('water')])]),
-    ['The concourse has course doors. Courses belong in wings.'])
+    ['The concourse has course doors. Courses belong in wings; only the dispatch door leads to the final course.'])
+})
+
+test('the final course and escape route are separate from the wings', () => {
+  const extra = [course('final', 'Ascent I'), course('climb', 'Ascent II'), { ...course('bus', 'Exit'), timing: 'untimed' }]
+  const world = [...levels, ...extra]
+  assert.deepEqual(campaignProblems(campaign({ finalCourse: 'final', escape: ['climb', 'bus'] }), world), [])
+  assert.deepEqual(campaignProblems(campaign({ finalCourse: 'o1', escape: ['gone', 'f1', 'climb', 'climb'] }), world), [
+    'The final course “o1” is already used as a wing course or the opening.',
+    'The escape level “gone” is not in the collection.',
+    'The escape level “f1” is already used elsewhere in the campaign.',
+    'The escape route lists a level twice.',
+  ])
+  assert.deepEqual(campaignProblems(campaign({ finalCourse: 'bus' }), world), ['The final course “Exit” is not a timed course.'])
+  // The concourse's dispatch door is its one course door, and it leads to the final course.
+  const hall = (doors) => ({ id: 'hall', name: 'hall', kind: 'hub', courseDoors: doors, bulkheads: [], chargingBays: [] })
+  const dispatch = { id: 'dispatch', x: 0, y: 0, course: 'final' }
+  assert.deepEqual(campaignProblems(campaign({ concourse: 'hall', finalCourse: 'final' }), [...world, hall([dispatch])]), [])
+  assert.deepEqual(campaignProblems(campaign({ concourse: 'hall', finalCourse: 'final' }), [...world, hall([])]), ['The concourse needs one dispatch door to the final course.'])
+  assert.deepEqual(campaign({ escape: undefined }).escape, [])
 })
 
 test('a fresh save opens nothing until the opening is passed', () => {

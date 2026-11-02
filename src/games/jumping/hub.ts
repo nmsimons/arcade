@@ -11,7 +11,9 @@ export interface CourseDoor extends NamedObject { id: string; x: number; y: numb
 export interface Bulkhead extends NamedObject { id: string; x: number; y: number; to: string }
 /** An empty charging pod. Walking past it records the facility's resume point. */
 export interface HubBay extends NamedObject { id: string; x: number; y: number }
-export const MAX_COURSE_DOORS = 60, MAX_BULKHEADS = 12, MAX_HUB_BAYS = 12
+/** A wall display of the evaluation's progress. Nothing on it is selectable. */
+export interface EvaluationBoard extends NamedObject { id: string; x: number; y: number; w: number; h: number }
+export const MAX_COURSE_DOORS = 60, MAX_BULKHEADS = 12, MAX_HUB_BAYS = 12, MAX_EVALUATION_BOARDS = 4
 export const HUB_TARGET = /^[a-z][a-z0-9-]{0,39}$/
 
 export type HubDoor = { kind: 'course'; door: CourseDoor } | { kind: 'bulkhead'; door: Bulkhead }
@@ -41,7 +43,9 @@ export function hubPlacard(door: Pick<CourseDoor, 'x' | 'y'>, lines: readonly st
  * a locked one stays shut. Bulkheads carry a heavier frame and a striped lintel.
  * The editor shows every door open, with its destination on the placard.
  */
-export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[] }, hub: HubState | undefined, editor: boolean, paint: WorldPaint) {
+export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[] }, hub: HubState | undefined, editor: boolean, paint: WorldPaint) {
+  drawWallTexts(ctx, (level.evaluationBoards ?? []).map(({ x, y, w, h, id, name }): WallText => ({ x, y, w, h, fontSize: 14, align: 'left', style: 'terminal',
+    text: (editor ? [name ?? 'EVALUATION'] : hub?.placards.get(id) ?? []).join('\n') })), false, paint)
   const doors = [...level.courseDoors ?? [], ...level.bulkheads ?? []]
   for (const door of doors) {
     const b = hubDoorBounds(door), open = editor || !!hub?.open.has(door.id), bulkhead = 'to' in door, frame = bulkhead ? 7 : 3

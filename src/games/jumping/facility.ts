@@ -11,6 +11,7 @@ export type FacilityPlace =
   | { kind: 'opening'; level: string }
   | { kind: 'hub'; level: string; arrival: Arrival }
   | { kind: 'course'; level: string; hub: string; door: string }
+  | { kind: 'escape'; level: string; index: number }
 
 /** The last charging bay passed is the facility's only saved position. */
 export const FACILITY_KEY = 'arcade.jumping.facility.v1'
@@ -46,14 +47,24 @@ export function facilityStart(campaign: Campaign, progress: FacilityProgress, sa
 /**
  * Where a finished run leads. The opening opens into the first wing, a course
  * returns the robot to its own door, and a bulkhead leads to the matching
- * bulkhead on the far side. Null when the facility has nowhere to go.
+ * bulkhead on the far side. Passing the final course leads into the escape
+ * levels, each opening into the next. Null when the facility has nowhere to go,
+ * as after the last escape level.
  */
-export function nextPlace(campaign: Campaign, place: FacilityPlace, departure: HubDoor | null, levels: Levels): FacilityPlace | null {
+export function nextPlace(campaign: Campaign, place: FacilityPlace, departure: HubDoor | null, levels: Levels, passed = true): FacilityPlace | null {
   if (place.kind === 'opening') {
     const first = hubLevel(levels, campaign.wings[0].level)
     return first ? { kind: 'hub', level: first.id, arrival: { kind: 'entrance' } } : null
   }
-  if (place.kind === 'course') return { kind: 'hub', level: place.hub, arrival: { kind: 'door', id: place.door } }
+  if (place.kind === 'escape') {
+    const index = place.index + 1, level = campaign.escape[index]
+    return level && levels.has(level) ? { kind: 'escape', level, index } : null
+  }
+  if (place.kind === 'course') {
+    const escape = campaign.escape[0]
+    if (passed && place.level === campaign.finalCourse && escape && levels.has(escape)) return { kind: 'escape', level: escape, index: 0 }
+    return { kind: 'hub', level: place.hub, arrival: { kind: 'door', id: place.door } }
+  }
   if (!departure) return null
   if (departure.kind === 'course') return levels.has(departure.door.course) ? { kind: 'course', level: departure.door.course, hub: place.level, door: departure.door.id } : null
   const origin = hubPlace(campaign, place.level), to = departure.door.to
@@ -81,7 +92,14 @@ export function arrivalLevel(level: HubLevel, arrival: Arrival): HubLevel {
  */
 export function hubPresentation(campaign: Campaign, progress: FacilityProgress, level: HubLevel, levels: Levels, best: (course: string) => number | null) {
   const open = new Set<string>(), placards = new Map<string, string[]>()
+  for (const board of level.evaluationBoards) placards.set(board.id, evaluationLines(campaign, progress))
   for (const door of level.courseDoors) {
+    // The dispatch door stays sealed until the evaluation is complete.
+    if (door.course === campaign.finalCourse) {
+      if (progress.complete) open.add(door.id)
+      placards.set(door.id, ['DISPATCH', progress.complete ? 'UNIT RELEASED' : 'SEALED'])
+      continue
+    }
     const wing = progress.wings.find(wing => wing.doors.some(d => d.course === door.course))
     const state = wing?.doors.find(d => d.course === door.course)?.state, course = levels.get(door.course)
     if (!wing?.open || !state || state === 'locked' || !course || !isPuzzleLevel(course)) { placards.set(door.id, []); continue }
@@ -101,4 +119,16 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
     placards.set(bulkhead.id, isOpen ? [name] : needed ? [name, `CLEARANCE ${needed.passed}/${needed.count}`] : [name, 'SEALED'])
   }
   return { open, placards }
+}
+
+/** The evaluation board: the total, then each wing's passes, or SEALED while it is closed. */
+export function evaluationLines(campaign: Campaign, progress: FacilityProgress) {
+  const heading = progress.complete ? ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH'] : [`EVALUATION ${progress.passed} / ${progress.required}`]
+  return [...heading, ...progress.wings.map((wing, i) => `${campaign.wings[i].name.toUpperCase()} ${wing.open ? `${wing.passed}/${wing.doors.length}` : 'SEALED'}`)]
+}
+
+/** Leaving the final course or the escape route returns the robot to the dispatch door. */
+export function dispatchPlace(campaign: Campaign, levels: Levels): FacilityPlace | null {
+  const concourse = hubLevel(levels, campaign.concourse), door = concourse?.courseDoors.find(d => d.course === campaign.finalCourse)
+  return concourse ? { kind: 'hub', level: concourse.id, arrival: door ? { kind: 'door', id: door.id } : { kind: 'entrance' } } : null
 }

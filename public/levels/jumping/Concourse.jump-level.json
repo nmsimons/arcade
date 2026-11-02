@@ -4,10 +4,10 @@
   "name": "Concourse",
   "kind": "hub",
   "timing": "untimed",
-  "width": 1800,
+  "width": 3800,
   "height": 720,
   "floor": 720,
-  "entrance": { "name": "Concourse floor", "x": 220, "y": 720 },
+  "entrance": { "name": "Concourse floor", "x": 1600, "y": 720 },
   "platforms": [],
   "checkpoints": [],
   "climbables": { "ladders": [], "ropes": [] },
@@ -15,17 +15,26 @@
   "mechanisms": [],
   "triggers": [],
   "robots": [],
-  "courseDoors": [],
+  "courseDoors": [
+    { "name": "Dispatch door", "id": "dispatch-door", "x": 2460, "y": 720, "course": "5d45678a-5104-43be-9647-2a2bbd6ff932" }
+  ],
   "bulkheads": [
     { "name": "Orientation bulkhead", "id": "concourse-to-orientation", "x": 220, "y": 720, "to": "orientation" },
-    { "name": "Freight bulkhead", "id": "concourse-to-freight", "x": 1500, "y": 720, "to": "freight" }
+    { "name": "Freight bulkhead", "id": "concourse-to-freight", "x": 620, "y": 720, "to": "freight" },
+    { "name": "Construction bulkhead", "id": "concourse-to-construction", "x": 990, "y": 720, "to": "construction" },
+    { "name": "Targets bulkhead", "id": "concourse-to-targets", "x": 1360, "y": 720, "to": "targets" },
+    { "name": "Water bulkhead", "id": "concourse-to-water", "x": 2820, "y": 720, "to": "water" },
+    { "name": "Security bulkhead", "id": "concourse-to-security", "x": 3190, "y": 720, "to": "security" },
+    { "name": "Assessment bulkhead", "id": "concourse-to-assessment", "x": 3560, "y": 720, "to": "assessment" }
   ],
   "chargingBays": [
-    { "name": "Concourse bay", "id": "concourse-bay", "x": 820, "y": 720 }
+    { "name": "Concourse bay", "id": "concourse-bay", "x": 1720, "y": 720 }
+  ],
+  "evaluationBoards": [
+    { "name": "Evaluation board", "id": "evaluation", "x": 1850, "y": 330, "w": 460, "h": 250 }
   ],
   "texts": [
-    { "x": 640, "y": 430, "w": 360, "h": 50, "text": "CONCOURSE", "fontSize": 36, "align": "center", "style": "official" },
-    { "x": 60, "y": 540, "w": 220, "h": 40, "text": "← ORIENTATION", "fontSize": 20, "align": "left", "style": "official" },
-    { "x": 1380, "y": 540, "w": 220, "h": 40, "text": "FREIGHT →", "fontSize": 20, "align": "left", "style": "official" }
+    { "x": 1850, "y": 260, "w": 460, "h": 50, "text": "CONCOURSE", "fontSize": 36, "align": "center", "style": "official" },
+    { "x": 2390, "y": 540, "w": 200, "h": 40, "text": "DISPATCH", "fontSize": 20, "align": "left", "style": "official" }
   ]
 }

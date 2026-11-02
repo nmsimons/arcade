@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "id": "facility-targets",
+  "name": "Targets wing",
+  "kind": "hub",
+  "timing": "untimed",
+  "width": 2150,
+  "height": 720,
+  "floor": 720,
+  "entrance": { "name": "Targets entrance", "x": 200, "y": 720 },
+  "platforms": [],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    { "name": "Coins", "id": "door-coins", "x": 800, "y": 720, "course": "70595ea8-5dec-420a-83bf-cdf1065aab1f" },
+    { "name": "Drain", "id": "door-drain", "x": 1150, "y": 720, "course": "38681eca-a164-4f9a-9113-c3ba119ed3ed" },
+    { "name": "Ramping Up", "id": "door-ramping-up", "x": 1500, "y": 720, "course": "f647e38f-d47e-4628-b322-b89e98882202" },
+    { "name": "pinball", "id": "door-pinball", "x": 1850, "y": 720, "course": "19f66cc5-2de3-4a7f-9a4d-7df4092a7354" }
+  ],
+  "bulkheads": [
+    { "name": "Concourse bulkhead", "id": "targets-to-concourse", "x": 200, "y": 720, "to": "concourse" }
+  ],
+  "chargingBays": [
+    { "name": "Targets bay", "id": "targets-bay", "x": 440, "y": 720 }
+  ],
+  "texts": [
+    { "x": 560, "y": 540, "w": 260, "h": 40, "text": "TARGETS", "fontSize": 24, "align": "left", "style": "official" },
+    { "x": 560, "y": 578, "w": 320, "h": 24, "text": "COINS · BALL PHYSICS · 4 COURSES", "fontSize": 12, "align": "left", "style": "official" }
+  ]
+}

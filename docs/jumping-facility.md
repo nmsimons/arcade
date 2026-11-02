@@ -17,16 +17,28 @@
   the matching bulkhead beyond it, and the game resumes at the last bay passed.
   The pause screen uses the phosphor style, with Leave course and Return to
   charging bay.
-- Stub layouts for the Orientation wing, the concourse and a Freight wing with
-  Level Five and Boxes. They are flat corridors for testing the loop, not
-  designed wings.
+- Every wing in the draft grouping below, as stub hubs: Orientation (9 courses),
+  Freight (8), Construction (7), Targets (4), Water (3), Security (7) and an
+  Assessment wing for Escapade and World I, the two unplaced levels: 40 required
+  courses. Water, Security and Assessment open through draft clearances (8 of
+  Freight and Construction; 12 of Freight, Construction and Targets; 6 of Water
+  and Security). The stubs are flat corridors that make the campaign playable
+  end to end, not designed wings.
+- The concourse, with a bulkhead to every wing, a charging bay, the evaluation
+  board (the total, then each wing's passes or SEALED) and the dispatch door.
+- The release: when all 40 courses are passed, the dispatch door opens onto
+  Ascent I, the final course. Passing it leads through Ascent II, Spelunk and
+  Exit, each opening into the next; after the bus departs, the closing card
+  offers Return to the facility. The escape levels still keep their timers and
+  coins until their untimed redesign.
 
-Not yet built: the evaluation board, the sealed dispatch door, preparing a
-course while the robot approaches its door (the "Preparing level" dialog still
-appears), the door closing behind the robot, the cloud save slot for the last
-bay (it is saved on this device only), studio tools for hub objects, wing art,
-and golden traces for hub levels (record them on Apple Silicon once the layouts
-settle; `tests/helpers/jumping-golden.mjs` leaves hubs out until then).
+Not yet built: preparing a course while the robot approaches its door (the
+"Preparing level" dialog still appears), the door closing behind the robot,
+lamps and grade letters on the board, the cloud save slot for the last bay (it
+is saved on this device only), studio tools for hub objects, wing layouts and
+art, shortcuts, certification doors, and golden traces for hub levels (record
+them on Apple Silicon once the layouts settle; `tests/helpers/jumping-golden.mjs`
+leaves hubs out until then).
 
 This specifies how L.A.B. replaces its level grid with the facility itself: a
 connected building the robot explores freely, with discipline wings around a

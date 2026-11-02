@@ -5,13 +5,21 @@
 Progression revised October 20, 2026: letter grades, a D passing deadline,
 and undisclosed locked courses replace completion-only progression.
 
+Presentation revised November 1, 2026: the campaign is played inside the
+facility. Connected hub wings with course doors replace the level grid, course
+records move onto in-world placards and an evaluation board, and the
+evaluation's release leads into an ungraded escape route.
+
 This is the story and progression authority for L.A.B. Experiments (Leaps and
 Bounds). Read it with [Making a fun jumping level](jumping-level-design.md),
-[level files](jumping-levels.md), and [the outdoor finale brief](jumping-outdoors.md).
+[level files](jumping-levels.md), [the outdoor finale brief](jumping-outdoors.md),
+and [the facility design spec](jumping-facility.md).
 The canon and rules below are adopted. The built-in untimed opening, Wake,
-implements the charging-bay awakening. The ordered picker now uses D-or-better
-progression. The final Spelunk sequence now supplies the outdoor ending;
-optional certification gates and independent campaign-wide playtesting remain.
+implements the charging-bay awakening. The final Spelunk sequence supplies the
+outdoor ending. The level grid currently implements D-or-better progression;
+the facility wings, in-world records and ungraded escape route that replace it
+are adopted but not yet built. Optional certification gates and independent
+campaign-wide playtesting also remain.
 
 ## Canon
 
@@ -37,6 +45,15 @@ Staff passages and freight exits are sealed or unusable. The surviving connected
 route follows the training circuit through every required area. Completed
 exercises release the next boundary. The building still applies its procedures
 to a robot whose reason for using them has changed.
+
+The training circuit is a real place. Corridors and halls connect the course
+doors, as they once moved units between exercises, and the robot walks them.
+The facility's automatic evaluation still runs. It records each unit's results
+at the course doors and, once every required course is passed, releases the
+unit for dispatch through the exterior freight route. That route has failed.
+The procedure ends at a door that opens onto collapse, and from there the robot
+finds its own way out: up the climb, down through the caves, and outside. The
+evaluation is the facility's goal; leaving is the robot's.
 
 Shovebots and other operating machines retain narrow jobs and routines. Their
 behavior follows existing gameplay rules. Facility automation can be dry,
@@ -77,65 +94,131 @@ Flooding and broken access create decisions using established mechanics;
 story damage must not introduce unreliable collisions or one-off physics rules.
 Replays are gameplay affordances and need no literal time-reset explanation.
 
+Course equipment stays in courses. Coins, coin switches, wall clocks and time
+pickups are the facility's scoring layer, closer to virtual targets than
+physical objects, so they exist only in timed courses. Wings and the escape
+route use physical mechanisms only: plates and switches, gates, lifts and
+platforms, water and float switches, gravity plates, force fields, wiring and
+cargo.
+
+## Presenting the campaign in the world
+
+Everything the player reads during the campaign is something the robot could
+look at: wall clocks, terminals, course door placards, the evaluation board,
+destination signs, labels and graffiti. A grid of level tiles, result dialogs
+and Next buttons present a person choosing levels at a computer, so the
+campaign does not use them. Course progress is shown where the courses are.
+
+The lasting exceptions are the pause screen, the controls reference, storage
+notices and arcade navigation. Present the pause screen as the robot's own
+system display, in the terminals' green phosphor, never as a facility screen.
+The closing card after the bus departs is also an exception: the robot has
+left, and nothing remains for it to look at. Every in-world display has an
+equivalent screen-reader announcement.
+
+Wings follow Hard Vacuum's restraint. Wall text is limited to destination signs,
+course placards, industrial labels and brief graffiti, with no floating prompts,
+tutorial cards or objective paragraphs. Lit doors and open passages make the
+route readable without reading anything.
+
 ## Campaign shape
 
-The main campaign is a fixed, curated sequence of required levels with a clear
-beginning and ending. Every required area must be completed to reach the escape.
+The main campaign is a fixed, curated set of required courses with a clear
+beginning and ending. Every required course must be passed to reach the escape.
 The current built-in catalog is a pool to review and order, not an already
 validated campaign. Assign levels deliberately; do not infer story membership
 from filenames or make every future built-in mandatory automatically.
 
-| Phase | Player experience | Environmental development |
-| --- | --- | --- |
-| Wake | Discover movement, the empty bay, and the need to find a way out. | Local power returns; requests for an operator go unanswered. |
-| Orientation | Learn individual movement and work patterns with safe recovery. | Intact course labels explain what the facility used to do. |
-| Working sectors | Combine known skills and choose between legitimate routes. | Unfinished jobs and maintenance markings reveal abandonment. |
-| Deterioration | Adapt known skills around visible failures. | Flooded basins, damaged access, and surviving machinery change the exercises. |
-| Outside | Restore the final route, cross the threshold, and explore a short exterior. | Enclosure gives way to open sky, a natural horizon, and a continuing world. |
+The facility is one connected building that the robot explores freely, in the
+manner of a metroidvania. A central concourse holds the evaluation board, a
+charging bay and the sealed exterior dispatch door, visible from the first
+visit. Wings open off the concourse. Each wing houses one training discipline
+(movement, freight, construction, water, security and so on), groups the
+courses of that discipline behind its doors, and has its own look: palette,
+lighting, signage, machines and sound. A sense of place matters more than
+variety within a wing; the player supplies variety by moving between open wings.
+Each wing's courses rise in difficulty from its entrance to its far end, where
+the building is also in the worst condition. Shortcuts opened from deep inside
+a wing loop back to the concourse, so moving between wings stays easy.
 
-These are pacing phases, not a requirement for five maps or equal chapter
-lengths. Keep brief, confident movement levels between demanding puzzles.
-Optional advanced areas branch from this structure and return to it. Local,
-account, community, stress, and experimental collections remain available for
-their own purposes; campaign locks must not obstruct editing or playtesting.
+Wings themselves are untimed and ungraded. They carry light traversal of their
+own and never feel like test courses: they are the building between the tests,
+with sealed staff doors, abandoned work, and failures that grow with depth. A
+course returns the robot to its own door. Course names appear on door placards,
+so every course needs a name that works as facility signage.
+
+Access is gated, not ability. The robot's movement never changes, because every
+course is tuned for its full repertoire; carried gadgets stay inside the
+courses that provide them. Wings open through clearance: a wing's bulkhead
+opens once named courses elsewhere are passed, and its placard shows how many
+remain.
+
+| Phase | Place | Player experience | Environmental development |
+| --- | --- | --- | --- |
+| Wake | Charging bay | Discover movement, the empty bay, and the need to find a way out. | Local power returns; requests for an operator go unanswered. |
+| Orientation | First wing | Learn individual movement with safe recovery, in a fixed order. | Intact course labels explain what the facility used to do. |
+| Working wings | Discipline wings, in parallel | Combine known skills and choose where to go next. | Unfinished jobs and maintenance markings reveal abandonment. |
+| Deterioration | Deep ends and late wings | Adapt known skills around visible failures. | Flooded basins, damaged access, and surviving machinery change the exercises and the corridors between them. |
+| Release | Escape route | Leave the evaluation behind; after the final course, the climb and caves are untimed and ungraded. | The released freight route has collapsed; the robot improvises its own way. |
+| Outside | Exit | Restore the final route, cross the threshold, and explore a short exterior. | Enclosure gives way to open sky, a natural horizon, and a continuing world. |
+
+These are pacing phases, not a requirement for equal wing sizes. Within a wing,
+keep brief, confident movement courses between demanding puzzles. Optional
+advanced areas branch from this structure and return to it, through
+certification doors in the wings. Local, account, community, stress,
+and experimental collections remain available for their own purposes, and the
+level grid remains as the development library; campaign locks must not obstruct
+editing or playtesting.
 
 ## Required progression
 
-1. The opening is available on a new save. Completing it opens the first course.
-2. Finishing a timed required level at D or better unlocks the next required
-   level. D is a realistic first-run deadline, not a free pass. An untimed
-   introduction unlocks its successor on completion. Coin surplus, optional-area
-   completion, and total campaign average cannot add a requirement.
+1. The opening is available on a new save. Completing it opens the first wing,
+   where the first course door is lit. Passing the first wing's courses opens
+   the concourse.
+2. Each wing's courses form a fixed sequence. Finishing a timed required course
+   at D or better unlocks the next course in its wing and lights its door. D is
+   a realistic first-run deadline, not a free pass. An untimed introduction
+   unlocks its successor on completion. Coin surplus, optional-area completion,
+   and total campaign average cannot add a requirement. Wings open by clearance,
+   and the order in which the player works through open wings is theirs.
 3. Completion is recorded at the level's actual finish, after its completion
    presentation. Merely powering an exit or reaching a nearby switch is not a
    completion. Ordinary levels retain their current doorway-entry scoring.
-4. Unlocked levels remain available for replay. Slower runs never reduce grades,
-   remove completion, or relock areas. Optional diversions never delay the next
-   required unlock. Continue follows the next unfinished required level.
-5. The final level opens after all preceding required levels are completed.
-   Escaping completes the campaign; no grade above D is required for the ending.
+4. Unlocked courses remain available for replay through their doors. Slower runs
+   never reduce grades, remove completion, or relock areas. Optional diversions
+   never delay the next required unlock. Starting the game resumes at the
+   charging bay the robot last passed.
+5. The evaluation completes when every required course is passed. Its release
+   opens the escape route, whose levels are untimed. Escaping completes the
+   campaign; no grade above D is required for the ending.
 
-Show every slot in the required sequence. A locked slot reveals its number and
-lock status only, without the name, preview, description or play/edit actions.
+The evaluation board shows every required course as a numbered lamp, grouped
+by wing in each wing's order. A locked course's lamp and door stay dark: no
+name, grade or time until it unlocks. An unlocked door's placard shows the course name, its D
+deadline, and once passed, the best time and best grade. Unlocking, passing and
+improving a course update its placard and lamp where the robot can see them.
 The authoring library and playtests remain unrestricted. Direct play links also
 respect progression. Use stable level IDs for progress. Older saved times count
 when they meet the current D deadline; an older completion flag alone cannot
 prove a timed pass. Untimed completion remains saved independently of best time.
+Doors, lamps and bulkheads are derived from these records. The last charging
+bay is the only new saved position.
 
 The wall clock counts down to the D deadline while showing the current A/B/C/D
 grade. Passing D permanently makes that run F: the timer dims at zero and time
 pickups turn grey and cannot be collected. The player may continue exploring,
 operate mechanisms, collect coins and use gadgets, but must restart to progress.
 Reaching the exit on F records the time and grade without awarding a passing
-completion or unlocking the next course.
+completion or unlocking the next course. Back in the wing, the placard shows
+the failed run, and the next door stays dark.
 
 ## Optional advanced areas
 
 An advanced area opens when its named source group is complete with an average
 of at least B. Source groups are fixed, nonempty sets of timed required
-levels, normally the preceding chapter. Identify the group and its members
-before the player attempts to qualify. Untimed story sequences, the outdoor
-coda, and optional levels are excluded. No area can depend on its own grades.
+levels, normally the courses of the wing where its door stands. Identify the
+group and its members before the player attempts to qualify. Untimed story
+sequences, the escape route, the outdoor coda, and optional levels are excluded. No area can depend on its own grades.
 
 Use each source level's highest earned grade, counting the level once:
 
@@ -155,10 +238,10 @@ For example, A + B + C gives `3 + 2 + 1 = 6` across three completed
 levels and opens the area. B + B + C gives 5 and needs one more
 point. An incomplete level always prevents certification, regardless of points.
 
-Show the source chapter, completion count, best grades, and point shortfall:
-“Complete all 3 courses. Certification: 5 / 6 points.” Explain that improving
-C to B or B to A adds one point. The requirement must be
-understandable without calculating a hidden campaign-wide average.
+A certification door's placard shows the source group, completion count, best
+grades, and point shortfall: “COMPLETE ALL 3 COURSES. CERTIFICATION 5 / 6.”
+It explains that improving C to B or B to A adds one point. The requirement must
+be understandable without calculating a hidden campaign-wide average.
 
 Once earned, access is permanent. Later runs, threshold retuning, and catalog
 additions cannot revoke it. Keep the best earned grade and earned access
@@ -186,7 +269,7 @@ Teach movement through one small, recoverable action and let the player discover
 the empty adjoining space. The required route should be legible without waiting
 for a message or standing through repeated diagnostics. A small optional look
 around may reward curiosity. The opening has no medal pressure or required
-collectibles. Its finish releases access to the first actual course.
+collectibles. Its finish releases the bay into the first wing.
 
 The first implementation is [Wake](../public/levels/jumping/Wake.jump-level.json),
 placed first in the built-in collection. Keep it simple, beautiful, and a little
@@ -212,8 +295,9 @@ this small room at normal speed.
 
 Charging-bay entrances and untimed levels are reusable studio choices with
 pause, restart, automatic input handoff, and saved completion. Ordinary levels
-retain their doorway entrance and scoring. Completing Wake opens the first
-course; timed courses then require D or better to advance through the collection.
+retain their doorway entrance and scoring. Completing Wake opens the first wing
+and its first course; timed courses then require D or better to light the next
+door.
 
 ![The robot enclosed behind the pod glass on its raised plinth as local power returns.](images/lab-wake-pod.png)
 
@@ -309,24 +393,35 @@ challenge or explanation of the outside world. Overlook finishes remain
 available for other levels.
 
 The current closing sequence is **Ascent I → Ascent II → Spelunk → Exit**.
-Preserve the Ascent levels' climb toward escape. The caves supply the last
-detour beneath the blocked surface route; Exit leads through the final climb,
-emergence and overworld journey. The [earlier escape route evidence and remaining
+It begins at the dispatch door the evaluation releases. The leading option,
+still to be settled, keeps Ascent I as the final timed course: the facility's
+last test, behind the dispatch door, whose exit opens into Ascent II instead of
+returning to a wing. From Ascent II on, the levels are the robot's own route,
+not courses: untimed, with no placards, grades or doors back into the circuit,
+and each one's exit leads directly into the next. Making a level untimed is a
+redesign, not a setting: anything that relied on the clock or on coins must be
+rebuilt from physical mechanisms. Preserve the Ascent levels' climb toward
+escape. The caves supply the last detour beneath the
+blocked surface route; Exit leads through the final climb, emergence and
+overworld journey. The [earlier escape route evidence and remaining
 review](jumping-escape-review.md) retain the previous Spelunk II/III layouts.
 
 ## Delivery and review
 
-Review the catalog for intended teaching order, chapter membership, and repeated
-ideas before assigning the required sequence or certification groups. Preserve
-authored files and IDs. Specify campaign metadata and persistence separately
-from runtime level geometry; no new schema keys are established by this brief.
+Review the catalog for intended teaching order, wing membership, course names,
+and repeated ideas before assigning the required sequence or certification
+groups. Preserve authored files and IDs. Specify campaign metadata and
+persistence separately from runtime level geometry. This brief establishes no
+schema keys; the [facility design spec](jumping-facility.md) proposes them.
 
 Acceptance requires fresh-save progression through the full required route,
 including D passes and F exploration runs; below-threshold and exactly-threshold optional
 gate checks; permanent unlocks across replay and reload; existing-save migration;
 and confirmation that skipping every advanced area still delivers the complete
 escape. Verify direct navigation and all supported control paths obey campaign
-locks while studio playtests remain usable.
+locks while studio playtests remain usable. Every unlocked door must be
+reachable from where the game places the robot, using normal controls and only
+skills taught before that door; walking past a door must never enter it.
 
 Opening and finale review must include normal-speed play, pause/restart/resume,
 story readability without mandatory wall reading, comfortable recovery, and

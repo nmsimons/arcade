@@ -22,7 +22,7 @@ import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
 import { setAnimationCadence } from './jumping/characterAnimation'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
-import type { JumpLevel, PuzzleLevel } from './jumping/level'
+import type { JumpLevel, RunLevel } from './jumping/level'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration } from './jumping/goal'
@@ -157,7 +157,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const [audioState] = useState(() => new JumpingAudioState())
   const [result, setResult] = useState({ elapsed: 0, grade: 'A' })
   const [challenge, setChallenge] = useState(true)
-  const [trial, setTrial] = useState<PuzzleLevel>(initialRun.level)
+  const [trial, setTrial] = useState<RunLevel>(initialRun.level)
   const savedTimes = useSyncExternalStore(subscribeGameStorage, () => {
     try { return playerStorage.getItem(BEST_TIME_KEY) } catch { return null }
   })
@@ -408,11 +408,12 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         setSaveError(true)
       }
     }
-    if (!run.current.failed && (run.current.level.goal.kind === 'bus' || run.current.level.goal.ending === 'bus')) {
-      endingScene.current = run.current.level.goal.kind === 'bus'
-        ? createBusDeparture(run.current.level.goal, player.current, lastCamera.current)
-        : createBusEnding(run.current.level.width, run.current.level.goal.y, player.current, lastCamera.current)
-      if (run.current.level.goal.kind === 'bus') run.current.busDeparture = endingScene.current
+    const goal = run.current.level.goal
+    if (!run.current.failed && goal && (goal.kind === 'bus' || goal.ending === 'bus')) {
+      endingScene.current = goal.kind === 'bus'
+        ? createBusDeparture(goal, player.current, lastCamera.current)
+        : createBusEnding(run.current.level.width, goal.y, player.current, lastCamera.current)
+      if (goal.kind === 'bus') run.current.busDeparture = endingScene.current
       setEndingPhase(busEndingFrame(endingScene.current).phase)
       changeScreen('ending')
     } else changeScreen('complete')
@@ -673,7 +674,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         const entering = run.current?.entrance || playgroundEntrance.current
         setMetrics({ state: entering ? entering.kind === 'charging-bay' ? 'Waking up' : 'Entering the level' : run.current?.exit ? 'Entering the exit' : playerState(p),
           elapsed: run.current?.elapsed ?? 0,
-          ...(run.current ? gradeClock(run.current.level, run.current.elapsed, run.current.failed) : { grade: 'A', remaining: 0 }) })
+          ...(run.current?.level.times ? gradeClock({ times: run.current.level.times }, run.current.elapsed, run.current.failed) : { grade: 'A', remaining: 0 }) })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -706,7 +707,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       </aside>
     </>}
     {screen === 'ending' && <>
-      <p className="jumping-visually-hidden" role="status" aria-live="polite" aria-label={trial.goal.kind === 'bus' ? 'Bus departure' : 'Ending scene'}>{endingPhase}</p>
+      <p className="jumping-visually-hidden" role="status" aria-live="polite" aria-label={trial.goal?.kind === 'bus' ? 'Bus departure' : 'Ending scene'}>{endingPhase}</p>
     </>}
     {preparing && <KeyboardDialog label="Preparing level" focusKey="jumping-preparing" onClose={cancelPreparation} className="jumping-overlay jumping-dialog-overlay jumping-ui">
       <div className="jumping-notice-panel">
@@ -715,7 +716,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         <div className="jumping-notice-actions"><button onClick={cancelPreparation}>Cancel</button></div>
       </div>
     </KeyboardDialog>}
-    {screen === 'complete' && <JumpingResultDialog level={trial} elapsed={result.elapsed} grade={result.grade} best={best}
+    {screen === 'complete' && isPuzzleLevel(trial) && <JumpingResultDialog level={trial} elapsed={result.elapsed} grade={result.grade} best={best}
       testing={testing} saveError={saveError} onNext={!testing && result.grade !== 'F' && campaignIndex >= 0 && nextFile && unlocked.has(nextFile.fileName) ? () => playFile(nextFile) : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}

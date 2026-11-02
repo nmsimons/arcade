@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { JumpLevel } from './level'
-import { isPuzzleLevel, levelHeight, levelPlayer, prepareLevelRopes } from './level'
+import { isRunLevel, levelHeight, levelPlayer, prepareLevelRopes } from './level'
 import { createPreviewRun } from './challenge'
 import { lightingForLevel } from './lightingDefinition'
 import { useWallTextFont } from './useWallTextFont'
@@ -16,7 +16,7 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = fa
   const scene = useMemo(() => {
     if (!visible) return null
     const prepared = preview ? level : prepareLevelRopes(level, true)
-    const run = isPuzzleLevel(prepared) ? createPreviewRun(prepared) : null
+    const run = isRunLevel(prepared) ? createPreviewRun(prepared) : null
     return { prepared, run, player: run?.player ?? levelPlayer(prepared, true) }
   }, [level, preview, visible])
   const geometry = useLightingGeometry(scene?.prepared ?? level, visible)

@@ -79,6 +79,30 @@ test('clearance must come from other wings that can open first', () => {
   assert.deepEqual(cycle.filter(problem => problem.includes('never open')).length, 2)
 })
 
+test('wing levels need one door per course and bulkheads both ways', () => {
+  const hub = (id, courseDoors, bulkheads) => ({ id, name: id, kind: 'hub', courseDoors, bulkheads, chargingBays: [] })
+  const door = course => ({ id: `door-${course}`, x: 0, y: 0, course })
+  const to = target => ({ id: `to-${target}`, x: 0, y: 0, to: target })
+  const value = campaign({ concourse: 'hall', wings: [
+    { id: 'orientation', name: 'Orientation', level: 'orientation-hub', courses: ['o1', 'o2'] },
+    { id: 'freight', name: 'Freight', level: 'freight-hub', courses: ['f1', 'f2'] },
+  ] })
+  const world = [...levels, course('plain'), hub('hall', [], [to('orientation'), to('docks')]),
+    hub('orientation-hub', [door('o1'), door('o1'), door('f1')], [to('concourse')]), hub('freight-hub', [door('f2')], [])]
+  assert.deepEqual(campaignProblems(value, world), [
+    'The Orientation wing level has 2 doors for “o1”. Give each course one door.',
+    'The Orientation wing level has no door for “o2”. Give each course one door.',
+    "Course door “door-f1” in the Orientation wing leads to “f1”, which is not one of that wing's courses.",
+    'The Freight wing level has no door for “f1”. Give each course one door.',
+    'The Freight wing level needs a bulkhead to the concourse.',
+    'The concourse needs a bulkhead to the Freight wing.',
+    'Bulkhead “to-docks” in the concourse leads to an unknown wing, “docks”.',
+  ])
+  assert.deepEqual(campaignProblems(campaign({ concourse: 'plain' }), world), ['The concourse level “plain” is not a hub level.'])
+  assert.deepEqual(campaignProblems(campaign({ concourse: 'hall' }), [...world.slice(0, -3), hub('hall', [door('o1')], [to('orientation'), to('freight'), to('water')])]),
+    ['The concourse has course doors. Courses belong in wings.'])
+})
+
 test('a fresh save opens nothing until the opening is passed', () => {
   const fresh = progress([])
   assert.equal(fresh.concourseOpen, false)

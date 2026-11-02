@@ -13,7 +13,7 @@ import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointe
 import { anchorRope, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { moveTerrainHandle, setTerrainNodeMode, setFinish } from './editor'
-import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
+import { copyLevel, isPuzzleLevel, isRunLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
 import { GRADE_TARGETS, gradeTimes } from './grading'
@@ -167,7 +167,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
   const { level, busy: preparingRopes } = useRopePreview(preview ?? history.present, preview !== null)
-  const previewRun = useMemo(() => isPuzzleLevel(level) ? createPreviewRun(level) : null, [level])
+  const previewRun = useMemo(() => isRunLevel(level) ? createPreviewRun(level) : null, [level])
   const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level, true), [level, previewRun])
   const previewTime = useRef(0)
   useEffect(() => { previewTime.current = 0 }, [previewRun])

@@ -54,7 +54,7 @@ function polygonPath(ctx: CanvasRenderingContext2D, points: readonly Vec[]) {
 }
 function dayActorPatch(run: LightingWorld, view: LightingView) {
   const { width, height } = view
-  const bounds = [...dynamicCasters(run, true).flat(), goalBounds(run.level.goal!)]
+  const bounds = [...dynamicCasters(run, true).flat(), ...run.level.goal ? [goalBounds(run.level.goal)] : []]
   if (run.empRemaining === 0) for (const robot of run.robots) if (robot.phase === 'recover') {
     bounds.push({ x: robot.x + 46 * Math.sin(robot.angle) - 11,
       y: robot.y - 9 - 46 * Math.cos(robot.angle) - 11, w: 22, h: 22 })

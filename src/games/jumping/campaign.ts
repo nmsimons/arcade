@@ -1,4 +1,4 @@
-import { isPuzzleLevel } from './level.ts'
+import { isHubLevel, isPuzzleLevel } from './level.ts'
 import type { JumpLevel } from './level.ts'
 
 /**
@@ -80,6 +80,26 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
     if (id === undefined) continue
     if (!byId.has(id)) issues.push(`The ${label} level ${name(id)} is not in the collection.`)
     else if (owners.has(id) || id === campaign.opening) issues.push(`The ${label} level ${name(id)} is already used as a course or the opening.`)
+    else if (!isHubLevel(byId.get(id)!)) issues.push(`The ${label} level ${name(id)} is not a hub level.`)
+  }
+  // Doors and bulkheads are checked once their hub levels exist.
+  const hub = (id?: string) => { const level = id === undefined ? undefined : byId.get(id); return level && isHubLevel(level) ? level : undefined }
+  const concourse = hub(campaign.concourse)
+  if (concourse?.courseDoors.length) issues.push('The concourse has course doors. Courses belong in wings.')
+  for (const wing of campaign.wings) {
+    const level = hub(wing.level)
+    if (!level) continue
+    for (const course of wing.courses) {
+      const doors = level.courseDoors.filter(door => door.course === course).length
+      if (doors !== 1) issues.push(`The ${wing.name} wing level has ${doors || 'no'} door${doors > 1 ? 's' : ''} for ${name(course)}. Give each course one door.`)
+    }
+    for (const door of level.courseDoors) if (!wing.courses.includes(door.course)) issues.push(`Course door “${door.id}” in the ${wing.name} wing leads to ${name(door.course)}, which is not one of that wing's courses.`)
+    if (!level.bulkheads.some(bulkhead => bulkhead.to === 'concourse')) issues.push(`The ${wing.name} wing level needs a bulkhead to the concourse.`)
+    // Arriving through a bulkhead places the robot at the matching bulkhead on the far side.
+    if (concourse && !concourse.bulkheads.some(bulkhead => bulkhead.to === wing.id)) issues.push(`The concourse needs a bulkhead to the ${wing.name} wing.`)
+  }
+  for (const [label, id] of hubs) for (const bulkhead of hub(id)?.bulkheads ?? []) {
+    if (bulkhead.to !== 'concourse' && !wingIds.has(bulkhead.to)) issues.push(`Bulkhead “${bulkhead.id}” in the ${label} leads to an unknown wing, “${bulkhead.to}”.`)
   }
   const [entry, ...rest] = campaign.wings
   if (entry.clearance) issues.push(`The ${entry.name} wing opens after the opening level, so it cannot have a clearance.`)

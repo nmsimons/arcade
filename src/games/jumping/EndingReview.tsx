@@ -79,7 +79,7 @@ export default function EndingReview() {
               if (run.exit) setPhase('Boarding the bus')
             }
             if (run.finished) {
-              scene.current = run.busDeparture = createBusDeparture(run.level.goal, run.player, lastCamera.current)
+              scene.current = run.busDeparture = createBusDeparture(run.level.goal!, run.player, lastCamera.current)
               held.current.clear(); accumulator = 0
             }
           } else {

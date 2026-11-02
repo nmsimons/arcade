@@ -218,7 +218,7 @@ export class JumpingAudioState {
         const position = pressurePlatePosition(plate, run.mechanisms)
         if (t.active && before.triggers[i] === false || plate.mode !== 'coins' && (plate.behavior === 'switch' || plate.behavior === 'toggle') && !t.active && before.triggers[i] === true) cue('switch', position.x + plate.w / 2, position.y)
       })
-      if (run.goalLit && !before.goalLit) {
+      if (run.goalLit && !before.goalLit && run.level.goal) {
         // Exit activation announces progress throughout the level. Keep its
         // bearing, but bypass falloff and give it a slot ahead of nearby impacts.
         this.cues.unshift({ kind: 'switch', ...soundPosition(run.level.goal.x, run.level.goal.y, p), volume: 1, strength: 1 })

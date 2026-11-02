@@ -11,6 +11,7 @@ import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceRet
 import type { DryTurnFrame, SlideEntryFrame } from './athleteAnimation.ts'
 import type { CharacterAnimation, JumpInput, Player } from './characterTypes.ts'
 import { advanceFootwork } from './footwork.ts'
+import { withTerrainQueries } from './geometry.ts'
 import { gaitPose } from './gait.ts'
 import { mirrorPlayerState } from './gravityFrame.ts'
 import { easeHeldTool } from './gadgets.ts'
@@ -83,7 +84,11 @@ export function presentPush(p: Player, contacts: PlayerContacts, preparation: Pu
 }
 
 /** The rest of the step's animation, after its contacts are published. */
-export function animateStep(p: Player, { input, dt, world, from, contacts, verticalUsed, frameDirection, turnFrame, slideEntryFrame }: AnimationStep) {
+export function animateStep(p: Player, step: AnimationStep) {
+  // Animation only reads the world, so its clearance queries share one terrain scope.
+  withTerrainQueries(() => animateStepIn(p, step))
+}
+function animateStepIn(p: Player, { input, dt, world, from, contacts, verticalUsed, frameDirection, turnFrame, slideEntryFrame }: AnimationStep) {
   advanceReturningStepPreparation(p, input, dt, world)
   settleGait(p, dt)
   // Climbing and crouching own the pose; unused Up still gets a quiet glance.

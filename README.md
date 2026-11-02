@@ -812,6 +812,8 @@ production build (including TypeScript and level-asset checks).
   320px, 390px, 768px, and desktop layouts, keyboard navigation, Sign in controls,
   and policy links without starting a game.
 - **Full path:** every other change runs `npm test` and all three browser shards.
+  `npm test` has its own job beside the browser shards, so the shards start as
+  soon as the build is uploaded.
   Changes to shared styles, accounts, games, levels, dependencies, tests, or CI
   always take this path, as do added, deleted, renamed, or type-changed files.
 

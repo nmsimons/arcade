@@ -14,8 +14,9 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    # Share the web job's headroom for the full replay suite, build and upload.
-    timeout-minutes: 20
+    # npm test alone takes 8 to 18 minutes depending on the runner. Leave room
+    # for lint, the desktop build and the upload on a slow one.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

@@ -800,6 +800,20 @@ return to timed mode; those values are ignored while untimed. Completion saves
 separately from best times, using stable IDs and the same local/built-in record
 namespaces, and participates in account backups and cloud sync.
 
+### Blocked doors
+
+`wallDoors: [{ name?, x, y, condition, frame?, flipX? }]` paints doors that
+never open into the back wall, in any level: a passage the robot can see but
+not use, such as Orientation's jammed exits. `condition` is `"sealed"` (shut,
+with a dead lamp), `"jammed"` (the panel stuck partway down over a dark gap),
+`"boarded"` (planks nailed across) or `"caved-in"` (rubble piled into the
+doorway and spilling past the frame). `"frame": "bulkhead"` gives the heavy
+striped frame of a bulkhead; `flipX` mirrors the artwork. Like a real door, `x`
+is the middle of the sill and the doorway is 40 by 80, but a blocked door has
+no collision, gives no cover and never responds to Up. In the studio, **Back
+wall → Blocked door** places one on a flat sill, and **Object → Appearance**
+chooses its condition and frame.
+
 ### Optional back-wall wiring
 
 Select a pressure plate, coin switch, float switch, or relay source and enable

@@ -2,6 +2,7 @@ import { allSelections, carryWallTerminals, clamp, deleteItem, itemBounds, itemD
 import type { Selection, TerrainTransform } from './editor.ts'
 import { copyLevel, isHubLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
 import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS } from './hub.ts'
+import { MAX_WALL_DOORS } from './wallDoor.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
 import { lineBlocked, polygonIntersects, polygonPoints } from './geometry.ts'
@@ -83,7 +84,7 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'entrance' || kind === 'goal') throw new Error('Entrance and exit doors are unique.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
     timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields',
-    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards' } as const
+    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards', 'wall-door': 'wallDoors' } as const
   const record = level as unknown as Record<string, unknown>
   return (record[fields[kind]] ??= []) as Item[]
 }
@@ -108,7 +109,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
   let left = -Infinity, right = Infinity, top = -Infinity, bottom = Infinity
   for (const s of items) {
     const raw = itemBounds(level, s)!, b = s.kind === 'goal' ? goalBounds(level.goal!) : s.kind === 'rope' ? { ...raw, h: 0 }
-      : s.kind === 'text' || s.kind === 'course-door' || s.kind === 'bulkhead' ? itemOutline(level, s)! : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
+      : s.kind === 'text' || s.kind === 'course-door' || s.kind === 'bulkhead' || s.kind === 'wall-door' ? itemOutline(level, s)! : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
     left = Math.max(left, margin - b.x); right = Math.min(right, level.width - margin - b.x - b.w)
     top = Math.max(top, -b.y); bottom = Math.min(bottom, levelHeight(level) - b.y - b.h)
     if (s.kind === 'platform') for (const ladder of level.climbables.ladders) if (ladder.platform === s.index) {
@@ -134,7 +135,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
   }
   syncPressurePlateMounts(next)
   // A marker resting on two selected blocks must be carried only once.
-  for (const s of allSelections(level).filter(s => ['entrance', 'checkpoint', 'goal', 'course-door', 'bulkhead'].includes(s.kind))) {
+  for (const s of allSelections(level).filter(s => ['entrance', 'checkpoint', 'goal', 'course-door', 'bulkhead', 'wall-door'].includes(s.kind))) {
     if (selected.has(key(s))) continue
     const marker = itemDefinition(level, s) as unknown as { x: number; y: number }
     const supportX = s.kind === 'goal' ? (() => { const b = goalBounds(level.goal!); return b.x + b.w / 2 })() : marker.x
@@ -201,7 +202,7 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
   robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40,
-  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS }
+  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS, 'wall-door': MAX_WALL_DOORS }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
   const source = clipboard.level, originals = validSelections(source, clipboard.selections).filter(copyableSelection)

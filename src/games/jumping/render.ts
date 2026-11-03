@@ -16,6 +16,7 @@ import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
+import { drawWallDoors } from './wallDoor.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
@@ -62,6 +63,8 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   if (includeWallArt) drawWallWiring(ctx, level)
   if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
   for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
+  // Blocked doors are painted on the wall, like the pods' housings.
+  drawWallDoors(ctx, level.wallDoors ?? [])
   ctx.restore()
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }

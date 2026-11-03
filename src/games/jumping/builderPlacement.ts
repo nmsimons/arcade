@@ -23,6 +23,7 @@ import { drawLogicRelay } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { backWallPath } from './environment.ts'
 import { drawHubDoors } from './hub.ts'
+import { drawWallDoor } from './wallDoor.ts'
 import { paintNormally } from './worldPaint.ts'
 
 export type PlacementPreview = { level: JumpLevel; selection: Selection }
@@ -84,6 +85,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'checkpoint': drawAthlete(ctx, createPlayer(level.checkpoints[i])); break
     case 'course-door': drawHubDoors(ctx, { courseDoors: [level.courseDoors![i]] }, undefined, true, paintNormally); break
     case 'bulkhead': drawHubDoors(ctx, { bulkheads: [level.bulkheads![i]] }, undefined, true, paintNormally); break
+    case 'wall-door': drawWallDoor(ctx, level.wallDoors![i]); break
     case 'evaluation-board': drawHubDoors(ctx, { evaluationBoards: [level.evaluationBoards![i]] }, undefined, true, paintNormally); break
   }
   const outline = itemOutline(level, selection)

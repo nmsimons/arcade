@@ -23,6 +23,8 @@ import type { Bulkhead, CourseDoor, EvaluationBoard } from './hub.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
+import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
+import type { WallDoor, WallDoorCondition } from './wallDoor.ts'
 import { wallTextBounds } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
@@ -89,6 +91,8 @@ export interface JumpLevel {
   gravityPlates?: GravityPlate[]
   forceFields?: ForceField[]
   texts?: WallText[]
+  /** Blocked and broken doors painted into the back wall. */
+  wallDoors?: WallDoor[]
   pickups?: Pickup[]
   kind?: 'hub'; courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[]
 }
@@ -174,6 +178,10 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, t] of (level.texts ?? []).entries()) {
     const b = wallTextBounds(t)
     if (b.x < -.001 || b.y < -.001 || b.x + b.w > level.width + .001 || b.y + b.h > levelHeight(level) + .001) issues.push(`Keep ${objectReference(level, 'text', i)} inside the level rectangle.`)
+  }
+  for (const [i, door] of (level.wallDoors ?? []).entries()) {
+    const b = wallDoorBounds(door)
+    if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || door.y > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-door', i)} inside the level rectangle.`)
   }
   for (const [i, light] of (level.wallLights ?? []).entries()) {
     const b = wallLightBounds(light)
@@ -578,6 +586,14 @@ export function parseLevel(value: unknown): JumpLevel {
     const b = wallTextBounds(text)
     if (b.x < -.001 || b.y < -.001 || b.x + b.w > width + .001 || b.y + b.h > levelHeight(level) + .001) fail()
     return text
+  })
+  if (v.wallDoors !== undefined) level.wallDoors = list(v.wallDoors, MAX_WALL_DOORS).map(item => {
+    const d = object(item)
+    if (!WALL_DOOR_CONDITIONS.includes(d.condition as WallDoorCondition)) fail()
+    if (d.frame !== undefined && d.frame !== 'bulkhead') fail()
+    if (d.flipX !== undefined && typeof d.flipX !== 'boolean') fail()
+    return { ...objectName(d), x: num(d.x, 0, width), y: num(d.y, 0, 6000), condition: d.condition as WallDoorCondition,
+      ...(d.frame === undefined ? {} : { frame: 'bulkhead' as const }), ...(d.flipX === undefined ? {} : { flipX: d.flipX as boolean }) }
   })
   if (v.gravityPlates !== undefined) level.gravityPlates = list(v.gravityPlates, MAX_GRAVITY_PLATES).map(item => {
     const p = object(item)

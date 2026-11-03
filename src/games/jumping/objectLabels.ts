@@ -3,6 +3,7 @@ import type { Selection } from './editor.ts'
 import type { NamedObject } from './objectNames.ts'
 import { mechanismLabel } from './mechanisms.ts'
 import { pickupLabel } from './pickups.ts'
+import { WALL_DOOR_LABELS } from './wallDoor.ts'
 
 /** Resolve authored data rather than the bounds derived for editor handles. */
 export function itemDefinition(level: JumpLevel, selection: Selection): NamedObject | undefined {
@@ -12,7 +13,7 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
     platform: level.platforms, 'back-wall': level.environment?.walls, rope: level.climbables.ropes, ladder: level.climbables.ladders,
     checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
     trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'logic-relay': level.logicRelays, 'float-switch': level.floatSwitches, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
-    'course-door': level.courseDoors, bulkhead: level.bulkheads, 'evaluation-board': level.evaluationBoards,
+    'course-door': level.courseDoors, bulkhead: level.bulkheads, 'evaluation-board': level.evaluationBoards, 'wall-door': level.wallDoors,
   }
   return collections[selection.kind]?.[selection.index]
 }
@@ -22,6 +23,10 @@ export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'back-wall') return `Back wall ${s.index + 1}`
   if (s.kind === 'course-door') return `Level door ${s.index + 1}`
   if (s.kind === 'evaluation-board') return `Evaluation board ${s.index + 1}`
+  if (s.kind === 'wall-door') {
+    const door = level.wallDoors?.[s.index]
+    return `${door ? WALL_DOOR_LABELS[door.condition] : 'Blocked'} ${door?.frame === 'bulkhead' ? 'bulkhead' : 'door'} ${s.index + 1}`
+  }
   if (s.kind === 'robot' && level.robots?.[s.index].kind === 'repulsor') return `Repulsorbot ${s.index + 1}`
   if (s.kind === 'robot' && level.robots?.[s.index].mode === 'emp') return `EMP shovebot ${s.index + 1}`
   if (s.kind === 'float-switch') return `Float switch ${s.index + 1}`

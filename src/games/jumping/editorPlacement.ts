@@ -14,7 +14,7 @@ import { plateSolids, plateSurface } from './plateSurface.ts'
 
 export function canPlaceOnSurface(selection: Selection, level?: JumpLevel) {
   if (selection.kind === 'trigger' && level?.triggers?.[selection.index]?.mode === 'coins') return false
-  return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'entrance', 'checkpoint', 'goal', 'ladder', 'gravity-plate', 'course-door', 'bulkhead'].includes(selection.kind)
+  return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'entrance', 'checkpoint', 'goal', 'ladder', 'gravity-plate', 'course-door', 'bulkhead', 'wall-door'].includes(selection.kind)
 }
 
 type SurfacePlacement = { y: number; left: number; right: number; delta: number; ceiling?: boolean }
@@ -32,7 +32,7 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
   const bounds = itemBounds(level, selection)
   if (!bounds) return null
   // Level doors and bulkheads need the same flat sill and clear doorway as the entrance.
-  const door = hubDoorAt(level, selection), doorway = selection.kind === 'entrance' || !!door
+  const door = hubDoorAt(level, selection) ?? (selection.kind === 'wall-door' ? level.wallDoors?.[selection.index] : undefined), doorway = selection.kind === 'entrance' || !!door
   const marker = ['entrance', 'checkpoint', 'goal'].includes(selection.kind) || !!door
   const footprint = selection.kind === 'entrance' ? entranceDoor(level.entrance) : door ? entranceDoor(door) : selection.kind === 'goal' && level.goal ? goalBounds(level.goal) : { ...bounds, x: bounds.w ? bounds.x : bounds.x - TUNING.width / 2,
     w: bounds.w || TUNING.width, y: marker ? bounds.y - TUNING.height : bounds.y, h: marker ? TUNING.height : bounds.h }

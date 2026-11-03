@@ -12,7 +12,9 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setLevelType, hubDoorAt } from './editor'
+import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setLevelType, setWallDoor, hubDoorAt } from './editor'
+import { WALL_DOOR_CONDITIONS, WALL_DOOR_LABELS } from './wallDoor'
+import type { WallDoorCondition } from './wallDoor'
 import { copyLevel, isHubLevel, isPuzzleLevel, isRunLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import { CONCOURSE_PLACE, OPENING_PLACE, loadCampaign } from './campaign'
 import type { Campaign } from './campaign'
@@ -148,6 +150,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'wall-light', group: 'Back wall', label: 'Wall light', help: 'Place the goal-style indicator on the wall, with a circular rim. Connect switches to turn it green. Supports Logic, Reversed and the optional Relay setting.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Choose Official or red Graffiti, and edit the text, size, alignment, and rotation in the inspector. Text never blocks movement.' },
   { id: 'message-screen', group: 'Back wall', label: 'Message screen', help: 'Click or drag to mount a small terminal. Edit its message, size, alignment and rotation. Green phosphor lettering stays readable in the dark.' },
+  { id: 'wall-door', group: 'Back wall', label: 'Blocked door', help: 'Click to paint a door that never opens onto the back wall, on a flat sill like a real door: sealed, jammed, boarded up or caved in, in a door or bulkhead frame. Choose its look in the inspector. Wall art only, with no collision.' },
   { id: 'lab-stamp', group: 'Back wall', label: 'L.A.B. wall stamp', help: 'Click or drag to stamp the L.A.B. Experiments mark onto the back wall. Resize or rotate it in the inspector. It stays behind terrain and never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
@@ -320,6 +323,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
   const hubDoor = selection ? hubDoorAt(level, selection) : undefined
+  const wallDoor = selection?.kind === 'wall-door' ? level.wallDoors?.[selection.index] : null
   // A level door may lead to any course or playground; a bulkhead to a part of the facility.
   const doorDestination = hubDoor ? 'course' in hubDoor ? hubDoor.course : hubDoor.to : ''
   const destinationOptions = !hubDoor ? [] : 'course' in hubDoor
@@ -1384,7 +1388,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               }} />
           </>}
         </BuilderInspectorSection>
-        {Boolean(editingWall || chosen || light || wallText) && <BuilderInspectorSection title="Appearance">
+        {Boolean(editingWall || chosen || light || wallText || wallDoor) && <BuilderInspectorSection title="Appearance">
+          {wallDoor && <>
+            <div className="builder-dimensions">
+              <BuilderSelect label="Condition" accessibleLabel="Blocked door condition" value={wallDoor.condition} options={WALL_DOOR_CONDITIONS.map(value => ({ value, label: WALL_DOOR_LABELS[value] }))}
+                onChange={value => commit(setWallDoor(history.present, selection.index, { condition: value as WallDoorCondition }))} />
+              <BuilderSelect label="Frame" accessibleLabel="Blocked door frame" value={wallDoor.frame ?? 'door'} options={[{ value: 'door', label: 'Door' }, { value: 'bulkhead', label: 'Bulkhead' }]}
+                onChange={value => commit(setWallDoor(history.present, selection.index, { frame: value === 'bulkhead' ? 'bulkhead' : undefined }))} />
+            </div>
+            <button className="builder-property-action" aria-pressed={!!wallDoor.flipX} onClick={() => commit(setWallDoor(history.present, selection.index, { flipX: !wallDoor.flipX }))}>Flip horizontally</button>
+            <p className="builder-hint">Wall art only: it never opens and has no collision.</p>
+          </>}
           {editingWall && <>
             <p className="builder-hint">Back wall layer {selection.index + 1} of {level.environment!.walls.length}. Later layers take precedence.</p>
             <div className="builder-action-row">{[false, true].map(front => <button key={String(front)} disabled={selection.index === (front ? level.environment!.walls.length - 1 : 0)}

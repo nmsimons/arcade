@@ -29,7 +29,7 @@ test('Orientation is a night facility area with a day-lit training hall and a bu
   assert.deepEqual(level.courseDoors, [])
 })
 
-// One continuous run with ordinary inputs: wake, the lessons, the drop
+// One continuous run with ordinary inputs: wake in the pit, the lessons, the drop
 // through the broken floor into the cave, then the rope climb ahead of the
 // waking response unit and Up into Service access.
 test('Orientation plays from the charging pod to Service access with ordinary inputs', () => {
@@ -41,9 +41,12 @@ test('Orientation plays from the charging pod to Service access with ordinary in
   }
   const jump = frames => step({ move: 1, jump: true }, frames)
 
-  // The latching power plate opens the gate into the training hall.
-  until({ move: 1 }, () => p.x > 640, 10, 'cross the power plate')
-  assert.equal(run.mechanisms[0].active, true, 'training access opens')
+  // The pod wakes in a pit under the broken floor. A running held jump catches
+  // the rope hanging through the hole, and Up climbs it into the training hall.
+  until({ move: 1 }, () => p.x > 1400, 12, 'run along the pit'); jump(30)
+  until({ move: 1 }, () => p.climbing?.kind === 'rope', 2, 'catch the rope through the hole')
+  until({ climb: true }, () => p.y < 721, 6, 'climb the rope')
+  until({ climb: true, move: 1 }, () => p.grounded && p.y <= 700.5, 3, 'pull up onto the hall floor')
   // A held jump catches the crate's edge; Up pulls up.
   until({ move: 1 }, () => p.x > 2180, 10, 'reach the crate'); jump(30)
   until({ move: 1 }, () => !!p.hang, 3, 'catch the crate')
@@ -74,8 +77,10 @@ test('Orientation plays from the charging pod to Service access with ordinary in
   assert.ok(!bot.awakening || bot.awakening.triggered, 'the response unit woke during the escape')
   // Stop in the bulkhead's doorway; a fresh Up leads through.
   const bulkhead = level.bulkheads[0]
-  until({ move: 1 }, () => p.grounded && p.x >= bulkhead.x - 8, 6, 'run along the gantry')
+  until({ move: 1 }, () => p.grounded && p.x >= bulkhead.x - 60, 6, 'run along the gantry')
   until({}, () => Math.abs(p.vx) < 1, 2, 'stop')
+  until({ move: Math.sign(bulkhead.x - p.x) * .3 }, () => Math.abs(p.x - bulkhead.x) < 6, 3, 'walk into the doorway')
+  until({}, () => Math.abs(p.vx) < 1, 2, 'stop in the doorway')
   assert.ok(Math.abs(p.x - bulkhead.x) < 20, `stopped in Service access at x ${p.x.toFixed(0)}`)
   step({}, 2); step({ climb: true }, 2)
   assert.equal(run.hub.departure?.door.id, SERVICE_ACCESS)

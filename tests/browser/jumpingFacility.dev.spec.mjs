@@ -45,8 +45,8 @@ test('a new save wakes in Orientation, an untimed facility area', async ({ page 
   await finishJumpingEntrance(page)
   await expect(page.getByTestId('level-time'), 'the opening has no clock').toHaveCount(0)
   expect(await saved(page), 'the opening autosaves like any facility area').toEqual({ place: { kind: 'hub', level: 'lab-orientation', arrival: { kind: 'entrance' } } })
-  // Crossing the power plate opens the training access gate onto the day-lit hall.
-  await walkTo(page, 1700)
+  // The robot walks along the pit toward the rope through the broken floor.
+  await walkTo(page, 1000)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' }).getByRole('button')).toHaveText(['Resume Esc', 'Restart area', 'Controls', 'Level studio', 'Back to arcade'])
 })

@@ -25,12 +25,15 @@
   uses the phosphor style, with Restart area in facility areas and Restart
   course and Leave course in courses.
 - The opening, Orientation (`Orientation.jump-level.json`): an untimed
-  facility area that starts in Wake's charging pod at night. Its power plate
-  opens a gate onto a day-lit training hall with the tutorial lessons (the
-  crate, two gaps with puddle ladders, and the rope over a pool). Broken floor
-  at the hall's far end drops the robot into Company's dark cave, where the
-  Repulsorbot wakes as the robot climbs the rope to Service access, Orientation's
-  bulkhead to the concourse. Arriving from the concourse steps out of Service
+  facility area that wakes in Wake's charging pod at night, at the bottom of a
+  pit under broken floor. The room above is a dead end: its door is jammed
+  ("Blocked? Try the other end."). A rope through the hole in the floor climbs
+  into the day-lit training hall with the tutorial lessons (the crate, two gaps
+  with puddle ladders, and the rope over a pool). The hall's exit at the far
+  end is jammed too ("Jammed again."), and the broken floor before it drops the
+  robot into Company's dark cave, where the Repulsorbot wakes as the robot
+  climbs the rope to Service access, Orientation's bulkhead to the concourse.
+  The two dead doors are blocked doors (`wallDoors`), wall art that never opens. Arriving from the concourse steps out of Service
   access, at that far end. A headless test plays it end to end with ordinary
   inputs. Wake, the four tutorial levels and Company stay in the level grid but
   leave the campaign. Orientation's golden traces await recording on Apple

@@ -155,7 +155,7 @@ remain.
 | Phase | Place | Player experience | Environmental development |
 | --- | --- | --- | --- |
 | Wake | Charging bay | Discover movement, the empty bay, and the need to find a way out. | Local power returns; requests for an operator go unanswered. |
-| Orientation | One untimed level: charging room, training hall, Company's cave | Wake, learn the basic controls with safe recovery, then meet the first response unit and escape it. | Intact course labels explain what the facility used to do; "not everyone left". |
+| Orientation | One untimed facility area: the charging pit, training hall, Company's cave | Wake, learn the basic controls with safe recovery, then meet the first response unit and escape it. | Intact course labels explain what the facility used to do; "not everyone left". |
 | Working wings | Discipline wings, in parallel | Combine known skills and choose where to go next. | Unfinished jobs and maintenance markings reveal abandonment. |
 | Deterioration | Deep ends and late wings | Adapt known skills around visible failures. | Flooded basins, damaged access, and surviving machinery change the exercises and the corridors between them. |
 | Release | Escape route | Leave the evaluation behind; after the final course, the climb and caves are untimed and ungraded. | The released freight route has collapsed; the robot improvises its own way. |
@@ -172,9 +172,9 @@ editing or playtesting.
 ## Required progression
 
 1. The opening, Orientation, is available on a new save. It is an untimed
-   facility area: Wake's night-lit charging room, a day-lit training hall that
-   teaches the basic controls in a fixed order (jump, gap jumps, plates, the
-   rope), and Company's dark cave, where the first response unit wakes and the
+   facility area: Wake's night-lit charging pit, a day-lit training hall that
+   teaches the basic controls in a fixed order (the climb out on a rope, jumps,
+   gap jumps, the swing over a pool), and Company's dark cave, where the first response unit wakes and the
    robot climbs out ahead of it. Its bulkhead opens onto the concourse, and
    every wing opens off the concourse.
 2. Each wing's courses form a fixed sequence. Finishing a timed required course
@@ -275,8 +275,9 @@ Teach movement through one small, recoverable action and let the player discover
 the empty adjoining space. The required route should be legible without waiting
 for a message or standing through repeated diagnostics. A small optional look
 around may reward curiosity. The opening has no medal pressure or required
-collectibles. In Orientation its power plate opens the training access gate,
-letting the training hall's daylight into the room.
+collectibles. In Orientation the pod sits in a pit under broken floor, and the
+first action is the climb out on a rope through the hole, into the training
+hall's daylight. The room above is a dead end behind a jammed door.
 
 The first implementation is [Wake](../public/levels/jumping/Wake.jump-level.json),
 placed first in the built-in collection. Keep it simple, beautiful, and a little

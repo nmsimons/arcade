@@ -149,24 +149,29 @@ export function drawDoorway(ctx: CanvasRenderingContext2D, door: ReturnType<type
     ctx.strokeRect(door.x, door.y, door.w, door.h); ctx.restore()
   }
 }
-export const DOOR_ARROW_PERIOD = 2.4
+/** One cycle of the glow running up the chevrons, and its delay from one chevron to the next. */
+export const DOOR_CHEVRON_PERIOD = 1.8, DOOR_CHEVRON_DELAY = .22
 /**
- * Every open door that Up goes through shows a large, faint up arrow that
- * slowly breathes and lifts inside the dark doorway. It never leaves the opening.
+ * Every open door that Up goes through shows three bold chevrons stacked in
+ * the dark doorway. They stay faint; a soft glow runs up the stack from the
+ * bottom chevron to the top, each lifting slightly as it brightens.
  */
-export function drawDoorArrow(ctx: CanvasRenderingContext2D, door: { x: number; y: number; w: number; h: number }, time: number) {
-  const pulse = .5 - .5 * Math.cos(time / DOOR_ARROW_PERIOD * Math.PI * 2)
-  const lift = pulse * door.h * .06, cx = door.x + door.w / 2
-  const top = door.y + door.h * .16 - lift, neck = top + door.w * .42, bottom = door.y + door.h * .84 - lift
-  const head = door.w * .36, shaft = door.w * .12
+export function drawDoorChevrons(ctx: CanvasRenderingContext2D, door: { x: number; y: number; w: number; h: number }, time: number) {
+  const cx = door.x + door.w / 2, half = door.w * .28, rise = half * .9, spacing = half * 1.8
+  // Centre the stack, apex of the top chevron to the arms of the bottom one.
+  const top = door.y + (door.h - spacing * 2 - rise) / 2
   ctx.save()
   ctx.beginPath(); ctx.rect(door.x, door.y, door.w, door.h); ctx.clip()
-  ctx.globalAlpha *= .09 + .11 * pulse
-  ctx.fillStyle = '#e4ece6'
-  ctx.beginPath()
-  ctx.moveTo(cx, top); ctx.lineTo(cx + head, neck); ctx.lineTo(cx + shaft, neck); ctx.lineTo(cx + shaft, bottom)
-  ctx.lineTo(cx - shaft, bottom); ctx.lineTo(cx - shaft, neck); ctx.lineTo(cx - head, neck); ctx.closePath()
-  ctx.fill()
+  ctx.strokeStyle = '#e4ece6'; ctx.lineWidth = half * .5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  const base = ctx.globalAlpha
+  for (let i = 0; i < 3; i++) {
+    // Chevron 0 is the bottom one; the glow reaches it first.
+    const phase = ((time - i * DOOR_CHEVRON_DELAY) / DOOR_CHEVRON_PERIOD % 1 + 1) % 1
+    const glow = phase < .4 ? Math.sin(Math.PI * phase / .4) : 0
+    const y = top + (2 - i) * spacing - glow * door.h * .025
+    ctx.globalAlpha = base * (.08 + .16 * glow)
+    ctx.beginPath(); ctx.moveTo(cx - half, y + rise); ctx.lineTo(cx, y); ctx.lineTo(cx + half, y + rise); ctx.stroke()
+  }
   ctx.restore()
 }
 export function goalExitPosition(exit: GoalExit) {

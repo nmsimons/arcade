@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
-import { DOOR_ARROW_PERIOD, drawDoorArrow, goalBounds, goalDoor, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
-import { doorArrows, drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
+import { DOOR_CHEVRON_DELAY, DOOR_CHEVRON_PERIOD, drawDoorChevrons, goalBounds, goalDoor, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
+import { doorChevrons, drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
 import { hubDoorBounds } from '../src/games/jumping/hub.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
@@ -88,36 +88,49 @@ test('the short exit preserves the walking rig and foot contacts instead of swit
   assert.ok(GOAL_EXIT_SECONDS < 1)
 })
 
-test('open doors that Up goes through show an up arrow; closed and blocked doors do not', () => {
+test('open doors that Up goes through show chevrons; closed and blocked doors do not', () => {
   const run = createRun(blankTrial())
   for (let i = 0; i < 60; i++) stepRun(run, NEUTRAL_INPUT)
-  assert.deepEqual(doorArrows(run), { walls: [goalDoor(run.level.goal)], bus: undefined }, 'the open exit')
-  assert.deepEqual(doorArrows(run, true).walls, [], 'the studio draws no arrows')
-  // A switched exit shows its arrow only once it opens.
+  assert.deepEqual(doorChevrons(run), { walls: [goalDoor(run.level.goal)], bus: undefined }, 'the open exit')
+  assert.deepEqual(doorChevrons(run, true).walls, [], 'the studio draws none')
+  // A switched exit shows its chevrons only once it opens.
   const switched = blankTrial(); switched.goal = { ...switched.goal, id: 'exit', power: 'switched' }
   const locked = createRun(switched)
   for (let i = 0; i < 60; i++) stepRun(locked, NEUTRAL_INPUT)
-  assert.deepEqual(doorArrows(locked).walls, [])
-  // The arrow leaves as the robot goes through.
+  assert.deepEqual(doorChevrons(locked).walls, [])
+  // The chevrons leave as the robot goes through.
   const door = goalDoor(run.level.goal); run.player.x = door.x + door.w / 2
   stepRun(run, { ...NEUTRAL_INPUT, climb: true }); assert.ok(run.exit)
-  assert.deepEqual(doorArrows(run).walls, [])
+  assert.deepEqual(doorChevrons(run).walls, [])
   // In a facility area, only open level doors and bulkheads show one.
   const hub = createRun({ ...blankTrial(), kind: 'hub', timing: 'untimed', goal: undefined, times: undefined,
     courseDoors: [{ id: 'open', x: 600, y: 920, course: 'a' }, { id: 'locked', x: 900, y: 920, course: 'b' }],
     bulkheads: [{ id: 'bulk', x: 1200, y: 920, to: 'concourse' }], evaluationBoards: [], wallDoors: [{ x: 1400, y: 920, condition: 'jammed' }] })
   hub.hub.open.add('open'); hub.hub.open.add('bulk')
-  assert.deepEqual(doorArrows(hub).walls, [hubDoorBounds(hub.level.courseDoors[0]), hubDoorBounds(hub.level.bulkheads[0])])
+  assert.deepEqual(doorChevrons(hub).walls, [hubDoorBounds(hub.level.courseDoors[0]), hubDoorBounds(hub.level.bulkheads[0])])
 })
 
-test('the door arrow stays inside its doorway as it breathes and lifts', () => {
+test('three faint chevrons stay inside the doorway while a glow runs up them', () => {
   const door = { x: 100, y: 200, w: 40, h: 80 }
-  for (const time of [0, DOOR_ARROW_PERIOD / 4, DOOR_ARROW_PERIOD / 2]) {
-    const points = [], alphas = []
-    const ctx = { globalAlpha: 1, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, closePath() {}, fill() { alphas.push(this.globalAlpha) },
-      moveTo(x, y) { points.push([x, y]) }, lineTo(x, y) { points.push([x, y]) } }
-    drawDoorArrow(ctx, door, time)
-    assert.ok(points.every(([x, y]) => x > door.x && x < door.x + door.w && y > door.y && y < door.y + door.h))
-    assert.ok(alphas[0] > .05 && alphas[0] <= .2, 'faint')
+  const draw = time => {
+    const strokes = []
+    let points = []
+    const ctx = { globalAlpha: 1, save() {}, restore() {}, beginPath() { points = [] }, rect() {}, clip() {},
+      moveTo(x, y) { points.push([x, y]) }, lineTo(x, y) { points.push([x, y]) }, stroke() { strokes.push({ alpha: this.globalAlpha, points, width: this.lineWidth }) } }
+    drawDoorChevrons(ctx, door, time)
+    return strokes
   }
+  for (const time of [0, .3, .9, 1.5]) {
+    const strokes = draw(time)
+    assert.equal(strokes.length, 3)
+    for (const { alpha, points, width } of strokes) {
+      assert.ok(alpha > .05 && alpha <= .25, 'faint')
+      assert.ok(points.every(([x, y]) => x - width / 2 > door.x && x + width / 2 < door.x + door.w && y - width / 2 > door.y && y + width / 2 < door.y + door.h))
+    }
+  }
+  // The bottom chevron (drawn first) brightens before the top one.
+  const early = draw(DOOR_CHEVRON_PERIOD * .2)
+  assert.ok(early[0].alpha > early[2].alpha)
+  const later = draw(DOOR_CHEVRON_PERIOD * .2 + DOOR_CHEVRON_DELAY * 2)
+  assert.ok(later[2].alpha > later[0].alpha)
 })

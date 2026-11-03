@@ -1,5 +1,8 @@
 import type { JumpLevel } from './level.ts'
-import { copyLevel, newLevelId, levelTerrain, levelHeight, LEVEL_GRID_SIZE } from './level.ts'
+import { blankTrial, copyLevel, isHubLevel, isPuzzleLevel, newLevelId, levelTerrain, levelHeight, snapToGround, LEVEL_GRID_SIZE } from './level.ts'
+import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorBounds, placardBounds } from './hub.ts'
+import type { Bulkhead, CourseDoor } from './hub.ts'
+import { CONCOURSE_PLACE } from './campaign.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
@@ -13,7 +16,7 @@ import type { Vec } from './geometry.ts'
 import { MAX_CURVE_POINTS, cubicPoint, relativePoint, splitCubic, terrainCubic, terrainCurveOutline, terrainCurveSamples, terrainNodes } from './terrainCurves.ts'
 import type { TerrainBezier } from './terrainCurves.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
-import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_OFFSET, GOAL_DOOR_WIDTH, goalBounds, goalDoor, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
@@ -42,13 +45,59 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
+export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+/** Level doors and bulkheads share the entrance's doorway, sill and placement rules. */
+export const isHubDoor = (selection: Selection): selection is Selection & { kind: 'course-door' | 'bulkhead' } => selection.kind === 'course-door' || selection.kind === 'bulkhead'
+export function hubDoorAt(level: JumpLevel, selection: Selection): CourseDoor | Bulkhead | undefined {
+  return selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : selection.kind === 'bulkhead' ? level.bulkheads?.[selection.index] : undefined
+}
+/** A door's selectable outline includes the placard hung to its right. */
+function hubDoorOutline(door: CourseDoor | Bulkhead) {
+  const b = hubDoorBounds(door), placard = placardBounds(door)
+  return { x: b.x, y: b.y, w: placard.x + placard.w - b.x, h: b.h }
+}
+
+/**
+ * Courses end at an exit; facility areas are left only through their doors.
+ * Switching keeps the way out: a doorway exit becomes a bulkhead to the
+ * concourse, and a facility area's first bulkhead becomes the exit.
+ */
+export function setLevelType(level: JumpLevel, type: 'course' | 'hub'): JumpLevel {
+  if (type === 'course') {
+    if (!isHubLevel(level)) return isPuzzleLevel(level) ? level : asTrial(level)
+    const next: JumpLevel = copyLevel(level), [bulkhead] = level.bulkheads
+    delete next.kind; delete next.courseDoors; delete next.bulkheads; delete next.evaluationBoards; delete next.timing
+    const flipX = !!bulkhead && bulkhead.x - GOAL_DOOR_OFFSET < 30
+    next.goal = bulkhead ? { ...(bulkhead.name ? { name: bulkhead.name } : {}), x: bulkhead.x + (flipX ? GOAL_DOOR_OFFSET : -GOAL_DOOR_OFFSET), y: bulkhead.y, ...(flipX ? { flipX } : {}) }
+      : snapToGround(next, next.width - 160, next.entrance.y)
+    next.times = blankTrial().times
+    return next
+  }
+  if (isHubLevel(level)) return level
+  const course = asTrial(level)
+  if (!isPuzzleLevel(course)) return level
+  const next: JumpLevel = copyLevel(course), goal = course.goal
+  if (goal.id) removeSwitchTarget(next, goal.id)
+  delete next.goal; delete next.times
+  next.kind = 'hub'; next.timing = 'untimed'
+  next.courseDoors = []; next.evaluationBoards = []
+  next.bulkheads = goal.kind ? [] : [{ id: newLevelId(), ...(goal.name ? { name: goal.name } : {}), x: goalDoor(goal).x + GOAL_DOOR_WIDTH / 2, y: goal.y, to: CONCOURSE_PLACE }]
+  return next
+}
+/** A level door names a level by ID; a bulkhead names a facility place. */
+export function setHubDoorDestination(level: JumpLevel, selection: Selection, destination: string): JumpLevel {
+  const door = hubDoorAt(level, selection)
+  if (!door || ('course' in door ? door.course : door.to) === destination) return level
+  const next = copyLevel(level), target = hubDoorAt(next, selection)!
+  if ('course' in target) target.course = destination; else target.to = destination
+  return next
+}
 
 /** Finish styles stay authored data, with selectable bounds in the studio. */
 export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk-off' | 'bus'): JumpLevel {
@@ -192,7 +241,8 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     for (const cover of next.environment.groundCover ?? []) cover.y += dy
   }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
+    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     rope.y += dy
@@ -222,12 +272,14 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
   if (selection.kind === 'pickup') { const p = level.pickups?.[i]; return p ? pickupBounds(p) : null }
-  const p = selection.kind === 'entrance' ? level.entrance : level.checkpoints[i]
+  if (selection.kind === 'evaluation-board') return level.evaluationBoards?.[i] ?? null
+  const p = selection.kind === 'entrance' ? level.entrance : isHubDoor(selection) ? hubDoorAt(level, selection) : level.checkpoints[i]
   return p ? { x: p.x, y: p.y, w: 0, h: 0 } : null
 }
 export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'entrance') return entranceBounds(level.entrance)
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
+  if (isHubDoor(selection)) { const door = hubDoorAt(level, selection); return door ? hubDoorOutline(door) : null }
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
   if (robot) {
@@ -443,6 +495,13 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
   }
   const entrance = entranceBounds(level.entrance)
   if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) yield { kind: 'entrance', index: 0 }
+  for (const kind of ['course-door', 'bulkhead'] as const) {
+    const doors = kind === 'course-door' ? level.courseDoors : level.bulkheads
+    for (let i = (doors?.length ?? 0) - 1; i >= 0; i--) {
+      const b = hubDoorOutline(doors![i])
+      if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind, index: i }
+    }
+  }
   for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) yield { kind: 'checkpoint', index: i }
   if (level.goal) {
     const b = goalBounds(level.goal)
@@ -508,6 +567,10 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
     const t = level.timers![i]
     if (x >= t.x - tolerance && x <= t.x + WALL_TIMER_WIDTH + tolerance && y >= t.y - tolerance && y <= t.y + WALL_TIMER_HEIGHT + tolerance) yield { kind: 'timer', index: i }
   }
+  for (let i = (level.evaluationBoards?.length ?? 0) - 1; i >= 0; i--) {
+    const b = level.evaluationBoards![i]
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'evaluation-board', index: i }
+  }
   for (let i = (level.texts?.length ?? 0) - 1; i >= 0; i--) {
     const t = level.texts![i]
     const local = wallTextLocalPoint(t, x, y)
@@ -531,8 +594,8 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
     const edge = nearestBoundary(platform, platform.x + rope.anchor.x, platform.y + rope.anchor.y)
     rope.x = edge.x; rope.y = edge.y; rope.anchor.x = edge.x - platform.x; rope.anchor.y = edge.y - platform.y
   }
-  // Carry start/checkpoint markers with the surface that supports them.
-  for (const p of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : [])]) {
+  // Carry start/checkpoint markers and doors with the surface that supports them.
+  for (const p of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...(next.courseDoors ?? []), ...(next.bulkheads ?? [])]) {
     const supportX = p === next.goal ? (() => { const b = goalBounds(next.goal); return b.x + b.w / 2 })() : p.x
     if (supportX < before.x || supportX > before.x + before.w || Math.abs(p.y - platformSurface(before, supportX).y) >= .1) continue
     const carriedX = platform.x + (supportX - before.x) / before.w * platform.w
@@ -599,6 +662,8 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   // Moving a marker must honor the requested height, even before its supporting
   // terrain is built. Snapping every move to ground traps nudges at the floor.
   if (selection.kind === 'entrance') next.entrance = { ...next.entrance, x: clamp(x, GOAL_DOOR_WIDTH / 2, level.width - GOAL_DOOR_WIDTH / 2), y: clamp(y, GOAL_DOOR_HEIGHT, levelHeight(level)) }
+  if (isHubDoor(selection)) Object.assign(hubDoorAt(next, selection)!, { x: clamp(x, GOAL_DOOR_WIDTH / 2, level.width - GOAL_DOOR_WIDTH / 2), y: clamp(y, GOAL_DOOR_HEIGHT, levelHeight(level)) })
+  if (selection.kind === 'evaluation-board') Object.assign(next.evaluationBoards![selection.index], { x, y })
   if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
@@ -654,6 +719,13 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
       field.h = clamp(h, FORCE_FIELD_MIN_LENGTH, top ? before.y + before.h : levelHeight(next) - before.y)
       if (top) field.y = before.y + before.h - field.h
     }
+  }
+  if (selection.kind === 'evaluation-board') {
+    const board = next.evaluationBoards![selection.index], before = { ...board }
+    board.w = clamp(w, 120, Math.min(1200, left ? before.x + before.w : next.width - before.x))
+    board.h = clamp(h, 60, Math.min(600, top ? before.y + before.h : levelHeight(next) - before.y))
+    if (left) board.x = before.x + before.w - board.w
+    if (top) board.y = before.y + before.h - board.h
   }
   if (selection.kind === 'gravity-plate') {
     const p = next.gravityPlates![selection.index], before = { ...p }
@@ -764,6 +836,9 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     removeSwitchTarget(next, light.id)
   }
   else if (selection.kind === 'float-switch') next.floatSwitches!.splice(i, 1)
+  else if (selection.kind === 'course-door') next.courseDoors!.splice(i, 1)
+  else if (selection.kind === 'bulkhead') next.bulkheads!.splice(i, 1)
+  else if (selection.kind === 'evaluation-board') next.evaluationBoards!.splice(i, 1)
   else if (selection.kind === 'logic-relay') {
     const [relay] = next.logicRelays!.splice(i, 1)
     removeSwitchTarget(next, relay.id)
@@ -783,6 +858,23 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'course-door' || tool === 'bulkhead' || tool === 'evaluation-board') {
+    if (!isHubLevel(next)) throw new Error('Level doors, bulkheads and evaluation boards belong in facility areas. Change Type in the Level settings first.')
+    if (tool === 'evaluation-board') {
+      if (next.evaluationBoards.length >= MAX_EVALUATION_BOARDS) throw new Error(`This level already has ${MAX_EVALUATION_BOARDS} evaluation boards.`)
+      const click = Math.hypot(end.x - start.x, end.y - start.y) < 10
+      const w = clamp(click ? 460 : Math.abs(end.x - start.x), 120, Math.min(1200, next.width)), h = clamp(click ? 250 : Math.abs(end.y - start.y), 60, Math.min(600, levelHeight(next)))
+      next.evaluationBoards.push({ id: newLevelId(), x: clamp(Math.min(start.x, end.x), 0, next.width - w), y: clamp(Math.min(start.y, end.y), 0, levelHeight(next) - h), w, h })
+      return { level: next, selection: { kind: tool, index: next.evaluationBoards.length - 1 } }
+    }
+    const doors: (CourseDoor | Bulkhead)[] = tool === 'course-door' ? next.courseDoors : next.bulkheads, max = tool === 'course-door' ? MAX_COURSE_DOORS : MAX_BULKHEADS
+    if (doors.length >= max) throw new Error(`This level already has ${max} ${tool === 'course-door' ? 'level doors' : 'bulkheads'}.`)
+    // Like the entrance, a door's point is the middle of its sill.
+    const door = { id: newLevelId(), x: clamp(end.x, GOAL_DOOR_WIDTH / 2, next.width - GOAL_DOOR_WIDTH / 2), y: clamp(end.y, GOAL_DOOR_HEIGHT, levelHeight(next)) }
+    if (tool === 'course-door') next.courseDoors.push({ ...door, course: '' })
+    else next.bulkheads.push({ ...door, to: CONCOURSE_PLACE })
+    return { level: next, selection: { kind: tool, index: doors.length - 1 } }
+  }
   if (tool === 'back-wall') {
     const changed = prepareBackWall(next), environment = changed.environment!
     if (environment.walls.length >= 40) throw new Error('This level already has 40 back walls.')
@@ -933,6 +1025,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     // snapping separately, so Snap off and Alt also preserve the cursor's height.
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
     if (tool === 'goal') {
+      if (!isPuzzleLevel(trial)) throw new Error('Facility areas have no exit. The robot leaves through their bulkheads and level doors.')
       const bounds = goalBounds({ ...trial.goal, x: 0, y: 0 })
       trial.goal = { ...trial.goal, ...point, x: trial.goal?.kind === 'walk-off' ? trial.width : clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
       return { level: trial, selection: { kind: 'goal', index: 0 } }
@@ -1004,6 +1097,9 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'float-switch') { if (next.floatSwitches!.length >= MAX_FLOAT_SWITCHES) return null; index = next.floatSwitches!.push({ ...next.floatSwitches![i], targets: [...next.floatSwitches![i].targets], id: newLevelId() }) - 1 }
   else if (selection.kind === 'logic-relay') { if (next.logicRelays!.length >= MAX_LOGIC_RELAYS) return null; index = next.logicRelays!.push({ ...next.logicRelays![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'course-door') { if (next.courseDoors!.length >= MAX_COURSE_DOORS) return null; index = next.courseDoors!.push({ ...next.courseDoors![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'bulkhead') { if (next.bulkheads!.length >= MAX_BULKHEADS) return null; index = next.bulkheads!.push({ ...next.bulkheads![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'evaluation-board') { if (next.evaluationBoards!.length >= MAX_EVALUATION_BOARDS) return null; index = next.evaluationBoards!.push({ ...next.evaluationBoards![i], id: newLevelId() }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
   const moved = moveItem(next, result, 40, 0)
@@ -1011,6 +1107,9 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'entrance', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.courseDoors ?? []).map((_, index) => ({ kind: 'course-door' as const, index })),
+    ...(level.bulkheads ?? []).map((_, index) => ({ kind: 'bulkhead' as const, index })),
+    ...(level.evaluationBoards ?? []).map((_, index) => ({ kind: 'evaluation-board' as const, index })),
     ...(level.environment?.walls ?? []).map((_, index) => ({ kind: 'back-wall' as const, index })),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
@@ -1213,7 +1312,8 @@ function replaceEditedTerrain(level: JumpLevel, index: number, points: readonly 
     delete rope.rest
   }
   for (const [source, marker] of [[level.entrance, next.entrance], ...level.checkpoints.map((p, i) => [p, next.checkpoints[i]]),
-    ...(level.goal && next.goal ? [[level.goal, next.goal]] : [])]) {
+    ...(level.goal && next.goal ? [[level.goal, next.goal]] : []),
+    ...(level.courseDoors ?? []).map((p, i) => [p, next.courseDoors![i]]), ...(level.bulkheads ?? []).map((p, i) => [p, next.bulkheads![i]])]) {
     const before = level.platforms[index], x = source === level.goal ? (() => { const b = goalBounds(level.goal); return b.x + b.w / 2 })() : source.x
     if (x < before.x || x > before.x + before.w || Math.abs(source.y - platformSurface(before, x).y) >= .1) continue
     marker.x = source.x; marker.y = source.y

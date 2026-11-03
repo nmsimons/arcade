@@ -2,11 +2,8 @@ import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { advanceJumpingSimulation, withoutIntermediateFrames } from './helpers/simulation.mjs'
 
-// Orientation holds Wake, the controls hall and Company in one untimed level.
-const INTRODUCED = { 'lab-orientation': true }
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.facility.v1')))
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
-const canvasLabel = page => page.locator('.jumping-game > canvas').getAttribute('aria-label')
 
 /** Opens the development facility from the level menu with a paused clock, saved completions and an autosaved place. */
 async function openFacility(page, completed = {}, place) {
@@ -17,7 +14,8 @@ async function openFacility(page, completed = {}, place) {
     if (place) localStorage.setItem('arcade.jumping.facility.v1', JSON.stringify({ place }))
   }, [completed, place])
   const facility = page.getByRole('button', { name: 'Facility', exact: true })
-  await expect(facility).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  // A cold development server can take a while to transform the level catalog.
+  await expect(facility).toBeEnabled({ timeout: 30000 }); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await facility.click()
   await expect(page).toHaveURL(/\/lab\/facility$/)
 }
@@ -38,50 +36,49 @@ async function walkTo(page, x) {
 }
 const pressUp = async page => { await page.keyboard.down('ArrowUp'); await advanceJumpingSimulation(page, 150); await page.keyboard.up('ArrowUp') }
 
-test('a new save wakes in Orientation, an untimed opening level', async ({ page }) => {
+test('a new save wakes in Orientation, an untimed facility area', async ({ page }) => {
   test.setTimeout(120000)
   await openFacility(page)
-  await expect(page.getByRole('img', { name: 'Orientation: reach the exit' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible()
   // The robot wakes in the pod; wait until its status says so before playing out the awakening.
-  await expect.poll(async () => { await page.clock.runFor(16); return page.locator('.jumping-state').innerText() }).toBe('Waking up')
+  await expect.poll(async () => { await page.clock.runFor(16); return page.locator('.jumping-state').innerText() }, { timeout: 20000 }).toBe('Waking up')
   await finishJumpingEntrance(page)
   await expect(page.getByTestId('level-time'), 'the opening has no clock').toHaveCount(0)
+  expect(await saved(page), 'the opening autosaves like any facility area').toEqual({ place: { kind: 'hub', level: 'lab-orientation', arrival: { kind: 'entrance' } } })
   // Crossing the power plate opens the training access gate onto the day-lit hall.
   await walkTo(page, 1700)
-  expect(await saved(page), 'the opening is never autosaved').toBeNull()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Game paused' }).getByRole('button')).toHaveText(['Resume Esc', 'Restart area', 'Controls', 'Level studio', 'Back to arcade'])
 })
 
-test('a finished opening starts at the concourse, whose Orientation door leads back in at the far end', async ({ page }, info) => {
+test('the concourse and Orientation join through bulkheads, arriving at the far end of each', async ({ page }, info) => {
   test.setTimeout(240000)
   const errors = []; page.on('pageerror', error => errors.push(error.message))
-  await openFacility(page, INTRODUCED)
+  await openFacility(page, {}, { kind: 'hub', level: 'facility-concourse', arrival: { kind: 'door', id: 'concourse-to-opening' } })
   const concourse = page.getByRole('img', { name: 'Concourse', exact: true })
   await expect(concourse).toBeVisible(); await finishJumpingEntrance(page)
-  expect(Math.abs((await motion(page)).x - 1970), 'starts at the Orientation door').toBeLessThan(16)
+  expect(Math.abs((await motion(page)).x - 1970), 'steps out of the Orientation bulkhead').toBeLessThan(16)
   await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('concourse-orientation.png') })
 
   await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
-  await expect(page.getByRole('img', { name: 'Orientation: reach the exit' })).toBeVisible()
-  expect(await saved(page), 'a level resumes at its door').toEqual({ place: { kind: 'hub', level: 'facility-concourse', arrival: { kind: 'door', id: 'door-orientation' } } })
+  await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible()
+  expect(await saved(page)).toEqual({ place: { kind: 'hub', level: 'lab-orientation', arrival: { kind: 'door', id: 'orientation-to-concourse' } } })
   await finishJumpingEntrance(page)
-  // Re-entering starts at the far end, on the gantry beside Service access.
+  // Orientation's bulkhead is Service access, on the gantry at its far end.
   expect(Math.round((await motion(page)).y)).toBe(350)
-  expect(Math.abs((await motion(page)).x - 8520), 'starts beside Service access').toBeLessThan(16)
-  await expect(page.getByTestId('level-time'), 'the replayed opening stays untimed').toHaveCount(0)
-  await page.keyboard.press('Escape')
-  const pause = page.getByRole('dialog', { name: 'Game paused' })
-  await expect(pause.getByRole('button', { name: 'Level menu' })).toHaveCount(0)
-  await pause.getByRole('button', { name: 'Leave course' }).click()
+  expect(Math.abs((await motion(page)).x - 8355), 'steps out of Service access').toBeLessThan(16)
+  await expect(page.getByTestId('level-time'), 'Orientation stays untimed').toHaveCount(0)
+  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('orientation-service-access.png') })
+
+  await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
   await expect(concourse).toBeVisible(); await finishJumpingEntrance(page)
-  expect(Math.abs((await motion(page)).x - 1970), 'stepped out of the door').toBeLessThan(16)
-  await page.keyboard.press('Escape')
-  await expect(pause.getByRole('button')).toHaveText(['Resume Esc', 'Controls', 'Level studio', 'Back to arcade'])
+  expect(Math.abs((await motion(page)).x - 1970), 'back out of the Orientation bulkhead').toBeLessThan(16)
   expect(errors).toEqual([])
 })
 
 test('a returning save resumes at its autosaved bulkhead, where locked doors stay shut', async ({ page }) => {
   test.setTimeout(120000)
-  await openFacility(page, INTRODUCED, { kind: 'hub', level: 'facility-movement', arrival: { kind: 'door', id: 'movement-to-concourse' } })
+  await openFacility(page, {}, { kind: 'hub', level: 'facility-movement', arrival: { kind: 'door', id: 'movement-to-concourse' } })
   const wing = page.getByRole('img', { name: 'Movement wing', exact: true })
   await expect(wing).toBeVisible(); await finishJumpingEntrance(page)
   expect(Math.abs((await motion(page)).x - 200), 'stepped out of the saved bulkhead').toBeLessThan(16)

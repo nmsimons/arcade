@@ -16,10 +16,10 @@
   "triggers": [],
   "robots": [],
   "courseDoors": [
-    { "name": "Orientation", "id": "door-orientation", "x": 1970, "y": 720, "course": "lab-orientation" },
     { "name": "Dispatch door", "id": "dispatch-door", "x": 4250, "y": 720, "course": "5d45678a-5104-43be-9647-2a2bbd6ff932" }
   ],
   "bulkheads": [
+    { "name": "Orientation bulkhead", "id": "concourse-to-opening", "x": 1970, "y": 720, "to": "opening" },
     { "name": "Movement bulkhead", "id": "concourse-to-movement", "x": 2400, "y": 720, "to": "movement" },
     { "name": "Freight bulkhead", "id": "concourse-to-freight", "x": 2770, "y": 720, "to": "freight" },
     { "name": "Construction bulkhead", "id": "concourse-to-construction", "x": 3140, "y": 720, "to": "construction" },

@@ -8,28 +8,33 @@
 
 - The campaign file and wing progression (`campaign.ts`), checked by
   `npm run levels:check`.
-- Hub levels (`"kind": "hub"`) with course doors, bulkheads and evaluation
-  boards (`hub.ts`). Up enters an open door. Placards show a course's name and D
-  deadline, then its best time and grade; closed bulkheads show the clearance
-  still needed.
-- The facility loop (`facility.ts` and the game shell): Orientation, then the
-  concourse; a course returns the robot to its door, a
-  bulkhead leads to the matching bulkhead beyond it. The robot's place autosaves on every move,
-  and a returning save resumes there. The pause screen uses the phosphor style,
-  with Leave course in courses.
-- The opening, Orientation (`Orientation.jump-level.json`): one untimed level
-  that starts in Wake's charging pod at night. Its power plate opens a gate
-  onto a day-lit training hall with the four tutorial lessons in their proven
-  geometry (the crate, a tap-jump gap and a held-jump gap with puddle ladders, a
-  plate that opens the swing room, and the rope over a pool). The hall's own
-  exit to the concourse has caved in; just before it, a hole in the broken
-  floor drops the robot into Company's dark cave, where the Repulsorbot wakes as
-  the robot climbs the rope to Service access, the other way to the concourse.
-  Re-entering Orientation from the concourse starts at that far end, beside
-  Service access (the level's `returnEntrance`). A
-  headless test plays it end to end with ordinary inputs. Wake, the four
-  tutorial levels and Company stay in the level grid but leave the campaign.
-  Orientation's golden traces await recording on Apple Silicon.
+- Facility areas: hub levels (`"kind": "hub"`) with level doors (`courseDoors`),
+  bulkheads and evaluation boards (`hub.ts`). Up enters an open door. Placards
+  show a course's name and D deadline, then its best time and grade; closed
+  bulkheads show the clearance still needed.
+- The level studio edits all of it. **Type** in the Level tab switches a level
+  between Course and Facility area (a doorway exit becomes a bulkhead to the
+  concourse, and back). In a facility area, the Facility tools place level
+  doors, bulkheads and evaluation boards, and **Leads to** in the inspector
+  chooses each door's level or each bulkhead's place. Studio placards name the
+  destination, and a playtest opens every door.
+- The facility loop (`facility.ts` and the game shell): a new save wakes in
+  Orientation; a course returns the robot to its door, and a bulkhead leads to
+  the matching bulkhead beyond it. The robot's place, Orientation included,
+  autosaves on every move, and a returning save resumes there. The pause screen
+  uses the phosphor style, with Restart area in facility areas and Restart
+  course and Leave course in courses.
+- The opening, Orientation (`Orientation.jump-level.json`): an untimed
+  facility area that starts in Wake's charging pod at night. Its power plate
+  opens a gate onto a day-lit training hall with the tutorial lessons (the
+  crate, two gaps with puddle ladders, and the rope over a pool). Broken floor
+  at the hall's far end drops the robot into Company's dark cave, where the
+  Repulsorbot wakes as the robot climbs the rope to Service access, Orientation's
+  bulkhead to the concourse. Arriving from the concourse steps out of Service
+  access, at that far end. A headless test plays it end to end with ordinary
+  inputs. Wake, the four tutorial levels and Company stay in the level grid but
+  leave the campaign. Orientation's golden traces await recording on Apple
+  Silicon, like the other facility areas.
 - Every wing as stub hubs: Movement (Hop Skip Jump I and II, A Bigger Swing,
   Leaps and Bounds II, Slow is Smooth), Freight (8), Construction (7), Targets
   (4), Water (3), Security (6) and an Assessment wing for Escapade and World I,
@@ -47,7 +52,7 @@
 Not yet built: preparing a course while the robot approaches its door (the
 "Preparing level" dialog still appears), the door closing behind the robot,
 lamps and grade letters on the board, the cloud save slot for the autosaved
-place (it is saved on this device only), studio tools for hub objects, wing layouts and
+place (it is saved on this device only), wing layouts and
 art, shortcuts, certification doors, and golden traces for hub levels (record
 them on Apple Silicon once the layouts settle; `tests/helpers/jumping-golden.mjs`
 leaves hubs out until then).
@@ -110,7 +115,7 @@ work on next. Progress opens access; it never changes what the robot can do.
 
 The central hall. It holds the evaluation board, wall maps, and the sealed exterior dispatch door, which is visible from the first visit so
 the goal is always in view. Every wing's entrance opens off it. Orientation
-leads into it, and its door there leads back in for replays.
+leads into it through a bulkhead, which also leads back.
 
 ### Wings by discipline
 
@@ -179,12 +184,12 @@ have. Together they are the whole save.
 ### Access and clearance
 
 Access is gated, not ability. The robot's movement never changes, because every
-course is tuned for its full repertoire, and carried gadgets stay inside the
-courses that provide them. A wing opens through clearance: its bulkhead opens
+course is tuned for its full repertoire, and carried gadgets stay in the
+course or area that provides them: entering a door leaves a held tool behind. A wing opens through clearance: its bulkhead opens
 once named courses are passed, and the bulkhead's placard shows what remains
 ("CLEARANCE: FREIGHT 6 / 8"). The draft below is for the review to settle:
 
-- Orientation opens the concourse.
+- Orientation's bulkhead leads onto the concourse, which is always open.
 - Freight, Construction and Targets open with the concourse.
 - Water and Security open later, through clearance from the earlier wings.
   Security carries much of the deterioration and the response-unit story.
@@ -192,9 +197,10 @@ once named courses are passed, and the bulkhead's placard shows what remains
 ### Course equipment stays in courses
 
 Coins, coin switches, wall clocks and time pickups (stopwatch, fast stopwatch,
-time bonus and penalty) exist only in timed courses. Wings and the escape route
-use physical mechanisms only: plates and switches, gates, lifts and platforms,
-water and float switches, gravity plates, force fields, wiring and cargo.
+time bonus and penalty) exist only in timed courses. Facility areas and the
+escape route use physical mechanisms only: plates and switches, gates, lifts
+and platforms, water and float switches, gravity plates, force fields, wiring
+and cargo. Tools and EMP charges may appear in either, as in Orientation's cave.
 
 ### Course doors
 
@@ -284,8 +290,7 @@ rather than inside it, so level packs keep their format (level JSON and
 ```json
 {
   "version": 1,
-  "opening": "<Wake>",
-  "introduction": [],
+  "opening": "<Orientation, a facility area>",
   "concourse": "<concourse level id>",
   "wings": [{
     "id": "movement",
@@ -305,30 +310,28 @@ rather than inside it, so level packs keep their format (level JSON and
 }
 ```
 
-- **A new game** plays the opening, then any `introduction` levels in order
-  (currently none: Orientation is one level). Introduction levels play untimed
-  in the facility, without wall clocks, so a completion passes them. Finishing
-  the last of these levels opens the concourse and steps the robot out of its
-  door there.
-- **Every wing** opens off the concourse. Without a clearance it opens with the
-  concourse; with one, once `count` of the named courses are passed. A
+- **A new game** wakes at the opening's entrance. The opening is a facility
+  area like the wings. Its bulkhead to the concourse (`"to": "concourse"`) and
+  the concourse's bulkhead to it (`"to": "opening"`) are always open.
+- **Every wing** opens off the concourse. Without a clearance it opens at once;
+  with one, once `count` of the named courses are passed. A
   clearance names courses, whole wings, or both; `count` defaults to all of
   them.
 - **Within a wing,** a door opens once the door before it is passed. A pass
   carried over from the level grid keeps its door passed and opens the next one.
-- **The concourse** holds one door to the opening and to each introduction level,
-  for replays, and the dispatch door to `finalCourse`. Passing the final course
+- **The concourse** holds bulkheads to the opening and every wing, and one
+  level door, the dispatch door to `finalCourse`. Passing the final course
   leads through `escape` in order.
 - **`level` and `concourse`** name hub levels and stay optional until those
   levels exist.
 
-`npm run levels:check` confirms that every level exists and has one role (the
-opening, an introduction level, one wing's course, the final course or an
-escape level), that wing courses and the final course are timed, that hub
-levels exist, that each wing course has exactly one door in its wing, that the
-concourse has its opening, introduction and dispatch doors and no others, that
-bulkheads join each wing and the concourse both ways, and that every wing can
-open through clearance. Still to add: certification doors and sources, and the
+`npm run levels:check` confirms that every level exists and has one role (a
+facility area, one wing's course, the final course or an escape level), that
+wing courses and the final course are timed, that the opening, the concourse
+and the wing levels are facility areas, that each wing course has exactly one
+door in its wing, that the concourse's only level door is the dispatch door,
+that bulkheads join the opening and each wing to the concourse both ways, and
+that every wing can open through clearance. Still to add: certification doors and sources, and the
 course-equipment rule for escape levels once they are redesigned as untimed.
 `index.json` keeps loading every level for the development library.
 
@@ -337,8 +340,8 @@ course-equipment rule for escape levels once they are redesigned as untimed.
 ### Starting the game
 
 `/lab` opens the facility instead of the grid. A new save starts in Orientation's charging pod.
-Orientation's exit opens onto the concourse, and its door there leads back in
-for replays, like every other level. Afterward, the robot resumes where it was
+Orientation's bulkhead, Service access, opens onto the concourse, and the
+concourse's Orientation bulkhead leads back to it. Afterward, the robot resumes where it was
 last autosaved: at the door it came through, or at a course's door if it left
 mid-course. A place that has since closed or disappeared resumes at the first
 wing's entrance. The autosaved place is the only new saved value; doors, lamps,
@@ -374,11 +377,11 @@ Its actions depend on where the robot is:
 | Where | Actions |
 | --- | --- |
 | Course | Resume, Restart course, Leave course, Controls, Back to arcade |
-| Wing or concourse | Resume, Controls, Back to arcade |
+| Facility area (Orientation, a wing or the concourse) | Resume, Restart area, Controls, Back to arcade |
 | Escape route | Resume, Restart from entrance, Return to the facility, Controls, Back to arcade |
 
-If wing layouts ever risk stranding the robot, add a way back to the last
-door here. Development builds add **Level studio** as today. The controls
+Restart area returns the robot to where it came in: the door or bulkhead it
+arrived through, or the opening's pod. Development builds add **Level studio** as today. The controls
 reference keeps its current content.
 
 ## Authoring rules for wings
@@ -438,10 +441,11 @@ It precedes building any wing beyond Orientation.
   plays a course directly when it is unlocked, and leaving returns to its door.
   The grid moves to a development-only route (for example `/lab/library`) with
   the stress tests and the studio.
-- **Studio.** New tools: Course door (with a course picker), Bulkhead (with a
-  target wing), Evaluation board, Wall map, Sealed door, and later
-  Transit button. Playtesting a wing in the studio can enter real courses and
-  cross bulkheads.
+- **Studio.** Built: Type (Course or Facility area), Level door (with a level
+  picker), Bulkhead (with a destination picker) and Evaluation board. Still to
+  come: Wall map, Sealed door, and later Transit button. A studio playtest
+  opens every door, and entering one ends the test; crossing into real courses
+  and other areas from a playtest is still to come.
 - **Accessibility.** Placard, board and map content is mirrored in the visually
   hidden status region, as the player status is today. Standing at a door
   announces "Door: Boxes, best grade B." with no visible prompt. The pause screen

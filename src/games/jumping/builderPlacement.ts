@@ -22,6 +22,8 @@ import { createFloatSwitch, drawFloatSwitchArm } from './floatSwitch.ts'
 import { drawLogicRelay } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { backWallPath } from './environment.ts'
+import { drawHubDoors } from './hub.ts'
+import { paintNormally } from './worldPaint.ts'
 
 export type PlacementPreview = { level: JumpLevel; selection: Selection }
 
@@ -80,6 +82,9 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'goal': drawGoalDoor(ctx, level.goal!, 1, true); drawGoal(ctx, level.goal!, true); break
     case 'entrance': if (level.entrance.kind === 'charging-bay') { drawChargingBay(ctx, level.entrance); drawChargingBayCover(ctx, level.entrance) } else drawDoorway(ctx, entranceDoor(level.entrance), 1); break
     case 'checkpoint': drawAthlete(ctx, createPlayer(level.checkpoints[i])); break
+    case 'course-door': drawHubDoors(ctx, { courseDoors: [level.courseDoors![i]] }, undefined, true, paintNormally); break
+    case 'bulkhead': drawHubDoors(ctx, { bulkheads: [level.bulkheads![i]] }, undefined, true, paintNormally); break
+    case 'evaluation-board': drawHubDoors(ctx, { evaluationBoards: [level.evaluationBoards![i]] }, undefined, true, paintNormally); break
   }
   const outline = itemOutline(level, selection)
   if (outline) {

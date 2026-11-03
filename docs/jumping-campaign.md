@@ -171,12 +171,12 @@ editing or playtesting.
 
 ## Required progression
 
-1. The opening, Orientation, is available on a new save. It is one untimed
-   level: Wake's night-lit charging room, a day-lit training hall that teaches
-   the basic controls in a fixed order (jump, gap jumps, plates, the rope), and
-   Company's dark cave, where the first response unit wakes and the robot climbs
-   out ahead of it. Its exit opens onto the concourse, and every wing opens off
-   the concourse.
+1. The opening, Orientation, is available on a new save. It is an untimed
+   facility area: Wake's night-lit charging room, a day-lit training hall that
+   teaches the basic controls in a fixed order (jump, gap jumps, plates, the
+   rope), and Company's dark cave, where the first response unit wakes and the
+   robot climbs out ahead of it. Its bulkhead opens onto the concourse, and
+   every wing opens off the concourse.
 2. Each wing's courses form a fixed sequence. Finishing a timed required course
    at D or better unlocks the next course in its wing and lights its door. D is
    a realistic first-run deadline, not a free pass. An untimed level unlocks
@@ -189,10 +189,9 @@ editing or playtesting.
 4. Unlocked courses remain available for replay through their doors. Slower runs
    never reduce grades, remove completion, or relock areas. Optional diversions
    never delay the next required unlock. A new game starts in Orientation's
-   charging pod. Orientation keeps a door on the concourse, like every other
-   level; re-entering through it starts at the level's far end, beside Service
-   access. Afterward, starting the game resumes where the robot was
-   last autosaved.
+   charging pod. The concourse's bulkhead to Orientation leads back in at its
+   far end, out of Service access. Afterward, starting the game resumes where
+   the robot was last autosaved.
 5. The evaluation completes when every required course is passed. Its release
    opens the escape route, whose levels are untimed. Escaping completes the
    campaign; no grade above D is required for the ending.
@@ -303,8 +302,8 @@ this small room at normal speed.
 
 Charging-bay entrances and untimed levels are reusable studio choices with
 pause, restart, automatic input handoff, and saved completion. Ordinary levels
-retain their doorway entrance and scoring. Completing Orientation opens the
-concourse; from there, timed courses require D or better to light the next
+retain their doorway entrance and scoring. Orientation's bulkhead leads onto
+the concourse; from there, timed courses require D or better to light the next
 door.
 
 ![The robot enclosed behind the pod glass on its raised plinth as local power returns.](images/lab-wake-pod.png)

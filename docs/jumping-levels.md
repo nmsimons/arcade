@@ -765,12 +765,31 @@ Choose **Object → Entrance → Charging bay** while the entrance is selected;
 **Door** restores the ordinary entrance. Both styles preview, save, and reopen. The pod has a 102-by-126 artwork outline
 for selection; its collision and start validation keep the clear 40-by-80 footprint.
 
-An optional `returnEntrance: { name?, x, y }` marks where the facility starts
-the level when the robot re-enters it through its door, such as Orientation's
-far end beside its exit. It is an ordinary doorway (no `kind`) with the same
-flat 40-by-80 footprint as the entrance, and it must stay clear of the exit
-doorway so the robot does not leave as it arrives. New games, the level grid
-and playtests keep using `entrance`. The studio does not edit it yet.
+### Facility areas
+
+`"kind": "hub"` makes a level a facility area, part of the building between
+courses: the opening, the concourse or a wing (see [the facility](jumping-facility.md)).
+It is untimed (`"timing": "untimed"`), has no `goal` or `times`, and the robot
+leaves only through its doors, by pressing Up in an open doorway. It may hold
+everything a course does except timing equipment: coins, coin switches, wall
+clocks and time pickups stay in courses. Tools and EMP charges are allowed.
+
+- `courseDoors: [{ id, name?, x, y, course }]`: level doors. `course` is the
+  ID of the level behind the door; finishing that level returns the robot here.
+- `bulkheads: [{ id, name?, x, y, to }]`: doors to other parts of the facility.
+  `to` is `"opening"`, `"concourse"` or a wing's campaign ID. Arriving through
+  a bulkhead steps out of the bulkhead on the far side that leads back.
+- `evaluationBoards: [{ id, name?, x, y, w, h }]`: wall displays of the
+  evaluation, filled in during play.
+
+Doors and bulkheads share the entrance's flat 40-by-80 doorway, with `x` at the
+middle of the sill; each hangs its placard to the right. An empty `course` or
+`to` saves, but validation asks for a destination before the level is played.
+In the studio, **Level → Type → Facility area** converts a course (its doorway
+exit becomes a bulkhead to the concourse) and **Course** converts back (the
+first bulkhead becomes the exit). The Facility tools place level doors,
+bulkheads and evaluation boards, and **Object → Leads to** chooses where each
+door goes.
 
 `timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
 level** in the studio. The world and animation time still advance, but the

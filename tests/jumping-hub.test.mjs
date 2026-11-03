@@ -53,7 +53,7 @@ test('hub structure is rejected outside hubs and in malformed hubs', () => {
   ]) assert.throws(() => parseLevel(broken), /not a valid jumping level/)
 })
 
-test('hub problems cover door placement, duplicate courses and course equipment', () => {
+test('hub problems cover door placement, duplicate courses and timing equipment', () => {
   const level = parseLevel(hubFile({
     courseDoors: [{ id: 'door-one', x: 600, y: 920, course: 'one' }, { id: 'door-high', x: 900, y: 700, course: 'one', name: 'High door' }],
     pickups: [{ kind: 'coin', x: 400, y: 880 }, { kind: 'stopwatch', x: 450, y: 880 }],
@@ -61,9 +61,22 @@ test('hub problems cover door placement, duplicate courses and course equipment'
     triggers: [{ x: 1000, y: 700, w: 120, mode: 'coins', threshold: 1, target: '' }],
   }))
   assert.deepEqual(levelProblems(level), [
-    'Place course door “High door” on a continuous flat surface, with a clear doorway inside the level.',
-    'Two course doors lead to “one”. Give each course one door.',
-    'Remove the coins, coin switches, wall clocks, time pickups and EMP charges. Course equipment stays in the courses.',
+    'Place “High door · Level door 2” on a continuous flat surface, with a clear doorway inside the level.',
+    'Two level doors lead to “one”. Give each level one door.',
+    'Remove the coins, coin switches, wall clocks and time pickups. Timing equipment stays in the courses.',
+  ])
+})
+
+test('facility areas may hold tools and EMP charges, and doors may wait for a destination', () => {
+  const level = parseLevel(hubFile({
+    courseDoors: [{ id: 'door-one', x: 600, y: 920, course: '', name: 'New door' }],
+    bulkheads: [{ id: 'to-concourse', x: 1300, y: 920, to: '' }],
+    pickups: [{ kind: 'emp', x: 400, y: 880 }],
+    props: [{ kind: 'box', x: 1000, y: 920, size: 40, gadget: 'emp' }],
+  }))
+  assert.deepEqual(levelProblems(level), [
+    'Choose the level that “New door · Level door 1” leads to.',
+    'Choose where “Bulkhead 1” leads.',
   ])
 })
 

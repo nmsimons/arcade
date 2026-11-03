@@ -38,11 +38,12 @@ export function hubPlacard(door: Pick<CourseDoor, 'x' | 'y'>, lines: readonly st
 /**
  * Doors sit in the back wall with no collision. An open door is a dark doorway;
  * a locked one stays shut. Bulkheads carry a heavier frame and a striped lintel.
- * The editor shows every door open, with its destination on the placard.
+ * The editor shows every door open. Its placards come from the hub state when
+ * the studio supplies them, or else name the door or its destination.
  */
 export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[] }, hub: HubState | undefined, editor: boolean, paint: WorldPaint) {
   drawWallTexts(ctx, (level.evaluationBoards ?? []).map(({ x, y, w, h, id, name }): WallText => ({ x, y, w, h, fontSize: 14, align: 'left', style: 'terminal',
-    text: (editor ? [name ?? 'EVALUATION'] : hub?.placards.get(id) ?? []).join('\n') })), false, paint)
+    text: (hub?.placards.get(id) ?? (editor ? [name ?? 'EVALUATION'] : [])).join('\n') })), false, paint)
   const doors = [...level.courseDoors ?? [], ...level.bulkheads ?? []]
   for (const door of doors) {
     const b = hubDoorBounds(door), open = editor || !!hub?.open.has(door.id), bulkhead = 'to' in door, frame = bulkhead ? 7 : 3
@@ -58,5 +59,5 @@ export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors
     })
     if (open) paint(ctx, 0, () => drawDoorway(ctx, b, 1))
   }
-  drawWallTexts(ctx, doors.map(door => hubPlacard(door, editor ? [door.name ?? ('course' in door ? door.course : door.to)] : hub?.placards.get(door.id) ?? [])), false, paint)
+  drawWallTexts(ctx, doors.map(door => hubPlacard(door, hub?.placards.get(door.id) ?? (editor ? [door.name ?? ('course' in door ? door.course : door.to)] : []))), false, paint)
 }

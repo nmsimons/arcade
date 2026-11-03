@@ -11,7 +11,7 @@ function RestartIcon() {
 }
 
 /** In the facility, the pause screen offers moves within the building instead of the level menu. */
-export interface FacilityPauseActions { where: 'introduction' | 'course' | 'hub' | 'escape'; onLeave: () => void }
+export interface FacilityPauseActions { where: 'course' | 'hub' | 'escape'; onLeave: () => void }
 export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, facility, onResume, onRestart, onBuilder, onLevels, onExit }: {
   name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean; canEdit: boolean
   facility?: FacilityPauseActions
@@ -63,11 +63,9 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
         </> : <>
           <nav className="jumping-dialog-actions" aria-label="Pause actions">
             <button data-initial-focus onClick={onResume}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
-            {facility?.where === 'hub' ? null : <>
-              <button onClick={onRestart}>{facility ? facility.where === 'course' ? 'Restart course' : 'Restart from entrance' : challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
-              {/* The introduction leads only onward: the concourse is not open yet. */}
-              {!facility ? <button onClick={onLevels}>Level menu</button> : facility.where !== 'introduction' && <button onClick={facility.onLeave}>{facility.where === 'escape' ? 'Return to the facility' : 'Leave course'}</button>}
-            </>}
+            {/* A facility area restarts where the robot came in: its door, or the opening's pod. */}
+            <button onClick={onRestart}>{facility ? facility.where === 'course' ? 'Restart course' : facility.where === 'hub' ? 'Restart area' : 'Restart from entrance' : challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
+            {!facility ? <button onClick={onLevels}>Level menu</button> : facility.where !== 'hub' && <button onClick={facility.onLeave}>{facility.where === 'escape' ? 'Return to the facility' : 'Leave course'}</button>}
             <button onClick={() => setControls(true)}>Controls</button>
           </nav>
         </>}

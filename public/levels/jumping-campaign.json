@@ -1,7 +1,6 @@
 {
   "version": 1,
   "opening": "lab-orientation",
-  "introduction": [],
   "concourse": "facility-concourse",
   "wings": [
     {

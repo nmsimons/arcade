@@ -14,7 +14,7 @@ import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { MAX_CURVE_POINTS, terrainCurveOutline } from './terrainCurves.ts'
-import { chargingBayBounds, entranceDoor, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
@@ -76,7 +76,6 @@ export interface JumpLevel {
   environment?: LevelEnvironment
   entrance: Entrance; checkpoints: Checkpoint[]; platforms: Platform[]
   /** Where re-entering this level from the facility starts: an ordinary doorway, usually near its exit. */
-  returnEntrance?: Entrance
   timing?: 'untimed'
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
@@ -164,13 +163,6 @@ export function snapToGround(level: JumpLevel, x: number, y: number): Checkpoint
 export function spawnProblem(level: JumpLevel): string | null {
   if (!entranceFits(level.entrance, levelTerrain(level), level.width, levelHeight(level)))
     return `Place ${objectReference(level, 'entrance')} on a continuous flat surface, with a clear doorway inside the level.`
-  if (level.returnEntrance && !entranceFits(level.returnEntrance, levelTerrain(level), level.width, levelHeight(level)))
-    return 'Place the return entrance on a continuous flat surface, with a clear doorway inside the level.'
-  if (level.returnEntrance && level.goal && !level.goal.kind) {
-    const door = goalDoor(level.goal), start = entranceDoor(level.returnEntrance)
-    if (Math.abs(level.returnEntrance.y - level.goal.y) < 2 && start.x < door.x + door.w + 30 && start.x + start.w > door.x - 30)
-      return 'Keep the return entrance clear of the exit doorway, or the robot would leave as it arrives.'
-  }
   return null
 }
 export function levelProblems(level: JumpLevel): string[] {
@@ -252,27 +244,28 @@ export function levelProblems(level: JumpLevel): string[] {
 }
 
 /**
- * Hubs are the building between courses. Course equipment (coins, coin
- * switches, clocks, time pickups) and carried gadgets stay in the courses.
+ * Hubs are the building between courses: untimed areas left only through
+ * their doors. Timing equipment (coins, coin switches, clocks and time
+ * pickups) stays in the courses; tools and EMP charges may appear in either.
  */
 function hubProblems(level: HubLevel, terrain: Platform[]): string[] {
   const issues: string[] = [], height = levelHeight(level)
-  const label = (kind: string, item: { id: string; name?: string }) => `${kind} “${item.name ?? item.id}”`
-  for (const door of level.courseDoors) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${label('course door', door)} on a continuous flat surface, with a clear doorway inside the level.`)
-  for (const door of level.bulkheads) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${label('bulkhead', door)} on a continuous flat surface, with a clear doorway inside the level.`)
+  for (const [i, door] of level.courseDoors.entries()) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${objectReference(level, 'course-door', i)} on a continuous flat surface, with a clear doorway inside the level.`)
+  for (const [i, door] of level.bulkheads.entries()) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${objectReference(level, 'bulkhead', i)} on a continuous flat surface, with a clear doorway inside the level.`)
   const courses = new Set<string>()
-  for (const door of level.courseDoors) {
-    if (courses.has(door.course)) issues.push(`Two course doors lead to “${door.course}”. Give each course one door.`)
+  for (const [i, door] of level.courseDoors.entries()) {
+    if (!door.course) issues.push(`Choose the level that ${objectReference(level, 'course-door', i)} leads to.`)
+    else if (courses.has(door.course)) issues.push(`Two level doors lead to “${door.course}”. Give each level one door.`)
     courses.add(door.course)
   }
+  for (const [i, door] of level.bulkheads.entries()) if (!door.to) issues.push(`Choose where ${objectReference(level, 'bulkhead', i)} leads.`)
   const equipment = [
     level.pickups?.some(p => p.kind === 'coin') && 'coins',
     level.triggers.some(t => t.mode === 'coins') && 'coin switches',
     level.timers?.length && 'wall clocks',
-    level.pickups?.some(p => p.kind !== 'coin') && 'time pickups and EMP charges',
-    level.props.some(p => p.gadget) && 'carried gadgets',
+    level.pickups?.some(p => p.kind !== 'coin' && p.kind !== 'emp') && 'time pickups',
   ].filter(Boolean)
-  if (equipment.length) issues.push(`Remove the ${equipment.join(', ')}. Course equipment stays in the courses.`)
+  if (equipment.length) issues.push(`Remove the ${equipment.length > 1 ? `${equipment.slice(0, -1).join(', ')} and ${equipment.at(-1)}` : equipment[0]}. Timing equipment stays in the courses.`)
   return issues
 }
 
@@ -403,11 +396,6 @@ export function parseLevel(value: unknown): JumpLevel {
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
     platforms, entrance: { ...entrance, ...(entranceKind ? { kind: entranceKind as 'charging-bay' } : {}) }, checkpoints, climbables: { ladders, ropes },
     ...(v.timing ? { timing: v.timing as 'untimed' } : {}) }
-  if (v.returnEntrance !== undefined) {
-    if (object(v.returnEntrance).kind !== undefined) fail()
-    level.returnEntrance = point(v.returnEntrance)
-    if (level.returnEntrance.x > width) fail()
-  }
   if (v.toggleGroups !== undefined) level.toggleGroups = parseToggleGroups(v.toggleGroups, fail)
   if (v.floorMaterial !== undefined) {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()
@@ -562,12 +550,12 @@ export function parseLevel(value: unknown): JumpLevel {
       }
       level.courseDoors = list(v.courseDoors ?? [], MAX_COURSE_DOORS).map(item => {
         const { d, base } = hubObject(item)
-        if (typeof d.course !== 'string' || !d.course || d.course.length > 100) fail()
+        if (typeof d.course !== 'string' || d.course.length > 100) fail()
         return { ...base, course: d.course as string }
       })
       level.bulkheads = list(v.bulkheads ?? [], MAX_BULKHEADS).map(item => {
         const { d, base } = hubObject(item)
-        if (typeof d.to !== 'string' || !HUB_TARGET.test(d.to)) fail()
+        if (typeof d.to !== 'string' || d.to && !HUB_TARGET.test(d.to)) fail()
         return { ...base, to: d.to as string }
       })
       level.evaluationBoards = list(v.evaluationBoards ?? [], MAX_EVALUATION_BOARDS).map(item => {

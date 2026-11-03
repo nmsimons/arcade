@@ -1,6 +1,7 @@
 import { allSelections, carryWallTerminals, clamp, deleteItem, itemBounds, itemDefinition, itemOutline, moveItem, reorderTerrain, transformTerrain } from './editor.ts'
 import type { Selection, TerrainTransform } from './editor.ts'
-import { copyLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
+import { copyLevel, isHubLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
+import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS } from './hub.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
 import { lineBlocked, polygonIntersects, polygonPoints } from './geometry.ts'
@@ -21,6 +22,7 @@ export interface EditorClipboard { level: JumpLevel; selections: Selection[] }
 export const sameSelection = (a: Selection, b: Selection) => a.kind === b.kind && a.index === b.index
 const key = (s: Selection) => `${s.kind}:${s.index}`
 export const copyableSelection = (s: Selection) => s.kind !== 'entrance' && s.kind !== 'goal'
+const hubKinds: readonly Selection['kind'][] = ['course-door', 'bulkhead', 'evaluation-board']
 
 export function validSelections(level: JumpLevel, selections: readonly Selection[]): Selection[] {
   const seen = new Set<string>()
@@ -80,7 +82,8 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'light') return level.lighting!.lights as unknown as Item[]
   if (kind === 'entrance' || kind === 'goal') throw new Error('Entrance and exit doors are unique.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
-    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields' } as const
+    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields',
+    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards' } as const
   const record = level as unknown as Record<string, unknown>
   return (record[fields[kind]] ??= []) as Item[]
 }
@@ -105,7 +108,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
   let left = -Infinity, right = Infinity, top = -Infinity, bottom = Infinity
   for (const s of items) {
     const raw = itemBounds(level, s)!, b = s.kind === 'goal' ? goalBounds(level.goal!) : s.kind === 'rope' ? { ...raw, h: 0 }
-      : s.kind === 'text' ? itemOutline(level, s)! : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
+      : s.kind === 'text' || s.kind === 'course-door' || s.kind === 'bulkhead' ? itemOutline(level, s)! : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
     left = Math.max(left, margin - b.x); right = Math.min(right, level.width - margin - b.x - b.w)
     top = Math.max(top, -b.y); bottom = Math.min(bottom, levelHeight(level) - b.y - b.h)
     if (s.kind === 'platform') for (const ladder of level.climbables.ladders) if (ladder.platform === s.index) {
@@ -131,7 +134,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
   }
   syncPressurePlateMounts(next)
   // A marker resting on two selected blocks must be carried only once.
-  for (const s of allSelections(level).filter(s => ['entrance', 'checkpoint', 'goal'].includes(s.kind))) {
+  for (const s of allSelections(level).filter(s => ['entrance', 'checkpoint', 'goal', 'course-door', 'bulkhead'].includes(s.kind))) {
     if (selected.has(key(s))) continue
     const marker = itemDefinition(level, s) as unknown as { x: number; y: number }
     const supportX = s.kind === 'goal' ? (() => { const b = goalBounds(level.goal!); return b.x + b.w / 2 })() : marker.x
@@ -197,11 +200,13 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
   return { level: copyLevel(level), selections: validSelections(level, selections).filter(copyableSelection) }
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
-  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40 }
+  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40,
+  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
   const source = clipboard.level, originals = validSelections(source, clipboard.selections).filter(copyableSelection)
   if (!originals.length) return { level, selections: [] }
+  if (originals.some(s => hubKinds.includes(s.kind)) && !isHubLevel(level)) throw new Error('Level doors, bulkheads and evaluation boards belong in facility areas. Change Type in the Level settings first.')
   let next = copyLevel(level)
   if (originals.some(s => s.kind === 'back-wall')) next = prepareBackWall(next)
   if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'logic-relay', 'float-switch', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)

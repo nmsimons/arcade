@@ -59,9 +59,10 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   await until(p => p.x <= center + 150)
   await page.keyboard.down('Shift'); await until(p => p.x <= center + 10)
   await page.keyboard.up('ArrowLeft'); await page.keyboard.up('Shift')
-  // Stay in the opening while the delivered float finishes settling.
+  // Stay in the opening while the delivered float finishes settling, then go through with Up.
+  await page.keyboard.down('ArrowUp')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
   for (let frame = 0; frame < 20 / .048 && !await complete.isVisible(); frame++) await advanceJumpingSimulation(page, 48)
-  await expect(complete).toBeVisible()
+  await expect(complete).toBeVisible(); await page.keyboard.up('ArrowUp')
   expect(errors).toEqual([])
 })

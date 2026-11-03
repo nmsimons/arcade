@@ -22,7 +22,7 @@ async function start(page) {
   await finishJumpingEntrance(page)
 }
 async function finish(page) {
-  await page.keyboard.down('d'); await page.clock.runFor(2800); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(2800); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible()
 }
 

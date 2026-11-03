@@ -437,6 +437,12 @@ edge by one body width; props cannot complete it. The camera's right edge stays
 at the map boundary, with no automatic doorway step or player fade. Other level
 boundaries and normal movement contacts keep their existing rules.
 
+Every door is entered with Up while the robot stands grounded in its open
+doorway: the exit, the bus's boarding entrance, and a facility area's level
+doors and bulkheads. Walking past a door never enters it. At the exit and the
+bus, Up held on the way in enters on arrival; level doors and bulkheads need a
+fresh press, because they stand in rows and the robot steps out of them.
+
 Levels begin through a 40-by-80 entrance door, without the exit's indicator.
 Its sill needs continuous flat terrain and an unobstructed doorway. During
 the 1.35-second entrance, a separate presentation actor emerges using the ordinary

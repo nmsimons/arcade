@@ -44,7 +44,7 @@ test('Company reveals its sleeping response unit and completes the rope escape w
   while ((await motion(page)).y > 151 && samples++ < 15) await page.clock.runFor(80)
   await page.keyboard.up('ArrowUp')
   expect((await motion(page)).y).toBeLessThanOrEqual(151)
-  await page.keyboard.down('ArrowRight'); await page.clock.runFor(4000); await page.keyboard.up('ArrowRight')
+  await page.keyboard.down('ArrowRight'); await page.keyboard.down('ArrowUp'); await page.clock.runFor(4000); await page.keyboard.up('ArrowRight'); await page.keyboard.up('ArrowUp')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('company-complete.png') })
   expect(errors).toEqual([])

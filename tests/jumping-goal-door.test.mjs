@@ -39,7 +39,7 @@ test('a ball in front of the doorway cannot prevent entry or pull the player thr
     level.props = [{ kind: 'box', x: 700, y: 920, size: 40 }, { kind: 'ball', x: center + direction * 30, y: 920, size: 68 }]
     level.entrance.x = center - direction * 18
     const run = createRun(level), p = run.player; run.started = true
-    for (let i = 0; i < 60 && !run.exit; i++) stepRun(run, NEUTRAL_INPUT)
+    for (let i = 0; i < 60 && !run.exit; i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true })
     assert.equal(run.goalLit, true); assert.equal(run.goalElapsed, GOAL_OPEN_SECONDS); assert.ok(run.exit)
     assert.ok(Math.abs(run.exit.toX - center) > 3, 'entry does not require a blocked center point')
     for (let i = 0; i < Math.ceil(GOAL_EXIT_SECONDS / STEP) + 1; i++) {
@@ -50,12 +50,30 @@ test('a ball in front of the doorway cannot prevent entry or pull the player thr
   }
 })
 
+test('the open exit is entered with Up, held or pressed, and walking past never enters it', () => {
+  const level = blankTrial(); level.goal.x = 500; level.entrance.x = 450
+  const passing = createRun(level)
+  for (let i = 0; i < 240; i++) stepRun(passing, { ...NEUTRAL_INPUT, move: 1 })
+  assert.equal(passing.exit, null); assert.ok(passing.player.x > goalDoor(level.goal).x + 100, 'the robot walks on past the doorway')
+  // Holding Up on the way in enters on arrival, at the same moment walking in once did.
+  const held = createRun(level)
+  for (let i = 0; i < 240 && !held.exit; i++) stepRun(held, { ...NEUTRAL_INPUT, move: 1, climb: true })
+  assert.ok(held.exit)
+  // Standing in the doorway, a press enters too.
+  const standing = createRun(level), door = goalDoor(level.goal)
+  standing.started = true; Object.assign(standing.player, { x: door.x + door.w / 2, y: level.goal.y })
+  for (let i = 0; i < 60; i++) stepRun(standing, NEUTRAL_INPUT)
+  assert.equal(standing.exit, null)
+  stepRun(standing, { ...NEUTRAL_INPUT, climb: true })
+  assert.ok(standing.exit)
+})
+
 test('the short exit preserves the walking rig and foot contacts instead of switching to a separate pose', () => {
   const level = blankTrial(); level.goal.x = 500; level.entrance.x = 450
   const run = createRun(level), p = run.player
   let previous = null, entered = false
   for (let i = 0; i < 240 && !run.finished; i++) {
-    stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
+    stepRun(run, { ...NEUTRAL_INPUT, move: 1, climb: true })
     const pose = athletePose(p)
     if (run.exit) {
       entered = true; assert.ok(p.anim.footwork)

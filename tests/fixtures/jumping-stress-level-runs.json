@@ -266,9 +266,16 @@
           "input": {}
         },
         {
-          "frames": 113,
+          "frames": 9,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ],
@@ -543,9 +550,16 @@
           "input": {}
         },
         {
-          "frames": 115,
+          "frames": 11,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ],
@@ -596,9 +610,16 @@
           }
         },
         {
-          "frames": 137,
+          "frames": 33,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]
@@ -648,9 +669,16 @@
           }
         },
         {
-          "frames": 137,
+          "frames": 33,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]

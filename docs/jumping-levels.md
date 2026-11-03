@@ -710,6 +710,9 @@ at cliffs and walls. A gate can slide past a ball touching its side while still
 stopping before it would crush a prop beneath it.
 
 The goal is an exit door with a pole indicator; it has no built-in pressure plate.
+Like every door, the open exit is entered with **Up** while the robot stands in
+its doorway; walking past it does nothing. Holding Up on the way in enters on
+arrival, so the press costs no time against the deadlines.
 Select it in the builder to choose **Power: Always on** (the default) or **Switched**.
 Always-on exits start fully open. Switched exits use the same **Switched by** and
 **Activates** connections as gates, platforms, and spotlights. Its switch logic
@@ -1705,9 +1708,9 @@ For a bus exit, choose **Level → Timing → Finish → Bus stop (untimed)**. S
 `goal: { "kind": "bus", "x": <rear center>, "y": <ground height> }`. Provide
 continuous flat ground from X − 184 to X + 76 and 144 units of clear space
 above it, all inside the level. The bus uses always-on power and does not flip.
-It is visible during normal play, studio editing, and thumbnails. Walk into
-the open boarding entrance on its left side to finish; no Up press or map-edge
-crossing is required. Jumping above it does not board.
+It is visible during normal play, studio editing, and thumbnails. Press Up in
+the open boarding entrance on its left side to finish, as at any door; no
+map-edge crossing is required. Jumping above it does not board.
 
 Boarding saves completion and starts the departure in the same level view.
 There is no automatic approach, camera reveal, or replacement scenery. The

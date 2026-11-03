@@ -85,7 +85,7 @@ test('Wake pauses and restarts its awakening, completes with normal keys, and re
   await page.clock.runFor(1030)
   await page.clock.runFor(900)
   await page.screenshot({ path: info.outputPath('wake-energized.png') })
-  await page.clock.runFor(3900); await page.keyboard.up('ArrowRight')
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(3900); await page.keyboard.up('ArrowRight'); await page.keyboard.up('ArrowUp')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible()
   await expect(page.locator('.jumping-result-targets')).toHaveCount(0)
   await expect(page.locator('.jumping-result-time')).toHaveCount(0)

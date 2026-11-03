@@ -189,9 +189,16 @@
           }
         },
         {
-          "frames": 298,
+          "frames": 194,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]
@@ -1398,8 +1405,14 @@
           }
         },
         {
-          "frames": 446,
+          "frames": 342,
           "input": {}
+        },
+        {
+          "frames": 104,
+          "input": {
+            "climb": true
+          }
         }
       ]
     },
@@ -1499,9 +1512,16 @@
           }
         },
         {
-          "frames": 293,
+          "frames": 189,
           "input": {
             "move": -1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": -1,
+            "climb": true
           }
         }
       ]
@@ -2211,11 +2231,20 @@
           "input": {}
         },
         {
-          "frames": 274,
+          "frames": 170,
           "input": {
             "move": 1,
             "drop": true,
             "detach": true
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true,
+            "climb": true
           }
         }
       ]
@@ -2253,14 +2282,23 @@
           }
         },
         {
-          "frames": 641,
+          "frames": 558,
           "input": {
             "move": 1
           }
         },
         {
+          "frames": 83,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
           "frames": 21,
-          "input": {}
+          "input": {
+            "climb": true
+          }
         }
       ]
     },
@@ -3060,11 +3098,20 @@
           "input": {}
         },
         {
-          "frames": 278,
+          "frames": 174,
           "input": {
             "move": 1,
             "drop": true,
             "detach": true
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true,
+            "climb": true
           }
         }
       ]
@@ -3824,8 +3871,14 @@
           }
         },
         {
-          "frames": 193,
+          "frames": 89,
           "input": {}
+        },
+        {
+          "frames": 104,
+          "input": {
+            "climb": true
+          }
         }
       ]
     }
@@ -4037,8 +4090,14 @@
           }
         },
         {
-          "frames": 160,
+          "frames": 56,
           "input": {}
+        },
+        {
+          "frames": 104,
+          "input": {
+            "climb": true
+          }
         }
       ]
     }

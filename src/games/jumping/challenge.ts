@@ -540,7 +540,9 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   }
   const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
   const door = goalDoor(goal)
-  if (!p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
+  // Like every door, the open exit is entered with Up. Holding Up on the way
+  // in enters on arrival, so a held press costs no time.
+  if (input.climb && !p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
     && !exitObstacles.some(b => bodyOverlap(p, b))) {
     // This is a doorway in the back wall. Reaching it permits entry even when

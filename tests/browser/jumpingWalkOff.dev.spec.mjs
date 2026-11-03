@@ -69,7 +69,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     expect((await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))).x).toBeCloseTo(level.entrance.x)
     await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toHaveCount(0)
     await page.screenshot({ path: info.outputPath('exit-final-approach.png') })
-    await page.keyboard.down('ArrowRight')
+    await page.keyboard.down('ArrowRight'); await page.keyboard.down('ArrowUp')
     const departure = page.getByRole('status', { name: 'Bus departure', exact: true })
     for (let elapsed = 0; elapsed < 8000 && !await departure.count(); elapsed += 160) await page.clock.runFor(160)
     await expect(departure).toHaveCount(1)

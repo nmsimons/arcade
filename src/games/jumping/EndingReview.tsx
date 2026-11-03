@@ -40,7 +40,7 @@ export default function EndingReview() {
       advanceBusEnding(scene.current, at)
     }
     world.current = prepared; modeRef.current = kind
-    setMode(kind); setTime(at); setPhase(scene.current ? busEndingFrame(scene.current).phase : 'Walk right to board')
+    setMode(kind); setTime(at); setPhase(scene.current ? busEndingFrame(scene.current).phase : 'Walk right and press Up to board')
     canvas.current.focus({ preventScroll: true })
   }, [])
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function EndingReview() {
       }).catch(reason => { if (!abort.signal.aborted) setError(String(reason)) })
     const keydown = (event: KeyboardEvent) => {
       if (event.altKey || event.ctrlKey || event.metaKey || document.activeElement !== node) return
-      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'KeyA', 'KeyD', 'KeyW', 'Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
         event.preventDefault(); held.current.add(event.code)
       }
     }
@@ -74,7 +74,8 @@ export default function EndingReview() {
           if (!scene.current) {
             accumulator += dt
             while (accumulator >= STEP && !run.finished) {
-              stepRun(run, { ...NEUTRAL_INPUT, move: keyboardMovement(held.current), jump: held.current.has('Space') })
+              // Up boards the bus, as it enters any door.
+              stepRun(run, { ...NEUTRAL_INPUT, move: keyboardMovement(held.current), jump: held.current.has('Space'), climb: held.current.has('ArrowUp') || held.current.has('KeyW') })
               accumulator -= STEP
               if (run.exit) setPhase('Boarding the bus')
             }

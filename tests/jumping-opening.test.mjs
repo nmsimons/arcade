@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRun, createPreviewRun, stepRun, BEST_TIME_KEY } from '../src/games/jumping/challenge.ts'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { AWAKENING_SECONDS, awakeningPower, awakeningProgress, chargingBayOpening, entranceBounds, entranceDoor } from '../src/games/jumping/goal.ts'
+import { AWAKENING_SECONDS, awakeningPower, awakeningProgress, chargingBayOpening, entranceBounds, entranceDoor, goalDoor } from '../src/games/jumping/goal.ts'
 import { awakeningCamera, gameCamera } from '../src/games/jumping/camera.ts'
 import { itemOutline, hitItem } from '../src/games/jumping/editor.ts'
 import { awakeningPose, athletePose } from '../src/games/jumping/athlete.ts'
@@ -99,9 +99,10 @@ test('the robot wakes inside the raised pod and can hop down to the room without
 
 test('the opening completes with ordinary running and a held jump; time and medals remain absent', () => {
   for (const move of [1, .5]) {
-    const run = createRun(opening())
+    const run = createRun(opening()), door = goalDoor(run.level.goal)
     for (let frame = 0; frame < 2400 && !run.finished; frame++) {
-      stepRun(run, { ...NEUTRAL_INPUT, move: run.started ? move : 0, jump: run.started && run.player.x > 780 && run.player.x < 1050 })
+      // Up enters the exit once the robot reaches its doorway.
+      stepRun(run, { ...NEUTRAL_INPUT, move: run.started ? move : 0, jump: run.started && run.player.x > 780 && run.player.x < 1050, climb: run.player.x > door.x - 20 })
     }
     assert.equal(run.finished, true)
     assert.equal(run.triggers[0].active, true, 'crossing the switch latches access without stopping')

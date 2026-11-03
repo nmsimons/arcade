@@ -26,9 +26,13 @@ test('a bus is an untimed goal with a supported, clear walk-in entrance', () => 
   assert.deepEqual(levelProblems(selected), [])
 })
 
-for (const rate of [30, 120]) test(`walking onto the bus boards and finishes inside the level at ${rate} Hz`, () => {
+for (const rate of [30, 120]) test(`Up at the bus door boards and finishes inside the level at ${rate} Hz`, () => {
+  // Like every door, the boarding entrance needs Up; walking past it does not board.
+  const passing = createRun(busLevel())
+  for (let i = 0; i < rate * 7; i++) stepRun(passing, { ...NEUTRAL_INPUT, move: 1 }, 1 / rate)
+  assert.equal(passing.exit, null)
   const run = createRun(busLevel())
-  for (let i = 0; i < rate * 7 && !run.finished; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 }, 1 / rate)
+  for (let i = 0; i < rate * 7 && !run.finished; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1, climb: true }, 1 / rate)
   assert.equal(run.finished, true); assert.ok(run.exit)
   assert.equal(run.player.x, run.level.goal.x - 34)
   assert.ok(run.player.x < run.level.width, 'boarding finishes before the map boundary')

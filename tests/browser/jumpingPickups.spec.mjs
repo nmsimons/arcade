@@ -71,7 +71,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   await restartFromPause(page); await page.clock.runFor(64)
   expect((await state(page)).scales).toEqual([1, 1])
   expect((await state(page)).times).toEqual(['01:00', '01:00'])
-  await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
   await expect(page.getByText('Grade A', { exact: true })).toBeVisible()
   await expect(page.locator('.jumping-result-time')).toHaveText(/^0:00\./)

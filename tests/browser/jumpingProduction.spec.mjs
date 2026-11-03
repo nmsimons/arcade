@@ -27,7 +27,7 @@ test('published LAB offers play and progress without authoring or folder control
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: 'Level studio', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Resume', exact: false }).click()
-  await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: /builder|studio/i })).toHaveCount(0)
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.completed.v1'))['production-opening'])).toBe(true)

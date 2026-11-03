@@ -68,7 +68,7 @@ test('bonuses can improve the medal before exit entry, but never after the score
   stepRun(run, NEUTRAL_INPUT)
   assert.ok(run.goalLit); assert.ok(run.elapsed < 7)
   run.goalElapsed = 1; run.player.x = goalDoor(level.goal).x + goalDoor(level.goal).w / 2
-  stepRun(run, NEUTRAL_INPUT)
+  stepRun(run, { ...NEUTRAL_INPUT, climb: true })
   assert.ok(run.exit); assert.equal(run.grade, 'A')
   const score = run.elapsed
   run.pickups.push({ definition: bonus(9, run.player.x), collectedAge: null })

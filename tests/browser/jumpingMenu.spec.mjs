@@ -202,8 +202,8 @@ test('completion actions retain accessible selection and reflow with enlarged te
   await open(page, false, maps)
   await page.getByRole('button', { name: 'Play First room', exact: true }).click()
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
-  // Cross the plate and continue through the exit door beside it.
-  await page.keyboard.down('d'); await page.clock.runFor(2500); await page.keyboard.up('d')
+  // Cross the plate and continue through the exit door beside it, holding Up to enter.
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(2500); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
   await page.mouse.move(0, 0)
   const names = ['Next level', 'Try again', 'Level menu', 'Back to arcade']

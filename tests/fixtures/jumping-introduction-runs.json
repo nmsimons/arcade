@@ -20,9 +20,16 @@
           }
         },
         {
-          "frames": 270,
+          "frames": 166,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ],
@@ -1380,9 +1387,16 @@
           }
         },
         {
-          "frames": 292,
+          "frames": 188,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ],

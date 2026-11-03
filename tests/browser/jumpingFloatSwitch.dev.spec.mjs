@@ -90,6 +90,6 @@ test('normal controls raise water and grav floats, open the exit, drain and rest
   expect(await contacts()).toEqual({'420':false,'950':false})
   await walkTo(320); await page.clock.runFor(3000)
   await walkTo(870); await page.clock.runFor(1000)
-  await page.keyboard.down('d'); await page.clock.runFor(5000); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(5000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog',{name:'Level complete',exact:true})).toBeVisible()
 })

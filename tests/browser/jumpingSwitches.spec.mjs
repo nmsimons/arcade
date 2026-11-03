@@ -142,7 +142,7 @@ for (const [behavior, startsOn] of [['pressure', false], ['switch', false], ['sw
       await walkTo(page, 650); await walkTo(page, 420); expect(await on()).toBe(true)
     }
     if (behavior !== 'pressure' && !(behavior === 'switch' && startsOn)) {
-      await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
+      await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
       await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
     }
     if (await page.getByRole('dialog', { name: 'Level complete' }).count()) await page.getByRole('button', { name: 'Try again', exact: true }).click()
@@ -165,6 +165,6 @@ test('always-on exits and moving mechanisms start in their authored state and th
   expect(await canvas.evaluate(c => c.liftY)).toBeLessThan(600)
   expect(await canvas.evaluate(c => c.platformX)).toBeGreaterThan(950)
   await page.screenshot({ path: info.outputPath('always-on.png') })
-  await page.keyboard.down('d'); await page.clock.runFor(6000); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(6000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
 })

@@ -442,6 +442,9 @@ doorway: the exit, the bus's boarding entrance, and a facility area's level
 doors and bulkheads. Walking past a door never enters it. At the exit and the
 bus, Up held on the way in enters on arrival; level doors and bulkheads need a
 fresh press, because they stand in rows and the robot steps out of them.
+Each open door shows a large, faint up arrow in its doorway that slowly
+breathes and lifts. Closed and blocked doors show none, and neither does the
+studio's editing view.
 
 Levels begin through a 40-by-80 entrance door, without the exit's indicator.
 Its sill needs continuous flat terrain and an unobstructed doorway. During

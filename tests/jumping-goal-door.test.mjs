@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
-import { goalBounds, goalDoor, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
-import { drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
+import { DOOR_ARROW_PERIOD, drawDoorArrow, goalBounds, goalDoor, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
+import { doorArrows, drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
+import { hubDoorBounds } from '../src/games/jumping/hub.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
@@ -85,4 +86,38 @@ test('the short exit preserves the walking rig and foot contacts instead of swit
   }
   assert.ok(entered && run.finished)
   assert.ok(GOAL_EXIT_SECONDS < 1)
+})
+
+test('open doors that Up goes through show an up arrow; closed and blocked doors do not', () => {
+  const run = createRun(blankTrial())
+  for (let i = 0; i < 60; i++) stepRun(run, NEUTRAL_INPUT)
+  assert.deepEqual(doorArrows(run), { walls: [goalDoor(run.level.goal)], bus: undefined }, 'the open exit')
+  assert.deepEqual(doorArrows(run, true).walls, [], 'the studio draws no arrows')
+  // A switched exit shows its arrow only once it opens.
+  const switched = blankTrial(); switched.goal = { ...switched.goal, id: 'exit', power: 'switched' }
+  const locked = createRun(switched)
+  for (let i = 0; i < 60; i++) stepRun(locked, NEUTRAL_INPUT)
+  assert.deepEqual(doorArrows(locked).walls, [])
+  // The arrow leaves as the robot goes through.
+  const door = goalDoor(run.level.goal); run.player.x = door.x + door.w / 2
+  stepRun(run, { ...NEUTRAL_INPUT, climb: true }); assert.ok(run.exit)
+  assert.deepEqual(doorArrows(run).walls, [])
+  // In a facility area, only open level doors and bulkheads show one.
+  const hub = createRun({ ...blankTrial(), kind: 'hub', timing: 'untimed', goal: undefined, times: undefined,
+    courseDoors: [{ id: 'open', x: 600, y: 920, course: 'a' }, { id: 'locked', x: 900, y: 920, course: 'b' }],
+    bulkheads: [{ id: 'bulk', x: 1200, y: 920, to: 'concourse' }], evaluationBoards: [], wallDoors: [{ x: 1400, y: 920, condition: 'jammed' }] })
+  hub.hub.open.add('open'); hub.hub.open.add('bulk')
+  assert.deepEqual(doorArrows(hub).walls, [hubDoorBounds(hub.level.courseDoors[0]), hubDoorBounds(hub.level.bulkheads[0])])
+})
+
+test('the door arrow stays inside its doorway as it breathes and lifts', () => {
+  const door = { x: 100, y: 200, w: 40, h: 80 }
+  for (const time of [0, DOOR_ARROW_PERIOD / 4, DOOR_ARROW_PERIOD / 2]) {
+    const points = [], alphas = []
+    const ctx = { globalAlpha: 1, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, closePath() {}, fill() { alphas.push(this.globalAlpha) },
+      moveTo(x, y) { points.push([x, y]) }, lineTo(x, y) { points.push([x, y]) } }
+    drawDoorArrow(ctx, door, time)
+    assert.ok(points.every(([x, y]) => x > door.x && x < door.x + door.w && y > door.y && y < door.y + door.h))
+    assert.ok(alphas[0] > .05 && alphas[0] <= .2, 'faint')
+  }
 })

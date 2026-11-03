@@ -149,6 +149,26 @@ export function drawDoorway(ctx: CanvasRenderingContext2D, door: ReturnType<type
     ctx.strokeRect(door.x, door.y, door.w, door.h); ctx.restore()
   }
 }
+export const DOOR_ARROW_PERIOD = 2.4
+/**
+ * Every open door that Up goes through shows a large, faint up arrow that
+ * slowly breathes and lifts inside the dark doorway. It never leaves the opening.
+ */
+export function drawDoorArrow(ctx: CanvasRenderingContext2D, door: { x: number; y: number; w: number; h: number }, time: number) {
+  const pulse = .5 - .5 * Math.cos(time / DOOR_ARROW_PERIOD * Math.PI * 2)
+  const lift = pulse * door.h * .06, cx = door.x + door.w / 2
+  const top = door.y + door.h * .16 - lift, neck = top + door.w * .42, bottom = door.y + door.h * .84 - lift
+  const head = door.w * .36, shaft = door.w * .12
+  ctx.save()
+  ctx.beginPath(); ctx.rect(door.x, door.y, door.w, door.h); ctx.clip()
+  ctx.globalAlpha *= .09 + .11 * pulse
+  ctx.fillStyle = '#e4ece6'
+  ctx.beginPath()
+  ctx.moveTo(cx, top); ctx.lineTo(cx + head, neck); ctx.lineTo(cx + shaft, neck); ctx.lineTo(cx + shaft, bottom)
+  ctx.lineTo(cx - shaft, bottom); ctx.lineTo(cx - shaft, neck); ctx.lineTo(cx - head, neck); ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
 export function goalExitPosition(exit: GoalExit) {
   const t = 1 - (1 - Math.min(1, exit.elapsed / .3)) ** 3
   return exit.fromX + (exit.toX - exit.fromX) * t

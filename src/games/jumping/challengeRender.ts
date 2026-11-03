@@ -4,13 +4,13 @@ import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion, 
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallTexts } from './wallText.ts'
-import { drawHubDoors } from './hub.ts'
+import { drawHubDoors, hubDoorBounds } from './hub.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import type { BusEnding } from './busEnding.ts'
 import { drawBusGoal } from './busEndingRender.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, drawDoorArrow, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import type { AndroidAppearance } from './androidArtwork.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { gradeClock } from './grading.ts'
@@ -199,6 +199,19 @@ export function drawWaterBackdrop(ctx: CanvasRenderingContext2D, run: Run, paint
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, surface, run.waterSpaces.get(plate), 'background')
 }
 
+/** The open doors Up would go through now: the lit exit or bus door, and a facility area's open doors. */
+export function doorArrows(run: Run, editor = false) {
+  const walls: ReturnType<typeof goalDoor>[] = []
+  let bus: ReturnType<typeof goalDoor> | undefined
+  if (editor || !run.started || run.exit) return { walls, bus }
+  const goal = run.level.goal
+  if (goal && (!goal.kind || goal.kind === 'bus') && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS) {
+    if (goal.kind === 'bus') bus = goalDoor(goal); else walls.push(goalDoor(goal))
+  }
+  if (run.hub) for (const door of [...run.level.courseDoors ?? [], ...run.level.bulkheads ?? []]) if (run.hub.open.has(door.id)) walls.push(hubDoorBounds(door))
+  return { walls, bus }
+}
+
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
 export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: AndroidAppearance, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
   const { level, player: p } = run, goal = level.goal
@@ -225,6 +238,10 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     paint(ctx, 0, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime, run.failed) })
   }
   if (layer === 'wall') return
+  // Open doors show their animated up arrow over the doorway, behind every actor.
+  // The readable exposure keeps it visible, faintly, in the dark.
+  const arrows = doorArrows(run, editor)
+  for (const door of arrows.walls) paint(ctx, .65, () => drawDoorArrow(ctx, door, run.activeTime), true, door)
   paint(ctx, 0, () => {
     if (terrainArtwork) terrainArtwork(ctx)
     else drawTerrain(ctx, run.terrain, level.platforms, level)
@@ -267,6 +284,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
   if (!editor) drawGadgets(ctx, run, paint, playerExposure)
   if (goal?.kind === 'bus') drawGoal(ctx, goal, run.goalLit, paint, run.busDeparture, run.exit?.elapsed ?? 0)
+  // The bus's boarding door is part of the bus, so its arrow goes over the bus.
+  if (arrows.bus) paint(ctx, .65, () => drawDoorArrow(ctx, arrows.bus!, run.activeTime), true, arrows.bus)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)

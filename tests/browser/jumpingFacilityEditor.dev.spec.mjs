@@ -1,6 +1,30 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
-import { installBuiltInFixtures, useLevelFixtures, waitForBuilderPreview, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, installBuiltInFixtures, useLevelFixtures, waitForBuilderPreview, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+
+test('a facility area playtest ends at the door the robot takes and returns to the builder', async ({ page }) => {
+  test.setTimeout(90000)
+  // The robot starts in the bulkhead's doorway, so a fresh Up leads straight through.
+  const area = { version: 1, id: 'playtest-area', name: 'Annex area', kind: 'hub', timing: 'untimed', width: 1800, height: 920, floor: 920,
+    entrance: { x: 600, y: 920 }, platforms: [], checkpoints: [], climbables: { ladders: [], ropes: [] }, props: [], mechanisms: [], triggers: [], robots: [],
+    courseDoors: [], bulkheads: [{ id: 'way-out', name: 'Way out', x: 600, y: 920, to: 'concourse' }], evaluationBoards: [] }
+  await useLevelFixtures(page, [area]); await installBuiltInFixtures(page, { 'area.json': area })
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab')
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Open area.json', exact: true }).click()
+  await waitForBuilderPreview(page)
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
+  await expect(page.getByRole('img', { name: 'Annex area', exact: true })).toBeFocused()
+  await finishJumpingEntrance(page)
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(150); await page.keyboard.up('ArrowUp'); await page.clock.runFor(1500)
+  const dialog = page.getByRole('dialog', { name: 'Door taken', exact: true })
+  await expect(dialog).toContainText('Test complete.')
+  await expect(dialog.getByRole('status')).toHaveText('Left through Way out, which leads to the concourse.')
+  await dialog.getByRole('button', { name: 'Return to builder', exact: true }).click()
+  await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
+})
 
 test('a course becomes a facility area with level doors, bulkheads and a board, then a course again', async ({ page }, info) => {
   test.setTimeout(90000)

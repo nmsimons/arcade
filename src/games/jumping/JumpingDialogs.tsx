@@ -119,3 +119,33 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
     </div>
   </KeyboardDialog>
 }
+
+/**
+ * Outside the facility, as in a studio playtest, a facility area ends when the
+ * robot goes through one of its doors. There is no time or grade to report.
+ */
+export function JumpingDoorDialog({ name, door, testing, canEdit, onRetry, onBuilder, onLevels, onExit }: {
+  name: string; door: string; testing: boolean; canEdit: boolean
+  onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
+}) {
+  const builder = testing && canEdit
+  return <KeyboardDialog label="Door taken" focusKey="jumping-door" onClose={onRetry} className="jumping-overlay jumping-dialog-overlay">
+    <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
+      <header className="jumping-dialog-heading">
+        <p className="jumping-eyebrow">{name}</p>
+        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : 'Through the door.'}</h2>
+      </header>
+      <p className="jumping-result-door" role="status">{door}</p>
+      <nav className="jumping-dialog-actions jumping-result-actions" aria-label="Completion actions">
+        <button data-initial-focus onClick={builder ? onBuilder : onRetry}>{builder ? 'Return to builder' : <>Try again <RestartIcon /></>}</button>
+        {builder && <button onClick={onRetry}>Try again <RestartIcon /></button>}
+      </nav>
+      <footer className="jumping-result-destinations">
+        <nav className="jumping-dialog-actions" aria-label="Other destinations">
+          <button onClick={onLevels}>Level menu</button>
+          <button onClick={onExit}>Back to arcade</button>
+        </nav>
+      </footer>
+    </div>
+  </KeyboardDialog>
+}

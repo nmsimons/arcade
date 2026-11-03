@@ -40,7 +40,7 @@ import { levelFileName } from './jumping/levelFiles'
 import { useBuiltInLevels } from './jumping/builtInLevels'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { LevelProgress } from './jumping/LevelProgress'
-import { JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
+import { JumpingDoorDialog, JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_FACILITY, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import { JumpingAudioState } from './jumping/audioState'
@@ -160,6 +160,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   }
   const [audioState] = useState(() => new JumpingAudioState())
   const [result, setResult] = useState({ elapsed: 0, grade: 'A' })
+  const [doorTaken, setDoorTaken] = useState('')
   const [challenge, setChallenge] = useState(true)
   const [trial, setTrial] = useState<RunLevel>(initialRun.level)
   const savedTimes = useSyncExternalStore(subscribeGameStorage, () => {
@@ -463,6 +464,14 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       const next = campaign && nextPlace(campaign, place, run.current.hub?.departure ?? null, levelsById)
       if (next) enterPlace(next); else leaveFacility('That door leads nowhere yet.')
       return
+    }
+    // Elsewhere, as in a studio playtest, a facility area ends at its door with no record.
+    const departure = run.current.hub?.departure
+    if (run.current.hub) {
+      const to = !departure ? '' : 'course' in departure.door ? departure.door.course && (levelsById.get(departure.door.course)?.name ?? departure.door.course)
+        : departure.door.to === 'concourse' ? 'the concourse' : departure.door.to === 'opening' ? 'the opening' : departure.door.to && `the ${departure.door.to} wing`
+      setDoorTaken(`Left through ${departure?.door.name || (departure?.kind === 'bulkhead' ? 'a bulkhead' : 'a level door')}${to ? `, which leads to ${to}` : ''}.`)
+      changeScreen('complete'); return
     }
     const previousBest = bestTime(recordKey)
     setResult({ elapsed: run.current.elapsed, grade: run.current.grade ?? 'A' })
@@ -801,6 +810,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         <div className="jumping-notice-actions"><button onClick={cancelPreparation}>Cancel</button></div>
       </div>
     </KeyboardDialog>}
+    {screen === 'complete' && isHubLevel(trial) && <JumpingDoorDialog name={trial.name} door={doorTaken} testing={testing} canEdit={devEditing}
+      onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {screen === 'complete' && isPuzzleLevel(trial) && <JumpingResultDialog level={trial} elapsed={result.elapsed} grade={result.grade} best={best}
       testing={testing} saveError={saveError} onNext={!testing && result.grade !== 'F' && campaignIndex >= 0 && nextFile && unlocked.has(nextFile.fileName) ? () => playFile(nextFile) : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onExit={onExit}

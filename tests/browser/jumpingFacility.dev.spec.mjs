@@ -1,6 +1,11 @@
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { advanceJumpingSimulation, withoutIntermediateFrames } from './helpers/simulation.mjs'
+import { readFileSync } from 'node:fs'
+
+// The concourse's bulkhead to Orientation, wherever the layout puts it.
+const concourse = JSON.parse(readFileSync(new URL('../../public/levels/jumping/Concourse.jump-level.json', import.meta.url), 'utf8'))
+const toOrientation = concourse.bulkheads.find(bulkhead => bulkhead.id === 'concourse-to-opening')
 
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.facility.v1')))
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -57,7 +62,7 @@ test('the concourse and Orientation join through bulkheads, arriving at the far 
   await openFacility(page, {}, { kind: 'hub', level: 'facility-concourse', arrival: { kind: 'door', id: 'concourse-to-opening' } })
   const concourse = page.getByRole('img', { name: 'Concourse', exact: true })
   await expect(concourse).toBeVisible(); await finishJumpingEntrance(page)
-  expect(Math.abs((await motion(page)).x - 1970), 'steps out of the Orientation bulkhead').toBeLessThan(16)
+  expect(Math.abs((await motion(page)).x - toOrientation.x), 'steps out of the Orientation bulkhead').toBeLessThan(16)
   await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('concourse-orientation.png') })
 
   await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
@@ -72,7 +77,7 @@ test('the concourse and Orientation join through bulkheads, arriving at the far 
 
   await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
   await expect(concourse).toBeVisible(); await finishJumpingEntrance(page)
-  expect(Math.abs((await motion(page)).x - 1970), 'back out of the Orientation bulkhead').toBeLessThan(16)
+  expect(Math.abs((await motion(page)).x - toOrientation.x), 'back out of the Orientation bulkhead').toBeLessThan(16)
   expect(errors).toEqual([])
 })
 

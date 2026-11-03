@@ -2,39 +2,263 @@
   "version": 1,
   "id": "facility-concourse",
   "name": "Concourse",
-  "kind": "hub",
-  "timing": "untimed",
-  "width": 5650,
-  "height": 720,
-  "floor": 720,
-  "entrance": { "name": "From Orientation", "x": 1970, "y": 720 },
-  "platforms": [],
+  "width": 2000,
+  "height": 1900,
+  "platforms": [
+    {
+      "x": 100,
+      "y": 1480,
+      "w": 480,
+      "h": 40,
+      "material": "steel"
+    },
+    {
+      "x": 1420,
+      "y": 1480,
+      "w": 480,
+      "h": 40,
+      "zIndex": 1,
+      "material": "steel"
+    },
+    {
+      "x": 760,
+      "y": 1480,
+      "w": 480,
+      "h": 40,
+      "zIndex": 2,
+      "material": "steel"
+    },
+    {
+      "x": 100,
+      "y": 760,
+      "w": 480,
+      "h": 40,
+      "zIndex": 3,
+      "material": "steel"
+    },
+    {
+      "x": 760,
+      "y": 760,
+      "w": 480,
+      "h": 40,
+      "zIndex": 5,
+      "material": "steel"
+    },
+    {
+      "x": 1420,
+      "y": 760,
+      "w": 480,
+      "h": 40,
+      "zIndex": 4,
+      "material": "steel"
+    },
+    {
+      "x": 100,
+      "y": 1120,
+      "w": 480,
+      "h": 40,
+      "zIndex": 6,
+      "material": "steel"
+    },
+    {
+      "x": 760,
+      "y": 1120,
+      "w": 480,
+      "h": 40,
+      "zIndex": 8,
+      "material": "steel"
+    },
+    {
+      "x": 1420,
+      "y": 1120,
+      "w": 480,
+      "h": 40,
+      "zIndex": 7,
+      "material": "steel"
+    },
+    {
+      "x": 100,
+      "y": 1860,
+      "w": 480,
+      "h": 40,
+      "zIndex": 9,
+      "material": "steel"
+    },
+    {
+      "x": 760,
+      "y": 1860,
+      "w": 480,
+      "h": 40,
+      "zIndex": 11,
+      "material": "steel"
+    },
+    {
+      "x": 1420,
+      "y": 1860,
+      "w": 480,
+      "h": 40,
+      "zIndex": 10,
+      "material": "steel"
+    },
+    {
+      "x": 580,
+      "y": 1880,
+      "w": 180,
+      "h": 20,
+      "zIndex": 12,
+      "material": "steel"
+    },
+    {
+      "x": 1240,
+      "y": 1880,
+      "w": 180,
+      "h": 20,
+      "zIndex": 12,
+      "material": "steel"
+    }
+  ],
+  "entrance": {
+    "name": "From Orientation",
+    "x": 240,
+    "y": 1860
+  },
   "checkpoints": [],
-  "climbables": { "ladders": [], "ropes": [] },
-  "props": [],
-  "mechanisms": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floorMaterial": "stone",
+  "floor": 1900,
+  "kind": "hub",
+  "props": [
+    {
+      "kind": "box",
+      "x": 960,
+      "y": 1860,
+      "size": 200,
+      "branded": true
+    }
+  ],
+  "mechanisms": [
+    {
+      "id": "949e4240-a1f8-4f99-b623-300625829469",
+      "kind": "lift",
+      "x": 580,
+      "y": 1860,
+      "w": 180,
+      "h": 20,
+      "travel": 1100,
+      "power": "always"
+    },
+    {
+      "id": "35257893-9ced-434f-9b00-54543bc12627",
+      "kind": "lift",
+      "x": 1240,
+      "y": 1860,
+      "w": 180,
+      "h": 20,
+      "travel": 1100,
+      "power": "always"
+    }
+  ],
   "triggers": [],
   "robots": [],
   "courseDoors": [
-    { "name": "Dispatch door", "id": "dispatch-door", "x": 4250, "y": 720, "course": "5d45678a-5104-43be-9647-2a2bbd6ff932" }
+    {
+      "name": "Dispatch door",
+      "id": "dispatch-door",
+      "x": 900,
+      "y": 760,
+      "course": "5d45678a-5104-43be-9647-2a2bbd6ff932"
+    }
   ],
   "bulkheads": [
-    { "name": "Orientation bulkhead", "id": "concourse-to-opening", "x": 1970, "y": 720, "to": "opening" },
-    { "name": "Movement bulkhead", "id": "concourse-to-movement", "x": 2400, "y": 720, "to": "movement" },
-    { "name": "Freight bulkhead", "id": "concourse-to-freight", "x": 2770, "y": 720, "to": "freight" },
-    { "name": "Construction bulkhead", "id": "concourse-to-construction", "x": 3140, "y": 720, "to": "construction" },
-    { "name": "Targets bulkhead", "id": "concourse-to-targets", "x": 3510, "y": 720, "to": "targets" },
-    { "name": "Water bulkhead", "id": "concourse-to-water", "x": 4650, "y": 720, "to": "water" },
-    { "name": "Security bulkhead", "id": "concourse-to-security", "x": 5020, "y": 720, "to": "security" },
-    { "name": "Assessment bulkhead", "id": "concourse-to-assessment", "x": 5390, "y": 720, "to": "assessment" }
+    {
+      "name": "Orientation bulkhead",
+      "id": "concourse-to-opening",
+      "x": 240,
+      "y": 1860,
+      "to": "opening"
+    },
+    {
+      "name": "Movement bulkhead",
+      "id": "concourse-to-movement",
+      "x": 1580,
+      "y": 1860,
+      "to": "movement"
+    },
+    {
+      "name": "Freight bulkhead",
+      "id": "concourse-to-freight",
+      "x": 240,
+      "y": 1480,
+      "to": "freight"
+    },
+    {
+      "name": "Construction bulkhead",
+      "id": "concourse-to-construction",
+      "x": 1580,
+      "y": 1480,
+      "to": "construction"
+    },
+    {
+      "name": "Targets bulkhead",
+      "id": "concourse-to-targets",
+      "x": 240,
+      "y": 1120,
+      "to": "targets"
+    },
+    {
+      "name": "Water bulkhead",
+      "id": "concourse-to-water",
+      "x": 240,
+      "y": 760,
+      "to": "water"
+    },
+    {
+      "name": "Security bulkhead",
+      "id": "concourse-to-security",
+      "x": 1580,
+      "y": 1120,
+      "to": "security"
+    },
+    {
+      "name": "Assessment bulkhead",
+      "id": "concourse-to-assessment",
+      "x": 1580,
+      "y": 760,
+      "to": "assessment"
+    }
   ],
   "evaluationBoards": [
-    { "name": "Evaluation board", "id": "evaluation", "x": 3650, "y": 330, "w": 460, "h": 250 }
+    {
+      "name": "Evaluation board",
+      "id": "evaluation",
+      "x": 770,
+      "y": 1180,
+      "w": 460,
+      "h": 250
+    },
+    {
+      "name": "Evaluation board",
+      "id": "c4f67824-067d-44dc-af65-74910bc20d32",
+      "x": 770,
+      "y": 380,
+      "w": 460,
+      "h": 250
+    }
   ],
   "texts": [
-    { "x": 1700, "y": 540, "w": 300, "h": 40, "text": "ORIENTATION", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 1700, "y": 578, "w": 320, "h": 24, "text": "WAKE · BASIC CONTROLS · COMPANY", "fontSize": 12, "align": "left", "style": "official" },
-    { "x": 3650, "y": 260, "w": 460, "h": 50, "text": "CONCOURSE", "fontSize": 36, "align": "center", "style": "official" },
-    { "x": 4180, "y": 540, "w": 200, "h": 40, "text": "DISPATCH", "fontSize": 20, "align": "left", "style": "official" }
+    {
+      "x": 840,
+      "y": 880,
+      "w": 320,
+      "h": 160,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
   ]
 }

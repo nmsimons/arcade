@@ -5,9 +5,11 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 
+// The retired First Gap and A Little Swing tutorials (Orientation took them
+// over) stay as fixtures: held jumps, ladder recovery and rope catches.
 const evidence = JSON.parse(await readFile(new URL('fixtures/jumping-introduction-runs.json', import.meta.url)))
-for (const recording of evidence.runs) test(`${recording.file}: current held-jump introduction ${recording.recovery ? 'after ladder recovery' : 'from a fresh start'}`, async () => {
-  const level = parseLevel(JSON.parse(await readFile(new URL(`../public/levels/jumping/${recording.file}`, import.meta.url))))
+for (const recording of evidence.runs) test(`${recording.file}: held-jump introduction ${recording.recovery ? 'after ladder recovery' : 'from a fresh start'}`, async () => {
+  const level = parseLevel(JSON.parse(await readFile(new URL(`fixtures/jumping/${recording.file}`, import.meta.url))))
   assert.deepEqual(levelProblems(level), [])
   const run = createRun(level), p = run.player
   const startingBank = level.platforms.find(platform => platform.y === level.entrance.y
@@ -37,5 +39,5 @@ for (const recording of evidence.runs) test(`${recording.file}: current held-jum
   assert.ok(Math.abs(run.elapsed - recording.elapsed) < STEP)
   assert.ok(Math.abs(run.activeTime - recording.activeTime) < STEP)
   if (recording.recovery) assert.ok(reachedFloor && ladder && recovered, 'fall to the floor and climb back to the starting bank')
-  if (recording.file === '02.json') assert.ok(automaticRope && heldCatch && departed, 'catch without Up, consume the held press, then depart on a fresh press')
+  if (recording.file === 'little-swing-rope.json') assert.ok(automaticRope && heldCatch && departed, 'catch without Up, consume the held press, then depart on a fresh press')
 })

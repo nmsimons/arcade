@@ -9,13 +9,14 @@ import { proneDropLevel } from '../helpers/jumpingProneScenarios.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 
 const sizes = [{ width: 852, height: 393 }, { width: 1280, height: 800 }]
-const builtIn = file => JSON.parse(readFileSync(new URL(`../../public/levels/jumping/${file}`, import.meta.url)))
+// The retired First Gap and A Little Swing tutorials stay as fixtures.
+const fixture = file => JSON.parse(readFileSync(new URL(`../fixtures/jumping/${file}`, import.meta.url)))
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 
 function encounter(kind, night) {
   let level
-  if (kind === 'ladder') level = builtIn('00.json')
-  else if (kind === 'rope') level = builtIn('02.json')
+  if (kind === 'ladder') level = fixture('first-gap-ladder.json')
+  else if (kind === 'rope') level = fixture('little-swing-rope.json')
   else if (kind === 'water') level = waterBindingLevel('bank')
   else if (kind === 'gravity') level = reverseRopeWorkshop()
   else if (kind === 'gate') {

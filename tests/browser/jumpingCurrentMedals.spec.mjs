@@ -8,7 +8,7 @@ import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 // These route regressions start from an already unlocked campaign.
 test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
-const accepted = new Set(['LAB1.jump-level.json', '01.json', '03.json', 'Coins.jump-level.json', 'Balls.jump-level.json'])
+const accepted = new Set(['03.json', 'Coins.jump-level.json', 'Balls.jump-level.json'])
 const records = JSON.parse(readFileSync(new URL('../fixtures/jumping-builtin-medal-runs.json', import.meta.url)))
 
 for (const recording of records.runs.filter(run => accepted.has(run.file))) {

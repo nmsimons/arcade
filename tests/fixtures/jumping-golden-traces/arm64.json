@@ -4,271 +4,11 @@
  "math": "f218227f60a5a1d1",
  "cpu": "arm64",
  "recorded": {
-  "physics": "fcafc46 with uncommitted changes: Phase 4 of #86: gameplay reads the motor's push rig, physics rig, fall timer and footfall cadence, not animation",
-  "state": "d43fcea with uncommitted changes: Push palms carry at most 2 units of wrist shortfall, so an early reach toward a distant prop no longer stretches the hand away from the arm. Presentation and its animation captures only; physics unchanged.",
-  "pose": "d43fcea with uncommitted changes: Push palms carry at most 2 units of wrist shortfall, so an early reach toward a distant prop no longer stretches the hand away from the arm. Presentation and its animation captures only; physics unchanged."
+  "physics": "259d76e: ab6bbce holds Up in six medal routes at their exits; 259d76e renames LAB II to LAB and retires Wake, LAB I and the tutorials, which stay as fixtures",
+  "state": "259d76e: ab6bbce holds Up in six medal routes at their exits; 259d76e renames LAB II to LAB and retires Wake, LAB I and the tutorials, which stay as fixtures",
+  "pose": "259d76e: ab6bbce holds Up in six medal routes at their exits; 259d76e renames LAB II to LAB and retires Wake, LAB I and the tutorials, which stay as fixtures"
  },
  "traces": {
-  "00.json|climber": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "639b16aa7eb6a924",
-    "063cb5d9d06ad60a",
-    "c26b7e42abb15b57",
-    "cde99e92b46d3087",
-    "9b036fcabc99ea40",
-    "bad121b6698c438b",
-    "fc25ad391b4c8fec",
-    "dad56815a5ec01a4"
-   ],
-   "state": [
-    "d451a772c00ed0f7",
-    "607deca4d0bcaa8a",
-    "3752585579fb023c",
-    "bce86f9b60431b80",
-    "13f2abadc424aa14",
-    "2dd8e7d0d276cbe5",
-    "7b9c02a842d0a2aa",
-    "01bb27f4c83a28e9"
-   ],
-   "pose": [
-    "966b918527b723f2",
-    "2d6c19d37da71388",
-    "0f9cdd5d8f3e5242",
-    "cf845a0d74020584",
-    "b29d6c5078b95f6a",
-    "172dcc0ef6c9c7aa",
-    "4c98768a8dd05a68",
-    "39dd42684cac4fe5"
-   ]
-  },
-  "00.json|medal-route": {
-   "ticks": 416,
-   "finished": true,
-   "physics": [
-    "0168b319b19a0a3e",
-    "893f4ef65f4e697b",
-    "cb02958cb65257ca",
-    "f42d09176ac80d4b"
-   ],
-   "state": [
-    "bd2145b0c6793fbf",
-    "5bc50c56ea599326",
-    "51b6e6c8ef4ec6a5",
-    "9fe950e0531ef15c"
-   ],
-   "pose": [
-    "c483b383d61c86bd",
-    "9733faf1cdd69772",
-    "d4b02e1dcfe1bf10",
-    "8ecb28a252cad475"
-   ]
-  },
-  "00.json|runner": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "43f029ac0dab94cf",
-    "6bac3912eea6a429",
-    "d7bb05a0f4a3f756",
-    "283da37ec0c7afc6",
-    "ef54e9ffaf9fafe2",
-    "d8407b64ef08e3c1",
-    "513180f674a0576f",
-    "31606b430c2c8808"
-   ],
-   "state": [
-    "6b55aa2872dd25dd",
-    "e465ffb38cd7b96c",
-    "b2b78e2a070419e5",
-    "77e8b53c3c13e538",
-    "10607ab859d4c161",
-    "4382c407c4a89ad3",
-    "889c338f53434252",
-    "a3c0178a48828113"
-   ],
-   "pose": [
-    "a3d7ccadad7a9d9b",
-    "c90b722c7809b127",
-    "6097dcc1247b296f",
-    "56dd44e8152849d7",
-    "fceea59028d9dd0d",
-    "339fd0e45d68918a",
-    "a8feb13510cc1ab5",
-    "50568b898c4a25ba"
-   ]
-  },
-  "01.json|climber": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "db3f6dfc1bf2d089",
-    "f45d80e44f28c183",
-    "ba14c08949a8446d",
-    "03e1308e63a74edb",
-    "e41187fb9004cea2",
-    "7c42dc0328ea81fc",
-    "26189424bfe6c79c",
-    "712f796ca91720a1"
-   ],
-   "state": [
-    "a77712517e85a604",
-    "f7d6224dfc97f6cc",
-    "458271fbcf905d31",
-    "74282a6e64797658",
-    "dd49a0bb86de6780",
-    "5b7a16d94e2decc9",
-    "afd99c574c35624d",
-    "424ec0e5fec7ac32"
-   ],
-   "pose": [
-    "da32caadcee38b06",
-    "d861db7235d9ac33",
-    "96549caf667fb761",
-    "18ac63bd09a11701",
-    "8c0a76233345f0e2",
-    "fb78cfb7d7a9e5c5",
-    "b48bc36ae673a83a",
-    "0758f1a73a074f20"
-   ]
-  },
-  "01.json|runner": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "e83e82b80d01206f",
-    "67f1ed14aa8de6cb",
-    "578789b77d586244",
-    "63ab6862364bf391",
-    "5e15941cfadaf002",
-    "235b51d393c73b52",
-    "db8f3f14842dbbfe",
-    "59fae40c1cf0ea4d"
-   ],
-   "state": [
-    "b3c64a7e61ecad15",
-    "51f74cd0f6acf604",
-    "8951b281c86cd94b",
-    "2b35a9b79332e08d",
-    "1f92b9d07ac9b130",
-    "1b999b62f2d587b4",
-    "ca51bc134eceee69",
-    "ce9b9851af1b34a9"
-   ],
-   "pose": [
-    "cad9d620c7c202be",
-    "1e85f4324ab70881",
-    "92f91e7d3ee6b931",
-    "04463ecbea3e71be",
-    "47b0b31db6b0ad1d",
-    "0e5a75f964ad73e5",
-    "806a97b3afd02123",
-    "98f386776e5e1c4b"
-   ]
-  },
-  "02.json|climber": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "7ff8d5227e94a405",
-    "fd953cda72113c25",
-    "1bea543c5b088c70",
-    "16459df5132a91e1",
-    "0d3118ab6bf33f73",
-    "15dd8301af01d9a0",
-    "675e110ad49a31cd",
-    "6f6c3774a2f71df1"
-   ],
-   "state": [
-    "fa25bca499007521",
-    "ba2be7e2242a54dc",
-    "8b665b6b44db0d5c",
-    "6aca5753d6391f36",
-    "970fb27e18bb8c55",
-    "9f2a7921dd5b9a93",
-    "5c263ee88a27b5e2",
-    "6646b88e8bdbf543"
-   ],
-   "pose": [
-    "6a4fba3b699c0210",
-    "c06acf08fdd43179",
-    "f0fbbdc53e677339",
-    "e27087bbce997ac7",
-    "ec8d69de2056a26b",
-    "1ac06b5848097bd9",
-    "e238badb39e5c93c",
-    "668436e213b31095"
-   ]
-  },
-  "02.json|medal-route": {
-   "ticks": 855,
-   "finished": true,
-   "physics": [
-    "a14b578a3b77cbaf",
-    "7114546bf4099bf9",
-    "b783322ac4a9c6e1",
-    "0e919afafcce66bb",
-    "db835e77062d38d2",
-    "57066127abfa574a",
-    "656f9beb2a40cf05",
-    "560f82712c643c09"
-   ],
-   "state": [
-    "38b558d7ccc1e921",
-    "2f2389f6f0044c82",
-    "a12ce343e1ad8a20",
-    "ded69fec43e840d6",
-    "8fd1087675fc61ae",
-    "848b84448afe9812",
-    "ccf60962bb02b2e0",
-    "1d300f2fafe46200"
-   ],
-   "pose": [
-    "4784e363f008358b",
-    "ba79bf813c43a648",
-    "8f77bcd785de5013",
-    "e9b55d7fe008ddf2",
-    "b9bf0680f2907145",
-    "e5f7cdae98855083",
-    "9c61e750576f4bd3",
-    "53020218be2d24f4"
-   ]
-  },
-  "02.json|runner": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "b60fe5ff61c3a65b",
-    "49fd7f55434077c9",
-    "4809f3392dc79bd4",
-    "bcfa280003f82fc9",
-    "44a054b5f59e693c",
-    "a97bf65c49f65161",
-    "71289aecfbb2dd74",
-    "be03a34e9ea95aef"
-   ],
-   "state": [
-    "dbe857479b8ef03f",
-    "6b63df32906b4820",
-    "10516a8026ae9d44",
-    "0d659f5411b96f4d",
-    "88a9d326c6634abc",
-    "42946511af1a13e4",
-    "21b47351e03fc4b1",
-    "4f03114a397984ce"
-   ],
-   "pose": [
-    "0f9460aa7b3a7251",
-    "d4b14700dafbb34a",
-    "faf6b22f05089053",
-    "2545666d2b2eb583",
-    "f229c6def3f39e3d",
-    "e2bef10513b506c8",
-    "33f45a248dbb992c",
-    "ab1a8ff1769b0554"
-   ]
-  },
   "03.json|climber": {
    "ticks": 960,
    "finished": false,
@@ -439,8 +179,8 @@
     "f54d344f464e273d",
     "63e8c071eea04077",
     "2d1ca692f304bb09",
-    "92478b44587660ff",
-    "7ad6f31a5e19c0d6"
+    "85cb2abcf5049374",
+    "0fd84c079c2c8ea8"
    ],
    "pose": [
     "27d95fb745fbe980",
@@ -453,8 +193,8 @@
     "7147fad58c2eb74d",
     "f310dd13f2a2ce47",
     "a3ebdfa323e59ba7",
-    "9a3724c9694c2792",
-    "ef7d0d20bcf5fe03"
+    "500c7053dc2f5eda",
+    "d028880d3a24d5a7"
    ]
   },
   "04.json|runner": {
@@ -550,7 +290,7 @@
     "07ae55eb9a5a9445",
     "9a828197115ec508",
     "694a1c66eb0ff7e9",
-    "8933710e014a7a38"
+    "89341b9fdd6d1831"
    ],
    "pose": [
     "3e7da036035c4dca",
@@ -562,7 +302,7 @@
     "281cda2ebcb264a3",
     "17ca805ff3d0ace6",
     "4c4aa8d7d83516e5",
-    "d9a0db8cf0ca288a"
+    "933b8bb6aeaabdad"
    ]
   },
   "05.json|runner": {
@@ -1513,165 +1253,72 @@
     "8cd45b4e4a678084"
    ]
   },
-  "LAB1.jump-level.json|climber": {
+  "LAB.jump-level.json|climber": {
    "ticks": 960,
    "finished": false,
    "physics": [
-    "48271816fe47f110",
-    "ddcaf75d9a465682",
-    "de94ef959867cfe8",
-    "18f37034a13ea971",
-    "488d50281bd6da28",
-    "aa39c3b497e9dc2d",
-    "e97ff9d3a11e2905",
-    "fb903eb106c294c8"
+    "db03d6a4789bff57",
+    "6609e38cd24f5ccf",
+    "767e259d1ac2e0d7",
+    "cef995ea881af1ab",
+    "f62769dce2a21d3a",
+    "370d844ab88ec8c3",
+    "8ac9a32b0678bd01",
+    "e28c804803068e94"
    ],
    "state": [
-    "795aa5c934bdb9a7",
-    "cb0fd02c00efcc59",
-    "5e72f1c7bee2a9d5",
-    "c6b46437034cfa0f",
-    "156b4c2423b69020",
-    "eb864cb06eb0b424",
-    "541a0962e0e09c5e",
-    "21217cd95d52df41"
+    "13fdd4457143686a",
+    "f2156a037b1b202d",
+    "0e2257c052757d30",
+    "16028422becd905d",
+    "6453e843013d4bcf",
+    "f321fe5686f21a15",
+    "4e1d324b44978ebe",
+    "127069e5ad1673e6"
    ],
    "pose": [
-    "c0238e734a39cad7",
-    "8a7b9086e4d06d44",
-    "d9288688192c3290",
-    "fd21a73b1ea1d2d5",
-    "fe2958ade532c9fe",
-    "9234cbeaddecdbcc",
-    "a0a0df57e4f28ffe",
-    "8408886ec1c6c8d5"
+    "3719ed4961a5135b",
+    "175ebcf2a37d22ee",
+    "6c255f1045b28e81",
+    "27a5bcff38825d8c",
+    "bdfbf77ad5b8ae3e",
+    "8d28a363acc94e66",
+    "dfac7bcc20a9ead5",
+    "36bda87bbe6e0993"
    ]
   },
-  "LAB1.jump-level.json|medal-route": {
-   "ticks": 558,
-   "finished": true,
-   "physics": [
-    "1df1062c82109dbb",
-    "74ade5d08d19e238",
-    "763d9f932740b086",
-    "e53f1cb9d6a8cf82",
-    "3da33400a066e93e"
-   ],
-   "state": [
-    "fc3280281cccd987",
-    "faec91ae12ffdffa",
-    "ad7e980604219811",
-    "9c4369c04920bb81",
-    "d20ddc39950680e7"
-   ],
-   "pose": [
-    "03dae2e3705d08c9",
-    "cc638c14dd0481a1",
-    "48c2f2f1aae726aa",
-    "a6d26e4b98887d2d",
-    "e0e14eedf7e1ba7c"
-   ]
-  },
-  "LAB1.jump-level.json|runner": {
+  "LAB.jump-level.json|runner": {
    "ticks": 960,
    "finished": false,
    "physics": [
-    "6d6d6ed56d2161d0",
-    "ba01b95d7a03e56d",
-    "09c3fa86aa1282b5",
-    "898d5762fb79064e",
-    "d447009b908e3d31",
-    "ac135f207cf3544f",
-    "1cd8fc9743e9bf60",
-    "196d55be0d9bb3e5"
+    "a5cd896eb0b6882b",
+    "316675d28dad5453",
+    "abea9cc9a3ed7ff8",
+    "c31ac2aff04a2c3f",
+    "dded65389a6695be",
+    "00240ea7022c8d4d",
+    "3abfefbbd6a33ab9",
+    "198add507978d8b2"
    ],
    "state": [
-    "9a9b0758b276db0d",
-    "27b75606b9ba2a0e",
-    "35e568cbc1a31593",
-    "3957678283fbf51d",
-    "594fad54c73310ff",
-    "dd8df01a1a7bfaee",
-    "215f2ddd4b9030dd",
-    "ce6123e00f5373cd"
+    "792a9d8e5508f08a",
+    "cc54b9ee7e0cb2dd",
+    "40ee86b4d95a1afb",
+    "37267daec6c6eada",
+    "f04a66bce5a6f9fa",
+    "e5a2ca36140a8070",
+    "a72a3863ac48d68a",
+    "fc407a93b3230221"
    ],
    "pose": [
-    "c819aa50ca1d88f9",
-    "88b669c7e5cc0c42",
-    "289b841109bc8c75",
-    "239c42b1bcc1fe9f",
-    "16b11fa8d96e477f",
-    "575b2373e4741f6d",
-    "7d9a366a35becc71",
-    "c8e73d98da9f64c2"
-   ]
-  },
-  "LAB2.jump-level.json|climber": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "64d79483dc0d43c5",
-    "049a87159d2d33f2",
-    "6974df5744cc7a83",
-    "2fb984027ae66084",
-    "408d162487d5d9e8",
-    "8a3cccd6077b5617",
-    "22bca50ef60dec48",
-    "7269b70049b9f622"
-   ],
-   "state": [
-    "d0d2a98bdbf7408a",
-    "cf5fb5113dee018b",
-    "9ae468c79848f236",
-    "f79478643116c36c",
-    "737aedacf8482879",
-    "b63fa36f3a330fd0",
-    "527116339273a721",
-    "ef0442f309e30add"
-   ],
-   "pose": [
-    "4b0b73e425155686",
-    "0ac87c165264eaa3",
-    "c5460a4efafbf5f5",
-    "21b59bb08daf9d89",
-    "59c4a2a251846cf7",
-    "260c5e95d95cdf95",
-    "2ebda0591c2c4d3c",
-    "9771d7d0eb93b7ea"
-   ]
-  },
-  "LAB2.jump-level.json|runner": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "961c7bd118ce0bb6",
-    "39b699d20fe0c8d5",
-    "e1b408fd4a6d1ca1",
-    "843c5cb7c528ed17",
-    "44b135390503ae90",
-    "40bbd06c94050b2c",
-    "5d906bec023a8002",
-    "c629f9c93e960d91"
-   ],
-   "state": [
-    "02309a4c667da208",
-    "282b1c46d3afdbbe",
-    "1034980ebf3e59a1",
-    "b3e8f694826fe6d1",
-    "b7f662a5d63f0688",
-    "2c4084f31e5cdc18",
-    "ff7ca7197ed27c4e",
-    "f30f7e5a82cc8f62"
-   ],
-   "pose": [
-    "6c40342404676714",
-    "6545988bb2803e64",
-    "a7027a9ca4a3a4d9",
-    "0b0b46188111eae1",
-    "c449c67e9193e5d0",
-    "924f0bf319a2993b",
-    "eab4209d122da66b",
-    "e8bf8de7227c15cf"
+    "945d5696fcabbf4d",
+    "3d4f5fdeb6fb26ad",
+    "8e97555fc0a6265b",
+    "8b839c1a0d62e96c",
+    "dc5964dfbe74145c",
+    "057fbc004b2a8122",
+    "3e58d1683b809c75",
+    "31960bd048dfe4dc"
    ]
   },
   "Lock Out 2.jump-level.json|climber": {
@@ -1727,8 +1374,8 @@
     "634695396ab967f7",
     "2f1fd4ac6bd9f2a9",
     "c722133eed311382",
-    "fc70936ef52064de",
-    "9b1a133f1c7c25cb"
+    "ae6ce73ca022951b",
+    "aa26659e5b418b56"
    ],
    "state": [
     "cacbc0a4fe084799",
@@ -1746,8 +1393,8 @@
     "e1026cf9d2222b87",
     "254599f50c98a021",
     "d3158607d41f4f00",
-    "df720f086892dd02",
-    "89b0d2b47d52a466"
+    "9f9f1c735d6deb1c",
+    "318ad6390cb6f237"
    ],
    "pose": [
     "f93d6f2233625ac9",
@@ -1765,8 +1412,8 @@
     "7862965fa2a97568",
     "bb20f126f9a3ddc9",
     "de8274f12bd571ef",
-    "a7c2ae5f72f34119",
-    "c2708ac7d4806f58"
+    "677a492946adc089",
+    "a42ec50a92266bea"
    ]
   },
   "Lock Out 2.jump-level.json|runner": {
@@ -2246,7 +1893,7 @@
     "3fdaec4e979e3c49",
     "315729ecabfb9efd",
     "82b33b406af1fffa",
-    "e3af95ab23b6cbe9"
+    "93e931bb9ccc930d"
    ],
    "pose": [
     "01279a45a23e0689",
@@ -2348,7 +1995,7 @@
     "ff8e899aedc0afdf",
     "a978fdbfb3dae105",
     "099a85b7d139e956",
-    "c504555f44755b8e"
+    "15856eae383c3111"
    ]
   },
   "Tower II.jump-level.json|runner": {
@@ -2601,8 +2248,8 @@
     "592b6c88bc077ac3",
     "11d872b70d26cf39",
     "fe78012a52b217b9",
-    "ae51940e6279e60d",
-    "9135d4eaadec1a8a"
+    "5bf842c55d200696",
+    "aa8f3cc219b74376"
    ],
    "pose": [
     "01279a45a23e0689",
@@ -2692,8 +2339,8 @@
     "422a4e735486f81c",
     "da50f897497e2134",
     "3b5df98f1f53be42",
-    "d5c7a82869e7bbf7",
-    "ceda695b2726f167"
+    "a49310b9e25bc6b1",
+    "9674de5d17b4e67e"
    ]
   },
   "Tower.jump-level.json|runner": {
@@ -2728,74 +2375,6 @@
     "14c875ff3e19afea",
     "61f829ee9da1cb95",
     "464db72f7bfe2661"
-   ]
-  },
-  "Wake.jump-level.json|climber": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "db6dfbb6fc2b30d7",
-    "bc8170a5734d4a38",
-    "723118ce340b47ec",
-    "70d674e5ae453a5c",
-    "22bfefab9f05e8c4",
-    "c877cc27137b85f0",
-    "d43cf041b5e4426b",
-    "3d5509d113e05cde"
-   ],
-   "state": [
-    "1b9791111f24835e",
-    "9ac5c2eb6c1d768f",
-    "db82412bc3a21fb4",
-    "751b66b69851d0ec",
-    "379c690dfd9f3a9a",
-    "254aa22e323f6a13",
-    "b71dd7f767b5cbb0",
-    "0efe5de8ecea3152"
-   ],
-   "pose": [
-    "f3525491ed34280d",
-    "366a0807a23338c2",
-    "731fecaa569dcc84",
-    "348fc68e832e6469",
-    "4cbb67aecc42b2b2",
-    "8287ef1eb1df18ef",
-    "457f0ea154b6e419",
-    "45ddc5b884d82e75"
-   ]
-  },
-  "Wake.jump-level.json|runner": {
-   "ticks": 960,
-   "finished": false,
-   "physics": [
-    "c85d3d144739e763",
-    "13764707542845d5",
-    "806306856079fa32",
-    "472b73186c33f140",
-    "b69c4b8a9316c30d",
-    "62c7134eeaab1e55",
-    "badc103518ed520e",
-    "a6a0dc0d215c26ab"
-   ],
-   "state": [
-    "4fc63e3e5b84291a",
-    "a2e060f7b98b5432",
-    "97bb46cf901e27da",
-    "bf19a641eb0a798d",
-    "9f10fef026632666",
-    "140bbe755b5adaaf",
-    "9b542f7d458f91fb",
-    "880a359da2ce5037"
-   ],
-   "pose": [
-    "4509fce1c5783c7b",
-    "91169d37feae7328",
-    "1f76d107fac6fd7b",
-    "aa049c186b9127b0",
-    "7910dceeb2e4b63f",
-    "f834e56e361a7aaa",
-    "93ee2cd6659d0999",
-    "acc2ccaf02991970"
    ]
   },
   "Waterline1.jump-level.json|climber": {
@@ -3750,6 +3329,74 @@
     "d1cb5a09bca6a5e7"
    ]
   },
+  "fixture:first-gap-ladder.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "2ab2362cb80557d3",
+    "d27647f0f0481523",
+    "1301982231000474",
+    "899a2ab6d34aca63",
+    "39f47f7d2dc4ef41",
+    "b30b6e6d1e734510",
+    "94ffb6bb13eb2a2d",
+    "317cff9686627011"
+   ],
+   "state": [
+    "d5526e9c9fbbbb17",
+    "6530a1ce1789ef7d",
+    "48324cee4dd4c76c",
+    "6703e2388407bdcb",
+    "2cee6174b887a346",
+    "b4e816da647f400e",
+    "7d2f97aee39a7549",
+    "cd3632880a7daec3"
+   ],
+   "pose": [
+    "1965e05deef1bdd5",
+    "e97127874e63d01d",
+    "774cc743f67a08e2",
+    "83b840e2c6a35a71",
+    "c41f84aa3f48e6c5",
+    "11080da14a6eded9",
+    "e5ef8911f79b81fb",
+    "398e1cdc8450ddb6"
+   ]
+  },
+  "fixture:first-gap-ladder.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "ecec53cffdcd8208",
+    "5356bf9f176d15e3",
+    "f1f036a7bdc5ee97",
+    "3adb9ad5cde9ba0b",
+    "ccd2893611879f0d",
+    "8f41a61ae01bafc8",
+    "8636bc9ee7011f5f",
+    "b55926529d095a62"
+   ],
+   "state": [
+    "2d0a5f9aa79ac48d",
+    "5c8c2860c97548a4",
+    "ef911aa188601f5b",
+    "50d53702c3de3935",
+    "af0120531384d7d6",
+    "4b1e374efc389057",
+    "101597d97f5cce4a",
+    "66cb33312d2b671c"
+   ],
+   "pose": [
+    "dbb2fd0f490d4509",
+    "e3f35ad4d7df883d",
+    "b8c1e578dd8026a7",
+    "199c7442651b2af8",
+    "d3c03ee05446fc1a",
+    "d998f470b92e8465",
+    "33a3a5ffeed45ce5",
+    "1e42a6740c42b657"
+   ]
+  },
   "fixture:float-switch.json|climber": {
    "ticks": 960,
    "finished": false,
@@ -4022,6 +3669,74 @@
     "c723c783e8b9dff8"
    ]
   },
+  "fixture:lab1-first-box.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "0a40a5801b371464",
+    "d91e9e98112018e8",
+    "d93549b63a56dad6",
+    "b1acd217c2e5290f",
+    "6393221fa93eb620",
+    "fd369dfbfc3615ea",
+    "6d772d4f940ed60b",
+    "7490459d200eff47"
+   ],
+   "state": [
+    "c7b363f677e1177d",
+    "11be623a96de172f",
+    "1b0080630144436b",
+    "ea21bfc9b2fcc1c5",
+    "5c793f79fd6e07a9",
+    "9bf39cb72f8acbe8",
+    "ba39dfa944314076",
+    "bb524ab8338c51c8"
+   ],
+   "pose": [
+    "c2386e8ac3f6cd5d",
+    "135fa35382551ca9",
+    "34ddd6e9d0c04b55",
+    "cace7e829c7d25a2",
+    "254ff0c4c2936f9f",
+    "f5c7eae24e81a31f",
+    "66f8fd8edf104f0d",
+    "780231f33fd63b47"
+   ]
+  },
+  "fixture:lab1-first-box.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "7a757705f32568b5",
+    "768a6b3b82ced55c",
+    "02d8716fd805638f",
+    "e28c1db0a101209d",
+    "9361fb975ec3d0a3",
+    "841169b07db6951d",
+    "3f4b9b2d731f3ca1",
+    "5babb596a4b22f10"
+   ],
+   "state": [
+    "8b4ae34fac419617",
+    "2408352253dc881a",
+    "3b8ed7f58925dc4e",
+    "1e62e49ac0d85fdb",
+    "f2e8839180fba408",
+    "fb6aa9f04661ddf0",
+    "6e623d7ade5c3333",
+    "e9951ff790ab4e96"
+   ],
+   "pose": [
+    "d7ccb5c34e8e058e",
+    "ff3eed87ff0ffa4b",
+    "abce14bedd2974c0",
+    "966c1370c82114db",
+    "ea17dfaef6dfae6d",
+    "197a980e6c9001fa",
+    "dfef27a2ee746ce1",
+    "d77964f7b3c02446"
+   ]
+  },
   "fixture:ladder-scaffold-exit.json|climber": {
    "ticks": 960,
    "finished": false,
@@ -4224,6 +3939,74 @@
     "07237bf099de6f62",
     "c955f3cbc6568b5b",
     "3703938d5c506f4d"
+   ]
+  },
+  "fixture:little-swing-rope.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "44c9928f8b937bee",
+    "1d40b695ba98cd9e",
+    "fc361aca0f6b5331",
+    "6915acd8c02c277b",
+    "d5f64905e803885f",
+    "1cb487909457caa7",
+    "d9c87fa61f6ad6cd",
+    "e9c7cc471084b1c2"
+   ],
+   "state": [
+    "922fdd27b14eac65",
+    "e1ce20ef2568ac19",
+    "3988410ab121fab6",
+    "8152e19250048cdd",
+    "bdd736b6cdbf8742",
+    "f352868f67819bef",
+    "27b3f8f5423c6f27",
+    "2d2875e5f97e3b65"
+   ],
+   "pose": [
+    "11fbf6d9b4232d72",
+    "358e06f9cd84c0a7",
+    "40af8ebf3cdbdcd5",
+    "341d92c0cfc7c049",
+    "fae36668b6598c8d",
+    "c9e4a021f0b54e14",
+    "05249d3031176e12",
+    "dfd64fa215d0d80b"
+   ]
+  },
+  "fixture:little-swing-rope.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "6f982d3701a29f61",
+    "09559dc2aff0a993",
+    "66a2e35b7e0fc91e",
+    "c23075ad29b1a53f",
+    "cbbd4dafe0b487b7",
+    "45277d1435e19baf",
+    "1493f7f866209a05",
+    "5aeb3a7973bc34e5"
+   ],
+   "state": [
+    "2f2b56c9ffd9e092",
+    "cd2092e1827bf7ad",
+    "81e512f1da51e27b",
+    "878831c4df9421b5",
+    "7cd8446dd830b4e4",
+    "23e28bdafd369fc3",
+    "d241561a7222af5c",
+    "d4cbd00132f6afd7"
+   ],
+   "pose": [
+    "c2e7cc413f53ef70",
+    "c27f33ab1b574c2e",
+    "e7263abdc673445e",
+    "fae4c9e36ca875c0",
+    "891daf340d71c373",
+    "1e1e6540a1137976",
+    "1e97482d72bf7cbd",
+    "e0a23c12a53b73d2"
    ]
   },
   "fixture:logic-relay-exclusive.json|climber": {
@@ -5246,6 +5029,74 @@
     "0ef4eef9022cb2b4"
    ]
   },
+  "fixture:wake-pod.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d221311af993c284",
+    "e371740ff7a1a8ba",
+    "b2bad2bb1bfb5b17",
+    "67ae81ee4fb0dcaf",
+    "26679db8bcdff2bf",
+    "2ff43f4d17317335",
+    "1ff6fedc8ad70ee2",
+    "62f57126cb0bb8a4"
+   ],
+   "state": [
+    "8f6410e25d89746d",
+    "686eec82929d673d",
+    "f2cf4372c1d9d555",
+    "c5b2e9756779bafa",
+    "19b210cd22458777",
+    "2e354e4354dcd083",
+    "d936a9a361257d3e",
+    "211e170e92037393"
+   ],
+   "pose": [
+    "474fd05049883611",
+    "40c7333b0e10dbaf",
+    "176390d7b36b3c5d",
+    "fec173d22b5d53d8",
+    "df4eaf1acfc3cdba",
+    "968c89c2590bddcf",
+    "0187fc23f64486b5",
+    "996b067526f98d3a"
+   ]
+  },
+  "fixture:wake-pod.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "68c9103181f0687d",
+    "883d0ecc05eba952",
+    "efbba77e9ec2da1b",
+    "e72b518e27db933f",
+    "e2f80b3e52574e5b",
+    "dd536511f07e11f9",
+    "841f6dd9b2d6eb54",
+    "f9479b4b9e8df027"
+   ],
+   "state": [
+    "c69afc83a27a450c",
+    "97c3ef9fc929472b",
+    "39d696df8db61a57",
+    "a078164bbbcab6bb",
+    "623ce4957419202c",
+    "8a5872117b4b885a",
+    "78adfb539cfc6ab0",
+    "96f47adabd138235"
+   ],
+   "pose": [
+    "e6b5c67e61d0c19a",
+    "6aba04995686b477",
+    "630fa6875914c3d5",
+    "7afafcf88d3c05d6",
+    "0f150060483294d6",
+    "b084589d2b2a54cc",
+    "589310d6c56a207e",
+    "b8cdc4f5a8d5b58a"
+   ]
+  },
   "fixture:walk-off.json|climber": {
    "ticks": 960,
    "finished": false,
@@ -5723,7 +5574,7 @@
     "6ef2319d3d4f9547",
     "5d51423f172b39e7",
     "b9cf42d2592ba6d0",
-    "543ccbb414ed77b5"
+    "402666cba332e723"
    ],
    "pose": [
     "fca594d921cc2086",
@@ -5740,7 +5591,7 @@
     "ae0aa7302c7690b7",
     "9bcf661e08a2cbb7",
     "d963a4f7f4f0326d",
-    "e971c30958b97aa7"
+    "1857553c814d21c3"
    ]
   },
   "jk.jump-level.json|runner": {

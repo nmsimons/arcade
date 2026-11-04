@@ -279,8 +279,9 @@ collectibles. In Orientation the pod sits in a pit under broken floor, and the
 first action is the climb out on a rope through the hole, into the training
 hall's daylight. The room above is a dead end behind a jammed door.
 
-The first implementation is [Wake](../public/levels/jumping/Wake.jump-level.json),
-placed first in the built-in collection. Keep it simple, beautiful, and a little
+The first implementation was Wake, placed first in the built-in collection.
+Orientation replaced it; its layout is kept as the test fixture
+[wake-pod.json](../tests/fixtures/jumping/wake-pod.json). Keep it simple, beautiful, and a little
 spooky: Night mode, one occupied charging bay, a failing work light, a small
 operator terminal, and sparse installed hardware. The terminal reads “OPERATOR
 CONNECTION / NO RESPONSE” in dim green phosphor. Its lettering stays readable

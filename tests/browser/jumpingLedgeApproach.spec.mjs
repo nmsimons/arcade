@@ -9,8 +9,9 @@ import {ledgeApproachLevel} from '../helpers/jumpingLedgeApproachScenarios.mjs'
 test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 for (const direction of [-1, 1]) {
-  test(`the first level box catches and pulls up with normal keyboard controls, direction ${direction}`, async ({page}, info) => {
-    const level = JSON.parse(await readFile(new URL('../../public/levels/jumping/LAB1.jump-level.json', import.meta.url), 'utf8'))
+  // Leaps and Bounds I, retired from the built-ins, keeps its lone box as a fixture.
+  test(`the Leaps and Bounds I box catches and pulls up with normal keyboard controls, direction ${direction}`, async ({page}, info) => {
+    const level = JSON.parse(await readFile(new URL('../fixtures/jumping/lab1-first-box.json', import.meta.url), 'utf8'))
     if (direction < 0) level.entrance.x = level.width - level.entrance.x
     await useLevelFixtures(page, [level])
     const errors = []; page.on('pageerror', error => errors.push(error.message))

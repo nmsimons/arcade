@@ -111,9 +111,6 @@ for (const { recording, historical } of routes) test(`${historical ? 'captured' 
     assert.equal(run.triggers[1].active, true, 'cargo must hold the mounted exit plate')
     assert.ok(run.props[0].x > 940, 'the box must travel across the gap')
   }
-  if (recording.file === '01.json') {
-    assert.equal(weighted(level.triggers[0]).length, 1, 'the ball must keep the remote exit powered')
-  }
   if (recording.file === 'Balls.jump-level.json') {
     assert.deepEqual(weighted(level.triggers[0]), [run.props[2]], 'the freely delivered small ball remains on the plate against the level boundary')
     assert.deepEqual(weighted(level.triggers[1]), [run.props[1]], 'the separate middle ball keeps the second plate loaded')

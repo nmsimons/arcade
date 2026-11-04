@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, installBuiltInFixtures, useLevelFixtures, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
 
-const wake = JSON.parse(readFileSync(new URL('../../public/levels/jumping/Wake.jump-level.json', import.meta.url), 'utf8'))
-const next = JSON.parse(readFileSync(new URL('../../public/levels/jumping/LAB1.jump-level.json', import.meta.url), 'utf8'))
+// Wake, the retired pod opening (Orientation replaced it), and the level that
+// followed it stay as fixtures.
+const wake = JSON.parse(readFileSync(new URL('../fixtures/jumping/wake-pod.json', import.meta.url), 'utf8'))
+const next = JSON.parse(readFileSync(new URL('../fixtures/jumping/lab1-first-box.json', import.meta.url), 'utf8'))
 
 test('Wake preserves its full-speed running stride after keyboard walking', async ({ page }, info) => {
   test.setTimeout(90_000)

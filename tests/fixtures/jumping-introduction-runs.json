@@ -3,7 +3,7 @@
   "jumpModel": "tap-hold",
   "runs": [
     {
-      "file": "00.json",
+      "file": "first-gap-ladder.json",
       "recovery": false,
       "trace": [
         {
@@ -42,7 +42,7 @@
       "y": 1200
     },
     {
-      "file": "00.json",
+      "file": "first-gap-ladder.json",
       "recovery": true,
       "trace": [
         {
@@ -1425,7 +1425,7 @@
       "y": 1200
     },
     {
-      "file": "02.json",
+      "file": "little-swing-rope.json",
       "recovery": false,
       "trace": [
         {
@@ -1519,7 +1519,7 @@
       "y": 1200
     },
     {
-      "file": "02.json",
+      "file": "little-swing-rope.json",
       "recovery": true,
       "trace": [
         {

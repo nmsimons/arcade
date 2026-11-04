@@ -6,7 +6,7 @@
       "reason": "Added after the October 4 medal audit; a fresh-start medal route has not yet been recorded."
     },
     {
-      "file": "LAB2.jump-level.json",
+      "file": "LAB.jump-level.json",
       "reason": "New authored level; its 13 / 20 / 30 medal targets have not yet been verified by a recorded fresh-start route."
     },
     {
@@ -82,10 +82,6 @@
       "reason": "More capable Rbot traversal changes the captured encounter and interrupts the former fixed-input route. Retain this trace and its captured map for comparison; the revised live encounter needs a fresh completion."
     },
     {
-      "file": "01.json",
-      "reason": "Studio revisions removed timing pickups and moved the ball. The prior A recording is preserved against its captured layout for cargo and switch regression coverage; a fresh completion and timing audit of the revised level are pending."
-    },
-    {
       "file": "Waterline1.jump-level.json",
       "reason": "October 23 pump rates changed to 20 and the lower-left float moved. The prior A route is retained against the captured pre-change layout for water and circuit regression coverage; the revised live level needs a fresh completion and timing audit."
     },
@@ -107,178 +103,6 @@
     }
   ],
   "runs": [
-    {
-      "file": "LAB1.jump-level.json",
-      "jumpModel": "tap-hold",
-      "elapsed": 3.791666666666656,
-      "activeTime": 4.650000000000021,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 126,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 22,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 409,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        }
-      ]
-    },
-    {
-      "file": "00.json",
-      "elapsed": 2.6083333333333267,
-      "activeTime": 3.466666666666657,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 117,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 194,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 104,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        }
-      ]
-    },
-    {
-      "file": "02.json",
-      "jumpModel": "tap-hold",
-      "elapsed": 6.266666666666768,
-      "activeTime": 7.125000000000144,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 124,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 82,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 20,
-          "input": {
-            "jump": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {}
-        },
-        {
-          "frames": 99,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 55,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 83,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 73,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 49,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 22,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 247,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        }
-      ]
-    },
     {
       "file": "03.json",
       "jumpModel": "tap-hold",
@@ -3887,132 +3711,6 @@
   "completionRuns": [],
   "historicalRuns": [
     {
-      "file": "01.json",
-      "jumpModel": "tap-hold",
-      "elapsed": 6.000000000000088,
-      "activeTime": 6.858333333333464,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 145,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": true,
-            "crouch": true,
-            "reach": false,
-            "descend": true,
-            "detach": false
-          }
-        },
-        {
-          "frames": 70,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 23,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 79,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 21,
-          "input": {
-            "move": 0,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 47,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": false,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 22,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        },
-        {
-          "frames": 415,
-          "input": {
-            "move": 1,
-            "jump": false,
-            "climb": true,
-            "drop": false,
-            "crouch": false,
-            "reach": false,
-            "descend": false,
-            "detach": false
-          }
-        }
-      ]
-    },
-    {
       "file": "Waterline1.jump-level.json",
       "jumpModel": "tap-hold",
       "elapsed": 29.4833333333323,
@@ -5185,6 +4883,308 @@
         }
       ],
       "reason": "The intermediate Spelunk II map was retired from the finale campaign; this trace is retained as historical evidence, not an audit of a deployed level."
+    },
+    {
+      "file": "LAB1.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 3.791666666666656,
+      "activeTime": 4.650000000000021,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 126,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 409,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        }
+      ],
+      "reason": "Leaps and Bounds I was retired when Orientation replaced the opening levels; this trace is retained as historical evidence, not an audit of a deployed level. Its layout remains as tests/fixtures/jumping/lab1-first-box.json."
+    },
+    {
+      "file": "00.json",
+      "elapsed": 2.6083333333333267,
+      "activeTime": 3.466666666666657,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 117,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 194,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "First Gap was retired when Orientation took over the tutorials; this trace is retained as historical evidence, not an audit of a deployed level. Its layout remains as tests/fixtures/jumping/first-gap-ladder.json."
+    },
+    {
+      "file": "02.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 6.266666666666768,
+      "activeTime": 7.125000000000144,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 124,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 99,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 55,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 247,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "A Little Swing was retired when Orientation took over the tutorials; this trace is retained as historical evidence, not an audit of a deployed level. Its layout remains as tests/fixtures/jumping/little-swing-rope.json."
+    },
+    {
+      "file": "01.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 6.000000000000088,
+      "activeTime": 6.858333333333464,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 145,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": true,
+            "crouch": true,
+            "reach": false,
+            "descend": true,
+            "detach": false
+          }
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 23,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 79,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 21,
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 47,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 415,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        }
+      ],
+      "reason": "Second Gap was retired when Orientation took over the tutorials; this captured-layout route is retained as historical evidence, not an audit of a deployed level."
     }
   ]
 }

@@ -12,11 +12,11 @@ import { COMPLETION_KEY, readCompleted, saveCompleted } from '../src/games/jumpi
 import { emptyWorkspace, parseWorkspace } from '../src/accounts/data.ts'
 import { workspaceFiles, filesWorkspace } from '../src/accounts/cloudLayout.ts'
 
-const opening = () => parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/Wake.jump-level.json', import.meta.url), 'utf8')))
+// Wake, the retired pod opening (Orientation replaced it), stays as a fixture:
+// it is the smallest authored charging-bay awakening.
+const opening = () => parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/wake-pod.json', import.meta.url), 'utf8')))
 
-test('Wake starts the built-in collection and uses an authored, valid, untimed night room', () => {
-  const index = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url), 'utf8'))
-  assert.equal(index.levels[0], 'Wake.jump-level.json')
+test('Wake is an authored, valid, untimed night room', () => {
   const level = opening()
   assert.deepEqual(levelProblems(level), [])
   assert.equal(level.timing, 'untimed'); assert.equal(level.entrance.kind, 'charging-bay')

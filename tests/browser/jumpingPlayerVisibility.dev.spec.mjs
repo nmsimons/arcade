@@ -9,7 +9,7 @@ for (const backend of ['canvas', 'gpu']) for (const kind of ['ladder', 'water'])
         import('/tests/helpers/jumping-active-run.mjs'), import('/src/games/jumping/level.ts'), import('/src/games/jumping/model.ts'),
         import('/src/games/jumping/athlete.ts'), import('/src/games/jumping/lightingRender.ts'), import('/tests/helpers/jumpingWaterBindings.mjs'),
       ])
-      const data = kind === 'water' ? waterBindingLevel('bank') : await (await fetch('/levels/jumping/00.json')).json()
+      const data = kind === 'water' ? waterBindingLevel('bank') : await (await fetch('/tests/fixtures/jumping/first-gap-ladder.json')).json()
       const run = createRun(parseLevel(data)), advance = (ticks, input = {}) => {
         for (let i = 0; i < ticks; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input })
       }

@@ -2,31 +2,93 @@
   "version": 1,
   "id": "facility-movement",
   "name": "Movement wing",
-  "kind": "hub",
-  "timing": "untimed",
   "width": 2500,
   "height": 720,
-  "floor": 720,
-  "entrance": { "name": "Movement entrance", "x": 200, "y": 720 },
   "platforms": [],
+  "entrance": {
+    "name": "Movement entrance",
+    "x": 200,
+    "y": 720
+  },
   "checkpoints": [],
-  "climbables": { "ladders": [], "ropes": [] },
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
   "props": [],
   "mechanisms": [],
   "triggers": [],
   "robots": [],
   "courseDoors": [
-    { "name": "Hop Skip Jump I", "id": "door-hop-skip-jump-i", "x": 800, "y": 720, "course": "ff487efc-cbdb-42f0-85c0-8df2b69532b4" },
-    { "name": "A Bigger Swing", "id": "door-a-bigger-swing", "x": 1150, "y": 720, "course": "d810f5f5-1a01-431f-804b-575b1b731a3d" },
-    { "name": "Leaps and Bounds II", "id": "door-leaps-and-bounds-ii", "x": 1500, "y": 720, "course": "e784fe84-2ab2-427c-b5a2-1d1fec663e5c" },
-    { "name": "Hop Skip Jump II", "id": "door-hop-skip-jump-ii", "x": 1850, "y": 720, "course": "d5e4ea37-a26f-46b9-8c84-d2b36840368b" },
-    { "name": "Slow is Smooth", "id": "door-slow-is-smooth", "x": 2200, "y": 720, "course": "ade313c6-a64a-48ea-a77e-85e0565acaf8" }
+    {
+      "name": "Hop Skip Jump I",
+      "id": "door-hop-skip-jump-i",
+      "x": 1465,
+      "y": 720,
+      "course": "ff487efc-cbdb-42f0-85c0-8df2b69532b4"
+    },
+    {
+      "name": "A Bigger Swing",
+      "id": "door-a-bigger-swing",
+      "x": 840,
+      "y": 720,
+      "course": "d810f5f5-1a01-431f-804b-575b1b731a3d"
+    },
+    {
+      "name": "Leaps and Bounds II",
+      "id": "door-leaps-and-bounds-ii",
+      "x": 1098,
+      "y": 720,
+      "course": "e784fe84-2ab2-427c-b5a2-1d1fec663e5c"
+    },
+    {
+      "name": "Hop Skip Jump II",
+      "id": "door-hop-skip-jump-ii",
+      "x": 1715,
+      "y": 720,
+      "course": "d5e4ea37-a26f-46b9-8c84-d2b36840368b"
+    },
+    {
+      "name": "Slow is Smooth",
+      "id": "door-slow-is-smooth",
+      "x": 2045,
+      "y": 720,
+      "course": "ade313c6-a64a-48ea-a77e-85e0565acaf8"
+    }
   ],
   "bulkheads": [
-    { "name": "Concourse bulkhead", "id": "movement-to-concourse", "x": 200, "y": 720, "to": "concourse" }
+    {
+      "name": "Concourse bulkhead",
+      "id": "movement-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "concourse"
+    }
   ],
+  "evaluationBoards": [],
   "texts": [
-    { "x": 400, "y": 540, "w": 260, "h": 40, "text": "MOVEMENT", "fontSize": 24, "align": "left", "style": "official" },
-    { "x": 400, "y": 578, "w": 320, "h": 24, "text": "LADDERS · ROPES · LONG JUMPS · 5 COURSES", "fontSize": 12, "align": "left", "style": "official" }
+    {
+      "x": 400,
+      "y": 540,
+      "w": 260,
+      "h": 40,
+      "text": "MOVEMENT",
+      "fontSize": 24,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 400,
+      "y": 578,
+      "w": 320,
+      "h": 24,
+      "text": "LADDERS · ROPES · LONG JUMPS · 5 COURSES",
+      "fontSize": 12,
+      "align": "left",
+      "style": "official"
+    }
   ]
 }

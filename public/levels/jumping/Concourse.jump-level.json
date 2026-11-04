@@ -1703,6 +1703,78 @@
       "fontSize": 28,
       "align": "center",
       "style": "lab-stamp"
+    },
+    {
+      "x": 130,
+      "y": 1475,
+      "w": 425,
+      "h": 105,
+      "text": "0",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 130,
+      "y": 1095,
+      "w": 425,
+      "h": 105,
+      "text": "2",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 130,
+      "y": 735,
+      "w": 425,
+      "h": 105,
+      "text": "4",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 125,
+      "y": 375,
+      "w": 425,
+      "h": 105,
+      "text": "6",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 1445,
+      "y": 375,
+      "w": 425,
+      "h": 105,
+      "text": "7",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 1450,
+      "y": 735,
+      "w": 425,
+      "h": 105,
+      "text": "5",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 1450,
+      "y": 1095,
+      "w": 425,
+      "h": 105,
+      "text": "3",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 1450,
+      "y": 1475,
+      "w": 425,
+      "h": 105,
+      "text": "1",
+      "fontSize": 96,
+      "align": "center"
     }
   ],
   "gravityPlates": [

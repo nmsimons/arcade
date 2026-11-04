@@ -94,7 +94,7 @@ test('keyboard, D-pad and left stick follow palette rows and columns without edg
     await move('ArrowLeft'); await expect(rope).toBeFocused()
     await move('ArrowUp'); await expect(button(page, 'Back wall')).toBeFocused()
     await move('ArrowUp'); await expect(terrain).toBeFocused()
-    const last = button(page, 'Wall text'); await last.focus(); await page.clock.runFor(64)
+    const last = button(page, 'L.A.B. wall stamp'); await last.focus(); await page.clock.runFor(64)
     await move('ArrowDown'); await expect(last).toBeFocused()
   }
   await expect(button(page, 'Undo')).toBeDisabled()
@@ -133,7 +133,8 @@ test('arrows navigate fields until Enter starts editing, then apply or cancel re
   // Combobox arrows choose options; Tab traverses these new World controls.
   await page.keyboard.press('Shift+Tab'); await expect(page.getByRole('combobox', { name: 'Background', exact: true })).toBeFocused()
   await page.keyboard.press('Shift+Tab'); await expect(page.locator('summary[aria-label="World"]')).toBeFocused()
-  await page.keyboard.press('ArrowUp'); await expect(fileName).toBeFocused()
+  await page.keyboard.press('ArrowUp'); await expect(page.getByRole('combobox', { name: 'Level type', exact: true })).toBeFocused()
+  await page.keyboard.press('Shift+Tab'); await expect(fileName).toBeFocused()
   await expect(width).toHaveValue(String(initial)); await expect(button(page, 'Undo')).toBeDisabled()
   await width.focus(); await page.keyboard.press('Enter'); await expect(width).toHaveAttribute('data-builder-editing', 'true')
   await page.screenshot({ path: info.outputPath('number-editing.png') })

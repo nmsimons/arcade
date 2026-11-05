@@ -16,7 +16,7 @@ import { nearestBoundary, pointInside, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { MAX_CURVE_POINTS, cubicPoint, relativePoint, splitCubic, terrainCubic, terrainCurveOutline, terrainCurveSamples, terrainNodes } from './terrainCurves.ts'
 import type { TerrainBezier } from './terrainCurves.ts'
-import { ropePath, ropeSegmentCount } from './climbables.ts'
+import { fitTiedRope, ropeEnds, ropePath, ropeSegmentCount, tiedRopeSpan } from './climbables.ts'
 import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_OFFSET, GOAL_DOOR_WIDTH, goalBounds, goalDoor, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
@@ -46,7 +46,7 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -258,7 +258,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
-    rope.y += dy
+    for (const point of ropeEnds(rope)) point.y += dy
     // Local terrain anchors stay unchanged. Rebuild cached world-space geometry
     // against the resized room before previewing, playing, or saving the level.
     delete rope.rest
@@ -608,10 +608,11 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
     ladder.x = ladder.side === 1 ? platform.x - 16 : platform.x + platform.w + 16
     ladder.bottom += platform.y - before.y; ladder.top = platform.y
   }
-  for (const rope of next.climbables.ropes) if (rope.anchor?.platform === index) {
-    rope.anchor.x *= platform.w / before.w; rope.anchor.y *= platform.h / before.h
-    const edge = nearestBoundary(platform, platform.x + rope.anchor.x, platform.y + rope.anchor.y)
-    rope.x = edge.x; rope.y = edge.y; rope.anchor.x = edge.x - platform.x; rope.anchor.y = edge.y - platform.y
+  for (const rope of next.climbables.ropes) for (const point of ropeEnds(rope)) if (point.anchor?.platform === index) {
+    point.anchor.x *= platform.w / before.w; point.anchor.y *= platform.h / before.h
+    const edge = nearestBoundary(platform, platform.x + point.anchor.x, platform.y + point.anchor.y)
+    point.x = edge.x; point.y = edge.y; point.anchor.x = edge.x - platform.x; point.anchor.y = edge.y - platform.y
+    fitTiedRope(rope)
   }
   // Carry start/checkpoint markers and doors with the surface that supports them.
   for (const p of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.wallDoors ?? [])]) {
@@ -653,10 +654,11 @@ export function transformTerrain(level: JumpLevel, index: number, transform: Ter
         ...(handle.in ? { in: vector(handle.in) } : {}), ...(handle.out ? { out: vector(handle.out) } : {}) }))
     }
   }
-  for (const rope of next.climbables.ropes) if (rope.anchor?.platform === index) {
-    const [x, y] = point(rope.anchor.x, rope.anchor.y)
-    rope.anchor.x = x; rope.anchor.y = y
-    rope.x = terrain.x + x; rope.y = terrain.y + y
+  for (const rope of next.climbables.ropes) for (const end of ropeEnds(rope)) if (end.anchor?.platform === index) {
+    const [x, y] = point(end.anchor.x, end.anchor.y)
+    end.anchor.x = x; end.anchor.y = y
+    end.x = terrain.x + x; end.y = terrain.y + y
+    fitTiedRope(rope)
     delete rope.rest
   }
   // Legacy ladders are always upright. Leave them in place as independent ladders.
@@ -667,6 +669,17 @@ export function transformTerrain(level: JumpLevel, index: number, transform: Ter
 export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy: number): JumpLevel {
   const b = itemBounds(level, selection)
   if (!b) return level
+  const tied = selection.kind === 'rope' ? level.climbables.ropes[selection.index]?.end : undefined
+  if (tied) {
+    // A tied rope moves whole, both anchors inside the level; either anchor moves alone by its handle.
+    const rope = level.climbables.ropes[selection.index]
+    const mx = clamp(dx, -Math.min(rope.x, tied.x), level.width - Math.max(rope.x, tied.x))
+    const my = clamp(dy, -Math.min(rope.y, tied.y), levelHeight(level) - Math.max(rope.y, tied.y))
+    const next = copyLevel(level), moved = next.climbables.ropes[selection.index]
+    for (const point of ropeEnds(moved)) { point.x += mx; point.y += my; delete point.anchor }
+    delete moved.rest
+    return next
+  }
   const attached = selection.kind === 'platform' ? level.climbables.ladders.filter(l => l.platform === selection.index) : []
   const x = clamp(b.x + dx, attached.some(l => l.side === 1) ? 16 : 0, level.width - b.w - (attached.some(l => l.side === -1) ? 16 : 0))
   const y = clamp(b.y + dy, 0, levelHeight(level) - b.h)
@@ -776,7 +789,11 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
         ...(handle.out ? { out: [handle.out[0] / before.w * width, handle.out[1] / before.h * height] as Vec } : {}) })) } : {}),
       ...(before.profile ? { profile: before.profile.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}) })
   }
-  if (selection.kind === 'rope') next.climbables.ropes[selection.index].length = clamp(h, 80, Math.min(2000, levelHeight(level) - next.climbables.ropes[selection.index].y))
+  if (selection.kind === 'rope') {
+    // A tied rope sags between its anchors; it can lengthen to 2,000 but never shorten past their span.
+    const rope = next.climbables.ropes[selection.index]
+    rope.length = rope.end ? clamp(h, Math.max(80, Math.ceil(tiedRopeSpan(rope))), 2000) : clamp(h, 80, Math.min(2000, levelHeight(level) - rope.y))
+  }
   if (selection.kind === 'ladder') {
     const ladder = next.climbables.ladders[selection.index]
     if (top) ladder.top = clamp(ladder.bottom - h, 0, ladder.bottom - 80)
@@ -829,12 +846,15 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   if (selection.kind === 'platform') {
     next.platforms.splice(i, 1)
     next.climbables.ladders = next.climbables.ladders.map(l => ({ ...l, platform: l.platform === i ? -1 : l.platform > i ? l.platform - 1 : l.platform }))
-    for (const r of next.climbables.ropes) if (r.anchor) {
-      if (r.anchor.platform === i) delete r.anchor
-      else if (r.anchor.platform > i) r.anchor.platform--
+    for (const r of next.climbables.ropes) for (const point of ropeEnds(r)) if (point.anchor) {
+      if (point.anchor.platform === i) delete point.anchor
+      else if (point.anchor.platform > i) point.anchor.platform--
     }
   } else if (selection.kind === 'back-wall') next.environment!.walls.splice(i, 1)
-  else if (selection.kind === 'rope') next.climbables.ropes.splice(i, 1)
+  else if (selection.kind === 'rope') {
+    const [rope] = next.climbables.ropes.splice(i, 1)
+    if (rope.release) removeSwitchTarget(next, rope.release.id)
+  }
   else if (selection.kind === 'timer') next.timers!.splice(i, 1)
   else if (selection.kind === 'text') next.texts!.splice(i, 1)
   else if (selection.kind === 'pickup') next.pickups!.splice(i, 1)
@@ -1011,6 +1031,23 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     else { if (next.checkpoints.length >= 30) throw new Error('This level already has 30 checkpoints.'); next.checkpoints.push(point) }
     return { level: next, selection: { kind: tool, index: tool === 'entrance' ? 0 : next.checkpoints.length - 1 } }
   }
+  if (tool === 'tied-rope') {
+    if (next.climbables.ropes.length >= 40) throw new Error('This level already has 40 ropes.')
+    // Drag from one anchor to the other; a click ties a short level span to the right.
+    const dragged = Math.hypot(end.x - start.x, end.y - start.y) >= 20
+    const from = { x: clamp(start.x, 0, level.width), y: clamp(start.y, 0, levelHeight(level)) }
+    const to = dragged ? { x: clamp(end.x, 0, level.width), y: clamp(end.y, 0, levelHeight(level)) } : { x: clamp(from.x + 240, 0, level.width), y: from.y }
+    const span = Math.hypot(to.x - from.x, to.y - from.y)
+    if (span < 40) throw new Error('Drag farther to tie a rope between two anchors.')
+    if (span > 2000) throw new Error('Keep a tied rope’s anchors within 2,000 units of each other.')
+    // A little slack lets the middle sag into reach.
+    const length = clamp(Math.round(span * 1.1 + 20), 80, 2000)
+    next.climbables.ropes.push({ ...from, length, segments: ropeSegmentCount(length), end: to })
+    const index = next.climbables.ropes.length - 1
+    const placed = anchorRope(anchorRope(next, index, 16), index, 16, 'end')
+    fitTiedRope(placed.climbables.ropes[index])
+    return { level: placed, selection: { kind: 'rope', index } }
+  }
   if (tool === 'rope') {
     if (next.climbables.ropes.length >= 40) throw new Error('This level already has 40 ropes.')
     const length = clamp(Math.abs(end.y - start.y) || 260, 80, Math.min(2000, levelHeight(level) - y))
@@ -1109,7 +1146,13 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
     if (next.platforms.length >= 160) return null
     index = next.platforms.push(copyLevel(level).platforms[i]) - 1
   } else if (selection.kind === 'back-wall') { if (next.environment!.walls.length >= 40) return null; index = next.environment!.walls.push(structuredClone(next.environment!.walls[i])) - 1 }
-  else if (selection.kind === 'rope') { if (next.climbables.ropes.length >= 40) return null; index = next.climbables.ropes.push({ ...next.climbables.ropes[i] }) - 1 }
+  else if (selection.kind === 'rope') {
+    if (next.climbables.ropes.length >= 40) return null
+    // A copy is not wired; its release, if any, gets its own switch ID.
+    const copy = structuredClone(next.climbables.ropes[i])
+    if (copy.release) copy.release.id = newLevelId()
+    index = next.climbables.ropes.push(copy) - 1
+  }
   else if (selection.kind === 'ladder') { if (next.climbables.ladders.length >= 40) return null; index = next.climbables.ladders.push({ ...next.climbables.ladders[i], platform: -1 }) - 1 }
   else if (selection.kind === 'timer') { if (next.timers!.length >= 40) return null; index = next.timers!.push({ ...next.timers![i] }) - 1 }
   else if (selection.kind === 'text') { if (next.texts!.length >= 80) return null; index = next.texts!.push({ ...next.texts![i] }) - 1 }
@@ -1157,13 +1200,55 @@ export function allSelections(level: JumpLevel): Selection[] {
 }
 
 /** Terrain anchors are stored in local coordinates so they travel with edited terrain. */
-export function anchorRope(level: JumpLevel, index: number, maxDistance = 40): JumpLevel {
-  const next = copyLevel(level), r = next.climbables.ropes[index]
+export function anchorRope(level: JumpLevel, index: number, maxDistance = 40, which: 'start' | 'end' = 'start'): JumpLevel {
+  const next = copyLevel(level), rope = next.climbables.ropes[index], r = which === 'end' ? rope?.end : rope
+  if (!r) return next
   const candidates = next.platforms.map((b, platform) => ({ ...nearestBoundary(b, r.x, r.y), platform })).sort((a, b) => a.distance - b.distance)
   const best = candidates[0]
   if (!best || best.distance > maxDistance) return next
   const b = next.platforms[best.platform]
   r.x = best.x; r.y = best.y; r.anchor = { platform: best.platform, x: r.x - b.x, y: r.y - b.y }
+  fitTiedRope(rope)
+  return next
+}
+/**
+ * Move one anchor of a tied rope, leaving the other where it is. Near a terrain
+ * edge it attaches there; the rope lengthens if the anchors move farther apart.
+ */
+export function moveRopeAnchor(level: JumpLevel, index: number, which: 'start' | 'end', x: number, y: number, attach = 16): JumpLevel {
+  const rope = level.climbables.ropes[index]
+  if (!rope?.end || !Number.isFinite(x) || !Number.isFinite(y)) return level
+  const next = copyLevel(level), moved = next.climbables.ropes[index], point = which === 'end' ? moved.end! : moved
+  point.x = clamp(x, 0, next.width); point.y = clamp(y, 0, levelHeight(next)); delete point.anchor
+  delete moved.rest
+  const placed = attach ? anchorRope(next, index, attach, which) : next
+  fitTiedRope(placed.climbables.ropes[index])
+  return placed
+}
+/** Tie a rope's free end where it now rests, or untie a tied rope's second anchor (and its release). */
+export function setRopeTied(level: JumpLevel, index: number, tied: boolean): JumpLevel {
+  const rope = level.climbables.ropes[index]
+  if (!rope || !!rope.end === tied) return level
+  const next = copyLevel(level), r = next.climbables.ropes[index]
+  if (!tied) {
+    if (r.release) removeSwitchTarget(next, r.release.id)
+    delete r.end; delete r.release; delete r.rest
+    return next
+  }
+  const [x, y] = r.rest?.points.at(-1) ?? [r.x, r.y + r.length]
+  r.end = { x: clamp(x, 0, next.width), y: clamp(y, 0, levelHeight(next)) }
+  delete r.rest
+  const placed = anchorRope(next, index, 16, 'end')
+  fitTiedRope(placed.climbables.ropes[index])
+  return placed
+}
+/** Wire a tied rope to let go of one anchor, or remove the release and its connections. */
+export function setRopeRelease(level: JumpLevel, index: number, anchor: 'start' | 'end' | null): JumpLevel {
+  const rope = level.climbables.ropes[index]
+  if (!rope?.end || (rope.release?.anchor ?? null) === anchor) return level
+  const next = copyLevel(level), r = next.climbables.ropes[index]
+  if (anchor) r.release = { ...r.release, id: r.release?.id ?? newLevelId(), anchor }
+  else { removeSwitchTarget(next, r.release!.id); delete r.release }
   return next
 }
 export function polygonPlatform(points: readonly Vec[], material?: TerrainMaterial): Platform {
@@ -1335,10 +1420,14 @@ function replaceEditedTerrain(level: JumpLevel, index: number, points: readonly 
   const next = replacePlatform(level, index, platform)
   // Handle extents change the bounding box without scaling or moving the solid.
   // Keep attachments at their world positions, then project to the changed edge.
-  for (const [i, source] of level.climbables.ropes.entries()) if (source.anchor?.platform === index) {
-    const rope = next.climbables.ropes[i], edge = nearestBoundary(platform, source.x, source.y)
-    rope.x = edge.x; rope.y = edge.y; rope.anchor = { platform: index, x: edge.x - platform.x, y: edge.y - platform.y }
-    delete rope.rest
+  for (const [i, source] of level.climbables.ropes.entries()) {
+    const rope = next.climbables.ropes[i], points = ropeEnds(rope)
+    for (const [k, end] of ropeEnds(source).entries()) if (end.anchor?.platform === index) {
+      const edge = nearestBoundary(platform, end.x, end.y), point = points[k]
+      point.x = edge.x; point.y = edge.y; point.anchor = { platform: index, x: edge.x - platform.x, y: edge.y - platform.y }
+      fitTiedRope(rope)
+      delete rope.rest
+    }
   }
   for (const [source, marker] of [[level.entrance, next.entrance], ...level.checkpoints.map((p, i) => [p, next.checkpoints[i]]),
     ...(level.goal && next.goal ? [[level.goal, next.goal]] : []),

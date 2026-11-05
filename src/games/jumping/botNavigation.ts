@@ -144,6 +144,8 @@ export function botNavigationGraph(run: Run): Graph {
     }
   }
   for (const [i, rope] of run.level.climbables.ropes.entries()) {
+    // Bots plan around ropes that hang from one anchor; a tied rope is not on their map.
+    if (rope.end) continue
     // Nodes describe feet, while a rope is caught at the hands. A dangling end
     // can be reached with the body below it, including the final Aloft gap.
     add({ x: rope.x, y: rope.y + rope.length, climb: `rope:${i}` })

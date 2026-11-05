@@ -4,7 +4,7 @@ import type { Platform, Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
 import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
 import type { JumpLevel } from './level.ts'
-import { ropePath } from './climbables.ts'
+import { ropeEnds, ropePath } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
@@ -38,7 +38,8 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
     ctx.beginPath(); ctx.moveTo(rope.x, rope.y)
     for (const [x, y] of ropePath(rope, p.ropes?.[i])) ctx.lineTo(x, y)
     ctx.stroke()
-    ctx.fillStyle = '#697d72'; ctx.beginPath(); ctx.arc(rope.x, rope.y, 5, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#697d72'
+    for (const anchor of ropeEnds(rope)) { ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill() }
   }
 }
 

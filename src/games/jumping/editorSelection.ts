@@ -6,7 +6,7 @@ import { MAX_WALL_DOORS } from './wallDoor.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
 import { lineBlocked, polygonIntersects, polygonPoints } from './geometry.ts'
-import { ropePath } from './climbables.ts'
+import { fitTiedRope, ropeEnds, ropePath } from './climbables.ts'
 import { platformSurface } from './terrain.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { switchedItems } from './switchPower.ts'
@@ -90,8 +90,8 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
 }
 function carriesSelection(level: JumpLevel, selection: Selection, selected: ReadonlySet<string>): boolean {
   if (selection.kind === 'rope') {
-    const anchor = level.climbables.ropes[selection.index].anchor
-    return !!anchor && selected.has(`platform:${anchor.platform}`)
+    // A rope rides with selected terrain only when every anchor is attached to it.
+    return ropeEnds(level.climbables.ropes[selection.index]).every(point => !!point.anchor && selected.has(`platform:${point.anchor.platform}`))
   }
   if (selection.kind === 'ladder') return selected.has(`platform:${level.climbables.ladders[selection.index].platform}`)
   if (selection.kind === 'trigger') {
@@ -126,9 +126,10 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
     const item = itemDefinition(next, s) as unknown as { x: number; y: number }
     item.x += dx; item.y += dy
   }
-  for (const rope of next.climbables.ropes) if (rope.anchor && selected.has(`platform:${rope.anchor.platform}`)) {
-    const host = next.platforms[rope.anchor.platform]
-    rope.x = host.x + rope.anchor.x; rope.y = host.y + rope.anchor.y; delete rope.rest
+  for (const rope of next.climbables.ropes) for (const point of ropeEnds(rope)) if (point.anchor && selected.has(`platform:${point.anchor.platform}`)) {
+    const host = next.platforms[point.anchor.platform]
+    point.x = host.x + point.anchor.x; point.y = host.y + point.anchor.y; delete rope.rest
+    fitTiedRope(rope)
   }
   for (const ladder of next.climbables.ladders) if (selected.has(`platform:${ladder.platform}`)) {
     ladder.x += dx; ladder.top += dy; ladder.bottom += dy
@@ -150,7 +151,12 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
     }
     const item = itemDefinition(next, s) as unknown as { x: number; y: number }
     item.x += dx; item.y += dy
-    if (s.kind === 'rope') { const rope = next.climbables.ropes[s.index]; delete rope.anchor; delete rope.rest }
+    if (s.kind === 'rope') {
+      const rope = next.climbables.ropes[s.index]
+      if (rope.end) { rope.end.x += dx; rope.end.y += dy }
+      for (const point of ropeEnds(rope)) delete point.anchor
+      delete rope.rest
+    }
     if (s.kind === 'robot') {
       const r = next.robots![s.index]
       r.left = clamp(r.left + dx, 50, Math.min(r.x, level.width - 100))
@@ -190,8 +196,9 @@ export function transformSelections(level: JumpLevel, selections: readonly Selec
       ladder.x = ladder.side === 1 ? changed.x - 16 : changed.x + changed.w + 16
       ladder.bottom += changed.y - b.y; ladder.top = changed.y
     }
-    for (const rope of next.climbables.ropes) if (s.kind === 'platform' && rope.anchor?.platform === s.index) {
-      rope.x = changed.x + rope.anchor.x; rope.y = changed.y + rope.anchor.y
+    for (const rope of next.climbables.ropes) for (const point of ropeEnds(rope)) if (s.kind === 'platform' && point.anchor?.platform === s.index) {
+      point.x = changed.x + point.anchor.x; point.y = changed.y + point.anchor.y
+      fitTiedRope(rope)
     }
   }
   return next
@@ -233,8 +240,13 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
     if (Array.isArray(definition.targets)) definition.targets = definition.targets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])
     if (typeof definition.target === 'string') { definition.targets = ids.has(definition.target) ? [ids.get(definition.target)!] : external.has(definition.target) ? [definition.target] : []; delete definition.target }
     if (s.kind === 'rope') {
-      const rope = next.climbables.ropes[s.index], index = rope.anchor && indices.get(`platform:${rope.anchor.platform}`)
-      if (index !== undefined && rope.anchor) rope.anchor.platform = index; else delete rope.anchor
+      const rope = next.climbables.ropes[s.index]
+      for (const point of ropeEnds(rope)) {
+        const index = point.anchor && indices.get(`platform:${point.anchor.platform}`)
+        if (index !== undefined && point.anchor) point.anchor.platform = index; else delete point.anchor
+      }
+      // A pasted rope is not wired; its release gets its own switch ID.
+      if (rope.release) rope.release = { ...rope.release, id: newLevelId() }
       delete rope.rest
     }
     if (s.kind === 'ladder') {

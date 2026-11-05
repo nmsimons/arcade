@@ -6,9 +6,9 @@ import { objectReference } from './objectLabels.ts'
 import type { NamedObject } from './objectNames.ts'
 import { createPlayer } from './model.ts'
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
-import { createRope } from './climbables.ts'
+import { createRope, fitTiedRope, tiedRopeSpan } from './climbables.ts'
 import { prepareRope } from './ropeLayout.ts'
-import type { ClimbableWorld } from './climbables.ts'
+import type { ClimbableWorld, RopeAnchor, RopeEnd } from './climbables.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
 import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
@@ -149,11 +149,20 @@ function ropeTerrain(level: JumpLevel) {
 }
 /** Saved geometry is also the editor preview and the first playable frame. */
 export function prepareLevelRopes<T extends JumpLevel>(level: T, preview = false): T {
+  // An anchor moved out of buried terrain attaches to the edge it now sits on.
+  const onEdge = (x: number, y: number) => {
+    const platform = level.platforms.findIndex(b => nearestBoundary(b, x, y).distance < .01)
+    return platform >= 0 ? { platform, x: x - level.platforms[platform].x, y: y - level.platforms[platform].y } : null
+  }
   const terrain = ropeTerrain(level), ropes = level.climbables.ropes.map(r => {
-    const resolved = prepareRope(r, terrain, preview)
+    let resolved = prepareRope(r, terrain, preview)
+    if (resolved.end && r.end && (resolved.end.x !== r.end.x || resolved.end.y !== r.end.y)) {
+      const anchor = onEdge(resolved.end.x, resolved.end.y)
+      if (anchor) resolved = { ...resolved, end: { ...resolved.end, anchor } }
+    }
     if (resolved.x !== r.x || resolved.y !== r.y) {
-      const platform = level.platforms.findIndex(b => nearestBoundary(b, resolved.x, resolved.y).distance < .01)
-      if (platform >= 0) return { ...resolved, anchor: { platform, x: resolved.x - level.platforms[platform].x, y: resolved.y - level.platforms[platform].y } }
+      const anchor = onEdge(resolved.x, resolved.y)
+      if (anchor) return { ...resolved, anchor }
     }
     return resolved
   })
@@ -361,13 +370,30 @@ export function parseLevel(value: unknown): JumpLevel {
     const r = object(item), segments = num(r.segments, 4, 250)
     if (!Number.isInteger(segments)) fail()
     const rope: ClimbableWorld['ropes'][number] = { ...objectName(r), x: num(r.x, 0, width), y: num(r.y, -2000, 6000), length: num(r.length, 80, 2000), segments }
-    if (r.anchor !== undefined) {
-      const a = object(r.anchor), platform = num(a.platform, 0, platforms.length - 1)
+    // An anchor on terrain is stored locally and must sit on the terrain's edge.
+    const anchorOn = (value: unknown, point: { x: number; y: number; anchor?: RopeAnchor }) => {
+      const a = object(value), platform = num(a.platform, 0, platforms.length - 1)
       if (!Number.isInteger(platform)) fail()
       const b = platforms[platform]
-      rope.anchor = { platform, x: num(a.x, 0, b.w), y: num(a.y, 0, b.h) }
-      rope.x = b.x + rope.anchor.x; rope.y = b.y + rope.anchor.y
-      if (nearestBoundary(b, rope.x, rope.y).distance > .01) fail()
+      point.anchor = { platform, x: num(a.x, 0, b.w), y: num(a.y, 0, b.h) }
+      point.x = b.x + point.anchor.x; point.y = b.y + point.anchor.y
+      if (nearestBoundary(b, point.x, point.y).distance > .01) fail()
+    }
+    if (r.anchor !== undefined) anchorOn(r.anchor, rope)
+    if (r.end !== undefined) {
+      // A tied rope's second anchor; the rope always reaches it, taut at the least.
+      const e = object(r.end), end: RopeEnd = { x: num(e.x, 0, width), y: num(e.y, -2000, 6000) }
+      if (e.anchor !== undefined) anchorOn(e.anchor, end)
+      rope.end = end
+      if (tiedRopeSpan(rope) > 2000) fail()
+      fitTiedRope(rope)
+    }
+    if (r.release !== undefined) {
+      const release = object(r.release)
+      if (!rope.end || !validSwitchTargetId(release.id) || release.anchor !== 'start' && release.anchor !== 'end') fail()
+      const settings = parseSwitchSettings({ switchLogic: release.switchLogic, switchReversed: release.switchReversed }, fail)
+      rope.release = { id: release.id as string, anchor: release.anchor as 'start' | 'end',
+        ...(settings.switchLogic ? { switchLogic: settings.switchLogic } : {}), ...(settings.switchReversed !== undefined ? { switchReversed: settings.switchReversed } : {}) }
     }
     if (r.rest !== undefined) {
       const rest = object(r.rest)
@@ -390,7 +416,9 @@ export function parseLevel(value: unknown): JumpLevel {
         const length = c ? Math.hypot(c[0] - a[0], c[1] - a[1]) + Math.hypot(p[0] - c[0], p[1] - c[1]) : Math.hypot(p[0] - a[0], p[1] - a[1])
         return length > (distances ? distances[i + 1] - distances[i] : spacing) * 1.15
       })) fail()
-      rope.rest = { key: rest.key as string, points, ...(distances ? { distances } : {}), ...(bends ? { bends } : {}) }
+      // A tied rope's saved shape must end at its second anchor; otherwise it is solved again.
+      const reaches = !rope.end || Math.hypot(points[segments][0] - rope.end.x, points[segments][1] - rope.end.y) < .01
+      if (reaches) rope.rest = { key: rest.key as string, points, ...(distances ? { distances } : {}), ...(bends ? { bends } : {}) }
     }
     return rope
   })
@@ -673,7 +701,8 @@ export function parseLevel(value: unknown): JumpLevel {
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
-  const ids = [...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
+  const ids = [...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : []),
+    ...level.climbables.ropes.flatMap(rope => rope.release ? [rope.release] : [])].map(item => item.id)
   for (const p of level.gravityPlates ?? []) if (p.effect === 'water') ids.push(waterControlId(p.id, 'fill'), waterControlId(p.id, 'drain'))
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.

@@ -1,5 +1,5 @@
 import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
-import { ropePath } from './climbables.ts'
+import { releaseRopeAnchor, ropePath } from './climbables.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { isHubLevel, isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
@@ -327,10 +327,24 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
   })
   updateSwitchTargets(run)
 }
+/**
+ * A switched rope anchor lets go once its switches turn it on, and stays
+ * released for the rest of the run. Anyone holding the rope keeps their grip.
+ */
+function releaseRopeAnchors(run: Run, states: ReadonlyMap<string, boolean>) {
+  for (const [index, definition] of run.level.climbables.ropes.entries()) {
+    const release = definition.release, rope = run.player.ropes?.[index]
+    if (!release || !rope?.definition.end || !states.get(release.id)) continue
+    const riders = [run.player, ...run.robots.flatMap(r => r.actor ? [r.actor] : [])]
+      .flatMap(actor => actor.climbing?.rope === rope ? [actor.climbing] : [])
+    releaseRopeAnchor(rope, release.anchor, riders)
+  }
+}
 function updateSwitchTargets(run: Run) {
   for (const state of run.floatSwitches) updateFloatSwitch(state, run.empRemaining === 0)
   const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches)
   run.switchStates = states
+  releaseRopeAnchors(run, states)
   updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0, platform => {
     const held = heldToolFrame(run.player)
     if (held && polygonIntersects(polygonPoints(toolShape(held)), platform, .001)) return true

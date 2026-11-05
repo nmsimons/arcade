@@ -1,6 +1,6 @@
 import type { Platform } from './model.ts'
 import type { Rope, Point } from './climbables.ts'
-import { createRope, stepRope, ROPE_CLEARANCE, ropeSegmentLength, ropeSegmentCount } from './climbables.ts'
+import { createRope, fitTiedRope, stepRope, ROPE_CLEARANCE, ropeSegmentLength, ropeSegmentCount } from './climbables.ts'
 import { lineBlocked, nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
 
 // Keep drag previews and unrelated inspector changes from solving the same layout twice.
@@ -17,13 +17,15 @@ function fingerprint(source: string) {
 /** Start on a continuous route around solids, rather than ejecting isolated particles
  * to opposite faces of a block (which can thread a rope through thin platforms). */
 function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
-  const start: Point = [rope.x, rope.y], end: Point = [rope.x, rope.y + rope.length]
+  const tied = rope.end
+  const start: Point = [rope.x, rope.y], end: Point = tied ? [tied.x, tied.y] : [rope.x, rope.y + rope.length]
   for (let pass = 0; pass < 12; pass++) {
     const solid = terrain.find(b => pointInside(b, ...end))
     if (!solid) break
     const edge = nearestBoundary(solid, ...end)
     end[0] = edge.x + edge.nx * ROPE_CLEARANCE; end[1] = edge.y + edge.ny * ROPE_CLEARANCE
   }
+  if (tied && !lineBlocked(start, end, terrain)) return [start, end]
   if (!lineBlocked(start, end, terrain)) {
     // On a vertical face, clear the wall with the first segment and hang the
     // rest straight down. A diagonal seed makes every particle slide sideways
@@ -59,6 +61,7 @@ function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
       for (let i = 1; i !== -1; i = previous[i]) route.unshift(vertices[i])
       // The free tail hangs below the last obstacle, not back toward the original
       // vertical line through the anchor. Seed that rest direction when it is clear.
+      if (tied) return route
       const support = route.at(-2)!
       const used = route.slice(1, -1).reduce((sum, p, i) => sum + Math.hypot(p[0] - route[i][0], p[1] - route[i][1]), 0)
       const tail: Point = [support[0], support[1] + Math.max(0, rope.length - used)]
@@ -77,6 +80,28 @@ function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
 
 // A coat of paint must not discard an authored rope's settled path or change its cache key.
 const geometryOnly = (key: string, value: unknown) => key === 'material' || key === 'groundCover' ? undefined : value
+// A tied rope's key also covers its second anchor. Other ropes keep the key their saved shapes carry.
+const layoutSource = (rope: Rope, nearby: readonly Platform[]) => JSON.stringify(rope.end ? [rope.x, rope.y, rope.length, rope.segments, [rope.end.x, rope.end.y], nearby]
+  : [rope.x, rope.y, rope.length, rope.segments, nearby], geometryOnly)
+
+/** The nearest point on an exposed face of the terrain union, for an anchor buried inside it. */
+function exposedPoint(terrain: readonly Platform[], x0: number, y0: number) {
+  let best: { x: number; y: number; distance: number } | undefined
+  for (const shape of terrain) {
+    const points = polygonPoints(shape)
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy)
+      const t = Math.max(0, Math.min(1, ((x0 - a[0]) * dx + (y0 - a[1]) * dy) / (length * length)))
+      for (const along of [t, 0, 1]) {
+        const x = a[0] + along * dx, y = a[1] + along * dy, distance = Math.hypot(x - x0, y - y0)
+        if (best && distance >= best.distance) continue
+        if (!terrain.some(s => pointInside(s, x + dy / length * .001, y - dx / length * .001))) best = { x, y, distance }
+      }
+    }
+  }
+  return best
+}
+const buried = (terrain: readonly Platform[], x: number, y: number) => terrain.some(b => pointInside(b, x, y) && nearestBoundary(b, x, y).distance > .01)
 
 /** Resolve an unloaded rope once, in authoring time, using the game's own constraints. */
 export function prepareRope(definition: Rope, terrain: readonly Platform[], preview = false): Rope {
@@ -85,7 +110,7 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
     // Keep a matching saved path; otherwise show a straight rope until the worker finishes.
     const rope = { ...definition, segments: ropeSegmentCount(definition.length) }, reach = rope.length + 32
     const nearby = terrain.filter(b => b.x < rope.x + reach && b.x + b.w > rope.x - reach && b.y < rope.y + reach && b.y + b.h > rope.y - reach)
-    const source = JSON.stringify([rope.x, rope.y, rope.length, rope.segments, nearby], geometryOnly), key = fingerprint(source)
+    const source = layoutSource(rope, nearby), key = fingerprint(source)
     if (rope.rest?.key === key || rope.rest?.key === `preview:${key}`) return definition
     const state = createRope({ ...rope, rest: undefined })
     return { ...rope, rest: { key: `preview:${key}`, points: state.nodes.map(n => [n.x, n.y] as Point),
@@ -94,25 +119,19 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
   const rope = { ...definition, segments: ropeSegmentCount(definition.length) }
   // Use an exposed face of the terrain union, so overlapping blocks cannot bounce
   // a buried anchor back and forth between their internal edges.
-  if (terrain.some(b => pointInside(b, rope.x, rope.y) && nearestBoundary(b, rope.x, rope.y).distance > .01)) {
-    let best: { x: number; y: number; distance: number } | undefined
-    for (const shape of terrain) {
-      const points = polygonPoints(shape)
-      for (let i = 0; i < points.length; i++) {
-        const a = points[i], b = points[(i + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy)
-        const t = Math.max(0, Math.min(1, ((rope.x - a[0]) * dx + (rope.y - a[1]) * dy) / (length * length)))
-        for (const along of [t, 0, 1]) {
-          const x = a[0] + along * dx, y = a[1] + along * dy, distance = Math.hypot(x - rope.x, y - rope.y)
-          if (best && distance >= best.distance) continue
-          if (!terrain.some(s => pointInside(s, x + dy / length * .001, y - dx / length * .001))) best = { x, y, distance }
-        }
-      }
-    }
+  if (buried(terrain, rope.x, rope.y)) {
+    const best = exposedPoint(terrain, rope.x, rope.y)
     if (best) { rope.x = best.x; rope.y = best.y; delete rope.anchor }
   }
+  if (rope.end && buried(terrain, rope.end.x, rope.end.y)) {
+    const best = exposedPoint(terrain, rope.end.x, rope.end.y)
+    if (best) rope.end = { x: best.x, y: best.y }
+  }
+  // A tied rope reaches both anchors, even after one moved.
+  if (rope.end) { fitTiedRope(rope); rope.segments = ropeSegmentCount(rope.length) }
   const reach = rope.length + 32
   const nearby = terrain.filter(b => b.x < rope.x + reach && b.x + b.w > rope.x - reach && b.y < rope.y + reach && b.y + b.h > rope.y - reach)
-  const source = JSON.stringify([rope.x, rope.y, rope.length, rope.segments, nearby], geometryOnly), key = fingerprint(source)
+  const source = layoutSource(rope, nearby), key = fingerprint(source)
   if (rope.rest?.key === key) return definition
   const cached = layouts.get(source)
   if (cached) return { ...rope, rest: cached }
@@ -121,7 +140,8 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
   const distances = state.nodes.map((_, i) => Math.min(rope.length, i * ropeSegmentLength(rope.length)))
   // A free vertical span is already its exact rest shape. Do not simulate
   // thousands of constraint passes merely to rediscover that straight line.
-  if (!nearby.some(b => b.x < rope.x + ROPE_CLEARANCE && b.x + b.w > rope.x - ROPE_CLEARANCE
+  // A tied rope sags between its anchors, so it is always solved.
+  if (!rope.end && !nearby.some(b => b.x < rope.x + ROPE_CLEARANCE && b.x + b.w > rope.x - ROPE_CLEARANCE
     && b.y < rope.y + rope.length + ROPE_CLEARANCE && b.y + b.h > rope.y - ROPE_CLEARANCE)) {
     const rest = { key, points: state.nodes.map(n => [n.x, n.y] as Point), distances, bends: state.bends }
     if (layouts.size >= 128) layouts.delete(layouts.keys().next().value!)
@@ -129,8 +149,11 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
     return { ...rope, rest }
   }
   const path = seedPath(rope, nearby)
+  // A tied rope's slack is spread evenly along the route between its anchors.
+  const routeLength = path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - path[i][0], p[1] - path[i][1]), 0)
+  const scale = rope.end ? Math.min(1, routeLength / rope.length) : 1
   for (let i = 1; i < state.nodes.length; i++) {
-    let travel = distances[i]
+    let travel = distances[i] * scale
     for (let j = 1; j < path.length; j++) {
       const a = path[j - 1], b = path[j], length = Math.hypot(b[0] - a[0], b[1] - a[1])
       if (travel > length && j < path.length - 1) { travel -= length; continue }

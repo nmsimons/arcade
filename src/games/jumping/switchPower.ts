@@ -85,6 +85,8 @@ export function switchedItems(level: JumpLevel) {
     ...(level.forceFields ?? []).flatMap((definition, index) => definition.power === 'switched' ? [{ id: definition.id, kind: 'force-field' as const, index, definition }] : []),
     ...(level.wallLights ?? []).map((definition, index) => ({ id: definition.id, kind: 'wall-light' as const, index, definition })),
     ...(level.goal?.power === 'switched' && level.goal.id ? [{ id: level.goal.id, kind: 'goal' as const, index: 0, definition: level.goal }] : []),
+    // A tied rope wired to let go of one anchor.
+    ...level.climbables.ropes.flatMap((rope, index) => rope.end && rope.release ? [{ id: rope.release.id, kind: 'rope' as const, index, definition: rope.release as SwitchSettings & { id: string } }] : []),
   ]
 }
 

@@ -13,7 +13,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'steps-narrow': 'M2 21v-4h4v-4h4V9h4V5h4V1h4v8h-4v4h-4v4h-4v4Z',
   'steps-wide': 'M1 17v-2h4v-2h4v-2h4V9h4V7h6v2h-4v2h-4v2h-4v2H7v2Z',
   platform: 'M3 10h18v5H3zM6 18h12', pillar: 'M7 3h10v18H7zM7 9h10M7 15h10', pit: 'M2 7h6v13h8V7h6M10 20h4', ramp: 'M3 19 21 5v14Z',
-  rough: 'M2 19V15l4-4 3 2 5-8 3 5 5 4v5Z', rope: 'M15 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM12 8v2c-6 4 6 7 0 11', ladder: 'M7 3v18M17 3v18M7 6h10M7 10h10M7 14h10M7 18h10',
+  rough: 'M2 19V15l4-4 3 2 5-8 3 5 5 4v5Z', rope: 'M15 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM12 8v2c-6 4 6 7 0 11', 'tied-rope': 'M5 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM19 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM5 8c1 10 13 10 14 0', ladder: 'M7 3v18M17 3v18M7 6h10M7 10h10M7 14h10M7 18h10',
   entrance: 'M6 21V3h12v18M3 21h18', goal: 'M13 21V5h8v16M4 21V10M4 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7Z', checkpoint: 'm12 3 8 9-8 9-8-9Z',
   box: 'M4 4h16v16H4zM7 9h10M7 15h10', ball: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM18 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z',
   'branded-box': 'M4 4h16v16H4zM7 7h10M7 17h10M8 10v4h3M13 14l2-4 2 4M14 12h2',

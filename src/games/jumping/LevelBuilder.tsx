@@ -10,7 +10,7 @@ import { drawLevelCenterGuides, levelCenterSnap } from './builderSnap'
 import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, rememberEditorClipboard } from './editorClipboard'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setLevelType, setWallDoor, hubDoorAt } from './editor'
 import { WALL_DOOR_CONDITIONS, WALL_DOOR_LABELS } from './wallDoor'
@@ -95,6 +95,9 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
   const field = selection.kind === 'force-field' ? level.forceFields?.[selection.index] : null
   const trigger = selection.kind === 'trigger' ? level.triggers?.[selection.index] : null
   if (selection.kind === 'rope') {
+    // A tied rope has a handle on each anchor; a hanging rope's tip sets its length.
+    const tied = level.climbables.ropes[selection.index]
+    if (tied?.end) return [{ x: tied.x, y: tied.y, corner: 'top' }, { x: tied.end.x, y: tied.end.y, corner: 'bottom' }]
     const point = itemHandle(level, selection)
     return point ? [{ ...point, y: point.y + 8 / zoom, corner: 'bottom' }] : []
   }
@@ -119,6 +122,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'steps-narrow', group: 'Terrain', label: 'Steps narrow', help: 'Click to place five steps with a stepped underside and a two-square top landing. Each rise and tread is one grid square. Resize, reshape, rotate, or flip after placing.' },
   { id: 'steps-wide', group: 'Terrain', label: 'Steps wide', help: 'Click to place five one-square-thick steps, each three squares wide and offset two squares across and one square up. They form one terrain shape with a stepped underside. Resize, reshape, rotate, or flip after placing.' },
   { id: 'rope', group: 'Movement', label: 'Rope', help: 'Drag down from the anchor. Start near a terrain edge to attach the anchor to it.' },
+  { id: 'tied-rope', group: 'Movement', label: 'Tied rope', help: 'Drag from one anchor to the other. An end near a terrain edge attaches to it. The rope sags by its extra Length; drag either anchor to move it alone.' },
   { id: 'ladder', group: 'Movement', label: 'Ladder', help: 'Drag down anywhere to place a ladder. Move it or change its height in the inspector.' },
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click for a standard ball, or drag to choose its size. Corner handles resize it.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click for a standard box, or drag to choose its size. Corner handles resize it.' },
@@ -270,7 +274,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const resizeHandleAt = (p: Point) => resizeHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
   const hoverHandle = pointer && resizeHandleAt(pointer)
   const resizeCorner = drag?.mode === 'resize' ? drag.corner : hoverHandle?.corner
-  const resizeCursor = resizeCorner === 'top' || resizeCorner === 'bottom' ? 'ns-resize' : resizeCorner === 'left' || resizeCorner === 'right' ? 'ew-resize' : resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
+  // A tied rope's handles move its anchors rather than resizing anything.
+  const resizeCursor = selection?.kind === 'rope' && level.climbables.ropes[selection.index]?.end ? 'move' : resizeCorner === 'top' || resizeCorner === 'bottom' ? 'ns-resize' : resizeCorner === 'left' || resizeCorner === 'right' ? 'ew-resize' : resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
   const problems = useMemo(() => levelProblems(level), [level]), problem = problems[0]
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
   const prop = selection?.kind === 'prop' ? level.props?.[selection.index] : null
@@ -876,7 +881,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         const robot = d.base.robots![d.selection.index]
         next = setShovebotLimit(d.base, d.selection.index, d.side, qx(robot[d.side] + dx))
       }
-      if (d.mode === 'resize') {
+      const tiedRope = d.mode === 'resize' && d.selection.kind === 'rope' ? d.base.climbables.ropes[d.selection.index] : undefined
+      if (tiedRope?.end) {
+        // Each handle moves its own anchor; the other stays put.
+        const which = d.corner === 'top' ? 'start' : 'end', anchor = which === 'start' ? tiedRope : tiedRope.end
+        next = moveRopeAnchor(d.base, d.selection.index, which, qx(anchor.x + dx), qy(anchor.y + dy), snap && !event.altKey ? 16 : 0)
+      } else if (d.mode === 'resize') {
         const text = d.selection.kind === 'text' ? d.base.texts![d.selection.index] : null
         const start = text ? wallTextLocalPoint(text, d.start.x, d.start.y) : d.start
         const end = text ? wallTextLocalPoint(text, p.x, p.y) : p
@@ -1269,7 +1279,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
               onChange={value => commit(setObjectSwitchLogic(history.present, selection, value === 'and' ? 'and' : value === 'xor' ? 'xor' : 'or'))} />
             <div className="builder-action-row"><label><input type="checkbox" checked={objectSwitchReversed} onChange={e => commit(setObjectSwitchReversed(history.present, selection, e.target.checked))} />Reversed</label>
-            {!logicRelay && <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>}
+            {!logicRelay && selection.kind !== 'rope' && <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>}
             </div>
             <p className="builder-hint">{objectSwitchReversed ? 'Off' : 'On'} when {objectSwitchLogic === 'and' ? 'every connected switch is active'
               : objectSwitchLogic === 'xor' ? 'exactly one connected switch is active' : 'any connected switch is active'}. {objectSwitchReversed ? 'On' : 'Off'} otherwise.</p>
@@ -1342,10 +1352,25 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             if (m.flipX) delete m.flipX; else m.flipX = true
             commit(next)
           }}>Flip horizontally</button>}
-          {selection.kind === 'rope' && <div className="builder-anchor"><span>{level.climbables.ropes[selection.index].anchor ? `Anchored to ${selectionLabel({ kind: 'platform', index: level.climbables.ropes[selection.index].anchor!.platform }, level)}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach the rope anchor to nearby terrain, or detach it" onClick={() => {
-            const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
-            if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
-          }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
+          {selection.kind === 'rope' && (['start', 'end'] as const).filter(which => which === 'start' || level.climbables.ropes[selection.index].end).map(which => {
+            // A tied rope numbers its anchors; a hanging rope has just the one.
+            const rope = level.climbables.ropes[selection.index], point = which === 'end' ? rope.end! : rope
+            const name = rope.end ? which === 'start' ? 'anchor 1' : 'anchor 2' : 'anchor'
+            const host = point.anchor && selectionLabel({ kind: 'platform', index: point.anchor.platform }, level)
+            return <div className="builder-anchor" key={which}><span>{rope.end ? `${name === 'anchor 1' ? 'Anchor 1' : 'Anchor 2'}: ${host ?? 'free'}` : host ? `Anchored to ${host}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach this anchor to nearby terrain, or detach it" onClick={() => {
+              const next = copyLevel(history.present), r = next.climbables.ropes[selection.index], target = which === 'end' ? r.end! : r
+              if (target.anchor) { delete target.anchor; commit(next) } else commit(anchorRope(next, selection.index, 40, which))
+            }}>{point.anchor ? `Detach ${name}` : `Attach ${name} to nearby terrain`}</button></div>
+          })}
+          {selection.kind === 'rope' && <button className="builder-property-action" title={level.climbables.ropes[selection.index].end ? 'Free the second anchor so the rope hangs from the first' : 'Tie the free end where it rests'}
+            onClick={() => commit(setRopeTied(history.present, selection.index, !level.climbables.ropes[selection.index].end))}>{level.climbables.ropes[selection.index].end ? 'Untie anchor 2' : 'Tie the free end'}</button>}
+          {selection.kind === 'rope' && level.climbables.ropes[selection.index].end && <>
+            <BuilderSelect label="Release" accessibleLabel="Rope release" title="Let switches drop one anchor for the rest of the run"
+              value={level.climbables.ropes[selection.index].release?.anchor ?? 'none'}
+              options={[{ value: 'none', label: 'Always tied' }, { value: 'start', label: 'Switches release anchor 1' }, { value: 'end', label: 'Switches release anchor 2' }]}
+              onChange={value => commit(setRopeRelease(history.present, selection.index, value === 'start' || value === 'end' ? value : null))} />
+            {level.climbables.ropes[selection.index].release && <p className="builder-hint">When its switch rule turns on, the anchor lets go and stays released until restart. The rope then hangs from the other anchor.</p>}
+          </>}
           {canPlaceOnSurface(selection, level) && <div className="builder-surface-placement">
             <button disabled={!support || Math.abs(support.delta) < .1} title={facingPlate?.ceiling ? 'Place on the next ceiling surface · End' : 'Place on the next surface below · End'} onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">{facingPlate?.ceiling ? '↑' : '↓'}</span></button>
             <span className={support && Math.abs(support.delta) < .1 ? 'is-supported' : ''}>{support ? Math.abs(support.delta) < .1 ? 'On surface'

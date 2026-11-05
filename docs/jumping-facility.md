@@ -298,13 +298,11 @@ rather than inside it, so level packs keep their format (level JSON and
   "concourse": "<concourse level id>",
   "wings": [{
     "id": "movement",
-    "name": "Movement",
     "level": "<movement wing level id>",
     "courses": ["<Hop Skip Jump I>", "…"],
     "clearance": null
   }, {
     "id": "water",
-    "name": "Water",
     "level": "<water wing level id>",
     "courses": ["…"],
     "clearance": { "wings": ["freight", "construction"], "count": 8 }
@@ -334,6 +332,10 @@ rather than inside it, so level packs keep their format (level JSON and
   leads through `escape` in order.
 - **`level` and `concourse`** name hub levels and stay optional until those
   levels exist.
+- **A wing goes by its level's name** on bulkhead placards, the evaluation
+  board and campaign problems, so renaming the level in the studio renames the
+  wing. `id` is only for clearance to refer to; an optional `name` stands in
+  until the wing has a level.
 
 `npm run levels:check` confirms that every level exists and has one role (a
 facility area, one wing's course, the final course or an escape level), that

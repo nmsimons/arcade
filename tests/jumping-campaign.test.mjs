@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { blankTrial, isHubLevel } from '../src/games/jumping/level.ts'
-import { campaignProblems, clearanceCourses, courseAvailable, facilityProgress, parseCampaign } from '../src/games/jumping/campaign.ts'
+import { campaignProblems, clearanceCourses, courseAvailable, facilityProgress, parseCampaign, wingName } from '../src/games/jumping/campaign.ts'
 import { decodeLevelFile, decodeLevelManifest } from '../src/games/jumping/levelAssets.ts'
 
 const course = (id, name = id) => ({ ...blankTrial(), id, name })
@@ -36,6 +36,15 @@ test('campaign files decode strictly', () => {
   ]) assert.throws(() => campaign(broken), /not a valid campaign/)
 })
 
+test('a wing goes by its level’s name; the campaign’s name or ID stands in until the level exists', () => {
+  const byId = new Map([['m-hub', { ...hub('m-hub'), name: 'Boot Camp' }], ['m1', course('m1')]])
+  assert.equal(wingName({ id: 'movement', name: 'Movement', level: 'm-hub', courses: [] }, byId), 'Boot Camp')
+  assert.equal(wingName({ id: 'movement', name: 'Movement', level: 'gone', courses: [] }, byId), 'Movement')
+  assert.equal(wingName({ id: 'movement', level: 'm1', courses: [] }, byId), 'movement', 'a course is not a wing level')
+  const unnamed = parseCampaign({ version: 1, opening: 'wake', wings: [{ id: 'movement', level: 'm-hub', courses: ['m1'] }] })
+  assert.equal(unnamed.wings[0].name, undefined, 'the campaign may leave the name to the level')
+})
+
 test('clearance counts each named course once, in campaign order', () => {
   const value = campaign()
   assert.deepEqual(clearanceCourses(value, value.wings[2].clearance), ['m1', 'f1', 'f2'])
@@ -53,18 +62,18 @@ test('campaign problems name missing levels and levels given two roles', () => {
     { id: 'freight', name: 'Freight again', courses: ['f2'] },
   ] }), [...levels, { ...course('flat'), goal: undefined }])
   assert.deepEqual(problems, [
-    'The Movement wing lists “Wake”, which is not a timed course.',
-    'The Movement wing lists “void”, which is not in the collection.',
-    '“m1” is listed as a Movement course and in the Freight wing.',
+    'The wing “Movement” lists “Wake”, which is not a timed course.',
+    'The wing “Movement” lists “void”, which is not in the collection.',
+    '“m1” is listed as a course in the wing “Movement” and in the wing “Freight”.',
     'Two wings use the ID “freight”.',
-    'The opening level “gone” is not in the collection.',
-    'The Freight wing level “f1” is already listed as a Freight course.',
+    'The level for the opening, “gone”, is not in the collection.',
+    'The level for the wing “Freight”, “f1”, is already listed as a course in the wing “Freight”.',
   ])
   assert.deepEqual(campaignProblems(campaign({ wings: [{ id: 'movement', name: 'Movement', courses: ['m1', 'wake'] }] }), levels), [
-    'The Movement wing lists “Wake”, which is not a timed course.',
-    'The opening level “Wake” is already listed as a Movement course.',
+    'The wing “Movement” lists “Wake”, which is not a timed course.',
+    'The level for the opening, “Wake”, is already listed as a course in the wing “Movement”.',
   ])
-  assert.deepEqual(campaignProblems(campaign({ opening: 'plain' }), [...levels, course('plain')]), ['The opening level “plain” is not a facility area.'])
+  assert.deepEqual(campaignProblems(campaign({ opening: 'plain' }), [...levels, course('plain')]), ['The level for the opening, “plain”, is not a facility area.'])
 })
 
 test('clearance must come from other wings that can open first', () => {
@@ -74,13 +83,13 @@ test('clearance must come from other wings that can open first', () => {
     { id: 'water', name: 'Water', courses: ['w1', 'w2'], clearance: { courses: ['m1', 'x1'], count: 3 } },
   ] }), levels)
   assert.deepEqual(problems, [
-    "The Freight wing's clearance cannot depend on its own courses.",
-    "The Freight wing's clearance names an unknown wing, “docks”.",
-    "The Water wing's clearance names “x1”, which is not a wing course.",
-    "The Water wing's clearance needs 3 courses but names only 1.",
-    'The Movement wing can never open: its clearance needs courses that are only behind it.',
-    'The Freight wing can never open: its clearance needs courses that are only behind it.',
-    'The Water wing can never open: its clearance needs courses that are only behind it.',
+    'The clearance for the wing “Freight” cannot depend on its own courses.',
+    'The clearance for the wing “Freight” names an unknown wing, “docks”.',
+    'The clearance for the wing “Water” names “x1”, which is not a wing course.',
+    'The clearance for the wing “Water” needs 3 courses but names only 1.',
+    'The wing “Movement” can never open: its clearance needs courses that are only behind it.',
+    'The wing “Freight” can never open: its clearance needs courses that are only behind it.',
+    'The wing “Water” can never open: its clearance needs courses that are only behind it.',
   ])
 })
 
@@ -91,20 +100,22 @@ test('wing levels need one door per course and bulkheads both ways', () => {
     { id: 'freight', name: 'Freight', level: 'freight-hub', courses: ['f1', 'f2'] },
   ] })
   const world = [...others, course('plain'), hub('hall', [], [to('wake'), to('movement-hub'), to('docks'), to('plain')]),
-    hub('movement-hub', [door('m1'), door('m1'), door('f1')], [to('hall')]), hub('freight-hub', [door('f2')], []), hub('annex', [], [to('hall'), to('m1')])]
+    { ...hub('movement-hub', [door('m1'), door('m1'), door('f1')], [to('hall')]), name: 'Boot Camp' }, { ...hub('freight-hub', [door('f2')], []), name: 'Freight wing' },
+    hub('annex', [], [to('hall'), to('m1')])]
+  // Each wing goes by its level's name, not the campaign's.
   assert.deepEqual(campaignProblems(value, world), [
-    'The Movement wing level has 2 doors for “m1”. Give each course one door.',
-    'The Movement wing level has no door for “m2”. Give each course one door.',
-    "Level door “door-f1” in the Movement wing leads to “f1”, which is not one of that wing's courses.",
-    'The Freight wing level has no door for “f1”. Give each course one door.',
-    'The Freight wing level needs a bulkhead to the concourse.',
-    'The concourse needs a bulkhead to the Freight wing.',
+    'The wing “Boot Camp” has 2 doors for “m1”. Give each course one door.',
+    'The wing “Boot Camp” has no door for “m2”. Give each course one door.',
+    "Level door “door-f1” in the wing “Boot Camp” leads to “f1”, which is not one of that wing's courses.",
+    'The wing “Freight wing” has no door for “f1”. Give each course one door.',
+    'The wing “Freight wing” needs a bulkhead to the concourse.',
+    'The concourse needs a bulkhead to the wing “Freight wing”.',
     // Every facility area in the collection is checked, in the campaign or not.
     'Bulkhead “to-docks” in the concourse leads to “docks”, which is not in the collection.',
     'Bulkhead “to-plain” in the concourse leads to “plain”, which is not a facility area.',
     'Bulkhead “to-m1” in “annex” leads to “m1”, which is not a facility area.',
   ])
-  assert.deepEqual(campaignProblems(campaign({ concourse: 'plain' }), [...levels, course('plain')]), ['The concourse level “plain” is not a facility area.'])
+  assert.deepEqual(campaignProblems(campaign({ concourse: 'plain' }), [...levels, course('plain')]), ['The level for the concourse, “plain”, is not a facility area.'])
 })
 
 test('the concourse holds only the dispatch door, and bulkheads join it to the opening', () => {
@@ -130,9 +141,9 @@ test('the final course and escape route each have their own role', () => {
   const world = [...levels, course('final', 'Ascent I'), course('climb', 'Ascent II'), { ...course('bus', 'Exit'), timing: 'untimed' }]
   assert.deepEqual(campaignProblems(campaign({ concourse: undefined, finalCourse: 'final', escape: ['climb', 'bus'] }), world), [])
   assert.deepEqual(campaignProblems(campaign({ concourse: undefined, finalCourse: 'm1', escape: ['gone', 'f1', 'climb'] }), world), [
-    'The final course “m1” is already listed as a Movement course.',
+    'The final course “m1” is already listed as a course in the wing “Movement”.',
     'The escape level “gone” is not in the collection.',
-    'The escape level “f1” is already listed as a Freight course.',
+    'The escape level “f1” is already listed as a course in the wing “Freight”.',
   ])
   assert.deepEqual(campaignProblems(campaign({ concourse: undefined, finalCourse: 'bus' }), world), ['The final course “Exit” is not a timed course.'])
   assert.deepEqual(campaign({ escape: undefined }).escape, [])

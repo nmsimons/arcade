@@ -17,7 +17,8 @@ export async function loadCampaign(base: string, fetchFile: typeof fetch = fetch
  * every course of the listed wings. `count` defaults to all of them.
  */
 export interface Clearance { courses: string[]; wings: string[]; count?: number }
-export interface CampaignWing { id: string; name: string; level?: string; courses: string[]; clearance: Clearance | null }
+/** A wing's `name` stands in only until its level exists; see `wingName`. */
+export interface CampaignWing { id: string; name?: string; level?: string; courses: string[]; clearance: Clearance | null }
 /**
  * The facility's structure, kept apart from level geometry. A new game wakes
  * in the opening, a facility area whose bulkhead leads onto the concourse.
@@ -49,7 +50,7 @@ export function parseCampaign(value: unknown): Campaign {
   const wings = (v.wings as unknown[]).map(item => {
     const w = object(item)
     if (typeof w.id !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(w.id)) fail()
-    if (typeof w.name !== 'string' || !w.name.trim() || w.name.length > 40) fail()
+    if (w.name !== undefined && (typeof w.name !== 'string' || !w.name.trim() || w.name.length > 40)) fail()
     const courses = ids(w.courses, 100)
     if (!courses.length) fail()
     let clearance: Clearance | null = null
@@ -59,11 +60,20 @@ export function parseCampaign(value: unknown): Campaign {
       if (!clearance.courses.length && !clearance.wings.length) fail()
       if (c.count !== undefined) clearance.count = typeof c.count === 'number' && Number.isInteger(c.count) && c.count >= 1 ? c.count : fail()
     }
-    return { id: w.id as string, name: w.name as string, ...(w.level === undefined ? {} : { level: id(w.level) }), courses, clearance }
+    return { id: w.id as string, ...(w.name === undefined ? {} : { name: w.name as string }), ...(w.level === undefined ? {} : { level: id(w.level) }), courses, clearance }
   })
   return { version: 1, opening: id(v.opening),
     ...(v.concourse === undefined ? {} : { concourse: id(v.concourse) }), wings,
     ...(v.finalCourse === undefined ? {} : { finalCourse: id(v.finalCourse) }), escape: v.escape === undefined ? [] : ids(v.escape, 10) }
+}
+
+/**
+ * A wing goes by its facility area's name, so renaming the level renames the
+ * wing. The campaign's name, or else the wing's ID, stands in until the level exists.
+ */
+export function wingName(wing: CampaignWing, levels: ReadonlyMap<string, JumpLevel>) {
+  const level = wing.level === undefined ? undefined : levels.get(wing.level)
+  return level && isHubLevel(level) ? level.name : wing.name ?? wing.id
 }
 
 /** The distinct campaign courses a clearance counts, in campaign order. */
@@ -78,6 +88,7 @@ const clearanceCount = (campaign: Campaign, clearance: Clearance) => clearance.c
 export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[]): string[] {
   const issues: string[] = [], byId = new Map(levels.map(level => [level.id, level]))
   const name = (id: string) => byId.has(id) ? `“${byId.get(id)!.name}”` : `“${id}”`
+  const wingTitle = (wing: CampaignWing) => `“${wingName(wing, byId)}”`
   // Each level has one role: a facility area (the opening, the concourse or a
   // wing), one wing's course, the final course or an escape level.
   const roles = new Map<string, string>()
@@ -87,10 +98,10 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
     wingIds.add(wing.id)
     for (const course of wing.courses) {
       const level = byId.get(course)
-      if (!level) issues.push(`The ${wing.name} wing lists ${name(course)}, which is not in the collection.`)
-      else if (!isPuzzleLevel(level) || level.timing === 'untimed') issues.push(`The ${wing.name} wing lists ${name(course)}, which is not a timed course.`)
-      if (roles.has(course)) issues.push(`${name(course)} is listed as ${roles.get(course)} and in the ${wing.name} wing.`)
-      else roles.set(course, `a ${wing.name} course`)
+      if (!level) issues.push(`The wing ${wingTitle(wing)} lists ${name(course)}, which is not in the collection.`)
+      else if (!isPuzzleLevel(level) || level.timing === 'untimed') issues.push(`The wing ${wingTitle(wing)} lists ${name(course)}, which is not a timed course.`)
+      if (roles.has(course)) issues.push(`${name(course)} is listed as ${roles.get(course)} and in the wing ${wingTitle(wing)}.`)
+      else roles.set(course, `a course in the wing ${wingTitle(wing)}`)
     }
   }
   if (campaign.finalCourse !== undefined) {
@@ -106,13 +117,13 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
     else if (roles.has(id)) issues.push(`The escape level ${name(id)} is already listed as ${roles.get(id)}.`)
     else roles.set(id, 'an escape level')
   }
-  const hubs: [string, string | undefined][] = [['opening', campaign.opening], ['concourse', campaign.concourse], ...campaign.wings.map((wing): [string, string | undefined] => [`${wing.name} wing`, wing.level])]
+  const hubs: [string, string | undefined][] = [['opening', campaign.opening], ['concourse', campaign.concourse], ...campaign.wings.map((wing): [string, string | undefined] => [`wing ${wingTitle(wing)}`, wing.level])]
   for (const [label, id] of hubs) {
     if (id === undefined) continue
-    if (!byId.has(id)) issues.push(`The ${label} level ${name(id)} is not in the collection.`)
-    else if (roles.has(id)) issues.push(`The ${label} level ${name(id)} is already listed as ${roles.get(id)}.`)
-    else if (!isHubLevel(byId.get(id)!)) issues.push(`The ${label} level ${name(id)} is not a facility area.`)
-    else roles.set(id, `the ${label} level`)
+    if (!byId.has(id)) issues.push(`The level for the ${label}, ${name(id)}, is not in the collection.`)
+    else if (roles.has(id)) issues.push(`The level for the ${label}, ${name(id)}, is already listed as ${roles.get(id)}.`)
+    else if (!isHubLevel(byId.get(id)!)) issues.push(`The level for the ${label}, ${name(id)}, is not a facility area.`)
+    else roles.set(id, `the level for the ${label}`)
   }
   // Doors and bulkheads are checked once their hub levels exist.
   const hub = (id?: string) => { const level = id === undefined ? undefined : byId.get(id); return level && isHubLevel(level) ? level : undefined }
@@ -133,16 +144,16 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
     if (!level) continue
     for (const course of wing.courses) {
       const doors = level.courseDoors.filter(door => door.course === course).length
-      if (doors !== 1) issues.push(`The ${wing.name} wing level has ${doors || 'no'} door${doors > 1 ? 's' : ''} for ${name(course)}. Give each course one door.`)
+      if (doors !== 1) issues.push(`The wing ${wingTitle(wing)} has ${doors || 'no'} door${doors > 1 ? 's' : ''} for ${name(course)}. Give each course one door.`)
     }
-    for (const door of level.courseDoors) if (!wing.courses.includes(door.course)) issues.push(`Level door “${door.id}” in the ${wing.name} wing leads to ${name(door.course)}, which is not one of that wing's courses.`)
-    if (concourse && !level.bulkheads.some(bulkhead => bulkhead.to === concourse.id)) issues.push(`The ${wing.name} wing level needs a bulkhead to the concourse.`)
+    for (const door of level.courseDoors) if (!wing.courses.includes(door.course)) issues.push(`Level door “${door.id}” in the wing ${wingTitle(wing)} leads to ${name(door.course)}, which is not one of that wing's courses.`)
+    if (concourse && !level.bulkheads.some(bulkhead => bulkhead.to === concourse.id)) issues.push(`The wing ${wingTitle(wing)} needs a bulkhead to the concourse.`)
     // Arriving through a bulkhead places the robot at the matching bulkhead on the far side.
-    if (concourse && !concourse.bulkheads.some(bulkhead => bulkhead.to === level.id)) issues.push(`The concourse needs a bulkhead to the ${wing.name} wing.`)
+    if (concourse && !concourse.bulkheads.some(bulkhead => bulkhead.to === level.id)) issues.push(`The concourse needs a bulkhead to the wing ${wingTitle(wing)}.`)
   }
   // Every facility area in the collection, listed or not, leads only to other facility areas.
   const area = (id: string) => { const wing = campaign.wings.find(wing => wing.level === id)
-    return id === campaign.opening ? 'the opening' : id === campaign.concourse ? 'the concourse' : wing ? `the ${wing.name} wing` : name(id) }
+    return id === campaign.opening ? 'the opening' : id === campaign.concourse ? 'the concourse' : wing ? `the wing ${wingTitle(wing)}` : name(id) }
   for (const level of byId.values()) if (isHubLevel(level)) for (const bulkhead of level.bulkheads) {
     if (bulkhead.to && !hub(bulkhead.to)) issues.push(`Bulkhead “${bulkhead.id}” in ${area(level.id)} leads to ${name(bulkhead.to)}, which ${byId.has(bulkhead.to) ? 'is not a facility area' : 'is not in the collection'}.`)
   }
@@ -150,15 +161,15 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
     const clearance = wing.clearance
     if (!clearance) continue
     for (const id of clearance.wings) {
-      if (id === wing.id) issues.push(`The ${wing.name} wing's clearance cannot depend on its own courses.`)
-      else if (!wingIds.has(id)) issues.push(`The ${wing.name} wing's clearance names an unknown wing, “${id}”.`)
+      if (id === wing.id) issues.push(`The clearance for the wing ${wingTitle(wing)} cannot depend on its own courses.`)
+      else if (!wingIds.has(id)) issues.push(`The clearance for the wing ${wingTitle(wing)} names an unknown wing, “${id}”.`)
     }
     for (const course of clearance.courses) {
-      if (wing.courses.includes(course)) issues.push(`The ${wing.name} wing's clearance cannot depend on its own course ${name(course)}.`)
-      else if (!campaign.wings.some(w => w.courses.includes(course))) issues.push(`The ${wing.name} wing's clearance names ${name(course)}, which is not a wing course.`)
+      if (wing.courses.includes(course)) issues.push(`The clearance for the wing ${wingTitle(wing)} cannot depend on its own course ${name(course)}.`)
+      else if (!campaign.wings.some(w => w.courses.includes(course))) issues.push(`The clearance for the wing ${wingTitle(wing)} names ${name(course)}, which is not a wing course.`)
     }
     const available = clearanceCourses(campaign, clearance).length
-    if (clearance.count !== undefined && clearance.count > available) issues.push(`The ${wing.name} wing's clearance needs ${clearance.count} courses but names only ${available}.`)
+    if (clearance.count !== undefined && clearance.count > available) issues.push(`The clearance for the wing ${wingTitle(wing)} needs ${clearance.count} courses but names only ${available}.`)
   }
   // Open wings as if every course in an open wing were passed. Any wing left
   // closed waits on courses that only it, or another closed wing, can provide.
@@ -169,7 +180,7 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
     changed = false
     for (const wing of campaign.wings) if (!open.has(wing.id) && ready(wing)) { open.add(wing.id); changed = true }
   }
-  for (const wing of campaign.wings) if (!open.has(wing.id)) issues.push(`The ${wing.name} wing can never open: its clearance needs courses that are only behind it.`)
+  for (const wing of campaign.wings) if (!open.has(wing.id)) issues.push(`The wing ${wingTitle(wing)} can never open: its clearance needs courses that are only behind it.`)
   return issues
 }
 

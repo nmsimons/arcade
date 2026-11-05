@@ -166,8 +166,18 @@ test('the dispatch door opens when the evaluation is complete and leads through 
 })
 
 test('the evaluation board shows the total and each wing, then the release', () => {
-  assert.deepEqual(evaluationLines(campaign, progress(['m1', 'f1'])), ['EVALUATION 2 / 5', 'MOVEMENT 1/2', 'FREIGHT 1/2', 'WATER SEALED'])
-  assert.deepEqual(evaluationLines(campaign, progress(everything)), ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH', 'MOVEMENT 2/2', 'FREIGHT 2/2', 'WATER 1/1'])
+  assert.deepEqual(evaluationLines(campaign, progress(['m1', 'f1']), levels), ['EVALUATION 2 / 5', 'MOVEMENT WING 1/2', 'FREIGHT WING 1/2', 'WATER WING SEALED'])
+  assert.deepEqual(evaluationLines(campaign, progress(everything), levels), ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH', 'MOVEMENT WING 2/2', 'FREIGHT WING 2/2', 'WATER WING 1/1'])
   assert.deepEqual(hubPresentation(campaign, progress([]), levels.get('hall'), levels, () => null).placards.get('board'),
-    ['EVALUATION 0 / 5', 'MOVEMENT 0/2', 'FREIGHT 0/2', 'WATER SEALED'])
+    ['EVALUATION 0 / 5', 'MOVEMENT WING 0/2', 'FREIGHT WING 0/2', 'WATER WING SEALED'])
+})
+
+test('a wing goes by its level’s name, which wins over the campaign’s', () => {
+  const renamed = new Map([...levels, ['m-hub', { ...levels.get('m-hub'), name: 'Boot Camp' }]])
+  assert.deepEqual(evaluationLines(campaign, progress([]), renamed).slice(1), ['BOOT CAMP 0/2', 'FREIGHT WING 0/2', 'WATER WING SEALED'])
+  // Until the level exists, the campaign's name stands in.
+  const missing = new Map([...levels].filter(([id]) => id !== 'm-hub'))
+  assert.equal(evaluationLines(campaign, progress([]), missing)[1], 'MOVEMENT 0/2')
+  const placard = hubPresentation(campaign, progress([]), levels.get('hall'), renamed, () => null).placards.get('hall-to-m')
+  assert.deepEqual(placard, ['BOOT CAMP'])
 })

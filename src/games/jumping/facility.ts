@@ -1,4 +1,5 @@
 import type { Campaign, FacilityProgress } from './campaign.ts'
+import { wingName } from './campaign.ts'
 import { formatTime } from './challenge.ts'
 import { gradeFor, gradeTimes } from './grading.ts'
 import { isHubLevel, isPuzzleLevel } from './level.ts'
@@ -110,7 +111,7 @@ export function arrivalLevel(level: HubLevel, arrival: Arrival): HubLevel {
  */
 export function hubPresentation(campaign: Campaign, progress: FacilityProgress, level: HubLevel, levels: Levels, best: (course: string) => number | null) {
   const open = new Set<string>(), placards = new Map<string, string[]>()
-  for (const board of level.evaluationBoards) placards.set(board.id, evaluationLines(campaign, progress))
+  for (const board of level.evaluationBoards) placards.set(board.id, evaluationLines(campaign, progress, levels))
   for (const door of level.courseDoors) {
     // The dispatch door stays sealed until the evaluation is complete.
     if (door.course === campaign.finalCourse) {
@@ -138,10 +139,10 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
   return { open, placards }
 }
 
-/** The evaluation board: the total, then each wing's passes, or SEALED while it is closed. */
-export function evaluationLines(campaign: Campaign, progress: FacilityProgress) {
+/** The evaluation board: the total, then each wing, by its level's name, with its passes or SEALED while it is closed. */
+export function evaluationLines(campaign: Campaign, progress: FacilityProgress, levels: Levels) {
   const heading = progress.complete ? ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH'] : [`EVALUATION ${progress.passed} / ${progress.required}`]
-  return [...heading, ...progress.wings.map((wing, i) => `${campaign.wings[i].name.toUpperCase()} ${wing.open ? `${wing.passed}/${wing.doors.length}` : 'SEALED'}`)]
+  return [...heading, ...progress.wings.map((wing, i) => `${wingName(campaign.wings[i], levels).toUpperCase()} ${wing.open ? `${wing.passed}/${wing.doors.length}` : 'SEALED'}`)]
 }
 
 /** Leaving the final course or the escape route returns the robot to the dispatch door. */

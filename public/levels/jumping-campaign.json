@@ -5,7 +5,6 @@
   "wings": [
     {
       "id": "movement",
-      "name": "Movement",
       "level": "facility-movement",
       "courses": [
         "ff487efc-cbdb-42f0-85c0-8df2b69532b4",
@@ -20,7 +19,6 @@
     },
     {
       "id": "freight",
-      "name": "Freight",
       "level": "facility-freight",
       "courses": [
         "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
@@ -33,7 +31,6 @@
     },
     {
       "id": "construction",
-      "name": "Construction",
       "level": "facility-construction",
       "courses": [
         "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
@@ -48,7 +45,6 @@
     },
     {
       "id": "targets",
-      "name": "Targets",
       "level": "facility-targets",
       "courses": [
         "38681eca-a164-4f9a-9113-c3ba119ed3ed",
@@ -59,7 +55,6 @@
     },
     {
       "id": "water",
-      "name": "Water",
       "level": "facility-water",
       "courses": [
         "9369b0ce-0963-4681-bbcd-50dc5059d9df",
@@ -76,7 +71,6 @@
     },
     {
       "id": "security",
-      "name": "Security",
       "level": "facility-security",
       "courses": [
         "243237ee-296d-40f6-abd4-950eee0bbffc",
@@ -97,7 +91,6 @@
     },
     {
       "id": "assessment",
-      "name": "Assessment",
       "level": "facility-assessment",
       "courses": [
         "ab914f1b-985f-4992-9e03-44506d00cb33",

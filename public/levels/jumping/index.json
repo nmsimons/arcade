@@ -7,7 +7,6 @@
     "hsj.jump-level.json",
     "03.json",
     "LAB.jump-level.json",
-    "Company.jump-level.json",
     "Boxes.jump-level.json",
     "Balls.jump-level.json",
     "Coins.jump-level.json",
@@ -48,8 +47,8 @@
     "Assessment wing.jump-level.json",
     "Construction wing.jump-level.json",
     "Security wing.jump-level.json",
-    "Targets wing.jump-level.json",
-    "Water wing.jump-level.json",
-    "Movement wing.jump-level.json"
+    "Gravity wing.jump-level.json",
+    "Puzzles.jump-level.json",
+    "Boot Camp wing.jump-level.json"
   ]
 }

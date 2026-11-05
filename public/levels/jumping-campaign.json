@@ -11,8 +11,10 @@
         "ff487efc-cbdb-42f0-85c0-8df2b69532b4",
         "d810f5f5-1a01-431f-804b-575b1b731a3d",
         "e784fe84-2ab2-427c-b5a2-1d1fec663e5c",
-        "d5e4ea37-a26f-46b9-8c84-d2b36840368b",
-        "ade313c6-a64a-48ea-a77e-85e0565acaf8"
+        "06b6058e-4448-4c6a-81a2-e936a70fda0a",
+        "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878",
+        "70595ea8-5dec-420a-83bf-cdf1065aab1f",
+        "d5e4ea37-a26f-46b9-8c84-d2b36840368b"
       ],
       "clearance": null
     },
@@ -22,12 +24,9 @@
       "level": "facility-freight",
       "courses": [
         "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
-        "06b6058e-4448-4c6a-81a2-e936a70fda0a",
-        "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878",
         "ujg-turnaround-v2",
         "5adc6677-fb33-4064-a4ce-507e37130bc4",
         "16f44bef-1ff7-42d7-ad5a-f8966310cd4b",
-        "9369b0ce-0963-4681-bbcd-50dc5059d9df",
         "105e88ac-240d-49b1-b45d-4cc9c225b32e"
       ],
       "clearance": null
@@ -52,7 +51,6 @@
       "name": "Targets",
       "level": "facility-targets",
       "courses": [
-        "70595ea8-5dec-420a-83bf-cdf1065aab1f",
         "38681eca-a164-4f9a-9113-c3ba119ed3ed",
         "f647e38f-d47e-4628-b322-b89e98882202",
         "19f66cc5-2de3-4a7f-9a4d-7df4092a7354"
@@ -64,7 +62,7 @@
       "name": "Water",
       "level": "facility-water",
       "courses": [
-        "7fdfaebe-18c3-431e-b9f4-3faba6b18cfe",
+        "9369b0ce-0963-4681-bbcd-50dc5059d9df",
         "ecbb07bd-b1dd-476c-b09b-82eb321515e9",
         "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a"
       ],

@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "id": "facility-targets",
+  "name": "Gravity wing",
+  "width": 2150,
+  "height": 720,
+  "platforms": [],
+  "entrance": {
+    "name": "Targets entrance",
+    "x": 200,
+    "y": 720
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "name": "Drain",
+      "id": "door-drain",
+      "x": 1150,
+      "y": 720,
+      "course": "38681eca-a164-4f9a-9113-c3ba119ed3ed"
+    },
+    {
+      "name": "Ramping Up",
+      "id": "door-ramping-up",
+      "x": 1500,
+      "y": 720,
+      "course": "f647e38f-d47e-4628-b322-b89e98882202"
+    },
+    {
+      "name": "pinball",
+      "id": "door-pinball",
+      "x": 1850,
+      "y": 720,
+      "course": "19f66cc5-2de3-4a7f-9a4d-7df4092a7354"
+    }
+  ],
+  "bulkheads": [
+    {
+      "name": "Concourse bulkhead",
+      "id": "targets-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "concourse"
+    }
+  ],
+  "evaluationBoards": [],
+  "texts": []
+}

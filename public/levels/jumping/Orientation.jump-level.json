@@ -1690,17 +1690,6 @@
       "style": "terminal"
     },
     {
-      "name": "Service access stencil",
-      "x": 8310,
-      "y": 200,
-      "w": 85,
-      "h": 50,
-      "text": "SERVICE ACCESS",
-      "fontSize": 16,
-      "align": "center",
-      "style": "official"
-    },
-    {
       "name": "Last shift graffiti",
       "x": 7175,
       "y": 1000,

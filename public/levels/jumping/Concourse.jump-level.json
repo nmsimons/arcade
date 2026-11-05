@@ -103,7 +103,7 @@
   ],
   "entrance": {
     "name": "From Orientation",
-    "x": 240,
+    "x": 345,
     "y": 1740
   },
   "checkpoints": [],
@@ -1621,56 +1621,56 @@
     {
       "name": "Orientation bulkhead",
       "id": "concourse-to-opening",
-      "x": 240,
+      "x": 345,
       "y": 1740,
       "to": "opening"
     },
     {
-      "name": "Movement bulkhead",
+      "name": "Boot Camp",
       "id": "concourse-to-movement",
-      "x": 1580,
+      "x": 1655,
       "y": 1740,
       "to": "movement"
     },
     {
       "name": "Freight bulkhead",
       "id": "concourse-to-freight",
-      "x": 240,
+      "x": 345,
       "y": 1360,
       "to": "freight"
     },
     {
       "name": "Construction bulkhead",
       "id": "concourse-to-construction",
-      "x": 1580,
+      "x": 1655,
       "y": 1360,
       "to": "construction"
     },
     {
       "name": "Targets bulkhead",
       "id": "concourse-to-targets",
-      "x": 240,
+      "x": 345,
       "y": 1000,
       "to": "targets"
     },
     {
       "name": "Water bulkhead",
       "id": "concourse-to-water",
-      "x": 240,
+      "x": 345,
       "y": 640,
       "to": "water"
     },
     {
       "name": "Security bulkhead",
       "id": "concourse-to-security",
-      "x": 1580,
+      "x": 1655,
       "y": 1000,
       "to": "security"
     },
     {
       "name": "Assessment bulkhead",
       "id": "concourse-to-assessment",
-      "x": 1580,
+      "x": 1655,
       "y": 640,
       "to": "assessment"
     }
@@ -1681,14 +1681,6 @@
       "id": "evaluation",
       "x": 770,
       "y": 1060,
-      "w": 460,
-      "h": 250
-    },
-    {
-      "name": "Evaluation board",
-      "id": "c4f67824-067d-44dc-af65-74910bc20d32",
-      "x": 770,
-      "y": 260,
       "w": 460,
       "h": 250
     }
@@ -1781,9 +1773,9 @@
     {
       "id": "3fbedf4b-3491-4110-a52b-f29de3be3126",
       "x": 0,
-      "y": 1860,
+      "y": 1765,
       "w": 2000,
-      "h": 40,
+      "h": 135,
       "gravity": -1,
       "effect": "water"
     }

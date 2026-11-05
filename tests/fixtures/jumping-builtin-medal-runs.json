@@ -66,10 +66,6 @@
       "reason": "Studio revisions changed the central pillar, control position, and forcefields and added an Rbot. The former tap/hold recording no longer reaches the exit; a fresh completion and timing audit are required."
     },
     {
-      "file": "Company.jump-level.json",
-      "reason": "The awakening-pod revision completed from a fresh entrance using normal controls in 15.63 seconds unarmed and 16.69 seconds with the optional EMP, with a 24.74-second missed-rope recovery. The browser regression also completes the captured layout. Initial deadlines A 18 / B 28 / C 42 / D 65 remain pending independent first-run balance."
-    },
-    {
       "file": "08.json",
       "reason": "The finale edit relocates Rbot to the entrance deck, adds a ledge under the rope and revises the lower cargo/water encounter. The former B route no longer reaches the exit."
     },

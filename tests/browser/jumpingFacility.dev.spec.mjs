@@ -6,6 +6,13 @@ import { readFileSync } from 'node:fs'
 // The concourse's bulkhead to Orientation, wherever the layout puts it.
 const concourse = JSON.parse(readFileSync(new URL('../../public/levels/jumping/Concourse.jump-level.json', import.meta.url), 'utf8'))
 const toOrientation = concourse.bulkheads.find(bulkhead => bulkhead.id === 'concourse-to-opening')
+// The first wing and its second course's door, wherever the layout puts them.
+const levels = new URL('../../public/levels/jumping/', import.meta.url)
+const campaign = JSON.parse(readFileSync(new URL('../jumping-campaign.json', levels), 'utf8'))
+const firstWing = JSON.parse(readFileSync(new URL('index.json', levels), 'utf8')).levels
+  .map(file => JSON.parse(readFileSync(new URL(encodeURIComponent(file), levels), 'utf8'))).find(level => level.id === campaign.wings[0].level)
+const secondCourse = campaign.wings[0].courses[1]
+const secondDoor = firstWing.courseDoors.find(door => door.course === secondCourse)
 
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.facility.v1')))
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -83,12 +90,13 @@ test('the concourse and Orientation join through bulkheads, arriving at the far 
 
 test('a returning save resumes at its autosaved bulkhead, where locked doors stay shut', async ({ page }) => {
   test.setTimeout(120000)
-  await openFacility(page, {}, { kind: 'hub', level: 'facility-movement', arrival: { kind: 'door', id: 'movement-to-concourse' } })
-  const wing = page.getByRole('img', { name: 'Movement wing', exact: true })
+  const bulkhead = firstWing.bulkheads[0]
+  await openFacility(page, {}, { kind: 'hub', level: firstWing.id, arrival: { kind: 'door', id: bulkhead.id } })
+  const wing = page.getByRole('img', { name: firstWing.name, exact: true })
   await expect(wing).toBeVisible(); await finishJumpingEntrance(page)
-  expect(Math.abs((await motion(page)).x - 200), 'stepped out of the saved bulkhead').toBeLessThan(16)
-  // A Bigger Swing waits for a pass on Hop Skip Jump I.
-  await walkTo(page, 1150); await pressUp(page); await advanceJumpingSimulation(page, 1200)
+  expect(Math.abs((await motion(page)).x - bulkhead.x), 'stepped out of the saved bulkhead').toBeLessThan(16)
+  // The wing's second door waits for a pass on its first.
+  await walkTo(page, secondDoor.x); await pressUp(page); await advanceJumpingSimulation(page, 1200)
   await expect(wing).toBeVisible()
-  expect(Math.abs((await motion(page)).x - 1150)).toBeLessThan(16)
+  expect(Math.abs((await motion(page)).x - secondDoor.x)).toBeLessThan(16)
 })

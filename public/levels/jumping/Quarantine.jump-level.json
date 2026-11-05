@@ -3,12 +3,12 @@
   "id": "e7940f79-5502-451a-a373-9b63e4df1e11",
   "name": "Quarantine",
   "width": 1600,
-  "height": 1250,
+  "height": 3000,
   "platforms": [
     {
       "name": "Quarantine access",
       "x": 100,
-      "y": 850,
+      "y": 2700,
       "w": 1400,
       "h": 25,
       "material": "steel"
@@ -16,7 +16,7 @@
     {
       "name": "West service deck",
       "x": 150,
-      "y": 500,
+      "y": 2350,
       "w": 500,
       "h": 25,
       "material": "earth"
@@ -24,7 +24,7 @@
     {
       "name": "Middle refuge",
       "x": 500,
-      "y": 675,
+      "y": 2525,
       "w": 300,
       "h": 25,
       "material": "earth"
@@ -32,7 +32,7 @@
     {
       "name": "Exit deck",
       "x": 1050,
-      "y": 500,
+      "y": 2350,
       "w": 450,
       "h": 25,
       "material": "earth"
@@ -40,16 +40,24 @@
     {
       "name": "Quarantine sight break",
       "x": 600,
-      "y": 650,
+      "y": 2500,
       "w": 50,
       "h": 200,
+      "material": "steel"
+    },
+    {
+      "name": "Exit deck",
+      "x": 0,
+      "y": 1435,
+      "w": 1600,
+      "h": 25,
       "material": "steel"
     }
   ],
   "entrance": {
     "name": "Course entrance",
     "x": 225,
-    "y": 850
+    "y": 2700
   },
   "checkpoints": [],
   "climbables": {
@@ -57,40 +65,40 @@
       {
         "name": "West service ladder",
         "x": 350,
-        "top": 500,
-        "bottom": 1150,
+        "top": 2350,
+        "bottom": 3000,
         "platform": -1,
         "side": 1
       },
       {
         "name": "Refuge ladder",
         "x": 700,
-        "top": 675,
-        "bottom": 850,
+        "top": 2525,
+        "bottom": 2700,
         "platform": -1,
         "side": 1
       },
       {
         "name": "Exit ladder",
         "x": 1250,
-        "top": 500,
-        "bottom": 1150,
+        "top": 1435,
+        "bottom": 3000,
         "platform": -1,
         "side": 1
       },
       {
         "name": "Left floor return",
         "x": 125,
-        "top": 850,
-        "bottom": 1150,
+        "top": 2700,
+        "bottom": 3000,
         "platform": -1,
         "side": 1
       },
       {
         "name": "Right floor return",
         "x": 1475,
-        "top": 850,
-        "bottom": 1150,
+        "top": 2700,
+        "bottom": 3000,
         "platform": -1,
         "side": 1
       }
@@ -98,28 +106,28 @@
     "ropes": []
   },
   "floorMaterial": "steel",
-  "floor": 1150,
+  "floor": 3000,
   "goal": {
     "name": "Coin exit",
-    "x": 1490,
-    "y": 500,
+    "x": 1550,
+    "y": 1435,
     "flipX": true,
     "id": "6165df9a-fd9f-4bbf-88f9-1e46e8b13969",
     "power": "switched"
   },
   "times": {
-    "a": 12,
-    "b": 22,
-    "c": 35,
-    "d": 60
+    "a": 20,
+    "b": 30,
+    "c": 45,
+    "d": 70
   },
   "props": [],
   "mechanisms": [],
   "triggers": [
     {
       "name": "Quarantine toggle and exit release",
-      "x": 1130,
-      "y": 500,
+      "x": 1090,
+      "y": 2350,
       "w": 100,
       "targets": [
         "hurricane-quarantine-field",
@@ -133,7 +141,7 @@
     {
       "name": "Quarantine hunter",
       "x": 1250,
-      "y": 850,
+      "y": 2700,
       "left": 1120,
       "right": 1420,
       "kind": "repulsor"
@@ -142,17 +150,17 @@
   "timers": [
     {
       "name": "Exit clock",
-      "x": 1325,
-      "y": 360
+      "x": 1375,
+      "y": 2265
     }
   ],
   "pickups": [],
   "texts": [
     {
-      "x": 1055,
-      "y": 430,
-      "w": 360,
-      "h": 40,
+      "x": 1080,
+      "y": 2240,
+      "w": 155,
+      "h": 50,
       "text": "QUARANTINE / EXIT RELEASE",
       "fontSize": 18,
       "align": "left",
@@ -160,7 +168,7 @@
     },
     {
       "x": 710,
-      "y": 230,
+      "y": 2080,
       "w": 330,
       "h": 30,
       "text": "Quarantine Field",
@@ -170,7 +178,7 @@
     },
     {
       "x": 770,
-      "y": 230,
+      "y": 2080,
       "w": 330,
       "h": 30,
       "text": "Quarantine Field",
@@ -185,9 +193,9 @@
       "name": "Hunter quarantine",
       "id": "hurricane-quarantine-field",
       "x": 900,
-      "y": 0,
+      "y": 1460,
       "w": 12,
-      "h": 1150,
+      "h": 1540,
       "orientation": "vertical",
       "mode": "objects",
       "power": "switched"

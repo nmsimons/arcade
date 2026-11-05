@@ -1,6 +1,6 @@
 import type { JumpLevel } from './level.ts'
 import { blankTrial, copyLevel, isHubLevel, isPuzzleLevel, newLevelId, levelTerrain, levelHeight, snapToGround, LEVEL_GRID_SIZE } from './level.ts'
-import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorBounds, placardBounds } from './hub.ts'
+import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, bulkheadSignBounds, hubDoorBounds, placardBounds } from './hub.ts'
 import type { Bulkhead, CourseDoor } from './hub.ts'
 import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
 import type { WallDoor } from './wallDoor.ts'
@@ -58,9 +58,11 @@ export const isHubDoor = (selection: Selection): selection is Selection & { kind
 export function hubDoorAt(level: JumpLevel, selection: Selection): CourseDoor | Bulkhead | undefined {
   return selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : selection.kind === 'bulkhead' ? level.bulkheads?.[selection.index] : undefined
 }
-/** A door's selectable outline includes the placard hung to its right. */
+/** A level door's selectable outline includes the placard hung to its right; a bulkhead's, the lettering above it. */
 function hubDoorOutline(door: CourseDoor | Bulkhead) {
-  const b = hubDoorBounds(door), placard = placardBounds(door)
+  const b = hubDoorBounds(door)
+  if ('to' in door) { const sign = bulkheadSignBounds(door); return { x: b.x - 40, y: sign.y, w: b.w + 80, h: b.y + b.h - sign.y } }
+  const placard = placardBounds(door)
   return { x: b.x, y: b.y, w: placard.x + placard.w - b.x, h: b.h }
 }
 

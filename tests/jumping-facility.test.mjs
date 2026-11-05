@@ -107,13 +107,15 @@ test('arrivals step out of the door they came through', () => {
   assert.equal(arrivalLevel(hall, { kind: 'door', id: 'gone' }), hall)
 })
 
-test('placards show places, deadlines, best times and grades; closed bulkheads show clearance', () => {
+test('placards show deadlines, best times and grades; bulkheads are lettered with their area', () => {
   const best = id => ({ m1: 12.5 })[id] ?? null
   const hall = hubPresentation(campaign, progress(['m1']), levels.get('hall'), levels, best)
   assert.deepEqual([...hall.open], ['hall-to-wake', 'hall-to-m', 'hall-to-f'])
   assert.deepEqual(hall.placards.get('hall-to-wake'), ['ORIENTATION'])
   assert.deepEqual(hall.placards.get('hall-to-f'), ['FREIGHT WING'])
-  assert.deepEqual(hall.placards.get('hall-to-w'), ['WATER WING', 'CLEARANCE 0/2'])
+  // A sealed wing's bulkhead stays shut; the board shows the clearance it needs.
+  assert.deepEqual(hall.placards.get('hall-to-w'), ['WATER WING'])
+  assert.equal(hall.placards.get('board').at(-1), 'WATER WING CLEARANCE 0/2')
   const opening = hubPresentation(campaign, progress([]), levels.get('wake'), levels, best)
   assert.deepEqual([...opening.open], ['wake-to-hall'])
   assert.deepEqual(opening.placards.get('wake-to-hall'), ['CONCOURSE'])
@@ -166,15 +168,15 @@ test('the dispatch door opens when the evaluation is complete and leads through 
 })
 
 test('the evaluation board shows the total and each wing, then the release', () => {
-  assert.deepEqual(evaluationLines(campaign, progress(['m1', 'f1']), levels), ['EVALUATION 2 / 5', 'MOVEMENT WING 1/2', 'FREIGHT WING 1/2', 'WATER WING SEALED'])
+  assert.deepEqual(evaluationLines(campaign, progress(['m1', 'f1']), levels), ['EVALUATION 2 / 5', 'MOVEMENT WING 1/2', 'FREIGHT WING 1/2', 'WATER WING CLEARANCE 1/2'])
   assert.deepEqual(evaluationLines(campaign, progress(everything), levels), ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH', 'MOVEMENT WING 2/2', 'FREIGHT WING 2/2', 'WATER WING 1/1'])
   assert.deepEqual(hubPresentation(campaign, progress([]), levels.get('hall'), levels, () => null).placards.get('board'),
-    ['EVALUATION 0 / 5', 'MOVEMENT WING 0/2', 'FREIGHT WING 0/2', 'WATER WING SEALED'])
+    ['EVALUATION 0 / 5', 'MOVEMENT WING 0/2', 'FREIGHT WING 0/2', 'WATER WING CLEARANCE 0/2'])
 })
 
 test('a wing goes by its level’s name, which wins over the campaign’s', () => {
   const renamed = new Map([...levels, ['m-hub', { ...levels.get('m-hub'), name: 'Boot Camp' }]])
-  assert.deepEqual(evaluationLines(campaign, progress([]), renamed).slice(1), ['BOOT CAMP 0/2', 'FREIGHT WING 0/2', 'WATER WING SEALED'])
+  assert.deepEqual(evaluationLines(campaign, progress([]), renamed).slice(1), ['BOOT CAMP 0/2', 'FREIGHT WING 0/2', 'WATER WING CLEARANCE 0/2'])
   // Until the level exists, the campaign's name stands in.
   const missing = new Map([...levels].filter(([id]) => id !== 'm-hub'))
   assert.equal(evaluationLines(campaign, progress([]), missing)[1], 'MOVEMENT 0/2')

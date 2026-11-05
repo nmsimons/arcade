@@ -10,8 +10,9 @@
   `npm run levels:check`.
 - Facility areas: hub levels (`"kind": "hub"`) with level doors (`courseDoors`),
   bulkheads and evaluation boards (`hub.ts`). Up enters an open door. Placards
-  show a course's name and D deadline, then its best time and grade; a bulkhead
-  names the area beyond it, and a closed one shows the clearance still needed.
+  show a course's name and D deadline, then its best time and grade. A
+  bulkhead has the area beyond it lettered on the wall above, and the
+  evaluation board shows the clearance each sealed wing still needs.
 - The level studio edits all of it. **Type** in the Level tab switches a level
   between Course and Facility area (a doorway exit becomes a bulkhead, and
   back). In a facility area, the Facility tools place level doors, bulkheads
@@ -190,8 +191,8 @@ have. Together they are the whole save.
 Access is gated, not ability. The robot's movement never changes, because every
 course is tuned for its full repertoire, and carried gadgets stay in the
 course or area that provides them: entering a door leaves a held tool behind. A wing opens through clearance: its bulkhead opens
-once named courses are passed, and the bulkhead's placard shows what remains
-("CLEARANCE: FREIGHT 6 / 8"). The draft below is for the review to settle:
+once named courses are passed, and the evaluation board shows what remains
+("WATER WING CLEARANCE 6/8"). The draft below is for the review to settle:
 
 - Orientation's bulkhead leads onto the concourse, which is always open.
 - Freight, Construction and Targets open with the concourse.
@@ -332,7 +333,7 @@ rather than inside it, so level packs keep their format (level JSON and
   leads through `escape` in order.
 - **`level` and `concourse`** name hub levels and stay optional until those
   levels exist.
-- **A wing goes by its level's name** on bulkhead placards, the evaluation
+- **A wing goes by its level's name** on bulkhead lettering, the evaluation
   board and campaign problems, so renaming the level in the studio renames the
   wing. `id` is only for clearance to refer to; an optional `name` stands in
   until the wing has a level.

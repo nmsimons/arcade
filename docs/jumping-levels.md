@@ -786,7 +786,8 @@ clocks and time pickups stay in courses. Tools and EMP charges are allowed.
   evaluation, filled in during play.
 
 Doors and bulkheads share the entrance's flat 40-by-80 doorway, with `x` at the
-middle of the sill; each hangs its placard to the right. An empty `course` or
+middle of the sill. A level door hangs its placard to the right; a bulkhead has
+its destination's name lettered on the wall above it. An empty `course` or
 `to` saves, but validation asks for a destination before the level is played.
 In the studio, **Level → Type → Facility area** converts a course (its doorway
 exit becomes a bulkhead, its destination still to choose) and **Course**

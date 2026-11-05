@@ -61,8 +61,10 @@ test('level doors, bulkheads and evaluation boards are placed, snapped, moved an
 
   // Doors keep their doorway inside the level, like the entrance.
   assert.equal(moveItem(level, door.selection, -5000, 0).courseDoors[0].x, 20)
-  // Clicking a door's placard selects the door.
+  // Clicking a door's placard selects the door, and the lettering above a bulkhead the bulkhead.
   assert.deepEqual(hitItem(level, 600 + 80, 920 - 50, 2), door.selection)
+  assert.deepEqual(hitItem(level, 300, 920 - 105, 2), bulkhead.selection)
+  assert.ok(itemOutline(level, bulkhead.selection).y <= 920 - 117, 'the bulkhead outline includes its lettering')
 
   const board = addItem(level, 'evaluation-board', { x: 800, y: 300 }, { x: 800, y: 300 })
   assert.deepEqual(board.level.evaluationBoards.map(({ x, y, w, h }) => ({ x, y, w, h })), [{ x: 800, y: 300, w: 460, h: 250 }])

@@ -106,8 +106,9 @@ export function arrivalLevel(level: HubLevel, arrival: Arrival): HubLevel {
 /**
  * Which doors open and what their placards read. A course door shows its name
  * and D deadline until passed, then the best time and grade; a door to a course
- * outside the campaign's wings is always open. A bulkhead names the area it
- * leads to, and a closed one shows the clearance still needed. Locked doors stay dark.
+ * outside the campaign's wings is always open. A bulkhead has the name of the
+ * area it leads to lettered above it; the evaluation board shows a sealed
+ * wing's clearance. Locked doors stay dark.
  */
 export function hubPresentation(campaign: Campaign, progress: FacilityProgress, level: HubLevel, levels: Levels, best: (course: string) => number | null) {
   const open = new Set<string>(), placards = new Map<string, string[]>()
@@ -131,18 +132,17 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
   for (const bulkhead of level.bulkheads) {
     const target = hubLevel(levels, bulkhead.to)
     if (!target) { placards.set(bulkhead.id, []); continue }
-    const name = target.name.toUpperCase(), wing = areaWing(campaign, progress, target.id)
-    if (!wing || wing.open) { open.add(bulkhead.id); placards.set(bulkhead.id, [name]); continue }
-    // A closed wing shows the clearance it still needs.
-    placards.set(bulkhead.id, wing.clearance ? [name, `CLEARANCE ${wing.clearance.passed}/${wing.clearance.count}`] : [name, 'SEALED'])
+    placards.set(bulkhead.id, [target.name.toUpperCase()])
+    const wing = areaWing(campaign, progress, target.id)
+    if (!wing || wing.open) open.add(bulkhead.id)
   }
   return { open, placards }
 }
 
-/** The evaluation board: the total, then each wing, by its level's name, with its passes or SEALED while it is closed. */
+/** The evaluation board: the total, then each wing, by its level's name, with its passes, or the clearance it still needs while it is sealed. */
 export function evaluationLines(campaign: Campaign, progress: FacilityProgress, levels: Levels) {
   const heading = progress.complete ? ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH'] : [`EVALUATION ${progress.passed} / ${progress.required}`]
-  return [...heading, ...progress.wings.map((wing, i) => `${wingName(campaign.wings[i], levels).toUpperCase()} ${wing.open ? `${wing.passed}/${wing.doors.length}` : 'SEALED'}`)]
+  return [...heading, ...progress.wings.map((wing, i) => `${wingName(campaign.wings[i], levels).toUpperCase()} ${wing.open ? `${wing.passed}/${wing.doors.length}` : wing.clearance ? `CLEARANCE ${wing.clearance.passed}/${wing.clearance.count}` : 'SEALED'}`)]
 }
 
 /** Leaving the final course or the escape route returns the robot to the dispatch door. */

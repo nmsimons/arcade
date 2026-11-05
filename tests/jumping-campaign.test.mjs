@@ -7,11 +7,13 @@ import { decodeLevelFile, decodeLevelManifest } from '../src/games/jumping/level
 
 const course = (id, name = id) => ({ ...blankTrial(), id, name })
 const hub = (id, courseDoors = [], bulkheads = []) => ({ id, name: id, kind: 'hub', courseDoors, bulkheads })
+// A bulkhead names the facility area it opens onto by its level ID.
 const to = target => ({ id: `to-${target}`, x: 0, y: 0, to: target })
-// The opening is a facility area whose bulkhead leads onto the concourse.
-const wake = { ...hub('wake', [], [to('concourse')]), name: 'Wake' }
-const levels = [wake, ...['m1', 'm2', 'f1', 'f2', 'w1', 'w2'].map(id => course(id))]
-const campaign = overrides => parseCampaign({ version: 1, opening: 'wake', wings: [
+// The opening is a facility area whose bulkhead leads onto the concourse, and back.
+const wake = { ...hub('wake', [], [to('hall')]), name: 'Wake' }
+const levels = [wake, hub('hall', [], [to('wake')]), ...['m1', 'm2', 'f1', 'f2', 'w1', 'w2'].map(id => course(id))]
+const others = levels.filter(level => level.id !== 'hall')
+const campaign = overrides => parseCampaign({ version: 1, opening: 'wake', concourse: 'hall', wings: [
   { id: 'movement', name: 'Movement', courses: ['m1', 'm2'], clearance: null },
   { id: 'freight', name: 'Freight', courses: ['f1', 'f2'] },
   { id: 'water', name: 'Water', courses: ['w1', 'w2'], clearance: { wings: ['freight'], courses: ['m1'], count: 2 } },
@@ -27,9 +29,6 @@ test('campaign files decode strictly', () => {
     { wings: [] },
     { opening: '' },
     { wings: [{ id: 'Movement', name: 'Movement', courses: ['m1'] }] },
-    // Bulkheads name the opening and the concourse by these reserved IDs.
-    { wings: [{ id: 'opening', name: 'Opening', courses: ['m1'] }] },
-    { wings: [{ id: 'concourse', name: 'Concourse', courses: ['m1'] }] },
     { wings: [{ id: 'movement', name: ' ', courses: ['m1'] }] },
     { wings: [{ id: 'movement', name: 'Movement', courses: [] }] },
     { wings: [{ id: 'movement', name: 'Movement', courses: ['m1'], clearance: {} }] },
@@ -87,12 +86,12 @@ test('clearance must come from other wings that can open first', () => {
 
 test('wing levels need one door per course and bulkheads both ways', () => {
   const door = course => ({ id: `door-${course}`, x: 0, y: 0, course })
-  const value = campaign({ concourse: 'hall', wings: [
+  const value = campaign({ wings: [
     { id: 'movement', name: 'Movement', level: 'movement-hub', courses: ['m1', 'm2'] },
     { id: 'freight', name: 'Freight', level: 'freight-hub', courses: ['f1', 'f2'] },
   ] })
-  const world = [...levels, course('plain'), hub('hall', [], [to('opening'), to('movement'), to('docks')]),
-    hub('movement-hub', [door('m1'), door('m1'), door('f1')], [to('concourse')]), hub('freight-hub', [door('f2')], [])]
+  const world = [...others, course('plain'), hub('hall', [], [to('wake'), to('movement-hub'), to('docks'), to('plain')]),
+    hub('movement-hub', [door('m1'), door('m1'), door('f1')], [to('hall')]), hub('freight-hub', [door('f2')], []), hub('annex', [], [to('hall'), to('m1')])]
   assert.deepEqual(campaignProblems(value, world), [
     'The Movement wing level has 2 doors for “m1”. Give each course one door.',
     'The Movement wing level has no door for “m2”. Give each course one door.',
@@ -100,38 +99,42 @@ test('wing levels need one door per course and bulkheads both ways', () => {
     'The Freight wing level has no door for “f1”. Give each course one door.',
     'The Freight wing level needs a bulkhead to the concourse.',
     'The concourse needs a bulkhead to the Freight wing.',
-    'Bulkhead “to-docks” in the concourse leads to an unknown wing, “docks”.',
+    // Every facility area in the collection is checked, in the campaign or not.
+    'Bulkhead “to-docks” in the concourse leads to “docks”, which is not in the collection.',
+    'Bulkhead “to-plain” in the concourse leads to “plain”, which is not a facility area.',
+    'Bulkhead “to-m1” in “annex” leads to “m1”, which is not a facility area.',
   ])
-  assert.deepEqual(campaignProblems(campaign({ concourse: 'plain' }), world), ['The concourse level “plain” is not a facility area.'])
+  assert.deepEqual(campaignProblems(campaign({ concourse: 'plain' }), [...levels, course('plain')]), ['The concourse level “plain” is not a facility area.'])
 })
 
 test('the concourse holds only the dispatch door, and bulkheads join it to the opening', () => {
   const extra = [course('final', 'Ascent I'), course('climb', 'Ascent II'), { ...course('bus', 'Exit'), timing: 'untimed' }]
-  const hall = (doors, bulkheads = [to('opening')]) => hub('hall', doors.map(id => ({ id: `door-${id}`, x: 0, y: 0, course: id })), bulkheads)
-  const value = campaign({ concourse: 'hall', finalCourse: 'final', escape: ['climb', 'bus'] })
-  assert.deepEqual(campaignProblems(value, [...levels, ...extra, hall(['final'])]), [])
-  assert.deepEqual(campaignProblems(value, [...levels, ...extra, hall(['m1'], [])]), [
+  const hall = (doors, bulkheads = [to('wake')]) => hub('hall', doors.map(id => ({ id: `door-${id}`, x: 0, y: 0, course: id })), bulkheads)
+  const value = campaign({ finalCourse: 'final', escape: ['climb', 'bus'] })
+  assert.deepEqual(campaignProblems(value, [...others, ...extra, hall(['final'])]), [])
+  assert.deepEqual(campaignProblems(value, [...others, ...extra, hall(['m1'], [])]), [
     'The concourse needs one dispatch door to the final course.',
     'The concourse has level doors. Courses belong in wings; the concourse holds only the dispatch door.',
     'The concourse needs a bulkhead to the opening, “Wake”.',
   ])
   // The opening leads only onto the concourse.
   const opening = { ...hub('wake', [{ id: 'door-m1', x: 0, y: 0, course: 'm1' }], []), name: 'Wake' }
-  assert.deepEqual(campaignProblems(value, [opening, ...levels.slice(1), ...extra, hall(['final'])]), [
+  assert.deepEqual(campaignProblems(value, [opening, ...others.slice(1), ...extra, hall(['final'])]), [
     'The opening has level doors. Courses belong in wings.',
     'The opening, “Wake”, needs a bulkhead to the concourse.',
   ])
 })
 
 test('the final course and escape route each have their own role', () => {
+  // Without a concourse, nothing needs a dispatch door.
   const world = [...levels, course('final', 'Ascent I'), course('climb', 'Ascent II'), { ...course('bus', 'Exit'), timing: 'untimed' }]
-  assert.deepEqual(campaignProblems(campaign({ finalCourse: 'final', escape: ['climb', 'bus'] }), world), [])
-  assert.deepEqual(campaignProblems(campaign({ finalCourse: 'm1', escape: ['gone', 'f1', 'climb'] }), world), [
+  assert.deepEqual(campaignProblems(campaign({ concourse: undefined, finalCourse: 'final', escape: ['climb', 'bus'] }), world), [])
+  assert.deepEqual(campaignProblems(campaign({ concourse: undefined, finalCourse: 'm1', escape: ['gone', 'f1', 'climb'] }), world), [
     'The final course “m1” is already listed as a Movement course.',
     'The escape level “gone” is not in the collection.',
     'The escape level “f1” is already listed as a Freight course.',
   ])
-  assert.deepEqual(campaignProblems(campaign({ finalCourse: 'bus' }), world), ['The final course “Exit” is not a timed course.'])
+  assert.deepEqual(campaignProblems(campaign({ concourse: undefined, finalCourse: 'bus' }), world), ['The final course “Exit” is not a timed course.'])
   assert.deepEqual(campaign({ escape: undefined }).escape, [])
 })
 

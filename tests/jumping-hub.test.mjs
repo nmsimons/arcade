@@ -48,7 +48,8 @@ test('hub structure is rejected outside hubs and in malformed hubs', () => {
     hubFile({ timing: undefined }),
     hubFile({ goal: { x: 1620, y: 920 } }),
     hubFile({ times: { a: 10, b: 20, c: 40, d: 60 } }),
-    hubFile({ bulkheads: [{ id: 'to-concourse', x: 1300, y: 920, to: 'The Concourse' }] }),
+    hubFile({ bulkheads: [{ id: 'to-concourse', x: 1300, y: 920, to: 'x'.repeat(101) }] }),
+    hubFile({ bulkheads: [{ id: 'to-concourse', x: 1300, y: 920, to: 3 }] }),
     hubFile({ courseDoors: [{ id: 'door-one', x: 600, y: 920 }] }),
   ]) assert.throws(() => parseLevel(broken), /not a valid jumping level/)
 })

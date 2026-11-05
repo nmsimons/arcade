@@ -7,12 +7,11 @@ import type { WorldPaint } from './worldPaint.ts'
 
 /** A door in a hub's back wall that leads into one course. */
 export interface CourseDoor extends NamedObject { id: string; x: number; y: number; course: string }
-/** A door between hubs; `to` names a wing, or "concourse". */
+/** A door between facility areas; `to` is the level ID of the area it opens onto. */
 export interface Bulkhead extends NamedObject { id: string; x: number; y: number; to: string }
 /** A wall display of the evaluation's progress. Nothing on it is selectable. */
 export interface EvaluationBoard extends NamedObject { id: string; x: number; y: number; w: number; h: number }
 export const MAX_COURSE_DOORS = 60, MAX_BULKHEADS = 12, MAX_EVALUATION_BOARDS = 4
-export const HUB_TARGET = /^[a-z][a-z0-9-]{0,39}$/
 
 export type HubDoor = { kind: 'course'; door: CourseDoor } | { kind: 'bulkhead'; door: Bulkhead }
 /**

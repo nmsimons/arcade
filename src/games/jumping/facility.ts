@@ -1,5 +1,4 @@
 import type { Campaign, FacilityProgress } from './campaign.ts'
-import { CONCOURSE_PLACE, OPENING_PLACE } from './campaign.ts'
 import { formatTime } from './challenge.ts'
 import { gradeFor, gradeTimes } from './grading.ts'
 import { isHubLevel, isPuzzleLevel } from './level.ts'
@@ -42,15 +41,13 @@ export function saveFacilityPlace(storage: Pick<Storage, 'setItem'>, place: Faci
 
 type Levels = ReadonlyMap<string, JumpLevel>
 const hubLevel = (levels: Levels, id?: string) => { const level = id === undefined ? undefined : levels.get(id); return level && isHubLevel(level) ? level : undefined }
-/** Which part of the facility a hub level is, as bulkheads name it. */
-const hubPlace = (campaign: Campaign, id: string) => id === campaign.opening ? OPENING_PLACE : id === campaign.concourse ? CONCOURSE_PLACE
-  : campaign.wings.find(wing => wing.level === id)?.id
-/** The hub level a bulkhead's destination names. */
-const placeLevel = (campaign: Campaign, place: string) => place === OPENING_PLACE ? campaign.opening : place === CONCOURSE_PLACE ? campaign.concourse
-  : campaign.wings.find(wing => wing.id === place)?.level
-/** The opening and the concourse are always open; a wing opens with its clearance. */
-const placeOpen = (progress: FacilityProgress, place?: string) => place === OPENING_PLACE || place === CONCOURSE_PLACE
-  || !!progress.wings.find(wing => wing.id === place)?.open
+/** The progress of the wing whose level this is; none for the opening, the concourse and areas outside the campaign. */
+const areaWing = (campaign: Campaign, progress: FacilityProgress, id: string) => {
+  const index = campaign.wings.findIndex(wing => wing.level === id)
+  return index < 0 ? undefined : progress.wings[index]
+}
+/** A wing's area opens with its clearance; every other facility area is always open. */
+const areaOpen = (campaign: Campaign, progress: FacilityProgress, id: string) => areaWing(campaign, progress, id)?.open ?? true
 
 /**
  * A new save wakes at the opening's entrance. Afterward the robot resumes where
@@ -61,7 +58,7 @@ export function facilityStart(campaign: Campaign, progress: FacilityProgress, sa
   const place = save.place, concourse = hubLevel(levels, campaign.concourse)
   if (!place) return { kind: 'hub', level: campaign.opening, arrival: { kind: 'entrance' } }
   const hub = place.kind === 'hub' ? hubLevel(levels, place.level) : undefined
-  if (place.kind === 'hub' && hub && placeOpen(progress, hubPlace(campaign, hub.id))) {
+  if (place.kind === 'hub' && hub && areaOpen(campaign, progress, hub.id)) {
     const door = place.arrival.kind === 'door' ? place.arrival.id : undefined
     return { kind: 'hub', level: hub.id, arrival: door && [...hub.courseDoors, ...hub.bulkheads].some(d => d.id === door) ? place.arrival : { kind: 'entrance' } }
   }
@@ -92,9 +89,9 @@ export function nextPlace(campaign: Campaign, place: FacilityPlace, departure: H
   }
   if (!departure) return null
   if (departure.kind === 'course') return levels.has(departure.door.course) ? { kind: 'course', level: departure.door.course, hub: place.level, door: departure.door.id } : null
-  const origin = hubPlace(campaign, place.level), target = hubLevel(levels, placeLevel(campaign, departure.door.to))
-  if (!origin || !target) return null
-  const bulkhead = target.bulkheads.find(b => b.to === origin)
+  const target = hubLevel(levels, departure.door.to)
+  if (!target) return null
+  const bulkhead = target.bulkheads.find(b => b.to === place.level)
   return { kind: 'hub', level: target.id, arrival: bulkhead ? { kind: 'door', id: bulkhead.id } : { kind: 'entrance' } }
 }
 
@@ -105,17 +102,11 @@ export function arrivalLevel(level: HubLevel, arrival: Arrival): HubLevel {
   return door ? { ...level, entrance: { x: door.x, y: door.y } } : level
 }
 
-/** What a bulkhead's placard calls the place it leads to. */
-export function placeName(campaign: Campaign, levels: Levels, place: string) {
-  if (place === CONCOURSE_PLACE) return 'CONCOURSE'
-  if (place === OPENING_PLACE) return (levels.get(campaign.opening)?.name ?? 'OPENING').toUpperCase()
-  return (campaign.wings.find(wing => wing.id === place)?.name ?? place).toUpperCase()
-}
-
 /**
  * Which doors open and what their placards read. A course door shows its name
- * and D deadline until passed, then the best time and grade. A closed bulkhead
- * shows the clearance still needed. Locked doors stay dark.
+ * and D deadline until passed, then the best time and grade; a door to a course
+ * outside the campaign's wings is always open. A bulkhead names the area it
+ * leads to, and a closed one shows the clearance still needed. Locked doors stay dark.
  */
 export function hubPresentation(campaign: Campaign, progress: FacilityProgress, level: HubLevel, levels: Levels, best: (course: string) => number | null) {
   const open = new Set<string>(), placards = new Map<string, string[]>()
@@ -128,21 +119,21 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
       continue
     }
     const wing = progress.wings.find(wing => wing.doors.some(d => d.course === door.course))
-    const state = wing?.doors.find(d => d.course === door.course)?.state, course = levels.get(door.course)
-    if (!wing?.open || !state || state === 'locked' || !course || !isPuzzleLevel(course)) { placards.set(door.id, []); continue }
+    const state = !wing ? 'open' : wing.open ? wing.doors.find(d => d.course === door.course)!.state : 'locked', course = levels.get(door.course)
+    if (state === 'locked' || !course || !isPuzzleLevel(course)) { placards.set(door.id, []); continue }
     open.add(door.id)
-    const time = best(door.course)
-    placards.set(door.id, state === 'passed' && time !== null
-      ? [course.name.toUpperCase(), `${formatTime(time)} ${gradeFor(time, course)}`]
-      : [course.name.toUpperCase(), `D ${formatTime(gradeTimes(course).d).replace(/\.00$/, '')}`])
+    const time = best(door.course), name = course.name.toUpperCase()
+    placards.set(door.id, course.timing === 'untimed' ? [name]
+      : (state === 'passed' || !wing) && time !== null ? [name, `${formatTime(time)} ${gradeFor(time, course)}`]
+      : [name, `D ${formatTime(gradeTimes(course).d).replace(/\.00$/, '')}`])
   }
   for (const bulkhead of level.bulkheads) {
-    if (!bulkhead.to) { placards.set(bulkhead.id, []); continue }
-    const name = placeName(campaign, levels, bulkhead.to), isOpen = placeOpen(progress, bulkhead.to)
-    if (isOpen) open.add(bulkhead.id)
+    const target = hubLevel(levels, bulkhead.to)
+    if (!target) { placards.set(bulkhead.id, []); continue }
+    const name = target.name.toUpperCase(), wing = areaWing(campaign, progress, target.id)
+    if (!wing || wing.open) { open.add(bulkhead.id); placards.set(bulkhead.id, [name]); continue }
     // A closed wing shows the clearance it still needs.
-    const needed = progress.wings.find(wing => wing.id === bulkhead.to)?.clearance
-    placards.set(bulkhead.id, isOpen ? [name] : needed ? [name, `CLEARANCE ${needed.passed}/${needed.count}`] : [name, 'SEALED'])
+    placards.set(bulkhead.id, wing.clearance ? [name, `CLEARANCE ${wing.clearance.passed}/${wing.clearance.count}`] : [name, 'SEALED'])
   }
   return { open, placards }
 }

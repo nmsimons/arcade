@@ -2,7 +2,6 @@ import type { JumpLevel } from './level.ts'
 import { blankTrial, copyLevel, isHubLevel, isPuzzleLevel, newLevelId, levelTerrain, levelHeight, snapToGround, LEVEL_GRID_SIZE } from './level.ts'
 import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorBounds, placardBounds } from './hub.ts'
 import type { Bulkhead, CourseDoor } from './hub.ts'
-import { CONCOURSE_PLACE } from './campaign.ts'
 import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
 import type { WallDoor } from './wallDoor.ts'
 import { TUNING } from './model.ts'
@@ -67,8 +66,9 @@ function hubDoorOutline(door: CourseDoor | Bulkhead) {
 
 /**
  * Courses end at an exit; facility areas are left only through their doors.
- * Switching keeps the way out: a doorway exit becomes a bulkhead to the
- * concourse, and a facility area's first bulkhead becomes the exit.
+ * Switching keeps the way out: a doorway exit becomes a bulkhead whose
+ * destination is still to choose, and a facility area's first bulkhead becomes
+ * the exit.
  */
 export function setLevelType(level: JumpLevel, type: 'course' | 'hub'): JumpLevel {
   if (type === 'course') {
@@ -89,7 +89,7 @@ export function setLevelType(level: JumpLevel, type: 'course' | 'hub'): JumpLeve
   delete next.goal; delete next.times
   next.kind = 'hub'; next.timing = 'untimed'
   next.courseDoors = []; next.evaluationBoards = []
-  next.bulkheads = goal.kind ? [] : [{ id: newLevelId(), ...(goal.name ? { name: goal.name } : {}), x: goalDoor(goal).x + GOAL_DOOR_WIDTH / 2, y: goal.y, to: CONCOURSE_PLACE }]
+  next.bulkheads = goal.kind ? [] : [{ id: newLevelId(), ...(goal.name ? { name: goal.name } : {}), x: goalDoor(goal).x + GOAL_DOOR_WIDTH / 2, y: goal.y, to: '' }]
   return next
 }
 /** Wall doors are art: their condition, frame and facing only change how they look. */
@@ -101,7 +101,7 @@ export function setWallDoor(level: JumpLevel, index: number, patch: Partial<Pick
   if ('flipX' in patch) { if (patch.flipX) door.flipX = true; else delete door.flipX }
   return next
 }
-/** A level door names a level by ID; a bulkhead names a facility place. */
+/** A level door names a level by ID; a bulkhead names a facility area by its level ID. */
 export function setHubDoorDestination(level: JumpLevel, selection: Selection, destination: string): JumpLevel {
   const door = hubDoorAt(level, selection)
   if (!door || ('course' in door ? door.course : door.to) === destination) return level
@@ -897,7 +897,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     // Like the entrance, a door's point is the middle of its sill.
     const door = { id: newLevelId(), x: clamp(end.x, GOAL_DOOR_WIDTH / 2, next.width - GOAL_DOOR_WIDTH / 2), y: clamp(end.y, GOAL_DOOR_HEIGHT, levelHeight(next)) }
     if (tool === 'course-door') next.courseDoors.push({ ...door, course: '' })
-    else next.bulkheads.push({ ...door, to: CONCOURSE_PLACE })
+    else next.bulkheads.push({ ...door, to: '' })
     return { level: next, selection: { kind: tool, index: doors.length - 1 } }
   }
   if (tool === 'back-wall') {

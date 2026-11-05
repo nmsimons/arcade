@@ -10,13 +10,14 @@
   `npm run levels:check`.
 - Facility areas: hub levels (`"kind": "hub"`) with level doors (`courseDoors`),
   bulkheads and evaluation boards (`hub.ts`). Up enters an open door. Placards
-  show a course's name and D deadline, then its best time and grade; closed
-  bulkheads show the clearance still needed.
+  show a course's name and D deadline, then its best time and grade; a bulkhead
+  names the area beyond it, and a closed one shows the clearance still needed.
 - The level studio edits all of it. **Type** in the Level tab switches a level
-  between Course and Facility area (a doorway exit becomes a bulkhead to the
-  concourse, and back). In a facility area, the Facility tools place level
-  doors, bulkheads and evaluation boards, and **Leads to** in the inspector
-  chooses each door's level or each bulkhead's place. Studio placards name the
+  between Course and Facility area (a doorway exit becomes a bulkhead, and
+  back). In a facility area, the Facility tools place level doors, bulkheads
+  and evaluation boards, and **Leads to** in the inspector chooses each door's
+  level (any course in the collection) or each bulkhead's facility area (any
+  other facility area in the collection). Studio placards name the
   destination, and a playtest opens every door.
 - The facility loop (`facility.ts` and the game shell): a new save wakes in
   Orientation; a course returns the robot to its door, and a bulkhead leads to
@@ -314,8 +315,14 @@ rather than inside it, so level packs keep their format (level JSON and
 ```
 
 - **A new game** wakes at the opening's entrance. The opening is a facility
-  area like the wings. Its bulkhead to the concourse (`"to": "concourse"`) and
-  the concourse's bulkhead to it (`"to": "opening"`) are always open.
+  area like the wings. Its bulkhead to the concourse and the concourse's
+  bulkhead to it are always open. A bulkhead's `to` is the level ID of the
+  facility area it opens onto, so a new area is reachable as soon as a bulkhead
+  names it.
+- **A facility area or course outside the wings** is always open: the campaign
+  only orders and counts the areas and courses it lists. Its doors show the
+  course's deadline, then its best time and grade, but it is not part of the
+  evaluation.
 - **Every wing** opens off the concourse. Without a clearance it opens at once;
   with one, once `count` of the named courses are passed. A
   clearance names courses, whole wings, or both; `count` defaults to all of
@@ -333,8 +340,9 @@ facility area, one wing's course, the final course or an escape level), that
 wing courses and the final course are timed, that the opening, the concourse
 and the wing levels are facility areas, that each wing course has exactly one
 door in its wing, that the concourse's only level door is the dispatch door,
-that bulkheads join the opening and each wing to the concourse both ways, and
-that every wing can open through clearance. Still to add: certification doors and sources, and the
+that bulkheads join the opening and each wing to the concourse both ways, that
+every bulkhead in the collection leads to a facility area in it, and that every
+wing can open through clearance. Still to add: certification doors and sources, and the
 course-equipment rule for escape levels once they are redesigned as untimed.
 `index.json` keeps loading every level for the development library.
 

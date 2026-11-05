@@ -16,8 +16,6 @@ import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination
 import { WALL_DOOR_CONDITIONS, WALL_DOOR_LABELS } from './wallDoor'
 import type { WallDoorCondition } from './wallDoor'
 import { copyLevel, isHubLevel, isPuzzleLevel, isRunLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
-import { CONCOURSE_PLACE, OPENING_PLACE, loadCampaign } from './campaign'
-import type { Campaign } from './campaign'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
 import { GRADE_TARGETS, gradeTimes } from './grading'
@@ -143,7 +141,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'logic-relay', group: 'Mechanisms', label: 'Logic relay', help: 'Place a studio-only logic node. Combine switches with OR, AND or XOR, optionally reverse the result, then connect its Activates outputs. Invisible during play, with no physical behavior.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'course-door', group: 'Facility', label: 'Level door', help: 'Click to set a door into the back wall on a flat sill, like the entrance. Choose the level it leads to in the inspector. In the facility, Up in the open doorway enters the level, and finishing it returns the robot here. The placard shows the level, its D deadline, then the best time and grade.' },
-  { id: 'bulkhead', group: 'Facility', label: 'Bulkhead', help: 'Click to place a heavy door to another part of the facility: the concourse, the opening or a wing. Choose where it leads in the inspector. Arriving through it, the robot steps out of the bulkhead on the far side that leads back here.' },
+  { id: 'bulkhead', group: 'Facility', label: 'Bulkhead', help: 'Click to place a heavy door to another facility area, such as the concourse or a wing. Choose where it leads in the inspector: any facility area in the collection. Arriving through it, the robot steps out of the bulkhead on the far side that leads back here.' },
   { id: 'evaluation-board', group: 'Facility', label: 'Evaluation board', help: 'Click or drag to mount a wall display of the evaluation: total passes, then each wing’s passes or SEALED. Corner handles resize it. It never blocks movement.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
   { id: 'light', group: 'Back wall', label: 'Spotlight', help: 'Click to place a spotlight on the back wall, or drag to aim it. Drag its center handle to aim and its outer handles to widen the beam. Lights have no range limit. EMP cuts their power.' },
@@ -176,26 +174,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
   const { level, busy: preparingRopes } = useRopePreview(preview ?? history.present, preview !== null)
-  // Facility areas name each door's destination, with the campaign's wing names once it loads.
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
-  useEffect(() => {
-    if (!active || campaign) return
-    let current = true
-    loadCampaign(import.meta.env.BASE_URL).then(loaded => { if (current) setCampaign(loaded) }, () => { /* Bulkheads still offer the concourse and the opening. */ })
-    return () => { current = false }
-  }, [active, campaign])
+  // Facility areas name each door's destination by its level's name.
   const levelNames = useMemo(() => new Map(levels.files.map(file => [file.level.id, file.level.name])), [levels.files])
-  const placeName = useCallback((place: string) => place === CONCOURSE_PLACE ? 'Concourse'
-    : place === OPENING_PLACE ? campaign && levelNames.get(campaign.opening) || 'Opening'
-    : campaign?.wings.find(wing => wing.id === place)?.name ?? place, [campaign, levelNames])
   const previewRun = useMemo(() => {
     const run = isRunLevel(level) ? createPreviewRun(level) : null
     // Placards show where each door leads, as they do in the facility.
     if (run?.hub && isHubLevel(level)) run.hub.placards = new Map([
       ...level.courseDoors.map((door): [string, string[]] => [door.id, [door.course ? (levelNames.get(door.course) ?? door.course).toUpperCase() : 'NO LEVEL']]),
-      ...level.bulkheads.map((door): [string, string[]] => [door.id, [door.to ? placeName(door.to).toUpperCase() : 'NOWHERE']])])
+      ...level.bulkheads.map((door): [string, string[]] => [door.id, [door.to ? (levelNames.get(door.to) ?? door.to).toUpperCase() : 'NOWHERE']])])
     return run
-  }, [level, levelNames, placeName])
+  }, [level, levelNames])
   const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level, true), [level, previewRun])
   const previewTime = useRef(0)
   useEffect(() => { previewTime.current = 0 }, [previewRun])
@@ -324,12 +312,11 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
   const hubDoor = selection ? hubDoorAt(level, selection) : undefined
   const wallDoor = selection?.kind === 'wall-door' ? level.wallDoors?.[selection.index] : null
-  // A level door may lead to any course or playground; a bulkhead to a part of the facility.
+  // A level door may lead to any course or playground; a bulkhead to any other facility area.
   const doorDestination = hubDoor ? 'course' in hubDoor ? hubDoor.course : hubDoor.to : ''
   const destinationOptions = !hubDoor ? [] : 'course' in hubDoor
     ? [{ value: '', label: 'Choose a level' }, ...levels.files.filter(file => !isHubLevel(file.level) && file.level.id !== level.id).map(file => ({ value: file.level.id, label: file.level.name }))]
-    : [{ value: '', label: 'Choose a place' }, { value: CONCOURSE_PLACE, label: 'Concourse' }, { value: OPENING_PLACE, label: placeName(OPENING_PLACE) === 'Opening' ? 'Opening' : `Opening · ${placeName(OPENING_PLACE)}` },
-      ...(campaign?.wings ?? []).map(wing => ({ value: wing.id, label: `${wing.name} wing` }))]
+    : [{ value: '', label: 'Choose a facility area' }, ...levels.files.filter(file => isHubLevel(file.level) && file.level.id !== level.id).map(file => ({ value: file.level.id, label: file.level.name }))]
   if (hubDoor && !destinationOptions.some(option => option.value === doorDestination)) destinationOptions.push({ value: doorDestination, label: `${doorDestination} (not found)` })
   const quantize = useCallback((v: number, grid: number) => snap ? Math.round(v / grid) * grid : Math.round(v), [snap])
   const quantizeY = useCallback((y: number, grid: number) => roomHeight - quantize(roomHeight - y, grid), [roomHeight, quantize])

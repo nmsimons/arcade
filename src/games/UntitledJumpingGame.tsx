@@ -468,8 +468,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // Elsewhere, as in a studio playtest, a facility area ends at its door with no record.
     const departure = run.current.hub?.departure
     if (run.current.hub) {
-      const to = !departure ? '' : 'course' in departure.door ? departure.door.course && (levelsById.get(departure.door.course)?.name ?? departure.door.course)
-        : departure.door.to === 'concourse' ? 'the concourse' : departure.door.to === 'opening' ? 'the opening' : departure.door.to && `the ${departure.door.to} wing`
+      const target = !departure ? '' : 'course' in departure.door ? departure.door.course : departure.door.to
+      const to = target && (levelsById.get(target)?.name ?? target)
       setDoorTaken(`Left through ${departure?.door.name || (departure?.kind === 'bulkhead' ? 'a bulkhead' : 'a level door')}${to ? `, which leads to ${to}` : ''}.`)
       changeScreen('complete'); return
     }

@@ -1623,56 +1623,56 @@
       "id": "concourse-to-opening",
       "x": 345,
       "y": 1740,
-      "to": "opening"
+      "to": "lab-orientation"
     },
     {
       "name": "Boot Camp",
       "id": "concourse-to-movement",
       "x": 1655,
       "y": 1740,
-      "to": "movement"
+      "to": "facility-movement"
     },
     {
       "name": "Freight bulkhead",
       "id": "concourse-to-freight",
       "x": 345,
       "y": 1360,
-      "to": "freight"
+      "to": "facility-freight"
     },
     {
       "name": "Construction bulkhead",
       "id": "concourse-to-construction",
       "x": 1655,
       "y": 1360,
-      "to": "construction"
+      "to": "facility-construction"
     },
     {
       "name": "Targets bulkhead",
       "id": "concourse-to-targets",
       "x": 345,
       "y": 1000,
-      "to": "targets"
+      "to": "facility-targets"
     },
     {
       "name": "Water bulkhead",
       "id": "concourse-to-water",
       "x": 345,
       "y": 640,
-      "to": "water"
+      "to": "facility-water"
     },
     {
       "name": "Security bulkhead",
       "id": "concourse-to-security",
       "x": 1655,
       "y": 1000,
-      "to": "security"
+      "to": "facility-security"
     },
     {
       "name": "Assessment bulkhead",
       "id": "concourse-to-assessment",
       "x": 1655,
       "y": 640,
-      "to": "assessment"
+      "to": "facility-assessment"
     }
   ],
   "evaluationBoards": [

@@ -29,8 +29,6 @@ export interface Campaign {
   version: 1; opening: string; concourse?: string; wings: CampaignWing[]
   finalCourse?: string; escape: string[]
 }
-/** Bulkheads name the places they lead to: the opening, the concourse or a wing. */
-export const OPENING_PLACE = 'opening', CONCOURSE_PLACE = 'concourse'
 
 export type DoorState = 'locked' | 'open' | 'passed'
 export interface WingProgress {
@@ -50,7 +48,7 @@ export function parseCampaign(value: unknown): Campaign {
   if (!Array.isArray(v.wings) || !v.wings.length || v.wings.length > 20) fail()
   const wings = (v.wings as unknown[]).map(item => {
     const w = object(item)
-    if (typeof w.id !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(w.id) || w.id === OPENING_PLACE || w.id === CONCOURSE_PLACE) fail()
+    if (typeof w.id !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(w.id)) fail()
     if (typeof w.name !== 'string' || !w.name.trim() || w.name.length > 40) fail()
     const courses = ids(w.courses, 100)
     if (!courses.length) fail()
@@ -119,15 +117,16 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
   // Doors and bulkheads are checked once their hub levels exist.
   const hub = (id?: string) => { const level = id === undefined ? undefined : byId.get(id); return level && isHubLevel(level) ? level : undefined }
   const concourse = hub(campaign.concourse), opening = hub(campaign.opening)
+  // A bulkhead names the facility area it opens onto by its level ID.
   if (concourse) {
     // The concourse's only level door is the dispatch door to the final course.
     if (campaign.finalCourse !== undefined && concourse.courseDoors.filter(door => door.course === campaign.finalCourse).length !== 1) issues.push('The concourse needs one dispatch door to the final course.')
     if (concourse.courseDoors.some(door => door.course !== campaign.finalCourse)) issues.push('The concourse has level doors. Courses belong in wings; the concourse holds only the dispatch door.')
-    if (opening && !concourse.bulkheads.some(bulkhead => bulkhead.to === OPENING_PLACE)) issues.push(`The concourse needs a bulkhead to the opening, ${name(campaign.opening)}.`)
+    if (opening && !concourse.bulkheads.some(bulkhead => bulkhead.to === opening.id)) issues.push(`The concourse needs a bulkhead to the opening, ${name(campaign.opening)}.`)
   }
   if (opening) {
     if (opening.courseDoors.length) issues.push('The opening has level doors. Courses belong in wings.')
-    if (!opening.bulkheads.some(bulkhead => bulkhead.to === CONCOURSE_PLACE)) issues.push(`The opening, ${name(campaign.opening)}, needs a bulkhead to the concourse.`)
+    if (concourse && !opening.bulkheads.some(bulkhead => bulkhead.to === concourse.id)) issues.push(`The opening, ${name(campaign.opening)}, needs a bulkhead to the concourse.`)
   }
   for (const wing of campaign.wings) {
     const level = hub(wing.level)
@@ -137,12 +136,15 @@ export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[
       if (doors !== 1) issues.push(`The ${wing.name} wing level has ${doors || 'no'} door${doors > 1 ? 's' : ''} for ${name(course)}. Give each course one door.`)
     }
     for (const door of level.courseDoors) if (!wing.courses.includes(door.course)) issues.push(`Level door “${door.id}” in the ${wing.name} wing leads to ${name(door.course)}, which is not one of that wing's courses.`)
-    if (!level.bulkheads.some(bulkhead => bulkhead.to === 'concourse')) issues.push(`The ${wing.name} wing level needs a bulkhead to the concourse.`)
+    if (concourse && !level.bulkheads.some(bulkhead => bulkhead.to === concourse.id)) issues.push(`The ${wing.name} wing level needs a bulkhead to the concourse.`)
     // Arriving through a bulkhead places the robot at the matching bulkhead on the far side.
-    if (concourse && !concourse.bulkheads.some(bulkhead => bulkhead.to === wing.id)) issues.push(`The concourse needs a bulkhead to the ${wing.name} wing.`)
+    if (concourse && !concourse.bulkheads.some(bulkhead => bulkhead.to === level.id)) issues.push(`The concourse needs a bulkhead to the ${wing.name} wing.`)
   }
-  for (const [label, id] of hubs) for (const bulkhead of hub(id)?.bulkheads ?? []) {
-    if (bulkhead.to && bulkhead.to !== CONCOURSE_PLACE && bulkhead.to !== OPENING_PLACE && !wingIds.has(bulkhead.to)) issues.push(`Bulkhead “${bulkhead.id}” in the ${label} leads to an unknown wing, “${bulkhead.to}”.`)
+  // Every facility area in the collection, listed or not, leads only to other facility areas.
+  const area = (id: string) => { const wing = campaign.wings.find(wing => wing.level === id)
+    return id === campaign.opening ? 'the opening' : id === campaign.concourse ? 'the concourse' : wing ? `the ${wing.name} wing` : name(id) }
+  for (const level of byId.values()) if (isHubLevel(level)) for (const bulkhead of level.bulkheads) {
+    if (bulkhead.to && !hub(bulkhead.to)) issues.push(`Bulkhead “${bulkhead.id}” in ${area(level.id)} leads to ${name(bulkhead.to)}, which ${byId.has(bulkhead.to) ? 'is not a facility area' : 'is not in the collection'}.`)
   }
   for (const wing of campaign.wings) {
     const clearance = wing.clearance

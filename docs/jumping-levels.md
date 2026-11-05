@@ -779,9 +779,9 @@ clocks and time pickups stay in courses. Tools and EMP charges are allowed.
 
 - `courseDoors: [{ id, name?, x, y, course }]`: level doors. `course` is the
   ID of the level behind the door; finishing that level returns the robot here.
-- `bulkheads: [{ id, name?, x, y, to }]`: doors to other parts of the facility.
-  `to` is `"opening"`, `"concourse"` or a wing's campaign ID. Arriving through
-  a bulkhead steps out of the bulkhead on the far side that leads back.
+- `bulkheads: [{ id, name?, x, y, to }]`: doors to other facility areas. `to`
+  is the ID of the facility area beyond it. Arriving through a bulkhead steps
+  out of the bulkhead on the far side that leads back.
 - `evaluationBoards: [{ id, name?, x, y, w, h }]`: wall displays of the
   evaluation, filled in during play.
 
@@ -789,10 +789,11 @@ Doors and bulkheads share the entrance's flat 40-by-80 doorway, with `x` at the
 middle of the sill; each hangs its placard to the right. An empty `course` or
 `to` saves, but validation asks for a destination before the level is played.
 In the studio, **Level → Type → Facility area** converts a course (its doorway
-exit becomes a bulkhead to the concourse) and **Course** converts back (the
-first bulkhead becomes the exit). The Facility tools place level doors,
-bulkheads and evaluation boards, and **Object → Leads to** chooses where each
-door goes.
+exit becomes a bulkhead, its destination still to choose) and **Course**
+converts back (the first bulkhead becomes the exit). The Facility tools place
+level doors, bulkheads and evaluation boards, and **Object → Leads to** chooses
+where each door goes: a level door lists every course in the collection, and a
+bulkhead every other facility area.
 
 `timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
 level** in the studio. The world and animation time still advance, but the

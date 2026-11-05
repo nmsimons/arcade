@@ -24,7 +24,7 @@
     { "name": "Quarantine III", "id": "door-quarantine-iii", "x": 2550, "y": 720, "course": "a9e72a69-c1f9-4b12-8670-4ecdafb342ee" }
   ],
   "bulkheads": [
-    { "name": "Concourse bulkhead", "id": "security-to-concourse", "x": 200, "y": 720, "to": "concourse" }
+    { "name": "Concourse bulkhead", "id": "security-to-concourse", "x": 200, "y": 720, "to": "facility-concourse" }
   ],
   "texts": [
     { "x": 400, "y": 540, "w": 260, "h": 40, "text": "SECURITY", "fontSize": 24, "align": "left", "style": "official" },

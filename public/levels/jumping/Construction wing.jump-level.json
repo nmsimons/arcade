@@ -79,7 +79,7 @@
       "id": "construction-to-concourse",
       "x": 200,
       "y": 720,
-      "to": "concourse"
+      "to": "facility-concourse"
     }
   ],
   "evaluationBoards": [],

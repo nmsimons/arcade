@@ -20,7 +20,7 @@
     { "name": "World I", "id": "door-world-i", "x": 1150, "y": 720, "course": "9c86c84f-5cd0-4cfa-9c78-b257fe402ab1" }
   ],
   "bulkheads": [
-    { "name": "Concourse bulkhead", "id": "assessment-to-concourse", "x": 200, "y": 720, "to": "concourse" }
+    { "name": "Concourse bulkhead", "id": "assessment-to-concourse", "x": 200, "y": 720, "to": "facility-concourse" }
   ],
   "texts": [
     { "x": 400, "y": 540, "w": 260, "h": 40, "text": "ASSESSMENT", "fontSize": 24, "align": "left", "style": "official" },

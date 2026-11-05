@@ -18,7 +18,7 @@ import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
-import { HUB_TARGET, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorFits } from './hub.ts'
+import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorFits } from './hub.ts'
 import type { Bulkhead, CourseDoor, EvaluationBoard } from './hub.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
@@ -563,7 +563,7 @@ export function parseLevel(value: unknown): JumpLevel {
       })
       level.bulkheads = list(v.bulkheads ?? [], MAX_BULKHEADS).map(item => {
         const { d, base } = hubObject(item)
-        if (typeof d.to !== 'string' || d.to && !HUB_TARGET.test(d.to)) fail()
+        if (typeof d.to !== 'string' || d.to.length > 100) fail()
         return { ...base, to: d.to as string }
       })
       level.evaluationBoards = list(v.evaluationBoards ?? [], MAX_EVALUATION_BOARDS).map(item => {

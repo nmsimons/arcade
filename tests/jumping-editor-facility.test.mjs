@@ -9,9 +9,10 @@ import { goalDoor } from '../src/games/jumping/goal.ts'
 
 // A course with an exit door on its floor, ready to become a facility area.
 const course = () => ({ ...blankTrial(), id: 'room', name: 'Room', goal: { name: 'Way out', x: 1500, y: 920 } })
-const facility = () => setLevelType(course(), 'hub')
+// Bulkheads name the facility area they open onto by its level ID.
+const facility = () => setHubDoorDestination(setLevelType(course(), 'hub'), { kind: 'bulkhead', index: 0 }, 'facility-concourse')
 
-test('a course becomes a facility area whose exit door becomes a bulkhead to the concourse', () => {
+test('a course becomes a facility area whose exit door becomes a bulkhead, its destination still to choose', () => {
   const before = course(), hub = setLevelType(before, 'hub')
   assert.equal(isHubLevel(hub), true)
   assert.equal(isPuzzleLevel(hub), false)
@@ -19,9 +20,12 @@ test('a course becomes a facility area whose exit door becomes a bulkhead to the
   assert.equal(hub.goal, undefined)
   assert.equal(hub.times, undefined)
   const door = goalDoor(before.goal)
-  assert.deepEqual(hub.bulkheads.map(({ name, x, y, to }) => ({ name, x, y, to })), [{ name: 'Way out', x: door.x + door.w / 2, y: 920, to: 'concourse' }])
+  assert.deepEqual(hub.bulkheads.map(({ name, x, y, to }) => ({ name, x, y, to })), [{ name: 'Way out', x: door.x + door.w / 2, y: 920, to: '' }])
   assert.deepEqual([hub.courseDoors, hub.evaluationBoards], [[], []])
-  assert.deepEqual(levelProblems(parseLevel(hub)), [])
+  assert.deepEqual(levelProblems(parseLevel(hub)), ['Choose where “Way out · Bulkhead 1” leads.'])
+  const chosen = setHubDoorDestination(hub, { kind: 'bulkhead', index: 0 }, 'facility-concourse')
+  assert.equal(chosen.bulkheads[0].to, 'facility-concourse')
+  assert.deepEqual(levelProblems(parseLevel(chosen)), [])
   assert.equal(setLevelType(hub, 'hub'), hub, 'already a facility area')
 })
 
@@ -50,9 +54,9 @@ test('level doors, bulkheads and evaluation boards are placed, snapped, moved an
   assert.deepEqual(levelProblems(parseLevel(level)), [])
 
   const bulkhead = addItem(level, 'bulkhead', { x: 300, y: 920 }, { x: 300, y: 920 })
-  assert.equal(bulkhead.level.bulkheads[1].to, 'concourse', 'a new bulkhead leads to the concourse')
-  level = setHubDoorDestination(bulkhead.level, bulkhead.selection, 'movement')
-  assert.equal(level.bulkheads[1].to, 'movement')
+  assert.equal(bulkhead.level.bulkheads[1].to, '', 'a new bulkhead waits for a destination')
+  level = setHubDoorDestination(bulkhead.level, bulkhead.selection, 'facility-movement')
+  assert.equal(level.bulkheads[1].to, 'facility-movement')
   assert.equal(objectLabel(level, bulkhead.selection), 'Bulkhead 2')
 
   // Doors keep their doorway inside the level, like the entrance.

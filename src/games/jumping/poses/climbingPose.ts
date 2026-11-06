@@ -258,7 +258,7 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     // As the shoulders cross the rope line, as they do settling into a brace, the side is in doubt: the push
     // fades out there, so it turns about at nothing rather than jumping across.
     const sure = smooth(Math.abs(across) / 4)
-    let away: Point = [0, 0], needed = 0
+    const away: Point = [0, 0]; let needed = 0
     for (const { q, n: normal, keep } of points) {
       const near = smooth((clear + 3 - Math.hypot(head[0] - q[0], head[1] - q[1])) / 3) * keep
       if (!near) continue
@@ -281,7 +281,7 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     // Braced at a wall below a rope that runs off at a slant, such as one tied partway up the wall, the
     // head and shoulders settle down and away beneath the rope instead of passing through it.
     const clear = HEAD_RADIUS + 1.2, grip = local(climbPoint(c, d))
-    let away: Point = [0, 0], needed = 0
+    const away: Point = [0, 0]; let needed = 0
     for (let s = Math.max(0, d - 36); s <= Math.min(c.rope.definition.length, d + 36); s += 1) {
       const q = local(climbPoint(c, s)), a = local(climbPoint(c, Math.max(0, s - 6))), r = local(climbPoint(c, Math.min(c.rope.definition.length, s + 6)))
       const t: Point = [r[0] - a[0], r[1] - a[1]], tl = Math.hypot(t[0], t[1])

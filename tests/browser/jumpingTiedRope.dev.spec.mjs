@@ -3,7 +3,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 import { installBuiltInFixtures, useLevelFixtures, waitForBuilderPreview, selectBuilderObject, selectBuilderOption } from './helpers/jumpingLevels.mjs'
 
 test('render enlarged hand-over-hand frames along tied and hanging ropes for visual review', async ({ page }, info) => {
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   const frames = await page.evaluate(async () => {
     const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
     const { ropePath } = await import('/src/games/jumping/climbables.ts')
@@ -74,7 +74,7 @@ test('the studio ties a rope between two terrain edges and drags each anchor on 
   const level = { ...blankTrial(), name: 'Tied workshop', platforms: [{ x: 300, y: 500, w: 200, h: 420 }, { x: 1100, y: 500, w: 200, h: 420 }],
     climbables: { ladders: [], ropes: [{ x: 500, y: 500, length: 680, segments: 85, anchor: { platform: 0, x: 200, y: 0 }, end: { x: 1100, y: 500, anchor: { platform: 1, x: 0, y: 0 } } }] } }
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'tied.json': level })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open tied.json', exact: true }).click()

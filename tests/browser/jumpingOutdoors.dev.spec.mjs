@@ -11,7 +11,7 @@ const catalog = JSON.parse(readFileSync(new URL('index.json', root), 'utf8'))
 const spelunkIFile = catalog.levels.find(file => JSON.parse(readFileSync(new URL(file, root), 'utf8')).id === '13b9b9d7-7937-4989-bc03-21238e7e58f2')
 
 test('clouds span wide maps and scroll at 90 percent without drifting or popping', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async () => {
     const { drawLandscape } = await import('/src/games/jumping/environment.ts')
     const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 400
@@ -51,7 +51,7 @@ test('clouds span wide maps and scroll at 90 percent without drifting or popping
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall shadows; cave night and exterior daylight share one scene`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -91,7 +91,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall 
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: mixed-light outer frame stays dark without a glowing rectangle or stretched artwork`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const results = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -132,7 +132,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: mixed-light outer fra
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: terrain touching the left frame has continuous lighting across the join`, async ({ page }) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const profiles = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')

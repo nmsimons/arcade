@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 test('canted wall palms stay settled throughout gravity-field bobbing', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const outcomes = await page.evaluate(async () => {
     const { floatingWall } = await import('/tests/helpers/jumping-canted-float.mjs')
     const { stepPlayer, STEP, NEUTRAL_INPUT } = await import('/src/games/jumping/model.ts')

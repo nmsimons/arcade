@@ -5,7 +5,7 @@ import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels
 for (const enabled of [false, true]) test(`motion diagnostics are ${enabled ? 'available when requested' : 'absent during ordinary development play'}`, async ({ page }) => {
   await useLevelFixtures(page, [blankTrial()])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto(enabled ? '/lab?motionDebug=1' : '/lab')
+  await page.goto(enabled ? '/lab/library?motionDebug=1' : '/lab/library')
   const card = page.locator('.jumping-level-card[aria-pressed=true]')
   await expect(card).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

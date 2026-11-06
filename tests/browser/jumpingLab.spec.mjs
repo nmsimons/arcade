@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures, finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, finishJumpingEntrance, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 const lab = JSON.parse(readFileSync(new URL('../../public/levels/jumping/LAB.jump-level.json', import.meta.url), 'utf8'))
 
@@ -18,12 +18,8 @@ test('the Leaps and Bounds crate powers the plate, releases it when pushed, and 
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?renderControl=1')
-  const play = page.getByRole('button', { name: `Play ${lab.name}`, exact: true })
-  await expect(play).toBeEnabled()
   // Keep slow browser calls from adding held-key frames between route steps.
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await play.click()
+  await openLevelLink(page, { query: '?renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') })
   await finishJumpingEntrance(page)
   await page.clock.runFor(500)
   await expect.poll(() => page.evaluate(() => window.labPlate?.color)).toBe('#9bb878')

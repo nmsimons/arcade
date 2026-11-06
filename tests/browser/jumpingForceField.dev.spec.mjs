@@ -45,7 +45,7 @@ async function instrument(page) {
 async function openGame(page, level) {
   await useLevelFixtures(page,[level]); await instrument(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   const card=page.locator('.jumping-level-card[aria-pressed=true]').filter({hasText:level.name})
   await expect(card).toBeVisible({timeout:15000})
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
@@ -162,7 +162,7 @@ test('both studio tools have end handles, support wiring and group copy, and per
   const level=fixture(); level.forceFields=[]; level.props=[]
   level.triggers=[{x:180,y:600,w:80,mode:'touch',targets:[]}]
   await useLevelFixtures(page,[level]); await installBuiltInFixtures(page,{'fields.json':level}); await instrument(page)
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   await page.getByRole('button',{name:'Level studio',exact:true}).click()
   await page.getByRole('button',{name:'Library',exact:true}).click()
   await page.getByRole('button',{name:'Open fields.json',exact:true}).click()

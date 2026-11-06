@@ -1,10 +1,13 @@
 import { LAB_PATH } from '../../branding/lab.ts'
 
+/** L.A.B. opens the facility: the building the robot explores, with a door for each course. */
 export const JUMPING_MENU = LAB_PATH
 export const JUMPING_BUILDER = `${JUMPING_MENU}/builder`
 export const JUMPING_BUILTIN_BUILDER = `${JUMPING_BUILDER}/built-in`
 export const JUMPING_PLAYTEST = `${JUMPING_BUILDER}/playtest`
-/** The explorable facility, development builds only until it replaces the level grid. */
+/** The level grid, kept as a development library of every level beside the studio and stress tests. */
+export const JUMPING_LIBRARY = `${JUMPING_MENU}/library`
+/** The facility's former development link, which now opens it at `/lab`. */
 export const JUMPING_FACILITY = `${JUMPING_MENU}/facility`
 export type LevelSource = 'built-in'
 type FileRoute = { source: LevelSource; fileName: string }
@@ -22,8 +25,8 @@ export function playtestPath(builderPath: string, levelId: string) {
 
 export function jumpingRoute(pathname: string): JumpingRoute {
   const path = pathname.replace(/\/$/, '')
-  if (path === JUMPING_MENU) return { screen: 'menu' }
-  if (path === JUMPING_FACILITY) return { screen: 'facility' }
+  if (path === JUMPING_MENU || path === JUMPING_FACILITY) return { screen: 'facility' }
+  if (path === JUMPING_LIBRARY) return { screen: 'menu' }
   if (path === JUMPING_BUILDER) return { screen: 'builder' }
   if (path === JUMPING_BUILTIN_BUILDER) return { screen: 'builder', source: 'built-in' }
   if (path === JUMPING_PLAYTEST) return { screen: 'playtest' }

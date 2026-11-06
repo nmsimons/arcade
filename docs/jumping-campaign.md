@@ -16,10 +16,12 @@ Bounds). Read it with [Making a fun jumping level](jumping-level-design.md),
 and [the facility design spec](jumping-facility.md).
 The canon and rules below are adopted. The built-in untimed opening, Wake,
 implements the charging-bay awakening. The final Spelunk sequence supplies the
-outdoor ending. The level grid currently implements D-or-better progression;
-the facility wings, in-world records and ungraded escape route that replace it
-are adopted but not yet built. Optional certification gates and independent
-campaign-wide playtesting also remain.
+outdoor ending. The facility, which `/lab` opens, implements D-or-better
+progression through its wings, with door placards and the evaluation board; its
+wings are still stub corridors, and the escape levels keep their timers until
+their untimed redesign (see [the facility spec](jumping-facility.md)). Wing
+layouts, optional certification gates and independent campaign-wide playtesting
+remain.
 
 ## Canon
 

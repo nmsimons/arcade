@@ -12,7 +12,7 @@ for (const face of ['leaning', 'vertical']) for (const side of [-1, 1]) {
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-10-28T12:00:00Z') })
-    await page.goto('/lab?motionDebug=1&renderControl=1')
+    await page.goto('/lab/library?motionDebug=1&renderControl=1')
     const play = page.getByRole('button', { name: `Play ${level.name}`, exact: true })
     await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-10-28T13:00:00Z'))
     await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)

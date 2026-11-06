@@ -9,7 +9,7 @@ test('blocked doors are placed as wall art and restyled in the studio', async ({
     { x: 240 + i * 180, y: 920, condition }, { x: 1000 + i * 180, y: 920, condition, frame: 'bulkhead', ...(i % 2 ? { flipX: true } : {}) }])
   const level = { ...blankTrial(), name: 'Blocked doors', width: 1800, wallDoors, entrance: { x: 120, y: 920 }, goal: { x: 1720, y: 920, flipX: true } }
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'blocked.json': level })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open blocked.json', exact: true }).click()

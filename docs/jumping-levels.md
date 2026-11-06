@@ -139,11 +139,13 @@ package's `security:check` uses the same script and list.
 ## Development authoring
 
 Level studio is a private development tool. Production builds, including
-`vite preview`, offer only the built-in game and progress. Menu, pause and result
-screens have no editor or folder actions. Builder and playtest links return to
-the level menu; retired local-file links do not load a collection.
+`vite preview`, offer only the facility and progress: the level library is
+development-only, and pause and result screens have no editor or folder actions.
+Builder, playtest and library links return to the facility at `/lab`; retired
+local-file links do not load a collection.
 
-With `npm run dev` open on localhost, select **Edit** on a built-in tile, or
+With `npm run dev` open on localhost, open the level library at `/lab/library`
+and select **Edit** on a built-in tile, or
 **Level studio → Library → New level** to add a level. **Library** contains one
 built-in collection. New levels and templates save directly to
 `public/levels/jumping/` in this checkout and appear in Git. **Save and Test** saves
@@ -338,17 +340,23 @@ free end** ties a hanging rope where its end rests. **Release** chooses whether
 switches can let go of anchor 1 or anchor 2; wire switches to the rope like any
 other switched object.
 
-The level menu loads the built-in JSON collection. Click a tile, press Enter,
+The development level library, `/lab/library`, loads the built-in JSON
+collection. Facility areas are not tiles. Click a tile, press Enter,
 or press controller A to play. Timed tiles show personal bests and letter grades;
 untimed tiles show completion. Finishing updates those records. In local dev,
 unready maps show repair messages and remain editable. Each tile has **Play**;
 local dev adds **Edit** and deletion. Controller or keyboard Y edits the selected
 level only in local dev.
 
-The first course is unlocked. A timed finish at D or better unlocks the next
-course in catalog order; untimed levels require completion. Locked slots show
-only their number and a lock, with no thumbnail, name or play/edit actions.
-The studio library and playtests remain unrestricted by campaign progress.
+The library follows the facility's locks. A wing course is open when its door
+is: its wing is open, and it is the wing's first course or the course before it
+is passed (D or better; untimed levels need completion). The final course and escape levels open once every wing course is
+passed. Levels outside the campaign are always open, and a collection without
+the campaign's opening area, such as a test fixture catalog, leaves every level
+open. Locked slots show only their number and a lock, with no thumbnail, name
+or play/edit actions. The studio library and playtests remain unrestricted by
+campaign progress. See [the facility](jumping-facility.md) and
+[the campaign](jumping-campaign.md) for the progression rules.
 
 Level studio supports standard controllers. **Y / △** switches between editor
 controls and the canvas cursor. Returning to the controls restores the last
@@ -389,17 +397,24 @@ emptying the bin require confirmation. Recovery files never enter published
 assets. Add external JSON by placing it in `public/levels/jumping/` and refreshing
 the dev library; use `npm run levels:check` before release.
 
-Menu tiles, builder templates and the overview all use the
+Library tiles, builder templates and the overview all use the
 game's world renderer for their static previews. They include props, shovebots,
 pressure plates, both gate orientations, elevators, moving platforms, ropes, ladders, timers, text,
 pickups and goal exits in their starting state.
 
-The level menu is `/lab`; normal play uses
-`/lab/levels/built-in/<filename>`. Development editing uses
+`/lab` opens the facility. A direct link, `/lab/levels/built-in/<filename>`,
+plays a level when it is open; a course with a door in the facility returns the
+robot to that door when finished or left. A locked course, a facility area or a
+missing file opens the facility instead, paused with the reason. The development
+library is `/lab/library`, reached only by its address or the **Level library**
+button on the facility's opening screen. Only a run started there returns to
+it; the studio's **Back to game**, playtests and the development review pages go
+to the facility. Development editing uses
 `/lab/builder/built-in/<filename>`, and saved playtests append `/playtest`.
 Filenames are URL encoded. Back, Forward and reload preserve the intended route.
-Production redirects authoring URLs to `/lab`. All LAB entry points use `/lab`;
-the former untitled-game and local-library routes are retired.
+Production redirects authoring URLs and the library to `/lab`. All LAB entry
+points use `/lab`; the former untitled-game, local-library and `/lab/facility`
+routes are retired.
 
 Published hosting rewrites `/lab/*` to the app shell, including playable URLs
 ending in `.json`. Raw JSON assets remain under `/levels/jumping/`. A saved file

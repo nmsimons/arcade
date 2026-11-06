@@ -8,7 +8,7 @@ const interior = { version: 2, id: 'indoor-regions-ui', name: 'Indoor regions', 
   lighting: { nightMode: false, ambient: 0, lights: [] } }
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: indoor day and night regions share the course wall and preserve sky and uniform modes`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const samples = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -50,7 +50,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: indoor day and night 
 })
 
 test('wide cave mouths fade continuously without point-source interference at overview and close zoom', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const profiles = await page.evaluate(async () => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -87,7 +87,7 @@ test('wide cave mouths fade continuously without point-source interference at ov
 })
 
 test('terrain exposure does not glow onto the dark back wall beneath an overhang', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const samples = await page.evaluate(async () => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -115,7 +115,7 @@ test('terrain exposure does not glow onto the dark back wall beneath an overhang
 })
 
 test('cached lighting follows camera motion and invalidates for zoom, changed geometry and moving occluders', async ({ page }) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const results = await page.evaluate(async () => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -148,7 +148,7 @@ test('cached lighting follows camera motion and invalidates for zoom, changed ge
 })
 
 test('a shadowed cave pocket has no luminous rim where its ceiling and wall meet the rock', async ({ page }) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const results = await page.evaluate(async () => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -227,7 +227,7 @@ test('a new indoor level creates named day/night back walls with the normal tool
 })
 
 test('terrain ground cover follows its shape, has distinct styles and invalidates day and night artwork caches', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async () => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')

@@ -13,7 +13,7 @@ for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 
   // Software renderers can draw only a few frames per second. A paused clock
   // keeps gameplay time, input timing and polling independent of that speed.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { facilityProgress, parseCampaign } from '../src/games/jumping/campaign.ts'
-import { arrivalLevel, dispatchPlace, evaluationLines, facilityStart, FACILITY_KEY, hubPresentation, nextPlace, readFacilitySave, saveFacilityPlace, savedPlace } from '../src/games/jumping/facility.ts'
+import { arrivalLevel, dispatchPlace, evaluationLines, facilityStart, FACILITY_KEY, hubPresentation, linkOpen, linkedPlace, nextPlace, readFacilitySave, saveFacilityPlace, savedPlace } from '../src/games/jumping/facility.ts'
 
 const course = (id, name) => ({ ...blankTrial(), id, name, times: { a: 10, b: 20, c: 40, d: 75 } })
 const door = (id, x, course) => ({ id, x, y: 920, course })
@@ -33,6 +33,36 @@ const everything = ['m1', 'm2', 'f1', 'f2', 'w1']
 
 test('a new save wakes at the opening’s entrance', () => {
   assert.deepEqual(facilityStart(campaign, progress([]), {}, levels), { kind: 'hub', level: 'wake', arrival: { kind: 'entrance' } })
+})
+
+test('a player with courses passed before the facility opened starts at the concourse', () => {
+  assert.deepEqual(facilityStart(campaign, progress(['m1']), {}, levels), { kind: 'hub', level: 'hall', arrival: { kind: 'entrance' } })
+  // A saved place still wins.
+  const atFreight = { kind: 'hub', level: 'f-hub', arrival: { kind: 'door', id: 'door-f1' } }
+  assert.deepEqual(facilityStart(campaign, progress(['m1']), { place: atFreight }, levels), atFreight)
+})
+
+test('a direct link opens a course only once its door would be open', () => {
+  const open = (passes, id) => linkOpen(campaign, progress(passes), levels, id)
+  assert.equal(open([], 'm1'), true, 'the first door of an open wing')
+  assert.equal(open([], 'm2'), false, 'the next door waits for the one before it')
+  assert.equal(open(['m1'], 'm2'), true)
+  assert.equal(open([], 'w1'), false, 'a sealed wing keeps its courses closed')
+  assert.equal(open(['f1', 'f2'], 'w1'), true, 'clearance opens the wing')
+  assert.equal(open(everything.slice(0, -1), 'final'), false, 'the final course waits for the evaluation')
+  assert.equal(open(everything, 'final'), true)
+  assert.equal(open([], 'bus'), false); assert.equal(open(everything, 'bus'), true)
+  assert.equal(open([], 'hall'), false, 'facility areas are walked into, never linked')
+  assert.equal(open([], 'missing'), false)
+  const outside = new Map([...levels, ['practice', course('practice', 'Practice')]])
+  assert.equal(linkOpen(campaign, progress([]), outside, 'practice'), true, 'a course outside the campaign is always open')
+})
+
+test('a linked course belongs to the door that leads to it', () => {
+  assert.deepEqual(linkedPlace(campaign, levels, 'm2'), { kind: 'course', level: 'm2', hub: 'm-hub', door: 'door-m2' })
+  assert.deepEqual(linkedPlace(campaign, levels, 'final'), { kind: 'course', level: 'final', hub: 'hall', door: 'dispatch' })
+  assert.deepEqual(linkedPlace(campaign, levels, 'bus'), { kind: 'escape', level: 'bus', index: 1 })
+  assert.equal(linkedPlace(campaign, new Map([...levels, ['practice', course('practice', 'Practice')]]), 'practice'), null)
 })
 
 test('a returning save resumes where it was autosaved', () => {

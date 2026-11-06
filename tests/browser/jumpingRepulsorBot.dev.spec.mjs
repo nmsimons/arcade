@@ -31,7 +31,7 @@ async function open(page, file, finishEntrance = true) {
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab/library?motionDebug=1')
   const card = page.locator('.jumping-level-card[aria-pressed=true]').filter({ hasText: file.name })
   await expect(card).toBeVisible({ timeout: 15000 })
   await card.click()
@@ -175,7 +175,7 @@ test('shove poses adapt to empty space and a wall-pinned Rbot', async ({ page },
 })
 
 test('the shove impact texture renders a short, bounded thump', async ({ page }) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async () => {
     const { JumpingSound } = await import('/src/games/jumping/sound.ts')
     const ctx = new OfflineAudioContext(2, 12000, 24000), sound = new JumpingSound(ctx)

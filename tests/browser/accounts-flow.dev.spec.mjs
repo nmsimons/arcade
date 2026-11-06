@@ -210,7 +210,12 @@ test('completing an older upload keeps the newer edit visibly pending', async ({
   await page.getByRole('button', { name: 'Connect OneDrive', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Your saves are up to date')
   await page.getByRole('button', { name: 'Back to arcade', exact: true }).click()
-  await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
+  // The compact account indicator sits in the development level library. Open it in place:
+  // the test repository lives in this page.
+  await page.evaluate(() => {
+    const state = { usr: null, key: 'library', idx: (history.state?.idx ?? 0) + 1 }
+    history.pushState(state, '', '/lab/library'); dispatchEvent(new PopStateEvent('popstate', { state }))
+  })
   await expect(page.locator('.account-indicator.is-synced')).toBeVisible()
   let finishUpload
   const upload = new Promise(resolve => { finishUpload = resolve })

@@ -3,8 +3,9 @@
 **Proposed design spec, November 1, 2026. First slice in progress.** Tracked in
 [issue #91](https://github.com/nmsimons/arcade/issues/91).
 
-**Status (November 2, 2026).** Development builds open the facility at
-`/lab/facility`, or from the **Facility** button on the level menu. What exists:
+**Status (November 6, 2026).** The facility is L.A.B.'s game: `/lab` opens it
+in every build. The level grid is the development library at `/lab/library`,
+in development builds only. What exists:
 
 - The campaign file and wing progression (`campaign.ts`), checked by
   `npm run levels:check`.
@@ -37,8 +38,8 @@
   climbs the rope to Service access, Orientation's bulkhead to the concourse.
   The two dead doors are blocked doors (`wallDoors`), wall art that never opens. Arriving from the concourse steps out of Service
   access, at that far end. A headless test plays it end to end with ordinary
-  inputs. Wake, the four tutorial levels and Company stay in the level grid but
-  leave the campaign. Orientation's golden traces await recording on Apple
+  inputs. Wake, the four tutorial levels and Company stay in the collection but
+  leave the campaign; their direct links stay open. Orientation's golden traces await recording on Apple
   Silicon, like the other facility areas.
 - Every wing as stub hubs: Movement (Hop Skip Jump I and II, A Bigger Swing,
   Leaps and Bounds II, Slow is Smooth), Freight (8), Construction (7), Targets
@@ -47,6 +48,10 @@
   Freight and Construction; 12 of Freight, Construction and Targets; 6 of Water
   and Security). The stubs are flat corridors that make the campaign playable
   end to end, not designed wings.
+- Direct links ([Routes](#engineering-notes)): `/lab/levels/built-in/<file>` plays a
+  course whose door is open, and finishing or leaving it returns the robot to
+  that door. A locked course, a facility area or a missing file opens the
+  facility instead, paused with the reason.
 - The concourse, with a bulkhead to every wing, the evaluation board (the total, then each wing's passes or SEALED) and the dispatch door.
 - The release: when all 40 courses are passed, the dispatch door opens onto
   Ascent I, the final course. Passing it leads through Ascent II, Spelunk and
@@ -57,7 +62,10 @@
 Not yet built: preparing a course while the robot approaches its door (the
 "Preparing level" dialog still appears), the door closing behind the robot,
 lamps and grade letters on the board, the cloud save slot for the autosaved
-place (it is saved on this device only), wing layouts and
+place (it is saved on this device only;
+[issue #103](https://github.com/nmsimons/arcade/issues/103)), a start
+experience that is still a game before the facility
+([issue #104](https://github.com/nmsimons/arcade/issues/104)), wing layouts and
 art, shortcuts, certification doors, and golden traces for hub levels (record
 them on Apple Silicon once the layouts settle; `tests/helpers/jumping-golden.mjs`
 leaves hubs out until then).
@@ -353,7 +361,9 @@ course-equipment rule for escape levels once they are redesigned as untimed.
 
 ### Starting the game
 
-`/lab` opens the facility instead of the grid. A new save starts in Orientation's charging pod.
+`/lab` opens the facility. A new save starts in Orientation's charging pod.
+A save with passed courses but no autosaved place, such as one from the level
+grid, starts at the concourse.
 Orientation's bulkhead, Service access, opens onto the concourse, and the
 concourse's Orientation bulkhead leads back to it. Afterward, the robot resumes where it was
 last autosaved: at the door it came through, or at a course's door if it left
@@ -445,16 +455,21 @@ It precedes building any wing beyond Orientation.
 - **Session.** The game shell gains a facility mode: the default screen becomes
   a wing run (an untimed level run with door and bulkhead handling) instead
   of the menu. A course run returns to a freshly loaded wing.
-  `JumpingResultDialog` remains for studio playtests and the development
-  library only.
-- **Progression.** `unlockedLevels` today walks `index.json` order. It becomes a
-  walk over each wing's order in the campaign file, plus clearance, with the same
-  `passedLevel` rule. Doors, placards, boards, bulkheads and shortcuts all read
-  from that one result.
-- **Routes.** `/lab` opens the facility. `/lab/levels/built-in/<file>` still
-  plays a course directly when it is unlocked, and leaving returns to its door.
-  The grid moves to a development-only route (for example `/lab/library`) with
-  the stress tests and the studio.
+  `JumpingResultDialog` remains for studio playtests, the development
+  library, and direct links to levels outside the campaign, which have no door
+  to return to.
+- **Progression.** `facilityProgress` walks each wing's order in the campaign
+  file, plus clearance, with the `passedLevel` rule. Doors, placards, boards,
+  bulkheads, direct links and the library's locks (`linkOpen`) all read from
+  that one result. A collection that lacks the campaign's opening, such as a
+  test fixture catalog, leaves every level open.
+- **Routes.** `/lab` opens the facility. `/lab/levels/built-in/<file>` plays a
+  course directly when its door is open, and leaving returns to its door
+  (`linkedPlace`); a refused link lands in the facility, paused with the reason.
+  The grid is the development-only library at `/lab/library`, with the stress
+  tests and the studio. Only runs started there return to it: the studio's
+  **Back to game** and its playtests go to the facility. Production sends
+  `/lab/library` and the former `/lab/facility` to `/lab`.
 - **Studio.** Built: Type (Course or Facility area), Level door (with a level
   picker), Bulkhead (with a destination picker) and Evaluation board. Still to
   come: Wall map, Sealed door, and later Transit button. A studio playtest
@@ -475,8 +490,11 @@ It precedes building any wing beyond Orientation.
 - **Unchanged:** course golden traces, medal routes and course browser specs,
   which open courses directly. Visual reskins must leave physics hashes
   untouched.
-- **Rewritten:** the grid-driven specs (`jumpingMenu`, `jumpingLevelProgress`,
-  the L.A.B. parts of `controllerMenus`) become facility progression specs.
+- **Rewritten:** course specs open courses by link (`openLevelLink`). The
+  grid-driven specs became development library specs (`jumpingLevelMenu.dev`,
+  `jumpingLibraryProgress.dev`, `jumpingLevelPicker.dev`,
+  `jumpingPickerSecurity.dev`), and `jumpingGrades` checks locked links and
+  door progression in a one-wing test campaign.
 - **New:**
   - fresh-save progression through Wake, Orientation and into the concourse;
   - Up enters an open door, running past does not, a locked door ignores Up;
@@ -510,9 +528,11 @@ It precedes building any wing beyond Orientation.
 5. **The release and escape route.** The dispatch door, the board's completion,
    Ascent I as the final course (if confirmed), and the untimed conversion of
    Ascent II and Spelunk.
-6. **Switch the default.** `/lab` opens the facility, the grid becomes the
-   development library, and [level files](jumping-levels.md),
-   [level design](jumping-level-design.md) and [testing](testing.md) are updated.
+6. **Switch the default.** Done November 6, 2026
+   ([issue #97](https://github.com/nmsimons/arcade/issues/97)): `/lab` opens the
+   facility, the grid became the development library, and
+   [level files](jumping-levels.md), [level design](jumping-level-design.md)
+   and [testing](testing.md) are updated.
 
 ## Open decisions
 

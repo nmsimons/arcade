@@ -9,7 +9,7 @@ async function play(page, lighting = false) {
     level.lighting = { nightMode: lighting !== 'day', ambient: 25, lights: [] }
   }
   await useLevelFixtures(page, [level])
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { reachReverseRopeCeiling, reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
@@ -52,10 +52,7 @@ async function open(page, level, size) {
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
   await page.evaluate(() => { window.cameraEncounterFrames = [window.cameraEncounterFrames.at(-1)] })

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect } from './test.mjs'
-import { useLevelFixtures } from './jumpingLevels.mjs'
+import { openLevelLink, useLevelFixtures } from './jumpingLevels.mjs'
 
 /** Observe the real game canvas, without exposing mutable simulation state. */
 export async function playWaterPerformanceFixture(page) {
@@ -25,8 +25,7 @@ export async function playWaterPerformanceFixture(page) {
     }
   })
   await page.clock.install()
-  await page.goto('/lab?motionDebug=1')
-  await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
+  await openLevelLink(page, { query: '?motionDebug=1' })
   const canvas = page.locator('.jumping-game > canvas')
   await expect(canvas).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(3000); await page.keyboard.up('d')

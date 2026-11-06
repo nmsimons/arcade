@@ -1,5 +1,5 @@
 import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
-import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
@@ -21,16 +21,14 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
     const errors = [], checkpoints = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 852, height: 393 })
     await page.clock.install({ time: new Date('2026-10-09T12:00:00Z') })
-    await page.goto('/lab?motionDebug=1&renderControl=1')
-    const play = page.getByRole('button', { name: `Play ${data.name}`, exact: true })
-    await expect(play).toBeVisible()
-    // Freeze on the menu before starting the route. Waiting for a live canvas
-    // lets free balls settle for a machine-dependent time before the first key.
-    await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'))
-    await play.click(); await finishJumpingEntrance(page)
+    // Freeze before the course starts. Waiting for a live canvas lets free
+    // balls settle for a machine-dependent time before the first key.
+    await openLevelLink(page, { file: recording.file, query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-10-09T13:00:00Z') })
+    await finishJumpingEntrance(page)
     await expect(page.getByRole('img', { name: `${data.name}: reach the exit`, exact: true })).toBeFocused()
     await page.clock.runFor(64)
     await page.screenshot({ path: info.outputPath('fresh-start.png') })
+    const finished = page.getByTestId('facility-notice').filter({ hasText: / passed\. / })
     let held = new Set(), index = 0
     for (const segment of recording.trace) {
       const input = segment.input
@@ -50,19 +48,18 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
       else await page.clock.runFor(milliseconds)
       checkpoints.push(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1)))
       await page.screenshot({ path: info.outputPath(`phase-${String(index++).padStart(2, '0')}.png`) })
-      if (await page.getByRole('dialog', { name: 'Level complete', exact: true }).isVisible()) break
+      if (await finished.count()) break
     }
     for (const key of held) await page.keyboard.up(key)
     // RAF input phases can leave the doorway fade unfinished. Score is already
     // locked on entry; advance only an already-started fade, never a failed route.
     await page.clock.runFor(64)
-    const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
-    for (let fade = 0; fade < 16 && !await complete.isVisible()
+    for (let fade = 0; fade < 16 && !await finished.count()
       && await page.getByText('Entering the exit', { exact: true }).isVisible(); fade++) await page.clock.runFor(64)
     await writeFile(info.outputPath('route-checkpoints.json'), JSON.stringify({ file: recording.file, checkpoints }, null, 2))
-    await expect(complete).toBeVisible()
-    await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
-    const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
+    // A campaign course returns the robot to its door, where the status announces the result.
+    await expect(finished).toHaveText(new RegExp(`^${data.name} passed\\. Grade A, `))
+    const [, minutes, seconds] = (await finished.innerText()).match(/Grade A, (\d+):(\d+\.\d+)/).map(Number)
     expect(minutes * 60 + seconds).toBeLessThanOrEqual(data.times.a)
     expect(errors).toEqual([])
     await writeFile(info.outputPath('route-checkpoints.json'), JSON.stringify({ file: recording.file, checkpoints, elapsed: minutes * 60 + seconds }, null, 2))

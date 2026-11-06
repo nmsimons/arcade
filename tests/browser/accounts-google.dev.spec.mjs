@@ -57,7 +57,7 @@ test('Google keeps the selected player and saves across browser sessions; reconn
   try {
     const next = await reopened.newPage()
     await providers(next, drive)
-    await next.goto('/lab')
+    await next.goto('/lab/library')
     await expect(next.getByRole('button', { name: 'Alice Example', exact: true })).toBeVisible()
     expect(await next.evaluate(async () => {
       const { currentProfile, gameStorage } = await import('/src/accounts/profileStorage.ts')

@@ -15,7 +15,7 @@ test('a facility area playtest ends at the door the robot takes and returns to t
     courseDoors: [], bulkheads: [{ id: 'way-out', name: 'Way out', x: 600, y: 920, to: hall.id }], evaluationBoards: [] }
   await useLevelFixtures(page, [area, hall]); await installBuiltInFixtures(page, { 'area.json': area, 'hall.json': hall })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open area.json', exact: true }).click()
@@ -36,7 +36,7 @@ test('a course becomes a facility area with level doors, bulkheads and a board, 
   const annex = { ...blankTrial(), name: 'Annex', goal: { name: 'Way out', x: 1500, y: 920 } }
   const target = { ...blankTrial(), name: 'Target course' }
   await useLevelFixtures(page, [annex, target, hall]); await installBuiltInFixtures(page, { 'annex.json': annex, 'target.json': target, 'hall.json': hall })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open annex.json', exact: true }).click()

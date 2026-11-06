@@ -17,19 +17,28 @@ const secondDoor = firstWing.courseDoors.find(door => door.course === secondCour
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.facility.v1')))
 const motion = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 
-/** Opens the development facility from the level menu with a paused clock, saved completions and an autosaved place. */
+/**
+ * Opens the facility at /lab with a paused clock, saved completions and an autosaved place. The campaign
+ * is held back until the clock is paused, so the facility starts from a still clock.
+ */
 async function openFacility(page, completed = {}, place) {
-  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  await page.evaluate(([completed, place]) => {
+  await page.addInitScript(([completed, place]) => {
+    if (sessionStorage.getItem('facility-test-seeded')) return
+    sessionStorage.setItem('facility-test-seeded', '1')
     localStorage.setItem('arcade.jumping.completed.v1', JSON.stringify(completed))
     if (place) localStorage.setItem('arcade.jumping.facility.v1', JSON.stringify({ place }))
+    else localStorage.removeItem('arcade.jumping.facility.v1')
   }, [completed, place])
-  const facility = page.getByRole('button', { name: 'Facility', exact: true })
+  let release
+  const campaignReady = new Promise(resolve => { release = resolve })
+  await page.route('**/levels/jumping-campaign.json', async route => { await campaignReady; await route.continue() })
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab?motionDebug=1&renderControl=1')
   // A cold development server can take a while to transform the level catalog.
-  await expect(facility).toBeEnabled({ timeout: 30000 }); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await facility.click()
-  await expect(page).toHaveURL(/\/lab\/facility$/)
+  await expect(page.getByRole('dialog', { name: 'Opening the facility', exact: true })).toBeVisible({ timeout: 30000 })
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  release()
+  await expect(page).toHaveURL(/\/lab\?/)
 }
 /** Shift-walks to a doorway and stops in it. */
 async function walkTo(page, x) {

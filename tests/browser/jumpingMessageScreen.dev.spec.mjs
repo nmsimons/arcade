@@ -59,7 +59,7 @@ test('message screens can be placed, edited, duplicated, undone, saved and reope
   test.setTimeout(60000)
   const level = { ...blankTrial(), version: 2, name: 'Terminal review', lighting: { nightMode: true, ambient: 0, lights: [] } }
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'terminal.json': level })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open terminal.json', exact: true }).click()

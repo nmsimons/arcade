@@ -1,5 +1,5 @@
 import type { Campaign, FacilityProgress } from './campaign.ts'
-import { wingName } from './campaign.ts'
+import { courseAvailable, wingName } from './campaign.ts'
 import { formatTime } from './challenge.ts'
 import { gradeFor, gradeTimes } from './grading.ts'
 import { isHubLevel, isPuzzleLevel } from './level.ts'
@@ -51,13 +51,15 @@ const areaWing = (campaign: Campaign, progress: FacilityProgress, id: string) =>
 const areaOpen = (campaign: Campaign, progress: FacilityProgress, id: string) => areaWing(campaign, progress, id)?.open ?? true
 
 /**
- * A new save wakes at the opening's entrance. Afterward the robot resumes where
- * it was autosaved, or at the concourse's entrance if a build has since closed
- * or removed that place.
+ * A new save wakes at the opening's entrance. A player who already passed a
+ * course before the facility opened, but has no place saved, starts at the
+ * concourse with those doors passed. Afterward the robot resumes where it was
+ * autosaved, or at the concourse's entrance if a build has since closed or
+ * removed that place.
  */
 export function facilityStart(campaign: Campaign, progress: FacilityProgress, save: FacilitySave, levels: Levels): FacilityPlace {
   const place = save.place, concourse = hubLevel(levels, campaign.concourse)
-  if (!place) return { kind: 'hub', level: campaign.opening, arrival: { kind: 'entrance' } }
+  if (!place) return { kind: 'hub', level: progress.passed > 0 && concourse ? concourse.id : campaign.opening, arrival: { kind: 'entrance' } }
   const hub = place.kind === 'hub' ? hubLevel(levels, place.level) : undefined
   if (place.kind === 'hub' && hub && areaOpen(campaign, progress, hub.id)) {
     const door = place.arrival.kind === 'door' ? place.arrival.id : undefined
@@ -147,3 +149,34 @@ export function evaluationLines(campaign: Campaign, progress: FacilityProgress, 
 
 /** Leaving the final course or the escape route returns the robot to the dispatch door. */
 export const dispatchPlace = (campaign: Campaign, levels: Levels) => concourseAt(campaign, levels, campaign.finalCourse)
+
+/**
+ * Whether a direct link may start this level. A wing's course opens with its
+ * door; the final course and the escape levels once the evaluation is complete;
+ * a course outside the campaign always. Facility areas are walked into, never
+ * linked.
+ */
+export function linkOpen(campaign: Campaign, progress: FacilityProgress, levels: Levels, id: string) {
+  const level = levels.get(id)
+  if (!level || isHubLevel(level)) return false
+  if (id === campaign.finalCourse || campaign.escape.includes(id)) return progress.complete
+  if (campaign.wings.some(wing => wing.courses.includes(id))) return courseAvailable(progress, id)
+  return true
+}
+
+/**
+ * The place a course played from a direct link belongs to: the door that leads
+ * to it, so finishing or leaving returns the robot there, or the escape route.
+ * None for a course with no door.
+ */
+export function linkedPlace(campaign: Campaign, levels: Levels, id: string): FacilityPlace | null {
+  const escape = campaign.escape.indexOf(id)
+  if (escape >= 0) return { kind: 'escape', level: id, index: escape }
+  const wing = campaign.wings.find(wing => wing.courses.includes(id))
+  const homes = [wing?.level, id === campaign.finalCourse ? campaign.concourse : undefined]
+  for (const home of [...homes, ...levels.keys()]) {
+    const hub = hubLevel(levels, home), door = hub?.courseDoors.find(door => door.course === id)
+    if (hub && door) return { kind: 'course', level: id, hub: hub.id, door: door.id }
+  }
+  return null
+}

@@ -8,7 +8,7 @@ test('Impact Lab: normal-speed drop, get-up and return ladder use ordinary contr
   const file = JSON.parse(readFileSync(new URL('../../dev/levels/jumping/Impact Lab.jump-level.json', import.meta.url), 'utf8'))
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [file])
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab/library?motionDebug=1')
   await page.getByRole('button', { name: 'Play Impact Lab', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
   await expect(page.locator('.jumping-state')).not.toHaveText('Entering the level')

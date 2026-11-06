@@ -17,7 +17,7 @@ async function open(page, _legacy = false, maps = levels()) {
     Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.testPad] })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await expect(page.getByRole('button', { name: `Level 1: ${maps[0].name}`, exact: true })).toBeVisible()
   // Finish thumbnail worker preparation before jumping past its deadline.
   await expect.poll(() => page.locator('.jumping-level-browser .jumping-level-card .level-thumbnail').first().evaluate(c => c.width)).toBeGreaterThan(1)
@@ -28,13 +28,12 @@ async function open(page, _legacy = false, maps = levels()) {
 test('level tiles launch immediately by click, Enter or controller A, with focus updating the selection', async ({ page }, info) => {
   await open(page)
   await expect(page.locator('.jumping-level-detail')).toHaveCount(0)
-  await expect(page.locator('.jumping-level-edit')).toHaveCount(0)
+  // The development library edits each level from its tile.
+  await expect(page.locator('.jumping-level-edit').first()).toBeVisible()
   const second = page.getByRole('button', { name: 'Level 2: Second room', exact: true })
   await second.hover()
   await expect(second).toBeFocused(); await expect(second).toHaveAttribute('aria-pressed', 'true')
   await expect(second).toHaveAccessibleDescription('Best 0:00.00 Grade A')
-  await tap(page, 3)
-  await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('direct-level-menu.png') })
   await second.click()
   await expect(page.getByRole('img', { name: 'Second room: reach the exit' })).toBeFocused()
@@ -93,7 +92,8 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   await page.keyboard.press('Escape')
   await page.mouse.move(0, 0)
   const button = name => page.getByRole('button', { name, exact: true })
-  const names = ['Resume', 'Restart level', 'Level menu', 'Controls', 'Back to arcade']
+  // Development adds the level studio beside the way back to the arcade.
+  const names = ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level studio', 'Back to arcade']
   for (const name of names) {
     await expectAccessibleSelection(button(name))
     await page.keyboard.press('Tab')
@@ -106,7 +106,7 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   // Controller input after a pointer click must restore visible focus even if
   // the browser would not give programmatic focus :focus-visible styling.
   await page.clock.runFor(64); await tap(page, 13)
-  await expectAccessibleSelection(button('Back to arcade'))
+  await expectAccessibleSelection(button('Level studio'))
   await expect(button('Controls')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   expect(await button('Controls').evaluate(el => el.getAnimations().length)).toBe(0)
   await page.screenshot({ path: info.outputPath('accessible-selection.png') })
@@ -140,7 +140,7 @@ test('pause and controls reflow at double text size with every action reachable'
     await page.setViewportSize(size)
     const bounds = await panel.boundingBox()
     await page.keyboard.press('Home')
-    for (const name of ['Resume', 'Restart level', 'Level menu', 'Controls', 'Back to arcade']) {
+    for (const name of ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level studio', 'Back to arcade']) {
       const button = page.getByRole('button', { name, exact: true })
       await expect(button).toBeFocused()
       await expect(button).toBeInViewport({ ratio: 1 })
@@ -233,14 +233,14 @@ test('level URLs support direct entry, reload, Back and Forward without extra me
   await page.getByRole('button', { name: 'Play Second room', exact: true }).click()
   await expect(page).toHaveURL(/\/levels\/built-in\/01-fixture.json$/)
   await page.goBack()
-  await expect(page).toHaveURL(/\/lab$/)
+  await expect(page).toHaveURL(/\/lab\/library$/)
   await expect(page.getByRole('button', { name: 'Level 2: Second room', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.goForward()
   await expect(page.getByRole('img', { name: 'Second room: reach the exit' })).toBeFocused()
   await page.clock.resume(); await page.reload()
   await expect(page.getByRole('img', { name: 'Second room: reach the exit' })).toBeFocused()
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
-  await expect(page).toHaveURL(/\/lab$/)
+  await expect(page).toHaveURL(/\/lab\/library$/)
   await page.goForward()
   await expect(page.getByRole('img', { name: 'Second room: reach the exit' })).toBeFocused()
 })
@@ -248,10 +248,15 @@ test('level URLs support direct entry, reload, Back and Forward without extra me
 test('unavailable level links stay recoverable and retired local links have no folder workflow', async ({ page }) => {
   await open(page)
   await page.clock.resume()
+  // Unavailable links go to the facility, which says why. These test levels hold no facility, so it
+  // cannot open; development offers the level library to recover.
   await page.goto('/lab/levels/built-in/missing.json')
+  await expect(page).toHaveURL(/\/lab$/)
   await expect(page.getByText('Could not find missing.json.', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Level library', exact: true }).click()
   await page.getByRole('button', { name: 'Play First room', exact: true }).click()
   await expect(page.getByRole('img', { name: 'First room: reach the exit' })).toBeFocused()
   await page.goto('/lab/not-a-route')
-  await expect(page.getByText('That level link is unavailable. Choose a level below.')).toBeVisible()
+  await expect(page).toHaveURL(/\/lab$/)
+  await expect(page.getByText('That link is unavailable.', { exact: false })).toBeVisible()
 })

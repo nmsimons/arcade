@@ -24,6 +24,16 @@ rendering, editor, and dialog bugs, and visually inspect the affected animation 
 layout. Screenshots supplement assertions; merely saving a screenshot does not
 make it a regression test. If a report cannot yet be reproduced, say so explicitly.
 
+L.A.B. browser specs open a level by its direct link with `openLevelLink`, and
+open another in the same session with `followLevelLink`
+(`tests/browser/helpers/jumpingLevels.mjs`). A fixture catalog
+(`useLevelFixtures`) lacks the campaign's opening area, so every fixture level
+is open and plays without a facility door. With `pauseAt`, the link holds the
+campaign back until the clock is paused. Specs about progression serve a small
+campaign of their own, as `jumpingGrades.spec.mjs` does. The level grid is the
+development library at `/lab/library`, so specs that use it are `.dev.spec.mjs`
+files.
+
 Run the affected checks after each fix. These test locations are included in the
 existing unit and browser CI jobs; a separate manual regression command must not
 be the only way to exercise a reported bug.

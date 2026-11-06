@@ -65,7 +65,7 @@ async function open(page, level, { renderControl = true } = {}) {
       return text.call(this, value, x, y, ...rest)
     }
   })
-  await page.goto(renderControl ? '/lab?renderControl=1' : '/lab')
+  await page.goto(renderControl ? '/lab/library?renderControl=1' : '/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await waitForBuilderPreview(page)

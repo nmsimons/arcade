@@ -34,6 +34,8 @@ interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: 
   descendingJump?: boolean;
   departureY?: number;
   ropeDescent?: { index: number; distance: number; blocked: number };
+  // The rope a planned leap just left and the height it left from, until the bot lands or takes hold of something.
+  leftRope?: { index: number; y: number };
   ladderBlocked?: { index: number; distance: number; blocked: number };
   flight?: { to: Node; catchX?: number; reach?: number; side: number; water?: boolean };
   transition?: { key: string; x: number; y: number; progress: number; blocked: number; releasing: boolean } }
@@ -376,7 +378,7 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     }
     target = state.shoreTarget.goal
   } else state.shoreTarget = undefined
-  if (actor.grounded || actor.climbing || actor.hang || actor.mantle) { state.runningJump = false; state.flight = undefined }
+  if (actor.grounded || actor.climbing || actor.hang || actor.mantle) { state.runningJump = false; state.flight = undefined; state.leftRope = undefined }
   if (state.launchSetup) {
     const point = state.launchSetup, dx = point.x - actor.x
     point.time += dt
@@ -675,6 +677,7 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
       return input
     }
     if (plannedFlight) state.flight = plannedFlight
+    if (leavingClimb && actor.climbing?.rope) state.leftRope = { index: actor.climbing.index, y: actor.y }
     state.jumpCooldown = .55; state.leg = undefined
     input.climb = false; input.descend = false; input.detach = false
     // Planned arcs use running-speed reach even during a quiet patrol. Keep
@@ -710,6 +713,15 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     // at the planned ladder, rather than catching an incidental one en route.
     // Ropes retain their automatic airborne catches without this Up request.
     if (nearby >= 0) input.climb = wanted === `ladder:${nearby}`
+    // A leap off a rope toward somewhere level or lower must not snatch that same rope again as it passes,
+    // once its grab cooldown runs out; holding Detach declines the catch while the rope is still within reach.
+    // Leaping for somewhere above, a fresh grip higher up the same rope is a way up, so it stays allowed.
+    const leaving = state.leftRope
+    const left = leaving && wanted !== `rope:${leaving.index}` && node.y > leaving.y - 40 ? actor.ropes?.[leaving.index] : undefined
+    if (left) {
+      const probe = [actor.x + actor.facing * 10, actor.y - 56]
+      if (left.nodes.some(node => Math.hypot(node.x - probe[0], node.y - probe[1]) < 45)) input.detach = true
+    }
   }
   if (inWater && state.flight?.water && actor.vy < 0) input.swimVertical = 0
   if (state.waterJumpHold !== undefined) { input.jump = true; input.jumpStrength = undefined; input.swimVertical = 0 }

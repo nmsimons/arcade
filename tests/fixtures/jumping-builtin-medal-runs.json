@@ -103,7 +103,7 @@
       "file": "03.json",
       "jumpModel": "tap-hold",
       "elapsed": 0.6833333333333333,
-      "activeTime": 9.950000000000076,
+      "activeTime": 10.783333333333362,
       "coins": 0,
       "trace": [
         {
@@ -159,7 +159,7 @@
           }
         },
         {
-          "frames": 613,
+          "frames": 713,
           "input": {
             "move": 0,
             "jump": false,
@@ -1238,8 +1238,8 @@
     },
     {
       "file": "04.json",
-      "elapsed": 10.933333333333353,
-      "activeTime": 11.791666666666638,
+      "elapsed": 11.033333333333347,
+      "activeTime": 11.891666666666632,
       "coins": 0,
       "trace": [
         {
@@ -1326,7 +1326,7 @@
           }
         },
         {
-          "frames": 152,
+          "frames": 164,
           "input": {
             "climb": true
           }

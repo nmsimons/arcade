@@ -79,7 +79,7 @@ async function stick(page, x, y) {
 
 test('keyboard, D-pad and left stick follow palette rows and columns without edge wrapping', async ({ page }) => {
   await open(page)
-  const terrain = button(page, 'Terrain'), rope = button(page, 'Rope'), ladder = button(page, 'Ladder')
+  const terrain = button(page, 'Terrain'), rope = button(page, 'Rope'), tiedRope = button(page, 'Tied rope'), ladder = button(page, 'Ladder')
   for (const move of [key => page.keyboard.press(key), key => tap(page, { ArrowUp: 12, ArrowDown: 13, ArrowLeft: 14, ArrowRight: 15 }[key]),
     key => stick(page, key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : 0, key === 'ArrowUp' ? -1 : key === 'ArrowDown' ? 1 : 0)]) {
     await terrain.focus(); await page.clock.runFor(64)
@@ -88,9 +88,11 @@ test('keyboard, D-pad and left stick follow palette rows and columns without edg
     await move('ArrowLeft'); await expect(terrain).toBeFocused()
     await move('ArrowDown'); await expect(button(page, 'Back wall')).toBeFocused()
     await move('ArrowDown'); await expect(rope).toBeFocused()
+    await move('ArrowRight'); await expect(tiedRope).toBeFocused()
     await move('ArrowRight'); await expect(ladder).toBeFocused()
+    await move('ArrowLeft'); await expect(tiedRope).toBeFocused()
     await move('ArrowDown'); await expect(button(page, 'Box')).toBeFocused()
-    await move('ArrowUp'); await expect(ladder).toBeFocused()
+    await move('ArrowUp'); await expect(tiedRope).toBeFocused()
     await move('ArrowLeft'); await expect(rope).toBeFocused()
     await move('ArrowUp'); await expect(button(page, 'Back wall')).toBeFocused()
     await move('ArrowUp'); await expect(terrain).toBeFocused()

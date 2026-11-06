@@ -371,8 +371,11 @@ function clearClimbingLeg(p: Player, leg: Leg, spread: number): Leg {
  * along its normal reach instead of snapping between a grip and a gun pose. */
 export function climbingAimArm(p: Player, from: Limb, to: Limb): Limb {
   const c = p.climbing!, hand = p.facing < 0 ? 1 : 0
-  const step = climbGait(c.distance, c.rope?.definition.length, c.ladder ? c.ladder.bottom - c.ladder.top : undefined).hands[hand]
-  const weight = Math.min(p.heldTool?.presentation?.climbAim ?? 0, smooth(step.lift ** 2))
+  // On a rope the hand is free while it reaches on to its next hold; on a ladder it follows the climbing gait.
+  const hold = c.rope ? c.holds?.[hand] : undefined
+  const lift = c.rope ? hold && hold.reach < 1 && hold.toward ? Math.sin(hold.reach * Math.PI) : 0
+    : climbGait(c.distance, undefined, c.ladder ? c.ladder.bottom - c.ladder.top : undefined).hands[hand].lift
+  const weight = Math.min(p.heldTool?.presentation?.climbAim ?? 0, smooth(lift ** 2))
   if (weight < .001) return from
   if (weight > .999) return to
   const root = mix(from.root, to.root, weight), wrist = mix(from.end, to.end, weight)

@@ -6,8 +6,8 @@
     {
       "file": "Load Test.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 6.358333333333439,
-      "activeTime": 7.216666666666815,
+      "elapsed": 6.466666666666778,
+      "activeTime": 7.325000000000154,
       "coins": 3,
       "trace": [
         {
@@ -30,7 +30,7 @@
           }
         },
         {
-          "frames": 60,
+          "frames": 70,
           "input": {
             "move": 1,
             "climb": true
@@ -272,7 +272,7 @@
           }
         },
         {
-          "frames": 104,
+          "frames": 107,
           "input": {
             "move": 1,
             "climb": true
@@ -284,8 +284,8 @@
     {
       "file": "Load Test Max.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 6.58333333333345,
-      "activeTime": 7.441666666666826,
+      "elapsed": 6.733333333333458,
+      "activeTime": 7.591666666666834,
       "coins": 3,
       "trace": [
         {
@@ -308,7 +308,7 @@
           }
         },
         {
-          "frames": 73,
+          "frames": 79,
           "input": {
             "move": 1,
             "climb": true
@@ -556,7 +556,7 @@
           }
         },
         {
-          "frames": 104,
+          "frames": 116,
           "input": {
             "move": 1,
             "climb": true

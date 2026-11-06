@@ -329,6 +329,15 @@ inside the room even near an edge. **Keep placing** repeats it. Each template
 becomes one ordinary terrain piece with editable nodes,
 dimensions, material, duplication, transforms, and undo/redo.
 
+**Movement → Tied rope** places a rope tied at both ends: drag from one anchor to
+the other, and an end near a terrain edge attaches to it. The rope sags by its
+extra **Length**. Selected, it shows a handle on each anchor; dragging either moves
+that anchor alone. The inspector attaches or detaches **Anchor 1** and **Anchor 2**
+separately, **Untie anchor 2** turns it back into a hanging rope, and **Tie the
+free end** ties a hanging rope where its end rests. **Release** chooses whether
+switches can let go of anchor 1 or anchor 2; wire switches to the rope like any
+other switched object.
+
 The level menu loads the built-in JSON collection. Click a tile, press Enter,
 or press controller A to play. Timed tiles show personal bests and letter grades;
 untimed tiles show completion. Finishing updates those records. In local dev,
@@ -947,6 +956,23 @@ Ropes contain anchor `x, y`, `length`, and `segments`. Optional
 `anchor: { platform, x, y }` binds the rope to a terrain index with local edge
 coordinates. The coordinates must lie on the terrain boundary. Editing terrain
 carries its rope anchors; deleting terrain detaches its ropes and ladders.
+
+A tied rope also has `end: { x, y }`, its second anchor, which may carry its own
+`anchor: { platform, x, y }` in the same form. It hangs between the two in a sag set
+by `length`: a length shorter than the distance between the anchors is raised to
+that distance, so a tied rope is taut at least, never stretched. The anchors may be
+at most 2000 apart. A tied rope can let go of one anchor during a run:
+`release: { id, anchor: "start" | "end" }` makes it a switch target with that ID,
+accepting the usual `switchLogic` and `switchReversed`. When its switches turn it
+on, that anchor lets go and stays released until the run restarts; the rope then
+hangs and swings from its other anchor, and anyone holding it keeps their grip.
+`release` requires `end`. For example:
+
+```json
+{ "x": 800, "y": 500, "length": 680, "segments": 60,
+  "end": { "x": 1400, "y": 500, "anchor": { "platform": 2, "x": 0, "y": 0 } },
+  "release": { "id": "drop", "anchor": "start" } }
+```
 
 All current terrain uses the same friction. Walking and stable starts depend on
 whether surface grip can resist downhill gravity, with no fixed angle cutoff.

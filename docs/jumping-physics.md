@@ -176,7 +176,9 @@ catch arc too. Planned jumps retain running-speed air control during patrol as
 well as pursuit, and passing above a setup cannot skip a required landing.
 Patrol destinations share one reachability search rather than searching again
 for each inaccessible shelf. Planned rope exits issue the ordinary jump
-control instead of continuing to hold the rope.
+control instead of continuing to hold the rope. Leaving a rope for somewhere level
+or lower, the bot holds Detach while the rope is still in reach, so it cannot catch
+the same rope again on the way past (see Rope travel).
 Ground launches check the rising body from its actual position and momentum,
 including terrain, red fields, mechanisms and loose obstacles. A blocked arc
 settles at its planned takeoff once, then chooses another approach if needed;
@@ -691,6 +693,39 @@ pin; demanding the full rope radius there amplifies a tiny contact into an
 unbounded correction of the first free particle. Solid penetration still
 resolves, and subsequent spans retain their normal padding. Both rolling
 directions and 120/30 Hz steps are covered in `tests/jumping-rope-props.test.mjs`.
+
+### Rope travel
+
+Hanging on a rope is arms-only: the body hangs below its hands and the feet never
+take the rope, on a hanging rope or a tied one. Each hand keeps its own hold.
+Traveling, the hands go hand over hand: one lets go and reaches to its next hold
+while the other bears the weight, so a hand is free to aim a held tool only while it
+is reaching on. Hanging still, both hold, the lower hand sliding up beside the other.
+The highest a grip can go is 18 below the anchor (`ROPE_TOP_GRIP`), leaving the
+reaching hands clear of it; catches and climbs both stop there.
+
+Speed comes from reach, not rhythm. The hands keep a steady 2.5 to 3 changes a
+second, and the grip travels the rhythm times each hand's stride along the rope:
+about 48 a second shimmying along a level rope, 74 climbing up and 79 climbing
+down (`ropeTravelSpeed`). Holding Left or Right fully along a level or sloped rope
+builds, after half a second of travel and over about another second, into a swinging
+run with longer reaches and a slightly slower rhythm, at about 70 a second; easing
+off, stopping or turning back drops to the careful pace within 0.3 seconds. Setting
+off or turning back, the grip eases up to speed rather than reversing at full pace.
+
+The robot faces the way it travels along a rope and turns around instead of going
+backward; the hands keep their holds while it turns. These rules apply to robots
+too, since they share the player's contacts. A robot's planned leap off a rope toward
+somewhere level or lower declines to catch that same rope again while it is still in
+reach, holding Detach as a player would; leaping for somewhere above, it may take a
+fresh grip higher up the same rope.
+
+Tied ropes hang between two anchors (see the level format). Traveling along one
+follows the same rules, sloped stretches included; arriving where it is tied
+partway up a wall, the feet brace on the wall face as on a wall-side rope. When a
+switch releases one anchor, riders keep their grip and swing down with the rope.
+Regression coverage lives in `tests/jumping-tied-rope.test.mjs`,
+`tests/jumping-climbables.test.mjs` and `tests/browser/jumpingTiedRope.dev.spec.mjs`.
 
 Automatic steps up low terrain prefer their normal 12-unit landing inset, but
 can shorten it to 8 units when the next riser leaves a narrow tread. Both flat

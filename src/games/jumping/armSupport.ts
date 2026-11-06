@@ -28,9 +28,9 @@ export function rightArmSupporting(p: Player): boolean {
   if (p.climbing) {
     const c = p.climbing
     // Catching, rappelling and gravity turns keep both rope grips. Traveling hand over hand, a rope hand is
-    // free while it reaches to its next hold; hanging still, both hold.
+    // free while it reaches to its next hold; hanging still, both hold, even as one slides up beside the other.
     if (c.time < .16 || c.turn || c.wall || (c.wallBlend ?? 0) > .01) return true
-    if (c.rope) return (c.holds?.[hand]?.reach ?? 1) >= 1
+    if (c.rope) { const hold = c.holds?.[hand]; return !hold || hold.reach >= 1 || !hold.toward }
     if (c.hangBlend > .01) return true
     return climbGait(c.distance, undefined, c.ladder ? c.ladder.bottom - c.ladder.top : undefined).hands[hand].planted
   }

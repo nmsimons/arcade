@@ -8,7 +8,7 @@ import { NEUTRAL_INPUT, STEP } from '/src/games/jumping/model.ts'
 import { blankTrial, levelTerrain, parseLevel, prepareLevelRopes } from '/src/games/jumping/level.ts'
 import { ropePath, ropeSegmentCount } from '/src/games/jumping/climbables.ts'
 import { bodyIntersects, polygonPoints } from '/src/games/jumping/geometry.ts'
-import { athletePose, drawAthlete } from '/src/games/jumping/athlete.ts'
+import { presentedAthletePose, drawAthlete } from '/src/games/jumping/athlete.ts'
 import { mechanismShape } from '/src/games/jumping/mechanisms.ts'
 import { UPPER_ARM, FOREARM, HEAD_RADIUS } from '/src/games/jumping/athleteRig.ts'
 
@@ -86,7 +86,7 @@ export const CASES = [
   { id: 'tied-taut', title: 'Shimmy along a taut horizontal rope',
     expect: 'The rope is tied tight between two pillars, barely sagging under the robot. It shimmies hand over hand along it, side-on, smoothly, to near the far anchor.',
     level: () => room({ platforms: pillars(800, 1400, 700), climbables: ropes([tied(800, 700, 1400, 700, 600)]) }), setup: at(1130, 770),
-    script: [...catchAndSettle, [{ move: 1 }, 380]], review: [80, 460] },
+    script: [...catchAndSettle, [{ move: 1 }, 470]], review: [80, 550] },
   { id: 'tied-u-climb', title: 'Follow a deep U-shaped rope up one side',
     expect: 'A long rope tied between two close anchors hangs in a deep U. From the bottom, Right carries the robot along and up the gentler part, then Up climbs the steep side to the anchor, arms only throughout, with no sudden change of pose between the two.',
     level: () => room({ platforms: pillars(900, 1060, 500), climbables: ropes([tied(900, 500, 1060, 500, 520)]) }), setup: run => { const low = lowest(run.level.climbables.ropes[0]); at(low[0] - 10, low[1] + 50)(run) },
@@ -107,7 +107,7 @@ export const CASES = [
   { id: 'tied-wall-anchor', title: 'Shimmy up a sloped rope to its anchor on a wall face, press on, then rest',
     expect: 'The robot shimmies up the rope to where it is tied partway up a wall. Arriving, its feet plant flat on the wall and stay planted, without jitter, whether it keeps pressing toward the wall or rests; the legs never shake.',
     level: () => room({ platforms: pillars(700, 1300, 400), climbables: ropes([tied(700, 820, 1300, 640, 640)]) }), setup: run => { const low = lowest(run.level.climbables.ropes[0]); at(low[0], low[1] + 50)(run) },
-    script: [...catchAndSettle, [{ move: 1 }, 900], [{}, 150], [{ move: 1 }, 90]], review: [700, 1220] },
+    script: [...catchAndSettle, [{ move: 1 }, 1150], [{}, 150], [{ move: 1 }, 90]], review: [950, 1470] },
   { id: 'tied-release', title: 'Hold on as one anchor of a tied rope lets go',
     expect: 'The robot hangs on a slack tied rope. A switch releases the left anchor: the rope swings down from the right anchor with the robot still holding on, swinging naturally, then settles hanging.',
     level: () => room({ platforms: pillars(800, 1400, 500), climbables: ropes([tied(800, 500, 1400, 500, 680, { release: { id: 'drop', anchor: 'start' } })]),
@@ -121,7 +121,7 @@ export const CASES = [
 ]
 
 function landmarks(p) {
-  const pose = athletePose(p), w = point => [p.x + point[0] * p.facing, p.y + point[1]]
+  const pose = presentedAthletePose(p), w = point => [p.x + point[0] * p.facing, p.y + point[1]]
   const limbs = [pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg]
   return { pose, points: [pose.head, pose.shoulder, pose.hip, ...limbs.flatMap(l => [l.root, l.joint, l.end])].map(w), mode: p.climbing ? 'rope' : p.hang ? 'hang' : p.mantle ? 'mantle' : 'free', hands: [w(pose.frontArm.end), w(pose.backArm.end)],
     arms: [pose.frontArm, pose.backArm].map(arm => Math.hypot(arm.end[0] - arm.root[0], arm.end[1] - arm.root[1])) }

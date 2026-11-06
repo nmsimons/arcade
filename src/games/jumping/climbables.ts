@@ -122,8 +122,6 @@ export interface ArmHold {
   at: number; from: number; reach: number; toward: number
   /** How far the grip travels while this reach completes: a reach from beside the grip is a short one. */
   span?: number
-  /** Running, the free arm swings beneath the shoulder for this reach instead of along the rope; set as it lets go. */
-  underarm?: boolean
 }
 export const ARM_HOLD = .6
 /** A hand's hold range on the rope, as offsets from the grip along the rope. */
@@ -138,18 +136,19 @@ export function armReachRange(c: Climbing): [number, number] {
   return b[1] >= a[1] ? [-above, below] : [-below, above]
 }
 /** The share of each hand's stride spent holding the rope: running, a hand soon reaches on. */
-export const holdShare = (c: Climbing) => ARM_HOLD - .1 * ease(c.pace ?? 0) * (1 - (c.ropeVertical ?? 1))
+export const holdShare = (c: Climbing) => ARM_HOLD - .05 * ease(c.pace ?? 0) * (1 - (c.ropeVertical ?? 1))
 /**
  * How fast the grip travels along the rope, in material units per second.
  * Shimmying and climbing alike, the hands keep a steady, unhurried rhythm,
- * changing hands 2.6 to 3 times a second, and the robot goes faster by
+ * changing hands 2.5 to 3 times a second, and the robot goes faster by
  * reaching further: the speed is the rhythm times the stride, each hand's
  * reach shared between the two hands. A slow shimmy goes about 48 a second,
- * a swinging run about 90, and climbing about 74 up and 79 down.
+ * and climbing about 74 up and 79 down. A swinging run goes about 70: its
+ * rhythm slows a little as the swings grow long, so it stays easy rather than frantic.
  */
 export function ropeTravelSpeed(c: Climbing, upward: boolean) {
   const [low, high] = armReachRange(c), steep = c.ropeVertical ?? 1, run = ease(c.pace ?? 0) * (1 - steep)
-  const cadence = 2.6 + .4 * run + (upward ? .2 : .4) * steep
+  const cadence = 2.6 - .1 * run + (upward ? .2 : .4) * steep
   return cadence * (high - low) / (2 * holdShare(c))
 }
 /** Steps the hands along with the grip's travel this frame, in material units. */
@@ -168,8 +167,7 @@ export function stepArmHolds(c: Climbing, travel: number, dt: number) {
   // A reach across the whole hold range takes exactly the rest of the stride, so the hands change over
   // with only a brief moment holding together; a shorter reach, such as from beside the grip, is quicker.
   const reachFrom = (h: ArmHold, toward: number) => Object.assign(h, { from: h.at, reach: 0, toward,
-    span: clamp(Math.abs(target(toward) - h.at) * reachTravel / (high - low), 4, reachTravel),
-    underarm: !!toward && ease(c.pace ?? 0) * (1 - (c.ropeVertical ?? 1)) > .5 })
+    span: clamp(Math.abs(target(toward) - h.at) * reachTravel / (high - low), 4, reachTravel) })
   for (const h of holds) if (h.reach < 1) {
     // Changing direction mid-reach, the hand reaches the new way from where it is.
     if (dir && !stopping && h.toward !== dir) reachFrom(h, dir)
@@ -220,7 +218,7 @@ export function ropePendulumPace(c: Climbing) {
  * dips a little. Once both hands hold, it swings back between them. A damped spring carries the swing, so it lags
  * the hands, overshoots a little and settles. It is presentation only.
  */
-const SWAY_SHARE = 1, SWAY_FREQUENCY = 1.5, SWAY_DAMPING = .35, SWAY_LIMIT = 11, SWAY_DIP = 3
+const SWAY_SHARE = 1, SWAY_FREQUENCY = 1.5, SWAY_DAMPING = .35, SWAY_LIMIT = 11
 export function stepRopeSway(c: Climbing, dt: number) {
   if (!(dt > 0)) return
   const s = c.sway ??= { x: 0, y: 0, vx: 0, vy: 0 }
@@ -236,9 +234,8 @@ export function stepRopeSway(c: Climbing, dt: number) {
     const load = c.holds.map(holdLoad)
     const support = (c.holds[0].at * load[0] + c.holds[1].at * load[1]) / (load[0] + load[1])
     const grip = climbPoint(c, c.distance), under = climbPoint(c, clamp(c.distance + (support - c.distance) * SWAY_SHARE, 0, c.rope.definition.length))
-    // Hanging from one hand, that arm straightens and the body dips a little; the next grip pulls it back up.
-    const dip = SWAY_DIP * Math.max(0, ...c.holds.map(h => h.reach < 1 ? Math.sin(h.reach * Math.PI) : 0)) * ease(c.shimmyBlend ?? 0)
-    target = [under[0] - grip[0], under[1] - grip[1] + dip]
+    // The holding arm pulls the body up toward its hand as the other reaches (see the climbing pose).
+    target = [under[0] - grip[0], under[1] - grip[1]]
   }
   // At rest the body soon settles into a still hang.
   const omega = 2 * Math.PI * SWAY_FREQUENCY, damping = 2 * (SWAY_DAMPING + (.8 - SWAY_DAMPING) * (1 - ease(c.shimmyBlend ?? 0))) * omega
@@ -260,12 +257,13 @@ export function stepRopeSway(c: Climbing, dt: number) {
     const grip = climbPoint(c, c.distance), hand = climbPoint(c, holder.at)
     aim = Math.atan2(grip[0] - hand[0], 18) * run
   }
-  // The legs swing after the body, softly, so they never whip round as a hand takes hold.
-  const spring = 2 * Math.PI * 3, legSpring = 2 * Math.PI * 1.8
+  // The legs swing after the body through nearly the same arc, a beat behind it, so they follow through
+  // each catch instead of whipping round as a hand takes hold.
+  const spring = 2 * Math.PI * 3, legSpring = 2 * Math.PI * 3.6
   for (let i = 0; i < steps; i++) {
     swing.velocity += (spring * spring * (aim - swing.angle) - 2 * .55 * spring * swing.velocity) * h
     swing.angle = clamp(swing.angle + swing.velocity * h, -.7, .7)
-    swing.legVelocity = (swing.legVelocity ?? 0) + (legSpring * legSpring * (swing.angle - (swing.legs ?? 0)) - 2 * .8 * legSpring * (swing.legVelocity ?? 0)) * h
+    swing.legVelocity = (swing.legVelocity ?? 0) + (legSpring * legSpring * (swing.angle - (swing.legs ?? 0)) - 2 * .7 * legSpring * (swing.legVelocity ?? 0)) * h
     swing.legs = clamp((swing.legs ?? 0) + swing.legVelocity * h, -.7, .7)
   }
 }

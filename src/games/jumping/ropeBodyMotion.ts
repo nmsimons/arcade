@@ -53,7 +53,8 @@ export function ropePump(c: Climbing, turnAngle = c.turn?.angle ?? 0, facing = 1
   // legs swept back, instead of tucking into a seat.
   // Wall contact still reads the tucked legs (longLegs false), so a swing's long legs don't brace any sooner.
   const pike = (foot: Point): Point => {
-    const length = Math.hypot(foot[0], foot[1]) || 1, reach = 28.8 - slack * 3, weight = longLegs ? Math.min(1, gather * 3) : 0
+    // Leaning into a swing at all, the legs stay long, at both ends of the swing as well as mid-pump.
+    const length = Math.hypot(foot[0], foot[1]) || 1, reach = 30.6 - slack, weight = longLegs ? Math.min(1, Math.max(gather * 3, turn * 1.5, Math.abs(c.swingVelocity) * 2)) : 0
     return length < reach ? [foot[0] * lerpNumber(1, reach / length, weight), foot[1] * lerpNumber(1, reach / length, weight)] : foot
   }
   const frontFoot: Point = pike([c.lean * (16 + gather * 8) + trail - facing * 2 * (1 - turn),

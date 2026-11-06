@@ -208,10 +208,13 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
     drawSleeve(ctx, tool.kind, tool.size, tool.blocked); ctx.restore()
   }
   const backPose = !!p.climbing || backView > 0
+  // Seen side-on on a rope, the near arm reaches up past the face, in front of the head; only with the back
+  // turned to the camera do both arms reach away behind the body.
+  const armsBehind = backPose && !(p.climbing?.kind === 'rope' && backView < .5)
   drawLeg(ctx, backLeg, materials.rear, materials, pose.calfScale, pose.footScale, pose.shellWidth)
   drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale, pose.handScale, pose.shellWidth, true)
   if (p.facing < 0) sleeve(backArm)
-  if (backPose) {
+  if (armsBehind) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
     if (p.facing >= 0) sleeve(frontArm)
   }
@@ -222,7 +225,7 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
   drawAndroidTorso(ctx, pose, backPose, materials)
   drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale, pose.shellWidth)
   drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth)
-  if (!backPose) {
+  if (!armsBehind) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
     if (p.facing >= 0) sleeve(frontArm)
   }

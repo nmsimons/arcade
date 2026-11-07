@@ -53,6 +53,10 @@ in development builds only. What exists:
   that door. A locked course, a facility area or a missing file opens the
   facility instead, paused with the reason.
 - The concourse, with a bulkhead to every wing, the evaluation board (the total, then each wing's passes or SEALED) and the dispatch door.
+- Cloud saves carry the autosaved place to other devices. The facility waits
+  briefly for an account's first cloud check before placing the robot, and a
+  device whose only unsynced change is the place takes newer cloud saves without
+  asking ([account cloud saves](account-cloud-saves.md)).
 - The release: when all 40 courses are passed, the dispatch door opens onto
   Ascent I, the final course. Passing it leads through Ascent II, Spelunk and
   Exit, each opening into the next; after the bus departs, the closing card
@@ -61,9 +65,7 @@ in development builds only. What exists:
 
 Not yet built: preparing a course while the robot approaches its door (the
 "Preparing level" dialog still appears), the door closing behind the robot,
-lamps and grade letters on the board, the cloud save slot for the autosaved
-place (it is saved on this device only;
-[issue #103](https://github.com/nmsimons/arcade/issues/103)), a start
+lamps and grade letters on the board, a start
 experience that is still a game before the facility
 ([issue #104](https://github.com/nmsimons/arcade/issues/104)), wing layouts and
 art, shortcuts, certification doors, and golden traces for hub levels (record
@@ -367,12 +369,15 @@ grid, starts at the concourse.
 Orientation's bulkhead, Service access, opens onto the concourse, and the
 concourse's Orientation bulkhead leads back to it. Afterward, the robot resumes where it was
 last autosaved: at the door it came through, or at a course's door if it left
-mid-course. A place that has since closed or disappeared resumes at the first
-wing's entrance. The autosaved place is the only new saved value; doors, lamps,
-bulkheads and shortcuts are all derived from best times and completions, which
-already sync through account backups. The place needs a small new allowlisted
-save slot (see
-[account cloud saves](account-cloud-saves.md)). Wing world state (props moved,
+mid-course. A place that has since closed or disappeared resumes at the
+concourse's entrance. The autosaved place is the only new saved value; doors, lamps,
+bulkheads and shortcuts are all derived from best times and completions. All
+three sync through [account cloud saves](account-cloud-saves.md); the place is
+`Untitled Jumping Game/facility-place.json`. With cloud saves on, the facility
+waits up to eight seconds for the account's first cloud check ("Checking your
+cloud saves…") so a place saved on another device is where the robot appears. A
+download that arrives later, while the robot stands in an area, updates the
+saves but leaves the robot where it is. Wing world state (props moved,
 switches pressed) resets each time a wing loads; nothing else in a wing needs
 saving.
 

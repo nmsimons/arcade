@@ -11,7 +11,7 @@ import type { SyncPhase, SyncResult } from './sync'
 import { currentProfile, gameStorage, subscribeGameStorage, SAVE_SLOTS, LEVELS_SLOT } from './profileStorage'
 import { digest, parseWorkspace, readCurrentWorkspace, readWorkspace, replaceWorkspace, serializeWorkspace } from './data'
 import { getLevelSyncActivity, setLevelSyncActivity } from './levelSaveState'
-import { cloudDownloadsAllowed, getAccountOpenRequest, getAccountSurface, hasUnsavedDraft, registerAccountSync, restartAccountGame, subscribeAccountRuntime } from './runtime'
+import { beginCloudCheck, cloudDownloadsAllowed, getAccountOpenRequest, getAccountSurface, hasUnsavedDraft, registerAccountSync, restartAccountGame, subscribeAccountRuntime } from './runtime'
 import { disconnectCloud, enableCloud, getSession, leaveAccount, operation, subscribeSession, setLogin } from './session'
 // Official provider artwork from their sign-in branding guidelines.
 import googleLogo from '../assets/auth/google.png'
@@ -99,6 +99,8 @@ export default function AccountControls() {
   // at a safe menu or on an explicit library refresh, never over active play.
   useEffect(() => {
     if (!login || !account.cloudEnabled) return
+    // A game waiting to read saves, such as L.A.B.'s facility, starts once the first check settles.
+    const settleFirstCheck = beginCloudCheck()
     let active = true, pending: AbortController | undefined, timer: number | undefined, lastStarted = 0
     let running: Promise<SyncResult | undefined> | undefined, manualApply: (() => boolean) | undefined, queued = false, urgent = false, retryable = false
     const store = gameStorage(owner)
@@ -182,7 +184,7 @@ export default function AccountControls() {
           }
         }
       } finally {
-        op.release()
+        op.release(); settleFirstCheck()
         if (busyRef.current === ticket) { busyRef.current = undefined; if (active) setActivity(undefined) }
         // Schedule from completion: a slow sync must not immediately begin the
         // next minute's check, hiding its completion almost as soon as it appears.
@@ -239,7 +241,7 @@ export default function AccountControls() {
     window.addEventListener('online', automatic)
     window.addEventListener('focus', wake); document.addEventListener('visibilitychange', wake)
     return () => {
-      active = false; pending?.abort(); clearTimeout(timer); window.removeEventListener('online', automatic); window.removeEventListener('focus', wake); document.removeEventListener('visibilitychange', wake); syncRef.current = null
+      active = false; settleFirstCheck(); pending?.abort(); clearTimeout(timer); window.removeEventListener('online', automatic); window.removeEventListener('focus', wake); document.removeEventListener('visibilitychange', wake); syncRef.current = null
       unregister(); unsubscribeStorage(); unsubscribeLocation()
       if (getLevelSyncActivity(owner) !== 'attention') setLevelSyncActivity(owner, 'idle')
     }

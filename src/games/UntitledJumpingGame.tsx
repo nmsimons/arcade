@@ -5,6 +5,7 @@ import { lightingForLevel } from './jumping/lightingDefinition'
 import { usesRegionLighting } from './jumping/environment'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
+import { cloudCheckPending, waitForCloudCheck } from '../accounts/runtime'
 import { playgroundLightingWorld } from './jumping/lightingModel'
 import { awakeningCamera, GameCamera } from './jumping/camera'
 import { advanceBusEnding, busEndingFrame, BUS_ENDING_SECONDS, createBusDeparture, createBusEnding } from './jumping/busEnding'
@@ -63,6 +64,8 @@ import './jumping/interface.css'
 const DevLevelBuilder = import.meta.env.DEV ? lazy(() => import('./jumping/LevelBuilder').then(module => ({ default: module.LevelBuilder }))) : null
 
 type Screen = 'menu' | 'playing' | 'ending' | 'paused' | 'building' | 'complete'
+/** How long the facility waits for an account's first cloud check before using this device's saves. */
+const CLOUD_CHECK_WAIT = 8000
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'KeyE', 'KeyF', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
@@ -180,7 +183,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const facility = useRef<FacilityPlace | null>(null), campaignRef = useRef<Campaign | null>(null)
   const [facilityWhere, setFacilityWhere] = useState<FacilityPlace['kind'] | null>(null)
   const [facilityNotice, setFacilityNotice] = useState('')
-  const [facilityError, setFacilityError] = useState('')
+  const [facilityError, setFacilityError] = useState(''), [checkingCloud, setCheckingCloud] = useState(false)
+  // Counts addresses followed, so a facility start that waited can tell it was overtaken.
+  const routeVisits = useRef(0)
   const [campaign, setCampaign] = useState<Campaign | null>(null), [campaignError, setCampaignError] = useState('')
   useEffect(() => {
     let active = true
@@ -231,8 +236,17 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   }
   async function startFacility() {
     setFacilityError('')
+    const visit = routeVisits.current
     try { campaignRef.current ??= await loadCampaign(import.meta.env.BASE_URL) }
     catch (error) { leaveFacility(`Could not open the facility: ${(error as Error).message}`); return }
+    // Saves from another device, including where the robot was, load before it is placed here.
+    if (cloudCheckPending()) {
+      setCheckingCloud(true)
+      await waitForCloudCheck(CLOUD_CHECK_WAIT)
+      setCheckingCloud(false)
+    }
+    // Another address was followed meanwhile.
+    if (visit !== routeVisits.current) return
     const campaign = campaignRef.current
     enterPlace(facilityStart(campaign, facilityProgress(campaign, passedNow), readFacilitySave(playerStorage), levelsById))
   }
@@ -426,6 +440,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   }
   const followRoute = useEffectEvent(() => {
     if (handledRoute.current === location.key) return
+    routeVisits.current++
     const route = jumpingRoute(location.pathname)
     setRouteNotice(''); setPreparing(null)
     // Leave for the facility, which shows why, paused, when it arrives.
@@ -900,7 +915,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       onClose={onExit} className="jumping-overlay jumping-dialog-overlay jumping-ui">
       <div className="jumping-notice-panel">
         <header className="jumping-ui-heading jumping-brand-heading"><LabLogo /><h2>{facilityError ? 'The facility could not open.' : 'Opening the facility.'}</h2></header>
-        <div className="jumping-notice-copy"><p role={facilityError ? 'alert' : 'status'}>{facilityError || 'Loading…'}</p>
+        <div className="jumping-notice-copy"><p role={facilityError ? 'alert' : 'status'}>{facilityError || (checkingCloud ? 'Checking your cloud saves…' : 'Loading…')}</p>
           {facilityError && catalog.errors.map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}</div>
         <div className="jumping-notice-actions">
           {facilityError && <button onClick={() => { setFacilityError(''); void startFacility() }}>Try again</button>}

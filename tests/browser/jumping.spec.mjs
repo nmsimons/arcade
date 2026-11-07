@@ -327,6 +327,10 @@ test('keyboard walks and runs, taps low and holds higher without repeating on la
 
 test('controller-only play gates launch, supports analog speed and held jumps, and pauses on disconnect', async ({ page }) => {
   await setup(page, true)
+  // The link prepares its level in a worker, on real time. Until the level is playing, A would press the
+  // focused button on the opening or preparing dialog, and Cancel leaves for the facility.
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   expect((await position(page)).y).toBeCloseTo(620)

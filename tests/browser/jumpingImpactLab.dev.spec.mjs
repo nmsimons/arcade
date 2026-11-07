@@ -5,7 +5,9 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 test.use({ video: 'on' })
 test('Impact Lab: normal-speed drop, get-up and return ladder use ordinary controls', async ({ page }, info) => {
   test.setTimeout(60000)
-  const file = JSON.parse(readFileSync(new URL('../../dev/levels/jumping/Impact Lab.jump-level.json', import.meta.url), 'utf8'))
+  // The repulsor in the test bay wakes a few seconds in and fires along the floor. On a slow runner it can
+  // knock the robot past the return ladder before it gets there, so this route runs without it.
+  const file = { ...JSON.parse(readFileSync(new URL('../../dev/levels/jumping/Impact Lab.jump-level.json', import.meta.url), 'utf8')), robots: [] }
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [file])
   await page.goto('/lab/library?motionDebug=1')

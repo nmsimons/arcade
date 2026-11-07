@@ -9,6 +9,11 @@ const root = resolve(import.meta.dirname, '../..')
 const packaged = process.env.ARCADE_TEST_PACKAGED === '1'
 const product = JSON.parse(readFileSync(join(root, 'release/products/arcade.json'), 'utf8'))
 const target = desktopTarget(product)
+// The first wing's first course, wherever the campaign and collection put it.
+const levels = join(root, 'public/levels/jumping')
+const campaign = JSON.parse(readFileSync(join(root, 'public/levels/jumping-campaign.json'), 'utf8'))
+const firstCourse = JSON.parse(readFileSync(join(levels, 'index.json'), 'utf8')).levels
+  .find(file => JSON.parse(readFileSync(join(levels, file), 'utf8')).id === campaign.wings[0].courses[0])
 // Electron installs its development binary on demand; packaged runs use the
 // tested executable directly and never download a separate runtime.
 const executablePath = process.env.ARCADE_TEST_EXECUTABLE || (packaged ? join(root, 'desktop/out', target.directory, target.executable)
@@ -61,14 +66,17 @@ test('installed assets, deep routes, file saves, and fullscreen work without a s
     await expect.poll(() => page.locator('.jumping-loading').count()).toBe(0)
     await page.reload()
     await expect(page.locator('.jumping-game')).toBeVisible()
-    const firstLevel = page.locator('.jumping-level-card').first()
-    await firstLevel.focus()
-    await page.keyboard.press('Enter')
-    await expect(page).toHaveURL(/\/lab\/levels\/built-in\//)
+    // L.A.B. opens the facility, and a fresh save wakes in Orientation.
+    await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible({ timeout: 30000 })
+    // A course link opens once its door would: on a fresh save, the first wing's first course.
+    const course = `arcade://game/lab/levels/built-in/${encodeURIComponent(firstCourse)}`
+    await page.goto(course)
     await expect(page.locator('canvas[role="img"]')).toBeFocused()
+    await expect(page).toHaveURL(course)
     // Saved level URLs contain .json but represent pages, not asset requests.
     await page.reload()
     await expect(page.locator('canvas[role="img"]')).toBeFocused()
+    await expect(page).toHaveURL(course)
     await page.keyboard.press('ArrowRight')
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toBeVisible()

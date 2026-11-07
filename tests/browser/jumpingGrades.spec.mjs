@@ -35,6 +35,8 @@ async function finish(page) {
   const notice = page.getByTestId('facility-notice')
   await expect(notice).toHaveText(/^First course (passed|not passed)\. /)
   await expect(page.getByRole('img', { name: 'Graded wing', exact: true })).toBeVisible()
+  // Returning to the door goes straight back to play, without the start screen.
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   return notice
 }
 /** An open link plays the course. The paused clock advances while it opens. */
@@ -42,11 +44,11 @@ async function expectPlaying(page, name) {
   const course = page.getByRole('img', { name: `${name}: reach the exit`, exact: true })
   await expect.poll(async () => { await page.clock.runFor(32); return course.count() }, { timeout: 30000 }).toBe(1)
 }
-/** A refused link lands in the facility, paused with the reason. The paused clock advances while it travels. */
+/** A refused link opens the facility, whose start screen gives the reason. The paused clock advances while it travels. */
 async function expectRefused(page, name) {
-  const paused = page.getByRole('dialog', { name: 'Game paused', exact: true })
-  await expect.poll(async () => { await page.clock.runFor(32); return paused.count() }, { timeout: 30000 }).toBe(1)
-  await expect(paused).toContainText(`${name} is locked`)
+  const start = page.getByRole('dialog', { name: 'Game start', exact: true })
+  await expect.poll(async () => { await page.clock.runFor(32); return start.count() }, { timeout: 30000 }).toBe(1)
+  await expect(start.getByRole('status')).toHaveText(`${name} is locked. Pass the courses before it in its wing to open its door.`)
   await expect(page.getByRole('img', { name: `${name}: reach the exit`, exact: true })).toHaveCount(0)
 }
 

@@ -12,8 +12,14 @@ for(const [path,title]of games) test(`${path}: direct route, rendering and exit`
     await expect(page.locator('canvas:not([aria-hidden="true"])')).toBeVisible()
     await page.evaluate(()=>new Promise(requestAnimationFrame))
     await page.keyboard.press('Escape')
-    // In the facility, Escape pauses; its pause screen leads back to the arcade.
-    if(path==='lab')await page.getByRole('dialog',{name:'Game paused',exact:true}).getByRole('button',{name:'Back to arcade',exact:true}).click()
+    // L.A.B. opens on its start screen, where Escape continues into the facility's own address. There
+    // Escape pauses, and the pause screen leads back to the arcade.
+    if(path==='lab'){
+      await expect(page).toHaveURL(/\/lab\/facility$/)
+      await expect(page.getByRole('img',{name:title,exact:true})).toBeFocused()
+      await page.keyboard.press('Escape')
+      await page.getByRole('dialog',{name:'Game paused',exact:true}).getByRole('button',{name:'Back to arcade',exact:true}).click()
+    }
     await expect(page.getByRole('heading',{name:'Dream Large Arcade'})).toBeVisible()
     await expect(page.getByRole('button',{name:'Hard Vacuum',exact:true})).toBeFocused()
   }
@@ -32,13 +38,16 @@ test('LAB opens at /lab from the selector and retired URLs return to the arcade'
   }
 })
 
-test('the facility is the game: its former link and the development-only library return to /lab',async({page})=>{
-  for(const path of ['/lab/facility','/lab/library']) {
-    await page.goto(path)
-    await expect(page).toHaveURL(/\/lab$/)
-    await expect(page.getByRole('img',{name:'Orientation',exact:true})).toBeVisible()
-    await expect(page.locator('.jumping-level-card')).toHaveCount(0)
-  }
+test('the facility is the game: the development-only library returns to /lab, and /lab/facility plays without the start screen',async({page})=>{
+  await page.goto('/lab/library')
+  await expect(page).toHaveURL(/\/lab$/)
+  await expect(page.getByRole('img',{name:'Orientation',exact:true})).toBeVisible()
+  await expect(page.getByRole('dialog',{name:'Game start',exact:true})).toBeVisible()
+  await expect(page.locator('.jumping-level-card')).toHaveCount(0)
+  await page.goto('/lab/facility')
+  await expect(page).toHaveURL(/\/lab\/facility$/)
+  await expect(page.getByRole('img',{name:'Orientation',exact:true})).toBeFocused({timeout:30000})
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 test('selector loads no games and navigation restores keyboard focus',async({page})=>{

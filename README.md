@@ -495,9 +495,10 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 - Escape / Enter / Space: exit
 
-**L.A.B. Experiments (Leaps and Bounds)** (`/lab`)
+**L.A.B. Experiments (Leaps and Bounds)** (`/lab`, playing at `/lab/facility`)
 
-The game is a facility to explore. A new save wakes in Orientation; each wing's
+The game is a facility to explore. It opens on a start screen (Continue,
+Progress, Restart) over the robot's place. A new save wakes in Orientation; each wing's
 course doors open in order as courses are passed, and the robot's place is
 autosaved ([the facility](docs/jumping-facility.md)). The level library
 (`/lab/library`) and Level studio are available only with `npm run dev` on

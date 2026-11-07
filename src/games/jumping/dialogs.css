@@ -54,6 +54,15 @@
 .jumping-pause-system h2 { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 0; text-transform: uppercase; color: var(--jumping-ink); text-shadow: 0 0 6px #a9ef8266; }
 .jumping-pause-system .jumping-dialog-kicker p { color: var(--jumping-muted); }
 .jumping-pause-system .jumping-dialog-light { background: #a9ef82; box-shadow: 0 0 8px #a9ef8299; }
+/* The start screen is the same display. Its progress reads like the facility's
+   boards and placards: each wing's total, then a line per course. */
+.jumping-start-progress { text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.jumping-start-progress .jumping-start-total { margin: 0 0 4px; font-weight: 700; color: var(--jumping-ink); }
+.jumping-start-progress h3 { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin: 20px 0 8px; font-size: var(--jumping-type-normal); font-weight: 700; line-height: 1.3; color: var(--jumping-ink); }
+.jumping-start-progress ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.jumping-start-progress li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px 16px; line-height: 1.5; color: var(--jumping-ink); }
+.jumping-start-progress li > span:last-child, .jumping-start-progress .jumping-start-locked { color: var(--jumping-muted); }
+.jumping-start-warning { margin: 0 0 20px; padding-inline: var(--dialog-button-inset); line-height: 1.5; color: var(--jumping-muted); }
 /* Keep a usable body when enlarged headings/footer exceed the panel height;
    the panel can then scroll too, without clipping or collapsing its actions. */
 .jumping-dialog-body { flex: 1; min-height: 8em; display: flex; flex-direction: column; padding: 24px calc(var(--dialog-inset) - 6px) 20px var(--dialog-inset); overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--jumping-color-ink) transparent; }

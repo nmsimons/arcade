@@ -1,7 +1,9 @@
 import type { Campaign, FacilityProgress } from './campaign.ts'
 import { courseAvailable, wingName } from './campaign.ts'
-import { formatTime } from './challenge.ts'
+import { BEST_TIME_KEY, formatTime } from './challenge.ts'
+import { COMPLETION_KEY } from './completion.ts'
 import { gradeFor, gradeTimes } from './grading.ts'
+import type { Grade } from './grading.ts'
 import { isHubLevel, isPuzzleLevel } from './level.ts'
 import type { HubLevel, JumpLevel } from './level.ts'
 import type { HubDoor } from './hub.ts'
@@ -38,6 +40,17 @@ export function savedPlace(place: FacilityPlace): SavedPlace {
 }
 export function saveFacilityPlace(storage: Pick<Storage, 'setItem'>, place: FacilityPlace) {
   storage.setItem(FACILITY_KEY, JSON.stringify({ place: savedPlace(place) }))
+}
+
+/** Every saved value of a L.A.B. game: course records and the robot's place. Restarting erases them all. */
+export const GAME_KEYS = [BEST_TIME_KEY, COMPLETION_KEY, FACILITY_KEY] as const
+/** A new game has no saved place and no course records; anything else can be continued or restarted. */
+export function savedGameExists(storage: Pick<Storage, 'getItem'>) {
+  if (readFacilitySave(storage).place) return true
+  return [BEST_TIME_KEY, COMPLETION_KEY].some(key => {
+    try { const value: unknown = JSON.parse(storage.getItem(key) ?? '{}'); return !!value && typeof value === 'object' && Object.keys(value).length > 0 }
+    catch { return false }
+  })
 }
 
 type Levels = ReadonlyMap<string, JumpLevel>
@@ -145,6 +158,26 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
 export function evaluationLines(campaign: Campaign, progress: FacilityProgress, levels: Levels) {
   const heading = progress.complete ? ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH'] : [`EVALUATION ${progress.passed} / ${progress.required}`]
   return [...heading, ...progress.wings.map((wing, i) => `${wingName(campaign.wings[i], levels).toUpperCase()} ${wing.open ? `${wing.passed}/${wing.doors.length}` : wing.clearance ? `CLEARANCE ${wing.clearance.passed}/${wing.clearance.count}` : 'SEALED'}`)]
+}
+
+/** A course on the start screen's progress list. A locked course stays dark, as its door's placard does. */
+export type CourseRecord =
+  | { state: 'locked' }
+  | { state: 'open' | 'passed'; id: string; name: string; best: number | null; grade: Grade | null; deadline: number | null }
+export interface WingRecord { id: string; name: string; open: boolean; passed: number; courses: CourseRecord[]; clearance?: { passed: number; count: number } }
+/** The start screen's progress: each wing in campaign order, with its courses' records once it is open. */
+export function progressRecords(campaign: Campaign, progress: FacilityProgress, levels: Levels, best: (course: string) => number | null): WingRecord[] {
+  return progress.wings.map((wing, i) => ({
+    id: wing.id, name: wingName(campaign.wings[i], levels), open: wing.open, passed: wing.passed,
+    ...(wing.clearance ? { clearance: wing.clearance } : {}),
+    courses: wing.doors.map((door): CourseRecord => {
+      const course = levels.get(door.course)
+      if (!wing.open || door.state === 'locked' || !course || !isPuzzleLevel(course)) return { state: 'locked' }
+      const timed = course.timing !== 'untimed', time = timed ? best(door.course) : null
+      return { state: door.state, id: door.course, name: course.name, best: time,
+        grade: time === null ? null : gradeFor(time, course), deadline: timed ? gradeTimes(course).d : null }
+    }),
+  }))
 }
 
 /** Leaving the final course or the escape route returns the robot to the dispatch door. */

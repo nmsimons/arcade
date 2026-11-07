@@ -141,8 +141,8 @@ package's `security:check` uses the same script and list.
 Level studio is a private development tool. Production builds, including
 `vite preview`, offer only the facility and progress: the level library is
 development-only, and pause and result screens have no editor or folder actions.
-Builder, playtest and library links return to the facility at `/lab`; retired
-local-file links do not load a collection.
+Builder, playtest and library links return to L.A.B.'s start screen at `/lab`;
+retired local-file links do not load a collection.
 
 With `npm run dev` open on localhost, open the level library at `/lab/library`
 and select **Edit** on a built-in tile, or
@@ -402,19 +402,19 @@ game's world renderer for their static previews. They include props, shovebots,
 pressure plates, both gate orientations, elevators, moving platforms, ropes, ladders, timers, text,
 pickups and goal exits in their starting state.
 
-`/lab` opens the facility. A direct link, `/lab/levels/built-in/<filename>`,
-plays a level when it is open; a course with a door in the facility returns the
-robot to that door when finished or left. A locked course, a facility area or a
-missing file opens the facility instead, paused with the reason. The development
+`/lab` opens the start screen, and `/lab/facility` is the facility in play. A
+direct link, `/lab/levels/built-in/<filename>`, plays a level when it is open; a
+course with a door in the facility returns the robot to that door, at
+`/lab/facility`, when finished or left. A locked course, a facility area or a
+missing file opens the start screen instead, with the reason. The development
 library is `/lab/library`, reached only by its address or the **Level library**
 button on the facility's opening screen. Only a run started there returns to
 it; the studio's **Back to game**, playtests and the development review pages go
 to the facility. Development editing uses
 `/lab/builder/built-in/<filename>`, and saved playtests append `/playtest`.
 Filenames are URL encoded. Back, Forward and reload preserve the intended route.
-Production redirects authoring URLs and the library to `/lab`. All LAB entry
-points use `/lab`; the former untitled-game, local-library and `/lab/facility`
-routes are retired.
+Production redirects authoring URLs and the library to `/lab`. LAB entry points
+use `/lab`; the former untitled-game and local-library routes are retired.
 
 Published hosting rewrites `/lab/*` to the app shell, including playable URLs
 ending in `.json`. Raw JSON assets remain under `/levels/jumping/`. A saved file

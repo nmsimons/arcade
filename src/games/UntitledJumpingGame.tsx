@@ -26,7 +26,7 @@ import { blankTrial, copyLevel, levelProblems, isHubLevel, isPuzzleLevel, levelR
 import type { JumpLevel, RunLevel } from './jumping/level'
 import { facilityProgress, loadCampaign } from './jumping/campaign'
 import type { Campaign } from './jumping/campaign'
-import { arrivalLevel, dispatchPlace, facilityStart, hubPresentation, linkOpen, linkedPlace, nextPlace, readFacilitySave, saveFacilityPlace } from './jumping/facility'
+import { arrivalLevel, dispatchPlace, facilityStart, GAME_KEYS, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, saveFacilityPlace } from './jumping/facility'
 import type { FacilityPlace } from './jumping/facility'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
@@ -41,9 +41,10 @@ import { levelFileName } from './jumping/levelFiles'
 import { useBuiltInLevels } from './jumping/builtInLevels'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { LevelProgress } from './jumping/LevelProgress'
-import { JumpingDoorDialog, JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
+import { JumpingDoorDialog, JumpingPauseDialog, JumpingResultDialog, JumpingStartDialog } from './jumping/JumpingDialogs'
+import type { StartProgress } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
-import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_LIBRARY, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
+import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_FACILITY, JUMPING_LIBRARY, JUMPING_START, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import { JumpingAudioState } from './jumping/audioState'
 import { JumpingMotionDiagnostics } from './jumping/motionDiagnostics'
 import { PerformanceMonitor } from './jumping/performanceMonitor'
@@ -197,6 +198,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const [libraryRun, setLibraryRun] = useState(false)
   // A notice for the facility to show, paused, once its next place is ready.
   const pendingNotice = useRef('')
+  // /lab shows the start screen over the robot's place once it is ready; /lab/facility plays it.
+  // `facilityReady` is set while a facility place is loaded, so moving between the two keeps it.
+  const startPending = useRef(false), startFresh = useRef(false), facilityReady = useRef(false)
+  const [startScreen, setStartScreen] = useState<'fresh' | 'saved' | null>(null)
   const levelsById = new Map(catalog.files.map(file => [file.level.id, file.level]))
   /** Doors read saved records directly, so a course just finished counts at once. */
   function passedNow(id: string) {
@@ -208,6 +213,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   // every level stands outside the campaign and is open.
   const campaignFits = !!campaign && levelsById.has(campaign.opening)
   const progress = campaignFits ? facilityProgress(campaign!, passedNow) : null
+  const startProgress: StartProgress | null = startScreen && progress
+    ? { passed: progress.passed, required: progress.required, complete: progress.complete, wings: progressRecords(campaign!, progress, levelsById, bestTime) } : null
   const unlocked = new Set(campaign || campaignError ? catalog.files
     .filter(file => !progress || linkOpen(campaign!, progress, levelsById, file.level.id)).map(file => file.fileName) : [])
   function presentHub(target: Run | null, playtest: boolean) {
@@ -232,7 +239,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // Autosave where the robot is; course records save when a course finishes.
     try { saveFacilityPlace(playerStorage, place) } catch { /* The place is kept for this visit only. */ }
     const play = place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level
-    void beginPlay(play, false, place.kind === 'hub' ? `hub:${level.id}` : level.id)
+    void beginPlay(play, false, place.kind === 'hub' ? `hub:${level.id}` : level.id, true)
   }
   async function startFacility() {
     setFacilityError('')
@@ -248,11 +255,23 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // Another address was followed meanwhile.
     if (visit !== routeVisits.current) return
     const campaign = campaignRef.current
+    // Read before the robot is placed, which autosaves its place.
+    startFresh.current = !savedGameExists(playerStorage)
     enterPlace(facilityStart(campaign, facilityProgress(campaign, passedNow), readFacilitySave(playerStorage), levelsById))
+  }
+  /** Leave the start screen for the facility's own address, keeping the robot where it is. Back returns. */
+  function continueFromStart() { navigate({ pathname: JUMPING_FACILITY, search: location.search }) }
+  /** Erase the save, then wake again in the opening, at the facility's own address. */
+  function restartGame() {
+    let notice = ''
+    try { for (const key of GAME_KEYS) playerStorage.removeItem(key) }
+    catch { notice = 'Saved progress could not be erased on this device.' }
+    setBestTimes({}); setCompletedLevels({})
+    navigate({ pathname: JUMPING_FACILITY, search: location.search }, { state: { restart: true, ...notice ? { notice } : {} } })
   }
   /** The facility cannot go on; say why, with a way to try again or leave. */
   function leaveFacility(notice = 'The facility is unavailable.') {
-    facility.current = null; setFacilityWhere(null)
+    facility.current = null; facilityReady.current = false; setFacilityWhere(null)
     // A notice that sent the robot here, such as a refused link, still says why.
     const pending = pendingNotice.current; pendingNotice.current = ''
     setFacilityError(pending ? `${pending} ${notice}` : notice); changeScreen('menu')
@@ -262,9 +281,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
    * returns to the facility's own address, which resumes there.
    */
   function goToPlace(place: FacilityPlace) {
-    if (location.pathname.replace(/\/$/, '') === JUMPING_MENU) { enterPlace(place); return }
+    if (location.pathname.replace(/\/$/, '') === JUMPING_FACILITY) { enterPlace(place); return }
     try { saveFacilityPlace(playerStorage, place) } catch { /* The facility resumes at its usual place. */ }
-    navigate(JUMPING_MENU, { replace: true })
+    navigate({ pathname: JUMPING_FACILITY, search: location.search }, { replace: true })
   }
   function leaveCourse() {
     const place = facility.current
@@ -298,7 +317,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const [pauseReason, setPauseReason] = useState('')
   const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0, grade: 'A', remaining: 0 })
 
-  function changeScreen(next: Screen, reason?: string) {
+  /** `quiet` opens the paused screen without the pause sound, as the start screen does. */
+  function changeScreen(next: Screen, reason?: string, quiet = false) {
     if (next === 'paused' && (screenRef.current === 'playing' || screenRef.current === 'ending')) pauseReturn.current = screenRef.current
     if (next === 'menu' || next === 'building' || next === 'playing' && screenRef.current !== 'paused') endingScene.current = null
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
@@ -307,7 +327,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       if (run.current) setWaterEffectsEnabled(run.current, true)
     }
     audio.current?.silence()
-    if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
+    if (next === 'paused' && screenRef.current === 'playing' && !reason && !quiet) audio.current?.pauseCue()
     audioState.reset(player.current, run.current)
     keys.current.clear(); controller.reset(); touch.reset(); cancelJumpInput(player.current)
     if (run.current) cancelGadgetInput(run.current)
@@ -315,6 +335,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     screenRef.current = next; setScreen(next)
     if (next === 'building' || next === 'menu') lightingRenderer.release()
     if (next === 'paused') setPauseReason(reason ?? '')
+    else setStartScreen(null)
   }
   function changeDevOpen(open: boolean) {
     if (!import.meta.env.DEV) return
@@ -349,8 +370,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     jumpQueue.current = []; keyboardJump.current = false
     canvasRef.current?.focus({ preventScroll: true })
   }
-  async function beginPlay(level: JumpLevel, fromBuilder: boolean, key: string) {
-    playPreparation.current?.abort()
+  /** `facilityArea` marks a facility place, which the start screen and the facility's address share once loaded. */
+  async function beginPlay(level: JumpLevel, fromBuilder: boolean, key: string, facilityArea = false) {
+    playPreparation.current?.abort(); facilityReady.current = false
     const controller = new AbortController(); playPreparation.current = controller
     changeScreen(fromBuilder ? 'building' : 'menu'); setPreparing(level.name)
     try {
@@ -367,8 +389,14 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       else { activeLevel.current = world.level; setActiveLevelName(world.level.name); terrain.current = levelTerrain(world.level); rules.current = levelRules(world.level) }
       playgroundEntrance.current = world.run ? null : createEntranceAnimation(player.current, terrain.current, activeLevel.current.entrance)
       setChallenge(!!world.run); setTesting(fromBuilder); setSaveError(false); changeScreen('playing'); paintFrame.current()
+      facilityReady.current = facilityArea
+      const notice = pendingNotice.current; pendingNotice.current = ''
+      // Opening the facility stops at the start screen, which also shows why a refused link landed here.
+      if (startPending.current && facility.current && !fromBuilder) {
+        startPending.current = false; setStartScreen(startFresh.current ? 'fresh' : 'saved'); changeScreen('paused', notice, true)
+      }
       // A refused link lands here: pause on arrival so its reason is read before play.
-      if (pendingNotice.current) { const notice = pendingNotice.current; pendingNotice.current = ''; changeScreen('paused', notice) }
+      else if (notice) changeScreen('paused', notice)
     } catch (error) {
       if (controller.signal.aborted) return
       activePlayKey.current = ''
@@ -405,7 +433,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // A stress level plays in place, on the library's own address.
     if (library && location.pathname === JUMPING_LIBRARY) {
       setTesting(false); changeScreen('menu')
-    } else returnTo(library ? JUMPING_LIBRARY : JUMPING_MENU)
+    } else returnTo(library ? JUMPING_LIBRARY : JUMPING_FACILITY)
   }
   const levelsLabel = backToLibrary ? 'Level menu' : 'Return to the facility'
   function playFile(file: LevelFile) {
@@ -430,36 +458,44 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   function reportProblem(notice: string) {
     if (import.meta.env.DEV && libraryRoute) { changeScreen('menu'); setRouteNotice(notice); return }
     const fromLibrary = import.meta.env.DEV && location.state?.from === JUMPING_LIBRARY
-    navigate(fromLibrary ? JUMPING_LIBRARY : JUMPING_MENU, { replace: true, state: { notice } })
+    navigate(fromLibrary ? JUMPING_LIBRARY : JUMPING_START, { replace: true, state: { notice } })
   }
   function cancelPreparation() {
     playPreparation.current?.abort(); playPreparation.current = null; setPreparing(null)
     if (facility.current && screen !== 'building') { leaveFacility('Stopped before the next area opened.'); return }
     const fromLibrary = import.meta.env.DEV && location.state?.from === JUMPING_LIBRARY
-    navigate(screen === 'building' ? builderPath.current : fromLibrary ? JUMPING_LIBRARY : JUMPING_MENU, { replace: true })
+    navigate(screen === 'building' ? builderPath.current : fromLibrary ? JUMPING_LIBRARY : JUMPING_START, { replace: true })
   }
   const followRoute = useEffectEvent(() => {
     if (handledRoute.current === location.key) return
     routeVisits.current++
     const route = jumpingRoute(location.pathname)
+    startPending.current = route.screen === 'start'
     setRouteNotice(''); setPreparing(null)
     // Leave for the facility, which shows why, paused, when it arrives.
-    const toFacility = (notice: string) => navigate(JUMPING_MENU, { replace: true, state: { notice } })
+    const toFacility = (notice: string) => navigate(JUMPING_START, { replace: true, state: { notice } })
     if (!devEditing && location.pathname.startsWith(JUMPING_BUILDER)) {
-      navigate(JUMPING_MENU, { replace: true }); return
+      navigate(JUMPING_START, { replace: true }); return
     }
     if (devEditing && builtIn.restoring) return
-    if (route.screen !== 'facility' && facility.current) { facility.current = null; setFacilityWhere(null) }
-    if (route.screen === 'facility') {
-      // The facility's former development link opens it at its own address.
-      if (location.pathname.replace(/\/$/, '') !== JUMPING_MENU) { navigate(JUMPING_MENU, { replace: true, state: location.state }); return }
-      pendingNotice.current = typeof location.state?.notice === 'string' ? location.state.notice : ''
-      setTesting(false); setLibraryRun(false); void startFacility()
+    const inFacility = route.screen === 'start' || route.screen === 'facility'
+    if (!inFacility && facility.current) { facility.current = null; facilityReady.current = false; setFacilityWhere(null) }
+    if (inFacility) {
+      const notice = typeof location.state?.notice === 'string' ? location.state.notice : ''
+      setTesting(false); setLibraryRun(false)
       handledRoute.current = location.key
+      // Continue, Back and Forward move between the start screen and the facility without reloading the robot's place.
+      if (facilityReady.current && !location.state?.restart && (screenRef.current === 'playing' || screenRef.current === 'paused')) {
+        startPending.current = false
+        if (route.screen === 'start') { setStartScreen(savedGameExists(playerStorage) ? 'saved' : 'fresh'); changeScreen('paused', notice, true) }
+        else changeScreen(notice ? 'paused' : 'playing', notice)
+        return
+      }
+      pendingNotice.current = notice; void startFacility()
       return
     }
     // The level library is a development tool; everyone else plays the facility.
-    if (route.screen === 'menu' && !import.meta.env.DEV) { navigate(JUMPING_MENU, { replace: true }); return }
+    if (route.screen === 'menu' && !import.meta.env.DEV) { navigate(JUMPING_START, { replace: true }); return }
     if (route.screen === 'missing') { toFacility('That link is unavailable.'); return }
     if (route.screen === 'playtest') {
       const draft = playtests.current.get(location.state?.testId)
@@ -677,7 +713,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       if (screenRef.current === 'building') return null
       const dialog = controllerDialog(rootRef.current)
       if (dialog) {
-        if (pad.pause && screenRef.current === 'paused') changeScreen(pauseReturn.current)
+        if (pad.pause && screenRef.current === 'paused') { if (startScreen) continueFromStart(); else changeScreen(pauseReturn.current) }
         else if (screenRef.current === 'menu' && pad.pressed.includes(3) && devEditing && selected) editFile(selected)
         else if (pad.pressed.includes(1)) controlDialog(dialog, 'back')
         else if (pad.pressed.includes(0)) {
@@ -906,7 +942,11 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       testing={testing} saveError={saveError} onNext={libraryRun && !testing && result.grade !== 'F' && campaignIndex >= 0 && nextFile && unlocked.has(nextFile.fileName) ? () => playFile(nextFile) : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onExit={onExit}
       {...facilityWhere === 'escape' ? { onLevels: returnToFacility, levelsLabel: 'Return to the facility' } : { onLevels: showMenu, levelsLabel }} />}
-    {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
+    {!preparing && screen === 'paused' && startScreen && <JumpingStartDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
+      fresh={startScreen === 'fresh'} opening={levelsById.get(campaign?.opening ?? '')?.name ?? 'the facility'} progress={startProgress}
+      connected={connected} touchControls={touchAvailable} canEdit={devEditing} onContinue={continueFromStart}
+      onRestart={restartGame} onBuilder={openBuilder} onExit={onExit} />}
+    {!preparing && screen === 'paused' && !startScreen && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen(pauseReturn.current)}
       facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse } : undefined}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} levelsLabel={levelsLabel} onExit={onExit} />}
@@ -932,7 +972,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
             <LabLogo />
           </div>
           <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button>{devEditing && <button disabled={builtIn.refreshing} onClick={openBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button>}
-            <button onClick={() => visit(JUMPING_MENU)}>Facility</button></div>
+            <button onClick={() => visit(JUMPING_FACILITY)}>Facility</button></div>
           <AccountSurface />
         </div>
           {devEditing && <div className="jumping-library-bar">

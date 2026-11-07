@@ -27,6 +27,10 @@ in development builds only. What exists:
   autosaves on every move, and a returning save resumes there. The pause screen
   uses the phosphor style, with Restart area in facility areas and Restart
   course and Leave course in courses.
+- The start screen ([issue #104](https://github.com/nmsimons/arcade/issues/104)):
+  `/lab` stops on the robot's system display over the place it wakes in, with
+  Continue, Progress and Restart, and the facility plays at `/lab/facility`
+  (see [The start screen](#the-start-screen)).
 - The opening, Orientation (`Orientation.jump-level.json`): an untimed
   facility area that wakes in Wake's charging pod at night, at the bottom of a
   pit under broken floor. The room above is a dead end: its door is jammed
@@ -363,7 +367,8 @@ course-equipment rule for escape levels once they are redesigned as untimed.
 
 ### Starting the game
 
-`/lab` opens the facility. A new save starts in Orientation's charging pod.
+`/lab` opens the facility's start screen, and `/lab/facility` is the facility
+in play. A new save starts in Orientation's charging pod.
 A save with passed courses but no autosaved place, such as one from the level
 grid, starts at the concourse.
 Orientation's bulkhead, Service access, opens onto the concourse, and the
@@ -380,6 +385,31 @@ download that arrives later, while the robot stands in an area, updates the
 saves but leaves the robot where it is. Wing world state (props moved,
 switches pressed) resets each time a wing loads; nothing else in a wing needs
 saving.
+
+#### The start screen
+
+`/lab` stops at the start screen: the pause screen's phosphor display
+("ONLINE."), drawn over the place the robot wakes in, still and ready to play.
+A new save offers only **Start** and **Controls**. A save with a place or any
+course record offers:
+
+| Action | What it does |
+| --- | --- |
+| Continue | Plays on from the place behind the display, at `/lab/facility`. Esc, the controller's Menu button and B do the same. |
+| Progress | The evaluation total, then each wing: its passes, or the clearance a sealed wing still needs, and each course's best time and grade or the D deadline to pass. Locked courses stay dark, as their placards do. |
+| Restart | Asks first, with Cancel as the default, then erases every course record (best times and completions) and the robot's place, and wakes in Orientation's pod at `/lab/facility`. With cloud saves on, the erased save syncs like any other change, and earlier versions stay in the cloud save history. |
+| Controls | The pause screen's controls reference. |
+
+**Level studio** (development builds) and **Back to arcade** sit below, as on
+the pause screen. The start screen also gives the reason when a refused link
+sent the robot here.
+
+Moving between the two addresses keeps the robot where it is: Continue goes
+forward to `/lab/facility`, and the browser's Back returns to the start screen
+over the robot as it stands, without reloading the area. Opening
+`/lab/facility` directly, as on a reload, resumes at the autosaved place
+without the start screen. Courses return the robot to their doors at
+`/lab/facility`, and a restart lands there too.
 
 ### Entering, finishing and leaving a course
 
@@ -468,13 +498,15 @@ It precedes building any wing beyond Orientation.
   bulkheads, direct links and the library's locks (`linkOpen`) all read from
   that one result. A collection that lacks the campaign's opening, such as a
   test fixture catalog, leaves every level open.
-- **Routes.** `/lab` opens the facility. `/lab/levels/built-in/<file>` plays a
-  course directly when its door is open, and leaving returns to its door
-  (`linkedPlace`); a refused link lands in the facility, paused with the reason.
-  The grid is the development-only library at `/lab/library`, with the stress
-  tests and the studio. Only runs started there return to it: the studio's
-  **Back to game** and its playtests go to the facility. Production sends
-  `/lab/library` and the former `/lab/facility` to `/lab`.
+- **Routes.** `/lab` is the start screen and `/lab/facility` the facility in
+  play; both share the loaded place, so moving between them never reloads it.
+  `/lab/levels/built-in/<file>` plays a course directly when its door is open,
+  and leaving returns to its door at `/lab/facility` (`linkedPlace`); a refused
+  link lands on the start screen with the reason. The grid is the
+  development-only library at `/lab/library`, with the stress tests and the
+  studio. Only runs started there return to it: the studio's **Back to game**
+  and its playtests go to `/lab/facility`. Production sends `/lab/library` to
+  `/lab`.
 - **Studio.** Built: Type (Course or Facility area), Level door (with a level
   picker), Bulkhead (with a destination picker) and Evaluation board. Still to
   come: Wall map, Sealed door, and later Transit button. A studio playtest
@@ -509,6 +541,11 @@ It precedes building any wing beyond Orientation.
   - the autosave records the robot's place, and reload resumes there;
   - shortcuts stay open after reload;
   - a direct link to a locked course is refused;
+  - the start screen: a new save only starts, a returning save continues in
+    place and shows its progress, and Restart erases the save only after
+    confirming; Back and Continue move between `/lab` and `/lab/facility`
+    without reloading the area, and `/lab/facility` opens without the start
+    screen;
   - automated routes for the adjacency and return budgets, using normal
     controls;
   - campaign file validation, including the course-equipment rule.

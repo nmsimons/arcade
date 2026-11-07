@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { facilityProgress, parseCampaign } from '../src/games/jumping/campaign.ts'
-import { arrivalLevel, dispatchPlace, evaluationLines, facilityStart, FACILITY_KEY, hubPresentation, linkOpen, linkedPlace, nextPlace, readFacilitySave, saveFacilityPlace, savedPlace } from '../src/games/jumping/facility.ts'
+import { arrivalLevel, dispatchPlace, evaluationLines, facilityStart, FACILITY_KEY, GAME_KEYS, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, saveFacilityPlace, savedPlace } from '../src/games/jumping/facility.ts'
 
 const course = (id, name) => ({ ...blankTrial(), id, name, times: { a: 10, b: 20, c: 40, d: 75 } })
 const door = (id, x, course) => ({ id, x, y: 920, course })
@@ -212,4 +212,31 @@ test('a wing goes by its level’s name, which wins over the campaign’s', () =
   assert.equal(evaluationLines(campaign, progress([]), missing)[1], 'MOVEMENT 0/2')
   const placard = hubPresentation(campaign, progress([]), levels.get('hall'), renamed, () => null).placards.get('hall-to-m')
   assert.deepEqual(placard, ['BOOT CAMP'])
+})
+
+test('the start screen lists each wing’s courses, dark while locked, and a sealed wing’s clearance', () => {
+  const best = id => ({ m1: 12.5, f1: 90 })[id] ?? null
+  const [movement, freight, water] = progressRecords(campaign, progress(['m1']), levels, best)
+  assert.deepEqual(movement, { id: 'movement', name: 'Movement wing', open: true, passed: 1, courses: [
+    { state: 'passed', id: 'm1', name: 'Hop Skip Jump I', best: 12.5, grade: 'B', deadline: 75 },
+    { state: 'open', id: 'm2', name: 'A Bigger Swing', best: null, grade: null, deadline: 75 },
+  ] })
+  // A run slower than the D deadline leaves the door open, not passed; the next door stays dark.
+  assert.deepEqual(freight.courses, [{ state: 'open', id: 'f1', name: 'Boxes', best: 90, grade: 'F', deadline: 75 }, { state: 'locked' }])
+  assert.deepEqual(water, { id: 'water', name: 'Water wing', open: false, passed: 0, clearance: { passed: 0, count: 2 }, courses: [{ state: 'locked' }] })
+})
+
+test('a new game has no saved place or course records; restarting erases all three', () => {
+  const save = storage()
+  assert.equal(savedGameExists(save), false)
+  save.setItem('arcade.jumping.times.v1', '{}'); save.setItem('arcade.jumping.completed.v1', '{}')
+  assert.equal(savedGameExists(save), false, 'empty records are still a new game')
+  save.setItem(FACILITY_KEY, 'not json')
+  assert.equal(savedGameExists(save), false, 'an unreadable place starts a new game')
+  saveFacilityPlace(save, { kind: 'hub', level: 'wake', arrival: { kind: 'entrance' } })
+  assert.equal(savedGameExists(save), true, 'a robot that has woken can continue')
+  const records = storage()
+  records.setItem('arcade.jumping.completed.v1', JSON.stringify({ m1: true }))
+  assert.equal(savedGameExists(records), true, 'passes from the level grid can continue')
+  assert.deepEqual([...GAME_KEYS].sort(), ['arcade.jumping.completed.v1', FACILITY_KEY, 'arcade.jumping.times.v1'].sort())
 })

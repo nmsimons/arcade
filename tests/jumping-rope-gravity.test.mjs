@@ -42,7 +42,7 @@ function handsOnRope(p) {
 for (const facing of [-1, 1]) test(`an upside-down player catches, holds, climbs both screen directions and jumps downward (${facing})`, () => {
   const s = scene({ facing }); s.tick(); assert.equal(s.p.climbing?.kind, 'rope')
   s.tick({}, 90); assert.equal(s.p.inverted, true); handsOnRope(s.p)
-  const y = s.p.y; s.tick({ climb: true }, 50); assert.ok(s.p.y < y - 20, 'Up moves upward on a floating rope')
+  const y = s.p.y; s.tick({ climb: true }, 50); assert.ok(s.p.y < y - 14, 'Up moves upward on a floating rope')
   assert.equal(playerState(s.p), 'Rope · ascending')
   s.tick({}, 40); const upper = s.p.y; s.tick({ descend: true }, 40); assert.ok(s.p.y > upper + 20, 'Down moves downward')
   s.tick({}, 40); const releaseVy = s.p.vy; s.tick({ jump: true, move: facing })

@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, restartFromPause, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 
 async function open(page, level, finishEntrance = true) {
@@ -24,10 +24,7 @@ async function open(page, level, finishEntrance = true) {
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') })
   if (finishEntrance) await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit` })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
@@ -142,7 +139,7 @@ for (const [behavior, startsOn] of [['pressure', false], ['switch', false], ['sw
       await walkTo(page, 650); await walkTo(page, 420); expect(await on()).toBe(true)
     }
     if (behavior !== 'pressure' && !(behavior === 'switch' && startsOn)) {
-      await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
+      await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
       await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
     }
     if (await page.getByRole('dialog', { name: 'Level complete' }).count()) await page.getByRole('button', { name: 'Try again', exact: true }).click()
@@ -165,6 +162,6 @@ test('always-on exits and moving mechanisms start in their authored state and th
   expect(await canvas.evaluate(c => c.liftY)).toBeLessThan(600)
   expect(await canvas.evaluate(c => c.platformX)).toBeGreaterThan(950)
   await page.screenshot({ path: info.outputPath('always-on.png') })
-  await page.keyboard.down('d'); await page.clock.runFor(6000); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(6000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
 })

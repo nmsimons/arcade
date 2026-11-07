@@ -3,9 +3,11 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { expectAccessibleSelection } from './helpers/jumpingAccessibility.mjs'
 import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 
+// Tab visits the dialog's buttons; the closed development drawer of stress tests holds none of them.
+const tabStops = page => page.getByRole('dialog').locator('button:not(:disabled):visible')
 async function open(page) {
   await useLevelFixtures(page, [FIRST_LEVEL])
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await expect(page.locator('.jumping-level-browser .jumping-level-card')).toHaveCount(1)
   await page.locator('.jumping-menu-navigation button').first().focus()
   await page.mouse.move(0, 0)
@@ -20,9 +22,9 @@ test('level picker keeps its bands stable and gives each keyboard action a contr
   for (const forcedColors of ['none', 'active']) {
     await page.emulateMedia({ forcedColors })
     await page.keyboard.press('Home')
-    const buttons = page.getByRole('dialog').locator('button:not(:disabled):visible')
-    for (let i = 0; i < await buttons.count(); i++) {
-      await expectAccessibleSelection(buttons.nth(i))
+    const stops = tabStops(page)
+    for (let i = 0; i < await stops.count(); i++) {
+      await expectAccessibleSelection(stops.nth(i))
       await page.keyboard.press('Tab')
     }
   }
@@ -30,10 +32,10 @@ test('level picker keeps its bands stable and gives each keyboard action a contr
   await page.addStyleTag({ content: 'html { font-size: 200%; }' })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.keyboard.press('Home')
-  const buttons = page.getByRole('dialog').locator('button:not(:disabled):visible')
-  for (let i = 0; i < await buttons.count(); i++) {
-    await expect(buttons.nth(i)).toBeFocused()
-    await expect(buttons.nth(i)).toBeInViewport()
+  const stops = tabStops(page)
+  for (let i = 0; i < await stops.count(); i++) {
+    await expect(stops.nth(i)).toBeFocused()
+    await expect(stops.nth(i)).toBeInViewport()
     await page.keyboard.press('Tab')
   }
   expect(await page.locator('.jumping-level-menu').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)

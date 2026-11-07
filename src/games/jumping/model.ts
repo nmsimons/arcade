@@ -1,6 +1,6 @@
 import type { NamedObject } from './objectNames.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
-import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ladderDistance, rappelFrame, ropeGripDistance, ropeImpulse, ropePoint, ropeSlopeSupport, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
+import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ladderDistance, rappelFrame, ROPE_TOP_GRIP, ropeGripDistance, ropeGripLimit, ropeImpulse, ropePendulumPace, ropeTravelSpeed, stepArmHolds, stepRopeSway, ropePoint, ropeSlopeSupport, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder } from './climbables.ts'
 import { ladderExitGround, ladderLanding, ladderMantleEntry } from './ladderGeometry.ts'
 import { exposedSide, exposedWallFaces, followGround, groundAt, platformSurface } from './terrain.ts'
@@ -20,8 +20,8 @@ import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './wat
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorLadder } from './gravityFrame.ts'
 import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSwimStrength, playerSwimDepth, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration, swimmingDirection, underwaterSwimming } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
-import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeTurnHasSupport, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn } from './ropeGravity.ts'
-import { stepRopeBodyMotion } from './ropeBodyMotion.ts'
+import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeClimbable, ropeShimmyDirection, ropeTravelFacing, ropeTurnHasSupport, ropeVerticality, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn, updateRopeShimmy } from './ropeGravity.ts'
+import { stepRopeBodyMotion, stepRopeSetback } from './ropeBodyMotion.ts'
 export { TUNING } from './movementTuning.ts'
 export type { JumpInput, Platform, Player } from './characterTypes.ts'
 import type { JumpInput, Platform, Player } from './characterTypes.ts'
@@ -39,6 +39,18 @@ import type { AthletePose } from './athleteRig.ts'
 export const STEP = 1 / 120
 /** A steered get-up from a prone recovery takes this long. */
 const STEERED_GET_UP = .1
+/** How hard a rope climber brakes on stopping or turning back, in material units per second squared. */
+const ROPE_BRAKE = 420
+/** How long a climber takes to turn from side-on to its back to the camera, or back, while it climbs on. */
+const ROPE_PIVOT = .14
+/**
+ * Turning about on a rope, the body pivots beneath hands that stay where they
+ * hold, so the hand on each side keeps its shoulder and the arms never cross.
+ */
+function faceAlongRope(p: Player, c: Climbing, facing: number) {
+  if (facing !== p.facing) c.holds?.reverse()
+  p.facing = facing
+}
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
 interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
@@ -985,38 +997,68 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (p.climbing) {
     const c = p.climbing, oldX = p.x, oldY = p.y
     const jumping = pressed
-    const previousClimb = { ...c, ...(c.turn ? { turn: { ...c.turn } } : {}) }
+    const previousClimb = { ...c, ...(c.turn ? { turn: { ...c.turn } } : {}), ...(c.holds ? { holds: c.holds.map(h => ({ ...h })) } : {}) }
     c.time += dt
     const screenVertical = c.rope ? vertical * frameDirection : vertical
-    const materialVertical = c.rope ? ropeScreenDirection(c, vertical, frameDirection) : bodyVertical
     const turning = !!c.rope && ropeWantsTurn(c, orientationGravity)
+    // On a tied rope, Left/Right carries the robot along the flatter spans and Up/Down climbs the steeper ones.
+    const tied = !!c.rope?.definition.end && !turning && !c.wall
+    const shimmy = tied && updateRopeShimmy(c), traversing = shimmy && Math.abs(input.move) > .1
+    let materialVertical = c.rope ? traversing ? ropeShimmyDirection(c, input.move)
+      : tied && !ropeClimbable(c) ? 0 : ropeScreenDirection(c, vertical, frameDirection) : bodyVertical
+    // A super-strong robot travels every rope by its arms alone. It hangs below its hands, seen side-on, its
+    // hands going hand over hand while the body glides, and faces the way it goes across the screen; climbing
+    // a rope that runs straight up and down, it keeps its facing. To shimmy back the other way it first brakes
+    // to a stop and turns about beneath its hands, its back to the camera midway, then sets off. Climbing on
+    // where the rope leans the other way, it turns about on the rope as it climbs, without stopping.
+    // Braking to a stop, it still faces the way it is carried.
+    const travelDirection = materialVertical || (c.rope ? -Math.sign(c.travelSpeed ?? 0) : 0)
+    const heading = !c.rope || !travelDirection || turning || c.wall ? 0
+      : traversing ? Math.sign(input.move) : ropeTravelFacing(c, travelDirection, p.facing)
+    const reversing = !!heading && heading !== p.facing, settled = (c.shimmyBlend ?? 0) <= .08
+    if (c.rope) c.pivot = approach(c.pivot ?? 1, reversing && !traversing ? 0 : 1, dt / ROPE_PIVOT)
+    if (c.rope) c.turningBack = reversing && traversing && !settled
+    if (reversing && traversing && !settled) materialVertical = 0
+    else if (heading && (!reversing || traversing || settled || (c.pivot ?? 1) <= 0)) faceAlongRope(p, c, heading)
+    const handOverHand = !!c.rope && !!materialVertical
+    if (c.rope) {
+      c.shimmyBlend = approach(c.shimmyBlend ?? 0, Number(handOverHand), dt / .2); stepRopeSetback(c, p.facing, dt)
+      // Holding Left or Right fully, the robot builds into a swinging run over about a second; easing off,
+      // stopping or turning back drops it to the careful pace.
+      const running = traversing && Math.abs(input.move) > .9 && !!materialVertical
+      // A short or gentle shimmy keeps the careful gait: the run only starts after half a second of travel.
+      c.runFor = running ? (c.runFor ?? 0) + dt : 0
+      c.pace = approach(c.pace ?? 0, Number(c.runFor > .5), dt / (running ? .9 : .3))
+      // Shimmying hangs the body as on a level rope, so the head stays clear below the rope even on a slope.
+      const vertical = traversing ? 0 : ropeVerticality(c)
+      c.ropeVertical = (c.ropeVertical ?? vertical) + (vertical - (c.ropeVertical ?? vertical)) * (1 - Math.exp(-dt / .15))
+    }
     c.screenDirection = vertical
     c.direction = turning ? 0 : materialVertical
     c.wallCooldown = Math.max(0, (c.wallCooldown ?? 0) - dt)
     const wall = c.wall
-    if (wall && c.rope && !input.jump && !jumping && !input.detach && input.move * wall.side < -.1) {
+    if (wall && c.rope && !traversing && !input.jump && !jumping && !input.detach && input.move * wall.side < -.1) {
       // A single leg push starts the swing; holding away cannot pin the rope out.
       const grip = ropePoint(c.rope, c.distance), previous = ropePoint(c.rope, c.distance, true)
       ropeImpulse(c.rope, c.distance, (grip[0] - previous[0]) / dt - wall.side * 180 * Math.abs(input.move), (grip[1] - previous[1]) / dt, dt)
       c.wallCooldown = .35
     }
     if (turning) c.wall = undefined
-    else updateRopeWall(c, platforms, input.move, [p.x, p.y])
+    else updateRopeWall(c, platforms, traversing ? 0 : input.move, [p.x, p.y])
     c.wallPose = c.wall ?? wall ?? c.wallPose
     // Unbrace gradually where a wall becomes a slope, without jerking the grip upward.
     c.wallBlend = approach(c.wallBlend ?? Number(!!wall), Number(!!c.wall), dt / (c.surfaceSupport ? .4 : .22))
     if (!c.wallBlend) c.wallPose = undefined
     c.rappelPull = approach(c.rappelPull ?? 0, Number(!!c.wall && c.direction > 0), dt / .18)
     c.rappelMotion = approach(c.rappelMotion ?? 0, Number(!!c.wall && vertical !== 0), dt / .16)
-    if (c.wall) { p.facing = c.wall.side; c.swing = 0 }
-    c.swing += ((c.rope && !c.wall ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
-    c.lean += ((c.rope && !c.wall && !c.direction && !turning ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
-    // As the feet run out of rope, keep the body hanging below its hands instead
-    // of extrapolating the last tiny segment into a long, whipping body support.
-    const endHang = c.rope ? ease((c.distance - c.rope.definition.length + 80) / 48) : 0
+    if (c.wall) { faceAlongRope(p, c, c.wall.side); c.swing = 0 }
+    // Shimmying spends Left/Right on travel, so it neither pumps a swing nor leans.
+    c.swing += ((c.rope && !c.wall && !traversing ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
+    c.lean += ((c.rope && !c.wall && !c.direction && !turning && !traversing ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
     c.surfaceSupport = ropeSlopeSupport(c, platforms)
     const heldGrip = c.rope && turning ? ropeGripDistance(c) : 0
-    c.hangBlend = approach(c.hangBlend, Math.max(Number(!!c.rope && (!c.direction || (c.screenAxis ?? 1) < 0)), endHang, c.surfaceSupport), dt / .22)
+    // Every rope is climbed by the arms alone, so the body always hangs below the hands.
+    c.hangBlend = approach(c.hangBlend, Number(!!c.rope), dt / .22)
     if (c.rope && turning && !c.turn) keepRopeGrip(c, heldGrip)
     let ropeVelocity: [number, number] | null = null
     if (c.rope) {
@@ -1027,7 +1069,12 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       // Catch blends, hand-over-hand poses and weight-shift poses do not add
       // physical momentum. Sample the same loaded material point at both times.
       ropeVelocity = velocity
-      stepRopeBodyMotion(c, velocity[0], velocity[1], orientationGravity, dt)
+      // Traveling hand over hand also moves the grip: its starts, stops and pulls swing the hips and legs.
+      const travel = c.travelSpeed ?? 0, ahead = ropePoint(c.rope, Math.min(c.rope.definition.length, grip + 1)), back = ropePoint(c.rope, Math.max(0, grip - 1))
+      const along = travel ? [(ahead[0] - back[0]) / 2 * travel, (ahead[1] - back[1]) / 2 * travel] : [0, 0]
+      // The body's swing beneath the holding hand swings the hips and legs further still.
+      const sway = c.sway ?? { vx: 0, vy: 0 }
+      stepRopeBodyMotion(c, velocity[0] + along[0] + sway.vx * 2.5, velocity[1] + along[1] + sway.vy * 2, orientationGravity, dt)
     }
     p.crouch = 0; p.crouching = false; p.reach = 0; p.landing = 0; p.buffer = 0
     const sideExit = !verticalIntent && Math.abs(input.move) > .1 && c.time >= .16
@@ -1062,11 +1109,37 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       }
     }
     const topFooting = c.ladder ? ladderFooting(c.ladder, platforms, ladderDecks(platforms, world)) : null
-    const minimum = c.ladder ? topFooting ? ladderDistance(c.ladder, topFooting.y) : 18 : 12
-    const bottom = c.ladder ? ladderDistance(c.ladder, c.ladder.bottom) : c.rope!.definition.length - 8
+    const minimum = c.ladder ? topFooting ? ladderDistance(c.ladder, topFooting.y) : 18 : ROPE_TOP_GRIP
+    const bottom = c.ladder ? ladderDistance(c.ladder, c.ladder.bottom) : ropeGripLimit(c.rope!.definition)
     const oldDistance = c.distance
-    const climbSpeed = (c.rope ? vertical : materialVertical) > 0 ? 85 : 105
-    c.distance = Math.max(minimum, Math.min(bottom, c.distance - materialVertical * climbSpeed * dt))
+    // The hands keep a steady rhythm; the robot goes faster by reaching further.
+    const climbSpeed = c.rope ? ropeTravelSpeed(c, traversing || vertical > 0) : materialVertical > 0 ? 85 : 105
+    // Hand over hand, the body eases while a hand reaches and surges as it takes hold; the average is unchanged.
+    const reaching = c.rope ? Math.max(0, ...(c.holds ?? []).map(h => h.reach < 1 ? Math.sin(h.reach * Math.PI) : 0)) : 0
+    // Setting off or turning back, the body eases up to speed instead of reversing at full pace.
+    if (c.rope) {
+      // A positive climb input shortens the distance along the rope, so travel runs the other way.
+      const heading = Math.sign(materialVertical), was = -Math.sign(c.travelSpeed ?? 0)
+      c.travelRamp = !heading ? 0 : heading !== was && was ? 0 : Math.min(1, (c.travelRamp ?? 0) + dt / .15)
+    }
+    // Along a level rope the body eases up to speed and brakes over about a sixth of a second, swinging
+    // beneath its hands. Climbing a steep rope it answers at once: each pull starts and stops the body.
+    const steep = c.rope ? c.ropeVertical ?? 1 : 1
+    // Running, the body swings like a pendulum from the hand it hangs by: fastest as it passes beneath
+    // that hand, slowest out at either end of the swing, where the next hand takes hold.
+    const swing = c.rope ? ropePendulumPace(c) : 1
+    // Climbing a steep rope, each pull lifts the body: quickest mid-pull while the free hand reaches on,
+    // briefly slower as it takes hold.
+    const pull = (1.05 - .15 * reaching) * (1 - steep) + (.82 + .35 * reaching) * steep
+    const surge = c.rope ? pull * swing * (.3 + .7 * steep + (.7 - .7 * steep) * ease(c.travelRamp ?? 1)) : 1
+    let speed = -materialVertical * climbSpeed * surge
+    // Braced on a wall, the feet stop the descent at once.
+    const was = c.rope && !c.wall ? c.travelSpeed ?? 0 : 0
+    if (was && (Math.sign(speed) !== Math.sign(was) || Math.abs(speed) < Math.abs(was)))
+      speed = approach(was, Math.sign(speed) === Math.sign(was) ? speed : 0, ROPE_BRAKE / Math.max(.01, (1 - steep) ** 2) * dt)
+    c.distance = Math.max(minimum, Math.min(bottom, c.distance + speed * dt))
+    // A grip pushed into its limits is not travel: it carries no speed to brake from.
+    if (c.rope) c.travelSpeed = Math.max(-Math.abs(speed), Math.min(Math.abs(speed), (c.distance - oldDistance) / dt))
     if (c.ladder && topFooting && materialVertical > 0) {
       const catchDistance = ladderDistance(c.ladder, topFooting.y + TUNING.hangReach)
       if (oldDistance >= catchDistance) c.distance = Math.max(c.distance, catchDistance)
@@ -1123,9 +1196,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     } else if (blocked > .1) {
       if (c.rope) {
         // Stop only a climbing step into an obstruction, never the rope simulation.
-        if (screenVertical && safe.contacts.some(({ normal }) => normal[1] * screenVertical > .5)) {
+        if (screenVertical && safe.contacts.some(({ normal }) => normal[1] * screenVertical > .5)
+          || traversing && materialVertical && safe.contacts.some(({ normal }) => normal[0] * input.move < -.5)) {
           c.distance = previousClimb.distance; c.direction = 0
-          if (c.rope) c.screenDirection = 0
+          if (c.rope) { c.screenDirection = 0; c.travelSpeed = 0 }
           if (c.turn && previousClimb.turn) c.turn.grip = previousClimb.turn.grip
         }
         for (let i = 0; i < 4; i++) safe = constrainRopeBody(c, [oldX, oldY], p.facing, platforms, world.ropePlatforms ?? platforms)
@@ -1137,11 +1211,13 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         p.climbing = c; p.x = oldX; p.y = oldY; p.vx = 0; p.vy = 0
       }
     }
+    if (c.rope) { stepArmHolds(c, (c.travelSpeed ?? 0) * dt, dt); stepRopeSway(c, dt) }
     if (c.wallBlend) {
       // A rebounding grip can travel faster than a deliberate wall step. Advance
       // the foothold gait in simulation so it cannot whip through a whole stride.
       const height = rappelFrame(c).hip[1]
-      c.rappelStepHeight = approach(c.rappelStepHeight ?? height, height, 120 * dt)
+      // Resting braced, the footholds stay put while the rope bounces a little under the body.
+      if (c.rappelStepHeight === undefined || c.rappelMotion) c.rappelStepHeight = approach(c.rappelStepHeight ?? height, height, 120 * dt)
     } else c.rappelStepHeight = undefined
     if (ropeVelocity && p.climbing === c) {
       const before = ropePoint(c.rope!, previousClimb.distance), after = ropePoint(c.rope!, c.distance)
@@ -1152,7 +1228,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.releaseTurn = captureRopeTurnRelease(p)
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
     }
-    if (c.rope && p.climbing && c.distance === bottom && materialVertical < 0 && c.time >= .16) {
+    if (c.rope && !c.rope.definition.end && p.climbing && c.distance === bottom && materialVertical < 0 && c.time >= .16) {
       // Descending off the last handhold is a natural exit, not a jump.
       if (c.turn) p.releaseTurn = captureRopeTurnRelease(p)
       p.climbing = null; p.grabCooldown = .35

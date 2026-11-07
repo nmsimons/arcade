@@ -28,7 +28,7 @@ async function trackWorkers(page) {
 
 test('failed preparation preserves the editor draft and the original built-in file', async ({ page }) => {
   await installBuiltInFixtures(page, { 'complex.json': slow }); await trackWorkers(page)
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Edit Complex rope', exact: true }).click()
   const name = page.getByRole('textbox', { name: 'Level name', exact: true })
   await name.fill('Unsaved complex rope')

@@ -31,6 +31,11 @@ function fixtureBounds(level: JumpLevel, item: Selection) {
     const plate = level.triggers![item.index]
     return plate.mode === 'coins' ? coinSwitchBounds(plate) : { x: plate.x, y: plate.y - (plate.ceiling ? 0 : 8), w: plate.w, h: 8 }
   }
+  if (item.kind === 'rope') {
+    // A rope's wire runs to the anchor it releases.
+    const rope = level.climbables.ropes[item.index], anchor = rope.release?.anchor === 'end' && rope.end ? rope.end : rope
+    return round(anchor.x, anchor.y, 5)
+  }
   const d = itemDefinition(level, item) as { x: number; y: number; w?: number; h?: number }
   if (item.kind === 'light') return round(d.x, d.y, LIGHT_RADIUS)
   if (item.kind === 'wall-light' || item.kind === 'float-switch') return round(d.x, d.y, WALL_LIGHT_RADIUS)

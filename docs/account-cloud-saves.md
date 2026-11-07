@@ -25,8 +25,10 @@ through **Load cloud saves**, which restarts the game. Expiry, offline mode,
 denied consent and provider failures leave local progress available. Reconnect
 is explicit. Wait for the account indicator to confirm sync before closing a tab.
 
-Hard Vacuum expedition/recovery, L.A.B. best times and L.A.B. completion are
-allowlisted save slots. Other games do not currently persist progress. Arbitrary
+Hard Vacuum expedition/recovery, L.A.B. best times, L.A.B. completion and the
+robot's place in L.A.B.'s facility are allowlisted save slots. L.A.B. opens
+straight into the facility, so with cloud saves on it waits up to eight seconds
+for the account's first cloud check before placing the robot. Other games do not currently persist progress. Arbitrary
 browser storage and credentials are never uploaded. Historical level-library
 storage and version metadata remain supported solely for backup compatibility.
 
@@ -137,6 +139,7 @@ Apps/Dream Large Arcade/
   Untitled Jumping Game/
     personal-bests.json
     completed-levels.json
+    facility-place.json
     Levels/
       index.json
       My level.jump-level.json
@@ -217,6 +220,16 @@ remote head. Divergence, multiple heads, or externally removed history requires
 an explicit choice. Restoring remote progress first uploads unsynced local edits
 as a recovery version. Existing versions remain intact. Timestamps never decide
 which progress to discard.
+
+The robot's facility place is a convenience, not progress. A device whose only
+change since its baseline is that place takes a newer cloud head as if it were
+clean: the cloud's saves load with their place, and the local place stays in the
+recovery copy. The baseline records a progress hash, the workspace without the
+place, to tell; baselines from before the place synced hashed no place, so their
+hash serves. A place-only change with the cloud unchanged uploads as usual, and
+progress changed on both sides still asks which version to keep. A local save
+made while a download is being applied, such as the robot walking through a door,
+retries the check a few seconds later instead of stopping sync.
 SHA-256 detects mismatched content; it is not an authenticity signature or an
 anti-cheat mechanism. Cloud files remain untrusted.
 

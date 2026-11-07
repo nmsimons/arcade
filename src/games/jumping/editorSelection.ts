@@ -1,10 +1,12 @@
 import { allSelections, carryWallTerminals, clamp, deleteItem, itemBounds, itemDefinition, itemOutline, moveItem, reorderTerrain, transformTerrain } from './editor.ts'
 import type { Selection, TerrainTransform } from './editor.ts'
-import { copyLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
+import { copyLevel, isHubLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
+import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS } from './hub.ts'
+import { MAX_WALL_DOORS } from './wallDoor.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
 import { lineBlocked, polygonIntersects, polygonPoints } from './geometry.ts'
-import { ropePath } from './climbables.ts'
+import { fitTiedRope, ropeEnds, ropePath } from './climbables.ts'
 import { platformSurface } from './terrain.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { switchedItems } from './switchPower.ts'
@@ -21,6 +23,7 @@ export interface EditorClipboard { level: JumpLevel; selections: Selection[] }
 export const sameSelection = (a: Selection, b: Selection) => a.kind === b.kind && a.index === b.index
 const key = (s: Selection) => `${s.kind}:${s.index}`
 export const copyableSelection = (s: Selection) => s.kind !== 'entrance' && s.kind !== 'goal'
+const hubKinds: readonly Selection['kind'][] = ['course-door', 'bulkhead', 'evaluation-board']
 
 export function validSelections(level: JumpLevel, selections: readonly Selection[]): Selection[] {
   const seen = new Set<string>()
@@ -80,14 +83,15 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'light') return level.lighting!.lights as unknown as Item[]
   if (kind === 'entrance' || kind === 'goal') throw new Error('Entrance and exit doors are unique.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
-    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields' } as const
+    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields',
+    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards', 'wall-door': 'wallDoors' } as const
   const record = level as unknown as Record<string, unknown>
   return (record[fields[kind]] ??= []) as Item[]
 }
 function carriesSelection(level: JumpLevel, selection: Selection, selected: ReadonlySet<string>): boolean {
   if (selection.kind === 'rope') {
-    const anchor = level.climbables.ropes[selection.index].anchor
-    return !!anchor && selected.has(`platform:${anchor.platform}`)
+    // A rope rides with selected terrain only when every anchor is attached to it.
+    return ropeEnds(level.climbables.ropes[selection.index]).every(point => !!point.anchor && selected.has(`platform:${point.anchor.platform}`))
   }
   if (selection.kind === 'ladder') return selected.has(`platform:${level.climbables.ladders[selection.index].platform}`)
   if (selection.kind === 'trigger') {
@@ -105,7 +109,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
   let left = -Infinity, right = Infinity, top = -Infinity, bottom = Infinity
   for (const s of items) {
     const raw = itemBounds(level, s)!, b = s.kind === 'goal' ? goalBounds(level.goal!) : s.kind === 'rope' ? { ...raw, h: 0 }
-      : s.kind === 'text' ? itemOutline(level, s)! : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
+      : s.kind === 'text' || s.kind === 'course-door' || s.kind === 'bulkhead' || s.kind === 'wall-door' ? itemOutline(level, s)! : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
     left = Math.max(left, margin - b.x); right = Math.min(right, level.width - margin - b.x - b.w)
     top = Math.max(top, -b.y); bottom = Math.min(bottom, levelHeight(level) - b.y - b.h)
     if (s.kind === 'platform') for (const ladder of level.climbables.ladders) if (ladder.platform === s.index) {
@@ -122,16 +126,17 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
     const item = itemDefinition(next, s) as unknown as { x: number; y: number }
     item.x += dx; item.y += dy
   }
-  for (const rope of next.climbables.ropes) if (rope.anchor && selected.has(`platform:${rope.anchor.platform}`)) {
-    const host = next.platforms[rope.anchor.platform]
-    rope.x = host.x + rope.anchor.x; rope.y = host.y + rope.anchor.y; delete rope.rest
+  for (const rope of next.climbables.ropes) for (const point of ropeEnds(rope)) if (point.anchor && selected.has(`platform:${point.anchor.platform}`)) {
+    const host = next.platforms[point.anchor.platform]
+    point.x = host.x + point.anchor.x; point.y = host.y + point.anchor.y; delete rope.rest
+    fitTiedRope(rope)
   }
   for (const ladder of next.climbables.ladders) if (selected.has(`platform:${ladder.platform}`)) {
     ladder.x += dx; ladder.top += dy; ladder.bottom += dy
   }
   syncPressurePlateMounts(next)
   // A marker resting on two selected blocks must be carried only once.
-  for (const s of allSelections(level).filter(s => ['entrance', 'checkpoint', 'goal'].includes(s.kind))) {
+  for (const s of allSelections(level).filter(s => ['entrance', 'checkpoint', 'goal', 'course-door', 'bulkhead', 'wall-door'].includes(s.kind))) {
     if (selected.has(key(s))) continue
     const marker = itemDefinition(level, s) as unknown as { x: number; y: number }
     const supportX = s.kind === 'goal' ? (() => { const b = goalBounds(level.goal!); return b.x + b.w / 2 })() : marker.x
@@ -146,7 +151,12 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
     }
     const item = itemDefinition(next, s) as unknown as { x: number; y: number }
     item.x += dx; item.y += dy
-    if (s.kind === 'rope') { const rope = next.climbables.ropes[s.index]; delete rope.anchor; delete rope.rest }
+    if (s.kind === 'rope') {
+      const rope = next.climbables.ropes[s.index]
+      if (rope.end) { rope.end.x += dx; rope.end.y += dy }
+      for (const point of ropeEnds(rope)) delete point.anchor
+      delete rope.rest
+    }
     if (s.kind === 'robot') {
       const r = next.robots![s.index]
       r.left = clamp(r.left + dx, 50, Math.min(r.x, level.width - 100))
@@ -186,8 +196,9 @@ export function transformSelections(level: JumpLevel, selections: readonly Selec
       ladder.x = ladder.side === 1 ? changed.x - 16 : changed.x + changed.w + 16
       ladder.bottom += changed.y - b.y; ladder.top = changed.y
     }
-    for (const rope of next.climbables.ropes) if (s.kind === 'platform' && rope.anchor?.platform === s.index) {
-      rope.x = changed.x + rope.anchor.x; rope.y = changed.y + rope.anchor.y
+    for (const rope of next.climbables.ropes) for (const point of ropeEnds(rope)) if (s.kind === 'platform' && point.anchor?.platform === s.index) {
+      point.x = changed.x + point.anchor.x; point.y = changed.y + point.anchor.y
+      fitTiedRope(rope)
     }
   }
   return next
@@ -197,11 +208,13 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
   return { level: copyLevel(level), selections: validSelections(level, selections).filter(copyableSelection) }
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
-  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40 }
+  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40,
+  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS, 'wall-door': MAX_WALL_DOORS }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
   const source = clipboard.level, originals = validSelections(source, clipboard.selections).filter(copyableSelection)
   if (!originals.length) return { level, selections: [] }
+  if (originals.some(s => hubKinds.includes(s.kind)) && !isHubLevel(level)) throw new Error('Level doors, bulkheads and evaluation boards belong in facility areas. Change Type in the Level settings first.')
   let next = copyLevel(level)
   if (originals.some(s => s.kind === 'back-wall')) next = prepareBackWall(next)
   if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'logic-relay', 'float-switch', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)
@@ -227,8 +240,13 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
     if (Array.isArray(definition.targets)) definition.targets = definition.targets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])
     if (typeof definition.target === 'string') { definition.targets = ids.has(definition.target) ? [ids.get(definition.target)!] : external.has(definition.target) ? [definition.target] : []; delete definition.target }
     if (s.kind === 'rope') {
-      const rope = next.climbables.ropes[s.index], index = rope.anchor && indices.get(`platform:${rope.anchor.platform}`)
-      if (index !== undefined && rope.anchor) rope.anchor.platform = index; else delete rope.anchor
+      const rope = next.climbables.ropes[s.index]
+      for (const point of ropeEnds(rope)) {
+        const index = point.anchor && indices.get(`platform:${point.anchor.platform}`)
+        if (index !== undefined && point.anchor) point.anchor.platform = index; else delete point.anchor
+      }
+      // A pasted rope is not wired; its release gets its own switch ID.
+      if (rope.release) rope.release = { ...rope.release, id: newLevelId() }
       delete rope.rest
     }
     if (s.kind === 'ladder') {

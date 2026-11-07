@@ -4,7 +4,7 @@ import type { Platform, Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
 import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
 import type { JumpLevel } from './level.ts'
-import { ropePath } from './climbables.ts'
+import { ropeEnds, ropePath } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
@@ -16,6 +16,7 @@ import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
+import { drawWallDoors } from './wallDoor.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
@@ -37,7 +38,8 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
     ctx.beginPath(); ctx.moveTo(rope.x, rope.y)
     for (const [x, y] of ropePath(rope, p.ropes?.[i])) ctx.lineTo(x, y)
     ctx.stroke()
-    ctx.fillStyle = '#697d72'; ctx.beginPath(); ctx.arc(rope.x, rope.y, 5, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#697d72'
+    for (const anchor of ropeEnds(rope)) { ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill() }
   }
 }
 
@@ -62,6 +64,8 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   if (includeWallArt) drawWallWiring(ctx, level)
   if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
   for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
+  // Blocked doors are painted on the wall, like the pods' housings.
+  drawWallDoors(ctx, level.wallDoors ?? [])
   ctx.restore()
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }

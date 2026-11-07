@@ -17,7 +17,7 @@ test('repair warnings keep tile actions stable while selecting and editing an un
     '00-fixture.json': ready, '01-fixture.json': unfinished,
     'index.json': { version: 1, order: 'listed', levels: ['00-fixture.json', '01-fixture.json'] },
   })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const readyCard = card(page, 'Ready room')
   const edit = page.getByRole('button', { name: 'Edit Repair room', exact: true })
   await expect(readyCard).toHaveAttribute('aria-pressed', 'true')

@@ -1,14 +1,15 @@
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
-import type { JumpLevel, PuzzleLevel } from './level.ts'
-import { copyLevel, isPuzzleLevel, levelTerrain, newLevelId, snapToGround } from './level.ts'
+import type { JumpLevel, RunLevel } from './level.ts'
+import { copyLevel, isHubLevel, isPuzzleLevel, levelTerrain, newLevelId, snapToGround } from './level.ts'
 import { blankTrial } from './level.ts'
 import { groundAt } from './terrain.ts'
 import { switchSources } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import { remapEditorGroups } from './editorGroups.ts'
 
-export function asTrial(level: JumpLevel): PuzzleLevel {
-  if (isPuzzleLevel(level)) return copyLevel(level)
+/** Object tools need a run level. Courses and facility areas stay as they are; a playground becomes a course. */
+export function asTrial(level: JumpLevel): RunLevel {
+  if (isPuzzleLevel(level) || isHubLevel(level)) return copyLevel(level)
   const floor = Math.min(2800, Math.max(920, ...level.platforms.map(b => b.y + b.h)))
   const defaults = blankTrial()
   return { ...defaults, ...copyLevel(level), height: Math.max(floor + 120, level.height ?? 1040), floor,
@@ -35,7 +36,7 @@ export function copyForEditing(level: JumpLevel): JumpLevel {
   return next
 }
 /** Carve rectangular terrain and provide a bottom floor and a return ladder in one gesture. */
-export function carvePit(source: JumpLevel, start: { x: number; y: number }, end: { x: number; y: number }): PuzzleLevel {
+export function carvePit(source: JumpLevel, start: { x: number; y: number }, end: { x: number; y: number }): RunLevel {
   const level = asTrial(source), x = Math.max(100, Math.min(start.x, end.x)), w = Math.min(level.width - x - 160, Math.max(240, Math.abs(end.x - start.x)))
   const deck = snapToGround(level, x - 20, Math.min(start.y, end.y)).y
   const depth = Math.max(320, Math.min(800, Math.abs(end.y - start.y))), bottom = Math.min(2800, deck + depth)

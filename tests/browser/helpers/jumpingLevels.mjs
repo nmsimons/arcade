@@ -1,4 +1,34 @@
 import { readFileSync } from 'node:fs'
+import { expect } from './test.mjs'
+
+/**
+ * Opens a level by its direct link, as /lab/levels/built-in/<file>. Test fixtures sit outside the
+ * campaign, so their links are always open. With `pauseAt`, the level starts on a clock paused at that
+ * time: the link waits for the campaign, which is held back until the clock is paused.
+ */
+export async function openLevelLink(page, { file = '00-fixture.json', query = '', pauseAt } = {}) {
+  let release = () => {}
+  if (pauseAt) {
+    const ready = new Promise(resolve => { release = resolve })
+    // Fall back to any campaign a test serves itself.
+    await page.route('**/levels/jumping-campaign.json', async route => { await ready; await route.fallback() })
+  }
+  await page.goto(`/lab/levels/built-in/${encodeURIComponent(file)}${query}`)
+  if (pauseAt) {
+    // A cold server can take a while to transform the level catalog.
+    await expect(page.getByRole('dialog', { name: 'Opening the facility', exact: true })).toBeVisible({ timeout: 30000 })
+    await page.clock.pauseAt(pauseAt); release()
+  }
+}
+
+/** Follows a level link inside the running game, without a reload, as an in-app link would. */
+export async function followLevelLink(page, file, query = '') {
+  await page.evaluate(path => {
+    // A fresh key, as the router gives each entry, so the game sees a new location.
+    const state = { usr: null, key: Math.random().toString(36).slice(2, 10), idx: (history.state?.idx ?? 0) + 1 }
+    history.pushState(state, '', path); dispatchEvent(new PopStateEvent('popstate', { state }))
+  }, `/lab/levels/built-in/${encodeURIComponent(file)}${query}`)
+}
 
 /** Route/authoring tests explicitly seed prior passing runs. Progression tests
  * keep a fresh save and exercise the real locks instead. */

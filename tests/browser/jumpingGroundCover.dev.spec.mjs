@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: colored ground surfaces follow terrain and darken with ambient lighting`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async backend => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')

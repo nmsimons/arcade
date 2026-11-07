@@ -136,7 +136,7 @@ test('coin switches can open an exit and its timer locks only when the player en
   const run = start(level); step(run, 80)
   assert.equal(run.goalLit, true); assert.equal(run.exit, null); assert.equal(run.grade, null)
   const time = run.elapsed; step(run, 120); assert.ok(run.elapsed > time)
-  run.player.x = goalDoor(level.goal).x + 20; step(run)
+  run.player.x = goalDoor(level.goal).x + 20; stepRun(run, { ...NEUTRAL_INPUT, climb: true })
   assert.ok(run.exit); const locked = run.elapsed
   step(run, 120); assert.equal(run.finished, true); assert.equal(run.elapsed, locked)
 })

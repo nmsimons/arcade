@@ -21,7 +21,7 @@ test('wall jacks support dragging, exact coordinates, nudging, undo, automatic r
       return result
     }
   })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open wires.json', exact: true }).click()

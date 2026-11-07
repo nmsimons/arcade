@@ -1,15 +1,12 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 for(const hold of [false,true])for(const direction of [-1,1])test(`keyboard ${hold?'held':'tap'} jump has distinct flight balance and pre-contact preparation facing ${direction}`,async({page},info)=>{
   const level=blankTrial();level.width=4000;level.entrance={x:1500,y:920};level.goal={x:3800,y:920}
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   // Establish facing using the real controls, then settle the tiny movement.
   const key=direction<0?'a':'d'

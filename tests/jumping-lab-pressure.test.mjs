@@ -6,8 +6,8 @@ import { platformSurface } from '../src/games/jumping/terrain.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
-test('LAB2 crate holds its floor plate until the player moves it, and restart restores the press', () => {
-  const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/LAB2.jump-level.json', import.meta.url), 'utf8')))
+test('the Leaps and Bounds crate holds its floor plate until the player moves it, and restart restores the press', () => {
+  const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/LAB.jump-level.json', import.meta.url), 'utf8')))
   const plate = level.triggers[0], run = createRun(level)
   assert.equal(plate.y, platformSurface(level.platforms[0], plate.x + plate.w / 2).y, 'seat the plate on its supporting floor')
   const step = (frames, input = {}) => { for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input }) }

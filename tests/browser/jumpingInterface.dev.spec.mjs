@@ -6,7 +6,7 @@ import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 async function open(page) {
   await useLevelFixtures(page, [FIRST_LEVEL])
   await installBuiltInFixtures(page, { 'first.json': FIRST_LEVEL })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await expect(page.locator('.jumping-level-browser .jumping-level-card')).toHaveCount(1)
   // The initial public catalog can be replaced by the writable dev catalog.
   // Wait for its final file identity before measuring the card's CSS.

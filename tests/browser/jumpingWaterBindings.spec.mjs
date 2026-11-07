@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
 
 async function controls(page, device) {
@@ -52,10 +52,7 @@ for (const device of ['keyboard', 'controller', 'touch']) test.describe(`${devic
       Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.testPad] })
     })
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-    await page.goto('/lab?motionDebug=1&renderControl=1')
-    const play = page.getByRole('button', { name: `Play Water ${kind} 1`, exact: true })
-    await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
+    await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page); await page.clock.runFor(64)
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     // The controller blocks buttons carried across menu/play transitions. Give
     // the committed, focused gameplay screen its released sampling frame.

@@ -29,6 +29,37 @@ export function registerAccountSync(handler: () => Promise<void>) {
   sync = handler
   return () => { if (sync === handler) sync = undefined }
 }
+/**
+ * The first cloud check of an account's sync. A game that opens straight into play, as L.A.B.'s
+ * facility does, waits briefly for it so saves from another device arrive before it reads them.
+ */
+let cloudChecked = false
+const checkWaiters = new Set<() => void>()
+/** Called as an account's sync starts; the returned function settles its first check, once. */
+export function beginCloudCheck() {
+  cloudChecked = false
+  let settled = false
+  return () => {
+    if (settled) return
+    settled = true; cloudChecked = true
+    for (const waiter of [...checkWaiters]) waiter()
+  }
+}
+/** A synced account's first cloud check has not settled yet. */
+export function cloudCheckPending() {
+  const { login, cloudEnabled } = getSession()
+  return !!login && cloudEnabled && !cloudChecked
+}
+/** Resolves once the first check settles, at once without cloud saves, and after `timeout` regardless. */
+export function waitForCloudCheck(timeout: number) {
+  // A synced account whose sync has not started yet still waits, for the check about to begin.
+  if (!cloudCheckPending()) return Promise.resolve()
+  return new Promise<void>(resolve => {
+    const done = () => { clearTimeout(timer); checkWaiters.delete(done); resolve() }
+    const timer = setTimeout(done, timeout)
+    checkWaiters.add(done)
+  })
+}
 export async function refreshAccountCloud() {
   if (!sync) {
     if (getSession().cloudEnabled) throw new Error('Cloud saves are starting. Try Refresh again in a moment.')

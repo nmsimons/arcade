@@ -16,7 +16,7 @@ test('account controls stay in menus, the studio stays private, and signed-in pl
     await page.keyboard.press('F8')
     await expect(page.getByRole('dialog', { name: 'Player account', exact: true })).toHaveCount(0)
   }
-  for (const route of ['/', '/lab']) {
+  for (const route of ['/', '/lab/library']) {
     await page.goto(route)
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Player account', exact: true })).toBeVisible()
@@ -32,7 +32,8 @@ test('account controls stay in menus, the studio stays private, and signed-in pl
   await expect(page.getByRole('dialog', { name: 'Player account', exact: true })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Keep this draft')
   await page.screenshot({ path: testInfo.outputPath('private-local-studio.png') })
-  await page.getByRole('button', { name: 'Back to game', exact: true }).click()
+  // Back to game would lead to the facility, which has no account controls; return to the library.
+  await page.goBack()
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByRole('button', { name: 'Sign in with Google', exact: true }).click()
   await page.getByRole('alertdialog', { name: 'Sign in and switch saves', exact: true }).getByRole('button', { name: 'Sign in and switch saves', exact: true }).click()

@@ -2,17 +2,11 @@
   "version": 1,
   "order": "listed",
   "levels": [
-    "Wake.jump-level.json",
-    "LAB1.jump-level.json",
-    "00.json",
-    "01.json",
-    "02.json",
     "05.json",
     "lockout1.jump-level.json",
     "hsj.jump-level.json",
     "03.json",
-    "LAB2.jump-level.json",
-    "Company.jump-level.json",
+    "LAB.jump-level.json",
     "Boxes.jump-level.json",
     "Balls.jump-level.json",
     "Coins.jump-level.json",
@@ -43,9 +37,18 @@
     "Quarantine III.jump-level.json",
     "Waterline2.jump-level.json",
     "scaffold5.jump-level.json",
+    "Orientation.jump-level.json",
     "Ascent.jump-level.json",
     "ascent2.jump-level.json",
     "spelunk.jump-level.json",
-    "exit.jump-level.json"
+    "exit.jump-level.json",
+    "Concourse.jump-level.json",
+    "Freight wing.jump-level.json",
+    "Assessment wing.jump-level.json",
+    "Construction wing.jump-level.json",
+    "Security wing.jump-level.json",
+    "Gravity wing.jump-level.json",
+    "Puzzles.jump-level.json",
+    "Boot Camp wing.jump-level.json"
   ]
 }

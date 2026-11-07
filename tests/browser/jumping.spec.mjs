@@ -1,6 +1,6 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
-import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, openLevelLink, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold, tap } from './helpers/controller.mjs'
@@ -33,9 +33,7 @@ async function setup(page, controller = false, level = DEFAULT_LEVEL) {
       }
     })
   }, { controller })
-  await page.goto('/lab')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') })
   await page.clock.runFor(64)
 }
 const position = page => page.evaluate(() => window.jumpPlayer)
@@ -89,7 +87,7 @@ async function expectCentered(page) {
   expect(point.x).toBeCloseTo(.5, 5); expect(point.y).toBeCloseTo(.5, 5)
 }
 async function enter(page) {
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
 }
@@ -329,6 +327,10 @@ test('keyboard walks and runs, taps low and holds higher without repeating on la
 
 test('controller-only play gates launch, supports analog speed and held jumps, and pauses on disconnect', async ({ page }) => {
   await setup(page, true)
+  // The link prepares its level in a worker, on real time. Until the level is playing, A would press the
+  // focused button on the opening or preparing dialog, and Cancel leaves for the facility.
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   expect((await position(page)).y).toBeCloseTo(620)
@@ -539,15 +541,16 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   await down(false)
 })
 
-test('the playground remains readable at compact sizes', async ({ page }, info) => {
-  await setup(page)
+test('the playground’s pause screen remains readable at compact sizes', async ({ page }, info) => {
+  await setup(page); await enter(page)
+  await page.keyboard.press('Escape')
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport); await page.clock.runFor(64)
-    const dialog = page.getByRole('dialog')
+    const dialog = page.getByRole('dialog', { name: 'Game paused' })
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    await page.locator('.jumping-level-card[aria-pressed=true]').focus()
-    await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeInViewport()
-    await page.screenshot({ path: info.outputPath(`playground-menu-${viewport.width}.png`) })
+    const resume = dialog.getByRole('button', { name: /^Resume/ })
+    await resume.focus(); await expect(resume).toBeInViewport()
+    await page.screenshot({ path: info.outputPath(`playground-pause-${viewport.width}.png`) })
   }
 })
 

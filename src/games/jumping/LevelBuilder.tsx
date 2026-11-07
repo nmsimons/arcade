@@ -10,10 +10,12 @@ import { drawLevelCenterGuides, levelCenterSnap } from './builderSnap'
 import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, rememberEditorClipboard } from './editorClipboard'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, itemDefinition, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { moveTerrainHandle, setTerrainNodeMode, setFinish } from './editor'
-import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
+import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setLevelType, setWallDoor, hubDoorAt } from './editor'
+import { WALL_DOOR_CONDITIONS, WALL_DOOR_LABELS } from './wallDoor'
+import type { WallDoorCondition } from './wallDoor'
+import { copyLevel, isHubLevel, isPuzzleLevel, isRunLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
 import { GRADE_TARGETS, gradeTimes } from './grading'
@@ -93,6 +95,9 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
   const field = selection.kind === 'force-field' ? level.forceFields?.[selection.index] : null
   const trigger = selection.kind === 'trigger' ? level.triggers?.[selection.index] : null
   if (selection.kind === 'rope') {
+    // A tied rope has a handle on each anchor; a hanging rope's tip sets its length.
+    const tied = level.climbables.ropes[selection.index]
+    if (tied?.end) return [{ x: tied.x, y: tied.y, corner: 'top' }, { x: tied.end.x, y: tied.end.y, corner: 'bottom' }]
     const point = itemHandle(level, selection)
     return point ? [{ ...point, y: point.y + 8 / zoom, corner: 'bottom' }] : []
   }
@@ -102,7 +107,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     : trigger?.mode === 'coins' && trigger.display === 'digital' ? []
     : trigger ? trigger.mode === 'coins' && trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
     : selection.kind === 'gravity-plate' ? ['top-left', 'top', 'top-right', 'left', 'right', 'bottom-left', 'bottom', 'bottom-right']
-    : ['prop', 'text'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
+    : ['prop', 'text', 'evaluation-board'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
   const handles = corners.map(corner => ({ corner,
     x: bounds.x + (corner.endsWith('left') ? -8 / zoom : corner.endsWith('right') ? bounds.w + 8 / zoom : bounds.w / 2),
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
@@ -117,6 +122,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'steps-narrow', group: 'Terrain', label: 'Steps narrow', help: 'Click to place five steps with a stepped underside and a two-square top landing. Each rise and tread is one grid square. Resize, reshape, rotate, or flip after placing.' },
   { id: 'steps-wide', group: 'Terrain', label: 'Steps wide', help: 'Click to place five one-square-thick steps, each three squares wide and offset two squares across and one square up. They form one terrain shape with a stepped underside. Resize, reshape, rotate, or flip after placing.' },
   { id: 'rope', group: 'Movement', label: 'Rope', help: 'Drag down from the anchor. Start near a terrain edge to attach the anchor to it.' },
+  { id: 'tied-rope', group: 'Movement', label: 'Tied rope', help: 'Drag from one anchor to the other. An end near a terrain edge attaches to it. The rope sags by its extra Length; drag either anchor to move it alone.' },
   { id: 'ladder', group: 'Movement', label: 'Ladder', help: 'Drag down anywhere to place a ladder. Move it or change its height in the inspector.' },
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click for a standard ball, or drag to choose its size. Corner handles resize it.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click for a standard box, or drag to choose its size. Corner handles resize it.' },
@@ -138,11 +144,15 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'float-switch', group: 'Mechanisms', label: 'Float switch', help: 'A buoyant ball on a hinged arm. Water or a gravity lift raises it. Choose Raised or Lowered activation and connect its outputs.' },
   { id: 'logic-relay', group: 'Mechanisms', label: 'Logic relay', help: 'Place a studio-only logic node. Combine switches with OR, AND or XOR, optionally reverse the result, then connect its Activates outputs. Invisible during play, with no physical behavior.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
+  { id: 'course-door', group: 'Facility', label: 'Level door', help: 'Click to set a door into the back wall on a flat sill, like the entrance. Choose the level it leads to in the inspector. In the facility, Up in the open doorway enters the level, and finishing it returns the robot here. The placard shows the level, its D deadline, then the best time and grade.' },
+  { id: 'bulkhead', group: 'Facility', label: 'Bulkhead', help: 'Click to place a heavy door to another facility area, such as the concourse or a wing. Choose where it leads in the inspector: any facility area in the collection. Arriving through it, the robot steps out of the bulkhead on the far side that leads back here.' },
+  { id: 'evaluation-board', group: 'Facility', label: 'Evaluation board', help: 'Click or drag to mount a wall display of the evaluation: total passes, then each wing’s passes or SEALED. Corner handles resize it. It never blocks movement.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
   { id: 'light', group: 'Back wall', label: 'Spotlight', help: 'Click to place a spotlight on the back wall, or drag to aim it. Drag its center handle to aim and its outer handles to widen the beam. Lights have no range limit. EMP cuts their power.' },
   { id: 'wall-light', group: 'Back wall', label: 'Wall light', help: 'Place the goal-style indicator on the wall, with a circular rim. Connect switches to turn it green. Supports Logic, Reversed and the optional Relay setting.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Choose Official or red Graffiti, and edit the text, size, alignment, and rotation in the inspector. Text never blocks movement.' },
   { id: 'message-screen', group: 'Back wall', label: 'Message screen', help: 'Click or drag to mount a small terminal. Edit its message, size, alignment and rotation. Green phosphor lettering stays readable in the dark.' },
+  { id: 'wall-door', group: 'Back wall', label: 'Blocked door', help: 'Click to paint a door that never opens onto the back wall, on a flat sill like a real door: sealed, jammed, boarded up or caved in, in a door or bulkhead frame. Choose its look in the inspector. Wall art only, with no collision.' },
   { id: 'lab-stamp', group: 'Back wall', label: 'L.A.B. wall stamp', help: 'Click or drag to stamp the L.A.B. Experiments mark onto the back wall. Resize or rotate it in the inspector. It stays behind terrain and never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
@@ -152,6 +162,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'emp', group: 'Collectibles', label: 'EMP', help: 'A gold lightning bolt. Cuts power to mechanisms, switches, shovebots, and spotlights for 5 seconds. Ambient light remains. Always-on exits stay open; switched exits follow their inputs.' },
 ]
 const selectionLabel = (s: Selection, level: JumpLevel) => objectLabel(level, s)
+const COURSE_EQUIPMENT: readonly Tool[] = ['coin', 'coin-switch', 'timer', 'stopwatch', 'fast-stopwatch', 'time-bonus', 'time-penalty']
 
 export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onFileChange }: {
   active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
@@ -167,7 +178,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
   const { level, busy: preparingRopes } = useRopePreview(preview ?? history.present, preview !== null)
-  const previewRun = useMemo(() => isPuzzleLevel(level) ? createPreviewRun(level) : null, [level])
+  // Facility areas name each door's destination by its level's name.
+  const levelNames = useMemo(() => new Map(levels.files.map(file => [file.level.id, file.level.name])), [levels.files])
+  const previewRun = useMemo(() => {
+    const run = isRunLevel(level) ? createPreviewRun(level) : null
+    // Placards show where each door leads, as they do in the facility.
+    if (run?.hub && isHubLevel(level)) run.hub.placards = new Map([
+      ...level.courseDoors.map((door): [string, string[]] => [door.id, [door.course ? (levelNames.get(door.course) ?? door.course).toUpperCase() : 'NO LEVEL']]),
+      ...level.bulkheads.map((door): [string, string[]] => [door.id, [door.to ? (levelNames.get(door.to) ?? door.to).toUpperCase() : 'NOWHERE']])])
+    return run
+  }, [level, levelNames])
   const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level, true), [level, previewRun])
   const previewTime = useRef(0)
   useEffect(() => { previewTime.current = 0 }, [previewRun])
@@ -254,7 +274,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const resizeHandleAt = (p: Point) => resizeHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
   const hoverHandle = pointer && resizeHandleAt(pointer)
   const resizeCorner = drag?.mode === 'resize' ? drag.corner : hoverHandle?.corner
-  const resizeCursor = resizeCorner === 'top' || resizeCorner === 'bottom' ? 'ns-resize' : resizeCorner === 'left' || resizeCorner === 'right' ? 'ew-resize' : resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
+  // A tied rope's handles move its anchors rather than resizing anything.
+  const resizeCursor = selection?.kind === 'rope' && level.climbables.ropes[selection.index]?.end ? 'move' : resizeCorner === 'top' || resizeCorner === 'bottom' ? 'ns-resize' : resizeCorner === 'left' || resizeCorner === 'right' ? 'ew-resize' : resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
   const problems = useMemo(() => levelProblems(level), [level]), problem = problems[0]
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
   const prop = selection?.kind === 'prop' ? level.props?.[selection.index] : null
@@ -294,6 +315,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const aimHandles = useMemo(() => light ? lightHandles(light, view.zoom) : [], [light, view.zoom])
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
+  const hubDoor = selection ? hubDoorAt(level, selection) : undefined
+  const wallDoor = selection?.kind === 'wall-door' ? level.wallDoors?.[selection.index] : null
+  // A level door may lead to any course or playground; a bulkhead to any other facility area.
+  const doorDestination = hubDoor ? 'course' in hubDoor ? hubDoor.course : hubDoor.to : ''
+  const destinationOptions = !hubDoor ? [] : 'course' in hubDoor
+    ? [{ value: '', label: 'Choose a level' }, ...levels.files.filter(file => !isHubLevel(file.level) && file.level.id !== level.id).map(file => ({ value: file.level.id, label: file.level.name }))]
+    : [{ value: '', label: 'Choose a facility area' }, ...levels.files.filter(file => isHubLevel(file.level) && file.level.id !== level.id).map(file => ({ value: file.level.id, label: file.level.name }))]
+  if (hubDoor && !destinationOptions.some(option => option.value === doorDestination)) destinationOptions.push({ value: doorDestination, label: `${doorDestination} (not found)` })
   const quantize = useCallback((v: number, grid: number) => snap ? Math.round(v / grid) * grid : Math.round(v), [snap])
   const quantizeY = useCallback((y: number, grid: number) => roomHeight - quantize(roomHeight - y, grid), [roomHeight, quantize])
   const hoveredNode = useMemo(() => tool === 'node' && pointer && !drag ? shapeVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom, selection) : null,
@@ -852,7 +881,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         const robot = d.base.robots![d.selection.index]
         next = setShovebotLimit(d.base, d.selection.index, d.side, qx(robot[d.side] + dx))
       }
-      if (d.mode === 'resize') {
+      const tiedRope = d.mode === 'resize' && d.selection.kind === 'rope' ? d.base.climbables.ropes[d.selection.index] : undefined
+      if (tiedRope?.end) {
+        // Each handle moves its own anchor; the other stays put.
+        const which = d.corner === 'top' ? 'start' : 'end', anchor = which === 'start' ? tiedRope : tiedRope.end
+        next = moveRopeAnchor(d.base, d.selection.index, which, qx(anchor.x + dx), qy(anchor.y + dy), snap && !event.altKey ? 16 : 0)
+      } else if (d.mode === 'resize') {
         const text = d.selection.kind === 'text' ? d.base.texts![d.selection.index] : null
         const start = text ? wallTextLocalPoint(text, d.start.x, d.start.y) : d.start
         const end = text ? wallTextLocalPoint(text, p.x, p.y) : p
@@ -1082,8 +1116,11 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       <div className="builder-control-group" role="group" aria-label="Canvas view"><label className="builder-inline-check" title="Show daylight or night lighting in this view. This does not change the saved level."><input type="checkbox" checked={lightingPreview} onChange={e => setLightingPreview(e.target.checked)} />Lighting</label><button title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</button><button title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
     </div>
     <aside className="builder-tools" aria-label="Building tools">
-        {['Terrain', 'Scenery', 'Movement', 'Objects', 'Gadgets', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
-          const items = TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level)))
+        {['Facility', 'Terrain', 'Scenery', 'Movement', 'Objects', 'Gadgets', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
+          // Facility areas get their doors; timing equipment and checkpoints belong elsewhere.
+          const hub = isHubLevel(level)
+          const items = TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isRunLevel(level))
+            && (item.group !== 'Facility' || hub) && (!hub || !COURSE_EQUIPMENT.includes(item.id)))
           return items.length ? <div className="builder-tool-group" key={group}><h2>{group}</h2>
             <div className="builder-tool-grid">{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div>
           </div> : null
@@ -1127,7 +1164,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <h3 className="builder-object-heading">{selectionLabel(selection, level)}</h3>
         <label>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemDefinition(level, selection)?.name ?? ''}
           placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
-        {Boolean(editingWall || trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject) && <BuilderInspectorSection title="Behavior">
+        {Boolean(editingWall || trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject || hubDoor) && <BuilderInspectorSection title="Behavior">
+          {hubDoor && <BuilderSelect label="Leads to" accessibleLabel={selection.kind === 'bulkhead' ? 'Bulkhead destination' : 'Level door destination'}
+            title={selection.kind === 'bulkhead' ? 'The part of the facility this bulkhead opens onto' : 'The level this door opens onto'}
+            value={doorDestination} options={destinationOptions} onChange={value => commit(setHubDoorDestination(history.present, selection, value))} />}
           {editingWall && <>
             <BuilderSelect label="Region lighting" value={editingWall.lighting ?? 'night'} options={[{ value: 'day', label: 'Day' }, { value: 'night', label: 'Night' }]}
               onChange={lighting => { const next = copyLevel(history.present); next.environment!.walls[selection.index].lighting = lighting as 'day' | 'night'; commit(next) }} />
@@ -1239,7 +1279,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
               onChange={value => commit(setObjectSwitchLogic(history.present, selection, value === 'and' ? 'and' : value === 'xor' ? 'xor' : 'or'))} />
             <div className="builder-action-row"><label><input type="checkbox" checked={objectSwitchReversed} onChange={e => commit(setObjectSwitchReversed(history.present, selection, e.target.checked))} />Reversed</label>
-            {!logicRelay && <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>}
+            {!logicRelay && selection.kind !== 'rope' && <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>}
             </div>
             <p className="builder-hint">{objectSwitchReversed ? 'Off' : 'On'} when {objectSwitchLogic === 'and' ? 'every connected switch is active'
               : objectSwitchLogic === 'xor' ? 'exactly one connected switch is active' : 'any connected switch is active'}. {objectSwitchReversed ? 'On' : 'Off'} otherwise.</p>
@@ -1285,8 +1325,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <BuilderInspectorSection title="Transform">
           <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
             {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
-              || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['back-wall', 'platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field'].includes(selection.kind)
-              || axis === 'h' && (verticalCoinSwitch || ['back-wall', 'platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field'].includes(selection.kind))).map(axis => {
+              || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['back-wall', 'platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind)
+              || axis === 'h' && (verticalCoinSwitch || ['back-wall', 'platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind))).map(axis => {
               const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
               const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
                 : ({ x: light || wallLight || logicRelay || floatSwitch ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay || floatSwitch ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
@@ -1312,10 +1352,25 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             if (m.flipX) delete m.flipX; else m.flipX = true
             commit(next)
           }}>Flip horizontally</button>}
-          {selection.kind === 'rope' && <div className="builder-anchor"><span>{level.climbables.ropes[selection.index].anchor ? `Anchored to ${selectionLabel({ kind: 'platform', index: level.climbables.ropes[selection.index].anchor!.platform }, level)}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach the rope anchor to nearby terrain, or detach it" onClick={() => {
-            const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
-            if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
-          }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
+          {selection.kind === 'rope' && (['start', 'end'] as const).filter(which => which === 'start' || level.climbables.ropes[selection.index].end).map(which => {
+            // A tied rope numbers its anchors; a hanging rope has just the one.
+            const rope = level.climbables.ropes[selection.index], point = which === 'end' ? rope.end! : rope
+            const name = rope.end ? which === 'start' ? 'anchor 1' : 'anchor 2' : 'anchor'
+            const host = point.anchor && selectionLabel({ kind: 'platform', index: point.anchor.platform }, level)
+            return <div className="builder-anchor" key={which}><span>{rope.end ? `${name === 'anchor 1' ? 'Anchor 1' : 'Anchor 2'}: ${host ?? 'free'}` : host ? `Anchored to ${host}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach this anchor to nearby terrain, or detach it" onClick={() => {
+              const next = copyLevel(history.present), r = next.climbables.ropes[selection.index], target = which === 'end' ? r.end! : r
+              if (target.anchor) { delete target.anchor; commit(next) } else commit(anchorRope(next, selection.index, 40, which))
+            }}>{point.anchor ? `Detach ${name}` : `Attach ${name} to nearby terrain`}</button></div>
+          })}
+          {selection.kind === 'rope' && <button className="builder-property-action" title={level.climbables.ropes[selection.index].end ? 'Free the second anchor so the rope hangs from the first' : 'Tie the free end where it rests'}
+            onClick={() => commit(setRopeTied(history.present, selection.index, !level.climbables.ropes[selection.index].end))}>{level.climbables.ropes[selection.index].end ? 'Untie anchor 2' : 'Tie the free end'}</button>}
+          {selection.kind === 'rope' && level.climbables.ropes[selection.index].end && <>
+            <BuilderSelect label="Release" accessibleLabel="Rope release" title="Let switches drop one anchor for the rest of the run"
+              value={level.climbables.ropes[selection.index].release?.anchor ?? 'none'}
+              options={[{ value: 'none', label: 'Always tied' }, { value: 'start', label: 'Switches release anchor 1' }, { value: 'end', label: 'Switches release anchor 2' }]}
+              onChange={value => commit(setRopeRelease(history.present, selection.index, value === 'start' || value === 'end' ? value : null))} />
+            {level.climbables.ropes[selection.index].release && <p className="builder-hint">When its switch rule turns on, the anchor lets go and stays released until restart. The rope then hangs from the other anchor.</p>}
+          </>}
           {canPlaceOnSurface(selection, level) && <div className="builder-surface-placement">
             <button disabled={!support || Math.abs(support.delta) < .1} title={facingPlate?.ceiling ? 'Place on the next ceiling surface · End' : 'Place on the next surface below · End'} onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">{facingPlate?.ceiling ? '↑' : '↓'}</span></button>
             <span className={support && Math.abs(support.delta) < .1 ? 'is-supported' : ''}>{support ? Math.abs(support.delta) < .1 ? 'On surface'
@@ -1345,7 +1400,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               }} />
           </>}
         </BuilderInspectorSection>
-        {Boolean(editingWall || chosen || light || wallText) && <BuilderInspectorSection title="Appearance">
+        {Boolean(editingWall || chosen || light || wallText || wallDoor) && <BuilderInspectorSection title="Appearance">
+          {wallDoor && <>
+            <div className="builder-dimensions">
+              <BuilderSelect label="Condition" accessibleLabel="Blocked door condition" value={wallDoor.condition} options={WALL_DOOR_CONDITIONS.map(value => ({ value, label: WALL_DOOR_LABELS[value] }))}
+                onChange={value => commit(setWallDoor(history.present, selection.index, { condition: value as WallDoorCondition }))} />
+              <BuilderSelect label="Frame" accessibleLabel="Blocked door frame" value={wallDoor.frame ?? 'door'} options={[{ value: 'door', label: 'Door' }, { value: 'bulkhead', label: 'Bulkhead' }]}
+                onChange={value => commit(setWallDoor(history.present, selection.index, { frame: value === 'bulkhead' ? 'bulkhead' : undefined }))} />
+            </div>
+            <button className="builder-property-action" aria-pressed={!!wallDoor.flipX} onClick={() => commit(setWallDoor(history.present, selection.index, { flipX: !wallDoor.flipX }))}>Flip horizontally</button>
+            <p className="builder-hint">Wall art only: it never opens and has no collision.</p>
+          </>}
           {editingWall && <>
             <p className="builder-hint">Back wall layer {selection.index + 1} of {level.environment!.walls.length}. Later layers take precedence.</p>
             <div className="builder-action-row">{[false, true].map(front => <button key={String(front)} disabled={selection.index === (front ? level.environment!.walls.length - 1 : 0)}
@@ -1405,7 +1470,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <button disabled={!customTerminal} onClick={() => { commit(setWallTerminal(history.present, selection, null)); setTerminalFocus(null) }}>Reset terminal position</button>
           </fieldset>}
         </BuilderInspectorSection>}
-        {Boolean(floatSwitch || prop || chosen && selectedNode !== null || forceField || gravityPlate || wallText?.style === 'terminal' || wallText?.style === 'lab-stamp' || trigger || selectedSource || terminalPosition || robot?.kind === 'repulsor' || logicRelay) && <BuilderInspectorSection title="Object help" open={false}>
+        {Boolean(floatSwitch || prop || chosen && selectedNode !== null || forceField || gravityPlate || wallText?.style === 'terminal' || wallText?.style === 'lab-stamp' || trigger || selectedSource || terminalPosition || robot?.kind === 'repulsor' || logicRelay || hubDoor || selection.kind === 'evaluation-board') && <BuilderInspectorSection title="Object help" open={false}>
+          {selection.kind === 'course-door' && <p className="builder-hint">Needs a flat sill and a clear 40 × 80 doorway. In the facility it opens with its wing, once the door before it is passed. Up in the open doorway enters; finishing the level returns the robot here.</p>}
+          {selection.kind === 'bulkhead' && <p className="builder-hint">Needs a flat sill and a clear 40 × 80 doorway. Up in the open doorway leads through. The robot steps out of the bulkhead on the far side that leads back here, so give each connected place a matching bulkhead.</p>}
+          {selection.kind === 'evaluation-board' && <p className="builder-hint">Shows the evaluation's total, then each wing's passes or SEALED. The text is filled in during play.</p>}
           {floatSwitch && <>
             <p className="builder-hint">Water and gravity lifts raise the ball. Gravity and physical loads lower it. The switch changes near the arm's horizontal position.</p>
           </>}
@@ -1463,6 +1531,11 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value, levels.entries.map(file => file.fileName))); commit({ ...history.present, name: e.target.value }) }} /></label>
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
         <p className="builder-save-location">Built-in levels · Saved in this checkout</p>
+        <BuilderSelect label="Type" accessibleLabel="Level type" title="A course ends at its exit. A facility area has no exit or clock: the robot leaves through its level doors and bulkheads."
+          value={isHubLevel(level) ? 'hub' : isPuzzleLevel(level) ? 'course' : 'playground'}
+          options={[{ value: 'course', label: 'Course · reach the exit' }, { value: 'hub', label: 'Facility area · doors and bulkheads' }, ...(isRunLevel(level) ? [] : [{ value: 'playground', label: 'Movement playground' }])]}
+          onChange={value => { if (value === 'playground') return; chooseSelection(null); commit(setLevelType(history.present, value === 'hub' ? 'hub' : 'course')) }} />
+        {isHubLevel(level) && <p className="builder-hint">Part of the facility, untimed and with no exit. The robot leaves through level doors and bulkheads: Up in an open doorway. Coins, clocks and time pickups stay in courses.</p>}
         <BuilderInspectorSection title="World">
           <EnvironmentFields level={level} onChange={commit} selectedWall={selection?.kind === 'back-wall' ? selection.index : null} onSelectWall={editBackWall}
             onCreateWall={() => { chooseSelection(null); setTool('back-wall'); canvasRef.current?.focus() }} />
@@ -1481,7 +1554,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         {isPuzzleLevel(level) && <BuilderInspectorSection title="Timing">
           {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }, { value: 'walk-off', label: 'Run off right edge (untimed)' }, { value: 'bus', label: 'Bus stop (untimed)' }]}
             onChange={kind => commit(setFinish(history.present, kind as 'doorway' | 'overlook' | 'walk-off' | 'bus'))} />}
-          {level.goal.kind === 'bus' && <p className="builder-hint">Place the bus on flat ground. Walk into the open doorway on its left side to board and finish. The bus then drives away in the same view.</p>}
+          {level.goal.kind === 'bus' && <p className="builder-hint">Place the bus on flat ground. Press Up in the open doorway on its left side to board and finish. The bus then drives away in the same view.</p>}
           {level.goal.kind === 'walk-off' && <p className="builder-hint">Continue flat ground to the right edge. Running or jumping completely off that edge finishes the level. The guide is visible only in the studio.</p>}
           {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
             const next = e.target.checked ? copyLevel(history.present) : setFinish(history.present, 'doorway')

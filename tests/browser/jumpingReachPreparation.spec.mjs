@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 for (const direction of [-1, 1]) for (const pace of ['walk', 'run', 'crouch']) test(`a keyboard ${pace} gathers the hands before pushing (${direction})`, async ({ page }, info) => {
@@ -9,10 +9,7 @@ for (const direction of [-1, 1]) for (const pace of ['walk', 'run', 'crouch']) t
     props: [{ kind: 'box', x: 540, y: 920, size: 80 }] }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-10-14T12:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-10-14T13:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-10-14T13:00:00Z') })
   await finishJumpingEntrance(page); await page.clock.runFor(64)
   const key = direction === 1 ? 'd' : 'a', stages = []
   if (pace === 'walk') await page.keyboard.down('Shift')

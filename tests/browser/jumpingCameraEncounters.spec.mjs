@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { reachReverseRopeCeiling, reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
@@ -9,13 +9,14 @@ import { proneDropLevel } from '../helpers/jumpingProneScenarios.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 
 const sizes = [{ width: 852, height: 393 }, { width: 1280, height: 800 }]
-const builtIn = file => JSON.parse(readFileSync(new URL(`../../public/levels/jumping/${file}`, import.meta.url)))
+// The retired First Gap and A Little Swing tutorials stay as fixtures.
+const fixture = file => JSON.parse(readFileSync(new URL(`../fixtures/jumping/${file}`, import.meta.url)))
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 
 function encounter(kind, night) {
   let level
-  if (kind === 'ladder') level = builtIn('00.json')
-  else if (kind === 'rope') level = builtIn('02.json')
+  if (kind === 'ladder') level = fixture('first-gap-ladder.json')
+  else if (kind === 'rope') level = fixture('little-swing-rope.json')
   else if (kind === 'water') level = waterBindingLevel('bank')
   else if (kind === 'gravity') level = reverseRopeWorkshop()
   else if (kind === 'gate') {
@@ -51,10 +52,7 @@ async function open(page, level, size) {
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
   await page.evaluate(() => { window.cameraEncounterFrames = [window.cameraEncounterFrames.at(-1)] })

@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "id": "facility-movement",
+  "name": "Boot Camp",
+  "width": 2500,
+  "height": 720,
+  "platforms": [],
+  "entrance": {
+    "name": "Movement entrance",
+    "x": 200,
+    "y": 720
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "name": "Hop Skip Jump I",
+      "id": "door-hop-skip-jump-i",
+      "x": 1780,
+      "y": 720,
+      "course": "ff487efc-cbdb-42f0-85c0-8df2b69532b4"
+    },
+    {
+      "name": "A Bigger Swing",
+      "id": "door-a-bigger-swing",
+      "x": 1270,
+      "y": 720,
+      "course": "d810f5f5-1a01-431f-804b-575b1b731a3d"
+    },
+    {
+      "name": "Leaps and Bounds II",
+      "id": "door-leaps-and-bounds-ii",
+      "x": 1490,
+      "y": 720,
+      "course": "e784fe84-2ab2-427c-b5a2-1d1fec663e5c"
+    },
+    {
+      "name": "Hop Skip Jump II",
+      "id": "door-hop-skip-jump-ii",
+      "x": 2065,
+      "y": 720,
+      "course": "d5e4ea37-a26f-46b9-8c84-d2b36840368b"
+    },
+    {
+      "id": "130d698f-9e45-4774-9b0f-0c9a170633d4",
+      "x": 495,
+      "y": 720,
+      "course": "06b6058e-4448-4c6a-81a2-e936a70fda0a"
+    },
+    {
+      "id": "dd72b75d-be0c-4b5d-b2d1-8025e39c8f97",
+      "x": 760,
+      "y": 720,
+      "course": "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878"
+    },
+    {
+      "id": "4edfaa9e-9e83-451d-b77a-fa37b05d66d7",
+      "x": 1015,
+      "y": 720,
+      "course": "70595ea8-5dec-420a-83bf-cdf1065aab1f"
+    }
+  ],
+  "bulkheads": [
+    {
+      "name": "Concourse bulkhead",
+      "id": "movement-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "facility-concourse"
+    }
+  ],
+  "evaluationBoards": [],
+  "texts": []
+}

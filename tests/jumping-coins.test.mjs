@@ -90,7 +90,7 @@ test('coins remain collectible after lighting the goal but stop collecting on ex
   assert.equal(run.goalLit, true); assert.equal(run.coinsCollected, 1)
   run.pickups.push({ definition: coin(level.goal.x), collectedAge: null }); step(run)
   assert.equal(run.coinsCollected, 2)
-  step(run, 120); const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2; step(run)
+  step(run, 120); const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2; step(run, 1, { ...NEUTRAL_INPUT, climb: true })
   assert.ok(run.exit)
   run.pickups.push({ definition: coin(run.player.x), collectedAge: null }); step(run, 240)
   assert.equal(run.coinsCollected, 2); assert.equal(run.pickups.at(-1).collectedAge, null)

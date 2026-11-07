@@ -107,7 +107,8 @@ test('Rbot traverses a ball beside the Aloft box instead of remaining wedged bet
   bot.actor = createRepulsorActor(1200, 3200); bot.x = 1200; bot.y = 3200; bot.facing = 1
   run.player = createPlayer({ x: 1850, y: 3300 })
   let longestGrip = 0, gripFrames = 0
-  for (let frame = 0; frame < 600 && bot.x < 1400; frame++) {
+  // Arms-only rope climbing keeps a steady hand-over-hand rhythm, slower than the former climb; allow for it.
+  for (let frame = 0; frame < 900 && bot.x < 1400; frame++) {
     tick(run); gripFrames = bot.actor.hang || bot.actor.mantle ? gripFrames + 1 : 0
     longestGrip = Math.max(longestGrip, gripFrames)
   }
@@ -173,7 +174,9 @@ test('Aloft resumes the ascent after hostile shovebot charges interrupt its rout
   tick(run); assert.ok(botLastSighting(bot))
   run.player = createPlayer({ x: 700, y: 1975 })
   let landed = false, usedRope = false
-  for (let frame = 0; frame < 5400 && !landed; frame++) {
+  // The hunter can need several attempts at the swinging ropes; each climb now takes the steadier
+  // arms-only rhythm, so the whole pursuit runs longer than it once did.
+  for (let frame = 0; frame < 12000 && !landed; frame++) {
     tick(run); usedRope ||= bot.actor.climbing?.kind === 'rope'
     landed = bot.actor.grounded && bot.y === 1975
   }

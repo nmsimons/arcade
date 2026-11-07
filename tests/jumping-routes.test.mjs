@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { jumpingRoute, levelPath, playtestPath, JUMPING_MENU, JUMPING_BUILDER, JUMPING_PLAYTEST } from '../src/games/jumping/routes.ts'
+import { jumpingRoute, levelPath, playtestPath, JUMPING_FACILITY, JUMPING_LIBRARY, JUMPING_MENU, JUMPING_BUILDER, JUMPING_PLAYTEST } from '../src/games/jumping/routes.ts'
 
 test('level links preserve filenames with spaces, Unicode, percent, query and hash characters', () => {
   for (const source of ['built-in']) for (const edit of [true, false]) {
@@ -10,12 +10,20 @@ test('level links preserve filenames with spaces, Unicode, percent, query and ha
   }
 })
 
-test('menu, draft builder and session playtest have distinct routes', () => {
+test('the facility, the level library, draft builder and session playtest have distinct routes', () => {
+  // L.A.B. opens the facility; the level grid is a development library.
   assert.equal(JUMPING_MENU, '/lab')
+  assert.deepEqual(jumpingRoute(JUMPING_MENU + '/'), { screen: 'facility' })
+  assert.equal(JUMPING_LIBRARY, '/lab/library')
+  assert.deepEqual(jumpingRoute(JUMPING_LIBRARY + '/'), { screen: 'menu' })
   assert.equal(JUMPING_BUILDER, '/lab/builder')
-  assert.deepEqual(jumpingRoute(JUMPING_MENU + '/'), { screen: 'menu' })
   assert.deepEqual(jumpingRoute(JUMPING_BUILDER), { screen: 'builder' })
   assert.deepEqual(jumpingRoute(JUMPING_PLAYTEST), { screen: 'playtest' })
+  // The facility's former development link still opens it.
+  assert.equal(JUMPING_FACILITY, '/lab/facility')
+  assert.deepEqual(jumpingRoute(JUMPING_FACILITY + '/'), { screen: 'facility' })
+  assert.deepEqual(jumpingRoute(JUMPING_FACILITY + '/wing'), { screen: 'missing' })
+  assert.deepEqual(jumpingRoute(JUMPING_LIBRARY + '/extra'), { screen: 'missing' })
 })
 
 test('LAB file links use /lab and reject unrelated or retired route prefixes', () => {

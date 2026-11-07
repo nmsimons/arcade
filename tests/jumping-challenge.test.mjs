@@ -227,7 +227,8 @@ test('grades use each level’s thresholds and an F run can still reach the exit
   const run = createRun(FIRST_LEVEL); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.goal); advance(run, 1)
   assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.grade, null)
   const door = goalDoor(run.level.goal); Object.assign(run.player, { x: door.x + door.w / 2 })
-  advance(run, 180)
+  advance(run, 30); assert.equal(run.exit, null, 'standing in the doorway does not enter it')
+  advance(run, 180, { climb: true })
   assert.equal(run.finished, true); assert.equal(run.grade, 'F'); assert.equal(formatTime(100.019), '1:40.01')
 })
 test('personal bests are isolated by level and survive slower runs and corrupt storage', () => {
@@ -254,7 +255,7 @@ for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} switche
   Object.assign(p, { x: 800 + direction * 44, y: 920, grounded: true, vy: 0, anim: { ...p.anim, footwork: null } })
   advance(run, 1); assert.equal(run.goalLit, false, 'standing at the pole is not plate contact')
   Object.assign(p, { x: door.x + door.w / 2, anim: { ...p.anim, footwork: null } })
-  advance(run, 120); assert.equal(run.exit, null, 'the closed hidden door is inactive')
+  advance(run, 120, { climb: true }); assert.equal(run.exit, null, 'the closed hidden door is inactive')
   Object.assign(p, { x: 520, anim: { ...p.anim, footwork: null } })
   advance(run, 20); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
   const time = run.elapsed
@@ -263,7 +264,7 @@ for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} switche
   Object.assign(p, { x: door.x + door.w / 2, y: 800, vy: 0, grounded: false, anim: { ...p.anim, footwork: null } })
   advance(run, 1); assert.equal(run.exit, null, 'airborne passage does not enter the doorway')
   Object.assign(p, { x: 800, y: 920, vx: 0, vy: 0, grounded: true, anim: { ...p.anim, footwork: null } })
-  for (let i = 0; i < 120 && !run.exit; i++) advance(run, 1, { move: direction })
+  for (let i = 0; i < 120 && !run.exit; i++) advance(run, 1, { move: direction, climb: true })
   assert.ok(run.exit); assert.equal(run.finished, false)
   const captured = run.exit.fromX, finishTime = run.elapsed
   assert.ok(finishTime > time + 5); assert.equal(run.grade, gradeFor(finishTime, level))

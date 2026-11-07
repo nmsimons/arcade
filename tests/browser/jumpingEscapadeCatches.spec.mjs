@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { escapadeTowerCatches, escapadeTowerFixture, escapadeTowerLevel } from '../helpers/jumpingEscapadeScenarios.mjs'
 
 for (const config of escapadeTowerCatches) {
@@ -12,11 +12,7 @@ for (const config of escapadeTowerCatches) {
     await page.setViewportSize({ width: 852, height: 480 })
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await page.clock.install({ time: new Date('2026-10-13T12:00:00Z') })
-    await page.goto('/lab?motionDebug=1&renderControl=1')
-    const play = page.getByRole('button', { name: 'Play Escapade', exact: true })
-    await expect(play).toBeEnabled()
-    await page.clock.pauseAt(new Date('2026-10-13T13:00:00Z'))
-    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
+    await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-10-13T13:00:00Z') }); await finishJumpingEntrance(page); await page.clock.runFor(64)
     const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
     const away = config.away > 0 ? 'd' : 'a', toward = config.away > 0 ? 'a' : 'd'
     await page.keyboard.down('Shift'); await page.keyboard.down(away)

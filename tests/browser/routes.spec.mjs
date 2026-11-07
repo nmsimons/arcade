@@ -1,16 +1,19 @@
 import { test, expect } from './helpers/test.mjs'
 
-const games=[['hard-vacuum','Hard Vacuum'],['bumper-ball','BUMPER BALL'],['no-exit','No Exit'],['final-approach','Final Approach'],['urban-fire','Urban Fire'],['sling-load','Sling Load'],['hello-world',null],['lab','L.A.B. Experiments']]
+const games=[['hard-vacuum','Hard Vacuum'],['bumper-ball','BUMPER BALL'],['no-exit','No Exit'],['final-approach','Final Approach'],['urban-fire','Urban Fire'],['sling-load','Sling Load'],['hello-world',null],['lab','Orientation']]
 for(const [path,title]of games) test(`${path}: direct route, rendering and exit`,async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message))
   for(const prefix of path==='lab'?['']:['', '/games']) {
     await page.goto(`${prefix}/${path}`)
     await expect(page).toHaveURL(new RegExp(`/${path}$`))
+    // A fresh save wakes in the facility's first place.
     if(title)await expect(page.getByRole(path==='lab'?'img':'heading',{name:title,exact:true})).toBeVisible()
     else await expect(page.getByRole('button',{name:'Back',exact:true})).toBeVisible()
     await expect(page.locator('canvas:not([aria-hidden="true"])')).toBeVisible()
     await page.evaluate(()=>new Promise(requestAnimationFrame))
     await page.keyboard.press('Escape')
+    // In the facility, Escape pauses; its pause screen leads back to the arcade.
+    if(path==='lab')await page.getByRole('dialog',{name:'Game paused',exact:true}).getByRole('button',{name:'Back to arcade',exact:true}).click()
     await expect(page.getByRole('heading',{name:'Dream Large Arcade'})).toBeVisible()
     await expect(page.getByRole('button',{name:'Hard Vacuum',exact:true})).toBeFocused()
   }
@@ -21,11 +24,20 @@ test('LAB opens at /lab from the selector and retired URLs return to the arcade'
   await page.goto('/')
   await page.getByRole('button',{name:'L.A.B. Experiments',exact:true}).click()
   await expect(page).toHaveURL(/\/lab$/)
-  await expect(page.getByRole('img',{name:'L.A.B. Experiments',exact:true})).toBeVisible()
+  await expect(page.getByRole('img',{name:'Orientation',exact:true})).toBeVisible()
   for(const path of ['/untitled-jumping-game','/untitled-jumping-game/builder','/games/untitled-jumping-game','/games/lab']) {
     await page.goto(path)
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByRole('heading',{name:'Dream Large Arcade',exact:true})).toBeVisible()
+  }
+})
+
+test('the facility is the game: its former link and the development-only library return to /lab',async({page})=>{
+  for(const path of ['/lab/facility','/lab/library']) {
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/lab$/)
+    await expect(page.getByRole('img',{name:'Orientation',exact:true})).toBeVisible()
+    await expect(page.locator('.jumping-level-card')).toHaveCount(0)
   }
 })
 

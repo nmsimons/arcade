@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "id": "facility-construction",
+  "name": "Construction wing",
+  "width": 3200,
+  "height": 720,
+  "platforms": [],
+  "entrance": {
+    "name": "Construction entrance",
+    "x": 200,
+    "y": 720
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "name": "Spire I",
+      "id": "door-spire-i",
+      "x": 800,
+      "y": 720,
+      "course": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c"
+    },
+    {
+      "name": "Scaffold I",
+      "id": "door-scaffold-i",
+      "x": 1150,
+      "y": 720,
+      "course": "5b6e15bf-38a0-4baf-951a-204c2abc7e21"
+    },
+    {
+      "name": "Spire II",
+      "id": "door-spire-ii",
+      "x": 1500,
+      "y": 720,
+      "course": "11234f12-817c-4966-a141-54e70573fae0"
+    },
+    {
+      "name": "Scaffold II",
+      "id": "door-scaffold-ii",
+      "x": 1850,
+      "y": 720,
+      "course": "16782da7-ca7e-40e6-a383-106746fd8df8"
+    },
+    {
+      "name": "Scaffold III",
+      "id": "door-scaffold-iii",
+      "x": 2200,
+      "y": 720,
+      "course": "ab711d55-3d87-4933-a858-12029b54589c"
+    },
+    {
+      "name": "Scaffold IV",
+      "id": "door-scaffold-iv",
+      "x": 2550,
+      "y": 720,
+      "course": "363a26b8-1f98-4c5f-8fd3-8451b8455501"
+    },
+    {
+      "name": "Scaffold V",
+      "id": "door-scaffold-v",
+      "x": 2900,
+      "y": 720,
+      "course": "d4b07ef9-80a6-46c1-917c-19ad1902dc69"
+    }
+  ],
+  "bulkheads": [
+    {
+      "name": "Concourse bulkhead",
+      "id": "construction-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "facility-concourse"
+    }
+  ],
+  "evaluationBoards": [],
+  "texts": []
+}

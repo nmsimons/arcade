@@ -505,9 +505,16 @@
           "input": {}
         },
         {
-          "frames": 192,
+          "frames": 88,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]
@@ -585,9 +592,16 @@
           "input": {}
         },
         {
-          "frames": 192,
+          "frames": 88,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]
@@ -712,9 +726,16 @@
           "input": {}
         },
         {
-          "frames": 192,
+          "frames": 88,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]
@@ -806,9 +827,16 @@
           "input": {}
         },
         {
-          "frames": 192,
+          "frames": 88,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]

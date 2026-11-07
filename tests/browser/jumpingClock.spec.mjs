@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { smallPropGap, observeGapHead } from './helpers/jumpingSqueeze.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 import { reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
@@ -16,11 +16,7 @@ async function clockContext(browser, info, level) {
 }
 
 async function start(page) {
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  const card = page.locator('.jumping-level-card[aria-pressed=true]')
-  await expect(card).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await card.click()
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') })
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
 }

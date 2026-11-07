@@ -1,17 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 const pool = JSON.parse(readFileSync(new URL('../fixtures/jumping/single-block-pool.json', import.meta.url), 'utf8'))
 
 test('a normal bank jump and dive reaches the floor hand first before standing', async ({ page }, info) => {
   await useLevelFixtures(page, [pool])
   await page.clock.install({ time: new Date('2026-10-10T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  const play = page.getByRole('button', { name: 'Play Single block pool', exact: true })
-  await expect(play).toBeEnabled()
-  await page.clock.pauseAt(new Date('2026-10-10T01:00:00Z'))
-  await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(128)
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-10-10T01:00:00Z') }); await finishJumpingEntrance(page); await page.clock.runFor(128)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(1000)
   await page.keyboard.down('ArrowDown'); await page.clock.runFor(64)

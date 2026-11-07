@@ -4,12 +4,13 @@ import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion, 
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallTexts } from './wallText.ts'
+import { drawHubDoors, hubDoorBounds } from './hub.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import type { BusEnding } from './busEnding.ts'
 import { drawBusGoal } from './busEndingRender.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, drawDoorChevrons, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import type { AndroidAppearance } from './androidArtwork.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { gradeClock } from './grading.ts'
@@ -198,32 +199,49 @@ export function drawWaterBackdrop(ctx: CanvasRenderingContext2D, run: Run, paint
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, surface, run.waterSpaces.get(plate), 'background')
 }
 
+/** The open doors Up would go through now: the lit exit or bus door, and a facility area's open doors. */
+export function doorChevrons(run: Run, editor = false) {
+  const walls: ReturnType<typeof goalDoor>[] = []
+  let bus: ReturnType<typeof goalDoor> | undefined
+  if (editor || !run.started || run.exit) return { walls, bus }
+  const goal = run.level.goal
+  if (goal && (!goal.kind || goal.kind === 'bus') && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS) {
+    if (goal.kind === 'bus') bus = goalDoor(goal); else walls.push(goalDoor(goal))
+  }
+  if (run.hub) for (const door of [...run.level.courseDoors ?? [], ...run.level.bulkheads ?? []]) if (run.hub.open.has(door.id)) walls.push(hubDoorBounds(door))
+  return { walls, bus }
+}
+
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
 export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: AndroidAppearance, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
-  const { level, player: p } = run
+  const { level, player: p } = run, goal = level.goal
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
     for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), editor, wallPaint)
     drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
-    wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
+    if (goal) wallPaint(ctx, 0, () => drawGoalDoor(ctx, goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     if (level.entrance.kind !== 'charging-bay' && (editor || !run.started && run.entrance)) wallPaint(ctx, 0, () =>
       drawDoorway(ctx, entranceDoor(level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))
     for (const robot of run.robots) drawRobotPortal(ctx, robot, editor, paint)
+    drawHubDoors(ctx, level, run.hub, editor, wallPaint)
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
     const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
     const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
     const clockStatus = clockFinished ? 'finished' : clockStopped ? 'pause' : clockFast ? 'fast' : undefined
-    const clock = gradeClock(level, run.elapsed, run.failed)
-    for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, level.timing === 'untimed' ? 0 : clock.remaining, clockStatus, paint,
-      level.timing === 'untimed' ? undefined : clock.grade)
+    const clock = level.timing === 'untimed' || !level.times ? undefined : gradeClock({ times: level.times }, run.elapsed, run.failed)
+    for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, clock?.remaining ?? 0, clockStatus, paint, clock?.grade)
     for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active, paint)
     // Collectibles receive the light field without casting shadows. Keep their
     // artwork and collection effects behind terrain and movable objects.
     paint(ctx, 0, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime, run.failed) })
   }
   if (layer === 'wall') return
+  // Open doors show their rising chevrons over the doorway, behind every actor.
+  // The readable exposure keeps it visible, faintly, in the dark.
+  const chevrons = doorChevrons(run, editor)
+  for (const door of chevrons.walls) paint(ctx, .65, () => drawDoorChevrons(ctx, door, run.activeTime), true, door)
   paint(ctx, 0, () => {
     if (terrainArtwork) terrainArtwork(ctx)
     else drawTerrain(ctx, run.terrain, level.platforms, level)
@@ -239,7 +257,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   })
   for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), paint)
   for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
-  if (level.goal.kind !== 'bus') drawGoal(ctx, level.goal, run.goalLit, paint)
+  if (goal && goal.kind !== 'bus') drawGoal(ctx, goal, run.goalLit, paint)
   for (const state of run.floatSwitches) drawFloatSwitchArm(ctx, state, paint)
   paint(ctx, 0, () => {
     if (editor) drawCheckpointMarkers(ctx, p, level)
@@ -265,7 +283,9 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
   if (!editor) drawGadgets(ctx, run, paint, playerExposure)
-  if (level.goal.kind === 'bus') drawGoal(ctx, level.goal, run.goalLit, paint, run.busDeparture, run.exit?.elapsed ?? 0)
+  if (goal?.kind === 'bus') drawGoal(ctx, goal, run.goalLit, paint, run.busDeparture, run.exit?.elapsed ?? 0)
+  // The bus's boarding door is part of the bus, so its chevrons go over the bus.
+  if (chevrons.bus) paint(ctx, .65, () => drawDoorChevrons(ctx, chevrons.bus!, run.activeTime), true, chevrons.bus)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)

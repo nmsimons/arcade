@@ -13,7 +13,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'steps-narrow': 'M2 21v-4h4v-4h4V9h4V5h4V1h4v8h-4v4h-4v4h-4v4Z',
   'steps-wide': 'M1 17v-2h4v-2h4v-2h4V9h4V7h6v2h-4v2h-4v2h-4v2H7v2Z',
   platform: 'M3 10h18v5H3zM6 18h12', pillar: 'M7 3h10v18H7zM7 9h10M7 15h10', pit: 'M2 7h6v13h8V7h6M10 20h4', ramp: 'M3 19 21 5v14Z',
-  rough: 'M2 19V15l4-4 3 2 5-8 3 5 5 4v5Z', rope: 'M15 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM12 8v2c-6 4 6 7 0 11', ladder: 'M7 3v18M17 3v18M7 6h10M7 10h10M7 14h10M7 18h10',
+  rough: 'M2 19V15l4-4 3 2 5-8 3 5 5 4v5Z', rope: 'M15 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM12 8v2c-6 4 6 7 0 11', 'tied-rope': 'M5 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM19 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM5 8c1 10 13 10 14 0', ladder: 'M7 3v18M17 3v18M7 6h10M7 10h10M7 14h10M7 18h10',
   entrance: 'M6 21V3h12v18M3 21h18', goal: 'M13 21V5h8v16M4 21V10M4 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7Z', checkpoint: 'm12 3 8 9-8 9-8-9Z',
   box: 'M4 4h16v16H4zM7 9h10M7 15h10', ball: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM18 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z',
   'branded-box': 'M4 4h16v16H4zM7 7h10M7 17h10M8 10v4h3M13 14l2-4 2 4M14 12h2',
@@ -37,6 +37,10 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'logic-relay': 'M6 4h12v16H6zM2 8h4M2 16h4M18 12h4M9 8l6 4-6 4',
   coin: 'M17 12a6 9 0 1 1-12 0 6 9 0 1 1 12 0ZM11 3h3a6 9 0 0 1 0 18h-3',
   'coin-switch': 'M2 6h20v12H2zM5 10v4M8 10v4M13 9l-2 6M16 10v4M19 10v4',
+  'course-door': 'M4 21V5h9v16M2 21h13M16 6h6v5h-6M10 13h1',
+  bulkhead: 'M3 21V6h18v15M1 21h22M3 3h18v3H3zM7 3l3 3M13 3l3 3M8 21V10h8v11',
+  'evaluation-board': 'M2 4h20v14H2zM5 8h8M5 11h12M5 14h10M12 18v3M8 21h8',
+  'wall-door': 'M5 21V3h14v18M2 21h20M5 9l14 4M5 15l14-3',
 }
 export function BuilderIcon({ kind }: { kind: Tool | TerrainTransform }) {
   const color = kind === 'time-penalty' || kind === 'fast-stopwatch' ? TIME_PENALTY_COLOR : 'currentColor'

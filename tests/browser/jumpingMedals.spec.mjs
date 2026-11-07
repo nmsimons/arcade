@@ -1,5 +1,5 @@
 import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
-import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 
@@ -10,12 +10,8 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   // Run the full prop reaction and doorway entry with software-rendered frames.
   test.setTimeout(60000)
   await page.clock.install({ time: new Date('2026-10-05T12:00:00Z') })
-  await page.goto('/lab?renderControl=1')
-  const play = page.getByRole('button', { name: 'Play Level Five', exact: true })
-  await expect(play).toBeEnabled()
-  // Pause on the menu so loading speed cannot advance the ball before the replay.
-  await page.clock.pauseAt(new Date('2026-10-05T13:00:00Z'))
-  await play.click()
+  // Pause before the course starts so loading speed cannot advance the ball before the replay.
+  await openLevelLink(page, { file: '05.json', query: '?renderControl=1', pauseAt: new Date('2026-10-05T13:00:00Z') })
   await finishJumpingEntrance(page)
   // Exercise different input phases within the 48 ms rendered-frame batches.
   if (frameOffset) await page.clock.runFor(frameOffset)
@@ -31,18 +27,18 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   await page.keyboard.down('a')
   await advanceJumpingSimulation(page, 750)
   await page.keyboard.up('a')
-  await page.keyboard.down('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w')
   await advanceJumpingSimulation(page, 6500)
-  await page.keyboard.up('d')
-  const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
-  await expect(complete).toBeVisible()
-  await expect(complete.getByText('Grade A', { exact: true })).toBeVisible()
+  await page.keyboard.up('d'); await page.keyboard.up('w')
+  // A campaign course returns the robot to its door, where the status announces the result.
+  const notice = page.getByTestId('facility-notice')
+  await expect(notice).toHaveText(/^Level Five passed\. Grade A, \d+:\d+\.\d+/)
   // Rendered input phases vary. Check the authored A deadline here; the
   // fixed-step simulation recording separately checks the exact recorded time.
-  const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
+  const [, minutes, seconds] = (await notice.innerText()).match(/Grade A, (\d+):(\d+\.\d+)/).map(Number)
   const elapsed = minutes * 60 + seconds
   expect(elapsed).toBeGreaterThan(0)
   expect(elapsed).toBeLessThanOrEqual(10)
-  await expect(complete.locator('.jumping-result-targets')).toHaveText('A0:10B0:15C0:30D1:15')
-  await page.screenshot({ path: info.outputPath('level-five-complete.png') })
+  await expect(page.getByRole('img', { name: 'Freight wing', exact: true })).toBeVisible()
+  await page.screenshot({ path: info.outputPath('level-five-returned.png') })
 })

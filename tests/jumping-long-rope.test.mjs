@@ -116,10 +116,10 @@ for (const dt of [STEP, 1 / 30]) test(`a long floating rope preserves screen con
   assert.equal(p.climbing?.rope, rope)
   const lower = p.y
   tick({ climb: true }, .3)
-  assert.ok(p.y < lower - 10, 'Up follows the visible rope upward')
+  assert.ok(p.y < lower - 7, 'Up follows the visible rope upward')
   const upper = p.y
   tick({ descend: true }, .3)
-  assert.ok(p.y > upper + 10, 'Down follows the visible rope downward')
+  assert.ok(p.y > upper + 7, 'Down follows the visible rope downward')
   tick({ move: 1 }, .3)
   const before = [p.x, p.y, p.vx, p.vy]
   tick({ detach: true })

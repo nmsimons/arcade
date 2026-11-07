@@ -43,6 +43,17 @@
 .jumping-pause h2 { margin: 13px 0 0; font-size: var(--jumping-type-large); font-weight: 800; letter-spacing: -.055em; line-height: 1; }
 .jumping-pause-reason { margin: 14px 0 0; font-size: var(--jumping-type-small); line-height: 1.5; color: var(--jumping-muted); }
 .jumping-pause:has(.jumping-pause-reason) { height: 660px; }
+/* In the facility, the pause screen is the robot's own system display: the
+   message screens' green phosphor on a dark panel, never a facility screen. */
+.jumping-dialog-panel.jumping-pause-system {
+  --jumping-paper: #0c1410; --jumping-header: #111c16; --jumping-section: #101a14;
+  --jumping-ink: #a9ef82; --jumping-muted: #7fb565; --jumping-soft: #1b2c21; --jumping-hover-ink: #c9f7b0;
+  --jumping-selection: #a9ef82; --jumping-selection-text: #0c1410; --jumping-color-ink: #a9ef82;
+  font-family: ui-monospace, monospace;
+}
+.jumping-pause-system h2 { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 0; text-transform: uppercase; color: var(--jumping-ink); text-shadow: 0 0 6px #a9ef8266; }
+.jumping-pause-system .jumping-dialog-kicker p { color: var(--jumping-muted); }
+.jumping-pause-system .jumping-dialog-light { background: #a9ef82; box-shadow: 0 0 8px #a9ef8299; }
 /* Keep a usable body when enlarged headings/footer exceed the panel height;
    the panel can then scroll too, without clipping or collapsing its actions. */
 .jumping-dialog-body { flex: 1; min-height: 8em; display: flex; flex-direction: column; padding: 24px calc(var(--dialog-inset) - 6px) 20px var(--dialog-inset); overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--jumping-color-ink) transparent; }
@@ -88,7 +99,7 @@
 .jumping-result-fraction { font-size: var(--jumping-type-normal); letter-spacing: normal; }
 .jumping-result-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin-top: 20px; }
 .jumping-result-award { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--jumping-type-normal); font-weight: 600; }
-.jumping-result-failure { margin: 0; padding: 16px var(--dialog-text-inset); color: var(--jumping-muted); line-height: 1.5; }
+.jumping-result-failure, .jumping-result-door { margin: 0; padding: 16px var(--dialog-text-inset); color: var(--jumping-muted); line-height: 1.5; }
 .jumping-result-best { margin: 0; font-size: var(--jumping-type-small); line-height: 1.5; color: var(--jumping-muted); }
 .jumping-result-best span { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .jumping-result-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4em), 1fr)); gap: 16px; margin: 0; padding: 20px var(--dialog-text-inset); background: var(--jumping-section); }

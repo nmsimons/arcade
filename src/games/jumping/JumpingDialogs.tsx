@@ -10,15 +10,18 @@ function RestartIcon() {
   </svg>
 }
 
-export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, onResume, onRestart, onBuilder, onLevels, onExit }: {
+/** In the facility, the pause screen offers moves within the building instead of the level menu. */
+export interface FacilityPauseActions { where: 'course' | 'hub' | 'escape'; onLeave: () => void }
+export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, facility, onResume, onRestart, onBuilder, onLevels, levelsLabel = 'Level menu', onExit }: {
   name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean; canEdit: boolean
-  onResume: () => void; onRestart: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
+  facility?: FacilityPauseActions
+  onResume: () => void; onRestart: () => void; onBuilder: () => void; onLevels: () => void; levelsLabel?: string; onExit: () => void
 }) {
   const [controls, setControls] = useState(false)
   const touchReference = touchControls && !connected
   return <KeyboardDialog label="Game paused" focusKey={controls ? 'jumping-controls' : 'jumping-paused'}
     onClose={() => controls ? setControls(false) : onResume()} className="jumping-overlay jumping-dialog-overlay">
-    <div className={`jumping-dialog-panel jumping-pause${controls ? ' jumping-controls-open' : ''}${controls && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
+    <div className={`jumping-dialog-panel jumping-pause${facility ? ' jumping-pause-system' : ''}${controls ? ' jumping-controls-open' : ''}${controls && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
       <header className="jumping-dialog-heading">
         <div className="jumping-dialog-kicker"><p title={name}>{name}</p><span className="jumping-dialog-light" aria-hidden="true" /></div>
         <h2>{controls ? 'Controls.' : 'Paused.'}</h2>
@@ -37,7 +40,7 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
                 <div><dt>Let go</dt><dd>Flick down and lift</dd></div>
               </dl>
               <p>Keep one finger down to move; use another to jump, crouch or climb. Lift a movement finger to stop directing the player. A flick is a short swipe followed by lifting; a drag and hold continues the action.</p>
-              <p>Ledges and airborne ropes catch automatically; drag vertically to take a ladder. From a ledge, drag up to pull up or tap to jump away. After a catch, lift and tap again to jump. Down near a clear lip lowers to a safe hang; lift and drag down again to drop, or flick down and lift to let go. Under reverse gravity, drag up to lower instead.</p>
+              <p>Ledges and airborne ropes catch automatically; drag vertically to take a ladder. From a ledge, drag up to pull up or tap to jump away. After a catch, lift and tap again to jump. Down near a clear lip lowers to a safe hang; lift and drag down again to drop, or flick down and lift to let go. Under reverse gravity, drag up to lower instead. Drag up in an open doorway to go through it.</p>
               <p>In water, drag up to swim up and down to dive. Combine movement and vertical drags to swim diagonally. Release to glide, then ease into an upright float at your reached depth underwater. On the pool floor, stand or walk with relaxed arms; Down crouches and Up swims away. Tap at the surface to jump out. Swim to push objects. Only a stable supported crate offers a grip: drag up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
             </> : <><dl>
               <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
@@ -47,7 +50,7 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
               <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
               {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
             </dl>
-            <p>Ledges and airborne ropes catch automatically; use Up or Down to take a ladder. From a ledge, Up pulls up and Jump leaps away. A catch consumes a held Jump: release, then press again to leave. Down near a clear lip lowers to a safe hang; release and press Down again to drop, or use Drop to let go. Elsewhere on support, Down crouches; add movement to crouch walk. Under reverse gravity, Up lowers over an edge instead.</p>
+            <p>Ledges and airborne ropes catch automatically; use Up or Down to take a ladder. From a ledge, Up pulls up and Jump leaps away. A catch consumes a held Jump: release, then press again to leave. Down near a clear lip lowers to a safe hang; release and press Down again to drop, or use Drop to let go. Elsewhere on support, Down crouches; add movement to crouch walk. Under reverse gravity, Up lowers over an edge instead. Up in an open doorway goes through it, including the exit.</p>
             <p>Tap Jump for a short jump; hold it briefly after takeoff to jump higher. Release to stop adding lift. This also works from ledges, ropes, ladders, walls, and slopes. Running carries you farther.</p>
             <p>In water, Up swims up and Down dives. Combine horizontal and vertical movement to swim diagonally. Release to glide, then ease into an upright float at your reached depth underwater. On the pool floor, stand or walk with relaxed arms; Down crouches and Up swims away. Jump at the surface to leave. Swim to push objects. Only a stable supported crate offers a grip: use Up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
             </>}
@@ -60,8 +63,9 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
         </> : <>
           <nav className="jumping-dialog-actions" aria-label="Pause actions">
             <button data-initial-focus onClick={onResume}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
-            <button onClick={onRestart}>{challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
-            <button onClick={onLevels}>Level menu</button>
+            {/* A facility area restarts where the robot came in: its door, or the opening's pod. */}
+            <button onClick={onRestart}>{facility ? facility.where === 'course' ? 'Restart course' : facility.where === 'hub' ? 'Restart area' : 'Restart from entrance' : challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
+            {!facility ? <button onClick={onLevels}>{levelsLabel}</button> : facility.where !== 'hub' && <button onClick={facility.onLeave}>{facility.where === 'escape' ? 'Return to the facility' : 'Leave course'}</button>}
             <button onClick={() => setControls(true)}>Controls</button>
           </nav>
         </>}
@@ -74,13 +78,13 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
   </KeyboardDialog>
 }
 
-export function JumpingResultDialog({ level, elapsed, grade, best, testing, saveError, canEdit, onNext, onRetry, onBuilder, onLevels, onExit }: {
+export function JumpingResultDialog({ level, elapsed, grade, best, testing, saveError, canEdit, onNext, onRetry, onBuilder, onLevels, levelsLabel = 'Level menu', onExit }: {
   level: PuzzleLevel; elapsed: number; grade: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
-  onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
+  onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; levelsLabel?: string; onExit: () => void
 }) {
   const ending = level.goal.kind === 'overlook' || level.goal.kind === 'walk-off' || level.goal.kind === 'bus'
   const primary = testing && canEdit ? onBuilder : ending ? onLevels : onNext ?? onRetry
-  const primaryLabel = testing && canEdit ? 'Return to builder' : ending ? 'Level menu' : onNext ? 'Next level' : 'Try again'
+  const primaryLabel = testing && canEdit ? 'Return to builder' : ending ? levelsLabel : onNext ? 'Next level' : 'Try again'
   const time = formatTime(elapsed), [wholeTime, fraction] = time.split('.')
   return <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={ending ? onLevels : onRetry} className={`jumping-overlay jumping-dialog-overlay${ending ? ' jumping-ending' : ''}`}>
     <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
@@ -107,10 +111,40 @@ export function JumpingResultDialog({ level, elapsed, grade, best, testing, save
       </nav>
       <footer className="jumping-result-destinations">
         <nav className="jumping-dialog-actions" aria-label="Other destinations">
-          {!ending && <button onClick={onLevels}>Level menu</button>}
+          {!ending && <button onClick={onLevels}>{levelsLabel}</button>}
           <button onClick={onExit}>Back to arcade</button>
         </nav>
         {saveError && <p className="jumping-result-storage" role="status">{level.timing === 'untimed' ? 'Your completion is kept' : 'Your time is kept'} for this visit. Browser storage is unavailable.</p>}
+      </footer>
+    </div>
+  </KeyboardDialog>
+}
+
+/**
+ * Outside the facility, as in a studio playtest, a facility area ends when the
+ * robot goes through one of its doors. There is no time or grade to report.
+ */
+export function JumpingDoorDialog({ name, door, testing, canEdit, onRetry, onBuilder, onLevels, levelsLabel = 'Level menu', onExit }: {
+  name: string; door: string; testing: boolean; canEdit: boolean
+  onRetry: () => void; onBuilder: () => void; onLevels: () => void; levelsLabel?: string; onExit: () => void
+}) {
+  const builder = testing && canEdit
+  return <KeyboardDialog label="Door taken" focusKey="jumping-door" onClose={onRetry} className="jumping-overlay jumping-dialog-overlay">
+    <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
+      <header className="jumping-dialog-heading">
+        <p className="jumping-eyebrow">{name}</p>
+        <h2 className="jumping-result-heading">{testing ? 'Test complete.' : 'Through the door.'}</h2>
+      </header>
+      <p className="jumping-result-door" role="status">{door}</p>
+      <nav className="jumping-dialog-actions jumping-result-actions" aria-label="Completion actions">
+        <button data-initial-focus onClick={builder ? onBuilder : onRetry}>{builder ? 'Return to builder' : <>Try again <RestartIcon /></>}</button>
+        {builder && <button onClick={onRetry}>Try again <RestartIcon /></button>}
+      </nav>
+      <footer className="jumping-result-destinations">
+        <nav className="jumping-dialog-actions" aria-label="Other destinations">
+          <button onClick={onLevels}>{levelsLabel}</button>
+          <button onClick={onExit}>Back to arcade</button>
+        </nav>
       </footer>
     </div>
   </KeyboardDialog>

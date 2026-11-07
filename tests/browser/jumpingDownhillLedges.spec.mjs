@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 for (const side of [-1, 1]) {
   test(`keyboard catches a downhill lip and pulls into a slide, side ${side}`, async ({ page }, info) => {
@@ -16,10 +16,7 @@ for (const side of [-1, 1]) {
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-10-28T12:00:00Z') })
-    await page.goto('/lab?motionDebug=1&renderControl=1')
-    const play = page.getByRole('button', { name: `Play ${level.name}`, exact: true })
-    await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-10-28T13:00:00Z'))
-    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
+    await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-10-28T13:00:00Z') }); await finishJumpingEntrance(page); await page.clock.runFor(64)
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     const state = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
     const toward = side > 0 ? 'd' : 'a'

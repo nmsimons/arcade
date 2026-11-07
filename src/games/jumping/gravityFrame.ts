@@ -44,7 +44,7 @@ const ropeDefinitions = new WeakMap<Rope, Rope>()
 function mirrorRope(rope: RopeState) {
   let definition = ropeDefinitions.get(rope.definition)
   if (!definition) {
-    definition = { ...rope.definition, y: -rope.definition.y }
+    definition = { ...rope.definition, y: -rope.definition.y, ...(rope.definition.end ? { end: { ...rope.definition.end, y: -rope.definition.end.y } } : {}) }
     // Live nodes carry the path; the authored rest layout is never mutated.
     delete definition.rest
     ropeDefinitions.set(rope.definition, definition); ropeDefinitions.set(definition, rope.definition)
@@ -136,6 +136,7 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     if (value.bodyMotion && !seen.has(value.bodyMotion)) {
       seen.add(value.bodyMotion); value.bodyMotion.gripVy = -value.bodyMotion.gripVy
     }
+    if (value.sway && !seen.has(value.sway)) { seen.add(value.sway); value.sway.y = -value.sway.y; value.sway.vy = -value.sway.vy }
   }
   p.y = -p.y; p.vy = -p.vy; p.spawnY = -p.spawnY; p.jumpStart = -p.jumpStart; p.groundAngle = -p.groundAngle
   if (p.gravity !== undefined) p.gravity = -p.gravity

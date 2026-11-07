@@ -1,4 +1,4 @@
-import { digest, emptyWorkspace, parseWorkspace, readCurrentWorkspace, replaceWorkspace, serializeWorkspace } from './data.ts'
+import { digest, emptyWorkspace, parseWorkspace, readCurrentWorkspace, replaceWorkspace, serializeWorkspace, withoutPlace } from './data.ts'
 import type { KeyStorage } from './profileStorage.ts'
 import { CLOUD_BASELINE_SLOT as BASELINE } from './profileStorage.ts'
 import type { CloudEntry, CloudStore } from './cloudStore.ts'
@@ -22,10 +22,11 @@ export function cloudHeads(entries: CloudEntry[]) {
   const parents = new Set(entries.flatMap(entry => entry.parents))
   return entries.filter(entry => !parents.has(entry.id)).sort((a, b) => b.at.localeCompare(a.at))
 }
-function baseline(store: KeyStorage): { id: string; hash: string } | undefined {
+/** The last version both sides agreed on. `progress` hashes it without the facility place. */
+function baseline(store: KeyStorage): { id: string; hash: string; progress?: string } | undefined {
   try {
     const value = JSON.parse(store.getItem(BASELINE) ?? 'null')
-    if (typeof value?.id === 'string' && typeof value?.hash === 'string') return value
+    if (typeof value?.id === 'string' && typeof value?.hash === 'string') return { id: value.id, hash: value.hash, progress: typeof value.progress === 'string' ? value.progress : undefined }
   } catch { /* Unknown baseline forces reconciliation; never overwrite remote progress. */ }
 }
 
@@ -44,11 +45,12 @@ export function createSync(store: KeyStorage, cloud: CloudStore, progress: (phas
     return entry
   }
   async function accept(entry: CloudEntry, text: string, signal: AbortSignal) {
-    const files = Object.fromEntries(await Promise.all(Object.entries(parseWorkspace(text).levels.files).map(async ([name, value]) => [name, await digest(value)])))
+    const data = parseWorkspace(text), progress = await digest(serializeWorkspace(withoutPlace(data)))
+    const files = Object.fromEntries(await Promise.all(Object.entries(data.levels.files).map(async ([name, value]) => [name, await digest(value)])))
     signal.throwIfAborted()
     // Record the exact published bytes, never the possibly newer local files.
     // File badges survive reloads without storing another copy of the level data.
-    store.setItem(BASELINE, JSON.stringify({ id: entry.id, hash: entry.hash, files }))
+    store.setItem(BASELINE, JSON.stringify({ id: entry.id, hash: entry.hash, progress, files }))
   }
   async function publish(entry: CloudEntry, text: string, signal: AbortSignal) {
     // The folder provider reports actual writes. An unchanged publish only
@@ -62,11 +64,19 @@ export function createSync(store: KeyStorage, cloud: CloudStore, progress: (phas
       const entries = await cloud.list(signal), heads = cloudHeads(entries)
       signal.throwIfAborted()
       // Capture after the network check so frequent game autosaves cannot starve sync.
-      const text = serializeWorkspace(await readCurrentWorkspace(store)), hash = await digest(text), base = baseline(store)
+      const current = await readCurrentWorkspace(store), text = serializeWorkspace(current), hash = await digest(text), base = baseline(store)
       const result = (status: SyncResult['status'], confirmedHash?: string): SyncResult => ({ status, entries, heads, hash: confirmedHash })
       if (cloud.recoveryRequired?.()) return { ...result('conflict'), recovery: true }
       if (heads.length === 1 && heads[0].hash === hash) { await publish(heads[0], text, signal); await accept(heads[0], text, signal); return result('synced', hash) }
-      if (heads.length === 1 && (hash === base?.hash || !base && text === serializeWorkspace(emptyWorkspace()))) {
+      // Where the robot stands is a convenience, not progress: when this device changed only that
+      // and the cloud has moved on, the cloud's saves load, with their place, without asking.
+      // Baselines from before the place synced hashed no place, so their hash is the progress hash.
+      const progressText = serializeWorkspace(withoutPlace(current))
+      // A device that never synced takes the cloud when it holds no progress at all.
+      const placeOnly = heads.length === 1 && heads[0].id !== base?.id && (base
+        ? await digest(progressText) === (base.progress ?? base.hash)
+        : progressText === serializeWorkspace(emptyWorkspace()))
+      if (heads.length === 1 && (hash === base?.hash || placeOnly)) {
         if (!canApply()) return result('deferred')
         const remote = await download(heads[0], signal)
         await publish(heads[0], serializeWorkspace(remote), signal)

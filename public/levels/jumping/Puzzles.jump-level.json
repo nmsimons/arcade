@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "id": "facility-water",
+  "name": "Puzzles",
+  "width": 1800,
+  "height": 720,
+  "platforms": [],
+  "entrance": {
+    "name": "Water entrance",
+    "x": 200,
+    "y": 720
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "name": "Waterline I",
+      "id": "door-waterline-i",
+      "x": 1145,
+      "y": 720,
+      "course": "ecbb07bd-b1dd-476c-b09b-82eb321515e9"
+    },
+    {
+      "name": "Waterline II",
+      "id": "door-waterline-ii",
+      "x": 1500,
+      "y": 720,
+      "course": "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a"
+    },
+    {
+      "id": "0a3079fc-92f5-4415-b8e2-93b59562da99",
+      "x": 834,
+      "y": 720,
+      "course": "9369b0ce-0963-4681-bbcd-50dc5059d9df"
+    }
+  ],
+  "bulkheads": [
+    {
+      "name": "Concourse bulkhead",
+      "id": "water-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "facility-concourse"
+    }
+  ],
+  "evaluationBoards": [],
+  "texts": []
+}

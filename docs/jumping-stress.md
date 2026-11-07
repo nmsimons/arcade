@@ -8,7 +8,8 @@ accepting an accelerated measurement.
 
 ## Playable development levels
 
-Start `npm run dev`, open LAB's level menu and expand **Stress tests · Development**.
+Start `npm run dev`, open the level library at `/lab/library` and expand
+**Stress tests · Development**.
 These read-only challenges live in `dev/levels/jumping/`, outside the public
 asset directory. A serve-only
 Vite plugin exposes their manifest and validated JSON in development; production

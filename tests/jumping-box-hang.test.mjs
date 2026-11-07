@@ -69,8 +69,9 @@ for (const side of [-1, 1]) for (const wet of [false, true]) for (const baseWeig
 }
 
 for (const direction of [-1, 1]) for (const approach of ['running', 'pushing']) for (const hold of [14, 22]) {
-  test(`the first level box catches a ${approach} jump, hold ${hold}, direction ${direction}`, () => {
-    const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/LAB1.jump-level.json', import.meta.url))))
+  // Leaps and Bounds I, retired from the built-ins, keeps its lone box as a fixture.
+  test(`the Leaps and Bounds I box catches a ${approach} jump, hold ${hold}, direction ${direction}`, () => {
+    const level = parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/lab1-first-box.json', import.meta.url))))
     if (direction < 0) level.entrance.x = level.width - level.entrance.x
     const run = createRun(level), p = run.player, b = run.props[0]
     let approached = false

@@ -12,7 +12,7 @@ async function open(page, level = blankTrial()) {
       return fill.apply(this, args)
     }
   })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open lighting.json', exact: true }).click()

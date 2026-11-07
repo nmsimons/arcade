@@ -90,7 +90,10 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   await steer(['a', 'w'], p => p.x <= 950 && p.y <= 840, 'catch the island and enter its gravity lift')
   await steer(['w'], p => p.y <= 230, 'rise above the roof')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
-  await steer(['a'], () => complete.isVisible(), 'reach the powered doorway', { needsSample: false })
+  // Up enters the exit, but held from the lift it slows the drift down to the
+  // roof. Hold it from landing on the roof, on the way into the doorway.
+  await steer(['a'], p => p.signals.grounded && p.x < 560, 'land on the roof')
+  await steer(['a', 'w'], () => complete.isVisible(), 'reach and enter the powered doorway', { needsSample: false })
   await keys([])
   const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
   const elapsed = minutes * 60 + seconds

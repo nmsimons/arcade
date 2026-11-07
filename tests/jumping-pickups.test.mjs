@@ -93,7 +93,7 @@ test('stopwatches still work after the light opens; entry locks the score and en
   assert.equal(run.pickups[1].collectedAge, PICKUP_ANIMATION_SECONDS)
   assert.equal(run.pickups[0].collectedAge, PICKUP_ANIMATION_SECONDS)
   assert.ok(Math.abs(run.timeStopRemaining - 19.5) < 1e-9)
-  const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2; step(run, 1)
+  const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2; step(run, 1, { ...NEUTRAL_INPUT, climb: true })
   assert.ok(run.exit); assert.equal(run.grade, 'D')
   const remaining = run.timeStopRemaining
   run.pickups.push({ definition: stopwatch(run.player.x, 888), collectedAge: null })

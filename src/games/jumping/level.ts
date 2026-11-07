@@ -6,9 +6,9 @@ import { objectReference } from './objectLabels.ts'
 import type { NamedObject } from './objectNames.ts'
 import { createPlayer } from './model.ts'
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
-import { createRope } from './climbables.ts'
+import { createRope, fitTiedRope, tiedRopeSpan } from './climbables.ts'
 import { prepareRope } from './ropeLayout.ts'
-import type { ClimbableWorld } from './climbables.ts'
+import type { ClimbableWorld, RopeAnchor, RopeEnd } from './climbables.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
 import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
@@ -18,9 +18,13 @@ import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
+import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorFits } from './hub.ts'
+import type { Bulkhead, CourseDoor, EvaluationBoard } from './hub.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
+import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
+import type { WallDoor, WallDoorCondition } from './wallDoor.ts'
 import { wallTextBounds } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
@@ -73,6 +77,7 @@ export interface JumpLevel {
   lighting?: LightingDefinition
   environment?: LevelEnvironment
   entrance: Entrance; checkpoints: Checkpoint[]; platforms: Platform[]
+  /** Where re-entering this level from the facility starts: an ordinary doorway, usually near its exit. */
   timing?: 'untimed'
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
@@ -86,13 +91,26 @@ export interface JumpLevel {
   gravityPlates?: GravityPlate[]
   forceFields?: ForceField[]
   texts?: WallText[]
+  /** Blocked and broken doors painted into the back wall. */
+  wallDoors?: WallDoor[]
   pickups?: Pickup[]
+  kind?: 'hub'; courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[]
 }
 export interface PuzzleLevel extends JumpLevel {
   height: number; floor: number; goal: Goal; times: TimeTargets
   props: PropDefinition[]; mechanisms: Mechanism[]; triggers: Trigger[]; robots: Pusher[]
 }
 export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.goal !== undefined && level.floor !== undefined && level.times !== undefined
+/** A facility wing or concourse: untimed, with no exit, left only through its doors. */
+export interface HubLevel extends JumpLevel {
+  kind: 'hub'; timing: 'untimed'; height: number; floor: number; goal?: never; times?: never
+  props: PropDefinition[]; mechanisms: Mechanism[]; triggers: Trigger[]; robots: Pusher[]
+  courseDoors: CourseDoor[]; bulkheads: Bulkhead[]; evaluationBoards: EvaluationBoard[]
+}
+export const isHubLevel = (level: JumpLevel): level is HubLevel => level.kind === 'hub'
+/** Levels that run as a complete world, with props, mechanisms and robots. */
+export type RunLevel = PuzzleLevel | HubLevel
+export const isRunLevel = (level: JumpLevel): level is RunLevel => isPuzzleLevel(level) || isHubLevel(level)
 /** Legacy floor values are the bottom of the playable rectangle. */
 export const levelHeight = (level: JumpLevel) => level.floor ?? level.height ?? 1020
 /** Enclose the level; a walk-off finish continues its ground through the right boundary. */
@@ -131,11 +149,20 @@ function ropeTerrain(level: JumpLevel) {
 }
 /** Saved geometry is also the editor preview and the first playable frame. */
 export function prepareLevelRopes<T extends JumpLevel>(level: T, preview = false): T {
+  // An anchor moved out of buried terrain attaches to the edge it now sits on.
+  const onEdge = (x: number, y: number) => {
+    const platform = level.platforms.findIndex(b => nearestBoundary(b, x, y).distance < .01)
+    return platform >= 0 ? { platform, x: x - level.platforms[platform].x, y: y - level.platforms[platform].y } : null
+  }
   const terrain = ropeTerrain(level), ropes = level.climbables.ropes.map(r => {
-    const resolved = prepareRope(r, terrain, preview)
+    let resolved = prepareRope(r, terrain, preview)
+    if (resolved.end && r.end && (resolved.end.x !== r.end.x || resolved.end.y !== r.end.y)) {
+      const anchor = onEdge(resolved.end.x, resolved.end.y)
+      if (anchor) resolved = { ...resolved, end: { ...resolved.end, anchor } }
+    }
     if (resolved.x !== r.x || resolved.y !== r.y) {
-      const platform = level.platforms.findIndex(b => nearestBoundary(b, resolved.x, resolved.y).distance < .01)
-      if (platform >= 0) return { ...resolved, anchor: { platform, x: resolved.x - level.platforms[platform].x, y: resolved.y - level.platforms[platform].y } }
+      const anchor = onEdge(resolved.x, resolved.y)
+      if (anchor) return { ...resolved, anchor }
     }
     return resolved
   })
@@ -161,6 +188,10 @@ export function levelProblems(level: JumpLevel): string[] {
     const b = wallTextBounds(t)
     if (b.x < -.001 || b.y < -.001 || b.x + b.w > level.width + .001 || b.y + b.h > levelHeight(level) + .001) issues.push(`Keep ${objectReference(level, 'text', i)} inside the level rectangle.`)
   }
+  for (const [i, door] of (level.wallDoors ?? []).entries()) {
+    const b = wallDoorBounds(door)
+    if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || door.y > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-door', i)} inside the level rectangle.`)
+  }
   for (const [i, light] of (level.wallLights ?? []).entries()) {
     const b = wallLightBounds(light)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-light', i)} inside the level rectangle.`)
@@ -179,9 +210,10 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, field] of (level.forceFields ?? []).entries()) {
     if (field.x < 0 || field.y < 0 || field.x + field.w > level.width || field.y + field.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'force-field', i)} inside the level rectangle.`)
   }
-  if (isPuzzleLevel(level)) {
+  if (isRunLevel(level)) {
     const terrain = levelTerrain(level)
-    if (level.goal.kind === 'walk-off') {
+    if (!isPuzzleLevel(level)) issues.push(...hubProblems(level, terrain))
+    else if (level.goal.kind === 'walk-off') {
       const goal = level.goal, bounds = goalBounds(goal)
       const supported = Array.from({ length: 9 }, (_, i) => groundAt(terrain, level.width - 64 + i * 8, goal.y, .15))
       if (goal.x !== level.width || goal.y < 100 || goal.y > levelHeight(level)
@@ -205,8 +237,8 @@ export function levelProblems(level: JumpLevel): string[] {
         issues.push(level.goal.kind === 'bus' ? 'Place the bus stop on continuous flat ground with a clear boarding approach inside the level.' : `Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
       }
     }
-    const times = gradeTimes(level)
-    if (!(times.a > 0 && times.a < times.b && times.b < times.c && times.c < times.d)) issues.push('Grade times must increase from A to B to C to D.')
+    const times = isPuzzleLevel(level) && gradeTimes(level)
+    if (times && !(times.a > 0 && times.a < times.b && times.b < times.c && times.c < times.d)) issues.push('Grade times must increase from A to B to C to D.')
     const coins = level.pickups?.filter(p => p.kind === 'coin').length ?? 0
     for (const [i, t] of level.triggers.entries()) {
       if (t.mode !== 'coins') continue
@@ -226,6 +258,32 @@ export function levelProblems(level: JumpLevel): string[] {
     }
   }
   return [...issues, ...lightingProblems(level)]
+}
+
+/**
+ * Hubs are the building between courses: untimed areas left only through
+ * their doors. Timing equipment (coins, coin switches, clocks and time
+ * pickups) stays in the courses; tools and EMP charges may appear in either.
+ */
+function hubProblems(level: HubLevel, terrain: Platform[]): string[] {
+  const issues: string[] = [], height = levelHeight(level)
+  for (const [i, door] of level.courseDoors.entries()) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${objectReference(level, 'course-door', i)} on a continuous flat surface, with a clear doorway inside the level.`)
+  for (const [i, door] of level.bulkheads.entries()) if (!hubDoorFits(door, terrain, level.width, height)) issues.push(`Place ${objectReference(level, 'bulkhead', i)} on a continuous flat surface, with a clear doorway inside the level.`)
+  const courses = new Set<string>()
+  for (const [i, door] of level.courseDoors.entries()) {
+    if (!door.course) issues.push(`Choose the level that ${objectReference(level, 'course-door', i)} leads to.`)
+    else if (courses.has(door.course)) issues.push(`Two level doors lead to “${door.course}”. Give each level one door.`)
+    courses.add(door.course)
+  }
+  for (const [i, door] of level.bulkheads.entries()) if (!door.to) issues.push(`Choose where ${objectReference(level, 'bulkhead', i)} leads.`)
+  const equipment = [
+    level.pickups?.some(p => p.kind === 'coin') && 'coins',
+    level.triggers.some(t => t.mode === 'coins') && 'coin switches',
+    level.timers?.length && 'wall clocks',
+    level.pickups?.some(p => p.kind !== 'coin' && p.kind !== 'emp') && 'time pickups',
+  ].filter(Boolean)
+  if (equipment.length) issues.push(`Remove the ${equipment.length > 1 ? `${equipment.slice(0, -1).join(', ')} and ${equipment.at(-1)}` : equipment[0]}. Timing equipment stays in the courses.`)
+  return issues
 }
 
 /** Imported files and browser storage both pass through the same bounded decoder. */
@@ -312,13 +370,30 @@ export function parseLevel(value: unknown): JumpLevel {
     const r = object(item), segments = num(r.segments, 4, 250)
     if (!Number.isInteger(segments)) fail()
     const rope: ClimbableWorld['ropes'][number] = { ...objectName(r), x: num(r.x, 0, width), y: num(r.y, -2000, 6000), length: num(r.length, 80, 2000), segments }
-    if (r.anchor !== undefined) {
-      const a = object(r.anchor), platform = num(a.platform, 0, platforms.length - 1)
+    // An anchor on terrain is stored locally and must sit on the terrain's edge.
+    const anchorOn = (value: unknown, point: { x: number; y: number; anchor?: RopeAnchor }) => {
+      const a = object(value), platform = num(a.platform, 0, platforms.length - 1)
       if (!Number.isInteger(platform)) fail()
       const b = platforms[platform]
-      rope.anchor = { platform, x: num(a.x, 0, b.w), y: num(a.y, 0, b.h) }
-      rope.x = b.x + rope.anchor.x; rope.y = b.y + rope.anchor.y
-      if (nearestBoundary(b, rope.x, rope.y).distance > .01) fail()
+      point.anchor = { platform, x: num(a.x, 0, b.w), y: num(a.y, 0, b.h) }
+      point.x = b.x + point.anchor.x; point.y = b.y + point.anchor.y
+      if (nearestBoundary(b, point.x, point.y).distance > .01) fail()
+    }
+    if (r.anchor !== undefined) anchorOn(r.anchor, rope)
+    if (r.end !== undefined) {
+      // A tied rope's second anchor; the rope always reaches it, taut at the least.
+      const e = object(r.end), end: RopeEnd = { x: num(e.x, 0, width), y: num(e.y, -2000, 6000) }
+      if (e.anchor !== undefined) anchorOn(e.anchor, end)
+      rope.end = end
+      if (tiedRopeSpan(rope) > 2000) fail()
+      fitTiedRope(rope)
+    }
+    if (r.release !== undefined) {
+      const release = object(r.release)
+      if (!rope.end || !validSwitchTargetId(release.id) || release.anchor !== 'start' && release.anchor !== 'end') fail()
+      const settings = parseSwitchSettings({ switchLogic: release.switchLogic, switchReversed: release.switchReversed }, fail)
+      rope.release = { id: release.id as string, anchor: release.anchor as 'start' | 'end',
+        ...(settings.switchLogic ? { switchLogic: settings.switchLogic } : {}), ...(settings.switchReversed !== undefined ? { switchReversed: settings.switchReversed } : {}) }
     }
     if (r.rest !== undefined) {
       const rest = object(r.rest)
@@ -341,7 +416,9 @@ export function parseLevel(value: unknown): JumpLevel {
         const length = c ? Math.hypot(c[0] - a[0], c[1] - a[1]) + Math.hypot(p[0] - c[0], p[1] - c[1]) : Math.hypot(p[0] - a[0], p[1] - a[1])
         return length > (distances ? distances[i + 1] - distances[i] : spacing) * 1.15
       })) fail()
-      rope.rest = { key: rest.key as string, points, ...(distances ? { distances } : {}), ...(bends ? { bends } : {}) }
+      // A tied rope's saved shape must end at its second anchor; otherwise it is solved again.
+      const reaches = !rope.end || Math.hypot(points[segments][0] - rope.end.x, points[segments][1] - rope.end.y) < .01
+      if (reaches) rope.rest = { key: rest.key as string, points, ...(distances ? { distances } : {}), ...(bends ? { bends } : {}) }
     }
     return rope
   })
@@ -362,8 +439,15 @@ export function parseLevel(value: unknown): JumpLevel {
   }
   // Existing local files use "flag". Preserve their assembly origin and export "goal".
   const goal = v.goal === undefined ? v.flag : v.goal
-  if (goal !== undefined) {
+  if (v.kind !== undefined && v.kind !== 'hub') fail()
+  const hub = v.kind === 'hub'
+  if (hub && (goal !== undefined || v.timing !== 'untimed' || v.times !== undefined)) fail()
+  if (!hub && ['courseDoors', 'bulkheads', 'evaluationBoards'].some(key => v[key] !== undefined)) fail()
+  if (goal !== undefined || hub) {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
+    if (hub) level.kind = 'hub'
+  }
+  if (goal !== undefined) {
     const location = point(goal), g = object(goal), flipX = g.flipX
     if (flipX !== undefined && typeof flipX !== 'boolean') fail()
     if (g.power !== undefined && g.power !== 'always' && g.power !== 'switched') fail()
@@ -384,6 +468,8 @@ export function parseLevel(value: unknown): JumpLevel {
     const d = num(times.d ?? (legacy ? Math.ceil(c * 1.5) : undefined), .1, 7200)
     level.times = { a, b, c, d }
     if (!(a < b && b < c && c < d)) fail()
+  }
+  if (goal !== undefined || hub) {
     level.props = list(v.props, 80).map(item => {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
       if (b.weight !== undefined && b.weight !== 'light' && b.weight !== 'normal' && b.weight !== 'heavy') fail()
@@ -492,6 +578,30 @@ export function parseLevel(value: unknown): JumpLevel {
       }
       return { ...position, kind }
     })
+    if (hub) {
+      const hubObject = (item: unknown) => {
+        const d = object(item)
+        if (typeof d.id !== 'string' || !d.id.trim() || d.id.length > 100) fail()
+        return { d, base: { ...objectName(d), id: d.id as string, x: num(d.x, 0, width), y: num(d.y, 0, level.floor!) } }
+      }
+      level.courseDoors = list(v.courseDoors ?? [], MAX_COURSE_DOORS).map(item => {
+        const { d, base } = hubObject(item)
+        if (typeof d.course !== 'string' || d.course.length > 100) fail()
+        return { ...base, course: d.course as string }
+      })
+      level.bulkheads = list(v.bulkheads ?? [], MAX_BULKHEADS).map(item => {
+        const { d, base } = hubObject(item)
+        if (typeof d.to !== 'string' || d.to.length > 100) fail()
+        return { ...base, to: d.to as string }
+      })
+      level.evaluationBoards = list(v.evaluationBoards ?? [], MAX_EVALUATION_BOARDS).map(item => {
+        const { d, base } = hubObject(item), w = num(d.w, 120, 1200), h = num(d.h, 60, 600)
+        if (base.x + w > width || base.y + h > level.floor!) fail()
+        return { ...base, w, h }
+      })
+      const hubIds = [...level.courseDoors, ...level.bulkheads, ...level.evaluationBoards].map(item => item.id)
+      if (new Set(hubIds).size !== hubIds.length) fail()
+    }
   } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'floatSwitches', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
@@ -504,6 +614,14 @@ export function parseLevel(value: unknown): JumpLevel {
     const b = wallTextBounds(text)
     if (b.x < -.001 || b.y < -.001 || b.x + b.w > width + .001 || b.y + b.h > levelHeight(level) + .001) fail()
     return text
+  })
+  if (v.wallDoors !== undefined) level.wallDoors = list(v.wallDoors, MAX_WALL_DOORS).map(item => {
+    const d = object(item)
+    if (!WALL_DOOR_CONDITIONS.includes(d.condition as WallDoorCondition)) fail()
+    if (d.frame !== undefined && d.frame !== 'bulkhead') fail()
+    if (d.flipX !== undefined && typeof d.flipX !== 'boolean') fail()
+    return { ...objectName(d), x: num(d.x, 0, width), y: num(d.y, 0, 6000), condition: d.condition as WallDoorCondition,
+      ...(d.frame === undefined ? {} : { frame: 'bulkhead' as const }), ...(d.flipX === undefined ? {} : { flipX: d.flipX as boolean }) }
   })
   if (v.gravityPlates !== undefined) level.gravityPlates = list(v.gravityPlates, MAX_GRAVITY_PLATES).map(item => {
     const p = object(item)
@@ -583,7 +701,8 @@ export function parseLevel(value: unknown): JumpLevel {
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
-  const ids = [...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
+  const ids = [...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : []),
+    ...level.climbables.ropes.flatMap(rope => rope.release ? [rope.release] : [])].map(item => item.id)
   for (const p of level.gravityPlates ?? []) if (p.effect === 'water') ids.push(waterControlId(p.id, 'fill'), waterControlId(p.id, 'drain'))
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.

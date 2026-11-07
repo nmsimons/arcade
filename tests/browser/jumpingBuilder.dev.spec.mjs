@@ -65,7 +65,7 @@ async function open(page, level, { renderControl = true } = {}) {
       return text.call(this, value, x, y, ...rest)
     }
   })
-  await page.goto(renderControl ? '/lab?renderControl=1' : '/lab')
+  await page.goto(renderControl ? '/lab/library?renderControl=1' : '/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await waitForBuilderPreview(page)
@@ -766,7 +766,9 @@ test('goal lights flip horizontally, survive moving and save, and still activate
   await page.screenshot({ path: info.outputPath('flipped-goal-lit.png') })
   await page.clock.runFor(1600)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await page.keyboard.down('a'); await page.clock.runFor(1800); await page.keyboard.up('a')
+  // Up held on the way in enters the open exit on arrival.
+  await page.keyboard.down('a'); await page.keyboard.down('w'); await page.clock.runFor(1800)
+  await page.keyboard.up('a'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
 })
 

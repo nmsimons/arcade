@@ -1,7 +1,7 @@
 import { GpuLightingField } from './lightingGpuField.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { DAY_AMBIENT_EXPOSURE, daylightShadowPolygons } from './daylight.ts'
-import { drawPuzzleWorld, drawWaterBackdrop } from './challengeRender.ts'
+import { doorChevrons, drawPuzzleWorld, drawWaterBackdrop } from './challengeRender.ts'
 import { awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds } from './goal.ts'
 import { airBoostStrength } from './model.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawLevelBackdrop, drawMovementEffects, drawTerrain } from './render.ts'
@@ -15,6 +15,7 @@ import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
 import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
+import { drawHubDoors } from './hub.ts'
 import { drawLandscape, hasRegionLighting } from './environment.ts'
 import { EnvironmentLighting, environmentBufferBytes } from './environmentLighting.ts'
 import { drawWallWiring, hasWallWiring } from './wallWiring.ts'
@@ -54,7 +55,8 @@ function polygonPath(ctx: CanvasRenderingContext2D, points: readonly Vec[]) {
 }
 function dayActorPatch(run: LightingWorld, view: LightingView) {
   const { width, height } = view
-  const bounds = [...dynamicCasters(run, true).flat(), goalBounds(run.level.goal!)]
+  // The exit's bounds hold its door; open facility doors animate their chevrons too.
+  const bounds = [...dynamicCasters(run, true).flat(), ...run.level.goal ? [goalBounds(run.level.goal)] : [], ...'hub' in run ? doorChevrons(run).walls : []]
   if (run.empRemaining === 0) for (const robot of run.robots) if (robot.phase === 'recover') {
     bounds.push({ x: robot.x + 46 * Math.sin(robot.angle) - 11,
       y: robot.y - 9 - 46 * Math.cos(robot.angle) - 11, w: 22, h: 22 })
@@ -530,7 +532,9 @@ export class LightingRenderer {
       }
     }
     const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}:${run.level.platforms.map(p => p.groundCover).join(',')}`
-    const backgroundKey = `${dayKey}:${document.fonts.status}`
+    // Hub doors and placards are static during a hub run and belong to the cached background.
+    const hubKey = 'hub' in run && run.hub ? `:${[...run.hub.open].join()}:${[...run.hub.placards].map(([id, lines]) => id + lines.join('/')).join()}` : ''
+    const backgroundKey = `${dayKey}:${document.fonts.status}${hubKey}`
     const stableDayView = cacheAmbient && this.dayBackgroundCandidate === backgroundKey
     this.dayBackgroundCandidate = cacheAmbient ? backgroundKey : undefined
     if (!cacheAmbient) this.dayBackground = undefined
@@ -713,6 +717,7 @@ export class LightingRenderer {
           drawLevelBackdrop(correction.ctx, run.level,
             { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }, view.zoom, false)
           drawWallTexts(correction.ctx, run.level.texts ?? [], false)
+          drawHubDoors(correction.ctx, run.level, run.hub, false, paintNormally)
           drawTerrain(correction.ctx, run.terrain, run.level.platforms, run.level)
           correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'multiply'; drawField(correction.ctx)
           correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.drawImage(this.dayAmbient.buffer.canvas, 0, 0)

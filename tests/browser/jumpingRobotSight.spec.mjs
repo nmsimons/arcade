@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 async function openSightLevel(page, level) {
   expect(levelProblems(level)).toEqual([])
@@ -19,10 +19,7 @@ async function openSightLevel(page, level) {
       return rect.apply(this, args)
     }
   })
-  await page.goto('/lab?renderControl=1')
-  await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit` })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   return canvas

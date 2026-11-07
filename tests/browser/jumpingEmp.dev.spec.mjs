@@ -57,7 +57,7 @@ async function open(page, editor = false) {
     }
 
   })
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   if (!editor) await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   if (editor) {

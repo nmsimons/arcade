@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { nearestBoundary } from '../../src/games/jumping/geometry.ts'
-import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 for (const slope of [-3, 3]) test(`normal controls start a bot patrolling up and down a steep ramp (${slope})`, async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Bot slope', width: 1200, height: 1200, floor: 1200,
@@ -36,10 +36,7 @@ for (const slope of [-3, 3]) test(`normal controls start a bot patrolling up and
       return arc.apply(this, args)
     }
   })
-  await page.goto('/lab')
-  await page.getByRole('button', { name: 'Play Bot slope', exact: true }).waitFor()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Bot slope', exact: true }).click()
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') })
   const canvas = page.getByRole('img', { name: 'Bot slope: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   const state = () => canvas.evaluate(c => c.slopeFrames.at(-1))

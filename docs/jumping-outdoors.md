@@ -58,7 +58,7 @@ The playable coda begins before the ending dialog. Latch any service-course
 score at the threshold and finish the story at the outdoor endpoint as described
 in the [campaign brief](jumping-campaign.md#finale-outside). Keep control and
 the option to linger until that endpoint. Completion presentation must preserve
-the final view instead of immediately replacing it with the level picker.
+the final view instead of immediately replacing it with the facility.
 
 ## Terrain language
 

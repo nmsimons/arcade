@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, restartFromPause, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { ROBOT_PALETTE } from '../../src/games/jumping/equipmentPalette.ts'
@@ -25,12 +25,7 @@ test('Rbot emerges alongside the player, pauses and replays on restart before hu
     }
   }, androidMaterials(ROBOT_PALETTE.body).face)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab')
-  const card = page.locator('.jumping-level-card[aria-pressed=true]')
-  await expect(card).toBeVisible()
-  await expect.poll(() => card.locator('canvas').evaluate(c => c.width)).toBeGreaterThan(1)
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await card.click(); await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') }); await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.clock.runFor(200)
   const first = await page.evaluate(() => window.rbotEntrance.heads.at(-1))
   expect(first.alpha).toBeGreaterThan(0); expect(first.alpha).toBeLessThan(1)

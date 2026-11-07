@@ -1,4 +1,5 @@
-import { SAVE_SLOTS, LEVELS_SLOT, withWorkspaceLock } from './profileStorage.ts'
+import { FACILITY_PLACE_SLOT, SAVE_SLOTS, LEVELS_SLOT, withWorkspaceLock } from './profileStorage.ts'
+import { CloudChangedError } from './errors.ts'
 import type { KeyStorage } from './profileStorage.ts'
 import { decodeLevelFile, decodeLevelManifest, isLevelFileName } from '../games/jumping/levelAssets.ts'
 import { textBytes, MAX_LEVEL_BYTES, MAX_LEVEL_FILES } from '../games/jumping/levelLimits.ts'
@@ -53,9 +54,17 @@ export function parseWorkspace(text: string): Workspace {
       const completed: unknown = JSON.parse(raw)
       if (!object(completed) || Object.keys(completed).length > 10000 || Object.entries(completed).some(([id, done]) => id.length > 400 || done !== true)) throw new Error('Invalid completed levels.')
     }
+    // The game reads back only a well-formed place and otherwise starts afresh, so any small object is kept.
+    if (key === FACILITY_PLACE_SLOT && (textBytes(raw) > 4096 || !object(JSON.parse(raw)))) throw new Error('Invalid facility place.')
     slots[key] = raw
   }
   return { version: 1, slots, levels: validateLibrary(value.levels) }
+}
+/** The workspace without the robot's facility place: the progress a place-only change leaves untouched. */
+export function withoutPlace(data: Workspace): Workspace {
+  const slots = { ...data.slots }
+  delete slots[FACILITY_PLACE_SLOT]
+  return { ...data, slots }
 }
 export function readWorkspace(store: KeyStorage): Workspace {
   const slots = Object.fromEntries(SAVE_SLOTS.flatMap(key => { const raw = store.getItem(key); return raw === null ? [] : [[key, raw]] }))
@@ -73,7 +82,8 @@ export function replaceWorkspace(store: KeyStorage, data: Workspace, expected: s
   return withWorkspaceLock(store, current => {
     beforeWrite()
     const previous = readWorkspace(current)
-    if (serializeWorkspace(previous) !== expected) throw new Error('Progress changed in another tab. Sync again before replacing it.')
+    // Retryable: the game saves as it plays, such as the robot walking through a door mid-download.
+    if (serializeWorkspace(previous) !== expected) throw new CloudChangedError('Progress changed in another tab. Sync again before replacing it.')
     const next = parseWorkspace(serializeWorkspace(data))
     current.setItem('arcade.cloud.recovery.v1', serializeWorkspace(previous))
     try {

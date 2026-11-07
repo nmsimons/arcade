@@ -497,8 +497,11 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 **L.A.B. Experiments (Leaps and Bounds)** (`/lab`)
 
-The game plays its built-in JSON collection in manifest order. Level studio is
-available only with `npm run dev` on localhost. **JSON Test Lab** lives in the automated test
+The game is a facility to explore. A new save wakes in Orientation; each wing's
+course doors open in order as courses are passed, and the robot's place is
+autosaved ([the facility](docs/jumping-facility.md)). The level library
+(`/lab/library`) and Level studio are available only with `npm run dev` on
+localhost. **JSON Test Lab** lives in the automated test
 fixtures and is not offered in the game or builder.
 
 There is no death or automatic reset. Depress the goal's floor plate to switch on
@@ -509,7 +512,8 @@ The clock starts on your first movement action; pauses
 and menus do not consume time. Personal bests are saved separately for each map.
 Timers are displays on the back wall, placed with the builder's **Wall timer**
 tool. A level may have several; they show the same time and never block movement.
-The result screen advances to the next file or lets you retry immediately.
+Finishing a course returns the robot to its door, whose placard shows the best
+time and grade; the pause screen offers Restart course and Leave course.
 
 Levels are rectangular rooms with a light grid back wall. Medium-grey solid terrain
 surrounds the room on all four sides. Internal terrain uses the same fill: static

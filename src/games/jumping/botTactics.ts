@@ -32,7 +32,8 @@ function disruption(run: Run, memory: BotSighting, states: ReadonlyMap<string, b
   for (const field of run.forceFields) if (field.definition.mode !== 'objects' && !field.active && states.get(field.definition.id)) {
     const d = field.definition; consider(600, d.x + d.w / 2, d.y + d.h / 2)
   }
-  if (run.goalLit && run.level.goal.power === 'switched' && !states.get(run.level.goal.id ?? '')) consider(750, run.level.goal.x, run.level.goal.y)
+  const goal = run.level.goal
+  if (goal && run.goalLit && goal.power === 'switched' && !states.get(goal.id ?? '')) consider(750, goal.x, goal.y)
   return { score, blocker }
 }
 

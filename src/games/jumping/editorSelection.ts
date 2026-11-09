@@ -1,7 +1,7 @@
 import { allSelections, carryWallTerminals, clamp, deleteItem, itemBounds, itemDefinition, itemOutline, moveItem, reorderTerrain, transformTerrain } from './editor.ts'
 import type { Selection, TerrainTransform } from './editor.ts'
 import { copyLevel, isHubLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
-import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS } from './hub.ts'
+import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_GRADE_GATES } from './hub.ts'
 import { MAX_WALL_DOORS } from './wallDoor.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
@@ -23,7 +23,7 @@ export interface EditorClipboard { level: JumpLevel; selections: Selection[] }
 export const sameSelection = (a: Selection, b: Selection) => a.kind === b.kind && a.index === b.index
 const key = (s: Selection) => `${s.kind}:${s.index}`
 export const copyableSelection = (s: Selection) => s.kind !== 'entrance' && s.kind !== 'goal'
-const hubKinds: readonly Selection['kind'][] = ['course-door', 'bulkhead', 'evaluation-board']
+const hubKinds: readonly Selection['kind'][] = ['course-door', 'bulkhead', 'evaluation-board', 'grade-gate']
 
 export function validSelections(level: JumpLevel, selections: readonly Selection[]): Selection[] {
   const seen = new Set<string>()
@@ -84,7 +84,7 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'entrance' || kind === 'goal') throw new Error('Entrance and exit doors are unique.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
     timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields',
-    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards', 'wall-door': 'wallDoors' } as const
+    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards', 'wall-door': 'wallDoors', 'grade-gate': 'gradeGates' } as const
   const record = level as unknown as Record<string, unknown>
   return (record[fields[kind]] ??= []) as Item[]
 }
@@ -209,7 +209,7 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
   robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40,
-  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS, 'wall-door': MAX_WALL_DOORS }
+  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS, 'wall-door': MAX_WALL_DOORS, 'grade-gate': MAX_GRADE_GATES }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
   const source = clipboard.level, originals = validSelections(source, clipboard.selections).filter(copyableSelection)
@@ -239,6 +239,11 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
     const definition = itemArray(next, s.kind)[s.index]
     if (Array.isArray(definition.targets)) definition.targets = definition.targets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])
     if (typeof definition.target === 'string') { definition.targets = ids.has(definition.target) ? [ids.get(definition.target)!] : external.has(definition.target) ? [definition.target] : []; delete definition.target }
+    if (s.kind === 'course-door' && !next.courseDoors![s.index].targets?.length) delete next.courseDoors![s.index].targets
+    if (s.kind === 'grade-gate') {
+      const gate = next.gradeGates![s.index], doors = new Set(source.id === level.id ? (level.courseDoors ?? []).map(door => door.id) : [])
+      gate.doors = gate.doors.flatMap(id => ids.has(id) ? [ids.get(id)!] : doors.has(id) ? [id] : [])
+    }
     if (s.kind === 'rope') {
       const rope = next.climbables.ropes[s.index]
       for (const point of ropeEnds(rope)) {

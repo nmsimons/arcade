@@ -22,7 +22,7 @@ export function cloudHeads(entries: CloudEntry[]) {
   const parents = new Set(entries.flatMap(entry => entry.parents))
   return entries.filter(entry => !parents.has(entry.id)).sort((a, b) => b.at.localeCompare(a.at))
 }
-/** The last version both sides agreed on. `progress` hashes it without the facility place. */
+/** The last version both sides agreed on. `progress` hashes it without the facility place and area states. */
 function baseline(store: KeyStorage): { id: string; hash: string; progress?: string } | undefined {
   try {
     const value = JSON.parse(store.getItem(BASELINE) ?? 'null')
@@ -68,9 +68,10 @@ export function createSync(store: KeyStorage, cloud: CloudStore, progress: (phas
       const result = (status: SyncResult['status'], confirmedHash?: string): SyncResult => ({ status, entries, heads, hash: confirmedHash })
       if (cloud.recoveryRequired?.()) return { ...result('conflict'), recovery: true }
       if (heads.length === 1 && heads[0].hash === hash) { await publish(heads[0], text, signal); await accept(heads[0], text, signal); return result('synced', hash) }
-      // Where the robot stands is a convenience, not progress: when this device changed only that
-      // and the cloud has moved on, the cloud's saves load, with their place, without asking.
-      // Baselines from before the place synced hashed no place, so their hash is the progress hash.
+      // Where the robot stands, and the state of the places it left, are conveniences, not progress:
+      // when this device changed only those and the cloud has moved on, the cloud's saves load, with
+      // their place, without asking. Baselines from before the place synced hashed no place, so their
+      // hash is the progress hash; none held area states.
       const progressText = serializeWorkspace(withoutPlace(current))
       // A device that never synced takes the cloud when it holds no progress at all.
       const placeOnly = heads.length === 1 && heads[0].id !== base?.id && (base

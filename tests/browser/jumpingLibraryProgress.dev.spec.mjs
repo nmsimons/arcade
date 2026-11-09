@@ -9,18 +9,21 @@ const level = (id, name) => ({ ...blankTrial(), id, name, times: { gold: 10, sil
 const card = (page, name) => page.getByRole('button', { name: new RegExp(`^Level \\d+: ${name}$`) })
 
 test('the library shows the campaign progression, locking courses whose doors are still shut', async ({ page }, info) => {
-  // One wing holds the three lessons, each behind a door that opens once the one before it is passed.
-  const wing = { version: 1, id: 'lesson-wing', name: 'Lesson wing', kind: 'hub', timing: 'untimed', width: 1800, height: 920, floor: 920,
+  // A hall opens onto one wing, which holds the three lessons, each behind a door that opens once the one before it is passed.
+  const area = (id, name, courseDoors, bulkheads) => ({ version: 1, id, name, kind: 'hub', timing: 'untimed', width: 1800, height: 920, floor: 920,
     entrance: { x: 200, y: 920 }, platforms: [], checkpoints: [], climbables: { ladders: [], ropes: [] }, props: [], mechanisms: [], triggers: [], robots: [],
-    courseDoors: CAMPAIGN.map((course, i) => ({ id: `door-${i}`, x: 500 + i * 400, y: 920, course: course.id })), bulkheads: [], evaluationBoards: [] }
-  await useLevelFixtures(page, [...CAMPAIGN, wing])
-  await page.route('**/levels/jumping-campaign.json', route => route.fulfill({ json: { version: 1, opening: wing.id, wings: [{ id: 'lessons', level: wing.id, courses: CAMPAIGN.map(course => course.id) }] } }))
+    courseDoors, bulkheads, evaluationBoards: [] })
+  const wing = area('lesson-wing', 'Lesson wing', CAMPAIGN.map((course, i) => ({ id: `door-${i}`, x: 500 + i * 400, y: 920, course: course.id,
+    ...(i ? { power: 'switched' } : {}), ...(i < CAMPAIGN.length - 1 ? { targets: [`door-${i + 1}`] } : {}) })), [{ id: 'wing-to-hall', x: 1600, y: 920, to: 'lesson-hall' }])
+  const hall = area('lesson-hall', 'Lesson hall', [], [{ id: 'hall-to-wing', x: 900, y: 920, to: wing.id }])
+  await useLevelFixtures(page, [...CAMPAIGN, wing, hall])
+  await page.route('**/levels/jumping-campaign.json', route => route.fulfill({ json: { version: 2, opening: hall.id, concourse: hall.id } }))
   await page.goto('/lab/library?renderControl=1')
   await expect(page.getByRole('button', { name: 'Level 1: First Leap' })).toHaveAttribute('aria-pressed', 'true')
   await page.screenshot({ path: info.outputPath('campaign-menu.png') })
   for (const n of [2, 3]) await expect(page.getByRole('img', { name: `Level ${n}: Locked` })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Level 3: Hand Over Hand' })).toHaveCount(0)
-  // The wing itself is a place in the facility, never a tile.
+  // The facility's areas are places, never tiles.
   await expect(page.locator('.jumping-level-browser .jumping-level-card')).toHaveCount(3)
   await expect(page.locator('.jumping-medal-times')).toHaveCount(0)
 })

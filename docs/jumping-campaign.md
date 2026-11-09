@@ -96,6 +96,12 @@ Flooding and broken access create decisions using established mechanics;
 story damage must not introduce unreliable collisions or one-off physics rules.
 Replays are gameplay affordances and need no literal time-reset explanation.
 
+The facility resets its timed courses: every run starts a course as it was
+built. Everywhere else is an ordinary place. Orientation, the concourse, the
+wings and the escape route stay as the robot left them, with crates where it
+pushed them, switches as it set them and water where it pumped it, until the
+robot changes them again. Their machines go back to their routines.
+
 Course equipment stays in courses. Coins, coin switches, wall clocks and time
 pickups are the facility's scoring layer, closer to virtual targets than
 physical objects, so they exist only in timed courses. Wings and the escape
@@ -150,9 +156,9 @@ so every course needs a name that works as facility signage.
 
 Access is gated, not ability. The robot's movement never changes, because every
 course is tuned for its full repertoire; carried gadgets stay inside the
-courses that provide them. Wings open through clearance: a wing's bulkhead
-opens once named courses elsewhere are passed, and its placard shows how many
-remain.
+courses that provide them. A sealed wing's bulkhead opens once the wings it
+needs are complete, every course in them passed; until then the evaluation
+board shows it SEALED.
 
 | Phase | Place | Player experience | Environmental development |
 | --- | --- | --- | --- |
@@ -179,12 +185,14 @@ editing or playtesting.
    gap jumps, the swing over a pool), and Company's dark cave, where the first response unit wakes and the
    robot climbs out ahead of it. Its bulkhead opens onto the concourse, and
    every wing opens off the concourse.
-2. Each wing's courses form a fixed sequence. Finishing a timed required course
+2. Each wing's courses form a fixed sequence, wired in the wing's facility area:
+   each door is a switch that opens the next. Finishing a timed required course
    at D or better unlocks the next course in its wing and lights its door. D is
    a realistic first-run deadline, not a free pass. An untimed level unlocks
    its successor on completion. Coin surplus, optional-area completion,
-   and total campaign average cannot add a requirement. Wings open by clearance,
-   and the order in which the player works through open wings is theirs.
+   and total campaign average cannot add a requirement. Sealed wings open once
+   the wings they need are complete, and the order in which the player works
+   through open wings is theirs.
 3. Completion is recorded at the level's actual finish, after its completion
    presentation. Merely powering an exit or reaching a nearby switch is not a
    completion. Ordinary levels retain their current doorway-entry scoring.
@@ -199,18 +207,20 @@ editing or playtesting.
    campaign; no grade above D is required for the ending.
 
 The evaluation board shows every required course as a numbered lamp, grouped
-by wing in each wing's order. A locked course's lamp and door stay dark: no
-name, grade or time until it unlocks. An unlocked door's placard shows the course name, its D
-deadline, and once passed, the best time and best grade. Unlocking, passing and
+by wing in each wing's order. Every course's name is lettered above its door.
+A locked course's lamp and placard stay dark: no grade or time until it
+unlocks. An unlocked door's placard shows its D deadline, and once passed, the
+best time and best grade. Unlocking, passing and
 improving a course update its placard and lamp where the robot can see them.
 The authoring library and playtests remain unrestricted. Direct play links also
 respect progression. Use stable level IDs for progress. Older saved times count
 when they meet the current D deadline; an older completion flag alone cannot
 prove a timed pass. Untimed completion remains saved independently of best time.
-Doors, lamps and bulkheads are derived from these records. The only new saved
-value is the robot's autosaved place: the hub and the door it came through,
-the door of the course it is playing, or its escape level. Wake's pod is the
-game's only charging bay; the facility has no save points to visit.
+Doors, lamps and bulkheads are derived from these records. The game also
+autosaves the robot's place (the hub and the door it came through, the door of
+the course it is playing, or its escape level) and the state of each untimed
+place it has left. Wake's pod is the game's only charging bay; the facility has
+no save points to visit.
 
 The wall clock counts down to the D deadline while showing the current A/B/C/D
 grade. Passing D permanently makes that run F: the timer dims at zero and time

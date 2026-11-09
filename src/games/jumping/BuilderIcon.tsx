@@ -41,6 +41,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   bulkhead: 'M3 21V6h18v15M1 21h22M3 3h18v3H3zM7 3l3 3M13 3l3 3M8 21V10h8v11',
   'evaluation-board': 'M2 4h20v14H2zM5 8h8M5 11h12M5 14h10M12 18v3M8 21h8',
   'wall-door': 'M5 21V3h14v18M2 21h20M5 9l14 4M5 15l14-3',
+  'grade-gate': 'M3 21h18M6 21v-6M11 21V9M16 21v-8M2 12h20',
 }
 export function BuilderIcon({ kind }: { kind: Tool | TerrainTransform }) {
   const color = kind === 'time-penalty' || kind === 'fast-stopwatch' ? TIME_PENALTY_COLOR : 'currentColor'

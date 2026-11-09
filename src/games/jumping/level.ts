@@ -18,8 +18,8 @@ import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
 import type { Entrance, Goal } from './goal.ts'
-import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, hubDoorFits } from './hub.ts'
-import type { Bulkhead, CourseDoor, EvaluationBoard } from './hub.ts'
+import { GRADE_GATE_HEIGHT, GRADE_GATE_WIDTH, GRADE_LETTERS, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_GRADE_GATES, gradeGateBounds, hubDoorFits } from './hub.ts'
+import type { Bulkhead, CourseDoor, EvaluationBoard, GradeGate, GradeLetter } from './hub.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
@@ -95,6 +95,8 @@ export interface JumpLevel {
   wallDoors?: WallDoor[]
   pickups?: Pickup[]
   kind?: 'hub'; courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[]
+  /** Studio-only nodes that switch on an average of this area's level door grades. */
+  gradeGates?: GradeGate[]
 }
 export interface PuzzleLevel extends JumpLevel {
   height: number; floor: number; goal: Goal; times: TimeTargets
@@ -276,6 +278,11 @@ function hubProblems(level: HubLevel, terrain: Platform[]): string[] {
     courses.add(door.course)
   }
   for (const [i, door] of level.bulkheads.entries()) if (!door.to) issues.push(`Choose where ${objectReference(level, 'bulkhead', i)} leads.`)
+  for (const [i, gate] of (level.gradeGates ?? []).entries()) {
+    const b = gradeGateBounds(gate)
+    if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > height) issues.push(`Keep ${objectReference(level, 'grade-gate', i)} inside the level rectangle.`)
+    if (!gate.doors.length) issues.push(`Choose the level doors that ${objectReference(level, 'grade-gate', i)} averages.`)
+  }
   const equipment = [
     level.pickups?.some(p => p.kind === 'coin') && 'coins',
     level.triggers.some(t => t.mode === 'coins') && 'coin switches',
@@ -442,7 +449,7 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.kind !== undefined && v.kind !== 'hub') fail()
   const hub = v.kind === 'hub'
   if (hub && (goal !== undefined || v.timing !== 'untimed' || v.times !== undefined)) fail()
-  if (!hub && ['courseDoors', 'bulkheads', 'evaluationBoards'].some(key => v[key] !== undefined)) fail()
+  if (!hub && ['courseDoors', 'bulkheads', 'evaluationBoards', 'gradeGates'].some(key => v[key] !== undefined)) fail()
   if (goal !== undefined || hub) {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
     if (hub) level.kind = 'hub'
@@ -579,27 +586,48 @@ export function parseLevel(value: unknown): JumpLevel {
       return { ...position, kind }
     })
     if (hub) {
-      const hubObject = (item: unknown) => {
+      // Doors and bulkheads go by where they lead, so a name saved on one is dropped.
+      const hubObject = (item: unknown, named = true) => {
         const d = object(item)
         if (typeof d.id !== 'string' || !d.id.trim() || d.id.length > 100) fail()
-        return { d, base: { ...objectName(d), id: d.id as string, x: num(d.x, 0, width), y: num(d.y, 0, level.floor!) } }
+        return { d, base: { ...named ? objectName(d) : {}, id: d.id as string, x: num(d.x, 0, width), y: num(d.y, 0, level.floor!) } }
+      }
+      // A door opens always, or like a switched exit while its wiring is on.
+      const doorPower = (d: Record<string, unknown>) => {
+        if (d.power !== undefined && d.power !== 'switched') fail()
+        if (d.relay !== undefined) fail()
+        const settings = parseSwitchSettings({ switchLogic: d.switchLogic, switchReversed: d.switchReversed }, fail)
+        return d.power === 'switched' ? { power: 'switched' as const, ...settings } : {}
       }
       level.courseDoors = list(v.courseDoors ?? [], MAX_COURSE_DOORS).map(item => {
-        const { d, base } = hubObject(item)
+        const { d, base } = hubObject(item, false)
         if (typeof d.course !== 'string' || d.course.length > 100) fail()
-        return { ...base, course: d.course as string }
+        // A level door is also a switch: its targets turn on once its course is passed.
+        const { targets } = parseSwitchSettings({ targets: d.targets }, fail)
+        return { ...base, course: d.course as string, ...doorPower(d), ...(targets?.length ? { targets } : {}) }
       })
       level.bulkheads = list(v.bulkheads ?? [], MAX_BULKHEADS).map(item => {
-        const { d, base } = hubObject(item)
+        const { d, base } = hubObject(item, false)
         if (typeof d.to !== 'string' || d.to.length > 100) fail()
-        return { ...base, to: d.to as string }
+        // A bulkhead is also a switch: its targets turn on once the area beyond is complete.
+        const { targets } = parseSwitchSettings({ targets: d.targets }, fail)
+        return { ...base, to: d.to as string, ...doorPower(d), ...(targets?.length ? { targets } : {}) }
       })
       level.evaluationBoards = list(v.evaluationBoards ?? [], MAX_EVALUATION_BOARDS).map(item => {
         const { d, base } = hubObject(item), w = num(d.w, 120, 1200), h = num(d.h, 60, 600)
         if (base.x + w > width || base.y + h > level.floor!) fail()
         return { ...base, w, h }
       })
-      const hubIds = [...level.courseDoors, ...level.bulkheads, ...level.evaluationBoards].map(item => item.id)
+      if (v.gradeGates !== undefined) level.gradeGates = list(v.gradeGates, MAX_GRADE_GATES).map(item => {
+        const gate = object(item)
+        if (typeof gate.id !== 'string' || !gate.id.trim() || gate.id.length > 100 || !(GRADE_LETTERS as readonly unknown[]).includes(gate.grade)) fail()
+        if (!Array.isArray(gate.doors) || gate.doors.length > MAX_COURSE_DOORS || gate.doors.some(id => typeof id !== 'string' || !id) || new Set(gate.doors).size !== gate.doors.length) fail()
+        const { targets, switchReversed } = parseSwitchSettings({ targets: gate.targets, switchReversed: gate.switchReversed }, fail)
+        return { ...objectName(gate), id: gate.id as string, x: num(gate.x, GRADE_GATE_WIDTH / 2, width - GRADE_GATE_WIDTH / 2),
+          y: num(gate.y, GRADE_GATE_HEIGHT / 2, level.floor! - GRADE_GATE_HEIGHT / 2), doors: [...gate.doors as string[]], grade: gate.grade as GradeLetter,
+          ...(switchReversed ? { switchReversed } : {}), ...(targets ? { targets } : {}) }
+      })
+      const hubIds = [...level.courseDoors, ...level.bulkheads, ...level.evaluationBoards, ...level.gradeGates ?? []].map(item => item.id)
       if (new Set(hubIds).size !== hubIds.length) fail()
     }
   } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'floatSwitches', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
@@ -702,7 +730,9 @@ export function parseLevel(value: unknown): JumpLevel {
     if (issues.length) throw new Error(issues[0])
   }
   const ids = [...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : []),
-    ...level.climbables.ropes.flatMap(rope => rope.release ? [rope.release] : [])].map(item => item.id)
+    ...level.climbables.ropes.flatMap(rope => rope.release ? [rope.release] : []),
+    // Switched doors and bulkheads are wired by their own IDs.
+    ...[...level.courseDoors ?? [], ...level.bulkheads ?? []].filter(door => door.power === 'switched')].map(item => item.id)
   for (const p of level.gravityPlates ?? []) if (p.effect === 'water') ids.push(waterControlId(p.id, 'fill'), waterControlId(p.id, 'drain'))
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.

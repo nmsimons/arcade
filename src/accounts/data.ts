@@ -1,4 +1,4 @@
-import { FACILITY_PLACE_SLOT, SAVE_SLOTS, LEVELS_SLOT, withWorkspaceLock } from './profileStorage.ts'
+import { AREA_STATE_SLOT, FACILITY_PLACE_SLOT, SAVE_SLOTS, LEVELS_SLOT, withWorkspaceLock } from './profileStorage.ts'
 import { CloudChangedError } from './errors.ts'
 import type { KeyStorage } from './profileStorage.ts'
 import { decodeLevelFile, decodeLevelManifest, isLevelFileName } from '../games/jumping/levelAssets.ts'
@@ -56,14 +56,19 @@ export function parseWorkspace(text: string): Workspace {
     }
     // The game reads back only a well-formed place and otherwise starts afresh, so any small object is kept.
     if (key === FACILITY_PLACE_SLOT && (textBytes(raw) > 4096 || !object(JSON.parse(raw)))) throw new Error('Invalid facility place.')
+    // Likewise each place's state: the game restores only a well-formed state saved from the same level file.
+    if (key === AREA_STATE_SLOT && (textBytes(raw) > 512 * 1024 || !object(JSON.parse(raw)))) throw new Error('Invalid facility areas.')
     slots[key] = raw
   }
   return { version: 1, slots, levels: validateLibrary(value.levels) }
 }
-/** The workspace without the robot's facility place: the progress a place-only change leaves untouched. */
+/**
+ * The workspace without where L.A.B.'s robot is and the state of the places it left: the progress
+ * that a change to those conveniences leaves untouched.
+ */
 export function withoutPlace(data: Workspace): Workspace {
   const slots = { ...data.slots }
-  delete slots[FACILITY_PLACE_SLOT]
+  delete slots[FACILITY_PLACE_SLOT]; delete slots[AREA_STATE_SLOT]
   return { ...data, slots }
 }
 export function readWorkspace(store: KeyStorage): Workspace {

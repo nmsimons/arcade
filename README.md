@@ -499,7 +499,8 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 The game is a facility to explore. It opens on a start screen (Continue,
 Progress, Restart) over the robot's place. A new save wakes in Orientation; each wing's
-course doors open in order as courses are passed, and the robot's place is
+course doors open by their wiring as courses are passed (a passed door is a switch),
+and the robot's place is
 autosaved ([the facility](docs/jumping-facility.md)). The level library
 (`/lab/library`) and Level studio are available only with `npm run dev` on
 localhost. **JSON Test Lab** lives in the automated test

@@ -68,8 +68,9 @@ function terminal(level: JumpLevel, item: Selection, lane: number, approachX?: n
 export function wallWires(level: JumpLevel): WallWire[] {
   const height = level.floor ?? level.height ?? 1020, targets = new Map(switchedItems(level).map(item => [item.id, item]))
   const clampY = (y: number) => Math.max(4, Math.min(height - 4, y))
+  // Level doors, bulkheads and grade averages have no wall terminal: their wiring is studio-only.
   return switchSources(level).flatMap(source => {
-    if (!source.definition.showWires) return []
+    if (source.kind === 'course-door' || source.kind === 'bulkhead' || source.kind === 'grade-gate' || !source.definition.showWires) return []
     const lane = clampY(height - (source.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT))
     const start = terminal(level, source, lane)
     return switchTargets(source.definition).flatMap(id => {

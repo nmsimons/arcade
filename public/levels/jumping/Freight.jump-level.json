@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "facility-freight",
-  "name": "Freight wing",
+  "name": "Freight",
   "width": 1200,
   "height": 1200,
   "platforms": [
@@ -22,8 +22,8 @@
   ],
   "entrance": {
     "name": "Freight entrance",
-    "x": 260,
-    "y": 820
+    "x": 1100,
+    "y": 1200
   },
   "checkpoints": [],
   "climbables": {
@@ -2212,44 +2212,54 @@
   "robots": [],
   "courseDoors": [
     {
-      "name": "Level Five",
       "id": "door-level-five",
       "x": 265,
       "y": 1200,
-      "course": "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd"
+      "course": "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
+      "power": "switched",
+      "targets": [
+        "door-tower-i"
+      ]
     },
     {
-      "name": "Turnaround",
       "id": "door-turnaround",
       "x": 505,
       "y": 1200,
-      "course": "ujg-turnaround-v2"
+      "course": "ujg-turnaround-v2",
+      "power": "switched",
+      "targets": [
+        "door-level-five"
+      ]
     },
     {
-      "name": "jk",
       "id": "door-jk",
       "x": 745,
       "y": 1200,
-      "course": "5adc6677-fb33-4064-a4ce-507e37130bc4"
+      "course": "5adc6677-fb33-4064-a4ce-507e37130bc4",
+      "targets": [
+        "door-turnaround"
+      ]
     },
     {
-      "name": "Tower I",
       "id": "door-tower-i",
       "x": 395,
       "y": 820,
-      "course": "16f44bef-1ff7-42d7-ad5a-f8966310cd4b"
+      "course": "16f44bef-1ff7-42d7-ad5a-f8966310cd4b",
+      "power": "switched",
+      "targets": [
+        "door-tower-ii"
+      ]
     },
     {
-      "name": "Tower II",
       "id": "door-tower-ii",
       "x": 685,
       "y": 820,
-      "course": "105e88ac-240d-49b1-b45d-4cc9c225b32e"
+      "course": "105e88ac-240d-49b1-b45d-4cc9c225b32e",
+      "power": "switched"
     }
   ],
   "bulkheads": [
     {
-      "name": "Concourse",
       "id": "freight-to-concourse",
       "x": 1100,
       "y": 1200,
@@ -2265,16 +2275,29 @@
       "h": 250
     }
   ],
-  "texts": [
-    {
-      "x": 920,
-      "y": 40,
-      "w": 240,
-      "h": 110,
-      "text": "L.A.B.\nexperiments",
-      "fontSize": 28,
-      "align": "center",
-      "style": "lab-stamp"
-    }
-  ]
+  "texts": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "2352b9a7-8dd8-47e8-925f-1040741dedc4",
+        "x": 750,
+        "y": 885,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 145,
+        "power": "always"
+      },
+      {
+        "id": "24a6f309-c86a-4ddd-9f51-9bf24067e7e7",
+        "x": 575,
+        "y": 570,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 125,
+        "power": "always"
+      }
+    ]
+  }
 }

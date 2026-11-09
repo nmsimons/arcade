@@ -801,17 +801,46 @@ leaves only through its doors, by pressing Up in an open doorway. It may hold
 everything a course does except timing equipment: coins, coin switches, wall
 clocks and time pickups stay in courses. Tools and EMP charges are allowed.
 
-- `courseDoors: [{ id, name?, x, y, course }]`: level doors. `course` is the
+- `courseDoors: [{ id, x, y, course }]`: level doors. `course` is the
   ID of the level behind the door; finishing that level returns the robot here.
-- `bulkheads: [{ id, name?, x, y, to }]`: doors to other facility areas. `to`
+- `bulkheads: [{ id, x, y, to }]`: doors to other facility areas. `to`
   is the ID of the facility area beyond it. Arriving through a bulkhead steps
   out of the bulkhead on the far side that leads back.
+- Level doors and bulkheads go by where they lead, so neither has a `name`;
+  one saved on them is dropped when the level loads.
+- `power: "switched"` on a level door or bulkhead opens it only while its
+  wiring is on, like a switched exit, with optional `switchLogic` and
+  `switchReversed`; its `id` is its switch ID. Without it, a level door or
+  bulkhead is always open. A level door whose course is passed stays open,
+  whatever its wiring says.
+- `targets` on a bulkhead lists what it switches once the area beyond it is
+  complete: every level door in that area passed.
+- `targets` on a level door lists what it switches once the level behind it is
+  passed: at D or better, or completed if untimed.
+- `gradeGates: [{ id, name?, x, y, doors, grade, switchReversed?, targets? }]`:
+  studio-only grade averages. `doors` lists level door IDs in this area;
+  their best grades score A 4, B 3, C 2, D 1 and 0 for an F or no finish, and
+  the node is on while the average reaches `grade` (`a` to `d`).
+
+For example, the second door opens once the first course is passed, and a
+bulkhead once both average a B:
+
+```json
+"courseDoors": [
+  { "id": "door-one", "x": 500, "y": 920, "course": "<first course id>", "targets": ["door-two"] },
+  { "id": "door-two", "x": 900, "y": 920, "course": "<second course id>", "power": "switched" }
+],
+"bulkheads": [{ "id": "way-on", "x": 1400, "y": 920, "to": "<area id>", "power": "switched" }],
+"gradeGates": [{ "id": "b-average", "x": 900, "y": 300, "doors": ["door-one", "door-two"], "grade": "b", "targets": ["way-on"] }]
+```
 - `evaluationBoards: [{ id, name?, x, y, w, h }]`: wall displays of the
   evaluation, filled in during play.
 
 Doors and bulkheads share the entrance's flat 40-by-80 doorway, with `x` at the
-middle of the sill. A level door hangs its placard to the right; a bulkhead has
-its destination's name lettered on the wall above it. An empty `course` or
+middle of the sill. Each has its destination's name lettered on the wall above
+it, and a level door hangs a placard of its course's data to the right. In the
+studio, as in the facility, a level door or bulkhead goes by where it leads;
+a saved `name` on one is ignored. An empty `course` or
 `to` saves, but validation asks for a destination before the level is played.
 In the studio, **Level → Type → Facility area** converts a course (its doorway
 exit becomes a bulkhead, its destination still to choose) and **Course**
@@ -828,6 +857,16 @@ The shared trial shape retains increasing positive `times` values for a later
 return to timed mode; those values are ignored while untimed. Completion saves
 separately from best times, using stable IDs and the same local/built-in record
 namespaces, and participates in account backups and cloud sync.
+
+In the facility, every untimed level, facility areas included, keeps its state
+between visits: props, mechanisms, switches, float switches, water levels and
+released rope anchors stay as the robot left them, while robots return to their
+posts ([Autosave](jumping-facility.md#autosave)). Timed courses always start as
+authored. A saved state belongs to one version of the level file, so editing
+a level starts it afresh for every player who saved it. Design untimed places
+so that a moved crate or a set switch can never strand the robot: **Restart
+area** returns a place to its authored layout, but a player should rarely need
+it.
 
 ### Blocked doors
 

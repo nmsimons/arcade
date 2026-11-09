@@ -62,7 +62,7 @@ test('hub problems cover door placement, duplicate courses and timing equipment'
     triggers: [{ x: 1000, y: 700, w: 120, mode: 'coins', threshold: 1, target: '' }],
   }))
   assert.deepEqual(levelProblems(level), [
-    'Place “High door · Level door 2” on a continuous flat surface, with a clear doorway inside the level.',
+    'Place “Level door 2” on a continuous flat surface, with a clear doorway inside the level.',
     'Two level doors lead to “one”. Give each level one door.',
     'Remove the coins, coin switches, wall clocks and time pickups. Timing equipment stays in the courses.',
   ])
@@ -76,7 +76,7 @@ test('facility areas may hold tools and EMP charges, and doors may wait for a de
     props: [{ kind: 'box', x: 1000, y: 920, size: 40, gadget: 'emp' }],
   }))
   assert.deepEqual(levelProblems(level), [
-    'Choose the level that “New door · Level door 1” leads to.',
+    'Choose the level that “Level door 1” leads to.',
     'Choose where “Bulkhead 1” leads.',
   ])
 })

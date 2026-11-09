@@ -25,7 +25,7 @@ test('Orientation is a night facility area with a day-lit training hall and a bu
   assert.equal(level.environment.baseLighting, 'night')
   assert.deepEqual(level.environment.walls.map(wall => [wall.name, wall.lighting]), [['Training hall', 'day']])
   assert.equal(level.robots.filter(robot => robot.kind === 'repulsor' && robot.chargingBay).length, 1)
-  assert.deepEqual(level.bulkheads.map(door => [door.id, door.name, door.to]), [[SERVICE_ACCESS, 'Service access', 'facility-concourse']])
+  assert.deepEqual(level.bulkheads.map(door => [door.id, door.to]), [[SERVICE_ACCESS, 'facility-concourse']])
   assert.deepEqual(level.courseDoors, [])
 })
 

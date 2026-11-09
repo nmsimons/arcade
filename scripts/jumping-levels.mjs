@@ -3,6 +3,7 @@ import { resolve, join } from 'node:path'
 import { compareFileNames, decodeLevelManifest, decodeLevelFile, isLevelFileName, playableLevelFile } from '../src/games/jumping/levelAssets.ts'
 import { MAX_LEVEL_BYTES, checkCollectionSize, textBytes } from '../src/games/jumping/levelLimits.ts'
 import { campaignProblems, parseCampaign } from '../src/games/jumping/campaign.ts'
+import { campaignWiringProblems, resolveCampaign } from '../src/games/jumping/facility.ts'
 
 const source = resolve('public/levels/jumping')
 // The facility's structure sits beside the collection, not in it, so level
@@ -39,7 +40,10 @@ async function inspect(root) {
 async function checkCampaign(levels) {
   const text = await readFile(campaignSource, 'utf8')
   if (textBytes(text) > MAX_LEVEL_BYTES) throw new Error('jumping-campaign.json exceeds 1 MB.')
-  const problems = campaignProblems(parseCampaign(JSON.parse(text)), levels)
+  // The file names the opening, the concourse and the escape route; the levels lay out the wings.
+  const byId = new Map(levels.map(level => [level.id, level])), campaign = resolveCampaign(parseCampaign(JSON.parse(text)), byId)
+  // The structure, then whether its wiring can open every wing, door and bulkhead.
+  const problems = [...campaignProblems(campaign, levels), ...campaignWiringProblems(campaign, byId)]
   if (problems.length) throw new Error(`jumping-campaign.json: ${problems.join(' ')}`)
 }
 async function index(root) {

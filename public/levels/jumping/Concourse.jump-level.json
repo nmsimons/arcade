@@ -1061,69 +1061,107 @@
   "robots": [],
   "courseDoors": [
     {
-      "name": "Dispatch door",
       "id": "dispatch-door",
       "x": 1000,
       "y": 760,
-      "course": "5d45678a-5104-43be-9647-2a2bbd6ff932"
+      "course": "5d45678a-5104-43be-9647-2a2bbd6ff932",
+      "power": "switched",
+      "switchLogic": "and"
     }
   ],
   "bulkheads": [
     {
-      "name": "Orientation",
       "id": "concourse-to-opening",
       "x": 345,
       "y": 1740,
       "to": "lab-orientation"
     },
     {
-      "name": "Boot Camp",
       "id": "concourse-to-movement",
       "x": 1670,
       "y": 1740,
-      "to": "facility-movement"
+      "to": "facility-movement",
+      "targets": [
+        "concourse-to-freight",
+        "concourse-to-construction",
+        "concourse-to-assessment",
+        "dispatch-door"
+      ]
     },
     {
-      "name": "Freight",
       "id": "concourse-to-freight",
       "x": 345,
       "y": 1400,
-      "to": "facility-freight"
+      "to": "facility-freight",
+      "power": "switched",
+      "targets": [
+        "concourse-to-security",
+        "concourse-to-targets",
+        "concourse-to-assessment",
+        "dispatch-door"
+      ]
     },
     {
-      "name": "Construction",
       "id": "concourse-to-construction",
       "x": 1665,
       "y": 1400,
-      "to": "facility-construction"
+      "to": "facility-construction",
+      "power": "switched",
+      "targets": [
+        "concourse-to-security",
+        "concourse-to-targets",
+        "concourse-to-assessment",
+        "dispatch-door"
+      ]
     },
     {
-      "name": "Gravity",
       "id": "concourse-to-targets",
       "x": 345,
       "y": 1080,
-      "to": "facility-targets"
+      "to": "facility-targets",
+      "power": "switched",
+      "targets": [
+        "concourse-to-security",
+        "concourse-to-water",
+        "concourse-to-assessment",
+        "dispatch-door"
+      ]
     },
     {
-      "name": "Puzzles",
       "id": "concourse-to-water",
       "x": 345,
       "y": 760,
-      "to": "facility-water"
+      "to": "facility-water",
+      "power": "switched",
+      "switchLogic": "and",
+      "targets": [
+        "concourse-to-assessment",
+        "dispatch-door"
+      ]
     },
     {
-      "name": "Security",
       "id": "concourse-to-security",
       "x": 1665,
       "y": 1080,
-      "to": "facility-security"
+      "to": "facility-security",
+      "power": "switched",
+      "switchLogic": "and",
+      "targets": [
+        "concourse-to-assessment",
+        "concourse-to-water",
+        "dispatch-door"
+      ]
     },
     {
-      "name": "Assessment",
       "id": "concourse-to-assessment",
       "x": 1665,
       "y": 760,
-      "to": "facility-assessment"
+      "to": "facility-assessment",
+      "power": "switched",
+      "switchLogic": "and",
+      "targets": [
+        "dispatch-door"
+      ]
     }
   ],
   "evaluationBoards": [

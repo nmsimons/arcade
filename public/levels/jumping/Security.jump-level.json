@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "id": "facility-security",
+  "name": "Security",
+  "width": 2850,
+  "height": 720,
+  "platforms": [],
+  "entrance": {
+    "name": "Security entrance",
+    "x": 200,
+    "y": 720
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "id": "door-lock-out-i",
+      "x": 800,
+      "y": 720,
+      "course": "243237ee-296d-40f6-abd4-950eee0bbffc",
+      "targets": [
+        "door-uninvited-company"
+      ]
+    },
+    {
+      "id": "door-uninvited-company",
+      "x": 1150,
+      "y": 720,
+      "course": "ujg-uninvited-company-v2",
+      "power": "switched",
+      "targets": [
+        "door-quarantine"
+      ]
+    },
+    {
+      "id": "door-quarantine",
+      "x": 1500,
+      "y": 720,
+      "course": "e7940f79-5502-451a-a373-9b63e4df1e11",
+      "power": "switched",
+      "targets": [
+        "door-lock-out-ii"
+      ]
+    },
+    {
+      "id": "door-lock-out-ii",
+      "x": 1850,
+      "y": 720,
+      "course": "dbf1b51d-bf10-4c7a-aa35-0d769445c766",
+      "power": "switched",
+      "targets": [
+        "door-quarantine-ii"
+      ]
+    },
+    {
+      "id": "door-quarantine-ii",
+      "x": 2200,
+      "y": 720,
+      "course": "8f8e6552-55a6-4b36-9fce-24a0d43619f0",
+      "power": "switched",
+      "targets": [
+        "door-quarantine-iii"
+      ]
+    },
+    {
+      "id": "door-quarantine-iii",
+      "x": 2550,
+      "y": 720,
+      "course": "a9e72a69-c1f9-4b12-8670-4ecdafb342ee",
+      "power": "switched"
+    }
+  ],
+  "bulkheads": [
+    {
+      "id": "security-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "facility-concourse"
+    }
+  ],
+  "evaluationBoards": [],
+  "texts": [
+    {
+      "x": 400,
+      "y": 540,
+      "w": 260,
+      "h": 40,
+      "text": "SECURITY",
+      "fontSize": 24,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 400,
+      "y": 578,
+      "w": 320,
+      "h": 24,
+      "text": "RESPONSE UNITS · FIELDS · EMP · 6 COURSES",
+      "fontSize": 12,
+      "align": "left",
+      "style": "official"
+    }
+  ]
+}

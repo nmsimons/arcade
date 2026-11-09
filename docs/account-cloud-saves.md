@@ -25,8 +25,9 @@ through **Load cloud saves**, which restarts the game. Expiry, offline mode,
 denied consent and provider failures leave local progress available. Reconnect
 is explicit. Wait for the account indicator to confirm sync before closing a tab.
 
-Hard Vacuum expedition/recovery, L.A.B. best times, L.A.B. completion and the
-robot's place in L.A.B.'s facility are allowlisted save slots. L.A.B. opens
+Hard Vacuum expedition/recovery, L.A.B. best times, L.A.B. completion, the
+robot's place in L.A.B.'s facility and the state of the untimed places it left
+(`Untitled Jumping Game/facility-areas.json`) are allowlisted save slots. L.A.B. opens
 into the facility, so with cloud saves on it waits up to eight seconds
 for the account's first cloud check before placing the robot. Restart on
 L.A.B.'s start screen erases its best times, completions and place; the erased
@@ -223,12 +224,13 @@ an explicit choice. Restoring remote progress first uploads unsynced local edits
 as a recovery version. Existing versions remain intact. Timestamps never decide
 which progress to discard.
 
-The robot's facility place is a convenience, not progress. A device whose only
-change since its baseline is that place takes a newer cloud head as if it were
-clean: the cloud's saves load with their place, and the local place stays in the
-recovery copy. The baseline records a progress hash, the workspace without the
-place, to tell; baselines from before the place synced hashed no place, so their
-hash serves. A place-only change with the cloud unchanged uploads as usual, and
+The robot's facility place, and the state of the places it left, are
+conveniences, not progress. A device whose only
+change since its baseline is to those takes a newer cloud head as if it were
+clean: the cloud's saves load with their place and places, and the local ones
+stay in the recovery copy. The baseline records a progress hash, the workspace
+without the place and the places' states, to tell; baselines from before the
+place synced hashed no place, so their hash serves, and none held places' states. A place-only change with the cloud unchanged uploads as usual, and
 progress changed on both sides still asks which version to keep. A local save
 made while a download is being applied, such as the robot walking through a door,
 retries the check a few seconds later instead of stopping sync.

@@ -4,18 +4,25 @@ import type { NamedObject } from './objectNames.ts'
 import { mechanismLabel } from './mechanisms.ts'
 import { pickupLabel } from './pickups.ts'
 import { WALL_DOOR_LABELS } from './wallDoor.ts'
+import type { Bulkhead, CourseDoor } from './hub.ts'
 
 /** Resolve authored data rather than the bounds derived for editor handles. */
-export function itemDefinition(level: JumpLevel, selection: Selection): NamedObject | undefined {
+export function itemDefinition(level: JumpLevel, selection: Selection): NamedObject | CourseDoor | Bulkhead | undefined {
   if (selection.kind === 'entrance') return level.entrance
   if (selection.kind === 'goal') return level.goal
   const collections = {
     platform: level.platforms, 'back-wall': level.environment?.walls, rope: level.climbables.ropes, ladder: level.climbables.ladders,
     checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
     trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'logic-relay': level.logicRelays, 'float-switch': level.floatSwitches, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
-    'course-door': level.courseDoors, bulkhead: level.bulkheads, 'evaluation-board': level.evaluationBoards, 'wall-door': level.wallDoors,
+    'course-door': level.courseDoors, bulkhead: level.bulkheads, 'evaluation-board': level.evaluationBoards, 'wall-door': level.wallDoors, 'grade-gate': level.gradeGates,
   }
   return collections[selection.kind]?.[selection.index]
+}
+
+/** An object's own saved name. Level doors and bulkheads have none: they go by where they lead. */
+export function itemName(level: JumpLevel, selection: Selection): string | undefined {
+  if (selection.kind === 'course-door' || selection.kind === 'bulkhead') return undefined
+  return (itemDefinition(level, selection) as NamedObject | undefined)?.name
 }
 
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
@@ -32,6 +39,7 @@ export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'float-switch') return `Float switch ${s.index + 1}`
   if (s.kind === 'rope' && level.climbables.ropes[s.index]?.end) return `Tied rope ${s.index + 1}`
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
+  if (s.kind === 'grade-gate') return `Grade average ${s.index + 1}`
   if (s.kind === 'force-field' && level.forceFields?.[s.index].mode === 'objects') return `Red ${level.forceFields[s.index].orientation} force field ${s.index + 1}`
   if (s.kind === 'prop') {
     const prop = level.props?.[s.index], weight = prop?.weight === 'heavy' ? 'Heavy ' : ''
@@ -45,9 +53,17 @@ export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   return `${name}${s.kind === 'entrance' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 
+/**
+ * What the facility shows on a level door or bulkhead: the name of the level or
+ * area it leads to, or Dispatch for the dispatch door. The studio supplies it,
+ * since it needs the collection.
+ */
+export type DoorName = (door: CourseDoor | Bulkhead) => string | undefined
 /** Keep the type and number visible to distinguish duplicate or missing names. */
-export function objectLabel(level: JumpLevel, selection: Selection): string {
-  const fallback = defaultObjectLabel(level, selection), name = itemDefinition(level, selection)?.name?.trim()
+export function objectLabel(level: JumpLevel, selection: Selection, doorName?: DoorName): string {
+  const fallback = defaultObjectLabel(level, selection), definition = itemDefinition(level, selection)
+  const door = selection.kind === 'course-door' || selection.kind === 'bulkhead'
+  const name = (door ? definition && doorName?.(definition as CourseDoor | Bulkhead) : itemName(level, selection))?.trim()
   return name ? `${name} · ${fallback}` : fallback
 }
 

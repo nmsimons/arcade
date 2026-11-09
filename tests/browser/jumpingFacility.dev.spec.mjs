@@ -4,15 +4,18 @@ import { advanceJumpingSimulation, withoutIntermediateFrames } from './helpers/s
 import { readFileSync } from 'node:fs'
 import { formatTime } from '../../src/games/jumping/challenge.ts'
 import { gradeTimes } from '../../src/games/jumping/grading.ts'
+import { parseCampaign } from '../../src/games/jumping/campaign.ts'
+import { resolveCampaign } from '../../src/games/jumping/facility.ts'
+import { parseLevel } from '../../src/games/jumping/level.ts'
 
 // The concourse's bulkhead to Orientation, wherever the layout puts it.
 const concourse = JSON.parse(readFileSync(new URL('../../public/levels/jumping/Concourse.jump-level.json', import.meta.url), 'utf8'))
 const toOrientation = concourse.bulkheads.find(bulkhead => bulkhead.id === 'concourse-to-opening')
 // The first wing and its second course's door, wherever the layout puts them.
 const levels = new URL('../../public/levels/jumping/', import.meta.url)
-const campaign = JSON.parse(readFileSync(new URL('../jumping-campaign.json', levels), 'utf8'))
 const byId = new Map(JSON.parse(readFileSync(new URL('index.json', levels), 'utf8')).levels
-  .map(file => JSON.parse(readFileSync(new URL(encodeURIComponent(file), levels), 'utf8'))).map(level => [level.id, level]))
+  .map(file => parseLevel(JSON.parse(readFileSync(new URL(encodeURIComponent(file), levels), 'utf8')))).map(level => [level.id, level]))
+const campaign = resolveCampaign(parseCampaign(JSON.parse(readFileSync(new URL('../jumping-campaign.json', levels), 'utf8'))), byId)
 const firstWing = byId.get(campaign.wings[0].level)
 const [firstCourse, secondCourse] = campaign.wings[0].courses.map(id => byId.get(id))
 const secondDoor = firstWing.courseDoors.find(door => door.course === secondCourse.id)
@@ -217,4 +220,30 @@ test('restart asks first, then erases the save and wakes in Orientation', async 
   expect(await page.evaluate(() => [localStorage.getItem('arcade.jumping.times.v1'), localStorage.getItem('arcade.jumping.completed.v1')])).toEqual([null, null])
   expect(await saved(page), 'a new place is saved in the opening').toEqual({ place: { kind: 'hub', level: 'lab-orientation', arrival: { kind: 'entrance' } } })
   await expect.poll(async () => { await page.clock.runFor(16); return page.locator('.jumping-state').innerText() }, { timeout: 20000 }).toBe('Waking up')
+})
+
+test('a facility area keeps its state between visits, and Restart area puts it back as authored', async ({ page }) => {
+  test.setTimeout(120000)
+  const concourseId = 'facility-concourse', areas = () => page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.areas.v1') ?? '{}'))
+  await openFacility(page, { place: { kind: 'hub', level: concourseId, arrival: { kind: 'door', id: 'concourse-to-opening' } } })
+  const concourseCanvas = page.getByRole('img', { name: 'Concourse', exact: true }), paused = page.getByRole('dialog', { name: 'Game paused', exact: true })
+  await expect(concourseCanvas).toBeFocused()
+  await finishJumpingEntrance(page)
+  // Pausing saves the area as it stands: both pools are full, as authored.
+  await page.keyboard.press('Escape'); await expect(paused).toBeVisible()
+  const saved = (await areas())[concourseId]
+  expect(saved.water).toEqual([100, 100])
+  expect(saved.props).toHaveLength(concourse.props.length + concourse.floatSwitches.length)
+  // As if an earlier visit had drained the lower pool, open the facility's address afresh.
+  await page.evaluate(([id, state]) => localStorage.setItem('arcade.jumping.areas.v1', JSON.stringify({ [id]: state })), [concourseId, { ...saved, water: [40, 100] }])
+  await page.clock.resume()
+  await page.goto('/lab/facility?motionDebug=1&renderControl=1')
+  await expect(concourseCanvas).toBeFocused({ timeout: 30000 })
+  await page.keyboard.press('Escape'); await expect(paused).toBeVisible()
+  expect((await areas())[concourseId].water, 'the drained pool came back drained').toEqual([40, 100])
+  // Restart area is the way back to the authored layout, and forgets the saved state.
+  await paused.getByRole('button', { name: 'Restart area', exact: false }).click()
+  await expect(concourseCanvas).toBeFocused()
+  await page.keyboard.press('Escape'); await expect(paused).toBeVisible()
+  expect((await areas())[concourseId].water).toEqual([100, 100])
 })

@@ -8,18 +8,21 @@ import { BEST_TIME_KEY } from '../../src/games/jumping/challenge.ts'
 const room = (id, name) => ({ ...blankTrial(), id, name, width: 900, entrance: { x: 60, y: 920 },
   goal: { x: 700, y: 920, flipX: true }, times: { a: .2, b: .4, c: .8, d: 4 }, timers: [{ x: 200, y: 780 }] })
 const maps = () => [room('graded-one', 'First course'), room('graded-two', 'Secret machinery'), room('graded-three', 'Secret ending')]
-// One wing of three courses, each behind a door that opens once the one before it is passed.
-const wing = { version: 1, id: 'graded-wing', name: 'Graded wing', kind: 'hub', timing: 'untimed', width: 1800, height: 920, floor: 920,
+const area = (id, name, courseDoors, bulkheads) => ({ version: 1, id, name, kind: 'hub', timing: 'untimed', width: 1800, height: 920, floor: 920,
   entrance: { x: 200, y: 920 }, platforms: [], checkpoints: [], climbables: { ladders: [], ropes: [] }, props: [], mechanisms: [], triggers: [], robots: [],
-  courseDoors: [{ id: 'door-one', x: 500, y: 920, course: 'graded-one' }, { id: 'door-two', x: 900, y: 920, course: 'graded-two' },
-    { id: 'door-three', x: 1300, y: 920, course: 'graded-three' }], bulkheads: [], evaluationBoards: [] }
-const campaign = { version: 1, opening: wing.id, wings: [{ id: 'graded', level: wing.id, courses: ['graded-one', 'graded-two', 'graded-three'] }] }
+  courseDoors, bulkheads, evaluationBoards: [] })
+// A hall, where a new game wakes, opens onto one wing of three courses, each behind a door that opens once the one before it is passed.
+const wing = area('graded-wing', 'Graded wing', [{ id: 'door-one', x: 500, y: 920, course: 'graded-one', targets: ['door-two'] },
+  { id: 'door-two', x: 900, y: 920, course: 'graded-two', power: 'switched', targets: ['door-three'] },
+  { id: 'door-three', x: 1300, y: 920, course: 'graded-three', power: 'switched' }], [{ id: 'wing-to-hall', x: 1600, y: 920, to: 'graded-hall' }])
+const hall = area('graded-hall', 'Graded hall', [], [{ id: 'hall-to-wing', x: 900, y: 920, to: wing.id }])
+const campaign = { version: 2, opening: hall.id, concourse: hall.id }
 // The fixtures load in order: 00 is the first course, 01 the second, 02 the third.
 const link = index => `0${index}-fixture.json`
 
 /** Opens the first course by its link in a facility of one wing. */
 async function open(page, levels = maps()) {
-  await useLevelFixtures(page, [...levels, wing])
+  await useLevelFixtures(page, [...levels, wing, hall])
   await page.route('**/levels/jumping-campaign.json', route => route.fulfill({ json: campaign }))
   await installDigitalClockSpy(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })

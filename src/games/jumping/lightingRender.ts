@@ -532,8 +532,8 @@ export class LightingRenderer {
       }
     }
     const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}:${run.level.platforms.map(p => p.groundCover).join(',')}`
-    // Hub doors and placards are static during a hub run and belong to the cached background.
-    const hubKey = 'hub' in run && run.hub ? `:${[...run.hub.open].join()}:${[...run.hub.placards].map(([id, lines]) => id + lines.join('/')).join()}` : ''
+    // Hub doors, placards and lettering belong to the cached background; it redraws when a door opens or shuts.
+    const hubKey = 'hub' in run && run.hub ? `:${[...run.hub.open].join()}:${[...run.hub.placards].map(([id, lines]) => id + lines.join('/')).join()}:${[...run.hub.signs].join()}` : ''
     const backgroundKey = `${dayKey}:${document.fonts.status}${hubKey}`
     const stableDayView = cacheAmbient && this.dayBackgroundCandidate === backgroundKey
     this.dayBackgroundCandidate = cacheAmbient ? backgroundKey : undefined

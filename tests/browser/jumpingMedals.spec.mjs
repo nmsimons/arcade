@@ -2,6 +2,14 @@ import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { advanceJumpingSimulation } from './helpers/simulation.mjs'
+import { readFileSync } from 'node:fs'
+
+// Level Five returns the robot to its door, in whichever facility area holds it, under whatever name.
+const levels = new URL('../../public/levels/jumping/', import.meta.url)
+const read = file => JSON.parse(readFileSync(new URL(encodeURIComponent(file), levels), 'utf8'))
+const levelFive = read('05.json').id
+const levelFiveArea = JSON.parse(readFileSync(new URL('index.json', levels), 'utf8')).levels.map(read)
+  .find(level => level.kind === 'hub' && level.courseDoors.some(door => door.course === levelFive)).name
 
 // These route regressions start from an already unlocked campaign.
 test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
@@ -39,6 +47,6 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   const elapsed = minutes * 60 + seconds
   expect(elapsed).toBeGreaterThan(0)
   expect(elapsed).toBeLessThanOrEqual(10)
-  await expect(page.getByRole('img', { name: 'Freight wing', exact: true })).toBeVisible()
+  await expect(page.getByRole('img', { name: levelFiveArea, exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('level-five-returned.png') })
 })

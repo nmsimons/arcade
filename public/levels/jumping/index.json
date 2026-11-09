@@ -43,11 +43,11 @@
     "spelunk.jump-level.json",
     "exit.jump-level.json",
     "Concourse.jump-level.json",
-    "Freight wing.jump-level.json",
-    "Assessment wing.jump-level.json",
-    "Construction wing.jump-level.json",
-    "Security wing.jump-level.json",
-    "Gravity wing.jump-level.json",
+    "Freight.jump-level.json",
+    "Assessment.jump-level.json",
+    "Construction.jump-level.json",
+    "Security.jump-level.json",
+    "Gravity.jump-level.json",
     "Puzzles.jump-level.json",
     "Boot Camp wing.jump-level.json"
   ]

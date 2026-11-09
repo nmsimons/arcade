@@ -22,7 +22,7 @@ import { createFloatSwitch, drawFloatSwitchArm } from './floatSwitch.ts'
 import { drawLogicRelay } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { backWallPath } from './environment.ts'
-import { drawHubDoors } from './hub.ts'
+import { drawGradeGate, drawHubDoors } from './hub.ts'
 import { drawWallDoor } from './wallDoor.ts'
 import { paintNormally } from './worldPaint.ts'
 
@@ -77,6 +77,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'wall-light': drawWallLight(ctx, level.wallLights![i], false); break
     case 'float-switch': { const f = createFloatSwitch(level.floatSwitches![i]); drawFloatSwitchArm(ctx, f); drawProp(ctx, f.prop); break }
     case 'logic-relay': drawLogicRelay(ctx, level.logicRelays![i], false); break
+    case 'grade-gate': drawGradeGate(ctx, level.gradeGates![i], false); break
     case 'timer': drawWallTimer(ctx, level.timers![i], 0); break
     case 'text': drawWallTexts(ctx, [level.texts![i]]); break
     case 'pickup': drawPickup(ctx, { definition: level.pickups![i], collectedAge: null }); break

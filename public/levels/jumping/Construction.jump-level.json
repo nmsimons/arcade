@@ -1,7 +1,7 @@
 {
   "version": 1,
   "id": "facility-construction",
-  "name": "Construction wing",
+  "name": "Construction",
   "width": 3200,
   "height": 720,
   "platforms": [],
@@ -24,58 +24,74 @@
   "robots": [],
   "courseDoors": [
     {
-      "name": "Spire I",
       "id": "door-spire-i",
-      "x": 800,
+      "x": 645,
       "y": 720,
-      "course": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c"
+      "course": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
+      "targets": [
+        "door-scaffold-i"
+      ]
     },
     {
-      "name": "Scaffold I",
       "id": "door-scaffold-i",
-      "x": 1150,
+      "x": 900,
       "y": 720,
-      "course": "5b6e15bf-38a0-4baf-951a-204c2abc7e21"
+      "course": "5b6e15bf-38a0-4baf-951a-204c2abc7e21",
+      "power": "switched",
+      "targets": [
+        "door-spire-ii"
+      ]
     },
     {
-      "name": "Spire II",
       "id": "door-spire-ii",
-      "x": 1500,
+      "x": 1185,
       "y": 720,
-      "course": "11234f12-817c-4966-a141-54e70573fae0"
+      "course": "11234f12-817c-4966-a141-54e70573fae0",
+      "power": "switched",
+      "targets": [
+        "door-scaffold-ii"
+      ]
     },
     {
-      "name": "Scaffold II",
       "id": "door-scaffold-ii",
-      "x": 1850,
+      "x": 1465,
       "y": 720,
-      "course": "16782da7-ca7e-40e6-a383-106746fd8df8"
+      "course": "16782da7-ca7e-40e6-a383-106746fd8df8",
+      "power": "switched",
+      "targets": [
+        "door-scaffold-iii"
+      ]
     },
     {
-      "name": "Scaffold III",
       "id": "door-scaffold-iii",
-      "x": 2200,
+      "x": 1725,
       "y": 720,
-      "course": "ab711d55-3d87-4933-a858-12029b54589c"
+      "course": "ab711d55-3d87-4933-a858-12029b54589c",
+      "power": "switched",
+      "targets": [
+        "door-scaffold-iv"
+      ]
     },
     {
-      "name": "Scaffold IV",
       "id": "door-scaffold-iv",
-      "x": 2550,
+      "x": 2055,
       "y": 720,
-      "course": "363a26b8-1f98-4c5f-8fd3-8451b8455501"
+      "course": "363a26b8-1f98-4c5f-8fd3-8451b8455501",
+      "power": "switched",
+      "targets": [
+        "door-scaffold-v"
+      ]
     },
     {
-      "name": "Scaffold V",
       "id": "door-scaffold-v",
-      "x": 2900,
+      "x": 2425,
       "y": 720,
-      "course": "d4b07ef9-80a6-46c1-917c-19ad1902dc69"
+      "course": "d4b07ef9-80a6-46c1-917c-19ad1902dc69",
+      "power": "switched"
     }
   ],
   "bulkheads": [
     {
-      "name": "Concourse bulkhead",
       "id": "construction-to-concourse",
       "x": 200,
       "y": 720,

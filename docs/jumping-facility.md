@@ -7,20 +7,25 @@
 in every build. The level grid is the development library at `/lab/library`,
 in development builds only. What exists:
 
-- The campaign file and wing progression (`campaign.ts`), checked by
-  `npm run levels:check`.
+- The campaign file, which names only the opening, the concourse and the
+  escape route (`campaign.ts`), and the wings, courses and dispatch door read
+  from the facility's areas (`resolveCampaign` in `facility.ts`), all checked
+  by `npm run levels:check`.
 - Facility areas: hub levels (`"kind": "hub"`) with level doors (`courseDoors`),
-  bulkheads and evaluation boards (`hub.ts`). Up enters an open door. Placards
-  show a course's name and D deadline, then its best time and grade. A
-  bulkhead has the area beyond it lettered on the wall above, and the
-  evaluation board shows the clearance each sealed wing still needs.
+  bulkheads and evaluation boards (`hub.ts`). Up enters an open door. Every
+  door has where it leads lettered on the wall above it: a level door its
+  course (the dispatch door DISPATCH), a bulkhead the area beyond. A level
+  door's placard is a screen of its course's data: its D deadline, then its
+  best time and grade. The evaluation board shows each wing's passes, or SEALED.
 - The level studio edits all of it. **Type** in the Level tab switches a level
   between Course and Facility area (a doorway exit becomes a bulkhead, and
   back). In a facility area, the Facility tools place level doors, bulkheads
   and evaluation boards, and **Leads to** in the inspector chooses each door's
   level (any course in the collection) or each bulkhead's facility area (any
-  other facility area in the collection). Studio placards name the
-  destination, and a playtest opens every door.
+  other facility area in the collection). The studio shows doors as the
+  facility does: lettering, placards and boards as a new save sees them, and
+  each level door or bulkhead named by where it leads, with no name of its
+  own. A playtest opens every door.
 - The facility loop (`facility.ts` and the game shell): a new save wakes in
   Orientation; a course returns the robot to its door, and a bulkhead leads to
   the matching bulkhead beyond it. The robot's place, Orientation included,
@@ -45,13 +50,15 @@ in development builds only. What exists:
   inputs. Wake, the four tutorial levels and Company stay in the collection but
   leave the campaign; their direct links stay open. Orientation's golden traces await recording on Apple
   Silicon, like the other facility areas.
-- Every wing as stub hubs: Movement (Hop Skip Jump I and II, A Bigger Swing,
-  Leaps and Bounds II, Slow is Smooth), Freight (8), Construction (7), Targets
-  (4), Water (3), Security (6) and an Assessment wing for Escapade and World I,
-  the two unplaced levels: 35 required courses. Water, Security and Assessment open through draft clearances (8 of
-  Freight and Construction; 12 of Freight, Construction and Targets; 6 of Water
-  and Security). The stubs are flat corridors that make the campaign playable
-  end to end, not designed wings.
+- Seven wings: Boot Camp (7 courses), Freight (5), Construction (7), Gravity
+  (3), Security (6), Puzzles (3) and Assessment (2), for 33 required courses.
+  The concourse's wiring opens them as wings are completed: Freight and
+  Construction once Boot Camp is complete; Gravity once Freight or Construction
+  is; Security once Freight, Construction and Gravity are; Puzzles once Gravity
+  and Security are; and Assessment once all six others are. Slow is Smooth and
+  Buoyancy stay in the collection with no door; their direct links stay open.
+  Most wings are still flat corridors that make the campaign playable end to
+  end, not designed wings.
 - Direct links ([Routes](#engineering-notes)): `/lab/levels/built-in/<file>` plays a
   course whose door is open, and finishing or leaving it returns the robot to
   that door. A locked course, a facility area or a missing file opens the
@@ -61,8 +68,8 @@ in development builds only. What exists:
   briefly for an account's first cloud check before placing the robot, and a
   device whose only unsynced change is the place takes newer cloud saves without
   asking ([account cloud saves](account-cloud-saves.md)).
-- The release: when all 40 courses are passed, the dispatch door opens onto
-  Ascent I, the final course. Passing it leads through Ascent II, Spelunk and
+- The release: the dispatch door is wired to open once every wing is complete,
+  onto Ascent I, the final course. Passing it leads through Ascent II, Spelunk and
   Exit, each opening into the next; after the bus departs, the closing card
   offers Return to the facility. The escape levels still keep their timers and
   coins until their untimed redesign.
@@ -198,20 +205,45 @@ The facility has no save points to visit; Wake's pod is the game's only
 charging bay. The game autosaves the robot's place whenever it moves: the hub
 and the door or bulkhead it came through, the door of the course it is playing,
 or its escape level. Course records save when a course finishes, as they always
-have. Together they are the whole save.
+have.
+
+Untimed places keep their state (`areaState.ts`). In the canon, the facility
+resets its timed courses, and every other place is an ordinary place: the
+opening, the concourse, the wings and the escape route stay as the robot left
+them. Each untimed level saves, by its level ID:
+
+- where each prop lies, including tools (a tool still in hand stays behind at
+  the robot's feet, as it does at a door);
+- mechanism positions, triggers and toggle groups, and so every switch they
+  drive;
+- float switches and water levels;
+- tied ropes that have let go of an anchor.
+
+Robots go back to their posts and the player's robot resumes at its door, as
+the place autosave says; neither is saved. The state saves when the robot
+leaves through a door or bulkhead, when the game pauses or the page is hidden
+or closed, and every five seconds of play when something has changed. A course
+that keeps its state, such as Exit, starts afresh once finished. **Restart
+area** puts a place back as authored and forgets its saved state: it is the way
+out if a crate ends up blocking the route. A saved state belongs to one version
+of its level: editing the level's file starts that place afresh. **Restart** on
+the start screen erases every saved place with the rest of the save.
+
+Together these are the whole save.
 
 ### Access and clearance
 
 Access is gated, not ability. The robot's movement never changes, because every
 course is tuned for its full repertoire, and carried gadgets stay in the
-course or area that provides them: entering a door leaves a held tool behind. A wing opens through clearance: its bulkhead opens
-once named courses are passed, and the evaluation board shows what remains
-("WATER WING CLEARANCE 6/8"). The draft below is for the review to settle:
+course or area that provides them: entering a door leaves a held tool behind.
+A sealed wing opens by the concourse's wiring: its bulkhead is Switched, and
+the bulkheads of the wings it needs switch it on (Logic AND), each once its wing
+is complete. The evaluation board shows a sealed wing as SEALED.
 
 - Orientation's bulkhead leads onto the concourse, which is always open.
-- Freight, Construction and Targets open with the concourse.
-- Water and Security open later, through clearance from the earlier wings.
-  Security carries much of the deterioration and the response-unit story.
+- Boot Camp opens with the concourse. The other wings open as the wings they
+  need are complete (see the status above).
+- Security carries much of the deterioration and the response-unit story.
 
 ### Course equipment stays in courses
 
@@ -230,10 +262,44 @@ A course door is a wing object (proposed `courseDoors`):
 ```
 
 It uses the same 40-by-80 doorway as entrances and exits, with the same flat
-sill and headroom rules, plus a placard mounted on the wall beside it. `course`
-is the course's stable level ID. A door's position is geometry and its course is
-a link, like a switch's targets; wing order, clearance and certification live in
-the campaign file.
+sill and headroom rules. The course's name is lettered on the wall above it,
+like a bulkhead's destination, and a placard screen beside it shows the
+course's data. `course` is the course's stable level ID. A door's position is geometry and its course is
+a link, like a switch's targets.
+
+**Doors are switches, and open by switches.** The relationships between courses
+are wired in their facility area, in the studio, rather than listed in the
+campaign file:
+
+- A level door opens always, or with **Power: Switched** (`"power": "switched"`)
+  only while its wiring is on, as a switched exit does, with Logic and Reversed.
+  A bulkhead can be switched the same way. Unswitched doors and bulkheads are
+  always open.
+- Every bulkhead is also a switch (`targets`): on once the area beyond it is
+  complete, every level door in it passed. An area with no level doors has
+  nothing left to pass.
+- Every level door is also a switch (`targets`): on once the level behind it is
+  passed, at D or better, or completed if untimed. An F or a level not yet
+  finished leaves it off.
+- A **grade average** (`gradeGates`) is a studio-only node in a facility area.
+  It averages the best grades of the level doors it lists (A 4, B 3, C 2, D 1,
+  and 0 for an F or no finish) and is on while the average reaches its grade,
+  optionally Reversed.
+- These are ordinary switch sources: they can drive switched doors and
+  bulkheads, gates, lifts, lights or logic relays, and mix with plates and
+  float switches. Most built-in wings are wired in sequence: each door after
+  the first is Switched, and the door before it switches it on. Assessment's
+  two doors are both always open.
+- A passed course's door stays open, whatever its wiring says: a pass never
+  relocks, so a pass carried over from the level grid keeps its door open.
+
+Doors, direct links, the level library and the start screen's progress all
+read the same wiring, from the courses' best grades and the area's switches as
+the robot last left them. While the robot is in the area, a switched door opens
+and shuts with its wiring, and its placard is dark while it is shut. A studio
+playtest opens every door, but door switches and grade averages still read the
+player's records. Wing access is wired the same way, by the concourse's
+bulkheads (see [Access and clearance](#access-and-clearance)).
 
 **Entering.** Standing in an open course doorway and pressing **Up** (controller
 Up, touch drag up) enters it. Walking or running past never enters a door; this
@@ -243,13 +309,18 @@ and ignore Up. Keep ladders and ropes clear of door fronts so Up is never
 ambiguous.
 
 **Placard states.** The placard is a dynamic phosphor display, drawn like the
-wall timers and message screens, with the same lighting rules:
+wall timers and message screens, with the same lighting rules. It is reserved
+for the course's data; the name is lettered above the door and stays while the
+door is shut:
 
 | State | Placard |
 | --- | --- |
-| Locked | Dark. No name, grade or time. |
-| Unlocked, not passed | Course name and its D deadline. After an F run, also "NOT PASSED". |
-| Passed | Course name, best time, and the best grade in the left lamp bay. |
+| Locked | Dark. No grade or time. |
+| Unlocked, not run | NO RECORD and its D deadline. |
+| Unlocked, run but not passed | BEST with the run's time and F, and its D deadline. |
+| Passed | BEST with the best time, and GRADE with the best grade. |
+| Untimed | UNTIMED, or COMPLETE once finished. |
+| Dispatch door | SEALED, or UNIT RELEASED. |
 | Improved just now | The new time and grade roll in; "PERSONAL BEST" on a new best. |
 | Certification door | Source group, completion count and points, e.g. "CERTIFICATION 5 / 6", with the source courses' best grades. |
 
@@ -269,13 +340,16 @@ such as "EVALUATION 12 / 40". Locked lamps are dark. Smaller boards at wing
 entrances may show just that wing. The board replaces the grid's overview
 without being a menu: nothing on it is selectable. Proposed as a wall object
 `evaluationBoards: [{ x, y, w, h, wing? }]` whose content comes from the
-campaign file and saved records.
+facility's areas and saved records.
 
 ### The release and the escape route
 
-When the last required course is passed, the board reads complete
-("EVALUATION COMPLETE / UNIT RELEASED FOR DISPATCH" as draft copy) and the
-dispatch door in the concourse opens.
+The dispatch door is a level door like any other: it opens by its wiring, and
+Always open means always open. The built-in concourse wires it from every
+wing's bulkhead with Logic AND, so it opens once every wing is complete, which
+is when the last required course is passed. The board reads EVALUATION
+COMPLETE once every required course is passed, and UNIT RELEASED FOR DISPATCH
+while the dispatch door is open, so it always agrees with the door.
 
 The leading option, still to be settled, keeps **Ascent I as the final timed
 course**: the facility's last test, behind the dispatch door. It keeps its coins,
@@ -301,65 +375,61 @@ routes in place of medal routes).
 
 ### The campaign file
 
-Campaign structure lives in `public/levels/jumping-campaign.json`, separate from
-level geometry as the canon requires. It sits beside the built-in collection
-rather than inside it, so level packs keep their format (level JSON and
-`index.json` only). `src/games/jumping/campaign.ts` reads and checks it:
+Campaign structure that the facility's areas cannot express lives in
+`public/levels/jumping-campaign.json`, separate from level geometry as the canon
+requires. It sits beside the built-in collection rather than inside it, so
+level packs keep their format (level JSON and `index.json` only).
+`src/games/jumping/campaign.ts` reads it:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "opening": "<Orientation, a facility area>",
   "concourse": "<concourse level id>",
-  "wings": [{
-    "id": "movement",
-    "level": "<movement wing level id>",
-    "courses": ["<Hop Skip Jump I>", "…"],
-    "clearance": null
-  }, {
-    "id": "water",
-    "level": "<water wing level id>",
-    "courses": ["…"],
-    "clearance": { "wings": ["freight", "construction"], "count": 8 }
-  }],
-  "finalCourse": "<Ascent I>",
   "escape": ["<Ascent II>", "<Spelunk>", "<Exit>"]
 }
 ```
 
-- **A new game** wakes at the opening's entrance. The opening is a facility
-  area like the wings. Its bulkhead to the concourse and the concourse's
-  bulkhead to it are always open. A bulkhead's `to` is the level ID of the
-  facility area it opens onto, so a new area is reachable as soon as a bulkhead
-  names it.
-- **A facility area or course outside the wings** is always open: the campaign
-  only orders and counts the areas and courses it lists. Its doors show the
-  course's deadline, then its best time and grade, but it is not part of the
-  evaluation.
-- **Every wing** opens off the concourse. Without a clearance it opens at once;
-  with one, once `count` of the named courses are passed. A
-  clearance names courses, whole wings, or both; `count` defaults to all of
-  them.
-- **Within a wing,** a door opens once the door before it is passed. A pass
-  carried over from the level grid keeps its door passed and opens the next one.
-- **The concourse** holds bulkheads to the opening and every wing, and one
-  level door, the dispatch door to `finalCourse`. Passing the final course
-  leads through `escape` in order.
-- **`level` and `concourse`** name hub levels and stay optional until those
-  levels exist.
-- **A wing goes by its level's name** on bulkhead lettering, the evaluation
-  board and campaign problems, so renaming the level in the studio renames the
-  wing. `id` is only for clearance to refer to; an optional `name` stands in
-  until the wing has a level.
+Everything else comes from the levels, so the studio is the one place to edit
+it (`resolveCampaign` in `facility.ts`):
 
-`npm run levels:check` confirms that every level exists and has one role (a
-facility area, one wing's course, the final course or an escape level), that
-wing courses and the final course are timed, that the opening, the concourse
-and the wing levels are facility areas, that each wing course has exactly one
-door in its wing, that the concourse's only level door is the dispatch door,
-that bulkheads join the opening and each wing to the concourse both ways, that
-every bulkhead in the collection leads to a facility area in it, and that every
-wing can open through clearance. Still to add: certification doors and sources, and the
+- **A new game** wakes at the opening's entrance. The opening is a facility
+  area like the wings, joined to the concourse by a bulkhead each way.
+- **The wings** are the facility areas the concourse's bulkheads open onto
+  that have level doors. A new bulkhead off the concourse to an area with
+  level doors adds a wing to the evaluation; an area without level doors, such
+  as a store room, is just a place. A wing goes by its level's name.
+- **A wing's courses** are the levels behind its level doors. Each wing is open
+  while a bulkhead to it on the concourse is open: always, or by its wiring
+  when it is Switched. Within a wing, each door opens by its wiring in the
+  wing's area (see [Course doors](#course-doors)).
+- **The order** of the board, the start screen's Progress and campaign
+  problems is the order the wiring opens wings and courses from a new save,
+  left to right where it opens them together, so it follows the wiring as it
+  is rewired.
+- **The concourse's level door** is the dispatch door, and the level behind
+  it is the final course. Passing the final course leads through `escape` in
+  order.
+- **A facility area or course outside the wings**, such as a side room off a
+  wing, is always open. Its doors show the course's deadline, then its best
+  time and grade, but it is not part of the evaluation.
+
+A version 1 file, which listed the wings, their courses, `finalCourse` and
+`clearance`, is refused with a note to keep only `opening`, `concourse` and
+`escape`.
+
+`npm run levels:check` confirms that the opening and the concourse are
+different facility areas joined both ways, that each wing's level doors lead
+to timed courses, one door each, that no course has doors in two wings, that
+each wing has a bulkhead back to the concourse, that the concourse's only level
+door is the dispatch door to a timed course of its own, that the escape levels
+are levels with no other role, and that every bulkhead in the collection leads
+to a facility area in it. It then plays the wiring forward from a new save, as
+if every course the robot reaches were passed, counting plates and float
+switches both as they start and all on (`campaignWiringProblems`), and reports
+any wing, level door, bulkhead or dispatch door in the opening, the concourse
+or the wings that can never open, so a way back that never opens cannot trap
+the robot. Still to add: certification doors and sources, and the
 course-equipment rule for escape levels once they are redesigned as untimed.
 `index.json` keeps loading every level for the development library.
 
@@ -382,9 +452,9 @@ three sync through [account cloud saves](account-cloud-saves.md); the place is
 waits up to eight seconds for the account's first cloud check ("Checking your
 cloud saves…") so a place saved on another device is where the robot appears. A
 download that arrives later, while the robot stands in an area, updates the
-saves but leaves the robot where it is. Wing world state (props moved,
-switches pressed) resets each time a wing loads; nothing else in a wing needs
-saving.
+saves but leaves the robot where it is. Each untimed place keeps its state
+between visits (see [Autosave](#autosave)), saved as
+`Untitled Jumping Game/facility-areas.json`.
 
 #### The start screen
 
@@ -396,7 +466,7 @@ course record offers:
 | Action | What it does |
 | --- | --- |
 | Continue | Plays on from the place behind the display, at `/lab/facility`. Esc, the controller's Menu button and B do the same. |
-| Progress | The evaluation total, then each wing: its passes, or the clearance a sealed wing still needs, and each course's best time and grade or the D deadline to pass. Locked courses stay dark, as their placards do. |
+| Progress | The evaluation total, then each wing: its passes, or Sealed, and each course's best time and grade or the D deadline to pass. Locked courses stay dark, as their placards do. |
 | Restart | Asks first, with Cancel as the default, then erases every course record (best times and completions) and the robot's place, and wakes in Orientation's pod at `/lab/facility`. With cloud saves on, the erased save syncs like any other change, and earlier versions stay in the cloud save history. |
 | Controls | The pause screen's controls reference. |
 
@@ -424,7 +494,7 @@ without the start screen. Courses return the robot to their doors at
    the course door (the entrance animation, from that door). The placard and
    board lamp update in view, and a live region announces the result, e.g.
    "Boxes passed. Grade B, 42.37 seconds, personal best."
-5. On F, the placard shows the run and "NOT PASSED"; the next door stays dark.
+5. On F, the placard shows the run's time with F and the deadline; the next door stays dark.
 6. **Leave course** on the pause screen returns to the door without a record.
 
 ### The pause screen
@@ -440,7 +510,8 @@ Its actions depend on where the robot is:
 | Escape route | Resume, Restart from entrance, Return to the facility, Controls, Back to arcade |
 
 Restart area returns the robot to where it came in: the door or bulkhead it
-arrived through, or the opening's pod. Development builds add **Level studio** as today. The controls
+arrived through, or the opening's pod. It also puts the area back as authored,
+forgetting its saved state. Development builds add **Level studio** as today. The controls
 reference keeps its current content.
 
 ## Authoring rules for wings
@@ -478,7 +549,7 @@ first wing ships.
 
 ## Course names and the catalog review
 
-Names become signage. Every course on a placard needs a facility name, so the
+Names become signage. Every course lettered over a door needs a facility name, so the
 review that assigns courses to wings also renames working titles such as "jk",
 "pinball", "Nine" and "Level Five". Stable IDs keep progress through renames.
 The review also settles wing membership and order, clearance, which built-ins
@@ -493,10 +564,11 @@ It precedes building any wing beyond Orientation.
   `JumpingResultDialog` remains for studio playtests, the development
   library, and direct links to levels outside the campaign, which have no door
   to return to.
-- **Progression.** `facilityProgress` walks each wing's order in the campaign
-  file, plus clearance, with the `passedLevel` rule. Doors, placards, boards,
-  bulkheads, direct links and the library's locks (`linkOpen`) all read from
-  that one result. A collection that lacks the campaign's opening, such as a
+- **Progression.** `facilityProgress` counts passes with the `passedLevel`
+  rule, opens each wing by the concourse's wiring and each wing door by its
+  area's wiring (`campaignWiring`, which resolves an area's switches from the
+  records and its saved switch states). Doors, placards, boards, bulkheads, direct links and the
+  library's locks (`linkOpen`) all read from that one result. A collection that lacks the campaign's opening, such as a
   test fixture catalog, leaves every level open.
 - **Routes.** `/lab` is the start screen and `/lab/facility` the facility in
   play; both share the loaded place, so moving between them never reloads it.
@@ -537,8 +609,10 @@ It precedes building any wing beyond Orientation.
   - Up enters an open door, running past does not, a locked door ignores Up;
   - finishing returns to the door with the placard and board updated;
   - an F run keeps the next door dark;
-  - clearance opens a bulkhead exactly at its threshold;
+  - a sealed wing's bulkhead opens once the wings wired to it are complete;
   - the autosave records the robot's place, and reload resumes there;
+  - an untimed place comes back as it was left, and Restart area returns it to
+    its authored layout;
   - shortcuts stay open after reload;
   - a direct link to a locked course is refused;
   - the start screen: a new save only starts, a returning save continues in

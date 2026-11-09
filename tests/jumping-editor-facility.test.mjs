@@ -20,9 +20,10 @@ test('a course becomes a facility area whose exit door becomes a bulkhead, its d
   assert.equal(hub.goal, undefined)
   assert.equal(hub.times, undefined)
   const door = goalDoor(before.goal)
-  assert.deepEqual(hub.bulkheads.map(({ name, x, y, to }) => ({ name, x, y, to })), [{ name: 'Way out', x: door.x + door.w / 2, y: 920, to: '' }])
+  // A bulkhead goes by where it leads, so the exit's name stays behind.
+  assert.deepEqual(hub.bulkheads.map(({ name, x, y, to }) => ({ name, x, y, to })), [{ name: undefined, x: door.x + door.w / 2, y: 920, to: '' }])
   assert.deepEqual([hub.courseDoors, hub.evaluationBoards], [[], []])
-  assert.deepEqual(levelProblems(parseLevel(hub)), ['Choose where “Way out · Bulkhead 1” leads.'])
+  assert.deepEqual(levelProblems(parseLevel(hub)), ['Choose where “Bulkhead 1” leads.'])
   const chosen = setHubDoorDestination(hub, { kind: 'bulkhead', index: 0 }, 'facility-concourse')
   assert.equal(chosen.bulkheads[0].to, 'facility-concourse')
   assert.deepEqual(levelProblems(parseLevel(chosen)), [])
@@ -34,7 +35,8 @@ test('a facility area becomes a course again, its first bulkhead becoming the ex
   assert.equal(isPuzzleLevel(back), true)
   assert.equal(back.kind, undefined)
   assert.deepEqual([back.courseDoors, back.bulkheads, back.evaluationBoards, back.timing], [undefined, undefined, undefined, undefined])
-  assert.deepEqual({ name: back.goal.name, x: back.goal.x, y: back.goal.y }, { name: 'Way out', x: 1500, y: 920 })
+  assert.deepEqual({ x: back.goal.x, y: back.goal.y }, { x: 1500, y: 920 })
+  assert.equal(back.goal.name, undefined, 'a bulkhead goes by where it leads, so it has no name to pass on')
   assert.deepEqual(levelProblems(parseLevel(back)), [])
   // A bulkhead near the left wall leaves the exit's indicator facing inward.
   const left = setLevelType({ ...hub, bulkheads: [{ ...hub.bulkheads[0], x: 100 }] }, 'course')

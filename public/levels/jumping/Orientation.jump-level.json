@@ -1566,7 +1566,6 @@
   "courseDoors": [],
   "bulkheads": [
     {
-      "name": "Service access",
       "id": "orientation-to-concourse",
       "x": 8355,
       "y": 350,

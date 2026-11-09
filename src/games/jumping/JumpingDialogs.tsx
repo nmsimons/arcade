@@ -94,7 +94,7 @@ function ProgressReport({ progress }: { progress: StartProgress }) {
   return <section className="jumping-dialog-controls jumping-start-progress" aria-label="Evaluation progress" data-controller-scroll>
     <p className="jumping-start-total">{progress.complete ? 'Evaluation complete. Unit released for dispatch.' : `Evaluation ${progress.passed} / ${progress.required}`}</p>
     {progress.wings.map(wing => <section key={wing.id} aria-label={wing.name}>
-      <h3><span>{wing.name}</span> <span>{wing.open ? `${wing.passed}/${wing.courses.length}` : wing.clearance ? `Clearance ${wing.clearance.passed}/${wing.clearance.count}` : 'Sealed'}</span></h3>
+      <h3><span>{wing.name}</span> <span>{wing.open ? `${wing.passed}/${wing.courses.length}` : 'Sealed'}</span></h3>
       {wing.open && <ul>{wing.courses.map((course, i) => course.state === 'locked'
         ? <li key={i} className="jumping-start-locked">Locked</li>
         : <li key={course.id}><span>{course.name}</span> <span>{courseRecord(course)}</span></li>)}</ul>}

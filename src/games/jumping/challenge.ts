@@ -342,8 +342,12 @@ function releaseRopeAnchors(run: Run, states: ReadonlyMap<string, boolean>) {
 }
 function updateSwitchTargets(run: Run) {
   for (const state of run.floatSwitches) updateFloatSwitch(state, run.empRemaining === 0)
-  const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches)
+  // In a facility area, door and bulkhead switches and grade averages read the facility's records.
+  const hub = run.hub
+  const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches, hub ? { grade: course => hub.grades.get(course) ?? null, complete: area => hub.complete.has(area) } : undefined)
   run.switchStates = states
+  // A switched door the facility lets open is open while its wiring is on.
+  if (run.hub) for (const id of run.hub.switched) { if (states.get(id)) run.hub.open.add(id); else run.hub.open.delete(id) }
   releaseRopeAnchors(run, states)
   updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0, platform => {
     const held = heldToolFrame(run.player)
@@ -360,6 +364,15 @@ function updateSwitchTargets(run: Run) {
   for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
   const goal = run.level.goal
   run.goalLit = !!goal && (!!run.exit || goal.power !== 'switched' || !!states.get(goal.id ?? ''))
+}
+/**
+ * Derive what follows from a fresh run's switch inputs, as a new run does: switches, fields,
+ * gravity, platforms and the goal light. Call it after a saved place's state is written into the
+ * run (`areaState.ts`), or once the facility supplies a facility area's course grades.
+ */
+export function settleRun(run: Run) {
+  updateSwitchTargets(run); syncPlatforms(run)
+  run.goalElapsed = run.goalLit ? GOAL_OPEN_SECONDS : 0
 }
 function faceContactedRobots(player: Player, contacts: PlayerContacts | null, robots: readonly RobotState[]) {
   const face = (collider?: PlayerCollider) => { if (collider?.robot) faceRobotToward(collider.robot, player.x) }

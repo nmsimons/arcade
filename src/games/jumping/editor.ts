@@ -1,14 +1,15 @@
 import type { JumpLevel } from './level.ts'
 import { blankTrial, copyLevel, isHubLevel, isPuzzleLevel, newLevelId, levelTerrain, levelHeight, snapToGround, LEVEL_GRID_SIZE } from './level.ts'
-import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, bulkheadSignBounds, hubDoorBounds, placardBounds } from './hub.ts'
-import type { Bulkhead, CourseDoor } from './hub.ts'
+import { GRADE_GATE_HEIGHT, GRADE_GATE_WIDTH, GRADE_LETTERS, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_GRADE_GATES, bulkheadSignBounds, courseDoorSignBounds, gradeGateBounds, hubDoorBounds, placardBounds } from './hub.ts'
+import type { Bulkhead, CourseDoor, GradeGate } from './hub.ts'
 import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
 import type { WallDoor } from './wallDoor.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
-import { itemDefinition, objectReference } from './objectLabels.ts'
+import type { NamedObject } from './objectNames.ts'
+import { itemDefinition, itemName, objectReference } from './objectLabels.ts'
 export { itemDefinition } from './objectLabels.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { groundAt, platformSurface } from './terrain.ts'
@@ -46,24 +47,24 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door'; index: number }
+export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 /** Level doors and bulkheads share the entrance's doorway, sill and placement rules. */
 export const isHubDoor = (selection: Selection): selection is Selection & { kind: 'course-door' | 'bulkhead' } => selection.kind === 'course-door' || selection.kind === 'bulkhead'
 export function hubDoorAt(level: JumpLevel, selection: Selection): CourseDoor | Bulkhead | undefined {
   return selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : selection.kind === 'bulkhead' ? level.bulkheads?.[selection.index] : undefined
 }
-/** A level door's selectable outline includes the placard hung to its right; a bulkhead's, the lettering above it. */
+/** A door's selectable outline includes the lettering above it, and a level door's the placard hung to its right. */
 function hubDoorOutline(door: CourseDoor | Bulkhead) {
   const b = hubDoorBounds(door)
   if ('to' in door) { const sign = bulkheadSignBounds(door); return { x: b.x - 40, y: sign.y, w: b.w + 80, h: b.y + b.h - sign.y } }
-  const placard = placardBounds(door)
-  return { x: b.x, y: b.y, w: placard.x + placard.w - b.x, h: b.h }
+  const placard = placardBounds(door), sign = courseDoorSignBounds(door)
+  return { x: b.x - 40, y: sign.y, w: placard.x + placard.w - b.x + 40, h: b.y + b.h - sign.y }
 }
 
 /**
@@ -78,7 +79,7 @@ export function setLevelType(level: JumpLevel, type: 'course' | 'hub'): JumpLeve
     const next: JumpLevel = copyLevel(level), [bulkhead] = level.bulkheads
     delete next.kind; delete next.courseDoors; delete next.bulkheads; delete next.evaluationBoards; delete next.timing
     const flipX = !!bulkhead && bulkhead.x - GOAL_DOOR_OFFSET < 30
-    next.goal = bulkhead ? { ...(bulkhead.name ? { name: bulkhead.name } : {}), x: bulkhead.x + (flipX ? GOAL_DOOR_OFFSET : -GOAL_DOOR_OFFSET), y: bulkhead.y, ...(flipX ? { flipX } : {}) }
+    next.goal = bulkhead ? { x: bulkhead.x + (flipX ? GOAL_DOOR_OFFSET : -GOAL_DOOR_OFFSET), y: bulkhead.y, ...(flipX ? { flipX } : {}) }
       : snapToGround(next, next.width - 160, next.entrance.y)
     next.times = blankTrial().times
     return next
@@ -91,7 +92,7 @@ export function setLevelType(level: JumpLevel, type: 'course' | 'hub'): JumpLeve
   delete next.goal; delete next.times
   next.kind = 'hub'; next.timing = 'untimed'
   next.courseDoors = []; next.evaluationBoards = []
-  next.bulkheads = goal.kind ? [] : [{ id: newLevelId(), ...(goal.name ? { name: goal.name } : {}), x: goalDoor(goal).x + GOAL_DOOR_WIDTH / 2, y: goal.y, to: '' }]
+  next.bulkheads = goal.kind ? [] : [{ id: newLevelId(), x: goalDoor(goal).x + GOAL_DOOR_WIDTH / 2, y: goal.y, to: '' }]
   return next
 }
 /** Wall doors are art: their condition, frame and facing only change how they look. */
@@ -221,10 +222,11 @@ export function setPickupSeconds(level: JumpLevel, index: number, seconds: numbe
   return next
 }
 
+/** Level doors and bulkheads go by where they lead, so they have no name to change. */
 export function renameItem(level: JumpLevel, selection: Selection, value: string): JumpLevel {
-  const item = itemDefinition(level, selection), name = value.trim().slice(0, OBJECT_NAME_MAX_LENGTH)
-  if (!item || (item.name ?? '') === name) return level
-  const next = copyLevel(level), target = itemDefinition(next, selection)!
+  const name = value.trim().slice(0, OBJECT_NAME_MAX_LENGTH)
+  if (!itemDefinition(level, selection) || selection.kind === 'course-door' || selection.kind === 'bulkhead' || (itemName(level, selection) ?? '') === name) return level
+  const next = copyLevel(level), target = itemDefinition(next, selection) as NamedObject
   if (name) target.name = name
   else delete target.name
   return next
@@ -255,7 +257,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
     ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
-    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? [])]) point.y += dy
+    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     for (const point of ropeEnds(rope)) point.y += dy
@@ -271,6 +273,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
   if (selection.kind === 'float-switch') { const f = level.floatSwitches?.[i]; return f ? floatSwitchBounds(f) : null }
   if (selection.kind === 'logic-relay') { const relay = level.logicRelays?.[i]; return relay ? logicRelayBounds(relay) : null }
+  if (selection.kind === 'grade-gate') { const gate = level.gradeGates?.[i]; return gate ? gradeGateBounds(gate) : null }
   if (selection.kind === 'force-field') return level.forceFields?.[i] ?? null
   if (selection.kind === 'gravity-plate') return level.gravityPlates?.[i] ?? null
   if (selection.kind === 'platform') return level.platforms[i] ?? null
@@ -339,11 +342,14 @@ export function setSwitchTargets(level: JumpLevel, selection: Selection, targets
   if (source.kind === 'trigger') delete source.definition.target
   const available = new Set(switchedItems(next).map(item => item.id))
   source.definition.targets = [...new Set(targets.filter(id => available.has(id)))]
+  // A level door or bulkhead without outputs saves without an empty list.
+  if ((source.kind === 'course-door' || source.kind === 'bulkhead') && !source.definition.targets.length) delete source.definition.targets
   return next
 }
 export function setWallWiring(level: JumpLevel, selection: Selection, enabled: boolean, height?: number): JumpLevel {
   const next = copyLevel(level), source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index)
-  if (!source || height !== undefined && !Number.isFinite(height)) return level
+  // Level doors, bulkheads and grade averages have no wall terminal.
+  if (!source || source.kind === 'course-door' || source.kind === 'bulkhead' || source.kind === 'grade-gate' || height !== undefined && !Number.isFinite(height)) return level
   if (enabled) source.definition.showWires = true
   else delete source.definition.showWires
   if (height !== undefined) source.definition.wireHeight = clamp(Math.round(height), 0, levelHeight(next))
@@ -387,6 +393,14 @@ export function setPressurePlateMount(level: JumpLevel, index: number, mechanism
 }
 export function setObjectPower(level: JumpLevel, selection: Selection, power: PowerMode): JumpLevel {
   if (power !== 'always' && power !== 'switched') return level
+  if (isHubDoor(selection)) {
+    // A door opens always, or only while its wiring is on, like a switched exit.
+    if (!hubDoorAt(level, selection)) return level
+    const next = copyLevel(level), door = hubDoorAt(next, selection)!
+    if (power === 'switched') door.power = 'switched'
+    else { removeSwitchTarget(next, door.id); delete door.power; delete door.switchLogic; delete door.switchReversed }
+    return next
+  }
   const next = copyLevel(level)
   const item = selection.kind === 'goal' ? next.goal : selection.kind === 'mechanism' ? next.mechanisms?.[selection.index]
     : selection.kind === 'force-field' ? next.forceFields?.[selection.index] : selection.kind === 'light' ? next.lighting?.lights[selection.index] : selection.kind === 'gravity-plate' ? next.gravityPlates?.[selection.index] : null
@@ -434,6 +448,19 @@ export function setObjectRelay(level: JumpLevel, selection: Selection, relay: bo
     const item = switchedItems(next).find(item => item.kind === selection.kind && item.index === selection.index)!
     delete item.definition.targets
   }
+  return next
+}
+/** A grade gate's threshold, the level doors it averages, and whether its result is reversed. */
+export function editGradeGate(level: JumpLevel, index: number, patch: Partial<Pick<GradeGate, 'grade' | 'doors' | 'switchReversed'>>): JumpLevel {
+  if (!level.gradeGates?.[index]) return level
+  if (patch.grade !== undefined && !GRADE_LETTERS.includes(patch.grade)) return level
+  const doorIds = new Set((level.courseDoors ?? []).map(door => door.id))
+  if (patch.doors && patch.doors.some(id => !doorIds.has(id))) return level
+  const next = copyLevel(level), gate = next.gradeGates![index]
+  if (patch.grade) gate.grade = patch.grade
+  // Keep the doors in their order in the area, so the list reads the same every time.
+  if (patch.doors) gate.doors = (next.courseDoors ?? []).map(door => door.id).filter(id => patch.doors!.includes(id))
+  if (patch.switchReversed !== undefined) { if (patch.switchReversed) gate.switchReversed = true; else delete gate.switchReversed }
   return next
 }
 function editObjectSwitchSettings(level: JumpLevel, selection: Selection, settings: SwitchSettings): JumpLevel {
@@ -507,6 +534,10 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
   for (let i = (level.logicRelays?.length ?? 0) - 1; i >= 0; i--) {
     const b = logicRelayBounds(level.logicRelays![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'logic-relay', index: i }
+  }
+  for (let i = (level.gradeGates?.length ?? 0) - 1; i >= 0; i--) {
+    const b = gradeGateBounds(level.gradeGates![i])
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'grade-gate', index: i }
   }
   const entrance = entranceBounds(level.entrance)
   if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) yield { kind: 'entrance', index: 0 }
@@ -724,6 +755,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'float-switch') { const f = next.floatSwitches![selection.index]; f.x += x - b.x; f.y += y - b.y }
   if (selection.kind === 'logic-relay') Object.assign(next.logicRelays![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
+  if (selection.kind === 'grade-gate') Object.assign(next.gradeGates![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
     const t = next.triggers![selection.index]; t.x = x; t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
     attachPressurePlateOnSurface(next, t)
@@ -876,8 +908,14 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     removeSwitchTarget(next, light.id)
   }
   else if (selection.kind === 'float-switch') next.floatSwitches!.splice(i, 1)
-  else if (selection.kind === 'course-door') next.courseDoors!.splice(i, 1)
-  else if (selection.kind === 'bulkhead') next.bulkheads!.splice(i, 1)
+  else if (selection.kind === 'course-door') {
+    // Its switch goes with it, and no wiring or average still names it.
+    const [door] = next.courseDoors!.splice(i, 1)
+    removeSwitchTarget(next, door.id)
+    for (const gate of next.gradeGates ?? []) gate.doors = gate.doors.filter(id => id !== door.id)
+  }
+  else if (selection.kind === 'bulkhead') { const [door] = next.bulkheads!.splice(i, 1); removeSwitchTarget(next, door.id) }
+  else if (selection.kind === 'grade-gate') next.gradeGates!.splice(i, 1)
   else if (selection.kind === 'evaluation-board') next.evaluationBoards!.splice(i, 1)
   else if (selection.kind === 'wall-door') next.wallDoors!.splice(i, 1)
   else if (selection.kind === 'logic-relay') {
@@ -904,6 +942,14 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     if (doors.length >= MAX_WALL_DOORS) throw new Error(`This level already has ${MAX_WALL_DOORS} wall doors.`)
     doors.push({ x: clamp(end.x, GOAL_DOOR_WIDTH / 2, next.width - GOAL_DOOR_WIDTH / 2), y: clamp(end.y, GOAL_DOOR_HEIGHT, levelHeight(next)), condition: 'jammed' })
     return { level: next, selection: { kind: 'wall-door', index: doors.length - 1 } }
+  }
+  if (tool === 'grade-gate') {
+    if (!isHubLevel(next)) throw new Error('Grade averages belong in facility areas, with the level doors they average. Change Type in the Level settings first.')
+    const gates = next.gradeGates ??= []
+    if (gates.length >= MAX_GRADE_GATES) throw new Error(`This level already has ${MAX_GRADE_GATES} grade averages.`)
+    gates.push({ id: newLevelId(), x: clamp(start.x, GRADE_GATE_WIDTH / 2, next.width - GRADE_GATE_WIDTH / 2),
+      y: clamp(start.y, GRADE_GATE_HEIGHT / 2, levelHeight(next) - GRADE_GATE_HEIGHT / 2), doors: [], grade: 'd', targets: [] })
+    return { level: next, selection: { kind: 'grade-gate', index: gates.length - 1 } }
   }
   if (tool === 'course-door' || tool === 'bulkhead' || tool === 'evaluation-board') {
     if (!isHubLevel(next)) throw new Error('Level doors, bulkheads and evaluation boards belong in facility areas. Change Type in the Level settings first.')
@@ -1167,7 +1213,8 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'float-switch') { if (next.floatSwitches!.length >= MAX_FLOAT_SWITCHES) return null; index = next.floatSwitches!.push({ ...next.floatSwitches![i], targets: [...next.floatSwitches![i].targets], id: newLevelId() }) - 1 }
   else if (selection.kind === 'logic-relay') { if (next.logicRelays!.length >= MAX_LOGIC_RELAYS) return null; index = next.logicRelays!.push({ ...next.logicRelays![i], id: newLevelId() }) - 1 }
-  else if (selection.kind === 'course-door') { if (next.courseDoors!.length >= MAX_COURSE_DOORS) return null; index = next.courseDoors!.push({ ...next.courseDoors![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'grade-gate') { if (next.gradeGates!.length >= MAX_GRADE_GATES) return null; index = next.gradeGates!.push({ ...structuredClone(next.gradeGates![i]), id: newLevelId() }) - 1 }
+  else if (selection.kind === 'course-door') { if (next.courseDoors!.length >= MAX_COURSE_DOORS) return null; index = next.courseDoors!.push({ ...structuredClone(next.courseDoors![i]), id: newLevelId() }) - 1 }
   else if (selection.kind === 'bulkhead') { if (next.bulkheads!.length >= MAX_BULKHEADS) return null; index = next.bulkheads!.push({ ...next.bulkheads![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'evaluation-board') { if (next.evaluationBoards!.length >= MAX_EVALUATION_BOARDS) return null; index = next.evaluationBoards!.push({ ...next.evaluationBoards![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'wall-door') { if (next.wallDoors!.length >= MAX_WALL_DOORS) return null; index = next.wallDoors!.push({ ...next.wallDoors![i] }) - 1 }
@@ -1185,6 +1232,7 @@ export function allSelections(level: JumpLevel): Selection[] {
     ...(level.environment?.walls ?? []).map((_, index) => ({ kind: 'back-wall' as const, index })),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
+    ...(level.gradeGates ?? []).map((_, index) => ({ kind: 'grade-gate' as const, index })),
     ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),
     ...(level.gravityPlates ?? []).map((_, index) => ({ kind: 'gravity-plate' as const, index })),
     ...(level.wallLights ?? []).map((_, index) => ({ kind: 'wall-light' as const, index })),

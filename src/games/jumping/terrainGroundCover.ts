@@ -81,9 +81,18 @@ const colors: Record<CoverType, readonly string[]> = {
   scrub: ['#7b8053', '#929264', '#a3a16f'],
   moss: ['#57794f', '#698c5e', '#7b9b6e'],
 }
+/** World-space bounds, for culling artwork outside the view. */
+interface Box { x0: number; y0: number; x1: number; y1: number }
+const overlaps = (a: Box, b: Box) => a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1
+// Artwork is built in vertical slices so a frame draws only the slices in view.
+// Long courses otherwise stroke and clip every tuft and band in the level.
+const SLICE = 512
+// Tufts and bands extend at most this far from their roots, even rotated on a slope.
+const REACH = 24
 interface CoverArtwork {
-  tufts: { type: CoverType; paths: Path2D[] }[]
-  surfaces: { type: CoverType; paths: Path2D[]; clip: Path2D; occluders: Path2D[] }[]
+  tufts: { type: CoverType; slices: { bounds: Box; paths: Path2D[] }[] }[]
+  // One clip per visible terrain: its slices in view share the outline and the terrain that can hide them.
+  surfaces: { type: CoverType; clip: Path2D; occluders: { path: Path2D; bounds: Box }[]; slices: { bounds: Box; paths: Path2D[] }[] }[]
 }
 const artwork = new WeakMap<readonly CoverRoot[], CoverArtwork>()
 const outlinePath = (points: readonly Vec[]) => {
@@ -91,27 +100,44 @@ const outlinePath = (points: readonly Vec[]) => {
   points.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath()
   return path
 }
+const rootBounds = (roots: readonly CoverRoot[]): Box => ({
+  x0: Math.min(...roots.map(root => root.x)) - REACH, x1: Math.max(...roots.map(root => root.x)) + REACH,
+  y0: Math.min(...roots.map(root => root.y)) - REACH, y1: Math.max(...roots.map(root => root.y)) + REACH,
+})
+function slices(roots: readonly CoverRoot[]) {
+  const groups = new Map<number, CoverRoot[]>()
+  for (const root of roots) {
+    const key = Math.floor(root.x / SLICE)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(root)
+  }
+  return [...groups.values()]
+}
 function coverArtwork(level: JumpLevel): CoverArtwork {
   const roots = groundCoverRoots(level), saved = artwork.get(roots)
   if (saved) return saved
-  const tufts = (['grass', 'scrub', 'moss'] as const).map(type => ({ type, paths: colors[type].map(() => new Path2D()) }))
-  const surfaces: CoverArtwork['surfaces'] = [], order = terrainDrawOrder(level.platforms)
+  const tufts: CoverArtwork['tufts'] = [], surfaces: CoverArtwork['surfaces'] = [], order = terrainDrawOrder(level.platforms)
+  const tuftSlices = new Map<string, { bounds: Box; paths: Path2D[] }>()
   for (const terrain of order) {
     const owned = roots.filter(root => root.terrain === terrain)
     if (!owned.length) continue
     const type = owned[0].type, platform = level.platforms[terrain]
-    const paths = colors[type].map(() => new Path2D())
-    const clip = outlinePath(platformOutline(platform))
+    const clip = outlinePath(platformOutline(platform)), band = rootBounds(owned)
+    // Only terrain drawn above the planted band can hide part of it.
     const occluders = order.slice(order.indexOf(terrain) + 1).flatMap(index => {
-      const other = level.platforms[index]
-      if (other.x > platform.x + platform.w || other.x + other.w < platform.x
-        || other.y > platform.y + platform.h || other.y + other.h < platform.y) return []
+      const other = level.platforms[index], bounds = { x0: other.x, y0: other.y, x1: other.x + other.w, y1: other.y + other.h }
+      if (!overlaps(band, bounds)) return []
       // Successive outside clips subtract the union, including nested overlaps.
       const outside = new Path2D(); outside.rect(platform.x - 20, platform.y - 20, platform.w + 40, platform.h + 40)
       outside.addPath(outlinePath(platformOutline(other)))
-      return [outside]
+      return [{ path: outside, bounds }]
     })
-    for (const root of owned) {
+    const surface: CoverArtwork['surfaces'][number] = { type, clip, occluders, slices: [] }
+    surfaces.push(surface)
+    for (const slice of slices(owned)) {
+      const paths = colors[type].map(() => new Path2D()), bounds = rootBounds(slice)
+      surface.slices.push({ bounds, paths })
+      for (const root of slice) {
       const seed = noise(root.x, root.y), detail = noise(root.y + 19, root.x)
       const tone = Math.floor(seed * 3), height = 4 + detail * 9, lean = (seed - .5) * 5
       const matrix = new DOMMatrix().translate(root.x, root.y).rotate(Math.atan(root.slope) * 180 / Math.PI)
@@ -132,28 +158,50 @@ function coverArtwork(level: JumpLevel): CoverArtwork {
           tuft.moveTo(0, 0); tuft.quadraticCurveTo(5, -4, 9, -height * .5)
         }
       }
-      tufts.find(group => group.type === type)!.paths[tone].addPath(tuft, matrix)
-      const width = type === 'scrub' ? 7 + seed * 3 : 10 + seed * 3
-      const depth = type === 'moss' ? 3 + detail * 4 : type === 'grass' ? 2 + detail * 3 : 1.5 + detail * 2
-      const band = new Path2D()
-      band.moveTo(-width, -1); band.lineTo(width, -1); band.lineTo(width, depth * .45)
-      band.quadraticCurveTo(width * .4, depth * .6, 1, depth)
-      band.quadraticCurveTo(-width * .4, depth * .55, -width, depth * .35); band.closePath()
-      paths[tone].addPath(band, matrix)
+        const key = `${type}:${Math.floor(root.x / SLICE)}`
+        if (!tuftSlices.has(key)) tuftSlices.set(key, { bounds: { ...bounds }, paths: colors[type].map(() => new Path2D()) })
+        const tuftSlice = tuftSlices.get(key)!
+        tuftSlice.bounds = { x0: Math.min(tuftSlice.bounds.x0, bounds.x0), y0: Math.min(tuftSlice.bounds.y0, bounds.y0),
+          x1: Math.max(tuftSlice.bounds.x1, bounds.x1), y1: Math.max(tuftSlice.bounds.y1, bounds.y1) }
+        tuftSlice.paths[tone].addPath(tuft, matrix)
+        const width = type === 'scrub' ? 7 + seed * 3 : 10 + seed * 3
+        const depth = type === 'moss' ? 3 + detail * 4 : type === 'grass' ? 2 + detail * 3 : 1.5 + detail * 2
+        const band = new Path2D()
+        band.moveTo(-width, -1); band.lineTo(width, -1); band.lineTo(width, depth * .45)
+        band.quadraticCurveTo(width * .4, depth * .6, 1, depth)
+        band.quadraticCurveTo(-width * .4, depth * .55, -width, depth * .35); band.closePath()
+        paths[tone].addPath(band, matrix)
+      }
     }
-    surfaces.push({ type, paths, clip, occluders })
+  }
+  for (const type of ['grass', 'scrub', 'moss'] as const) {
+    tufts.push({ type, slices: [...tuftSlices].filter(([key]) => key.startsWith(`${type}:`)).map(([, slice]) => slice) })
   }
   const result = { tufts, surfaces }; artwork.set(roots, result); return result
+}
+
+/** The world rectangle the context draws into, or null when it cannot tell (no culling). */
+function visibleBox(ctx: CanvasRenderingContext2D): Box | null {
+  const transform = ctx.getTransform?.(), canvas = ctx.canvas
+  if (!transform || !canvas?.width || !canvas.height) return null
+  const inverse = transform.inverse()
+  const corners = [[0, 0], [canvas.width, 0], [0, canvas.height], [canvas.width, canvas.height]].map(([x, y]) => inverse.transformPoint({ x, y }))
+  if (corners.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y))) return null
+  return { x0: Math.min(...corners.map(p => p.x)), y0: Math.min(...corners.map(p => p.y)),
+    x1: Math.max(...corners.map(p => p.x)), y1: Math.max(...corners.map(p => p.y)) }
 }
 
 /** Blades stay behind rock. Cached world-space paths never shimmer with time
  * or camera movement and reuse the existing terrain artwork caches. */
 export function drawTerrainGroundCover(ctx: CanvasRenderingContext2D, level: JumpLevel) {
   if (!groundCoverRoots(level).length) return
+  const view = visibleBox(ctx)
   ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-  for (const { type, paths } of coverArtwork(level).tufts) {
+  for (const { type, slices } of coverArtwork(level).tufts) {
+    const visible = view ? slices.filter(slice => overlaps(slice.bounds, view)) : slices
+    if (!visible.length) continue
     ctx.lineWidth = type === 'moss' ? 2.5 : 1.4
-    paths.forEach((path, tone) => { ctx.strokeStyle = colors[type][tone]; ctx.stroke(path) })
+    colors[type].forEach((color, tone) => { ctx.strokeStyle = color; for (const slice of visible) ctx.stroke(slice.paths[tone]) })
   }
   ctx.restore()
 }
@@ -162,11 +210,17 @@ export function drawTerrainGroundCover(ctx: CanvasRenderingContext2D, level: Jum
  * Foreground terrain and enclosing solids still hide the planted surface. */
 export function drawTerrainGroundCoverSurface(ctx: CanvasRenderingContext2D, level: JumpLevel) {
   if (!groundCoverRoots(level).length) return
+  const view = visibleBox(ctx)
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, level.floor ?? level.height ?? 1020); ctx.clip()
-  for (const { type, paths, clip, occluders } of coverArtwork(level).surfaces) {
-    ctx.save(); ctx.clip(clip)
-    for (const outside of occluders) ctx.clip(outside, 'evenodd')
-    paths.forEach((path, tone) => { ctx.fillStyle = colors[type][tone]; ctx.fill(path) })
+  for (const { type, clip, occluders, slices } of coverArtwork(level).surfaces) {
+    const visible = view ? slices.filter(slice => overlaps(slice.bounds, view)) : slices
+    if (!visible.length) continue
+    const band = { x0: Math.min(...visible.map(s => s.bounds.x0)), y0: Math.min(...visible.map(s => s.bounds.y0)),
+      x1: Math.max(...visible.map(s => s.bounds.x1)), y1: Math.max(...visible.map(s => s.bounds.y1)) }
+    // Clip to the band first: an outline clip over the whole view costs a full-canvas mask.
+    ctx.save(); ctx.beginPath(); ctx.rect(band.x0, band.y0, band.x1 - band.x0, band.y1 - band.y0); ctx.clip(); ctx.clip(clip)
+    for (const outside of occluders) if (overlaps(outside.bounds, band)) ctx.clip(outside.path, 'evenodd')
+    colors[type].forEach((color, tone) => { ctx.fillStyle = color; for (const slice of visible) ctx.fill(slice.paths[tone]) })
     ctx.restore()
   }
   ctx.restore()

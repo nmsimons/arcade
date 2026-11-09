@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { KeyboardDialog } from '../hardVacuum/KeyboardDialog'
+import { LabLogo } from '../../branding/LabLogo'
 import { formatTime } from './challenge'
 import { GRADE_TARGETS, gradeTimes } from './grading'
 import type { PuzzleLevel } from './level'
@@ -103,8 +104,9 @@ function ProgressReport({ progress }: { progress: StartProgress }) {
 }
 
 /**
- * Opening L.A.B. shows the robot's system display over the place it wakes in:
- * continue from there, see the evaluation so far, or restart, which erases the
+ * Opening L.A.B. is a title screen: the robot's system display fills the
+ * screen over the place it wakes in, under the L.A.B. mark it boots with.
+ * Continue from there, see the evaluation so far, or restart, which erases the
  * save. A new save only starts.
  */
 export function JumpingStartDialog({ name, reason, fresh, opening, progress, connected, touchControls, canEdit, onContinue, onRestart, onBuilder, onExit }: {
@@ -116,9 +118,10 @@ export function JumpingStartDialog({ name, reason, fresh, opening, progress, con
   const reference = view === 'progress' || view === 'controls'
   // Restarting is destructive: it asks as an alert dialog, with Cancel first.
   return <KeyboardDialog label={view === 'restart' ? 'Restart the game' : 'Game start'} focusKey={`jumping-start-${view}`} confirmation={view === 'restart'}
-    onClose={view === 'menu' ? onContinue : back} className="jumping-overlay jumping-dialog-overlay">
-    <div className={`jumping-dialog-panel jumping-pause jumping-pause-system jumping-start${reference ? ' jumping-controls-open' : ''}${view === 'controls' && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
+    onClose={view === 'menu' ? onContinue : back} className="jumping-overlay jumping-dialog-overlay jumping-title-screen">
+    <div className={`jumping-dialog-panel jumping-pause-system jumping-start${reference ? ' jumping-controls-open' : ''}${view === 'controls' && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
       <header className="jumping-dialog-heading">
+        {view === 'menu' && <LabLogo className="jumping-start-logo" />}
         <div className="jumping-dialog-kicker"><p title={name}>{name}</p><span className="jumping-dialog-light" aria-hidden="true" /></div>
         <h2>{view === 'progress' ? 'Progress.' : view === 'controls' ? 'Controls.' : view === 'restart' ? 'Restart?' : 'Online.'}</h2>
         {view === 'menu' && reason && <p className="jumping-pause-reason" role="status">{reason}</p>}
@@ -142,10 +145,18 @@ export function JumpingStartDialog({ name, reason, fresh, opening, progress, con
           <button onClick={() => setView('controls')}>Controls</button>
         </nav>}
       </div>
-      {view === 'menu' && <nav className="jumping-dialog-actions jumping-pause-destinations" aria-label="Other destinations">
-        {canEdit && <button onClick={onBuilder}>Level studio</button>}
-        <button onClick={onExit}>Back to arcade</button>
-      </nav>}
+      <footer className="jumping-start-footer">
+        {view === 'menu' && <nav className="jumping-dialog-actions jumping-pause-destinations" aria-label="Other destinations">
+          {canEdit && <button onClick={onBuilder}>Level studio</button>}
+          <button onClick={onExit}>Back to arcade</button>
+        </nav>}
+        {/* Touch players tap; keys and buttons get a reminder of how to move through the menu. */}
+        {!touchReference && <p className="jumping-start-hints" aria-hidden="true">
+          <span><kbd>{connected ? 'D-pad' : '↑ ↓'}</kbd>Choose</span>
+          <span><kbd>{connected ? 'A / ×' : 'Enter'}</kbd>Select</span>
+          {view !== 'menu' && <span><kbd>{connected ? 'B / ○' : 'Esc'}</kbd>Back</span>}
+        </p>}
+      </footer>
     </div>
   </KeyboardDialog>
 }

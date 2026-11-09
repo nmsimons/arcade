@@ -458,9 +458,12 @@ between visits (see [Autosave](#autosave)), saved as
 
 #### The start screen
 
-`/lab` stops at the start screen: the pause screen's phosphor display
-("ONLINE."), drawn over the place the robot wakes in, still and ready to play.
-A new save offers only **Start** and **Controls**. A save with a place or any
+`/lab` stops at the start screen, a title screen that fills the view: the
+robot's phosphor system display, as on the pause screen, over the place it
+wakes in, still and ready to play and darkened behind the menu. One column holds
+the L.A.B. Experiments mark the robot boots under, the place's name and
+"ONLINE.", then the menu. Progress and Controls open in the same column and
+scroll within it. A new save offers only **Start** and **Controls**. A save with a place or any
 course record offers:
 
 | Action | What it does |
@@ -470,9 +473,11 @@ course record offers:
 | Restart | Asks first, with Cancel as the default, then erases every course record (best times and completions) and the robot's place, and wakes in Orientation's pod at `/lab/facility`. With cloud saves on, the erased save syncs like any other change, and earlier versions stay in the cloud save history. |
 | Controls | The pause screen's controls reference. |
 
-**Level studio** (development builds) and **Back to arcade** sit below, as on
-the pause screen. The start screen also gives the reason when a refused link
-sent the robot here.
+**Level studio** (development builds) and **Back to arcade** sit along the foot
+of the screen, beside reminders of the keys or controller buttons that choose
+and select (none on touch). On a short screen, such as a phone on its side, the
+mark sits beside the menu. The start screen also gives the reason when a
+refused link sent the robot here.
 
 Moving between the two addresses keeps the robot where it is: Continue goes
 forward to `/lab/facility`, and the browser's Back returns to the start screen

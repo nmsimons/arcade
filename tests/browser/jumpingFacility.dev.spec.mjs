@@ -83,6 +83,9 @@ test('a new save wakes in Orientation, an untimed facility area', async ({ page 
   const start = await openFacility(page, { stop: true })
   // A new save can only start: there is nothing to continue, review or erase.
   await expect(start.getByRole('heading', { level: 2 })).toHaveText('Online.')
+  // It is a title screen: the L.A.B. mark, over the whole view.
+  await expect(start.getByRole('img', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
+  expect(await start.locator('.jumping-start').boundingBox()).toEqual({ x: 0, y: 0, ...page.viewportSize() })
   await expect(start.getByRole('button')).toHaveText(['Start Esc', 'Controls', 'Level studio', 'Back to arcade'])
   await expect(start.getByRole('button', { name: 'Start', exact: false })).toBeFocused()
   await page.screenshot({ path: info.outputPath('start-new-save.png') })

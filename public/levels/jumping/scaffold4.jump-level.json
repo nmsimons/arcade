@@ -2749,7 +2749,7 @@
         "e9784eb5-c1d6-4e03-b3dd-d04d3e5293d8"
       ],
       "mode": "coins",
-      "threshold": 9,
+      "threshold": 13,
       "display": "digital"
     }
   ],

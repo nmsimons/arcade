@@ -294,7 +294,9 @@ Attach a rope at a platform end to its top corner, rather than its underside.
 Keep the free end deliberately placed when changing the anchor. A tied rope makes
 a traverse between pillars or a deep U to climb out of; tie one partway up a wall
 to finish a climb with a brace against it, or give it a switched release to turn a
-traverse into a swing. Rope travel is hand over hand at a steady rhythm, so a long
+traverse into a swing. Where a tied rope ends at a lip, keep the top flat beside
+its anchor: a curved top that rises from the corner leaves the robot hanging
+below it, unable to pull up. Rope travel is hand over hand at a steady rhythm, so a long
 traverse takes real time: time medals on the swinging run, not a careful shimmy,
 and check routes after changing a rope's length or slope. Ladders are
 foreground passages: an attached player or Rbot can climb through terrain, so
@@ -567,6 +569,13 @@ a numbered bonus removes up to its value from elapsed time, stopping at zero.
 Unused refund is lost. A numbered penalty adds time, and the bad stopwatch makes
 the clock run at twice its normal rate for five seconds. EMP affects machinery,
 not the clock.
+
+Coin thresholds can gate time rewards in tiers. Cage each reward in blue force
+fields switched off (Reversed) by its coin switch, rather than behind gates: a
+glowing cage reads as locked. Keep a shut cage passable, above the running line
+or low enough to hop, so a missed tier never blocks the route. Give the exit its own, lower coin requirement that
+every line meets by collecting what lies on it, and show that requirement where
+the level begins as well as at the exit.
 
 Place harmful collectibles where the player can see and evaluate them before
 contact. Avoid concealing them behind attractive pickups or putting an

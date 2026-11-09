@@ -55,8 +55,8 @@ in development builds only. What exists:
   The concourse's wiring opens them as wings are completed: Freight and
   Construction once Boot Camp is complete; Gravity once Freight or Construction
   is; Security once Freight, Construction and Gravity are; Puzzles once Gravity
-  and Security are; and Assessment once all six others are. Slow is Smooth and
-  Buoyancy stay in the collection with no door; their direct links stay open.
+  and Security are; and Assessment once all six others are. Slow is Smooth,
+  Buoyancy and Full Tilt stay in the collection with no door; their direct links stay open.
   Most wings are still flat corridors that make the campaign playable end to
   end, not designed wings.
 - Direct links ([Routes](#engineering-notes)): `/lab/levels/built-in/<file>` plays a

@@ -293,6 +293,27 @@ Uninvited Company was tightened to 4 / 12 / 25; A Bigger Swing's existing
 1 / 5 / 15 remains attainable with its refund. Longer prop and coin routes were
 relaxed where their previous targets were below demonstrated completion times.
 
+## Full Tilt (November 9, 2026)
+
+[Full Tilt](../public/levels/jumping/fulltilt.jump-level.json) is a terrain hall
+of smoothed earth hills: a run-in with a high ledge line, a flooded pit with a rope
+over it, rolling rises to a plateau, a flooded canyon with two ropes and a tied
+rope climbing out of it, a long downhill and a finish deck. Its 33 coins trace
+the lines. Ten power the exit, and three time bonuses on the finish deck sit in
+blue force-field booths that switch off at 12, 18 and 23 coins (2, 3 and 4
+seconds off); a shut booth is hopped. Grade times are 8 / 13 / 22 / 50
+(A / B / C / D), from tap/hold routes simulated from a fresh start:
+
+| Route | Coins | Booths open | Clock |
+| --- | ---: | --- | ---: |
+| High line through both canyon ropes (recorded) | 24 | 3 | 6.65 |
+| High line skipping the second canyon rope | 22 | 2 | 10.33 |
+
+A needs all three bonuses. The low line through the flooded pit, the canyon and
+its tied rope has not been timed since the studio edits that added them. The
+routes were driven by scripted normal controls; play at normal speed,
+readability and the D allowance for a first completion remain unverified.
+
 ## Repeatable checks
 
 - [Control recordings](../tests/fixtures/jumping-builtin-medal-runs.json)

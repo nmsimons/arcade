@@ -3701,6 +3701,249 @@
           }
         }
       ]
+    },
+    {
+      "file": "fulltilt.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 6.649999999999855,
+      "activeTime": 16.508333333333038,
+      "coins": 24,
+      "trace": [
+        {
+          "frames": 74,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 115,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 103,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 153,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 495,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 76,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 297,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 319,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 124,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        }
+      ]
     }
   ],
   "jumpModel": "recorded-impulses",

@@ -141,6 +141,9 @@ conditions locally, prefix the browser command with `HV_TEST_CPU_RATE=6`.
 
 UJG traversal checks wait for the selected level card to become visible before
 pausing the installed clock, then wait for the playable canvas to receive focus.
+A level is ready once `.jumping-game` no longer has `aria-busy="true"`
+(`finishJumpingEntrance` waits for it); the Preparing level dialog appears only
+for slow preparations, so its absence says nothing.
 Keep these readiness observations ahead of clock-controlled input; a loading
 failure and a slow gameplay frame are different failures. Retain traces while
 diagnosing either, and run a costly failing case alone before attributing its

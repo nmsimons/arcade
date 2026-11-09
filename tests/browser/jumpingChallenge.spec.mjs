@@ -94,7 +94,7 @@ test('the trial activates, pauses, restarts, completes, saves a best and opens t
   const delayPreparation = async route => { await preparation; await route.continue() }
   await page.route('**/ropeLayout.worker*', delayPreparation)
   await followLevelLink(page, '01-fixture.json', '?renderControl=1')
-  const preparing = page.getByRole('dialog', { name: 'Preparing level', exact: true })
+  const preparing = page.locator('.jumping-game[aria-busy="true"]')
   await expect.poll(async () => { await page.clock.runFor(16); return preparing.count() }).toBe(1)
   await page.clock.runFor(100)
   releasePreparation()

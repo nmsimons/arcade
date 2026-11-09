@@ -33,7 +33,7 @@ test('Quarantine II: Rbot climbs out while normal player controls keep diving', 
   await page.locator('.jumping-level-card').filter({ hasText: level.name }).click()
   const canvas = page.locator('.jumping-game > canvas')
   await expect(canvas).toBeFocused()
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await restartFromPause(page)
   const bot = () => canvas.evaluate(c => c.waterBots[0])

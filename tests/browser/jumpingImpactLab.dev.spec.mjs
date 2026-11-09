@@ -12,7 +12,7 @@ test('Impact Lab: normal-speed drop, get-up and return ladder use ordinary contr
   await useLevelFixtures(page, [file])
   await page.goto('/lab/library?motionDebug=1')
   await page.getByRole('button', { name: 'Play Impact Lab', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await expect(page.locator('.jumping-state')).not.toHaveText('Entering the level')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
   const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))

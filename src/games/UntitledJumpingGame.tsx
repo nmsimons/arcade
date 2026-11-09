@@ -29,6 +29,7 @@ import { loadCampaign } from './jumping/campaign'
 import type { Campaign, CampaignFile } from './jumping/campaign'
 import { arrivalLevel, dispatchPlace, resolveCampaign, facilityDoorName, facilityRecords, hubCompleteAreas, studioPresentation, facilityStart, GAME_KEYS, hubGrades, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, savedPlace, savedProgress, saveFacilityPlace } from './jumping/facility'
 import type { FacilityPlace, FacilitySave, SavedPlace } from './jumping/facility'
+import type { HubDoor } from './jumping/hub'
 import { AREA_STATE_KEY, captureAreaState, keepsState, levelFingerprint, readAreaState, restoreAreaState, trackAreaProps, writeAreaState } from './jumping/areaState'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
@@ -68,6 +69,12 @@ const DevLevelBuilder = import.meta.env.DEV ? lazy(() => import('./jumping/Level
 type Screen = 'menu' | 'playing' | 'ending' | 'paused' | 'building' | 'complete'
 /** How long the facility waits for an account's first cloud check before using this device's saves. */
 const CLOUD_CHECK_WAIT = 8000
+/** A level that takes longer than this to prepare says so; anything quicker holds what is on screen. */
+const PREPARING_DIALOG_DELAY = 1000
+/** How near an open door or bulkhead the robot comes before the place behind it is prepared. */
+const PREPARE_AHEAD_RANGE = 300
+/** Facility places kept prepared at once; the oldest is dropped first. */
+const PREPARED_PLACES = 8
 /** While playing, a place that keeps its state saves it this often; pausing, leaving and hiding the page save it too. */
 const AREA_AUTOSAVE_MS = 5000
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'KeyE', 'KeyF', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
@@ -256,6 +263,52 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   }
   const facilitySave = (): FacilitySave => unsavedPlace.current ? { place: unsavedPlace.current } : readFacilitySave(playerStorage)
   const gameExists = () => !!unsavedPlace.current || savedGameExists(playerStorage)
+  /**
+   * Facility places prepared ahead, so walking through a door opens the place behind it at once. Each is
+   * prepared once, as authored; entering it copies that, as Restart does.
+   */
+  const placePreparations = useRef(new Map<string, { promise: Promise<PreparedLevel>; controller: AbortController }>())
+  useEffect(() => {
+    const cache = placePreparations.current
+    return () => { for (const entry of cache.values()) entry.controller.abort(); cache.clear() }
+  }, [catalog.files])
+  const placeKey = (place: FacilityPlace) => place.kind === 'hub' ? `hub:${place.level}:${place.arrival.kind === 'door' ? place.arrival.id : ''}` : `${place.kind}:${place.level}`
+  function preparePlace(place: FacilityPlace): Promise<PreparedLevel> | null {
+    const key = placeKey(place), cache = placePreparations.current, known = cache.get(key)
+    if (known) { cache.delete(key); cache.set(key, known); return known.promise }
+    const level = levelsById.get(place.level)
+    if (!level) return null
+    const controller = new AbortController()
+    const promise = prepareLevelInWorker(place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level, { signal: controller.signal, play: true })
+    // A failed preparation is tried afresh next time.
+    promise.catch(() => { if (cache.get(key)?.promise === promise) cache.delete(key) })
+    cache.set(key, { promise, controller })
+    for (const [oldest, entry] of cache) {
+      if (cache.size <= PREPARED_PLACES) break
+      entry.controller.abort(); cache.delete(oldest)
+    }
+    return promise
+  }
+  /** A course or escape level prepares where it leads, passed or not, while it is played. */
+  function prepareExits(place: FacilityPlace) {
+    const campaign = campaignNow()
+    if (!campaign || place.kind === 'hub') return
+    for (const passed of [true, false]) { const next = nextPlace(campaign, place, null, levelsById, passed); if (next) preparePlace(next) }
+  }
+  const lastPrepareCheck = useRef(0)
+  /** In a facility area, prepare what lies behind each open door and bulkhead the robot is near. */
+  const prepareNearby = useEffectEvent((now: number) => {
+    if (now - lastPrepareCheck.current < 250 || screenRef.current !== 'playing') return
+    lastPrepareCheck.current = now
+    const place = facility.current, current = run.current, campaign = place?.kind === 'hub' ? campaignNow() : null
+    if (place?.kind !== 'hub' || !current?.hub || !isHubLevel(current.level) || current.level.id !== place.level || !campaign) return
+    const { x, y } = player.current, hub = current.hub
+    const near = (door: { id: string; x: number; y: number }) => (hub.open.has(door.id) || hub.switched.has(door.id))
+      && Math.abs(door.x - x) < PREPARE_AHEAD_RANGE && Math.abs(door.y - y) < PREPARE_AHEAD_RANGE
+    const departures: HubDoor[] = [...current.level.courseDoors.filter(near).map(door => ({ kind: 'course' as const, door })),
+      ...current.level.bulkheads.filter(near).map(door => ({ kind: 'bulkhead' as const, door }))]
+    for (const departure of departures) { const next = nextPlace(campaign, place, departure, levelsById); if (next) preparePlace(next) }
+  })
   function enterPlace(place: FacilityPlace) {
     const level = levelsById.get(place.level)
     if (!level) { leaveFacility('That part of the facility is unavailable.'); return }
@@ -264,7 +317,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // Autosave where the robot is; course records save when a course finishes.
     keepPlace(place)
     const play = place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level
-    void beginPlay(play, false, place.kind === 'hub' ? `hub:${level.id}` : level.id, true)
+    void beginPlay(play, false, place.kind === 'hub' ? `hub:${level.id}` : level.id, true, preparePlace(place))
   }
   async function startFacility() {
     setFacilityError('')
@@ -356,7 +409,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const [screen, setScreen] = useState<Screen>('menu')
   // Incoming cloud saves apply at a safe point: the library, or a facility area between courses.
   useCloudDownloads(screen === 'menu' || facilityWhere === 'hub' && (screen === 'playing' || screen === 'paused'))
-  const [preparing, setPreparing] = useState<string | null>(null)
+  // `preparing` names the level in the Preparing level dialog, shown only once preparation is slow.
+  // `busy` covers the whole preparation (`aria-busy`); `holding` keeps a facility frame on screen meanwhile.
+  const [preparing, setPreparing] = useState<string | null>(null), [busy, setBusy] = useState(false), [holding, setHolding] = useState(false)
+  function endPreparation() { setPreparing(null); setBusy(false); setHolding(false) }
   const playPreparation = useRef<AbortController | null>(null), preparedStart = useRef<PreparedLevel | null>(null)
   useEffect(() => () => { playPreparation.current?.abort(); playPreparation.current = null }, [location.key])
   const screenRef = useRef<Screen>('menu')
@@ -424,13 +480,24 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     jumpQueue.current = []; keyboardJump.current = false
     canvasRef.current?.focus({ preventScroll: true })
   }
-  /** `facilityArea` marks a facility place, which the start screen and the facility's address share once loaded. */
-  async function beginPlay(level: JumpLevel, fromBuilder: boolean, key: string, facilityArea = false) {
+  /**
+   * `facilityArea` marks a facility place, which the start screen and the facility's address share once loaded.
+   * `ahead` is that place's preparation, often already finished (`preparePlace`).
+   */
+  async function beginPlay(level: JumpLevel, fromBuilder: boolean, key: string, facilityArea = false, ahead: Promise<PreparedLevel> | null = null) {
     playPreparation.current?.abort(); facilityReady.current = false
     const controller = new AbortController(); playPreparation.current = controller
-    changeScreen(fromBuilder ? 'building' : 'menu'); setPreparing(level.name)
+    // Moving between facility places, what is on screen holds, as a door closing behind the robot would,
+    // while the opening screen covers the facility's first place. Elsewhere the current screen stays.
+    const hold = facilityArea && screenRef.current !== 'menu' && screenRef.current !== 'building'
+    changeScreen(fromBuilder ? 'building' : 'menu'); setBusy(true); setHolding(hold)
+    // Only a slow preparation shows the Preparing level dialog, with its Cancel.
+    const slow = facilityArea && !hold ? undefined
+      : setTimeout(() => { if (playPreparation.current === controller) setPreparing(level.name) }, PREPARING_DIALOG_DELAY)
     try {
-      const prepared = await prepareLevelInWorker(level, { signal: controller.signal, play: true })
+      // A preparation made ahead that failed, perhaps timed out in the background, is tried again here.
+      const prepared = await (ahead?.catch(() => prepareLevelInWorker(level, { signal: controller.signal, play: true }))
+        ?? prepareLevelInWorker(level, { signal: controller.signal, play: true }))
       if (controller.signal.aborted) return
       preparedStart.current = prepared
       const world = clonePreparedLevel(prepared)
@@ -452,6 +519,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       playgroundEntrance.current = world.run ? null : createEntranceAnimation(player.current, terrain.current, activeLevel.current.entrance)
       setChallenge(!!world.run); setTesting(fromBuilder); setSaveError(false); changeScreen('playing'); paintFrame.current()
       facilityReady.current = facilityArea
+      if (facilityArea && facility.current && !fromBuilder) prepareExits(facility.current)
       const notice = pendingNotice.current; pendingNotice.current = ''
       // Opening the facility stops at the start screen, which also shows why a refused link landed here.
       if (startPending.current && facility.current && !fromBuilder) {
@@ -465,7 +533,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       if (facility.current) { leaveFacility(`Could not open “${level.name}”: ${(error as Error).message}`); return }
       setTesting(false); reportProblem(`Could not open “${level.name}”: ${(error as Error).message}`)
     } finally {
-      if (playPreparation.current === controller) { playPreparation.current = null; setPreparing(null) }
+      clearTimeout(slow)
+      if (playPreparation.current === controller) { playPreparation.current = null; endPreparation() }
     }
   }
   function startChallenge() { resetPosition(); changeScreen('playing') }
@@ -523,7 +592,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     navigate(fromLibrary ? JUMPING_LIBRARY : JUMPING_START, { replace: true, state: { notice } })
   }
   function cancelPreparation() {
-    playPreparation.current?.abort(); playPreparation.current = null; setPreparing(null)
+    playPreparation.current?.abort(); playPreparation.current = null; endPreparation()
     if (facility.current && screen !== 'building') { leaveFacility('Stopped before the next area opened.'); return }
     const fromLibrary = import.meta.env.DEV && location.state?.from === JUMPING_LIBRARY
     navigate(screen === 'building' ? builderPath.current : fromLibrary ? JUMPING_LIBRARY : JUMPING_START, { replace: true })
@@ -533,7 +602,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     routeVisits.current++
     const route = jumpingRoute(location.pathname)
     startPending.current = route.screen === 'start'
-    setRouteNotice(''); setPreparing(null)
+    setRouteNotice(''); endPreparation()
     // Leave for the facility, which shows why, paused, when it arrives.
     const toFacility = (notice: string) => navigate(JUMPING_START, { replace: true, state: { notice } })
     if (!devEditing && location.pathname.startsWith(JUMPING_BUILDER)) {
@@ -942,6 +1011,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       } else { accumulator = 0; motion?.reset() }
       advanceEnding(dt)
       autosaveArea(now)
+      prepareNearby(now)
       if (adaptiveLighting && adaptiveEnabled.current && input && !document.hidden) {
         const before = adaptiveLighting.reduced, after = adaptiveLighting.observe(now)
         if (after !== before) {
@@ -984,7 +1054,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     }
   }, [audioState, lightingRenderer, performanceMonitor, adaptiveLighting, touch])
 
-  return <div className={`jumping-game${screen === 'playing' && !devOpen ? ' jumping-playing' : ''}`} ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
+  return <div className={`jumping-game${screen === 'playing' && !devOpen ? ' jumping-playing' : ''}`} ref={rootRef} aria-busy={busy || undefined} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? isHubLevel(trial) ? trial.name : `${trial.name}: reach the exit` : `${LAB_NAME} movement playground`}
       onPointerDown={event => { if (event.pointerType === 'mouse' && event.button === 0 && screenRef.current === 'playing') { touch.gadgetAction('use'); canvasRef.current?.focus() } }} />
     {screen === 'playing' && <>
@@ -1025,7 +1095,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse } : undefined}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} levelsLabel={levelsLabel} onExit={onExit} />}
     {/* Outside the library, the menu screen is the facility opening, or why it could not. */}
-    {!preparing && screen === 'menu' && !libraryRoute && <KeyboardDialog label={facilityError ? 'Facility unavailable' : 'Opening the facility'} focusKey="jumping-facility-status"
+    {!preparing && !holding && screen === 'menu' && !libraryRoute && <KeyboardDialog label={facilityError ? 'Facility unavailable' : 'Opening the facility'} focusKey="jumping-facility-status"
       onClose={onExit} className="jumping-overlay jumping-dialog-overlay jumping-ui">
       <div className="jumping-notice-panel">
         <header className="jumping-ui-heading jumping-brand-heading"><LabLogo /><h2>{facilityError ? 'The facility could not open.' : 'Opening the facility.'}</h2></header>

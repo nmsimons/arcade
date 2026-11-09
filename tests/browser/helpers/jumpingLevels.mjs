@@ -79,7 +79,7 @@ export async function restartFromPause(page, finishEntrance = true) {
 export async function finishJumpingEntrance(page) {
   const { expect } = await import('@playwright/test')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   const waking = await page.locator('.jumping-state').textContent() === 'Waking up'
   await page.clock.runFor(waking ? 3600 : 1350)
   // Preparation and the first RAF can delay the opening. Advance neutral

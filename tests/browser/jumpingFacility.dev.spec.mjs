@@ -182,7 +182,7 @@ test('a returning save opens on the start screen, which shows the evaluation so 
   await page.goBack()
   await expect(page).toHaveURL(/\/lab\?/)
   await expect(start.getByRole('button')).toHaveText(['Continue Esc', 'Progress', 'Restart', 'Controls', 'Level studio', 'Back to arcade'])
-  await expect(page.getByRole('dialog', { name: 'Preparing level' })).toHaveCount(0)
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await start.getByRole('button', { name: 'Continue', exact: false }).click()
   await expect(page).toHaveURL(/\/lab\/facility\?/)
   await expect(wingCanvas).toBeFocused()
@@ -249,4 +249,62 @@ test('a facility area keeps its state between visits, and Restart area puts it b
   await expect(concourseCanvas).toBeFocused()
   await page.keyboard.press('Escape'); await expect(paused).toBeVisible()
   expect((await areas())[concourseId].water).toEqual([100, 100])
+})
+
+/** Counts level preparations, each its own worker, and whether each has finished. */
+async function trackPreparations(page) {
+  await page.addInitScript(() => {
+    const NativeWorker = Worker
+    window.preparations = []
+    window.Worker = class extends NativeWorker {
+      constructor(...args) {
+        super(...args)
+        if (!String(args[0]).includes('ropeLayout.worker')) return
+        const entry = { finished: false }; window.preparations.push(entry)
+        const terminate = this.terminate.bind(this)
+        this.terminate = () => { entry.finished = true; terminate() }
+      }
+    }
+  })
+}
+const atOrientationBulkhead = { place: { kind: 'hub', level: 'facility-concourse', arrival: { kind: 'door', id: 'concourse-to-opening' } } }
+const busy = page => page.locator('.jumping-game[aria-busy="true"]')
+
+test('a bulkhead the robot comes near is prepared ahead, so walking through opens the place at once', async ({ page }) => {
+  test.setTimeout(120000)
+  await trackPreparations(page)
+  await openFacility(page, atOrientationBulkhead)
+  await expect(page.getByRole('img', { name: 'Concourse', exact: true })).toBeVisible(); await finishJumpingEntrance(page)
+  // Standing at the bulkhead, the robot is near it: Orientation is prepared while it stands there.
+  await advanceJumpingSimulation(page, 300)
+  await expect.poll(() => page.evaluate(() => window.preparations.length >= 2 && window.preparations.every(entry => entry.finished))).toBe(true)
+  // From here, no preparation can even start: each place must already be prepared.
+  await page.route('**/ropeLayout.worker*', () => {})
+  await pressUp(page); await advanceJumpingSimulation(page, 1200)
+  await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible()
+  await expect(busy(page)).toHaveCount(0)
+  await finishJumpingEntrance(page)
+  // Back through Service access, the concourse it came from is still prepared.
+  await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
+  await expect(page.getByRole('img', { name: 'Concourse', exact: true })).toBeVisible()
+  await expect(busy(page)).toHaveCount(0)
+  await expect(page.getByRole('dialog', { name: 'Preparing level' })).toHaveCount(0)
+})
+
+test('a place not yet prepared holds the last frame, and says it is preparing only once it is slow', async ({ page }) => {
+  test.setTimeout(120000)
+  // The concourse prepares; nothing after it can.
+  let preparations = 0
+  await page.route('**/ropeLayout.worker*', route => { if (preparations++ === 0) return route.continue() })
+  await openFacility(page, atOrientationBulkhead)
+  await expect(page.getByRole('img', { name: 'Concourse', exact: true })).toBeVisible(); await finishJumpingEntrance(page)
+  await pressUp(page); await advanceJumpingSimulation(page, 1200)
+  // The robot has gone through the bulkhead. The concourse holds on screen, with no dialog over it.
+  await expect(busy(page)).toHaveCount(1)
+  await expect(page.getByRole('img', { name: 'Concourse', exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.clock.runFor(1000)
+  const preparing = page.getByRole('dialog', { name: 'Preparing level', exact: true })
+  await expect(preparing).toBeVisible()
+  await expect(preparing.getByRole('status')).toHaveText('Orientation')
 })

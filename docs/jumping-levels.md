@@ -124,8 +124,11 @@ Thumbnails draw authored geometry only and allocate canvas pixels while visible.
 Rope settling and initial world preparation run in a disposable worker. Loading
 and compiling its modules has a separate 30-second startup deadline; the
 five-second preparation budget starts after the worker reports readiness.
-Cancellation terminates the worker in either phase. Failed preparation keeps
-the picker and editor responsive. A geometry timeout suggests simplifying ropes
+Cancellation terminates the worker in either phase. The **Preparing level**
+dialog appears only once preparation has taken a second; until then the current
+screen stays, and the game's root carries `aria-busy`. The facility prepares the
+places behind nearby doors ahead of time ([the facility](jumping-facility.md)).
+Failed preparation keeps the picker and editor responsive. A geometry timeout suggests simplifying ropes
 or terrain; a startup timeout asks the player to retry instead. Saved settled
 ropes still start in their authored positions.
 

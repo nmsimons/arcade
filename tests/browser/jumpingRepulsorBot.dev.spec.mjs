@@ -36,7 +36,7 @@ async function open(page, file, finishEntrance = true) {
   await expect(card).toBeVisible({ timeout: 15000 })
   await card.click()
   await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await restartFromPause(page, finishEntrance)
 }

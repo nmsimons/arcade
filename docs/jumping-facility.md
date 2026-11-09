@@ -74,8 +74,13 @@ in development builds only. What exists:
   offers Return to the facility. The escape levels still keep their timers and
   coins until their untimed redesign.
 
-Not yet built: preparing a course while the robot approaches its door (the
-"Preparing level" dialog still appears), the door closing behind the robot,
+- Places are prepared ahead: within 300 units of an open door or bulkhead, the
+  place behind it is prepared in the background, and a course or escape level
+  prepares where it leads while it is played. Walking through then opens the
+  next place at once. A place not yet prepared holds the last frame on screen;
+  only after a second does the "Preparing level" dialog appear, with Cancel.
+
+Not yet built: the door closing behind the robot,
 lamps and grade letters on the board, a start
 experience that is still a game before the facility
 ([issue #104](https://github.com/nmsimons/arcade/issues/104)), wing layouts and
@@ -489,10 +494,14 @@ without the start screen. Courses return the robot to their doors at
 ### Entering, finishing and leaving a course
 
 1. When the robot comes within about 300 units of an unlocked door, prepare that
-   course in the level-preparation worker so entering has no visible wait.
+   course in the level-preparation worker so entering has no visible wait. Built:
+   the facility keeps up to eight places prepared, each copied on entry as
+   Restart copies it, and a course also prepares the door it returns to.
 2. Up at the door: the robot steps in, the door closes, the course entrance
    plays. If preparation has not finished, the closed door holds until it has;
-   the "Preparing level" dialog does not appear.
+   the "Preparing level" dialog does not appear. Built so far: the last frame
+   holds in place of the closing door, and the dialog appears only if
+   preparation takes more than a second, so it can still be cancelled.
 3. The course runs exactly as today. Exit entry locks the score and saves the
    record at the same moment as today.
 4. Instead of the result dialog, the wing reloads with the robot stepping out of

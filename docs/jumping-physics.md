@@ -99,13 +99,14 @@ That wake reaches across one step of gravity sag. Integration lowers an awake,
 pushed crate before contacts are found while a sleeping crate on top stays put,
 so a touching-only probe never found the crate on top: it saw no contact and
 the support slid out from under it (#106, the Concourse freight pile). A crate
-resting on a moving prop is then carried by that prop's actual travel each
+resting on a pushed prop, or on one being carried, is then carried by that prop's actual travel each
 step, the whole slip while its weight's static friction can hold it and
 sliding friction beyond that, from the bottom of a pile up. Matter's own
 friction scales with contact overlap, which the solver's tiny slop keeps near
 zero, so on its own a riding crate crept off the back of a pushed one. Only a
 support that is really travelling carries anything, so a settled pile someone
-hangs from is not nudged.
+hangs from is not nudged, and crates that are merely jostled keep Matter's own
+contact response.
 
 Prop-driven player displacement and carrying sweep against terrain, mechanisms,
 other props and shovebots. During the shared contact solve, these sweeps use

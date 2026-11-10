@@ -83,6 +83,7 @@ keep physics identical again, which the golden traces check.
 | `poses/*.ts` | one module per mode: locomotion, ledge, climbing, water, fall, ragdoll, sliding, wall brace, release turn, plus the push-turn blends |
 | `athleteAnimation.ts` | the `advance*`, `capture*` and `settle*` functions and the impact ragdoll's start and advance |
 | `athleteClearance.ts` | body, limb, hand and foot clearance |
+| `athleteLimits.ts` | hard limits the drawn pose is projected into last (#106) |
 | `athleteDraw.ts` | skin outlines and Canvas drawing |
 | `characterTypes.ts`, `gait.ts` | `Player`, `JumpInput`, `Platform`, and `gaitPose` |
 

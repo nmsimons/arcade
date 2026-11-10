@@ -11,7 +11,7 @@ import ts from 'typescript'
 // coupling is replaced; a new pose or animation import from the simulation
 // needs a deliberate entry here.
 const root = fileURLToPath(new URL('../src/games/jumping/', import.meta.url))
-const POSE_FAMILY = /^(athleteRig|athletePose|athleteClearance|athleteAnimation|characterAnimation|footwork|gameplayPose|poses\/\w+)\.ts$/
+const POSE_FAMILY = /^(athleteRig|athletePose|athleteLimits|athleteClearance|athleteAnimation|characterAnimation|footwork|gameplayPose|poses\/\w+)\.ts$/
 const DRAWING = /^(athleteDraw|athleteShadow|androidArtwork|sleeveArtwork|render|\w+Render|\w+Artwork)\.ts$/
 const ALLOWED = {
   // Animation started or advanced inside the movement step (Phase 3 moves these).

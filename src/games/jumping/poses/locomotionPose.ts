@@ -18,6 +18,8 @@ import type { Player } from '../characterTypes.ts'
 /** The most a prop push palm moves past its solved wrist to stay on the surface. */
 const PUSH_PALM_CARRY = 2
 
+/** A head nudge that turns the neck further than this from the torso folds it; turn the trunk instead (#106). */
+const NECK_FOLD = 75 * Math.PI / 180
 /** Ground and air locomotion: gait, crouch, landing, flight, reach and pushing. */
 export function locomotionPose(p: Player): AthletePose {
   // Sliding blends from the same locomotion pose on contact and release. A
@@ -191,34 +193,50 @@ export function locomotionPose(p: Player): AthletePose {
   }
   if (supportDip) { hip[1] += supportDip; waist[1] += supportDip; shoulder[1] += supportDip; head[1] += supportDip }
   if (bodyPush) {
-    // Clear the final pose after reach and balance adjustments; an earlier
-    // clamp was undone by the subsequent lean toward the palms. The head stays
-    // behind the pushed face and out of anything else at head height (a crate
-    // riding the pushed one, a low ceiling, a crate caught in front). Each fix
-    // turns the whole trunk at the hip, just far enough, so the torso and neck
-    // stay whole: straightening back from something in front, ducking forward
-    // under something above. Moving the head alone folded the neck (#106).
+    // Clear the final pose after reach and balance adjustments. An earlier
+    // head clamp was undone by the subsequent lean toward the palms.
     const trunk = [waist, shoulder, head].map(point => [...point] as Point)
-    const bend = (angle: number) => trunk.map(([x, y]) => {
-      const dx = x - hip[0], dy = y - hip[1], c = Math.cos(angle), s = Math.sin(angle)
-      return [hip[0] + dx * c - dy * s, hip[1] + dx * s + dy * c] as Point
-    })
     const faceX = (p.pushing!.wallX - p.x) * p.facing - HEAD_RADIUS - .1
-    const blocked = (angle: number) => bend(angle)[2][0] > faceX || !!bodyIntrusion(p, bend(angle)[2], HEAD_RADIUS)
-    const clearAt = (limit: number) => {
-      if (blocked(limit)) return null
-      let low = 0, high = limit
-      for (let i = 0; i < 12; i++) { const mid = (low + high) / 2; if (blocked(mid)) low = mid; else high = mid }
-      return high
-    }
-    if (blocked(0)) {
+    head[0] = Math.min(head[0], faceX)
+    const clamped = [...head] as Point
+    for (let pass = 0; pass < 8; pass++) {
       const intrusion = bodyIntrusion(p, head, HEAD_RADIUS)
+      if (!intrusion) break
+      head[0] += intrusion.x; head[1] += intrusion.y
+    }
+    // A small head nudge reads as looking. When something else at head height
+    // (a crate riding the pushed one, a low ceiling, a crate caught in front)
+    // would fold the neck instead, turn the whole trunk at the hip just far
+    // enough, keeping the torso and neck whole: straightening back from
+    // something in front, ducking forward under something above (#106). It
+    // blends in over the next 20 degrees of fold so the pose never jumps; a
+    // crouched push keeps its own low-ceiling clearance.
+    const turn = (points: readonly Point[]) => {
+      const angle = Math.atan2(points[2][1] - points[1][1], points[2][0] - points[1][0]) - Math.atan2(points[1][1] - points[0][1], points[1][0] - points[0][0])
+      return Math.abs(Math.atan2(Math.sin(angle), Math.cos(angle)))
+    }
+    const fold = p.crouching ? 0 : smooth((turn([waist, shoulder, head]) - NECK_FOLD) / (20 * Math.PI / 180))
+      * smooth((turn([waist, shoulder, head]) - turn([waist, shoulder, clamped])) / .17)
+    if (fold > 0) {
+      const bend = (angle: number) => trunk.map(([x, y]) => {
+        const dx = x - hip[0], dy = y - hip[1], c = Math.cos(angle), s = Math.sin(angle)
+        return [hip[0] + dx * c - dy * s, hip[1] + dx * s + dy * c] as Point
+      })
+      const blocked = (angle: number) => bend(angle)[2][0] > faceX || !!bodyIntrusion(p, bend(angle)[2], HEAD_RADIUS)
+      const clearAt = (limit: number) => {
+        if (blocked(limit)) return null
+        let low = 0, high = limit
+        for (let i = 0; i < 12; i++) { const mid = (low + high) / 2; if (blocked(mid)) low = mid; else high = mid }
+        return high
+      }
+      const intrusion = bodyIntrusion(p, trunk[2], HEAD_RADIUS)
       // Held back by the face, or pushed back (local -x) more than down: straighten first; otherwise duck first.
-      const back = head[0] > faceX || !!intrusion && -intrusion.x > Math.abs(intrusion.y), duck = 1.1, straighten = -.8
+      const back = trunk[2][0] > faceX || !!intrusion && -intrusion.x > Math.abs(intrusion.y), duck = 1.1, straighten = -.8
       const angle = back ? clearAt(straighten) ?? clearAt(duck) : clearAt(duck) ?? clearAt(straighten)
       if (angle !== null) {
         const [bentWaist, bentShoulder, bentHead] = bend(angle)
-        waist[0] = bentWaist[0]; waist[1] = bentWaist[1]; shoulder[0] = bentShoulder[0]; shoulder[1] = bentShoulder[1]; head[0] = bentHead[0]; head[1] = bentHead[1]
+        const blend = (point: Point, to: Point, from: Point = point) => { point[0] = lerp(from[0], to[0], fold); point[1] = lerp(from[1], to[1], fold) }
+        blend(waist, bentWaist); blend(shoulder, bentShoulder); blend(head, bentHead)
       }
     }
   }

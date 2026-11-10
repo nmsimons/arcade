@@ -164,8 +164,8 @@ function worldFor(run: Run) {
  * A pushed crate travels partly by the push force's own displacement within the
  * step, which Matter's overlap-based friction never passes on. A crate resting
  * on it fell behind about 0.03 units a step and crept off the back into the
- * pusher's head and arms (#106). Carry each crate resting on a moving prop by
- * that prop's actual travel, as static friction would, whenever the slip is
+ * pusher's head and arms (#106). Carry each crate resting on a pushed prop, or
+ * on one being carried, by that prop's actual travel, as static friction would, whenever the slip is
  * within what the crate's weight can hold over the step. A harder shove slides
  * it, still dragged by sliding friction. Piles are carried from the bottom up.
  */
@@ -181,12 +181,16 @@ function carryStackedBoxes(world: PropWorld, before: ReadonlyMap<Matter.Body, nu
     if (props.get(upper)!.kind === 'box') supports.set(upper, [...supports.get(upper) ?? [], lower])
   }
   const travel = (body: Matter.Body) => body.position.x - (before.get(body) ?? body.position.x)
+  // Only crates riding a pushed prop, or riding one that is itself carried; collisions
+  // and settling elsewhere keep Matter's own contact response.
+  const moving = new Set(world.driven)
   for (const [upper, lowers] of [...supports].sort(([a], [b]) => b.position.y - a.position.y)) {
-    if (upper.isSleeping && lowers.every(lower => lower.isSleeping)) continue
-    // Only a support that is really travelling carries anything; solver jitter
-    // in a settled pile must not nudge a crate someone is hanging from.
+    if (!lowers.some(lower => moving.has(lower))) continue
+    // Only a support that is really travelling (a push moves a crate 0.05 or
+    // more a step) carries anything. A rider's load also drives a crate, and
+    // its jostle must not nudge a crate someone is hanging from.
     const support = lowers.reduce((sum, lower) => sum + travel(lower), 0) / lowers.length
-    if (Math.abs(support) < 1e-3) continue
+    if (Math.abs(support) < .01) continue
     const slip = support - travel(upper)
     const weight = Math.max(0, world.gravity.get(upper) ?? TUNING.gravity) * dt * dt
     if (Math.abs(slip) < 1e-9) continue
@@ -194,6 +198,7 @@ function carryStackedBoxes(world: PropWorld, before: ReadonlyMap<Matter.Body, nu
     const carry = Math.abs(slip) <= material.frictionStatic * weight ? slip : Math.sign(slip) * material.friction * weight
     Body.translate(upper, { x: carry, y: 0 })
     if (upper.isSleeping) Sleeping.set(upper, false)
+    moving.add(upper)
   }
 }
 

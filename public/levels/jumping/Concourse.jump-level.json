@@ -1149,7 +1149,7 @@
       "y": 1080,
       "to": "facility-security",
       "power": "switched",
-      "switchLogic": "and",
+      "switchLogic": "or",
       "targets": [
         "concourse-to-assessment",
         "concourse-to-water",
@@ -1306,7 +1306,7 @@
       "switchReversed": true,
       "id": "5490e676-4f77-4937-97b5-3eb0a82df5cd",
       "x": 1760,
-      "y": 810,
+      "y": 800,
       "w": 12,
       "h": 280,
       "orientation": "vertical",

@@ -234,8 +234,8 @@ Coins should shape a journey: draw the eye toward a route, require a useful
 detour, unlock a new part of a room, or bring the player back through a changed
 space. Avoid making the player sweep every corner after the interesting part is
 over. Use thresholds to create choices when collecting every coin is unnecessary.
-When a meter does require every coin, as the exit meters of the Scaffold
-courses and Spire II do,
+When a meter does require every coin, as every exit meter in the
+Construction wing does,
 keep every coin reachable for the whole run: a coin stranded behind a one-way
 drop or cut off by a hazard leaves the exit shut until a restart.
 

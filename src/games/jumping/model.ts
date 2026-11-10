@@ -286,7 +286,10 @@ function settleSlopeBase(p: Player, ground: GroundSurface, downhill: number, pla
     const q = point(offset)
     return q.valid && !platforms.some(b => overlaps(q.x, q.y, b, p.crouching ? TUNING.crouchHeight : TUNING.height))
   }
-  let low = 0, high: number = TUNING.width
+  // Search no further than the footing reaches: near the end of a box or ledge
+  // the clear stance lies between here and that end, not a full body width away.
+  const reach = downhill > 0 ? ground.platform.x + ground.platform.w - p.x : p.x - ground.platform.x
+  let low = 0, high = Math.max(0, Math.min(TUNING.width, reach))
   if (clear(0)) high = 0
   else {
     if (!clear(high)) return null

@@ -238,6 +238,21 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
   candidates.sort((a, b) => (a.wallX - b.wallX) * direction || a.collider.id.localeCompare(b.collider.id))
   const nearest = candidates[0]
   let push = nearest && (nearest.collider.prop || (nearest.wallX - p.x) * direction <= 26.5) ? nearest : null
+  // A push already working this crate keeps it to BLOCKED_PUSH_REACH; a new one
+  // starts only at the ordinary gap, so a blocked push cannot flicker on and off.
+  const working = p.contacts?.push?.collider.id === push?.collider.id
+  if (push?.collider.prop && (push.wallX - p.x) * direction > (working ? BLOCKED_PUSH_REACH : 26.5)) {
+    // Something else can stop the body while the hands still work a crate: a
+    // crate on top slipping back against the chest, a low ceiling. A blocked
+    // body cannot follow a receding face. Past the push stride's ordinary
+    // working gap (about 25 to 27) the push ends, rather than stretching the
+    // trunk out after it (#106). A crate riding along against the chest still
+    // reads as blocked, so the margin must clear the whole stride.
+    const hull = propBody(), pushed = push.collider.platform
+    const step = moveBody([hull.x, hull.y], [hull.x + direction * .5, hull.y], world.platforms.filter(b => b !== pushed), hull.height, 1,
+      playerTurnAngle(p), playerCollisionOutline(p, world, hull))
+    if (step.contacts.some(c => c.normal[0] * direction < -.5)) push = null
+  }
   const body: PlayerContacts['body'] = []
   // A floating foothold must carry the rider's weight through the prop solver.
   // Keep the reaction vertical so curved supports do not invent a sideways shove.
@@ -388,6 +403,8 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
   return direction * Math.min(requestedVelocity * direction, constrained * direction)
 }
 
+/** The farthest a working push may hold a crate face while something else blocks the body. */
+const BLOCKED_PUSH_REACH = 30
 /** Preparation and working contact follow the same motor face and nearest
  * usable crouched height. A curved/rotating face cannot change those owners
  * simply because unloaded hands used a different maximum approach gap. */

@@ -17,6 +17,7 @@ import { impactRagdollPose } from './poses/ragdollPose.ts'
 import { releaseTurnPose } from './poses/releaseTurnPose.ts'
 import { waterPose } from './poses/waterPose.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
+import { withinRigLimits } from './athleteLimits.ts'
 import type { Player } from './characterTypes.ts'
 
 const renderPoses = new WeakMap<Player, { pose?: AthletePose; base?: AthletePose }>()
@@ -104,7 +105,7 @@ function equippedArmPose(p: Player, pose: AthletePose, presentation = false): At
 /** Ease only presentation; the arm and its sleeve always share the same bones.
  * Contacts, obstruction queries and fresh shots use the selected direction. */
 export function presentedAthletePose(p: Player): AthletePose {
-  return withTerrainQueries(() => reachingForRope(p, articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p), true)))))
+  return withinRigLimits(p, withTerrainQueries(() => reachingForRope(p, articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p), true))))))
 }
 
 /** Flying at a hanging rope, the hands reach out for the point of it the catch will take, so the catch

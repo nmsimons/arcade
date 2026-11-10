@@ -69,3 +69,26 @@ for (const gravity of [1, .1, 0]) test(`normal pushing wakes an entire sleeping 
     }
   }
 })
+
+// #106, the Concourse freight pile: integration lowers a pushed crate by one
+// step of gravity before contacts are found, so a sleeping crate on top saw no
+// contact, never woke, and the heavy crate beneath slid out from under it,
+// leaving it to block the pusher at head height.
+test('a sleeping crate wakes and travels with the heavy crate pushed out from under it', () => {
+  for (const direction of [-1, 1]) {
+    // The Concourse freight platform pile, on the blank floor; its last crate rests on the pushed one.
+    const at = x => 900 + direction * (x - 200), pile = [[185, 920, 60, 'heavy'], [235, 920, 40, 'heavy'], [187.5, 860, 35], [220, 845, 30], [232.5, 880, 35]]
+    const run = createRun({ ...blankTrial(), entrance: { x: 900, y: 920 },
+      props: pile.map(([x, y, size, weight]) => ({ kind: 'box', x: at(x), y, size, ...(weight ? { weight } : {}) })) })
+    run.started = true
+    step(run, 2)
+    const low = run.props[1], top = run.props[4], start = { low: low.x, top: top.x, topY: top.y }
+    Object.assign(run.player, { x: at(275), vx: 0, facing: -direction })
+    step(run, .5)
+    step(run, 4, { ...NEUTRAL_INPUT, move: -direction })
+    const moved = (start.low - low.x) * direction, carried = (start.top - top.x) * direction
+    assert.ok(moved > 30, `the push moves the base: ${moved.toFixed(1)}, direction ${direction}`)
+    assert.ok(carried > moved * .6, `the top crate travels with it: ${carried.toFixed(1)} of ${moved.toFixed(1)}, direction ${direction}`)
+    assert.ok(Math.abs(top.y - start.topY) < .5, `and stays on top, direction ${direction}`)
+  }
+})

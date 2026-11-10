@@ -68,13 +68,17 @@ export function transferPushTurn(p: Player, pose: AthletePose, from: AthletePose
   const trunk = solve(pose.hip,shoulder,6.5,10.1,1), alternative = solve(pose.hip,shoulder,6.5,10.1,-1)
   const distance = (point: Point) => Math.hypot(point[0] - pose.waist[0], point[1] - pose.waist[1])
   pose.waist = distance(trunk.joint) < distance(alternative.joint) ? trunk.joint : alternative.joint
-  const head = mix(from.head, target.head, fraction)
   const neckLength = (a: AthletePose) => Math.hypot(a.head[0] - a.shoulder[0], a.head[1] - a.shoulder[1])
   const neck = lerp(neckLength(from), neckLength(target), fraction)
-  const vector: Point = [head[0] - shoulder[0], head[1] - shoulder[1]]
-  const length = Math.hypot(...vector) || 1
+  // The head rides its neck: keep its turn from the torso while the trunk moves
+  // to meet the wrists. Aiming at the old head position from a shoulder that had
+  // reached forward tipped the head back behind it (#106).
+  const angle = (a: Point, b: Point) => Math.atan2(b[1] - a[1], b[0] - a[0])
+  const turn = angle(mix(from.shoulder, target.shoulder, fraction), mix(from.head, target.head, fraction))
+    - angle(mix(from.waist, target.waist, fraction), mix(from.shoulder, target.shoulder, fraction))
+  const direction = angle(pose.waist, shoulder) + turn
   pose.shoulder = shoulder
-  pose.head = add(shoulder, [vector[0] * neck / length, vector[1] * neck / length])
+  pose.head = add(shoulder, [Math.cos(direction) * neck, Math.sin(direction) * neck])
   // Fit the interpolated pelvis to the current ankle before resolving bones.
   for (const name of ['frontLeg', 'backLeg'] as const) {
     pose[name] = { ...pose[name], ...solveNear({ ...pose[name], root: add(pose.hip, [0, 1]) }, target[name].end, 15, 14.5) }

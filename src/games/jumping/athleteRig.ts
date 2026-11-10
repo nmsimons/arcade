@@ -15,6 +15,8 @@ export type AthletePose = {
 export const TAU = Math.PI * 2
 export const HEAD_RADIUS = 6.2
 export const UPPER_ARM = 10, FOREARM = 9
+/** Thigh and shin, as the leg solvers build them. */
+export const THIGH = 15, SHIN = 14.5
 export const MIN_KNEE_OPENING = Math.PI / 4
 export const clamp = (n: number) => Math.max(0, Math.min(1, n))
 export const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }

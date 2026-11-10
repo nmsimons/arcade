@@ -6,6 +6,8 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { platformLedges } from '../src/games/jumping/terrainLedges.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
+import { boxShape } from '../src/games/jumping/propGeometry.ts'
+import { platformSurface } from '../src/games/jumping/terrain.ts'
 
 function settledBox({ size = 160, angle = .2, platform = false } = {}) {
   const level = blankTrial()
@@ -63,7 +65,8 @@ for (const side of [-1, 1]) for (const wet of [false, true]) for (const baseWeig
         stepRun(run, { ...NEUTRAL_INPUT, climb: true })
       }
       assert.ok(p.grounded && !p.hang && !p.mantle, 'Up pulls onto the supported crate')
-      assert.ok(Math.abs(p.y - (box.y - box.size)) < .01, 'land on the actual box top')
+      // A woken stack can settle a crate by a few thousandths of a degree; measure its real top under the feet.
+      assert.ok(Math.abs(p.y - platformSurface(boxShape(box), p.x, p.y).y) < .01, 'land on the actual box top')
     }
   })
 }

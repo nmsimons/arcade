@@ -223,12 +223,14 @@ place it has left. Wake's pod is the game's only charging bay; the facility has
 no save points to visit.
 
 The wall clock counts down to the D deadline while showing the current A/B/C/D
-grade. Passing D permanently makes that run F: the timer dims at zero and time
-pickups turn grey and cannot be collected. The player may continue exploring,
-operate mechanisms, collect coins and use gadgets, but must restart to progress.
-Reaching the exit on F records the time and grade without awarding a passing
-completion or unlocking the next course. Back in the wing, the placard shows
-the failed run, and the next door stays dark.
+grade. Passing D permanently makes that run F: the timer dims at zero and the
+level powers down with a breaker clunk. The room lights flicker out, coins and
+clock collectibles vanish, and mechanisms, fields, bots and gadgets lose power
+for the rest of the run, but the exit opens and glows in the dark. The player
+may leave, keep exploring with what needs no power, or restart, and must
+restart to progress. Reaching the exit on F records the time and grade without
+awarding a passing completion or unlocking the next course. Back in the wing,
+the placard shows the failed run, and the next door stays dark.
 
 ## Optional advanced areas
 

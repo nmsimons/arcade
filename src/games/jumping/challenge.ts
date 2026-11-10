@@ -51,6 +51,7 @@ import { applyContactEmp } from './contactEmp.ts'
 import { chooseShovebotTarget, ramRival } from './botCombat.ts'
 import { recordPlayerNoise, resetPlayerNoise } from './botHearing.ts'
 import { preparePlayerShove } from './shove.ts'
+import { powerOut } from './power.ts'
 
 import { createFloatSwitch, updateFloatSwitch } from './floatSwitch.ts'
 import type { FloatSwitch, FloatSwitchState } from './floatSwitch.ts'
@@ -292,7 +293,7 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number, powered: bool
   const steps = Math.max(1, Math.ceil(dt * 240), Math.ceil(travel / (Math.min(...run.props.map(b => b.size)) * .15))), h = dt / steps
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h, powered)
 }
-function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
+function stepTriggers(run: Run, dt: number, powered = !powerOut(run)) {
   const toggledGroups = new Set<string>()
   run.level.triggers.forEach((plate, index) => {
     const sensor = run.triggers[index]
@@ -341,7 +342,8 @@ function releaseRopeAnchors(run: Run, states: ReadonlyMap<string, boolean>) {
   }
 }
 function updateSwitchTargets(run: Run) {
-  for (const state of run.floatSwitches) updateFloatSwitch(state, run.empRemaining === 0)
+  const powered = !powerOut(run)
+  for (const state of run.floatSwitches) updateFloatSwitch(state, powered)
   // In a facility area, door and bulkhead switches and grade averages read the facility's records.
   const hub = run.hub
   const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches, hub ? { grade: course => hub.grades.get(course) ?? null, complete: area => hub.complete.has(area) } : undefined)
@@ -349,7 +351,7 @@ function updateSwitchTargets(run: Run) {
   // A switched door the facility lets open is open while its wiring is on.
   if (run.hub) for (const id of run.hub.switched) { if (states.get(id)) run.hub.open.add(id); else run.hub.open.delete(id) }
   releaseRopeAnchors(run, states)
-  updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0, platform => {
+  updateForceFields(run.forceFields, run.player, states, powered, platform => {
     const held = heldToolFrame(run.player)
     if (held && polygonIntersects(polygonPoints(toolShape(held)), platform, .001)) return true
     if (run.props.some(b => polygonIntersects(polygonPoints(b.kind === 'box' ? boxShape(b) : ballShape(b)), platform, .001))
@@ -360,10 +362,11 @@ function updateSwitchTargets(run: Run) {
       return path.slice(1).some((point, i) => lineBlocked(path[i], point, [platform]))
     })
   }, field => run.gadgets.disabled.has(field))
-  updateGravityField(run.gravityField, run.water.plates, states, run.empRemaining === 0, run.water.revision, plate => run.gadgets.disabled.has(plate))
+  updateGravityField(run.gravityField, run.water.plates, states, powered, run.water.revision, plate => run.gadgets.disabled.has(plate))
   for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
   const goal = run.level.goal
-  run.goalLit = !!goal && (!!run.exit || goal.power !== 'switched' || !!states.get(goal.id ?? ''))
+  // A failed run powers the level down, but its exit opens so the player can still leave.
+  run.goalLit = !!goal && (!!run.exit || run.failed || goal.power !== 'switched' || !!states.get(goal.id ?? ''))
 }
 /**
  * Derive what follows from a fresh run's switch inputs, as a new run does: switches, fields,
@@ -441,7 +444,7 @@ function stepRobots(run: Run, dt: number, world: ContactWorld, powered = true) {
   else if (pushed < 0) p.vx = Math.min(p.vx, pushed)
 }
 function collectPickups(run: Run, dt: number) {
-  const collected = stepPickups(run.pickups, run.player, dt, true, !run.failed)
+  const collected = stepPickups(run.pickups, run.player, dt, true, run.failed)
   run.timeStopRemaining += collected.seconds
   run.timeFastRemaining += collected.fastSeconds
   run.empRemaining += collected.empSeconds
@@ -482,7 +485,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     run.exit.elapsed = Math.min(GOAL_EXIT_SECONDS, run.exit.elapsed + dt)
     p.x = goalExitPosition(run.exit); p.vx = (p.x - from[0]) / dt
     finishPlayerStep(p, NEUTRAL_INPUT, dt, syncPlatforms(run), from)
-    stepPickups(run.pickups, p, dt, false)
+    stepPickups(run.pickups, p, dt, false, run.failed)
     run.finished = run.exit.elapsed >= GOAL_EXIT_SECONDS
     return
   }
@@ -494,7 +497,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   input = prepareGadgets(run, shoving ? { ...input, use: false } : input, dt)
   const toolBefore = heldToolFrame(run.player)
   let world = syncPlatforms(run)
-  const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
+  const poweredDt = !run.failed && dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
   stepTriggers(run, poweredDt, powered)
   if (advanceWaterLevels(run.water, run.switchStates, poweredDt)) {
     updateGravityField(run.gravityField, run.water.plates, run.switchStates, powered, run.water.revision, plate => run.gadgets.disabled.has(plate))

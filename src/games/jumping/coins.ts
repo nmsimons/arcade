@@ -1,6 +1,6 @@
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
-import { DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT, DIGITAL_GREEN, DIGITAL_INACTIVE, drawDigitalDisplay, drawDigitalHousing } from './digitalDisplay.ts'
+import { DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT, DIGITAL_DIM, DIGITAL_GREEN, DIGITAL_INACTIVE, drawDigitalDisplay, drawDigitalHousing } from './digitalDisplay.ts'
 
 /** Plain gold discs with a substantial edge turn slowly about their vertical axis. */
 export const COIN_RADIUS = 18
@@ -34,9 +34,10 @@ export function drawCoin(ctx: CanvasRenderingContext2D, time = 0, phase = 0) {
   ctx.restore()
 }
 
-export function drawCoinSwitch(ctx: CanvasRenderingContext2D, switch_: { x: number; y: number; w: number; threshold: number } & CoinSwitchOrientation, collected: number, active = collected >= switch_.threshold, paint: WorldPaint = paintNormally) {
+/** A powered-down level dims its meters like a failed wall clock: no glow, dark lit cells. */
+export function drawCoinSwitch(ctx: CanvasRenderingContext2D, switch_: { x: number; y: number; w: number; threshold: number } & CoinSwitchOrientation, collected: number, active = collected >= switch_.threshold, paint: WorldPaint = paintNormally, dimmed = false) {
   if (switch_.display === 'digital') {
-    drawDigitalDisplay(ctx, switch_.x, switch_.y, formatCoinCount(collected, switch_.threshold), active ? DIGITAL_GREEN : COIN_COLOR, 'coin', paint)
+    drawDigitalDisplay(ctx, switch_.x, switch_.y, formatCoinCount(collected, switch_.threshold), active ? DIGITAL_GREEN : COIN_COLOR, 'coin', paint, { dimmed })
     return
   }
   const { x, y, w, h } = coinSwitchBounds(switch_), vertical = switch_.orientation === 'vertical'
@@ -60,9 +61,9 @@ export function drawCoinSwitch(ctx: CanvasRenderingContext2D, switch_: { x: numb
   })
   // Separate LED cells share the numeric face's glow and activation green.
   // Empty cells, dark gaps, and the housing still receive ordinary room light.
-  paint(ctx, .65, () => {
-    ctx.fillStyle = active ? DIGITAL_GREEN : COIN_COLOR
-    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 3
+  paint(ctx, dimmed ? 0 : .65, () => {
+    ctx.fillStyle = dimmed ? DIGITAL_DIM : active ? DIGITAL_GREEN : COIN_COLOR
+    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = dimmed ? 0 : 3
     drawSegments(0, filled)
     ctx.shadowBlur = 0
   })

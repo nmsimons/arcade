@@ -13,6 +13,7 @@ import { LIGHT_RADIUS } from './lightingDefinition.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
+import { powerOut } from './power.ts'
 
 export interface WallWire { source: Selection; target: string; points: Vec[] }
 export const DEFAULT_WIRE_HEIGHT = 160
@@ -22,6 +23,7 @@ export interface WallWireState {
   floatSwitches: readonly { active: boolean }[]
   switchStates: ReadonlyMap<string, boolean>
   empRemaining: number
+  failed?: boolean
 }
 const TERMINAL_GAP = 18, TERMINAL_RADIUS = 3.5
 function fixtureBounds(level: JumpLevel, item: Selection) {
@@ -114,7 +116,7 @@ function initialState(level: JumpLevel): WallWireState {
 }
 /** A wire carries its source's output, before the destination combines inputs. */
 export function wallWireEnergized(level: JumpLevel, wire: WallWire, state: WallWireState): boolean {
-  if (state.empRemaining > 0) return false
+  if (powerOut(state)) return false
   if (wire.source.kind === 'trigger') return !!state.triggers[wire.source.index]?.active
   if (wire.source.kind === 'float-switch') return !!state.floatSwitches[wire.source.index]?.active
   const definition = itemDefinition(level, wire.source) as { id?: string }

@@ -26,6 +26,7 @@ import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from
 import { LIGHTING_BUFFER_BUDGET as BUFFER_BUDGET, gpuLightingBufferBytes } from './lightingBudget.ts'
 import { NIGHT_PLAYER_COLOR } from './athleteDraw.ts'
 import { awakeningPose, withAthletePose } from './athletePose.ts'
+import { powerOut } from './power.ts'
 export { lightingPixelRatio } from './lightingBudget.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
@@ -57,7 +58,7 @@ function dayActorPatch(run: LightingWorld, view: LightingView) {
   const { width, height } = view
   // The exit's bounds hold its door; open facility doors animate their chevrons too.
   const bounds = [...dynamicCasters(run, true).flat(), ...run.level.goal ? [goalBounds(run.level.goal)] : [], ...'hub' in run ? doorChevrons(run).walls : []]
-  if (run.empRemaining === 0) for (const robot of run.robots) if (robot.phase === 'recover') {
+  if (!powerOut(run)) for (const robot of run.robots) if (robot.phase === 'recover') {
     bounds.push({ x: robot.x + 46 * Math.sin(robot.angle) - 11,
       y: robot.y - 9 - 46 * Math.cos(robot.angle) - 11, w: 22, h: 22 })
   }
@@ -265,7 +266,8 @@ export class LightingRenderer {
     } else drawTerrain(ctx, 'terrain' in run ? run.terrain : levelTerrain(run.level), run.level.platforms, run.level)
   }
   render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
-    const render = () => this.renderFrame(ctx, run, definition, view, dt, onlyLight, editor, shadows, fullBright)
+    const lighting = this.state.roomLighting(definition, run, dt)
+    const render = () => this.renderFrame(ctx, run, lighting, view, dt, onlyLight, editor, shadows, fullBright)
     try { return this.reuseAthletePose ? withAthletePose(run.player, render) : render() }
     finally { this.terrainArtwork = undefined; this.objectArtwork = undefined }
   }

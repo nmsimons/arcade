@@ -599,10 +599,13 @@ journey for the player.
 - **D:** a realistic first completion, including time to read the room and make
   a considered recovery. It must still require purposeful play, rather than
   making the deadline irrelevant. Tune this separately for each level.
-- **F:** the D deadline has expired. Keep the world playable for exploration,
-  but this run cannot unlock the next level, even after a time refund. Grey
-  time bonuses, penalties and both stopwatches remain visible and uncollected.
-  Coins, gadgets and mechanisms continue working.
+- **F:** the D deadline has expired and the level powers down. The room
+  lights cut out, coins and every clock collectible vanish, and powered devices
+  stop as in an endless EMP, but the exit opens and glows. The player can leave with an F, keep
+  exploring with water, ropes, ladders and loose objects, or restart. This run
+  cannot unlock the next level, even after a time refund. A gate or lift that
+  stops in the way of the exit leaves restart as the only way out; that is
+  acceptable.
 
 Campaign progression requires D or better, except untimed story sequences.
 Clocks show the current grade and time remaining until F; at F they dim at zero.

@@ -12,6 +12,7 @@ import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { athletePose } from './athletePose.ts'
 import { gameplayPose } from './gameplayPose.ts'
 import { cadence } from './characterAnimation.ts'
+import { powerOut } from './power.ts'
 
 export type GadgetKind = 'emp' | 'repulsor'
 export const GADGET_SIZE = 40
@@ -192,7 +193,7 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
     else if (previousPresentation) p.heldTool!.presentation = previousPresentation
     if (use && !interact) {
       if (supporting || turnSupported) feedback(run, 'Right arm supporting')
-      else if (run.empRemaining > 0) feedback(run, 'Power off')
+      else if (powerOut(run)) feedback(run, 'Power off')
       else if (state.blocked) feedback(run, 'Barrel blocked')
       else if (prop.gadgetCooldown) feedback(run, 'Cooling')
       else if (prop.gadget === 'emp') fireEmp(run)
@@ -320,5 +321,5 @@ export function gadgetStatus(run: Run, device: 'keyboard' | 'controller' | 'touc
   if (!state.held) return state.feedbackTime && state.feedback ? state.feedback
     : state.nearby ? `${interact} · ${gadgetLabel(state.nearby.gadget!)}` : ''
   const use = device === 'controller' ? 'RT' : device === 'touch' ? 'Use' : 'F'
-  return `${gadgetLabel(state.held.gadget!)} · ${use} fire · ${interact} drop${rightArmSupporting(run.player) ? ' · right arm supporting' : run.empRemaining ? ' · power off' : state.held.gadgetCooldown ? ' · cooling' : state.feedbackTime && state.blocked ? ' · blocked' : ''}`
+  return `${gadgetLabel(state.held.gadget!)} · ${use} fire · ${interact} drop${rightArmSupporting(run.player) ? ' · right arm supporting' : powerOut(run) ? ' · power off' : state.held.gadgetCooldown ? ' · cooling' : state.feedbackTime && state.blocked ? ' · blocked' : ''}`
 }

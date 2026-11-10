@@ -478,9 +478,21 @@ range. Earlier, larger clocks keep their saved top-left positions. Digits are
 green normally and on completion; the left LED bay shows the current A/B/C/D/F
 grade. Freeze/fast effects keep their amber/red digit colors. The face starts
 at the D deadline, pauses with the game and latches on exit entry. At F it stays
-zero and dim, and time pickups turn grey and cannot be collected. Restart
-restores the deadline and pickups. Time bonuses can improve the current grade
-and remaining time before F, but cannot revive a failed run.
+zero and dim, and the level powers down for the rest of the run. Restart
+restores the deadline, power and pickups. Time bonuses can improve the current
+grade and remaining time before F, but cannot revive a failed run.
+
+Powering down at F works like an EMP outage that never ends. Gates, elevators
+and moving platforms stop where they are and stay solid. Plates and float
+switches stop responding, and force fields and gravity plates switch off. Bots
+stop, wiring and coin meters go dark, and carried gadgets read **Power off**.
+The room lights cut out with a breaker clunk and a winding-down hum: after a
+brief flicker, a daylit room renders as night with every lamp off, so the open
+exit's glow stands out. Every coin, clock collectible and EMP still in the
+level flickers out and can no longer be collected. Water,
+ropes, ladders, and loose boxes and balls keep working. The exit opens, a
+switched exit included, so the player can still leave with an F. They can also
+keep exploring, or restart from the pause menu.
 Displays are drawn behind terrain and actors and have no collision. Their size
 and position follow the world camera. There is no visible HUD clock; levels
 without `timers` simply have no wall display. Older files may omit the array.
@@ -568,7 +580,8 @@ disappears on player contact, with a short chime. Coins use
 Their center-based bounds extend 20 units in each direction. They increase the
 level-wide collected total once each and do not change the timer. Their spin and
 collection animation pause with the game; restart restores all coins and clears
-the total. Collection remains available until the player enters the exit.
+the total. Collection remains available until the player enters the exit or the
+run reaches F.
 
 **Mechanisms → Coin switch** mounts a numeric display on the back wall, behind
 terrain and actors with no collision. Set **Coins required** (1–80, default 3)

@@ -86,3 +86,21 @@ test('flicker never bypasses switched power or EMP and does not feed back into t
   for (let i = 0; i < 1024; i++) if (check(1 / 64) === 1) relit = true
   assert.equal(relit, true)
 })
+
+test('a failed run cuts the room lights with a flicker, then keeps a daylit room dark until restart', () => {
+  const state = new LightingState(), day = { nightMode: false, ambient: 0, lights: [] }, night = { ...day, nightMode: true }
+  const run = { failed: false }, dt = 1 / 60
+  const dark = () => state.roomLighting(day, run, dt).nightMode
+  assert.equal(dark(), false)
+  run.failed = true
+  const frames = Array.from({ length: 30 }, dark)
+  assert.equal(frames[0], true, 'the cut is immediate')
+  assert.ok(frames.slice(0, 20).includes(false), 'the old light flashes back during the flicker')
+  assert.ok(frames.slice(20).every(Boolean), 'then the room stays dark')
+  for (let i = 0; i < 600; i++) assert.equal(dark(), true)
+  assert.equal(state.roomLighting(night, run, dt), night, 'a night room is left as authored; its lamps go out with power')
+  run.failed = false
+  assert.equal(dark(), false, 'restart brings the day back')
+  run.failed = true
+  assert.equal(dark(), true, 'a later failure cuts again from the start')
+})

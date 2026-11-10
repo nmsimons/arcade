@@ -6,9 +6,10 @@ import { playerSwimStrength, propWaterStrength } from './gravity.ts'
 import { robotDrive } from './robotPhysics.ts'
 import { chargingBayOpening } from './goal.ts'
 import { triggerToggleGroup } from './toggleGroups.ts'
+import { powerOut } from './power.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo'
-export type CueKind = 'footstep' | 'robot-footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'emp-shot' | 'repulsor' | 'shove'
+export type CueKind = 'footstep' | 'robot-footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'emp-shot' | 'repulsor' | 'shove'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -35,7 +36,7 @@ function snapshot(p: Player, run: Run | null) {
     triggers: run?.triggers.map(t => t.active) ?? [],
     triggerPresses: run?.triggers.map(t => t.pressed) ?? [],
     coins: run?.coinsCollected ?? 0,
-    outage: run?.empRemaining ?? 0, playerOutage: run?.gadgets.disabled.get(p) ?? 0, shots: run?.gadgets.shots ?? 0,
+    outage: run?.empRemaining ?? 0, failed: run?.failed ?? false, playerOutage: run?.gadgets.disabled.get(p) ?? 0, shots: run?.gadgets.shots ?? 0,
     robotShots: run?.robots.map(robot => robot.shots ?? 0) ?? [],
     robotRams: run?.robots.map(robot => robot.rams ?? 0) ?? [],
     shoves: p.shoves ?? 0, robotShoves: run?.robots.map(robot => robot.actor?.shoves ?? 0) ?? [],
@@ -125,7 +126,7 @@ export class JumpingAudioState {
         this.robotStepCooldowns[i] = Math.max(0, (this.robotStepCooldowns[i] ?? 0) - dt)
         if (!old || old.robot !== robot) { this.robotStepCooldowns[i] = 0; continue }
         const distance = Math.hypot(robot.x - old.x, robot.y - old.y)
-        if (distance >= 80 || run.empRemaining > 0 || robot.deactivated || run.gadgets.disabled.has(robot)) continue
+        if (distance >= 80 || powerOut(run) || robot.deactivated || run.gadgets.disabled.has(robot)) continue
         if (actor) {
           const waking = robot.awakening?.elapsed ?? 0
           if (waking > old.awakening && waking > 1 && waking < 3.3) {
@@ -226,6 +227,11 @@ export class JumpingAudioState {
       }
       if (run.coinsCollected > before.coins) cue('coin', p.x, p.y - 30)
       if (run.empRemaining > before.outage + .01) cue('emp', p.x, p.y - 30)
+      // Running out of time powers the whole level down: heard everywhere, ahead of nearby impacts.
+      if (run.failed && !before.failed) {
+        this.cues.unshift({ kind: 'power-down', volume: 1, pan: 0, strength: 1 })
+        if (this.cues.length > 8) this.cues.pop()
+      }
       if (run.gadgets.shots > before.shots) cue(run.gadgets.lastShotKind === 'emp' ? 'emp-shot' : 'repulsor', p.x, p.y - 30)
       if (run.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length > before.penalties) cue('time-penalty', p.x, p.y - 30)
       // Another stopwatch extends an existing pause and still deserves feedback.

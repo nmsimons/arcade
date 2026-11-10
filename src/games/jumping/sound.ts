@@ -137,6 +137,18 @@ export class JumpingSound {
         }
         return (note(0, 330) + note(.14, 220)) * .18 * Math.min(1, (.46 - t) / .03)
       }),
+      // The whole level losing power: a breaker clunk, a second as the lights cut,
+      // and a mains hum winding down to nothing.
+      'power-down': makeBuffer(ctx, 1.7, (t, noise) => {
+        const clunk = (start: number, level: number) => {
+          const age = t - start
+          return age < 0 ? 0 : (Math.sin(age * Math.PI * 2 * 68) * .5 + noise * .3 * Math.exp(-age * 60)) * Math.exp(-age * 34) * Math.min(1, age / .002) * level
+        }
+        const phase = Math.PI * 2 * (24 * t + 116 * (1 - Math.exp(-t * 2.4)) / 2.4)
+        const hum = (Math.sin(phase) + .35 * Math.sin(phase * 2) + .15 * Math.sin(phase * 3))
+          * Math.min(1, t / .015) * Math.exp(-t * 1.5) * .2
+        return (clunk(0, 1) + clunk(.3, .55) + hum) * Math.min(1, (1.7 - t) / .15)
+      }),
       // A soft electrical power-down, with a rounded attack and no crackle.
       emp: makeBuffer(ctx, .42, t => {
         const phase = Math.PI * 2 * (110 * t + 420 * (1 - Math.exp(-t * 12)) / 12)

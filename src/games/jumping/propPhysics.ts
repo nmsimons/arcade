@@ -22,6 +22,7 @@ import type { Vec } from './geometry.ts'
 import { propFloatDrag, propGravity, propWaterStrength } from './gravity.ts'
 import { propWeightScale } from './propWeight.ts'
 import { swimmingTerrainOutline } from './poses/waterPose.ts'
+import { powerOut } from './power.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; fields: Map<ForceFieldState, Matter.Body>; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
@@ -207,7 +208,7 @@ export function repulseProp(run: Run, prop: Prop, direction: Vec) {
 
 /** Rigid corners, angular momentum and Coulomb contact friction are resolved
  * together for terrain, moving platforms, balls and boxes. */
-export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = run.empRemaining === 0) {
+export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = !powerOut(run)) {
   const world = worldFor(run), push = playerContact.push
   syncForceFieldBodies(run, world)
   const surface = run.waterSurface?.enabled === false ? undefined : run.waterSurface

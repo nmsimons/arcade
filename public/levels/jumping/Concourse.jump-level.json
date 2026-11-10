@@ -537,7 +537,7 @@
         "length": 400,
         "segments": 50,
         "rest": {
-          "key": "7:27a8e82bcaf214ef",
+          "key": "7:622a49640661e3f2",
           "points": [
             [
               1240,
@@ -865,7 +865,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:b309836776c04341",
+          "key": "7:077cb3aea328f338",
           "points": [
             [
               1760,
@@ -1098,7 +1098,9 @@
         "concourse-to-security",
         "concourse-to-targets",
         "concourse-to-assessment",
-        "dispatch-door"
+        "dispatch-door",
+        "317aeef4-55cd-4c73-a19c-882ca546264b",
+        "5490e676-4f77-4937-97b5-3eb0a82df5cd"
       ]
     },
     {
@@ -1111,7 +1113,9 @@
         "concourse-to-security",
         "concourse-to-targets",
         "concourse-to-assessment",
-        "dispatch-door"
+        "dispatch-door",
+        "317aeef4-55cd-4c73-a19c-882ca546264b",
+        "5490e676-4f77-4937-97b5-3eb0a82df5cd"
       ]
     },
     {
@@ -1121,7 +1125,6 @@
       "to": "facility-targets",
       "power": "switched",
       "targets": [
-        "concourse-to-security",
         "concourse-to-water",
         "concourse-to-assessment",
         "dispatch-door"
@@ -1289,24 +1292,24 @@
   ],
   "forceFields": [
     {
+      "switchReversed": true,
       "id": "317aeef4-55cd-4c73-a19c-882ca546264b",
       "x": 1555,
       "y": 800,
       "w": 12,
       "h": 280,
       "orientation": "vertical",
-      "mode": "objects",
-      "power": "always"
+      "power": "switched"
     },
     {
+      "switchReversed": true,
       "id": "5490e676-4f77-4937-97b5-3eb0a82df5cd",
       "x": 1760,
-      "y": 800,
+      "y": 810,
       "w": 12,
       "h": 280,
       "orientation": "vertical",
-      "mode": "objects",
-      "power": "always"
+      "power": "switched"
     }
   ],
   "floatSwitches": [

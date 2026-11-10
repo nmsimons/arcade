@@ -774,6 +774,15 @@ connections, for example `goal: { "x": 800, "y": 920, "id": "exit", "power": "sw
 and a plate with `targets: ["exit"]`. The builder assigns the ID automatically.
 IDs must be unique across the exit, mechanisms, and spotlights.
 
+In the facility, a plain exit door can lead on when its run passes:
+`goal.leadsTo: { "level": "<level id>", "arrival"?: "<door id>" }`. A course
+is entered at its start; a facility area at its entrance, or out of the level
+door or bulkhead named by `arrival`. Without `leadsTo`, and always after an F or
+when the robot leaves from the pause menu, it goes back where it came from.
+Overlook, walk-off and bus exits end the game and cannot lead on. In the studio,
+**Object → Leads to** on the exit chooses the level, and **Arrives at** the door
+when that level is a facility area. See [the facility](jumping-facility.md#where-doors-and-exits-lead).
+
 Opening the exit does not stop the clock or lock the medal. The player must walk
 into its fully open doorway. Passing above it or rolling an object through it
 does not finish the level. Entry locks scoring and takes a short final step into
@@ -817,11 +826,16 @@ leaves only through its doors, by pressing Up in an open doorway. It may hold
 everything a course does except timing equipment: coins, coin switches, wall
 clocks and time pickups stay in courses. Tools and EMP charges are allowed.
 
-- `courseDoors: [{ id, x, y, course }]`: level doors. `course` is the
-  ID of the level behind the door; finishing that level returns the robot here.
-- `bulkheads: [{ id, x, y, to }]`: doors to other facility areas. `to`
-  is the ID of the facility area beyond it. Arriving through a bulkhead steps
-  out of the bulkhead on the far side that leads back.
+- `courseDoors: [{ id, x, y, course, returnsTo?, dispatch? }]`: level doors.
+  `course` is the ID of the level behind the door. Coming back from that level,
+  the robot steps out of this door, or of `returnsTo`, the ID of another level
+  door or bulkhead in this area. `dispatch: true` marks the dispatch door to the
+  final course: lettered DISPATCH, released once the evaluation is complete,
+  and not itself part of the evaluation. The facility has one.
+- `bulkheads: [{ id, x, y, to, arrivesAt? }]`: doors to other facility areas.
+  `to` is the ID of the facility area beyond it. Arriving through a bulkhead
+  steps out of `arrivesAt`, a level door or bulkhead in that area, or else the
+  bulkhead there that leads back.
 - Level doors and bulkheads go by where they lead, so neither has a `name`;
   one saved on them is dropped when the level loads.
 - `power: "switched"` on a level door or bulkhead opens it only while its
@@ -863,7 +877,9 @@ exit becomes a bulkhead, its destination still to choose) and **Course**
 converts back (the first bulkhead becomes the exit). The Facility tools place
 level doors, bulkheads and evaluation boards, and **Object → Leads to** chooses
 where each door goes: a level door lists every course in the collection, and a
-bulkhead every other facility area.
+bulkhead every other facility area. **Returns through** on a level door and
+**Arrives at** on a bulkhead choose the door the robot steps out of, and
+**Dispatch door** marks the door to the final course.
 
 `timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
 level** in the studio. The world and animation time still advance, but the

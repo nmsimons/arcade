@@ -12,7 +12,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setLevelType, setWallDoor, hubDoorAt, editGradeGate } from './editor'
+import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setExitDestination, setDoorReturn, setDoorDispatch, setBulkheadArrival, setLevelType, setWallDoor, hubDoorAt, editGradeGate } from './editor'
 import { GRADE_LETTERS, drawGradeGate } from './hub'
 import type { GradeLetter } from './hub'
 import { WALL_DOOR_CONDITIONS, WALL_DOOR_LABELS } from './wallDoor'
@@ -194,7 +194,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     loadCampaign(import.meta.env.BASE_URL).then(value => { if (active) setCampaignFile(value) }, () => { /* Doors are lettered with where they lead. */ })
     return () => { active = false }
   }, [])
-  const doorName = useMemo(() => facilityDoorName(levelsById, campaignFile && levelsById.has(campaignFile.opening) ? resolveCampaign(campaignFile, levelsById) : null), [levelsById, campaignFile])
+  const doorName = useMemo(() => facilityDoorName(levelsById), [levelsById])
   const previewRun = useMemo(() => {
     const run = isRunLevel(level) ? createPreviewRun(level) : null
     // The level being edited stands in for its saved copy, so its own doors, wiring and name count.
@@ -344,6 +344,18 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     ? [{ value: '', label: 'Choose a level' }, ...levels.files.filter(file => !isHubLevel(file.level) && file.level.id !== level.id).map(file => ({ value: file.level.id, label: file.level.name }))]
     : [{ value: '', label: 'Choose a facility area' }, ...levels.files.filter(file => isHubLevel(file.level) && file.level.id !== level.id).map(file => ({ value: file.level.id, label: file.level.name }))]
   if (hubDoor && !destinationOptions.some(option => option.value === doorDestination)) destinationOptions.push({ value: doorDestination, label: `${doorDestination} (not found)` })
+  // A plain exit can lead on when its run passes, into a course at its start or a facility area at
+  // one of its doors. A level door can return the robot through another door, and a bulkhead can
+  // bring it out of a chosen door in the area beyond. Doors go by where they lead.
+  const exitDoor = selection?.kind === 'goal' && level.goal && !level.goal.kind && !isHubLevel(level) ? level.goal : null
+  const doorsIn = (area: JumpLevel | undefined, except?: string) => area && isHubLevel(area) ? [...area.courseDoors, ...area.bulkheads].filter(door => door.id !== except)
+    .map(door => ({ value: door.id, label: `${doorName(door) ?? 'Unconnected'} ${'course' in door ? 'level door' : 'bulkhead'}` })) : []
+  const withMissing = (options: { value: string; label: string }[], value: string) => options.some(option => option.value === value) ? options : [...options, { value, label: `${value} (not found)` }]
+  const exitTarget = exitDoor?.leadsTo ? levelsById.get(exitDoor.leadsTo.level) : undefined
+  const exitOptions = exitDoor ? withMissing([{ value: '', label: 'Back where the robot came from' },
+    ...levels.files.filter(file => file.level.id !== level.id).map(file => ({ value: file.level.id, label: isHubLevel(file.level) ? `${file.level.name} (facility area)` : file.level.name }))], exitDoor.leadsTo?.level ?? '') : []
+  const returnDoor = hubDoor && 'course' in hubDoor ? hubDoor : null
+  const arrivalBulkhead = hubDoor && !('course' in hubDoor) && hubDoor.to ? hubDoor : null
   const quantize = useCallback((v: number, grid: number) => snap ? Math.round(v / grid) * grid : Math.round(v), [snap])
   const quantizeY = useCallback((y: number, grid: number) => roomHeight - quantize(roomHeight - y, grid), [roomHeight, quantize])
   const hoveredNode = useMemo(() => tool === 'node' && pointer && !drag ? shapeVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom, selection) : null,
@@ -1190,14 +1202,32 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         {hubDoor ? <p className="builder-hint">Named in the facility by where it leads.</p>
           : <label>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemName(level, selection) ?? ''}
             placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>}
-        {Boolean(editingWall || trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject || hubDoor || gradeGate) && <BuilderInspectorSection title="Behavior">
+        {Boolean(editingWall || trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject || hubDoor || gradeGate || exitDoor) && <BuilderInspectorSection title="Behavior">
           {hubDoor && <BuilderSelect label="Leads to" accessibleLabel={selection.kind === 'bulkhead' ? 'Bulkhead destination' : 'Level door destination'}
             title={selection.kind === 'bulkhead' ? 'The part of the facility this bulkhead opens onto' : 'The level this door opens onto'}
             value={doorDestination} options={destinationOptions} onChange={value => commit(setHubDoorDestination(history.present, selection, value))} />}
+          {exitDoor && <BuilderSelect label="Leads to" accessibleLabel="Exit destination"
+            title="Where the exit leads when the run passes. An F, or leaving, goes back where the robot came from."
+            value={exitDoor.leadsTo?.level ?? ''} options={exitOptions} onChange={value => commit(setExitDestination(history.present, value ? { level: value } : undefined))} />}
+          {exitDoor?.leadsTo && exitTarget && isHubLevel(exitTarget) && <BuilderSelect label="Arrives at" accessibleLabel="Exit arrival"
+            title="The door or bulkhead the robot steps out of in that facility area" value={exitDoor.leadsTo.arrival ?? ''}
+            options={withMissing([{ value: '', label: 'Its entrance' }, ...doorsIn(exitTarget)], exitDoor.leadsTo.arrival ?? '')}
+            onChange={value => commit(setExitDestination(history.present, { level: exitDoor.leadsTo!.level, ...(value ? { arrival: value } : {}) }))} />}
+          {returnDoor && <BuilderSelect label="Returns through" accessibleLabel="Level door return"
+            title="The door or bulkhead in this area the robot comes back out of after the level" value={returnDoor.returnsTo ?? ''}
+            options={withMissing([{ value: '', label: 'This door' }, ...doorsIn(level, returnDoor.id)], returnDoor.returnsTo ?? '')}
+            onChange={value => commit(setDoorReturn(history.present, selection, value || undefined))} />}
+          {arrivalBulkhead && <BuilderSelect label="Arrives at" accessibleLabel="Bulkhead arrival"
+            title="The door or bulkhead the robot steps out of in the area beyond" value={arrivalBulkhead.arrivesAt ?? ''}
+            options={withMissing([{ value: '', label: 'The bulkhead back here' }, ...doorsIn(levelsById.get(arrivalBulkhead.to))], arrivalBulkhead.arrivesAt ?? '')}
+            onChange={value => commit(setBulkheadArrival(history.present, selection, value || undefined))} />}
           {hubDoor && <BuilderSelect label="Power" accessibleLabel={selection.kind === 'bulkhead' ? 'Bulkhead power' : 'Level door power'}
             title="Switched opens the door only while its connected switches are on, as a switched exit does"
             value={hubDoor.power ?? 'always'} options={[{ value: 'always', label: 'Always open' }, { value: 'switched', label: 'Switched' }]}
             onChange={value => commit(setObjectPower(history.present, selection, value === 'switched' ? 'switched' : 'always'))} />}
+          {returnDoor && <button className="builder-property-action" aria-pressed={!!returnDoor.dispatch}
+            title="The door to the final course: lettered DISPATCH, released once the evaluation is complete, and not itself part of the evaluation"
+            onClick={() => commit(setDoorDispatch(history.present, selection, !returnDoor.dispatch))}>Dispatch door</button>}
           {gradeGate && <>
             <BuilderSelect label="Average" accessibleLabel="Grade average reaches" value={gradeGate.grade}
               options={GRADE_LETTERS.map(letter => ({ value: letter, label: letter === 'a' ? 'A' : `${letter.toUpperCase()} or better` }))}

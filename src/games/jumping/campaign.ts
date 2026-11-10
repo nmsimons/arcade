@@ -1,5 +1,6 @@
 import { isHubLevel, isPuzzleLevel } from './level.ts'
-import type { JumpLevel } from './level.ts'
+import type { HubLevel, JumpLevel } from './level.ts'
+import type { Destination } from './goal.ts'
 import { readLevelResponse } from './levelLimits.ts'
 
 /** Like the levels, the campaign is a public asset fetched afresh, never bundled. */
@@ -13,22 +14,29 @@ export async function loadCampaign(base: string, fetchFile: typeof fetch = fetch
 }
 
 /**
- * The campaign file names only what the facility's areas cannot say: the
- * opening, where a new game wakes; the concourse; and the escape route after
- * the final course. Wings, their courses and the final course are read from
- * the concourse's bulkheads and level doors (`resolveCampaign` in facility.ts).
+ * The campaign file names the one thing the facility's levels cannot say: the
+ * facility area where a new game starts. The rest is read from the levels
+ * (`resolveCampaign` in facility.ts): the areas the robot can reach through
+ * bulkheads, level doors and exits, the wings among them, the dispatch door to
+ * the final course, and where each exit leads.
  */
-export interface CampaignFile { version: 2; opening: string; concourse: string; escape: string[] }
-/** A wing: an area off the concourse with level doors, and the courses behind them in the order its wiring opens them. */
+export interface CampaignFile { version: 3; start: string }
+/** A wing: a facility area with level doors, and the courses behind them in the order its wiring opens them. */
 export interface CampaignWing { level: string; courses: string[] }
 /**
- * The facility's structure, as its areas lay it out. A new game wakes in the
- * opening, whose bulkhead leads onto the concourse. Every area the concourse's
- * bulkheads open onto that has level doors is a wing, open while a bulkhead to
- * it is. The concourse's level door is the dispatch door to the final course;
- * passing it leads through the escape levels.
+ * The facility's structure, as its levels lay it out. A new game starts in
+ * `start`. `areas` are the facility areas the robot can reach from there,
+ * nearest first. Every one of them with level doors, other than the dispatch
+ * door, is a wing, open while a bulkhead into it is. The dispatch door leads to
+ * the final course, released once the evaluation is complete. `chained` maps
+ * each course reached through another course's exit to the course behind the
+ * level door its chain begins at.
  */
-export interface Campaign { opening: string; concourse: string; wings: CampaignWing[]; finalCourse?: string; escape: string[] }
+export interface Campaign {
+  start: string; areas: string[]; wings: CampaignWing[]
+  finalCourse?: string; dispatch?: { area: string; door: string }
+  chained: Record<string, string>
+}
 
 export type DoorState = 'locked' | 'open' | 'passed'
 export interface WingProgress {
@@ -47,12 +55,12 @@ export function parseCampaign(value: unknown): CampaignFile {
   const fail = (): never => { throw new Error('This file is not a valid campaign.') }
   const object = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : fail()
   const id = (v: unknown): string => typeof v === 'string' && v.length > 0 && v.length <= 100 ? v : fail()
-  const ids = (v: unknown, max: number): string[] => Array.isArray(v) && v.length <= max ? v.map(id) : fail()
   const v = object(value)
-  // Version 1 listed the wings, their courses and the final course, which the facility's areas already say.
-  if (v.version === 1 || v.wings !== undefined || v.finalCourse !== undefined) throw new Error('Wings, their courses and the final course now come from the concourse’s bulkheads and level doors. Keep only opening, concourse and escape, as version 2.')
-  if (v.version !== 2) throw new Error('Unsupported campaign version. This game reads version 2.')
-  return { version: 2, opening: id(v.opening), concourse: id(v.concourse), escape: v.escape === undefined ? [] : ids(v.escape, 10) }
+  // Earlier versions listed the opening, the concourse and the escape route, which the levels now say.
+  if (v.version === 1 || v.version === 2 || ['wings', 'finalCourse', 'opening', 'concourse', 'escape'].some(key => v[key] !== undefined))
+    throw new Error('The campaign now names only where a new game starts: { "version": 3, "start": "<facility area ID>" }. Mark the dispatch door and set where each exit leads in the level studio.')
+  if (v.version !== 3) throw new Error('Unsupported campaign version. This game reads version 3.')
+  return { version: 3, start: id(v.start) }
 }
 
 /** A wing goes by its facility area's name, so renaming the level renames the wing. */
@@ -61,66 +69,95 @@ export function wingName(wing: CampaignWing, levels: ReadonlyMap<string, JumpLev
   return level && isHubLevel(level) ? level.name : wing.level
 }
 
-/** Structural problems with the campaign against the collection it names. */
+/**
+ * Structural problems with the campaign against the collection it names: the
+ * start, where each level door, bulkhead and exit leads and arrives, one way
+ * into each course, one dispatch door, no exits that lead round in a loop, and
+ * a way into and back out of every facility area.
+ */
 export function campaignProblems(campaign: Campaign, levels: readonly JumpLevel[]): string[] {
   const issues: string[] = [], byId = new Map(levels.map(level => [level.id, level]))
   const name = (id: string) => byId.has(id) ? `“${byId.get(id)!.name}”` : `“${id}”`
   const hub = (id?: string) => { const level = id === undefined ? undefined : byId.get(id); return level && isHubLevel(level) ? level : undefined }
-  const wingTitle = (wing: CampaignWing) => `“${wingName(wing, byId)}”`
-  for (const [label, id] of [['opening', campaign.opening], ['concourse', campaign.concourse]]) {
-    if (!byId.has(id)) issues.push(`The level for the ${label}, ${name(id)}, is not in the collection.`)
-    else if (!hub(id)) issues.push(`The level for the ${label}, ${name(id)}, is not a facility area.`)
-  }
-  if (campaign.opening === campaign.concourse) issues.push('The opening and the concourse need to be different facility areas.')
-  // Each course has one role: one wing's course, the final course or an escape level.
-  const roles = new Map<string, string>()
+  const doorIn = (area: HubLevel, id: string) => [...area.courseDoors, ...area.bulkheads].some(door => door.id === id)
+  if (!byId.has(campaign.start)) issues.push(`The level for the start, ${name(campaign.start)}, is not in the collection.`)
+  else if (!hub(campaign.start)) issues.push(`The level for the start, ${name(campaign.start)}, is not a facility area.`)
   const timed = (id: string, where: string) => {
     const level = byId.get(id)
     if (!level) issues.push(`${where} leads to ${name(id)}, which is not in the collection.`)
     else if (!isPuzzleLevel(level) || level.timing === 'untimed') issues.push(`${where} leads to ${name(id)}, which is not a timed course.`)
   }
-  for (const wing of campaign.wings) {
-    const area = hub(wing.level)
-    for (const course of wing.courses) {
-      const doors = area?.courseDoors.filter(door => door.course === course) ?? []
-      if (doors.length > 1) issues.push(`The wing ${wingTitle(wing)} has ${doors.length} doors to ${name(course)}. Give each course one door.`)
-      timed(course, `Level door “${doors[0]?.id ?? course}” in the wing ${wingTitle(wing)}`)
-      if (roles.has(course)) issues.push(`${name(course)} has doors in ${roles.get(course)} and in the wing ${wingTitle(wing)}.`)
-      else roles.set(course, `the wing ${wingTitle(wing)}`)
+  // Each course has one way in: one level door, or one exit that leads to it.
+  const roles = new Map<string, string>()
+  const claim = (course: string, role: string) => {
+    if (roles.has(course)) issues.push(`${name(course)} is reached from ${roles.get(course)} and from ${role}. Give each course one way in.`)
+    else roles.set(course, role)
+  }
+  const dispatch: string[] = []
+  for (const id of campaign.areas) {
+    const area = hub(id)!
+    for (const door of area.courseDoors) if (door.course) {
+      timed(door.course, `Level door “${door.id}” in ${name(id)}`)
+      claim(door.course, `a level door in ${name(id)}`)
+      if (door.dispatch) dispatch.push(name(id))
     }
-    if (area && !area.bulkheads.some(bulkhead => bulkhead.to === campaign.concourse)) issues.push(`The wing ${wingTitle(wing)} needs a bulkhead back to the concourse.`)
   }
-  const concourse = hub(campaign.concourse), opening = hub(campaign.opening)
-  if (concourse) {
-    // The concourse's only level door is the dispatch door to the final course.
-    const doors = concourse.courseDoors.filter(door => door.course)
-    if (doors.length > 1) issues.push(`The concourse has ${doors.length} level doors. Courses belong in wings; the concourse holds only the dispatch door.`)
-    if (campaign.finalCourse !== undefined) {
-      timed(campaign.finalCourse, 'The dispatch door')
-      if (roles.has(campaign.finalCourse)) issues.push(`The dispatch door leads to ${name(campaign.finalCourse)}, which has a door in ${roles.get(campaign.finalCourse)}.`)
-      else roles.set(campaign.finalCourse, 'the concourse, as the final course')
+  if (dispatch.length > 1) issues.push(`The facility has ${dispatch.length} dispatch doors, in ${dispatch.join(' and ')}. Mark one.`)
+  for (const level of byId.values()) {
+    if (isHubLevel(level)) {
+      for (const bulkhead of level.bulkheads) if (bulkhead.to) {
+        const target = hub(bulkhead.to)
+        if (!target) issues.push(`Bulkhead “${bulkhead.id}” in ${name(level.id)} leads to ${name(bulkhead.to)}, which ${byId.has(bulkhead.to) ? 'is not a facility area' : 'is not in the collection'}.`)
+        else if (bulkhead.arrivesAt !== undefined && !doorIn(target, bulkhead.arrivesAt)) issues.push(`Bulkhead “${bulkhead.id}” in ${name(level.id)} arrives at a door that is not in ${name(target.id)}.`)
+      }
+      continue
     }
-    if (opening && !concourse.bulkheads.some(bulkhead => bulkhead.to === opening.id)) issues.push(`The concourse needs a bulkhead to the opening, ${name(campaign.opening)}.`)
+    const to = exitDestination(level)
+    if (!to) continue
+    const target = byId.get(to.level), where = `The exit of ${name(level.id)}`
+    if (!target) issues.push(`${where} leads to ${name(to.level)}, which is not in the collection.`)
+    else if (to.level === level.id) issues.push(`${where} leads back into itself.`)
+    else if (isHubLevel(target)) {
+      if (to.arrival !== undefined && !doorIn(target, to.arrival)) issues.push(`${where} arrives at a door that is not in ${name(target.id)}.`)
+    } else {
+      if (to.arrival !== undefined) issues.push(`${where} arrives at a door in ${name(target.id)}, but a course is entered only at its start.`)
+      claim(to.level, `the exit of ${name(level.id)}`)
+    }
   }
-  if (opening) {
-    if (opening.courseDoors.length) issues.push('The opening has level doors. Courses belong in wings.')
-    if (concourse && !opening.bulkheads.some(bulkhead => bulkhead.to === concourse.id)) issues.push(`The opening, ${name(campaign.opening)}, needs a bulkhead to the concourse.`)
+  // Exits that lead from course to course must end somewhere.
+  for (const level of byId.values()) {
+    const seen = [level.id]
+    for (let next = exitDestination(level)?.level; next && byId.has(next) && !hub(next); next = exitDestination(byId.get(next)!)?.level) {
+      if (seen.includes(next)) { if (next === level.id && seen.length > 1 && seen.every(id => id >= level.id)) issues.push(`The exits of ${seen.map(name).join(', ')} lead round in a loop.`); break }
+      seen.push(next)
+    }
   }
-  for (const id of campaign.escape) {
-    if (!byId.has(id)) issues.push(`The escape level ${name(id)} is not in the collection.`)
-    else if (roles.get(id) === 'the escape route') issues.push(`The escape route lists ${name(id)} twice.`)
-    else if (roles.has(id)) issues.push(`The escape level ${name(id)} already has a door in ${roles.get(id)}.`)
-    else if (hub(id)) issues.push(`The escape level ${name(id)} is a facility area.`)
-    else roles.set(id, 'the escape route')
+  // Every facility area is reachable from the start, and the robot can get back from it.
+  const graph = new Map<string, Set<string>>()
+  const edge = (from: string, to: string) => { let set = graph.get(from); if (!set) graph.set(from, set = new Set()); set.add(to) }
+  for (const level of byId.values()) {
+    if (isHubLevel(level)) {
+      for (const bulkhead of level.bulkheads) if (hub(bulkhead.to)) edge(level.id, bulkhead.to)
+      // A course leads back where it came from, or on through its exits to another area.
+      for (const door of level.courseDoors) for (let course = byId.get(door.course), seen = 0; course && !isHubLevel(course) && seen < 20; seen++) {
+        const next = exitDestination(course)?.level
+        if (next && hub(next)) edge(level.id, next)
+        course = next ? byId.get(next) : undefined
+      }
+    }
   }
-  // Every facility area in the collection, in the campaign or not, leads only to other facility areas.
-  const area = (id: string) => { const wing = campaign.wings.find(wing => wing.level === id)
-    return id === campaign.opening ? 'the opening' : id === campaign.concourse ? 'the concourse' : wing ? `the wing ${wingTitle(wing)}` : name(id) }
-  for (const level of byId.values()) if (isHubLevel(level)) for (const bulkhead of level.bulkheads) {
-    if (bulkhead.to && !hub(bulkhead.to)) issues.push(`Bulkhead “${bulkhead.id}” in ${area(level.id)} leads to ${name(bulkhead.to)}, which ${byId.has(bulkhead.to) ? 'is not a facility area' : 'is not in the collection'}.`)
+  const reach = (from: string) => { const seen = new Set([from]); for (const id of seen) for (const next of graph.get(id) ?? []) seen.add(next); return seen }
+  if (hub(campaign.start)) {
+    const reached = reach(campaign.start)
+    for (const level of byId.values()) if (isHubLevel(level) && !reached.has(level.id)) issues.push(`The robot can never reach ${name(level.id)} from the start.`)
+    for (const id of reached) if (id !== campaign.start && !reach(id).has(campaign.start)) issues.push(`The robot cannot get back from ${name(id)} to the start. Give it a bulkhead toward the rest of the facility.`)
   }
   return issues
 }
+
+/** Where a plain exit door leads when its run passes. Overlook, walk-off and bus exits never lead on. */
+export const exitDestination = (level: JumpLevel): Destination | undefined =>
+  isPuzzleLevel(level) && level.goal && !level.goal.kind ? level.goal.leadsTo : undefined
 
 /**
  * Doors, bulkheads and the evaluation board all read this one result, derived

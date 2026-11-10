@@ -3269,7 +3269,10 @@
     "x": 415,
     "y": 823.3376146679656,
     "id": "ascent-exit",
-    "power": "switched"
+    "power": "switched",
+    "leadsTo": {
+      "level": "d52a327a-3f29-4c04-b501-3ee77d6e2e42"
+    }
   },
   "times": {
     "a": 45,

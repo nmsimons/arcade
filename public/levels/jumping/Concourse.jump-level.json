@@ -1066,7 +1066,8 @@
       "y": 760,
       "course": "5d45678a-5104-43be-9647-2a2bbd6ff932",
       "power": "switched",
-      "switchLogic": "and"
+      "switchLogic": "and",
+      "dispatch": true
     }
   ],
   "bulkheads": [

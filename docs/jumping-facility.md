@@ -7,10 +7,11 @@
 in every build. The level grid is the development library at `/lab/library`,
 in development builds only. What exists:
 
-- The campaign file, which names only the opening, the concourse and the
-  escape route (`campaign.ts`), and the wings, courses and dispatch door read
-  from the facility's areas (`resolveCampaign` in `facility.ts`), all checked
-  by `npm run levels:check`.
+- The campaign file, which names only where a new game starts (`campaign.ts`).
+  Everything else is read from the levels (`resolveCampaign` in `facility.ts`):
+  the areas the robot can reach from the start, the wings, their courses, the
+  dispatch door, and where exits, level doors and bulkheads lead and arrive. All
+  of it is set in the level studio and checked by `npm run levels:check`.
 - Facility areas: hub levels (`"kind": "hub"`) with level doors (`courseDoors`),
   bulkheads and evaluation boards (`hub.ts`). Up enters an open door. Every
   door has where it leads lettered on the wall above it: a level door its
@@ -69,14 +70,15 @@ in development builds only. What exists:
   device whose only unsynced change is the place takes newer cloud saves without
   asking ([account cloud saves](account-cloud-saves.md)).
 - The release: the dispatch door is wired to open once every wing is complete,
-  onto Ascent I, the final course. Passing it leads through Ascent II, Spelunk and
-  Exit, each opening into the next; after the bus departs, the closing card
-  offers Return to the facility. The escape levels still keep their timers and
-  coins until their untimed redesign.
+  onto Ascent I, the final course. Its exit leads into Ascent II, whose exit
+  leads into Spelunk, whose exit leads into Exit; an F, or leaving, returns to
+  the dispatch door. After the bus departs, the closing card offers Return to the
+  facility. The escape levels still keep their timers and coins until their
+  untimed redesign.
 
 - Places are prepared ahead: within 300 units of an open door or bulkhead, the
-  place behind it is prepared in the background, and a course or escape level
-  prepares where it leads while it is played. Walking through then opens the
+  place behind it is prepared in the background, and a course prepares where it
+  leads, by its exit or back, while it is played. Walking through then opens the
   next place at once. A place not yet prepared holds the last frame on screen;
   only after a second does the "Preparing level" dialog appear, with Cancel.
 
@@ -209,7 +211,7 @@ approaches, so the swap is hidden behind a door that closes and reopens.
 The facility has no save points to visit; Wake's pod is the game's only
 charging bay. The game autosaves the robot's place whenever it moves: the hub
 and the door or bulkhead it came through, the door of the course it is playing,
-or its escape level. Course records save when a course finishes, as they always
+or the course an exit led it into. Course records save when a course finishes, as they always
 have.
 
 Untimed places keep their state (`areaState.ts`). In the canon, the facility
@@ -380,63 +382,74 @@ routes in place of medal routes).
 
 ### The campaign file
 
-Campaign structure that the facility's areas cannot express lives in
-`public/levels/jumping-campaign.json`, separate from level geometry as the canon
-requires. It sits beside the built-in collection rather than inside it, so
-level packs keep their format (level JSON and `index.json` only).
-`src/games/jumping/campaign.ts` reads it:
+Campaign structure lives in the levels, so the studio is the one place to edit
+it. The one thing the levels cannot say, where a new game starts, lives in
+`public/levels/jumping-campaign.json`, beside the built-in collection rather
+than inside it, so level packs keep their format (level JSON and `index.json`
+only). `src/games/jumping/campaign.ts` reads it:
 
 ```json
-{
-  "version": 2,
-  "opening": "<Orientation, a facility area>",
-  "concourse": "<concourse level id>",
-  "escape": ["<Ascent II>", "<Spelunk>", "<Exit>"]
-}
+{ "version": 3, "start": "<Orientation, a facility area>" }
 ```
 
-Everything else comes from the levels, so the studio is the one place to edit
-it (`resolveCampaign` in `facility.ts`):
+Everything else comes from the levels (`resolveCampaign` in `facility.ts`):
 
-- **A new game** wakes at the opening's entrance. The opening is a facility
-  area like the wings, joined to the concourse by a bulkhead each way.
-- **The wings** are the facility areas the concourse's bulkheads open onto
-  that have level doors. A new bulkhead off the concourse to an area with
-  level doors adds a wing to the evaluation; an area without level doors, such
-  as a store room, is just a place. A wing goes by its level's name.
-- **A wing's courses** are the levels behind its level doors. Each wing is open
-  while a bulkhead to it on the concourse is open: always, or by its wiring
-  when it is Switched. Within a wing, each door opens by its wiring in the
-  wing's area (see [Course doors](#course-doors)).
-- **The order** of the board, the start screen's Progress and campaign
-  problems is the order the wiring opens wings and courses from a new save,
-  left to right where it opens them together, so it follows the wiring as it
-  is rewired.
-- **The concourse's level door** is the dispatch door, and the level behind
-  it is the final course. Passing the final course leads through `escape` in
-  order.
-- **A facility area or course outside the wings**, such as a side room off a
-  wing, is always open. Its doors show the course's deadline, then its best
-  time and grade, but it is not part of the evaluation.
+- **A new game** starts at the start area's entrance.
+- **The facility** is every facility area the robot can reach from the start,
+  through bulkheads and through courses whose exits lead into another area.
+  There is no fixed concourse: any area can hold level doors and bulkheads, and
+  there can be as many hubs as the layout needs.
+- **The wings** are the reachable areas with level doors, other than the
+  dispatch door. A wing's courses are the levels behind its doors. Each wing is
+  open while a bulkhead into it, from any reachable area, is open: always, or by
+  its wiring when it is Switched; a wing only an exit leads into is always open.
+  Within a wing, each door opens by its wiring (see [Course doors](#course-doors)).
+  An area with no level doors, such as a store room, is just a place.
+- **The order** of the board, the start screen's Progress and campaign problems
+  is by how near each wing is to the start, then the order the wiring opens wings
+  and courses from a new save, left to right where it opens them together.
+- **The dispatch door** is the level door marked `dispatch`, and the level
+  behind it is the final course, released once the evaluation is complete.
+- **A course outside the facility**, behind no door, is always open from its
+  direct link and is not part of the evaluation.
 
-A version 1 file, which listed the wings, their courses, `finalCourse` and
-`clearance`, is refused with a note to keep only `opening`, `concourse` and
-`escape`.
+A version 1 or 2 file, which listed the wings, the final course, the opening,
+the concourse or the escape route, is refused with a note to keep only
+`start`, mark the dispatch door and set where each exit leads in the studio.
 
-`npm run levels:check` confirms that the opening and the concourse are
-different facility areas joined both ways, that each wing's level doors lead
-to timed courses, one door each, that no course has doors in two wings, that
-each wing has a bulkhead back to the concourse, that the concourse's only level
-door is the dispatch door to a timed course of its own, that the escape levels
-are levels with no other role, and that every bulkhead in the collection leads
-to a facility area in it. It then plays the wiring forward from a new save, as
-if every course the robot reaches were passed, counting plates and float
-switches both as they start and all on (`campaignWiringProblems`), and reports
-any wing, level door, bulkhead or dispatch door in the opening, the concourse
-or the wings that can never open, so a way back that never opens cannot trap
-the robot. Still to add: certification doors and sources, and the
-course-equipment rule for escape levels once they are redesigned as untimed.
-`index.json` keeps loading every level for the development library.
+### Where doors and exits lead
+
+By default the robot goes back where it came from. Each link can say otherwise,
+and each is set on the door or exit itself in the studio:
+
+| Link | Default | Studio setting | File |
+| --- | --- | --- | --- |
+| A course's exit, when the run passes | Back to the level door it entered by | **Leads to** a course (entered at its start) or a facility area, and **Arrives at** a door there | `goal.leadsTo: { level, arrival? }` |
+| A level door, coming back from its course | Out of the same door | **Returns through** another door or bulkhead in the area | `returnsTo` |
+| A bulkhead | Out of the bulkhead on the far side that leads back | **Arrives at** a door or bulkhead in the area beyond | `arrivesAt` |
+
+- **An F, or Leave course**, always goes back, so a course must be passed to
+  move on. A course an exit led into goes back to wherever its route began: the
+  escape route returns to the dispatch door.
+- **A bus exit ends the game.** Overlook and walk-off exits cannot lead on.
+- **A course an exit leads into** opens with the course its route began at, for
+  direct links and resuming. The autosave keeps the robot in it, as it did in
+  the old escape levels; a save from before this change that names an escape
+  level resumes there.
+
+`npm run levels:check` confirms that the start is a facility area; that every
+level door leads to a timed course and each course has one way in (one door or
+one exit); that the facility has one dispatch door; that exits, bulkheads and
+their arrival doors lead somewhere real, a course being entered only at its
+start; that exits never lead round in a loop; and that every facility area can
+be reached from the start and left again. It then plays the wiring forward from
+a new save, as if every course the robot reaches were passed, counting plates
+and float switches both as they start and all on (`campaignWiringProblems`),
+and reports any wing, level door, bulkhead or dispatch door that can never
+open, so a way back that never opens cannot trap the robot. Still to add:
+certification doors and sources, and the course-equipment rule for escape
+levels once they are redesigned as untimed. `index.json` keeps loading every
+level for the development library.
 
 ## Flows
 
@@ -445,12 +458,12 @@ course-equipment rule for escape levels once they are redesigned as untimed.
 `/lab` opens the facility's start screen, and `/lab/facility` is the facility
 in play. A new save starts in Orientation's charging pod.
 A save with passed courses but no autosaved place, such as one from the level
-grid, starts at the concourse.
+grid, starts there too.
 Orientation's bulkhead, Service access, opens onto the concourse, and the
 concourse's Orientation bulkhead leads back to it. Afterward, the robot resumes where it was
-last autosaved: at the door it came through, or at a course's door if it left
-mid-course. A place that has since closed or disappeared resumes at the
-concourse's entrance. The autosaved place is the only new saved value; doors, lamps,
+last autosaved: at the door it came through, at a course's door if it left
+mid-course, or in a course an exit led it into. A place that has since closed or
+disappeared resumes at the start. The autosaved place is the only new saved value; doors, lamps,
 bulkheads and shortcuts are all derived from best times and completions. All
 three sync through [account cloud saves](account-cloud-saves.md); the place is
 `Untitled Jumping Game/facility-place.json`. With cloud saves on, the facility
@@ -521,7 +534,7 @@ Its actions depend on where the robot is:
 | --- | --- |
 | Course | Resume, Restart course, Leave course, Controls, Back to arcade |
 | Facility area (Orientation, a wing or the concourse) | Resume, Restart area, Controls, Back to arcade |
-| Escape route | Resume, Restart from entrance, Return to the facility, Controls, Back to arcade |
+| A course an exit led into (the escape route) | Resume, Restart from entrance, Return to the facility, Controls, Back to arcade |
 
 Restart area returns the robot to where it came in: the door or bulkhead it
 arrived through, or the opening's pod. It also puts the area back as authored,

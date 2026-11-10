@@ -9,8 +9,18 @@ import { staticContactWorld, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
-/** Retain the legacy assembly origin so existing doors and indicators never move. */
-export interface Goal extends NamedObject, SwitchSettings { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode; kind?: 'overlook' | 'walk-off' | 'bus'; ending?: 'bus' }
+/**
+ * Where a door leads: a level, and the door in it the robot steps out of. With
+ * no `arrival` it starts at the level's own start. Courses are only entered at
+ * their start; a facility area can be entered from any of its level doors or bulkheads.
+ */
+export interface Destination { level: string; arrival?: string }
+/**
+ * Retain the legacy assembly origin so existing doors and indicators never move.
+ * A plain exit door may lead somewhere when the run passes (`leadsTo`); without
+ * it, the robot goes back where it came from. Overlook, walk-off and bus exits end the game.
+ */
+export interface Goal extends NamedObject, SwitchSettings { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode; kind?: 'overlook' | 'walk-off' | 'bus'; ending?: 'bus'; leadsTo?: Destination }
 export const isOutdoorGoal = (goal?: Goal) => goal?.kind === 'overlook' || goal?.kind === 'walk-off' || goal?.kind === 'bus'
 export const GOAL_POLE_OFFSET = 44
 export const GOAL_LIGHT_HEIGHT = 96

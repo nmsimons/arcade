@@ -19,6 +19,7 @@ import { MAX_CURVE_POINTS, cubicPoint, relativePoint, splitCubic, terrainCubic, 
 import type { TerrainBezier } from './terrainCurves.ts'
 import { fitTiedRope, ropeEnds, ropePath, ropeSegmentCount, tiedRopeSpan } from './climbables.ts'
 import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_OFFSET, GOAL_DOOR_WIDTH, goalBounds, goalDoor, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import type { Destination } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
@@ -109,7 +110,44 @@ export function setHubDoorDestination(level: JumpLevel, selection: Selection, de
   const door = hubDoorAt(level, selection)
   if (!door || ('course' in door ? door.course : door.to) === destination) return level
   const next = copyLevel(level), target = hubDoorAt(next, selection)!
-  if ('course' in target) target.course = destination; else target.to = destination
+  // A bulkhead's arrival door belongs to the area it led to before.
+  if ('course' in target) target.course = destination; else { target.to = destination; delete target.arrivesAt }
+  return next
+}
+
+/** Where a plain exit leads when its run passes; none sends the robot back where it came from. */
+export function setExitDestination(level: JumpLevel, leadsTo: Destination | undefined): JumpLevel {
+  if (!level.goal || level.goal.kind || JSON.stringify(level.goal.leadsTo) === JSON.stringify(leadsTo)) return level
+  const next = copyLevel(level)
+  if (leadsTo) next.goal!.leadsTo = { level: leadsTo.level, ...(leadsTo.arrival ? { arrival: leadsTo.arrival } : {}) }
+  else delete next.goal!.leadsTo
+  return next
+}
+
+/** The door or bulkhead a level door's course returns the robot through; none returns it through the same door. */
+export function setDoorReturn(level: JumpLevel, selection: Selection, returnsTo: string | undefined): JumpLevel {
+  const door = selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : undefined
+  if (!door || door.returnsTo === returnsTo || returnsTo === door.id && !door.returnsTo) return level
+  const next = copyLevel(level), target = next.courseDoors![selection.index]
+  if (returnsTo && returnsTo !== target.id) target.returnsTo = returnsTo; else delete target.returnsTo
+  return next
+}
+
+/** Mark the dispatch door to the final course. An area has at most one, so marking one clears the rest. */
+export function setDoorDispatch(level: JumpLevel, selection: Selection, dispatch: boolean): JumpLevel {
+  const door = selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : undefined
+  if (!door || !!door.dispatch === dispatch) return level
+  const next = copyLevel(level)
+  for (const [i, other] of next.courseDoors!.entries()) if (dispatch && i === selection.index) other.dispatch = true; else delete other.dispatch
+  return next
+}
+
+/** The door or bulkhead a bulkhead brings the robot out of in the area beyond; none uses the bulkhead there that leads back. */
+export function setBulkheadArrival(level: JumpLevel, selection: Selection, arrivesAt: string | undefined): JumpLevel {
+  const bulkhead = selection.kind === 'bulkhead' ? level.bulkheads?.[selection.index] : undefined
+  if (!bulkhead || bulkhead.arrivesAt === arrivesAt) return level
+  const next = copyLevel(level), target = next.bulkheads![selection.index]
+  if (arrivesAt) target.arrivesAt = arrivesAt; else delete target.arrivesAt
   return next
 }
 
@@ -129,7 +167,8 @@ export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk
     next.timing = 'untimed'
   } else {
     delete next.goal.ending
-    if (kind === 'overlook') { next.goal.kind = kind; next.timing = 'untimed'; delete next.goal.power }
+    // An overlook ends the game, so it leads nowhere.
+    if (kind === 'overlook') { next.goal.kind = kind; next.timing = 'untimed'; delete next.goal.power; delete next.goal.leadsTo }
     else delete next.goal.kind
     const bounds = goalBounds({ ...next.goal, x: 0, y: 0 })
     next.goal.x = clamp(next.goal.x, Math.max(0, -bounds.x), next.width - bounds.x - bounds.w)
@@ -913,8 +952,13 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     const [door] = next.courseDoors!.splice(i, 1)
     removeSwitchTarget(next, door.id)
     for (const gate of next.gradeGates ?? []) gate.doors = gate.doors.filter(id => id !== door.id)
+    for (const other of next.courseDoors!) if (other.returnsTo === door.id) delete other.returnsTo
   }
-  else if (selection.kind === 'bulkhead') { const [door] = next.bulkheads!.splice(i, 1); removeSwitchTarget(next, door.id) }
+  else if (selection.kind === 'bulkhead') {
+    const [door] = next.bulkheads!.splice(i, 1); removeSwitchTarget(next, door.id)
+    // A level door that returned the robot through it returns through its own doorway again.
+    for (const other of next.courseDoors ?? []) if (other.returnsTo === door.id) delete other.returnsTo
+  }
   else if (selection.kind === 'grade-gate') next.gradeGates!.splice(i, 1)
   else if (selection.kind === 'evaluation-board') next.evaluationBoards!.splice(i, 1)
   else if (selection.kind === 'wall-door') next.wallDoors!.splice(i, 1)

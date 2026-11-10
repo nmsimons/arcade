@@ -27,7 +27,7 @@ import { blankTrial, copyLevel, levelProblems, isHubLevel, isPuzzleLevel, levelR
 import type { JumpLevel, RunLevel } from './jumping/level'
 import { loadCampaign } from './jumping/campaign'
 import type { Campaign, CampaignFile } from './jumping/campaign'
-import { arrivalLevel, dispatchPlace, resolveCampaign, facilityDoorName, facilityRecords, hubCompleteAreas, studioPresentation, facilityStart, GAME_KEYS, hubGrades, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, savedPlace, savedProgress, saveFacilityPlace } from './jumping/facility'
+import { arrivalLevel, resolveCampaign, facilityDoorName, facilityRecords, hubCompleteAreas, studioPresentation, facilityStart, GAME_KEYS, hubGrades, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, savedPlace, savedProgress, saveFacilityPlace } from './jumping/facility'
 import type { FacilityPlace, FacilitySave, SavedPlace } from './jumping/facility'
 import type { HubDoor } from './jumping/hub'
 import { AREA_STATE_KEY, captureAreaState, keepsState, levelFingerprint, readAreaState, restoreAreaState, trackAreaProps, writeAreaState } from './jumping/areaState'
@@ -44,7 +44,7 @@ import { useBuiltInLevels } from './jumping/builtInLevels'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { LevelProgress } from './jumping/LevelProgress'
 import { JumpingDoorDialog, JumpingPauseDialog, JumpingResultDialog, JumpingStartDialog } from './jumping/JumpingDialogs'
-import type { StartProgress } from './jumping/JumpingDialogs'
+import type { FacilityPauseActions, StartProgress } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_FACILITY, JUMPING_LIBRARY, JUMPING_START, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import { JumpingAudioState } from './jumping/audioState'
@@ -192,7 +192,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const best = bestTime(recordKey)
   // The facility: the place the robot is in and the campaign it follows.
   const facility = useRef<FacilityPlace | null>(null), campaignFileRef = useRef<CampaignFile | null>(null)
-  const [facilityWhere, setFacilityWhere] = useState<FacilityPlace['kind'] | null>(null)
+  // A course an exit led into is on the facility's route: leaving it returns to the facility.
+  const [facilityWhere, setFacilityWhere] = useState<FacilityPauseActions['where'] | null>(null)
+  const whereOf = (place: FacilityPlace): FacilityPauseActions['where'] => place.kind === 'course' && place.via === 'exit' ? 'route' : place.kind
   const [facilityNotice, setFacilityNotice] = useState('')
   const [facilityError, setFacilityError] = useState(''), [checkingCloud, setCheckingCloud] = useState(false)
   // Counts addresses followed, so a facility start that waited can tell it was overtaken.
@@ -224,11 +226,11 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     try { return playerStorage.getItem(AREA_STATE_KEY) } catch { return null }
   })
   // A course is playable from a link or the library once its door would be open in the facility. The
-  // campaign orders only a collection that holds it: in one without its opening, as with test fixtures,
+  // campaign orders only a collection that holds it: in one without its start, as with test fixtures,
   // every level stands outside the campaign and is open.
-  const campaignFits = !!campaign && levelsById.has(campaign.opening)
+  const campaignFits = !!campaign && levelsById.has(campaign.start)
   // Links, the library and the start screen read the same progress, from the saved records' snapshots.
-  const progress = useMemo(() => !campaign || !levelsById.has(campaign.opening) ? null : savedProgress(campaign, levelsById,
+  const progress = useMemo(() => !campaign || !levelsById.has(campaign.start) ? null : savedProgress(campaign, levelsById,
     id => bestTimes[id] ?? readBest({ getItem: () => savedTimes }, id),
     id => !!completedLevels[id] || readCompleted({ getItem: key => key === COMPLETION_KEY ? savedCompletions : savedTimes }, id),
     { getItem: () => savedAreas }), [campaign, levelsById, bestTimes, completedLevels, savedTimes, savedCompletions, savedAreas])
@@ -313,7 +315,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     const level = levelsById.get(place.level)
     if (!level) { leaveFacility('That part of the facility is unavailable.'); return }
     facility.current = place
-    setFacilityWhere(place.kind)
+    setFacilityWhere(whereOf(place))
     // Autosave where the robot is; course records save when a course finishes.
     keepPlace(place)
     const play = place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level
@@ -365,14 +367,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     keepPlace(place)
     navigate({ pathname: JUMPING_FACILITY, search: location.search }, { replace: true })
   }
+  /** Leaving a course returns the robot where it came from, as an F does. */
   function leaveCourse() {
     const place = facility.current
-    if (place?.kind === 'course') goToPlace({ kind: 'hub', level: place.hub, arrival: { kind: 'door', id: place.door } })
-    else if (place?.kind === 'escape') returnToFacility()
-  }
-  function returnToFacility() {
-    const campaign = campaignNow(), place = campaign && dispatchPlace(campaign, levelsById)
-    if (place) goToPlace(place); else leaveFacility()
+    if (place?.kind === 'course') goToPlace(place.back); else leaveFacility()
   }
   // Untimed places keep their state between visits (`areaState.ts`); the facility resets its timed courses.
   const lastAreaSave = useRef(''), lastAreaAutosave = useRef(0)
@@ -679,7 +677,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         setLibraryRun(fromLibrary)
         const place = fromLibrary || !campaignFits ? null : linkedPlace(campaign!, levelsById, file.level.id)
         if (place) {
-          facility.current = place; setFacilityWhere(place.kind)
+          facility.current = place; setFacilityWhere(whereOf(place))
           keepPlace(place)
         }
         if (activePlayKey.current === location.key) { setTesting(false); changeScreen('playing') }
@@ -723,7 +721,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     const departure = run.current.hub?.departure
     if (run.current.hub) {
       // Named as the facility names it: by where it leads.
-      const to = departure && facilityDoorName(levelsById, campaignFits ? campaign : null)(departure.door)
+      const to = departure && facilityDoorName(levelsById)(departure.door)
       setDoorTaken(`Left through ${departure?.kind === 'bulkhead' ? 'the bulkhead' : 'the level door'}${to ? ` to ${to}` : ''}.`)
       changeScreen('complete'); return
     }
@@ -1085,9 +1083,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     {screen === 'complete' && isPuzzleLevel(trial) && <JumpingResultDialog level={trial} elapsed={result.elapsed} grade={result.grade} best={best}
       testing={testing} saveError={saveError} onNext={libraryRun && !testing && result.grade !== 'F' && campaignIndex >= 0 && nextFile && unlocked.has(nextFile.fileName) ? () => playFile(nextFile) : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onExit={onExit}
-      {...facilityWhere === 'escape' ? { onLevels: returnToFacility, levelsLabel: 'Return to the facility' } : { onLevels: showMenu, levelsLabel }} />}
+      {...facilityWhere === 'route' ? { onLevels: leaveCourse, levelsLabel: 'Return to the facility' } : { onLevels: showMenu, levelsLabel }} />}
     {!preparing && screen === 'paused' && startScreen && <JumpingStartDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
-      fresh={startScreen === 'fresh'} opening={levelsById.get(campaign?.opening ?? '')?.name ?? 'the facility'} progress={startProgress}
+      fresh={startScreen === 'fresh'} opening={levelsById.get(campaign?.start ?? '')?.name ?? 'the facility'} progress={startProgress}
       connected={connected} touchControls={touchAvailable} canEdit={devEditing} onContinue={continueFromStart}
       onRestart={restartGame} onBuilder={openBuilder} onExit={onExit} />}
     {!preparing && screen === 'paused' && !startScreen && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}

@@ -16,7 +16,7 @@ const wing = area('graded-wing', 'Graded wing', [{ id: 'door-one', x: 500, y: 92
   { id: 'door-two', x: 900, y: 920, course: 'graded-two', power: 'switched', targets: ['door-three'] },
   { id: 'door-three', x: 1300, y: 920, course: 'graded-three', power: 'switched' }], [{ id: 'wing-to-hall', x: 1600, y: 920, to: 'graded-hall' }])
 const hall = area('graded-hall', 'Graded hall', [], [{ id: 'hall-to-wing', x: 900, y: 920, to: wing.id }])
-const campaign = { version: 2, opening: hall.id, concourse: hall.id }
+const campaign = { version: 3, start: hall.id }
 // The fixtures load in order: 00 is the first course, 01 the second, 02 the third.
 const link = index => `0${index}-fixture.json`
 

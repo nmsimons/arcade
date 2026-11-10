@@ -4,9 +4,9 @@ import { blankTrial } from '../src/games/jumping/level.ts'
 import { facilityProgress, parseCampaign } from '../src/games/jumping/campaign.ts'
 import { areaComplete } from '../src/games/jumping/hub.ts'
 import { objectLabel } from '../src/games/jumping/objectLabels.ts'
-import { arrivalLevel, campaignWiring, resolveCampaign, dispatchPlace, facilityDoorName, studioPresentation, evaluationLines, facilityStart, FACILITY_KEY, GAME_KEYS, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, saveFacilityPlace, savedPlace } from '../src/games/jumping/facility.ts'
+import { arrivalLevel, campaignWiring, resolveCampaign, facilityDoorName, studioPresentation, evaluationLines, facilityStart, FACILITY_KEY, GAME_KEYS, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, saveFacilityPlace, savedPlace } from '../src/games/jumping/facility.ts'
 
-const course = (id, name) => ({ ...blankTrial(), id, name, times: { a: 10, b: 20, c: 40, d: 75 } })
+const course = (id, name, leadsTo) => ({ ...blankTrial(), id, name, times: { a: 10, b: 20, c: 40, d: 75 }, ...(leadsTo ? { goal: { ...blankTrial().goal, leadsTo } } : {}) })
 const door = (id, x, course, wiring = {}) => ({ id, x, y: 920, course, ...wiring })
 // Wings wire their doors in order, as the built-in wings do: each opens once the level behind the door before it is passed.
 const next = id => ({ targets: [id] }), switched = { power: 'switched' }
@@ -18,9 +18,10 @@ const levels = new Map([
   // Bulkheads name the facility area they open onto by its level ID.
   hub('wake', [], [bulkhead('wake-to-hall', 1600, 'hall')], [], 'Orientation'),
   course('m1', 'Hop Skip Jump I'), course('m2', 'A Bigger Swing'), course('f1', 'Boxes'), course('f2', 'Balls'), course('w1', 'Buoyancy'),
-  course('final', 'Ascent I'), course('climb', 'Ascent II'), { ...course('bus', 'Exit'), timing: 'untimed' },
+  // The final course's exit leads on to the next, whose exit leads to the last: a bus exit that ends the game.
+  course('final', 'Ascent I', { level: 'climb' }), course('climb', 'Ascent II', { level: 'bus' }), { ...course('bus', 'Exit'), timing: 'untimed', goal: { ...blankTrial().goal, kind: 'bus' } },
   // The dispatch door opens once every wing is complete.
-  hub('hall', [door('dispatch', 2400, 'final', { power: 'switched', switchLogic: 'and' })],
+  hub('hall', [door('dispatch', 2400, 'final', { power: 'switched', switchLogic: 'and', dispatch: true })],
     // The water wing's bulkhead opens once the freight wing is complete.
     [bulkhead('hall-to-wake', 200, 'wake'), { ...bulkhead('hall-to-m', 1100, 'm-hub'), targets: ['dispatch'] }, { ...bulkhead('hall-to-f', 1400, 'f-hub'), targets: ['hall-to-w', 'dispatch'] },
       { ...bulkhead('hall-to-w', 2000, 'w-hub'), power: 'switched', targets: ['dispatch'] }],
@@ -29,21 +30,21 @@ const levels = new Map([
   hub('f-hub', [door('door-f1', 600, 'f1', next('door-f2')), door('door-f2', 900, 'f2', switched)], [bulkhead('f-to-hall', 200, 'hall')], [], 'Freight wing'),
   hub('w-hub', [door('door-w1', 600, 'w1')], [bulkhead('w-to-hall', 200, 'hall')], [], 'Water wing'),
 ].map(level => [level.id, level]))
-// The campaign file names the opening, the concourse and the escape route; the levels lay out the wings.
-const campaign = resolveCampaign(parseCampaign({ version: 2, opening: 'wake', concourse: 'hall', escape: ['climb', 'bus'] }), levels)
+// The campaign file names only the start; the levels lay out the wings, the dispatch door and where exits lead.
+const campaign = resolveCampaign(parseCampaign({ version: 3, start: 'wake' }), levels)
+const at = (level, id) => ({ kind: 'hub', level, arrival: id ? { kind: 'door', id } : { kind: 'entrance' } })
 const records = passes => { const grade = id => passes.includes(id) ? 'D' : null; return { grade, complete: area => !!levels.get(area) && areaComplete(levels.get(area), grade) } }
 const progress = passes => facilityProgress(campaign, id => passes.includes(id), campaignWiring(campaign, levels, records(passes)))
 const storage = () => { const values = new Map(); return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) } }
 const everything = ['m1', 'm2', 'f1', 'f2', 'w1']
 
-test('a new save wakes at the opening’s entrance', () => {
+test('a new save starts at the start area’s entrance', () => {
   assert.deepEqual(facilityStart(campaign, progress([]), {}, levels), { kind: 'hub', level: 'wake', arrival: { kind: 'entrance' } })
 })
 
-test('a player with courses passed before the facility opened starts at the concourse', () => {
-  assert.deepEqual(facilityStart(campaign, progress(['m1']), {}, levels), { kind: 'hub', level: 'hall', arrival: { kind: 'entrance' } })
-  // A saved place still wins.
-  const atFreight = { kind: 'hub', level: 'f-hub', arrival: { kind: 'door', id: 'door-f1' } }
+test('a player with records but no saved place starts at the start; a saved place still wins', () => {
+  assert.deepEqual(facilityStart(campaign, progress(['m1']), {}, levels), at('wake'))
+  const atFreight = at('f-hub', 'door-f1')
   assert.deepEqual(facilityStart(campaign, progress(['m1']), { place: atFreight }, levels), atFreight)
 })
 
@@ -56,17 +57,18 @@ test('a direct link opens a course only once its door would be open', () => {
   assert.equal(open(['f1', 'f2'], 'w1'), true, 'the complete freight wing opens the water wing')
   assert.equal(open(everything.slice(0, -1), 'final'), false, 'the final course waits for the evaluation')
   assert.equal(open(everything, 'final'), true)
-  assert.equal(open([], 'bus'), false); assert.equal(open(everything, 'bus'), true)
+  assert.equal(open([], 'bus'), false, 'a course an exit leads into opens with the course its route began at')
+  assert.equal(open(everything, 'bus'), true); assert.equal(open(everything, 'climb'), true)
   assert.equal(open([], 'hall'), false, 'facility areas are walked into, never linked')
   assert.equal(open([], 'missing'), false)
   const outside = new Map([...levels, ['practice', course('practice', 'Practice')]])
   assert.equal(linkOpen(campaign, progress([]), outside, 'practice'), true, 'a course outside the campaign is always open')
 })
 
-test('a linked course belongs to the door that leads to it', () => {
-  assert.deepEqual(linkedPlace(campaign, levels, 'm2'), { kind: 'course', level: 'm2', hub: 'm-hub', door: 'door-m2' })
-  assert.deepEqual(linkedPlace(campaign, levels, 'final'), { kind: 'course', level: 'final', hub: 'hall', door: 'dispatch' })
-  assert.deepEqual(linkedPlace(campaign, levels, 'bus'), { kind: 'escape', level: 'bus', index: 1 })
+test('a linked course belongs to the door that leads to it, or to the door its route began at', () => {
+  assert.deepEqual(linkedPlace(campaign, levels, 'm2'), { kind: 'course', level: 'm2', back: at('m-hub', 'door-m2'), via: 'door' })
+  assert.deepEqual(linkedPlace(campaign, levels, 'final'), { kind: 'course', level: 'final', back: at('hall', 'dispatch'), via: 'door' })
+  assert.deepEqual(linkedPlace(campaign, levels, 'bus'), { kind: 'course', level: 'bus', back: at('hall', 'dispatch'), via: 'exit' })
   assert.equal(linkedPlace(campaign, new Map([...levels, ['practice', course('practice', 'Practice')]]), 'practice'), null)
 })
 
@@ -76,36 +78,41 @@ test('a returning save resumes where it was autosaved', () => {
   // The opening is always open, so a save there resumes there.
   const inOpening = { kind: 'hub', level: 'wake', arrival: { kind: 'door', id: 'wake-to-hall' } }
   assert.deepEqual(facilityStart(campaign, progress([]), { place: inOpening }, levels), inOpening)
-  // A build that removed the door resumes at the hub's entrance; one that closed the hub resumes at the concourse.
+  // A build that removed the door resumes at the hub's entrance; one that closed or removed the hub resumes at the start.
   assert.deepEqual(facilityStart(campaign, progress([]), { place: { ...atFreight, arrival: { kind: 'door', id: 'gone' } } }, levels).arrival, { kind: 'entrance' })
-  assert.deepEqual(facilityStart(campaign, progress([]), { place: { kind: 'hub', level: 'w-hub', arrival: { kind: 'entrance' } } }, levels).level, 'hall')
-  assert.deepEqual(facilityStart(campaign, progress([]), { place: { kind: 'hub', level: 'removed', arrival: { kind: 'entrance' } } }, levels).level, 'hall')
-  // The escape route resumes only once the evaluation is complete, at a level it really lists.
-  const escape = { kind: 'escape', level: 'bus', index: 1 }
-  assert.deepEqual(facilityStart(campaign, progress(everything), { place: escape }, levels), escape)
-  assert.equal(facilityStart(campaign, progress([]), { place: escape }, levels).kind, 'hub')
-  assert.equal(facilityStart(campaign, progress(everything), { place: { ...escape, index: 0 } }, levels).kind, 'hub')
+  assert.deepEqual(facilityStart(campaign, progress([]), { place: at('w-hub') }, levels), at('wake'))
+  assert.deepEqual(facilityStart(campaign, progress([]), { place: at('removed') }, levels), at('wake'))
+  // A course an exit led into resumes there while its route is open; a save from before exits led on names it as an escape level.
+  const bus = { kind: 'course', level: 'bus', back: at('hall', 'dispatch'), via: 'exit' }
+  assert.deepEqual(facilityStart(campaign, progress(everything), { place: bus }, levels), bus)
+  assert.deepEqual(facilityStart(campaign, progress(everything), { place: { kind: 'escape', level: 'bus' } }, levels), bus)
+  assert.deepEqual(facilityStart(campaign, progress([]), { place: bus }, levels), at('wake'), 'not before the unit is released')
+  assert.deepEqual(facilityStart(campaign, progress(everything), { place: { ...bus, level: 'm1' } }, levels), at('wake'), 'only a course an exit leads into')
 })
 
 test('the autosave keeps the hub and door, a course resumes at its door, and unreadable saves are ignored', () => {
   const store = storage()
   assert.deepEqual(readFacilitySave(store), {})
-  saveFacilityPlace(store, { kind: 'course', level: 'm2', hub: 'm-hub', door: 'door-m2' })
-  assert.deepEqual(readFacilitySave(store), { place: { kind: 'hub', level: 'm-hub', arrival: { kind: 'door', id: 'door-m2' } } })
-  saveFacilityPlace(store, { kind: 'hub', level: 'wake', arrival: { kind: 'entrance' } })
-  assert.deepEqual(readFacilitySave(store), { place: { kind: 'hub', level: 'wake', arrival: { kind: 'entrance' } } }, 'the opening saves like any facility area')
-  saveFacilityPlace(store, { kind: 'escape', level: 'climb', index: 0 })
-  assert.deepEqual(readFacilitySave(store), { place: { kind: 'escape', level: 'climb', index: 0 } })
-  assert.deepEqual(savedPlace({ kind: 'course', level: 'f1', hub: 'f-hub', door: 'door-f1' }), { kind: 'hub', level: 'f-hub', arrival: { kind: 'door', id: 'door-f1' } })
-  for (const broken of ['{"place":{"kind":"hub","level":3}}', '{"place":{"kind":"escape","level":"climb","index":-1}}', '{"place":{"kind":"opening","level":"wake"}}', 'not json']) {
+  saveFacilityPlace(store, { kind: 'course', level: 'm2', back: at('m-hub', 'door-m2'), via: 'door' })
+  assert.deepEqual(readFacilitySave(store), { place: at('m-hub', 'door-m2') }, 'a course entered by its door resumes at the door')
+  saveFacilityPlace(store, at('wake'))
+  assert.deepEqual(readFacilitySave(store), { place: at('wake') }, 'the start saves like any facility area')
+  const route = { kind: 'course', level: 'climb', back: at('hall', 'dispatch'), via: 'exit' }
+  saveFacilityPlace(store, route)
+  assert.deepEqual(readFacilitySave(store), { place: route }, 'a course an exit led into resumes in itself')
+  store.setItem(FACILITY_KEY, '{"place":{"kind":"escape","level":"climb","index":0}}')
+  assert.deepEqual(readFacilitySave(store), { place: { kind: 'escape', level: 'climb' } }, 'an older save names its escape level')
+  assert.deepEqual(savedPlace({ kind: 'course', level: 'f1', back: at('f-hub', 'door-f1'), via: 'door' }), at('f-hub', 'door-f1'))
+  for (const broken of ['{"place":{"kind":"hub","level":3}}', '{"place":{"kind":"escape","level":"climb","index":-1}}', '{"place":{"kind":"opening","level":"wake"}}',
+    '{"place":{"kind":"course","level":"climb","via":"exit"}}', '{"place":{"kind":"course","level":"m2","via":"door","back":{"kind":"hub","level":"m-hub"}}}', 'not json']) {
     store.setItem(FACILITY_KEY, broken)
     assert.deepEqual(readFacilitySave(store), {}, broken)
   }
   store.setItem(FACILITY_KEY, '{"place":{"kind":"hub","level":"hall","arrival":{"kind":"bay"}}}')
-  assert.deepEqual(readFacilitySave(store), { place: { kind: 'hub', level: 'hall', arrival: { kind: 'entrance' } } })
+  assert.deepEqual(readFacilitySave(store), { place: at('hall') })
 })
 
-test('the opening and the concourse join through their bulkheads', () => {
+test('the start and the concourse join through their bulkheads', () => {
   const opening = { kind: 'hub', level: 'wake', arrival: { kind: 'entrance' } }
   const hall = nextPlace(campaign, opening, { kind: 'bulkhead', door: bulkhead('wake-to-hall', 1600, 'hall') }, levels)
   assert.deepEqual(hall, { kind: 'hub', level: 'hall', arrival: { kind: 'door', id: 'hall-to-wake' } })
@@ -115,12 +122,34 @@ test('the opening and the concourse join through their bulkheads', () => {
 })
 
 test('doors lead into their levels and back out of the same door', () => {
-  const wing = { kind: 'hub', level: 'm-hub', arrival: { kind: 'entrance' } }
+  const wing = at('m-hub')
   const into = nextPlace(campaign, wing, { kind: 'course', door: door('door-m2', 900, 'm2') }, levels)
-  assert.deepEqual(into, { kind: 'course', level: 'm2', hub: 'm-hub', door: 'door-m2' })
-  assert.deepEqual(nextPlace(campaign, into, null, levels, false), { kind: 'hub', level: 'm-hub', arrival: { kind: 'door', id: 'door-m2' } })
+  assert.deepEqual(into, { kind: 'course', level: 'm2', back: at('m-hub', 'door-m2'), via: 'door' })
+  assert.deepEqual(nextPlace(campaign, into, null, levels, false), at('m-hub', 'door-m2'))
+  assert.deepEqual(nextPlace(campaign, into, null, levels, true), at('m-hub', 'door-m2'), 'an exit that leads nowhere else goes back where it came from')
   assert.equal(nextPlace(campaign, wing, null, levels), null)
   assert.equal(nextPlace(campaign, wing, { kind: 'course', door: door('door-x', 0, 'missing') }, levels), null)
+})
+
+test('a level door can return the robot through another door, and a bulkhead can arrive at a chosen door', () => {
+  const back = nextPlace(campaign, at('m-hub'), { kind: 'course', door: { ...door('door-m2', 900, 'm2'), returnsTo: 'm-to-hall' } }, levels)
+  assert.deepEqual(back.back, at('m-hub', 'm-to-hall'))
+  assert.deepEqual(nextPlace(campaign, back, null, levels, false), at('m-hub', 'm-to-hall'), 'an F and leaving use it too')
+  // A door that is no longer in the area falls back to the level door itself.
+  assert.deepEqual(nextPlace(campaign, at('m-hub'), { kind: 'course', door: { ...door('door-m2', 900, 'm2'), returnsTo: 'gone' } }, levels).back, at('m-hub', 'door-m2'))
+  assert.deepEqual(nextPlace(campaign, at('hall'), { kind: 'bulkhead', door: { ...bulkhead('hall-to-m', 1100, 'm-hub'), arrivesAt: 'door-m2' } }, levels), at('m-hub', 'door-m2'))
+  assert.deepEqual(nextPlace(campaign, at('hall'), { kind: 'bulkhead', door: { ...bulkhead('hall-to-m', 1100, 'm-hub'), arrivesAt: 'gone' } }, levels), at('m-hub', 'm-to-hall'))
+})
+
+test('a passing exit leads where it says: into a course at its start, or a facility area at a chosen door', () => {
+  const via = leadsTo => new Map([...levels, ['m2', course('m2', 'A Bigger Swing', leadsTo)]])
+  const into = { kind: 'course', level: 'm2', back: at('m-hub', 'door-m2'), via: 'door' }
+  assert.deepEqual(nextPlace(campaign, into, null, via({ level: 'f-hub', arrival: 'door-f2' }), true), at('f-hub', 'door-f2'))
+  assert.deepEqual(nextPlace(campaign, into, null, via({ level: 'f-hub' }), true), at('f-hub'))
+  assert.deepEqual(nextPlace(campaign, into, null, via({ level: 'f-hub', arrival: 'gone' }), true), at('f-hub'))
+  assert.deepEqual(nextPlace(campaign, into, null, via({ level: 'f1' }), true), { kind: 'course', level: 'f1', back: at('m-hub', 'door-m2'), via: 'exit' })
+  assert.deepEqual(nextPlace(campaign, into, null, via({ level: 'f1' }), false), at('m-hub', 'door-m2'), 'an F goes back')
+  assert.deepEqual(nextPlace(campaign, into, null, via({ level: 'missing' }), true), at('m-hub', 'door-m2'))
 })
 
 test('bulkheads arrive at the matching bulkhead on the far side', () => {
@@ -170,28 +199,26 @@ test('doors are lettered with where they lead; a level door’s placard shows it
   assert.deepEqual([...unfinished.signs.values()], [])
 })
 
-test('facility areas and courses outside the campaign are always open', () => {
-  // A side room off a wing, not off the concourse, so not a wing itself.
-  const annex = hub('annex', [door('door-extra', 600, 'extra'), door('door-f1', 900, 'f1'), door('door-gone', 1200, 'gone')], [bulkhead('annex-to-m', 200, 'm-hub')], [], 'Annex')
+test('any area the robot can reach with level doors is a wing, after the wings nearer the start', () => {
+  // A side room off a wing, two bulkheads from the concourse.
+  const annex = hub('annex', [door('door-extra', 600, 'extra')], [bulkhead('annex-to-m', 200, 'm-hub')], [], 'Annex')
   const wingLevel = levels.get('m-hub'), world = new Map([...levels, ['extra', course('extra', 'Extra')], ['annex', annex],
     ['m-hub', { ...wingLevel, bulkheads: [...wingLevel.bulkheads, bulkhead('m-to-annex', 1500, 'annex')] }]])
-  assert.deepEqual(resolveCampaign(parseCampaign({ version: 2, opening: 'wake', concourse: 'hall' }), world).wings.map(wing => wing.level), ['m-hub', 'f-hub', 'w-hub'])
-  const wing = hubPresentation(campaign, progress([]), world.get('m-hub'), world, () => null)
-  assert.equal(wing.open.has('m-to-annex'), true)
-  assert.equal(wing.signs.get('m-to-annex'), 'ANNEX')
-  const into = nextPlace(campaign, { kind: 'hub', level: 'm-hub', arrival: { kind: 'entrance' } }, { kind: 'bulkhead', door: bulkhead('m-to-annex', 1500, 'annex') }, world)
-  assert.deepEqual(into, { kind: 'hub', level: 'annex', arrival: { kind: 'door', id: 'annex-to-m' } })
-  assert.deepEqual(facilityStart(campaign, progress([]), { place: into }, world), into, 'a save in the area resumes there')
-  // Its door to a course in no wing opens at once; a wing's course keeps its wing's order.
-  const inside = hubPresentation(campaign, progress([]), annex, world, id => ({ extra: 30 })[id] ?? null)
-  assert.deepEqual([...inside.open], ['door-extra', 'door-f1', 'annex-to-m'])
-  assert.equal(inside.signs.get('door-extra'), 'EXTRA')
-  assert.deepEqual(inside.placards.get('door-extra'), ['BEST 0:30.00', 'GRADE C'])
-  assert.deepEqual(hubPresentation(campaign, progress([]), annex, world, () => null).placards.get('door-extra'), ['NO RECORD', 'D 1:15'])
-  assert.deepEqual(inside.placards.get('door-gone'), [])
+  const wider = resolveCampaign(parseCampaign({ version: 3, start: 'wake' }), world)
+  assert.deepEqual(wider.wings.map(wing => wing.level), ['m-hub', 'f-hub', 'w-hub', 'annex'])
+  assert.deepEqual(wider.areas, ['wake', 'hall', 'm-hub', 'f-hub', 'w-hub', 'annex'])
+  const into = nextPlace(wider, at('m-hub'), { kind: 'bulkhead', door: bulkhead('m-to-annex', 1500, 'annex') }, world)
+  assert.deepEqual(into, at('annex', 'annex-to-m'))
+  const fresh = facilityProgress(wider, () => false, campaignWiring(wider, world, records([])))
+  assert.deepEqual(facilityStart(wider, fresh, { place: into }, world), into, 'a save in the area resumes there')
+  assert.equal(linkOpen(wider, fresh, world, 'extra'), true, 'its first door is open')
+  // A course behind no door in the facility is outside the campaign, and always open.
+  const outside = new Map([...world, ['practice', course('practice', 'Practice')]])
+  assert.equal(linkOpen(wider, fresh, outside, 'practice'), true)
+  assert.equal(linkedPlace(wider, outside, 'practice'), null)
 })
 
-test('the dispatch door opens by its wiring, here once every wing is complete, and leads through the escape route', () => {
+test('the dispatch door opens by its wiring, here once every wing is complete, and leads on through the exits', () => {
   const wingTimes = id => id === 'final' ? null : 20
   const sealed = hubPresentation(campaign, progress(everything.slice(0, -1)), levels.get('hall'), levels, wingTimes)
   assert.deepEqual([...sealed.switched], ['dispatch', 'hall-to-w'], 'left to its wiring, like any switched door')
@@ -212,14 +239,15 @@ test('the dispatch door opens by its wiring, here once every wing is complete, a
   const always = new Map([...levels, ['hall', { ...hallLevel, courseDoors: [{ ...hallLevel.courseDoors[0], power: undefined, switchLogic: undefined }] }]])
   assert.equal(facilityProgress(campaign, () => false, campaignWiring(campaign, always, records([]))).released, true)
   assert.equal(facilityProgress(campaign, () => false, campaignWiring(campaign, levels, records([]))).released, false)
-  const final = { kind: 'course', level: 'final', hub: 'hall', door: 'dispatch' }
-  assert.deepEqual(nextPlace(campaign, final, null, levels, false), { kind: 'hub', level: 'hall', arrival: { kind: 'door', id: 'dispatch' } })
+  // An F goes back to the dispatch door; a pass follows the exits, and the bus exit ends the game.
+  const final = { kind: 'course', level: 'final', back: at('hall', 'dispatch'), via: 'door' }
+  assert.deepEqual(nextPlace(campaign, final, null, levels, false), at('hall', 'dispatch'))
   const climb = nextPlace(campaign, final, null, levels, true)
-  assert.deepEqual(climb, { kind: 'escape', level: 'climb', index: 0 })
-  const bus = nextPlace(campaign, climb, null, levels, false)
-  assert.deepEqual(bus, { kind: 'escape', level: 'bus', index: 1 })
+  assert.deepEqual(climb, { kind: 'course', level: 'climb', back: at('hall', 'dispatch'), via: 'exit' })
+  assert.deepEqual(nextPlace(campaign, climb, null, levels, false), at('hall', 'dispatch'), 'an F on the route goes back too')
+  const bus = nextPlace(campaign, climb, null, levels, true)
+  assert.deepEqual(bus, { kind: 'course', level: 'bus', back: at('hall', 'dispatch'), via: 'exit' })
   assert.equal(nextPlace(campaign, bus, null, levels), null)
-  assert.deepEqual(dispatchPlace(campaign, levels), { kind: 'hub', level: 'hall', arrival: { kind: 'door', id: 'dispatch' } })
 })
 
 test('the evaluation board shows the total and each wing, then the release', () => {
@@ -275,7 +303,7 @@ test('a new game has no saved place or course records; restarting erases them an
 })
 
 test('the studio names doors and bulkheads as the facility shows them, never by their saved names', () => {
-  const name = facilityDoorName(levels, campaign)
+  const name = facilityDoorName(levels)
   const hall = { ...levels.get('hall'), courseDoors: [{ ...levels.get('hall').courseDoors[0], name: 'Dispatch door' }],
     bulkheads: levels.get('hall').bulkheads.map(bulkhead => ({ ...bulkhead, name: 'Saved name' })) }
   assert.equal(name(hall.courseDoors[0]), 'Dispatch')

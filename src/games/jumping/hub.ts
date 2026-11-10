@@ -18,15 +18,19 @@ export interface DoorPower extends Pick<SwitchSettings, 'switchLogic' | 'switchR
 /**
  * A door in a hub's back wall that leads into one course, and goes by that
  * course's name. It is also a switch: on once the course is passed, at D or
- * better. `targets` lists what it switches.
+ * better. `targets` lists what it switches. The robot comes back out of
+ * `returnsTo`, another door or bulkhead in this area, or else this door. The
+ * `dispatch` door leads to the final course: lettered DISPATCH, released once
+ * the evaluation is complete, and not itself part of the evaluation.
  */
-export interface CourseDoor extends DoorPower, Pick<SwitchSettings, 'targets'> { id: string; x: number; y: number; course: string }
+export interface CourseDoor extends DoorPower, Pick<SwitchSettings, 'targets'> { id: string; x: number; y: number; course: string; returnsTo?: string; dispatch?: true }
 /**
  * A door between facility areas; `to` is the level ID of the area it opens onto,
  * and it goes by that area's name. It is also a switch: on once that area is
- * complete, every level door in it passed.
+ * complete, every level door in it passed. The robot steps out of `arrivesAt`,
+ * a door or bulkhead in that area, or else the bulkhead there that leads back.
  */
-export interface Bulkhead extends DoorPower, Pick<SwitchSettings, 'targets'> { id: string; x: number; y: number; to: string }
+export interface Bulkhead extends DoorPower, Pick<SwitchSettings, 'targets'> { id: string; x: number; y: number; to: string; arrivesAt?: string }
 /**
  * A studio-only node that averages the best grades of level doors in its
  * facility area and switches its targets while the average reaches `grade`.

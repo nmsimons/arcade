@@ -17,7 +17,7 @@ test('the library shows the campaign progression, locking courses whose doors ar
     ...(i ? { power: 'switched' } : {}), ...(i < CAMPAIGN.length - 1 ? { targets: [`door-${i + 1}`] } : {}) })), [{ id: 'wing-to-hall', x: 1600, y: 920, to: 'lesson-hall' }])
   const hall = area('lesson-hall', 'Lesson hall', [], [{ id: 'hall-to-wing', x: 900, y: 920, to: wing.id }])
   await useLevelFixtures(page, [...CAMPAIGN, wing, hall])
-  await page.route('**/levels/jumping-campaign.json', route => route.fulfill({ json: { version: 2, opening: hall.id, concourse: hall.id } }))
+  await page.route('**/levels/jumping-campaign.json', route => route.fulfill({ json: { version: 3, start: hall.id } }))
   await page.goto('/lab/library?renderControl=1')
   await expect(page.getByRole('button', { name: 'Level 1: First Leap' })).toHaveAttribute('aria-pressed', 'true')
   await page.screenshot({ path: info.outputPath('campaign-menu.png') })

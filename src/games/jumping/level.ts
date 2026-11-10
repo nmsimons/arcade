@@ -17,7 +17,7 @@ import { MAX_CURVE_POINTS, terrainCurveOutline } from './terrainCurves.ts'
 import { chargingBayBounds, entranceFits, goalBounds, goalDoor, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
-import type { Entrance, Goal } from './goal.ts'
+import type { Destination, Entrance, Goal } from './goal.ts'
 import { GRADE_GATE_HEIGHT, GRADE_GATE_WIDTH, GRADE_LETTERS, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_GRADE_GATES, gradeGateBounds, hubDoorFits } from './hub.ts'
 import type { Bulkhead, CourseDoor, EvaluationBoard, GradeGate, GradeLetter } from './hub.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
@@ -278,6 +278,12 @@ function hubProblems(level: HubLevel, terrain: Platform[]): string[] {
     courses.add(door.course)
   }
   for (const [i, door] of level.bulkheads.entries()) if (!door.to) issues.push(`Choose where ${objectReference(level, 'bulkhead', i)} leads.`)
+  // The robot comes back out of another door or bulkhead in this area.
+  const doorIds = new Set([...level.courseDoors, ...level.bulkheads].map(door => door.id))
+  for (const [i, door] of level.courseDoors.entries()) if (door.returnsTo !== undefined && !doorIds.has(door.returnsTo))
+    issues.push(`Choose where the robot comes back out after ${objectReference(level, 'course-door', i)}: the door it names is no longer in this area.`)
+  const dispatch = level.courseDoors.filter(door => door.dispatch).length
+  if (dispatch > 1) issues.push(`This area has ${dispatch} dispatch doors. Mark one.`)
   for (const [i, gate] of (level.gradeGates ?? []).entries()) {
     const b = gradeGateBounds(gate)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > height) issues.push(`Keep ${objectReference(level, 'grade-gate', i)} inside the level rectangle.`)
@@ -302,6 +308,12 @@ export function parseLevel(value: unknown): JumpLevel {
   const objectName = (v: Record<string, unknown>): NamedObject => parseObjectName(v.name, fail)
   const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, MAX_LEVEL_WIDTH), y: num(p.y, -2000, 6000),
     ...(p.radius === undefined ? {} : { radius: num(p.radius, 10, 1000) }) } }
+  // A level or door ID that another file resolves; the campaign check confirms it exists.
+  const reference = (v: unknown): string => typeof v === 'string' && v.length > 0 && v.length <= 100 ? v : fail()
+  const destination = (v: unknown): Destination => {
+    const d = object(v)
+    return { level: reference(d.level), ...(d.arrival === undefined ? {} : { arrival: reference(d.arrival) }) }
+  }
   const v = object(value)
   if (v.version !== 1 && v.version !== 2) throw new Error('Unsupported jumping level version. This game reads versions 1 and 2.')
   if (v.version === 1 && v.lighting !== undefined) throw new Error('Lighting requires a version 2 level file.')
@@ -465,10 +477,14 @@ export function parseLevel(value: unknown): JumpLevel {
     if (g.kind === 'walk-off' && (location.x !== width || flipX)) fail()
     if (g.kind === 'bus' && flipX) fail()
     if (g.ending !== undefined && (g.ending !== 'bus' || g.kind !== 'walk-off')) fail()
+    // Only a plain exit door leads on; overlook, walk-off and bus exits end the game.
+    const leadsTo = g.leadsTo === undefined ? undefined : destination(g.leadsTo)
+    if (leadsTo && g.kind) fail()
     level.goal = { ...objectName(g), ...parseSwitchSettings(g, fail), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }),
       ...(g.kind ? { kind: g.kind as Goal['kind'] } : {}),
       ...(g.ending ? { ending: g.ending as Goal['ending'] } : {}),
-      ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }) }; if (level.goal.x > width) fail()
+      ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }),
+      ...(leadsTo ? { leadsTo } : {}) }; if (level.goal.x > width) fail()
     const times = object(v.times), legacy = times.a === undefined && times.gold !== undefined
     const a = num(legacy ? times.gold : times.a, .1, 3600), b = num(legacy ? times.silver : times.b, .1, 3600)
     const c = num(legacy ? times.bronze : times.c, .1, 3600)
@@ -602,16 +618,19 @@ export function parseLevel(value: unknown): JumpLevel {
       level.courseDoors = list(v.courseDoors ?? [], MAX_COURSE_DOORS).map(item => {
         const { d, base } = hubObject(item, false)
         if (typeof d.course !== 'string' || d.course.length > 100) fail()
+        if (d.dispatch !== undefined && d.dispatch !== true) fail()
         // A level door is also a switch: its targets turn on once its course is passed.
         const { targets } = parseSwitchSettings({ targets: d.targets }, fail)
-        return { ...base, course: d.course as string, ...doorPower(d), ...(targets?.length ? { targets } : {}) }
+        return { ...base, course: d.course as string, ...doorPower(d), ...(targets?.length ? { targets } : {}),
+          ...(d.returnsTo === undefined ? {} : { returnsTo: reference(d.returnsTo) }), ...(d.dispatch ? { dispatch: true as const } : {}) }
       })
       level.bulkheads = list(v.bulkheads ?? [], MAX_BULKHEADS).map(item => {
         const { d, base } = hubObject(item, false)
         if (typeof d.to !== 'string' || d.to.length > 100) fail()
         // A bulkhead is also a switch: its targets turn on once the area beyond is complete.
         const { targets } = parseSwitchSettings({ targets: d.targets }, fail)
-        return { ...base, to: d.to as string, ...doorPower(d), ...(targets?.length ? { targets } : {}) }
+        return { ...base, to: d.to as string, ...doorPower(d), ...(targets?.length ? { targets } : {}),
+          ...(d.arrivesAt === undefined ? {} : { arrivesAt: reference(d.arrivesAt) }) }
       })
       level.evaluationBoards = list(v.evaluationBoards ?? [], MAX_EVALUATION_BOARDS).map(item => {
         const { d, base } = hubObject(item), w = num(d.w, 120, 1200), h = num(d.h, 60, 600)

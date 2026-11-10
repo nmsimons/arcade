@@ -159,3 +159,67 @@ test('level doors are switches: a passed door and a grade average wire the next 
   expect(saved.level.gradeGates).toMatchObject([{ grade: 'b', doors: ['door-first', 'door-second'], targets: ['wing-out'] }])
   expect(levelProblems(saved.level)).toEqual([])
 })
+
+test('an exit, a level door and a bulkhead choose where the robot goes and which door it comes out of', async ({ page }, info) => {
+  test.setTimeout(90000)
+  const first = { ...blankTrial(), name: 'First course' }, second = { ...blankTrial(), name: 'Second course' }
+  const wing = { ...hall, id: 'routed-wing', name: 'Routed wing', bulkheads: [{ id: 'wing-out', x: 1400, y: 920, to: hall.id }],
+    courseDoors: [{ id: 'door-first', x: 500, y: 920, course: first.id }, { id: 'door-second', x: 900, y: 920, course: second.id }] }
+  const concourse = { ...hall, bulkheads: [{ id: 'back', x: 600, y: 920, to: wing.id }] }
+  await useLevelFixtures(page, [wing, first, second, concourse])
+  await installBuiltInFixtures(page, { 'wing.json': wing, 'first.json': first, 'second.json': second, 'hall.json': concourse })
+  await page.goto('/lab/library')
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Open wing.json', exact: true }).click()
+  await waitForBuilderPreview(page)
+
+  // The first level door returns the robot through the bulkhead, and is the dispatch door.
+  await selectBuilderObject(page, 'course-door:0')
+  const back = page.getByRole('combobox', { name: 'Level door return', exact: true })
+  await expect(back).toHaveText('This door')
+  await back.click()
+  await expect(page.getByRole('listbox', { name: 'Level door return', exact: true }).getByRole('option'))
+    .toHaveText(['This door', 'Second course level door', 'Concourse bulkhead'])
+  await page.getByRole('listbox', { name: 'Level door return', exact: true }).locator('[role=option][data-value="wing-out"]').click()
+  await expect(back).toHaveText('Concourse bulkhead')
+  const dispatch = page.getByRole('button', { name: 'Dispatch door', exact: true })
+  await expect(dispatch).toHaveAttribute('aria-pressed', 'false')
+  await dispatch.click()
+  await expect(dispatch).toHaveAttribute('aria-pressed', 'true')
+  // The bulkhead brings the robot out of a chosen door in the area beyond.
+  await selectBuilderObject(page, 'bulkhead:0')
+  await expect(page.getByRole('combobox', { name: 'Bulkhead arrival', exact: true })).toHaveText('The bulkhead back here')
+  await selectBuilderOption(page, 'Bulkhead arrival', 'back')
+  await expect(page.getByRole('combobox', { name: 'Bulkhead arrival', exact: true })).toHaveText('Routed wing bulkhead')
+  const area = await saveTestLevel(page)
+  expect(area.level.courseDoors[0]).toMatchObject({ id: 'door-first', returnsTo: 'wing-out', dispatch: true })
+  expect(area.level.courseDoors[1].returnsTo).toBeUndefined()
+  expect(area.level.bulkheads[0].arrivesAt).toBe('back')
+  expect(levelProblems(area.level)).toEqual([])
+
+  // The first course's exit leads into the wing, out of the second level door.
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Open first.json', exact: true }).click()
+  await waitForBuilderPreview(page)
+  await selectBuilderObject(page, 'goal:0')
+  const leads = page.getByRole('combobox', { name: 'Exit destination', exact: true })
+  await expect(leads).toHaveText('Back where the robot came from')
+  await expect(page.getByRole('combobox', { name: 'Exit arrival', exact: true })).toHaveCount(0)
+  await selectBuilderOption(page, 'Exit destination', wing.id)
+  await expect(leads).toHaveText('Routed wing (facility area)')
+  await selectBuilderOption(page, 'Exit arrival', 'door-second')
+  await expect(page.getByRole('combobox', { name: 'Exit arrival', exact: true })).toHaveText('Second course level door')
+  await page.screenshot({ path: info.outputPath('exit-destination.png') })
+  const course = await saveTestLevel(page)
+  expect(course.level.goal.leadsTo).toEqual({ level: wing.id, arrival: 'door-second' })
+  await page.reload(); await reopenTestLevel(page, course)
+  await selectBuilderObject(page, 'goal:0')
+  await expect(leads).toHaveText('Routed wing (facility area)')
+  await expect(page.getByRole('combobox', { name: 'Exit arrival', exact: true })).toHaveText('Second course level door')
+  // Back where the robot came from clears the destination.
+  await selectBuilderOption(page, 'Exit destination', '')
+  await expect(leads).toHaveText('Back where the robot came from')
+  await expect(page.getByRole('combobox', { name: 'Exit arrival', exact: true })).toHaveCount(0)
+  expect((await saveTestLevel(page)).level.goal.leadsTo).toBeUndefined()
+})

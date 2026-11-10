@@ -93,7 +93,7 @@ test('a bulkhead is a switch, on once every level door in the area beyond is pas
   assert.equal(areaComplete({ courseDoors: [] }, grades({})), true)
 })
 
-test('the concourse’s wiring opens a sealed wing; a wing that can never open is a campaign problem', () => {
+test('the wiring opens a sealed wing; a wing that can never open is a campaign problem', () => {
   const door = (id, course, more = {}) => ({ id, x: 300, y: 920, course, ...more })
   const hub = (id, courseDoors, bulkheads) => parseLevel({ ...blankTrial(), id, name: id, kind: 'hub', timing: 'untimed', goal: undefined, times: undefined, courseDoors, bulkheads, evaluationBoards: [] })
   const to = (id, target, more = {}) => ({ id, x: 900, y: 920, to: target, ...more })
@@ -104,7 +104,7 @@ test('the concourse’s wiring opens a sealed wing; a wing that can never open i
     hub('b-hub', [door('b1', 'b1')], [to('b-hall', 'hall')]),
     { ...blankTrial(), id: 'a1', name: 'A1' }, { ...blankTrial(), id: 'b1', name: 'B1' },
   ].map(level => [level.id, level]))
-  const file = parseCampaign({ version: 2, opening: 'wake', concourse: 'hall' })
+  const file = parseCampaign({ version: 3, start: 'wake' })
   const levels = make({ power: 'switched' }), campaign = resolveCampaign(file, levels)
   assert.deepEqual(campaign.wings, [{ level: 'a-hub', courses: ['a1'] }, { level: 'b-hub', courses: ['b1'] }])
   const opens = passes => { const grade = id => passes.includes(id) ? 'C' : null
@@ -115,12 +115,12 @@ test('the concourse’s wiring opens a sealed wing; a wing that can never open i
   // Wired from itself, wing B waits on its own completion.
   const loop = make({ power: 'switched', targets: ['hall-b'] })
   loop.get('hall').bulkheads[1].targets = []
-  assert.deepEqual(campaignWiringProblems(resolveCampaign(file, loop), loop), ['The wing “b-hub” can never open: its bulkhead on the concourse waits on wings or courses that are only behind it.'])
+  assert.deepEqual(campaignWiringProblems(resolveCampaign(file, loop), loop), ['The wing “b-hub” can never open: every bulkhead into it waits on wings or courses that are only behind it.'])
   // A switched door that nothing switches never opens.
   const stuck = make({ power: 'switched' })
   stuck.get('a-hub').courseDoors[0] = { ...stuck.get('a-hub').courseDoors[0], power: 'switched' }
   assert.deepEqual(campaignWiringProblems(resolveCampaign(file, stuck), stuck), [
-    'The wing “b-hub” can never open: its bulkhead on the concourse waits on wings or courses that are only behind it.',
+    'The wing “b-hub” can never open: every bulkhead into it waits on wings or courses that are only behind it.',
     'The door to “A1” in “a-hub” can never open: its wiring waits on courses that are only behind it.'])
   // The way back is checked too: a switched bulkhead back to the concourse that nothing opens traps the robot.
   const trapped = make({ power: 'switched' })
@@ -129,7 +129,7 @@ test('the concourse’s wiring opens a sealed wing; a wing that can never open i
   // So is the dispatch door: here it waits on a plate nobody can reach, wired to nothing.
   const dispatch = make({ power: 'switched' })
   dispatch.set('final', { ...blankTrial(), id: 'final', name: 'Final' })
-  dispatch.get('hall').courseDoors.push({ id: 'dispatch', x: 1500, y: 920, course: 'final', power: 'switched' })
+  dispatch.get('hall').courseDoors.push({ id: 'dispatch', x: 1500, y: 920, course: 'final', power: 'switched', dispatch: true })
   assert.deepEqual(campaignWiringProblems(resolveCampaign(file, dispatch), dispatch), ['The dispatch door can never open: its wiring waits on courses that are only behind it.'])
   dispatch.get('hall').bulkheads[2].targets = ['dispatch']
   assert.deepEqual(campaignWiringProblems(resolveCampaign(file, dispatch), dispatch), [], 'wired from wing B, it opens once B is complete')
@@ -137,7 +137,8 @@ test('the concourse’s wiring opens a sealed wing; a wing that can never open i
 
 test('records give grades: a timed course by its best time, an untimed level A once completed', () => {
   const timed = [...builtIns.values()].find(level => level.times && level.timing !== 'untimed')
-  const untimed = builtIns.get(builtInCampaign.escape.at(-1))
+  // Exit, the last course the exits from the final course lead into, is untimed.
+  const untimed = builtIns.get(Object.keys(builtInCampaign.chained).at(-1))
   const grade = courseGrades(builtIns, id => id === timed.id ? timed.times.a ?? timed.times.gold : null, id => id === untimed.id)
   assert.equal(grade(timed.id), 'A')
   assert.equal(grade(untimed.id), 'A')

@@ -115,8 +115,8 @@ for (const device of ['keyboard', 'controller', 'touch']) test.describe(`${devic
       else await page.keyboard.press('Escape')
       await page.getByRole('button', { name: 'Controls', exact: true }).click()
       const help = page.getByRole('region', { name: 'How to play' })
-      await expect(help).toContainText('upright float at your reached depth underwater')
-      await expect(help).toContainText('Only a stable supported crate offers a grip')
+      await expect(help).toContainText(device === 'touch' ? 'Swim up or diveDrag up or down' : device === 'controller' ? 'Swim up or dive↑ or ↓' : 'Swim up or diveW / ↑ or S / ↓')
+      await expect(help).toContainText(device === 'controller' ? 'Controller connected.' : 'Best with a controller.')
       await help.evaluate(el => { el.scrollTop = el.scrollHeight })
       await page.screenshot({ path: info.outputPath(`water-${device}-help.png`) })
     }

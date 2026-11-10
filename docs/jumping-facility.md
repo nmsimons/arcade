@@ -489,7 +489,7 @@ course record offers:
 | Continue | Plays on from the place behind the display, at `/lab/facility`. Esc, the controller's Menu button and B do the same. |
 | Progress | The evaluation total, then each wing: its passes, or Sealed, and each course's best time and grade or the D deadline to pass. Locked courses stay dark, as their placards do. |
 | Restart | Asks first, with Cancel as the default, then erases every course record (best times and completions) and the robot's place, and wakes in Orientation's pod at `/lab/facility`. With cloud saves on, the erased save syncs like any other change, and earlier versions stay in the cloud save history. |
-| Controls | The pause screen's controls reference. |
+| Controls | How to play: it opens by saying a controller is the best way to play (or that one is connected), then lists what the robot can do, grouped as Move, Jump, Climb, Swim and Tools, each with how to do it on the controller, keyboard or touch in use. The courses teach the rest. |
 
 **Level studio** (development builds) and **Back to arcade** sit along the foot
 of the screen, beside reminders of the keys or controller buttons that choose
@@ -526,15 +526,22 @@ without the start screen. Courses return the robot to their doors at
 
 ### The pause screen
 
-The pause screen becomes the robot's own system display: the terminals' green
-phosphor on a dark panel, not a facility screen and not today's light dialog.
-Its actions depend on where the robot is:
+Pausing in the facility opens the same system menu as the start screen, with
+the same full-screen layout over the place: the place's name, "PAUSED.", the
+menu, then the other destinations and the input reminders along the foot. Only
+the L.A.B. mark stays on the start screen. Its actions depend on where the robot is:
 
 | Where | Actions |
 | --- | --- |
-| Course | Resume, Restart course, Leave course, Controls, Back to arcade |
-| Facility area (Orientation, a wing or the concourse) | Resume, Restart area, Controls, Back to arcade |
-| A course an exit led into (the escape route) | Resume, Restart from entrance, Return to the facility, Controls, Back to arcade |
+| Course | Resume, Restart course, Leave course, Progress, Controls, Back to arcade |
+| Facility area (Orientation, a wing or the concourse) | Resume, Restart area, Progress, Controls, Back to arcade |
+| A course an exit led into (the escape route) | Resume, Restart from entrance, Return to the facility, Progress, Controls, Back to arcade |
+
+Progress is the start screen's evaluation report. Erasing the save stays on the
+start screen, so it is never one press away mid-course. Outside the facility, in
+the development library and studio playtests, the same menu is a panel over the
+paused game, with **Level menu** or **Return to builder** in place of leaving and
+no Progress.
 
 Restart area returns the robot to where it came in: the door or bulkhead it
 arrived through, or the opening's pod. It also puts the area back as authored,

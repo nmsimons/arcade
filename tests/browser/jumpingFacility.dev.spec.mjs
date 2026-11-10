@@ -101,7 +101,16 @@ test('a new save wakes in Orientation, an untimed facility area', async ({ page 
   // The robot walks along the pit toward the rope through the broken floor.
   await walkTo(page, 1000)
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog', { name: 'Game paused' }).getByRole('button')).toHaveText(['Resume Esc', 'Restart area', 'Controls', 'Level studio', 'Back to arcade'])
+  // Pausing opens the start screen's system menu, full screen over the place, with Progress but no way to erase the save.
+  const paused = page.getByRole('dialog', { name: 'Game paused' })
+  await expect(paused.getByRole('button')).toHaveText(['Resume Esc', 'Restart area', 'Progress', 'Controls', 'Level studio', 'Back to arcade'])
+  await expect(page.locator('.jumping-title-screen .jumping-start'), 'the title screen layout').toBeVisible()
+  await expect(paused.getByRole('heading', { level: 2 })).toHaveText('Paused.')
+  await expect(page.locator('.jumping-start-logo'), 'the L.A.B. mark stays on the start screen').toHaveCount(0)
+  await paused.getByRole('button', { name: 'Progress', exact: true }).click()
+  await expect(paused.getByRole('region', { name: 'Evaluation progress' })).toContainText('Evaluation 0 /')
+  await paused.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(paused.getByRole('heading', { level: 2 })).toHaveText('Paused.')
 })
 
 test('the concourse and Orientation join through bulkheads, arriving at the far end of each', async ({ page }, info) => {

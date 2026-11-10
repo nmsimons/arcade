@@ -237,7 +237,7 @@ test('the simple level view remains usable on a narrow screen', async ({ page },
   await expect(page.getByRole('region', { name: 'How to play' })).toHaveCount(0)
   const pauseBounds = await page.locator('.jumping-dialog-panel').boundingBox()
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Press to jump')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Jump higherHold Space')
   expect(await page.locator('.jumping-dialog-panel').boundingBox()).toEqual(pauseBounds)
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeFocused()
   await page.screenshot({ path: info.outputPath('pause-controls-mobile.png') })

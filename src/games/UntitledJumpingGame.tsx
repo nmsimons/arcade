@@ -234,7 +234,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     id => bestTimes[id] ?? readBest({ getItem: () => savedTimes }, id),
     id => !!completedLevels[id] || readCompleted({ getItem: key => key === COMPLETION_KEY ? savedCompletions : savedTimes }, id),
     { getItem: () => savedAreas }), [campaign, levelsById, bestTimes, completedLevels, savedTimes, savedCompletions, savedAreas])
-  const startProgress: StartProgress | null = startScreen && progress
+  // The system menu shows the evaluation on the start screen and when pausing in the facility.
+  const menuProgress: StartProgress | null = (startScreen || facilityWhere) && progress
     ? { passed: progress.passed, required: progress.required, complete: progress.complete, wings: progressRecords(campaign!, progress, levelsById, bestTime) } : null
   const unlocked = new Set(campaign || campaignError ? catalog.files
     .filter(file => !progress || linkOpen(campaign!, progress, levelsById, file.level.id)).map(file => file.fileName) : [])
@@ -1085,12 +1086,12 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onExit={onExit}
       {...facilityWhere === 'route' ? { onLevels: leaveCourse, levelsLabel: 'Return to the facility' } : { onLevels: showMenu, levelsLabel }} />}
     {!preparing && screen === 'paused' && startScreen && <JumpingStartDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
-      fresh={startScreen === 'fresh'} opening={levelsById.get(campaign?.start ?? '')?.name ?? 'the facility'} progress={startProgress}
+      fresh={startScreen === 'fresh'} opening={levelsById.get(campaign?.start ?? '')?.name ?? 'the facility'} progress={menuProgress}
       connected={connected} touchControls={touchAvailable} canEdit={devEditing} onContinue={continueFromStart}
       onRestart={restartGame} onBuilder={openBuilder} onExit={onExit} />}
     {!preparing && screen === 'paused' && !startScreen && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen(pauseReturn.current)}
-      facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse } : undefined}
+      facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse } : undefined} progress={menuProgress}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} levelsLabel={levelsLabel} onExit={onExit} />}
     {/* Outside the library, the menu screen is the facility opening, or why it could not. */}
     {!preparing && !holding && screen === 'menu' && !libraryRoute && <KeyboardDialog label={facilityError ? 'Facility unavailable' : 'Opening the facility'} focusKey="jumping-facility-status"

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { formatTime } from '../../src/games/jumping/challenge.ts'
 import { gradeTimes } from '../../src/games/jumping/grading.ts'
 import { parseCampaign } from '../../src/games/jumping/campaign.ts'
-import { resolveCampaign } from '../../src/games/jumping/facility.ts'
+import { resolveCampaign, savedProgress } from '../../src/games/jumping/facility.ts'
 import { parseLevel } from '../../src/games/jumping/level.ts'
 
 // The concourse's bulkhead to Orientation, wherever the layout puts it.
@@ -154,14 +154,17 @@ test('a returning save opens on the start screen, which shows the evaluation so 
   const report = start.getByRole('region', { name: 'Evaluation progress', exact: true })
   const required = campaign.wings.reduce((total, wing) => total + wing.courses.length, 0)
   await expect(report.locator('.jumping-start-total')).toHaveText(`Evaluation 1 / ${required}`)
-  // The first wing: its first course passed with its A time, the next door open with its deadline, the rest dark.
+  // The first wing: its first course passed with its A time, each door the wiring opens with its deadline, the rest dark.
   const wing = report.getByRole('region', { name: firstWing.name, exact: true })
   await expect(wing.getByRole('heading', { level: 3 })).toHaveText(`${firstWing.name} 1/${campaign.wings[0].courses.length}`)
-  await expect(wing.getByRole('listitem')).toHaveText([
-    `${firstCourse.name} ${formatTime(gradeTimes(firstCourse).a)} A`,
-    `${secondCourse.name} D ${formatTime(gradeTimes(secondCourse).d).replace(/\.00$/, '')} to pass`,
-    ...campaign.wings[0].courses.slice(2).map(() => 'Locked'),
-  ])
+  const { doors } = savedProgress(campaign, byId, id => returning.times[id] ?? null, id => !!returning.completed[id], { getItem: () => null }).wings[0]
+  expect(doors.slice(0, 2).map(door => door.state)).toEqual(['passed', 'open'])
+  expect(doors.some(door => door.state === 'locked'), 'a door still waits on its wiring').toBe(true)
+  await expect(wing.getByRole('listitem')).toHaveText(doors.map(door => {
+    const course = byId.get(door.course)
+    return door.state === 'passed' ? `${course.name} ${formatTime(gradeTimes(course).a)} A`
+      : door.state === 'open' ? `${course.name} D ${formatTime(gradeTimes(course).d).replace(/\.00$/, '')} to pass` : 'Locked'
+  }))
   await expect(start.getByRole('button', { name: 'Back', exact: true })).toBeFocused()
   await page.screenshot({ path: info.outputPath('start-progress.png') })
 

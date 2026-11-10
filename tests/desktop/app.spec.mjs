@@ -4,16 +4,24 @@ import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { desktopTarget } from '../../desktop/packaging.mjs'
+import { decodeLevelFile } from '../../src/games/jumping/levelAssets.ts'
+import { parseCampaign } from '../../src/games/jumping/campaign.ts'
+import { linkOpen, resolveCampaign, savedProgress } from '../../src/games/jumping/facility.ts'
 
 const root = resolve(import.meta.dirname, '../..')
 const packaged = process.env.ARCADE_TEST_PACKAGED === '1'
 const product = JSON.parse(readFileSync(join(root, 'release/products/arcade.json'), 'utf8'))
 const target = desktopTarget(product)
-// The first wing's first course, wherever the campaign and collection put it.
+// The first course a fresh save may open by its link, as the facility's own wiring decides, wherever the
+// areas and the collection put it.
 const levels = join(root, 'public/levels/jumping')
-const campaign = JSON.parse(readFileSync(join(root, 'public/levels/jumping-campaign.json'), 'utf8'))
-const firstCourse = JSON.parse(readFileSync(join(levels, 'index.json'), 'utf8')).levels
-  .find(file => JSON.parse(readFileSync(join(levels, file), 'utf8')).id === campaign.wings[0].courses[0])
+const files = JSON.parse(readFileSync(join(levels, 'index.json'), 'utf8')).levels
+const byFile = new Map(files.map(file => [file, decodeLevelFile(readFileSync(join(levels, file), 'utf8'))]))
+const byId = new Map([...byFile.values()].map(level => [level.id, level]))
+const campaign = resolveCampaign(parseCampaign(JSON.parse(readFileSync(join(root, 'public/levels/jumping-campaign.json'), 'utf8'))), byId)
+const fresh = savedProgress(campaign, byId, () => null, () => false, { getItem: () => null })
+const openCourse = campaign.wings.flatMap(wing => wing.courses).find(id => linkOpen(campaign, fresh, byId, id))
+const firstCourse = files.find(file => byFile.get(file).id === openCourse)
 // Electron installs its development binary on demand; packaged runs use the
 // tested executable directly and never download a separate runtime.
 const executablePath = process.env.ARCADE_TEST_EXECUTABLE || (packaged ? join(root, 'desktop/out', target.directory, target.executable)
@@ -68,7 +76,7 @@ test('installed assets, deep routes, file saves, and fullscreen work without a s
     await expect(page.locator('.jumping-game')).toBeVisible()
     // L.A.B. opens the facility, and a fresh save wakes in Orientation.
     await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible({ timeout: 30000 })
-    // A course link opens once its door would: on a fresh save, the first wing's first course.
+    // A course link opens once its door would: on a fresh save, the first course wired open from the start.
     const course = `arcade://game/lab/levels/built-in/${encodeURIComponent(firstCourse)}`
     await page.goto(course)
     await expect(page.locator('canvas[role="img"]')).toBeFocused()

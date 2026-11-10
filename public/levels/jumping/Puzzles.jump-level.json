@@ -28,7 +28,6 @@
       "x": 1145,
       "y": 720,
       "course": "ecbb07bd-b1dd-476c-b09b-82eb321515e9",
-      "power": "switched",
       "targets": [
         "door-waterline-ii"
       ]
@@ -39,15 +38,6 @@
       "y": 720,
       "course": "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a",
       "power": "switched"
-    },
-    {
-      "id": "0a3079fc-92f5-4415-b8e2-93b59562da99",
-      "x": 834,
-      "y": 720,
-      "course": "9369b0ce-0963-4681-bbcd-50dc5059d9df",
-      "targets": [
-        "door-waterline-i"
-      ]
     }
   ],
   "bulkheads": [

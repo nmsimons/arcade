@@ -7,7 +7,7 @@
   "platforms": [],
   "entrance": {
     "name": "Assessment entrance",
-    "x": 400,
+    "x": 75,
     "y": 400
   },
   "checkpoints": [],
@@ -24,14 +24,8 @@
   "robots": [],
   "courseDoors": [
     {
-      "id": "door-escapade",
-      "x": 65,
-      "y": 400,
-      "course": "ab914f1b-985f-4992-9e03-44506d00cb33"
-    },
-    {
       "id": "door-world-i",
-      "x": 620,
+      "x": 220,
       "y": 400,
       "course": "9c86c84f-5cd0-4cfa-9c78-b257fe402ab1"
     }
@@ -39,7 +33,7 @@
   "bulkheads": [
     {
       "id": "assessment-to-concourse",
-      "x": 400,
+      "x": 75,
       "y": 400,
       "to": "facility-concourse"
     }

@@ -362,7 +362,10 @@
       "x": 630,
       "y": 600,
       "course": "d5e4ea37-a26f-46b9-8c84-d2b36840368b",
-      "power": "switched"
+      "power": "switched",
+      "targets": [
+        "490f28e4-44cd-4c65-99ac-2da3b34e5ec9"
+      ]
     },
     {
       "id": "130d698f-9e45-4774-9b0f-0c9a170633d4",
@@ -399,6 +402,7 @@
       "x": 965,
       "y": 600,
       "course": "9369b0ce-0963-4681-bbcd-50dc5059d9df",
+      "power": "switched",
       "targets": [
         "87aaa7af-1a77-46f6-8c95-bf7db61de5fe",
         "62eae857-4599-411a-b74d-73c4f71a1c51"

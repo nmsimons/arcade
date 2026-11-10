@@ -95,8 +95,13 @@ export interface Climbing {
   pivot?: number
   /** How much the robot is lowering itself down the rope, from 0 to 1, eased; the legs reach down instead of flexing. */
   lowering?: number
-  /** Running, the body's pendulum angle from vertical along the arms that bear it, in world terms, and its rate. */
-  swingAngle?: { angle: number; velocity: number; legs?: number; legVelocity?: number }
+  /**
+   * Running, the chest's angle from vertical along the arms that bear it, in world terms, and its rate; the
+   * legs' own swing from the hips, and its rate; the hips' world x and its rate, whose surges swing the legs;
+   * which hands are reaching for a hold, and the drop as each one takes its weight, and its rate; and how much
+   * of a run the legs still carry, fading after it ends, so they swing on after a stop.
+   */
+  swingAngle?: { angle: number; velocity: number; legs?: number; legVelocity?: number; hip?: number; hipVelocity?: number; taking?: boolean[]; carry?: number; dip?: number; dipVelocity?: number }
   /** The body's swing beneath the hand that bears its weight: a world offset from its hang below the grip, and its velocity. */
   sway?: { x: number; y: number; vx: number; vy: number }
   bodyMotion?: RopeBodyMotion
@@ -216,12 +221,15 @@ export function ropePendulumPace(c: Climbing) {
  * under the leading hand along a level rope, up toward the high hand
  * climbing, down toward the low hand lowering. Hanging from one hand it
  * dips a little. Once both hands hold, it swings back between them. A damped spring carries the swing, so it lags
- * the hands, overshoots a little and settles. It is presentation only.
+ * the hands, overshoots a little and settles; each catch drops it onto the new arm. It is presentation only.
  */
 const SWAY_SHARE = 1, SWAY_FREQUENCY = 1.5, SWAY_DAMPING = .35, SWAY_LIMIT = 11
+/** How fast the body drops as a hand takes its weight at travel speed, and how much more when running. */
+const CATCH_DIP = 10, RUN_CATCH_DIP = 50
 export function stepRopeSway(c: Climbing, dt: number) {
   if (!(dt > 0)) return
   const s = c.sway ??= { x: 0, y: 0, vx: 0, vy: 0 }
+  const swing = c.swingAngle ??= { angle: 0, velocity: 0, legs: 0, legVelocity: 0 }
   if (c.rope) {
     // Moving down the screen at a climbing pace counts as lowering; the legs ease between the two over 0.15 s.
     const slope = climbPoint(c, c.distance + 1)[1] - climbPoint(c, c.distance - 1)[1]
@@ -230,6 +238,14 @@ export function stepRopeSway(c: Climbing, dt: number) {
   }
   let target: Point = [0, 0]
   if (c.rope && c.holds && !c.wall) {
+    // Along a level or sloping rope, as a hand closes on its next hold and takes the weight, the body drops a
+    // little onto that arm and bounces back: more the faster it goes, most when running, when the weight
+    // lands from a swing. Climbing a steep rope, the arms pull the body up to each new hold instead.
+    const taking = c.holds.map(h => h.reach < 1 && !!h.toward), level = 1 - (c.ropeVertical ?? 1)
+    const speed = Math.min(1, Math.abs(c.travelSpeed ?? 0) / 70) * level, running = ease(c.pace ?? 0) * level
+    // The drop is drawn only. It springs back on its own, apart from the sway, whose motion the hang reads.
+    for (const [i, was] of (swing.taking ?? []).entries()) if (was && !taking[i]) swing.dipVelocity = (swing.dipVelocity ?? 0) + speed * (CATCH_DIP + RUN_CATCH_DIP * running)
+    swing.taking = taking
     // A reaching hand bears almost nothing once it is clear of the rope.
     const load = c.holds.map(holdLoad)
     const support = (c.holds[0].at * load[0] + c.holds[1].at * load[1]) / (load[0] + load[1])
@@ -243,30 +259,48 @@ export function stepRopeSway(c: Climbing, dt: number) {
   for (let i = 0; i < steps; i++) {
     s.vx += (omega * omega * (target[0] - s.x) - damping * s.vx) * h; s.x += s.vx * h
     s.vy += (omega * omega * (target[1] - s.y) - damping * s.vy) * h; s.y += s.vy * h
+    swing.dipVelocity = (swing.dipVelocity ?? 0) - (omega * omega * (swing.dip ?? 0) + damping * (swing.dipVelocity ?? 0)) * h
+    swing.dip = (swing.dip ?? 0) + swing.dipVelocity * h
   }
   const size = Math.hypot(s.x, s.y)
   if (size > SWAY_LIMIT) { s.x *= SWAY_LIMIT / size; s.y *= SWAY_LIMIT / size }
-  // Running, the whole body swings like a pendulum along the arm it hangs by: behind a hand just taken
-  // hold ahead, beneath it, then out in front of it before the next. It has its own inertia, so it swings
-  // through each change of hands instead of snapping to the new arm.
-  const swing = c.swingAngle ??= { angle: 0, velocity: 0, legs: 0, legVelocity: 0 }
+  // Running, the body swings beneath the arms that bear it: behind a hand just taken hold ahead, beneath it,
+  // then out in front of it before the next. It is heavy. The chest follows the line of the holding arms only
+  // part way, and from between them while both hold, and eases across at each catch rather than flipping.
   const run = ease(c.pace ?? 0) * (1 - (c.ropeVertical ?? 1)) * ease(c.shimmyBlend ?? 0)
-  const holder = run && c.rope ? hangingHold(c) : null
+  swing.carry = Math.max(run, (swing.carry ?? 0) - dt / LEG_CARRY)
   let aim = 0
-  if (holder) {
-    const grip = climbPoint(c, c.distance), hand = climbPoint(c, holder.at)
-    aim = Math.atan2(grip[0] - hand[0], 18) * run
+  const holding = run && c.rope && !c.wall ? (c.holds ?? []).filter(h => h.reach >= 1) : []
+  if (holding.length) {
+    const grip = climbPoint(c, c.distance), hand = climbPoint(c, holding.reduce((a, h) => a + h.at, 0) / holding.length)
+    aim = Math.atan2(grip[0] - hand[0], 18) * run * CHEST_SWING
   }
-  // The legs swing after the body through nearly the same arc, a beat behind it, so they follow through
-  // each catch instead of whipping round as a hand takes hold.
-  const spring = 2 * Math.PI * 3, legSpring = 2 * Math.PI * 3.6
+  // The legs hang from the hips as a pendulum of their own under gravity, held toward the chest's line only
+  // by the hips' tone. A surge of the hips swings them back and they swing on through, so they lag each
+  // change of hands, carry on through it rather than turning with the chest, and keep swinging after a stop.
+  const tilt = (angle: number) => HIP_DROP * Math.sin(angle * .7)
+  const hip = (c.rope ? climbPoint(c, c.distance)[0] : 0) + s.x + tilt(swing.angle)
+  const hipVelocity = swing.hip === undefined ? 0 : (hip - swing.hip) / dt
+  const hipAcceleration = swing.hip === undefined ? 0 : Math.max(-3000, Math.min(3000, (hipVelocity - (swing.hipVelocity ?? 0)) / dt))
+  swing.hip = hip; swing.hipVelocity = hipVelocity
+  // A uniform leg hinged at the hip: the bob's pull is 3g/2L.
+  const gravity = TUNING.gravity * (c.bodyMotion?.weight ?? 1), pendulum = 1.5 * gravity / LEG_LENGTH
+  const spring = 2 * Math.PI * CHEST_FREQUENCY
   for (let i = 0; i < steps; i++) {
-    swing.velocity += (spring * spring * (aim - swing.angle) - 2 * .55 * spring * swing.velocity) * h
+    swing.velocity += (spring * spring * (aim - swing.angle) - 2 * CHEST_DAMPING * spring * swing.velocity) * h
     swing.angle = clamp(swing.angle + swing.velocity * h, -.7, .7)
-    swing.legVelocity = (swing.legVelocity ?? 0) + (legSpring * legSpring * (swing.angle - (swing.legs ?? 0)) - 2 * .7 * legSpring * (swing.legVelocity ?? 0)) * h
-    swing.legs = clamp((swing.legs ?? 0) + swing.legVelocity * h, -.7, .7)
+    const legs = swing.legs ?? 0
+    swing.legVelocity = (swing.legVelocity ?? 0) + (-pendulum * Math.sin(legs) - 1.5 * hipAcceleration / LEG_LENGTH * Math.cos(legs)
+      + HIP_TONE * (swing.angle - legs) - LEG_DAMPING * (swing.legVelocity ?? 0)) * h
+    swing.legs = clamp(legs + swing.legVelocity * h, -.9, .9)
   }
 }
+/** How far along its arms' line the chest swings running, and how quickly and calmly it follows them. */
+const CHEST_SWING = .55, CHEST_FREQUENCY = 2.2, CHEST_DAMPING = .6
+/** Hip to the chest's pivot, the legs' length from the hip, the hips' hold on the legs and the legs' damping. */
+const HIP_DROP = 17, LEG_LENGTH = 30, HIP_TONE = 12, LEG_DAMPING = 2.4
+/** Seconds over which the legs' own swing fades from view once a run ends. */
+const LEG_CARRY = 1.6
 /** The highest a hanging grip can go: the traveling hands reach 6 above it, clear of the anchor. */
 export const ROPE_TOP_GRIP = 18
 

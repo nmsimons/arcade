@@ -726,6 +726,18 @@ run with longer reaches and a slightly slower rhythm, at about 70 a second; easi
 off, stopping or turning back drops to the careful pace within 0.3 seconds. Setting
 off or turning back, the grip eases up to speed rather than reversing at full pace.
 
+The run is drawn heavy and loose (`stepRopeSway`). The hands change about 2.5
+times a second, far quicker than a body the robot's size swings under gravity, so
+the body cannot flip from arm to arm as one stiff piece. The chest leans only part
+way along the line of the holding arm, the bearing arm stays nearly straight, and
+the legs hang from the hips as a pendulum of their own under the game's gravity,
+held toward the chest only by the hips' tone. A surge of the hips swings them back
+and they swing on through each catch, so the body bends at the hips; easing off a
+run, they keep swinging and settle over about a second and a half. Along a level or
+sloping rope, the body also drops a little onto each arm as it takes the weight,
+most when running. All of this is drawn only: the drop has its own spring, apart
+from the sway whose motion the hang's physics reads.
+
 The robot faces the way it travels along a rope and turns around instead of going
 backward; the hands keep their holds while it turns. These rules apply to robots
 too, since they share the player's contacts. A robot's planned leap off a rope toward

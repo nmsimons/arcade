@@ -230,6 +230,8 @@ export function finishGravityTurn(p: Player) {
       if (c.swingAngle) {
         const m = c.swingAngle
         m.angle = -m.angle; m.velocity = -m.velocity; m.legs = -(m.legs ?? 0); m.legVelocity = -(m.legVelocity ?? 0)
+        // The hips' place is measured afresh, so the turn itself never reads as a surge of the hips.
+        delete m.hip; delete m.hipVelocity
       }
       if (c.sway) { c.sway.x = -c.sway.x; c.sway.vx = -c.sway.vx }
       if (c.setback) c.setback = -c.setback

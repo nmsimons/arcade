@@ -116,7 +116,7 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     // A rope's body hangs from its grip while the hands take turns, just behind the rope while traveling,
     // swinging toward whichever hand bears its weight.
     const sway = c.sway ?? { x: 0, y: 0 }
-    const mid = c.rope ? add(local(climbPoint(c, d)), [((c.setback ?? 0) * twist * smooth(c.pivot ?? 1) + sway.x) * p.facing, sway.y]) : mix(hands[0].point, hands[1].point, .5)
+    const mid = c.rope ? add(local(climbPoint(c, d)), [((c.setback ?? 0) * twist * smooth(c.pivot ?? 1) + sway.x) * p.facing, sway.y + (c.swingAngle?.dip ?? 0)]) : mix(hands[0].point, hands[1].point, .5)
     // Swinging, the chest hangs back behind the rope whichever way the robot pumps, the rope in front of its
     // face; pumping back, the hips and legs carry the arch.
     const out = -(c.rope ? Math.abs(lean) : lean) * 12, spread = 3.9 * blend * (1 - sideView)
@@ -143,7 +143,7 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     if (c.rope && c.holds) for (const [i, hold] of c.holds.entries()) {
       const other = c.holds[1 - i]
       if (hold.reach < 1 || other.reach >= 1 || !other.toward) continue
-      let amount = 6 * Math.sin(other.reach * Math.PI) * shimmying * (1 - .4 * run) * (1 - .7 * (c.ropeVertical ?? 0))
+      let amount = 6 * Math.sin(other.reach * Math.PI) * shimmying * (1 - .85 * run) * (1 - .7 * (c.ropeVertical ?? 0))
       const dx = hands[i].point[0] - chest[0], dy = hands[i].point[1] - chest[1], length = Math.hypot(dx, dy)
       if (amount < .01 || length < amount + 8) continue
       const rope = Array.from({ length: 31 }, (_, k) => local(climbPoint(c, Math.max(0, Math.min(c.rope!.definition.length, d - 30 + k * 2)))))
@@ -152,13 +152,14 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
       if (after < limit) amount *= Math.max(0, Math.min(1, (before - limit) / Math.max(1e-6, before - after)))
       chest[0] += dx / length * amount; chest[1] += dy / length * amount
     }
-    // Running along a level rope, the body swings like a pendulum from the hand it hangs by, carrying on
-    // along the line of that arm, trailing behind it, then swinging out ahead. It swings loosely, not as one
-    // board: the chest follows the arm, the hips follow the legs, which swing through a beat later, and the
-    // waist flexes between them. As the legs swing forward the waist pikes, drawing them through; swinging
-    // back, it opens into an arch. A little of each holds at the ends of the swing: piked out in front, arched
-    // behind.
-    const bodySwing = c.swingAngle?.angle ?? 0, legSwingAngle = c.swingAngle?.legs ?? 0, legVelocity = c.swingAngle?.legVelocity ?? 0
+    // Running along a level rope, the body swings beneath the hands that bear it, trailing behind a hand just
+    // taken hold ahead, then swinging out in front of it. It is heavy and loose, not one board: the chest leans
+    // part way along the holding arm, the legs swing from the hips as a pendulum of their own (see
+    // stepRopeSway), and the waist flexes between them. As the legs swing forward the waist pikes, drawing them
+    // through; swinging back, it opens into an arch.
+    // The legs' own swing shows only while running and as a run's carry fades (see stepRopeSway).
+    const legRun = Math.max(run, smooth(c.swingAngle?.carry ?? 0))
+    const bodySwing = c.swingAngle?.angle ?? 0, legSwingAngle = (c.swingAngle?.legs ?? 0) * legRun, legVelocity = (c.swingAngle?.legVelocity ?? 0) * legRun
     const forward = smooth(Math.max(0, legVelocity * p.facing) / 8), backward = smooth(Math.max(0, -legVelocity * p.facing) / 8)
     const legsAhead = Math.max(-1, Math.min(1, legSwingAngle * p.facing / .5))
     const tap = (-.4 * forward + .28 * backward - .15 * legsAhead) * run
@@ -183,20 +184,21 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     // hang apart under the hips.
     const trail = Math.sin(c.bodyMotion?.legs ?? 0) * 20
     const lowering = smooth(c.lowering ?? 0)
-    // Running, the legs swing loosely after the body, through nearly its whole arc but a beat behind it, so
-    // the body bends at the hips through each catch instead of flipping over stiffly. The trailing leg hangs
-    // a few degrees further back with a little more bend, the two in a gentle scissor. The knees stay soft,
-    // never locked; only while the legs swing forward do the shins trail behind them, the knees bending
-    // further, then they lengthen again toward each end of the swing. The waist's pike and arch carry the legs.
+    // Running, the legs swing loosely from the hips, lagging each surge and carrying on through each catch, so
+    // the body bends at the hips instead of flipping over stiffly. The trailing leg hangs a few degrees further
+    // back with a little more bend, the two in a gentle scissor. The knees stay soft, never locked; only while
+    // the legs swing forward do the shins trail behind them, the knees bending further, then they lengthen
+    // again toward each end of the swing. The waist's pike and arch carry the legs.
     const through = forward * run
-    const legTurn = (i: number) => lerp(swingAngle, -.85 * legSwingAngle * p.facing + (i ? .1 : 0) + through * .08, run) + tap * .7
+    // After a run the legs swing on from the hips, settling as the run's carry fades.
+    const legTurn = (i: number) => lerp(swingAngle, -.85 * legSwingAngle / (legRun || 1) * p.facing, legRun) + ((i ? .1 : 0) + through * .08) * run + tap * .7
     // Hip to ankle, for a knee bent by the given angle.
     const bentLength = (bend: number) => Math.sqrt(15 ** 2 + 14.5 ** 2 + 2 * 15 * 14.5 * Math.cos(bend)) + 1
     const straight = smooth(Math.min(1, run * 2.5))
     const relaxed = (i: number): Point => {
       const lift = c.holds?.[i] && c.holds[i].reach < 1 && c.holds[i].toward ? Math.sin(c.holds[i].reach * Math.PI) * (1 - .6 * run) : 0
       const x = (-2.5 + (i ? 0 : 1.5) * (1 - run) + lift * lerp(-2, .5, lowering)) * sideView + (i ? 3.4 : -3.4) * (1 - sideView)
-        + trail * (i ? .85 : 1) * p.facing * (1 - .7 * run) + rock * 3
+        + trail * (i ? .85 : 1) * p.facing * (1 - .7 * legRun) + rock * 3
       const y = lerp(i ? 29.5 : 29.1, 30.3, straight) + lift * lerp(-2.5, 1, lowering)
       const length = Math.hypot(x, y), running = bentLength(.17 + .26 * through + (i ? .15 : 0))
       const scale = lerp(length, running, run) / (length || 1)

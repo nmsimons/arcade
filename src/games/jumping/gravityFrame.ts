@@ -137,6 +137,9 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
       seen.add(value.bodyMotion); value.bodyMotion.gripVy = -value.bodyMotion.gripVy
     }
     if (value.sway && !seen.has(value.sway)) { seen.add(value.sway); value.sway.y = -value.sway.y; value.sway.vy = -value.sway.vy }
+    if (value.swingAngle && !seen.has(value.swingAngle)) {
+      seen.add(value.swingAngle); value.swingAngle.dip = -(value.swingAngle.dip ?? 0); value.swingAngle.dipVelocity = -(value.swingAngle.dipVelocity ?? 0)
+    }
   }
   p.y = -p.y; p.vy = -p.vy; p.spawnY = -p.spawnY; p.jumpStart = -p.jumpStart; p.groundAngle = -p.groundAngle
   if (p.gravity !== undefined) p.gravity = -p.gravity

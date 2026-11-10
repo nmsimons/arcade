@@ -101,7 +101,7 @@ export const CASES = [
     setup: run => { const low = lowest(run.level.climbables.ropes[0]); at(low[0], low[1] + 50)(run) },
     script: [...catchAndSettle, [{ move: 1 }, 200]], review: [80, 280] },
   { id: 'tied-run', title: 'Hold Right along a long rope: build from a careful shimmy into a swinging run, then stop',
-    expect: 'Holding Right, the robot sets off with the careful hand over hand, then after about half a second builds into a swinging run like an orangutan: long reaches, the body swinging like a pendulum beneath each hand, fastest as it passes under the hand, legs trailing and swinging. It should read as graceful, natural and fun. Letting go, it slows into the careful gait and settles.',
+    expect: 'Holding Right, the robot sets off with the careful hand over hand, then after about half a second builds into a swinging run: long reaches, fastest as the body passes under each hand, the chest leaning part way along the holding arm, the legs swinging loosely from the hips a beat behind it, and the body dropping a little onto each arm as it takes the weight. It should read heavy and loose, never flipping from arm to arm as one stiff board, and still graceful and fun. Letting go, it slows into the careful gait, the legs swinging on, and settles.',
     level: () => room({ platforms: pillars(500, 1900, 600), climbables: ropes([tied(500, 620, 1900, 620, 1440)]) }), setup: run => { const near = run.level.climbables.ropes[0].rest.points.reduce((a, b) => Math.abs(b[0] - 760) < Math.abs(a[0] - 760) ? b : a); at(near[0], near[1] + 50)(run) },
     script: [...catchAndSettle, [{ move: 1 }, 480], [{}, 150]], review: [70, 700] },
   { id: 'tied-wall-anchor', title: 'Shimmy up a sloped rope to its anchor on a wall face, press on, then rest',

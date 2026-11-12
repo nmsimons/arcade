@@ -17,11 +17,10 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.stairCamera = this.getTransform().inverse()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.stairCamera = transform.inverse()
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
       if (canvas.stairCamera) {
         const root = canvas.stairCamera.multiply(body)

@@ -25,19 +25,15 @@ async function open(page, level, { renderControl = true } = {}) {
       if (String(args[0]).includes('lightingGeometry.worker')) window.builderLightingWorkers++
       return Reflect.construct(target, args)
     } })
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc, begin = proto.beginPath, move = proto.moveTo, fill = proto.fill
-    proto.beginPath = function (...args) { this.jumpPath = []; return begin.apply(this, args) }
-    proto.moveTo = function (x, y) { this.jumpPath?.push([x, y]); return move.call(this, x, y) }
-    proto.fill = function (...args) {
-      if (this.shadowBlur === 3) this.jumpDigitalFace = JSON.stringify(this.jumpPath)
-      return fill.apply(this, args)
-    }
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc
+    // Wall timers are read from the renderer's display reports (src/games/jumping/debugFrames.ts):
+    // the reading stands for the face, and the transform places it.
+    window.addEventListener('jumping-display', ({ detail: { canvas, transform: t, value } }) => {
+      const camera = canvas.jumpCamera
+      if (value[2] === ':' && camera) canvas.wallTimers?.push({ face: value, x: (t.e - camera.e) / camera.a, screenX: t.e })
+    })
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.builderWorldDraws = (this.canvas.builderWorldDraws ?? 0) + 1; this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = []; this.canvas.builderHandles = []; this.canvas.builderLabels = [] }
-      if (args[0] === 66 && args[1] === 12 && args[2] === 3 && args[3] === 3) {
-        const t = this.getTransform(), camera = this.canvas.jumpCamera
-        if (camera) this.canvas.wallTimers?.push({ face: this.jumpDigitalFace, x: (t.e - camera.e) / camera.a, screenX: t.e })
-      }
       if (this.fillStyle === '#c65231' && args[2] === args[3]) this.canvas.builderHandles?.push({ x: args[0] + args[2] / 2, y: args[1] + args[3] / 2 })
       return rect.apply(this, args)
     }

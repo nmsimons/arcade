@@ -9,11 +9,10 @@ async function open(page, level = blankTrial()) {
   await useLevelFixtures(page, [level])
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.touchCamera = this.getTransform()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.touchCamera = transform
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
       if (canvas.touchCamera) {
         const camera = canvas.touchCamera

@@ -13,11 +13,10 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.climbCamera = this.getTransform().inverse()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.climbCamera = transform.inverse()
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, head: args } }) => {
       if (canvas.climbCamera) {
         const transform = canvas.climbCamera.multiply(body)
@@ -74,11 +73,10 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.ledgeCamera = this.getTransform().inverse()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.ledgeCamera = transform.inverse()
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
       if (canvas.ledgeCamera) {
         const transform = canvas.ledgeCamera.multiply(body)

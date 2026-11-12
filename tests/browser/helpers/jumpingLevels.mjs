@@ -84,10 +84,12 @@ export async function finishJumpingEntrance(page) {
   await page.clock.runFor(waking ? 3600 : 1350)
   // Preparation and the first RAF can delay the opening. Advance neutral
   // frames until its published status confirms that ordinary controls are live.
+  // Real preparation work, not test time, sets how long that takes, so a busy
+  // machine gets longer than expect's default 5 s.
   await expect.poll(async () => {
     await page.clock.runFor(16)
     return page.locator('.jumping-state').innerText()
-  }, { intervals: [0] }).not.toMatch(/^(Entering the level|Waking up)$/)
+  }, { intervals: [0], timeout: 20000 }).not.toMatch(/^(Entering the level|Waking up)$/)
   // Begin controls on a rendered frame, keeping recorded input phases stable.
   const now = await page.evaluate(() => performance.now())
   await page.clock.runFor((16 - now % 16) % 16)

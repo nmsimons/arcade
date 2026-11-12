@@ -1,6 +1,7 @@
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import type { Grade } from './grading.ts'
+import { reportDisplay } from './debugFrames.ts'
 
 /** Shared six-by-two-tile alarm-clock housing. Digits emit readability, not light. */
 export const DIGITAL_DISPLAY_WIDTH = 120
@@ -59,6 +60,7 @@ function drawSegments(ctx: CanvasRenderingContext2D, value: string, lit: boolean
 export function drawDigitalDisplay(ctx: CanvasRenderingContext2D, x: number, y: number, value: string,
   color = DIGITAL_GREEN, icon?: DigitalIcon, paint: WorldPaint = paintNormally, options: { grade?: Grade; dimmed?: boolean } = {}) {
   ctx.save(); ctx.translate(x, y)
+  reportDisplay(ctx.canvas, () => ctx.getTransform(), value, options.dimmed ? DIGITAL_DIM : color)
   paint(ctx, 0, () => {
     drawDigitalHousing(ctx, DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT)
     ctx.fillStyle = DIGITAL_INACTIVE; drawSegments(ctx, value, false)

@@ -164,13 +164,12 @@ test('existing version-1 levels receive daylight in the live game without upgrad
   const legacy = JSON.parse(readFileSync(new URL('../fixtures/jumping/lighting-prototype.json', import.meta.url))).level
   await useLevelFixtures(page, [legacy])
   await page.addInitScript(() => {
-    const fill = CanvasRenderingContext2D.prototype.fillRect
-    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
-      if (this.canvas.matches('.jumping-game > canvas') && this.fillStyle === '#f1f1ed') {
-        const { a, d, e, f } = this.getTransform(); window.daylightCamera = { a, d, e, f }
-      }
-      return fill.apply(this, args)
-    }
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      if (!(canvas instanceof HTMLCanvasElement) || !canvas.matches('.jumping-game > canvas')) return
+      const { a, d, e, f } = transform; window.daylightCamera = { a, d, e, f }
+    })
   })
   await page.goto('/lab/library')
   await page.getByRole('button', { name: `Play ${legacy.name}`, exact: true }).click()

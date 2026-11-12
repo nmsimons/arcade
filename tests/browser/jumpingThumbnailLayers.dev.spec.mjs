@@ -46,11 +46,11 @@ test('objects occlude collectibles, wall timers and text in thumbnails and gamep
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
     // Each canvas records the camera transform of the frame it last painted.
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.levelCamera = this.getTransform()
-      return rect.apply(this, args)
-    }
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.levelCamera = transform
+    })
   })
   await page.goto('/lab/library?renderControl=1')
   const thumbnail = page.locator('.jumping-level-card[aria-pressed=true] canvas')

@@ -1,5 +1,6 @@
 import type { AthleteOutline } from './athleteDraw.ts'
 import type { AthletePose } from './athleteRig.ts'
+import { reportHead } from './debugFrames.ts'
 
 type Point = readonly [number, number]
 type Limb = { root: Point; joint: Point; end: Point }
@@ -140,6 +141,7 @@ export function drawAndroidTorso(ctx: CanvasRenderingContext2D, pose: AthletePos
   ctx.restore()
 }
 export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt: number, materials: AndroidMaterials, width = 1) {
+  reportHead(ctx.canvas, () => ctx.getTransform(), head, ctx.globalAlpha, materials.face)
   ctx.save(); ctx.translate(...head); ctx.rotate(tilt)
   const outer = shape(path => headShell(path, [0, 0], 0, width))
   const at = headPoint([0, 0], 0, width)

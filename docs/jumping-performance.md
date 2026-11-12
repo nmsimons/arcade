@@ -80,6 +80,33 @@ frame, a screen-sized mask; the wall displays draw every lit segment with a 3 px
 field is rendered and composited over the whole view every frame, because its
 caches require a level without mechanisms, pickups, ropes or fields.
 
+### Canvas fixes
+
+Each change was timed against the build before it, interleaved, and its frames
+compared with `scripts/compare-jumping-frames.mjs`. That script plays both builds
+on a fake clock, so their game state is identical, and compares every pixel; the
+same build against itself gives zero difference. Figures are DPR 1.5 fps unless
+noted; absolute rates moved with machine load between runs.
+
+| Change | Pixels | Frame rate |
+| --- | --- | --- |
+| Terrain edges: trim each relief strip to the terrain once, when the relief is cached, instead of clipping to the whole silhouette every frame | A one-pixel ring at the outer edge of the shading, up to 9/255, mean 0.005 | 120: 58.5 → 60.1, 1325: 56.7 → 58.8, 3100: 55.9 → 59.3, 3875: 55.0 → 57.1, 5450: 50.0 → 50.8; at DPR 1, missed frames on the first two sections fell from 21 to 0 and 3 |
+| Display glow: draw each display's glow once into a cached image (`glowCache.ts`), redrawn only when its reading changes, under crisp shapes with no shadow | Identical | 5450: 34.9 → 38.4, frame CPU 7.5 → 5.9 ms; elsewhere no display is on screen |
+| Backdrop panels: two strokes for all panel edges instead of two per panel | Only where neighbouring panels' lines meet: 1 channel in 30,000, up to 13/255 | 120: +2.1, 3100: +4.4, 3875: +2.6, 5450: +2.6, 1325: −0.4 (noise) |
+| Sounds: make the samples in idle time before the first key press (`soundSteps`); the press copies them in when the device rate matches | Samples bit-identical at 24, 44.1 and 48 kHz | Removes about 40 ms of the first-key-press stall; creating the `AudioContext` on the press still takes 11–70 ms |
+
+The edge ring comes from anti-aliasing: under the old clip, an edge pixel half
+inside the terrain got the strip's coverage times the clip's, about a quarter;
+the trimmed strip gives about half. Ground cover's clips were left as they are:
+an exact trim needs polygon subtraction for the occluders, for about 4 fps.
+
+The trim also moved one pixel by one step in `jumpingAmbientBuffer`'s exact
+comparison of the optimized and reference lighting renderers. The optimized one
+redraws the actors' patch through a view offset by whole pixels, and Canvas keeps
+transforms in float32, so an edge on the rasterizer's grid can round either way:
+before the trim, 3 of 40 camera positions already differed by one step, and 5 of
+40 after. The test now allows one step; a stale or leaked buffer differs by far more.
+
 ## October 28, 2026: Exit GPU budget and repeated artwork
 
 Live regional lighting now selects the largest backing dimensions that fit the

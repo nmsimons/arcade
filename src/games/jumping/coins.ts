@@ -1,5 +1,6 @@
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
+import { drawCachedGlow, glowCacheable } from './glowCache.ts'
 import { DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT, DIGITAL_DIM, DIGITAL_GREEN, DIGITAL_INACTIVE, drawDigitalDisplay, drawDigitalHousing } from './digitalDisplay.ts'
 
 /** Plain gold discs with a substantial edge turn slowly about their vertical axis. */
@@ -44,15 +45,15 @@ export function drawCoinSwitch(ctx: CanvasRenderingContext2D, switch_: { x: numb
   const inset = 6, length = (vertical ? h : w) - inset * 2, thickness = (vertical ? w : h) - inset * 2
   const pitch = length / switch_.threshold, gap = Math.min(3, pitch * .25), segmentLength = pitch - gap
   const filled = Math.min(switch_.threshold, Math.max(0, Math.floor(collected)))
-  const drawSegments = (from: number, to: number) => {
-    ctx.beginPath()
+  const drawSegments = (from: number, to: number, target = ctx) => {
+    target.beginPath()
     for (let i = from; i < to; i++) {
       const along = inset + (vertical ? switch_.threshold - i - 1 : i) * pitch + gap / 2
       const radius = Math.min(1.5, segmentLength / 2)
-      if (vertical) ctx.roundRect(inset, along, thickness, segmentLength, radius)
-      else ctx.roundRect(along, inset, segmentLength, thickness, radius)
+      if (vertical) target.roundRect(inset, along, thickness, segmentLength, radius)
+      else target.roundRect(along, inset, segmentLength, thickness, radius)
     }
-    ctx.fill()
+    target.fill()
   }
   ctx.save(); ctx.translate(x, y)
   paint(ctx, 0, () => {
@@ -62,10 +63,17 @@ export function drawCoinSwitch(ctx: CanvasRenderingContext2D, switch_: { x: numb
   // Separate LED cells share the numeric face's glow and activation green.
   // Empty cells, dark gaps, and the housing still receive ordinary room light.
   paint(ctx, dimmed ? 0 : .65, () => {
-    ctx.fillStyle = dimmed ? DIGITAL_DIM : active ? DIGITAL_GREEN : COIN_COLOR
-    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = dimmed ? 0 : 3
-    drawSegments(0, filled)
-    ctx.shadowBlur = 0
+    const color = dimmed ? DIGITAL_DIM : active ? DIGITAL_GREEN : COIN_COLOR
+    ctx.fillStyle = color
+    // In ordinary light the glow comes from a cached image, drawn again only when the count changes.
+    if (!dimmed && paint === paintNormally && glowCacheable(ctx)) {
+      drawCachedGlow(ctx, `bar:${vertical}:${switch_.threshold}:${filled}`, w, h, color, 3, glow => drawSegments(0, filled, glow))
+      drawSegments(0, filled)
+    } else {
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = dimmed ? 0 : 3
+      drawSegments(0, filled)
+      ctx.shadowBlur = 0
+    }
   })
   ctx.restore()
 }

@@ -51,7 +51,12 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: daylight ambient corr
   }, backend)
   await info.attach('render-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
   expect(result.frames).toBe(14)
-  expect(result.worst).toBe(0)
+  // The optimized renderer redraws the actors' patch through a view offset by
+  // whole pixels. Canvas keeps transforms in float32, so an edge can land
+  // about 1/30,000 px from where the full view puts it, and an edge on the
+  // rasterizer's grid then rounds one step the other way. That happens at a
+  // few camera positions on any terrain; a stale or leaked buffer differs by far more.
+  expect(result.worst).toBeLessThanOrEqual(1)
   expect(result.optimizedResizes).toBe(0)
   expect(result.referenceResizes).toBe(40)
 })

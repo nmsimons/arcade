@@ -15,8 +15,9 @@
 //                             terrain-texture (flat colour instead of the material pattern),
 //                             fields, climbables, athlete, water; see src/games/jumping/measureLayers.ts). Repeat to
 //                             price several layers; variants alternate with the bundles.
-//     --renderer <name>=<value>  Draw that bundle or variant with localStorage `jumping:renderer` = value (such as
-//                             webgl), so one build can be measured on two renderers.
+//     --renderer <name>=<value>  Draw that bundle or variant with localStorage `jumping:renderer` = value: canvas
+//                             for Canvas alone, webgl for the default (WebGL where the GPU runs it), so one build
+//                             can be measured on two renderers.
 //     --trace                 Add one traced episode per section, on the first bundle at the highest DPR, and report
 //                             how busy each browser thread was, the GPU process's included.
 //     --profile               Add one CPU-profiled episode per section, on the first bundle, for attribution.

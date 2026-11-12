@@ -1,6 +1,5 @@
 import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
-import { webglLayersSetting } from './jumping/worldLayers'
-import { WorldRenderer } from './jumping/worldRenderer'
+import { WorldRenderer, worldRendererSetting } from './jumping/worldRenderer'
 import type { WebGLWorldFrame } from './jumping/worldFrame'
 import { LabLogo } from '../branding/LabLogo'
 import { LAB_NAME } from '../branding/lab'
@@ -140,15 +139,15 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const nextFile = playingFiles.slice(campaignIndex + 1).find(file => levelProblems(file.level).length === 0)
   const [editorFile, setEditorFile] = useState<{ file: LevelFile; key: number } | null>(null)
   const [recordKey, setRecordKey] = useState(initialCatalog.files[0]?.level.id ?? '')
-  const rootRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null), glCanvasRef = useRef<HTMLCanvasElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null)
   const [initialRun] = useState(() => createRun(blankTrial()))
   const run = useRef<Run | null>(initialRun)
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
   const playgroundEntrance = useRef<EntranceAnimation | null>(null)
   const audio = useRef<JumpingSoundSession | null>(null)
   const paintFrame = useRef<() => void>(() => {})
-  // The WebGL renderer, while it is a developer setting (docs/jumping-webgl-renderer.md).
-  const [webglSetting] = useState(webglLayersSetting)
+  // WebGL draws daylight frames where the GPU runs it; ?renderer=canvas keeps Canvas (docs/jumping-webgl-renderer.md).
+  const [webglSetting] = useState(worldRendererSetting)
   const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto', webglLayers: webglSetting }))
   const [performanceMonitor] = useState(() => import.meta.env.DEV ? new PerformanceMonitor() : null)
   const [devOpen, setDevOpen] = useState(false)
@@ -883,9 +882,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   useEffect(() => {
     const canvas = canvasRef.current!, ctx = lightingRenderer.drawingContext(canvas)
     // WebGL draws the frames it covers on its own canvas over this one; Canvas draws the rest.
-    const worldRenderer = new WorldRenderer(lightingRenderer, glCanvasRef.current, webglSetting)
-    // While WebGL is a developer setting, probes read how many frames it drew and why any were left to Canvas.
-    if (worldRenderer.webgl) (window as Window & { jumpingWorldFrame?: WebGLWorldFrame }).jumpingWorldFrame = worldRenderer.webgl
+    const worldRenderer = new WorldRenderer(lightingRenderer, canvas, webglSetting)
+    // Probes read how many frames WebGL drew and why any were left to Canvas.
+    const frameWindow = window as Window & { jumpingWorldFrame?: WebGLWorldFrame }
+    if (worldRenderer.webgl) frameWindow.jumpingWorldFrame = worldRenderer.webgl
     // The context itself is deferred until a pointer, keyboard or controller action.
     const sound = new JumpingSoundSession()
     // Sampling the complete rig every physics tick is expensive near cave lips.
@@ -1055,6 +1055,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       sound.dispose(); audio.current = null; lightingRenderer.dispose(); worldRenderer.dispose(); paintFrame.current = () => {}
       if (motionView && debugWindow.jumpingMotion === motionView) delete debugWindow.jumpingMotion
       if (renderView && debugWindow.jumpingRendering === renderView) delete debugWindow.jumpingRendering
+      if (worldRenderer.webgl && frameWindow.jumpingWorldFrame === worldRenderer.webgl) delete frameWindow.jumpingWorldFrame
       cancelAnimationFrame(frame); observer.disconnect()
       window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', suspend); document.removeEventListener('visibilitychange', visibility)
@@ -1066,7 +1067,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   return <div className={`jumping-game${screen === 'playing' && !devOpen ? ' jumping-playing' : ''}`} ref={rootRef} aria-busy={busy || undefined} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? isHubLevel(trial) ? trial.name : `${trial.name}: reach the exit` : `${LAB_NAME} movement playground`}
       onPointerDown={event => { if (event.pointerType === 'mouse' && event.button === 0 && screenRef.current === 'playing') { touch.gadgetAction('use'); canvasRef.current?.focus() } }} />
-    {webglSetting !== 'off' && <canvas ref={glCanvasRef} className="jumping-webgl-canvas" aria-hidden="true" />}
     {screen === 'playing' && <>
       {!devOpen && <JumpingTouchControls canvasRef={canvasRef} reader={touch} active available={touchAvailable}
         gadgets={!!trial.props?.some(prop => prop.gadget)}

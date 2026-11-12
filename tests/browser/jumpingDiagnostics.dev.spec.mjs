@@ -17,5 +17,5 @@ for (const enabled of [false, true]) test(`motion diagnostics are ${enabled ? 'a
     expect(sample.vy).toBeLessThan(0)
     expect(sample.signals.grounded).toBe(false)
   }
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
 })

@@ -252,13 +252,13 @@ test('the outdoor endpoint waits for Up, retains the view and saves completion',
     lighting: { ...finale.lighting, lights: [] }, triggers: [], mechanisms: [] }
   await installBuiltInFixtures(page, { 'ending.json': level })
   await page.goto('/lab/levels/built-in/ending.json')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
   await expect(page.locator('.jumping-state')).not.toHaveText('Entering the level', { timeout: 30000 })
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused', exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
   await page.keyboard.down('ArrowUp')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible({ timeout: 30000 })
   await page.keyboard.up('ArrowUp')
@@ -273,7 +273,7 @@ test('Spelunk III: keyboard play climbs the whole cave, reveals the exterior con
   await installBuiltInFixtures(page, { 'spelunk3.jump-level.json': finale })
   await page.setViewportSize({ width: 960, height: 640 })
   await page.goto('/lab/builder/built-in/spelunk3.jump-level.json/playtest?motionDebug=1')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
   await expect.poll(() => page.evaluate(() => window.jumpingMotion?.read().recent.length ?? 0), { timeout: 30000 }).toBeGreaterThan(0)
   // Read-only motion diagnostics observe the real rendered run. All movement
   // comes from keyboard controls, at normal speed, without a mocked clock.

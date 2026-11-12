@@ -102,6 +102,13 @@ interface Target {
   fieldFbo: WebGLFramebuffer; fieldColor: WebGLRenderbuffer; fieldResolveFbo: WebGLFramebuffer; field: WebGLTexture
 }
 
+/** Whether a context draws on the CPU: slower than Canvas 2D, which may still have the GPU. */
+export function softwareRenderer(gl: WebGLRenderingContext | WebGL2RenderingContext) {
+  const info = gl.getExtension('WEBGL_debug_renderer_info')
+  const name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? '')
+  return /SwiftShader|llvmpipe|softpipe|Software Rasterizer|Microsoft Basic Render Driver/i.test(name)
+}
+
 export class GlFrame {
   readonly canvas: HTMLCanvasElement | OffscreenCanvas
   private gl: WebGL2RenderingContext
@@ -135,6 +142,8 @@ export class GlFrame {
       preserveDrawingBuffer: false, failIfMajorPerformanceCaveat: !allowSoftware }) as WebGL2RenderingContext | null
     // A canvas whose context was lost keeps returning it, lost, until the browser restores it.
     if (!gl || gl.isContextLost()) throw new Error('WebGL 2 is unavailable.')
+    // Some browsers accept the caveat flag even when ANGLE draws on the CPU, as headless Chromium's SwiftShader does.
+    if (!allowSoftware && softwareRenderer(gl)) { gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('WebGL 2 runs in software.') }
     this.gl = gl
     this.samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) as number)
     const view = ['view', 'size', 'zoom', 'field', 'light', 'ambient']

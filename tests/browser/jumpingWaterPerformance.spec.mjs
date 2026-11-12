@@ -4,7 +4,7 @@ import { playWaterPerformanceFixture, waterEffectsFrame, slowWaterFrames } from 
 test('production low performance fallback disables water effects and restart restores them', async ({ page }) => {
   const { fullPixels } = await playWaterPerformanceFixture(page)
   await slowWaterFrames(page)
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   expect(await canvas.evaluate(c => c.width * c.height)).toBeLessThan(fullPixels)
   expect(await waterEffectsFrame(page)).toEqual({ surface: 0, droplets: 0, flat: 1 })
   const before = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1).waterCenter)

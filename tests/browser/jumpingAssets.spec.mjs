@@ -7,7 +7,7 @@ const custom = (id, name) => ({ ...structuredClone(first), id, name })
 /** Opens a level by its link and reads the name it plays under. */
 async function play(page, file) {
   await openLevelLink(page, { file })
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   // The game shows a blank "Untitled level" until the linked course is ready.
   await expect.poll(async () => { const label = await canvas.getAttribute('aria-label') ?? ''; return label.endsWith(': reach the exit') && !label.startsWith('Untitled level') },
     { timeout: 30000 }).toBe(true)

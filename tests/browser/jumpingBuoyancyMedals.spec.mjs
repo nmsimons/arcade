@@ -67,7 +67,7 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   await page.screenshot({ path: info.outputPath('filled-pool.png') })
   // Observe the watch's actual effect; the larger floating cargo changes how
   // closely the player can approach its center before jumping toward the bank.
-  const clockStopped = () => page.locator('.jumping-game > canvas').evaluate((canvas, amber) =>
+  const clockStopped = () => page.locator('.jumping-game > canvas[role="img"]').evaluate((canvas, amber) =>
     canvas.digitalClocks?.some(clock => clock.color === amber), DIGITAL_AMBER)
   await steer(['d'], clockStopped, 'collect the stopwatch')
   await steer(['d', 'w', 'Space'], p => p.x >= 1300 && (p.y < 530 || p.signals.mode === 'hang'), 'jump toward the right bank')

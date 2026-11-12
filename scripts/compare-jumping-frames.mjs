@@ -9,8 +9,9 @@
 //     --dpr 1,1.5            Device pixel ratios (default 1,1.5) at a 1280x800 CSS viewport.
 //     --at 0,900,1800,2700   Capture times in ms after the opening, running right with a jump every 0.9 s.
 //     --out <dir>            Captures and diff images (default .local/perf/compare-<level>-<time>).
-//     --renderer name=value  Draw that bundle with localStorage `jumping:renderer` = value (such as webgl), so
-//                            one build can be compared with itself on two renderers.
+//     --renderer name=value  Draw that bundle with localStorage `jumping:renderer` = value: canvas for Canvas
+//                            alone, webgl for the default (WebGL where the GPU runs it), so one build can be
+//                            compared with itself on two renderers.
 //
 // Per frame it reports the largest channel difference (of 255), the mean difference, and the share of
 // channels that differ by more than 2. The October 2026 Exit work held changes to max 3, mean < 0.03 and

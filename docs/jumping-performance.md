@@ -1,13 +1,31 @@
 # LAB performance notes
 
+## November 12, 2026: WebGL by default, and cheaper WebGL frames
+
+WebGL now draws daylight frames by default wherever the GPU runs WebGL 2
+(`?renderer=canvas` keeps Canvas). Its shape cache keys shapes in their own
+frame, so artwork that turns as well as moves (a robot's head and palm plates, a
+coin's spin) reuses its triangles, and whole ellipses and coin edges are drawn
+from a unit circle without the cache. Per frame in play in hardware Edge, the
+build fell from 0.83 to about 0.45 ms on Full Tilt and from 0.90 to 0.59–0.80 ms
+on Ascent; in production bundles, interleaved, the main thread's frame time
+(p50) fell by 0.35 ms on Full Tilt and 1.4 ms on Ascent on average, with missed
+frames unchanged within noise ([details](jumping-webgl-renderer.md#after-phase-2-the-default-and-the-main-thread)).
+
+Main-thread times are not comparable across the two renderers on the reference
+laptop: a fixed computation timed each frame runs about 1.5 times slower while
+WebGL draws, apparently because the processor clocks down once the GPU process
+is idle. Compare one renderer before and after a change, interleaved.
+
 ## November 11, 2026: WebGL draws whole daylight frames
 
 Phase 2 of the WebGL renderer ([plan](jumping-webgl-renderer.md#phase-2-daylight-frames))
 draws the whole frame of daylight play without lamps or an environment with
 WebGL 2, on its own canvas in one context; Canvas draws every other frame as
-before. The same developer setting turns it on (`?renderer=webgl`, or
-localStorage `jumping:renderer` = `webgl`), and the performance monitor's
-lighting renderer reads "WebGL frame" while it draws.
+before. Since November 12 it is the default wherever the GPU runs WebGL 2;
+`?renderer=canvas`, or localStorage `jumping:renderer` = `canvas`, turns it
+off, and the performance monitor's lighting renderer reads "WebGL frame" while
+it draws. The tools take `--renderer <name>=canvas` or `<name>=webgl`.
 
 Full Tilt in hardware Edge, one production build on both renderers,
 interleaved, three 6 s episodes per section, adaptive quality off

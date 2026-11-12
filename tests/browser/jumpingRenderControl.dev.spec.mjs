@@ -11,7 +11,7 @@ async function play(page, query) {
   await openLevelLink(page, { query, pauseAt: new Date('2026-01-01T01:00:00Z') })
   await finishJumpingEntrance(page)
 }
-const pixels = page => page.evaluate(() => document.querySelector('.jumping-game > canvas').toDataURL())
+const pixels = page => page.evaluate(() => document.querySelector('.jumping-game > canvas[role="img"]').toDataURL())
 const position = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1).x)
 
 test('render control is absent unless the page opts in', async ({ page }) => {

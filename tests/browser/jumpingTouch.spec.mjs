@@ -29,7 +29,7 @@ async function open(page, level = blankTrial()) {
 }
 const position = page => page.evaluate(() => window.touchPlayer)
 async function pointer(page, type, id, x = 700, y = 270) {
-  await page.locator('.jumping-game > canvas').evaluate((canvas, p) => canvas.dispatchEvent(new PointerEvent(p.type, {
+  await page.locator('.jumping-game > canvas[role="img"]').evaluate((canvas, p) => canvas.dispatchEvent(new PointerEvent(p.type, {
     pointerType: 'touch', pointerId: p.id, isPrimary: p.id === 1,
     clientX: p.x, clientY: p.y, buttons: p.type === 'pointerup' ? 0 : 1, bubbles: true, cancelable: true,
   })), { type, id, x, y })
@@ -52,7 +52,7 @@ test('native tap jumps once; an upward flick gives greater height and gameplay s
   // Allow for WebKit's software rendering at the iPhone pixel density in CI.
   if (browserName === 'webkit') test.setTimeout(60_000)
   const level = await open(page)
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   const styles = await canvas.evaluate(c => {
     const style = getComputedStyle(c)
     return { action: style.touchAction, select: style.getPropertyValue('-webkit-user-select') || style.userSelect }
@@ -124,7 +124,7 @@ test('cancellation, lost capture, pause and rotation clear held movement and que
   await pointer(page, 'pointerdown', 1); await advance(page, 300)
   await page.getByRole('button', { name: 'Pause game', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
-  expect(await page.locator('.jumping-game > canvas').evaluate(c => getComputedStyle(c).touchAction)).toBe('auto')
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(c => getComputedStyle(c).touchAction)).toBe('auto')
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
   const instructions = page.getByRole('region', { name: 'How to play' })
   await expect(instructions).toContainText('Jump higherFlick up')
@@ -202,13 +202,13 @@ test('trusted simultaneous contacts retain capture when the action finger lifts'
   expect((await position(page)).x).toBeGreaterThan(level.entrance.x + 50)
   await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [mover, action] })
   await page.clock.runFor(32)
-  expect(await page.locator('.jumping-game > canvas').evaluate(c => window.touchNativeIds.map(id => c.hasPointerCapture(id)))).toEqual([true, true])
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(c => window.touchNativeIds.map(id => c.hasPointerCapture(id)))).toEqual([true, true])
   // Release the action contact while retaining the captured movement contact.
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [action] })
   await advance(page, 200)
   await expect(page.locator('.jumping-touch-contact')).toHaveText('Run →')
   expect((await position(page)).y).toBeLessThan(level.entrance.y - 30)
-  expect(await page.locator('.jumping-game > canvas').evaluate(c => c.hasPointerCapture(window.touchNativeIds[0]))).toBe(true)
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(c => c.hasPointerCapture(window.touchNativeIds[0]))).toBe(true)
   await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] })
   await advance(page, 1000)
   await expect(page.locator('.jumping-touch-contact')).toHaveCount(0)

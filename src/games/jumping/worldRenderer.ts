@@ -3,7 +3,7 @@
  * covers that frame, and to Canvas (lightingRender.ts) otherwise. The lighting
  * state advances exactly once per frame, before the choice, so lamp fades and a
  * failed run's power-down run on whichever draws. WebGL draws on its own canvas,
- * shown over the Canvas one only while it is drawing.
+ * placed over the Canvas one when WebGL starts and shown only while it draws.
  */
 import { LightingRenderer } from './lightingRender.ts'
 import type { LightingShadows, LightingView } from './lightingRender.ts'
@@ -14,17 +14,40 @@ import type { LightingDefinition, LightingWorld } from './lightingModel.ts'
 export type WorldRendererSetting = 'off' | 'hardware' | 'software'
 export type WorldStats = ReturnType<LightingRenderer['render']> | WorldFrameStats
 
+/**
+ * WebGL draws when the GPU runs it, unless `?renderer=canvas` or localStorage
+ * `jumping:renderer` = `canvas` asks for Canvas alone. `webgl-software` also
+ * accepts a software WebGL driver, for headless browser tests; without it a
+ * software driver leaves every frame to Canvas, which is faster there.
+ */
+export function worldRendererSetting(): WorldRendererSetting {
+  if (typeof window === 'undefined') return 'off'
+  let value: string | null = null
+  try { value = new URLSearchParams(window.location.search).get('renderer') ?? window.localStorage.getItem('jumping:renderer') } catch { /* The default. */ }
+  return value === 'canvas' ? 'off' : value === 'webgl-software' ? 'software' : 'hardware'
+}
+
 export class WorldRenderer {
   readonly lighting: LightingRenderer
   readonly webgl: WebGLWorldFrame | null
   private readonly glCanvas: HTMLCanvasElement | null
   private shown = false
 
-  /** `glCanvas` is where WebGL draws; without it, or with the setting off, every frame is Canvas's. */
-  constructor(lighting: LightingRenderer, glCanvas: HTMLCanvasElement | null, setting: WorldRendererSetting) {
+  /**
+   * `canvas` is the one Canvas draws on. WebGL's canvas goes after it, only
+   * when WebGL starts; without WebGL, or with the setting off, every frame is Canvas's.
+   */
+  constructor(lighting: LightingRenderer, canvas: HTMLCanvasElement | null, setting: WorldRendererSetting) {
     this.lighting = lighting
-    this.glCanvas = glCanvas
-    this.webgl = glCanvas && setting !== 'off' ? new WebGLWorldFrame(glCanvas, setting === 'software') : null
+    let webgl: WebGLWorldFrame | null = null, glCanvas: HTMLCanvasElement | null = null
+    if (canvas && setting !== 'off') {
+      glCanvas = canvas.ownerDocument.createElement('canvas')
+      glCanvas.className = 'jumping-webgl-canvas'; glCanvas.setAttribute('aria-hidden', 'true')
+      webgl = new WebGLWorldFrame(glCanvas, setting === 'software')
+      if (webgl.available) canvas.after(glCanvas)
+      else { webgl.dispose(); webgl = null; glCanvas = null }
+    }
+    this.webgl = webgl; this.glCanvas = glCanvas
   }
 
   /** Draw a frame. `view.restZoom` is the zoom the camera settles at, which WebGL builds its retained scenes for. */
@@ -49,5 +72,11 @@ export class WorldRenderer {
     if (webgl) { this.lighting.release(); this.lighting.releaseWorldLayers() }
   }
 
-  dispose() { this.webgl?.dispose() }
+  dispose() {
+    this.webgl?.dispose()
+    if (!this.glCanvas) return
+    // The canvas is this renderer's alone: let its context go now rather than when it is collected.
+    this.glCanvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()
+    this.glCanvas.remove()
+  }
 }

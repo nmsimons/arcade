@@ -138,7 +138,7 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
   expect(lowMark).toBeCloseTo(845, 1)
   await advanceJumpingPassiveWait(page, 1500)
   expect(await page.evaluate(() => window.reservoirWaterline)).toBeCloseTo(lowMark, 1)
-  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('reservoir-keyboard-draining.png') })
+  await page.locator('.jumping-game > canvas[role="img"]').screenshot({ path: info.outputPath('reservoir-keyboard-draining.png') })
 })
 
 test('terrain stays opaque inside water and floats meet a submerged roof as the level rises', async ({ page }, info) => {

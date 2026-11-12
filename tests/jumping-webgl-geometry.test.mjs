@@ -199,29 +199,84 @@ test('dashes restart on each subpath at the offset and run on around a closed on
   assert.deepEqual(square.map(p => p.points), [[0, 0, 4, 0, 4, 2], [4, 4, 0, 4, 0, 2]])
 })
 
-test('frames keep shapes seen two frames running and reuse their triangles wherever they move; changing shapes are not kept', () => {
+// One frame of a SceneBuilder: `draw` records with the frame's context.
+const buildFrame = (builder, draw, view = { x: 0, y: 0, zoom: 1, width: 500, height: 500 }) => {
+  const recorder = new GlRecorder(view.zoom, view), ctx = recorder.asContext()
+  draw(ctx)
+  builder.reset(view.zoom, view); builder.add(recorder.ops); builder.finish()
+  return { stats: { ...builder.stats }, passes: builder.passes, vertices: [...new Float32Array(builder.vertexView.slice().buffer)].filter((_, k) => k % 6 < 2) }
+}
+// A curved outline that is no ellipse, so it goes through the shape cache.
+const leaf = ctx => { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(10, -20, 20, 0); ctx.lineTo(10, 14); ctx.closePath(); ctx.fill() }
+
+test('frames keep shapes seen two frames running and reuse their triangles wherever they move and turn; changing shapes are not kept', () => {
   const cache = new ShapeCache(), builder = new SceneBuilder(cache)
-  const frame = x => {
-    const view = { x: 0, y: 0, zoom: 1, width: 500, height: 500 }
-    const recorder = new GlRecorder(1, view), ctx = recorder.asContext()
-    ctx.fillStyle = '#336699'; ctx.beginPath(); ctx.arc(x, 40, 12, 0, Math.PI * 2); ctx.fill()
-    builder.reset(1, view); builder.add(recorder.ops); builder.finish()
-    return { stats: { ...builder.stats }, first: [...new Float32Array(builder.vertexView.slice().buffer, 0, 2)] }
-  }
-  const a = frame(100.25), kept = frame(140), b = frame(173.5)
+  const at = (x, angle) => buildFrame(builder, ctx => { ctx.fillStyle = '#336699'; ctx.translate(x, 40); ctx.rotate(angle); leaf(ctx) })
+  const a = at(100.25, 0), kept = at(140, 0), b = at(173.5, 0)
   assert.equal(a.stats.misses, 1); assert.equal(kept.stats.misses, 1); assert.equal(b.stats.hits, 1)
   assert.ok(cache.size > 0)
   // The same triangles, moved with the shape.
-  assert.ok(Math.abs(b.first[0] - a.first[0] - 73.25) < 1e-3 && Math.abs(b.first[1] - a.first[1]) < 1e-6)
+  assert.equal(b.vertices.length, a.vertices.length)
+  for (let k = 0; k < a.vertices.length; k += 2) { close(b.vertices[k] - a.vertices[k], 73.25, 1e-3); close(b.vertices[k + 1], a.vertices[k + 1], 1e-3) }
+  // Turned, the shape is still found, and its triangles turn with it onto where Canvas would draw them.
+  const turned = at(173.5, .7), fresh = buildFrame(new SceneBuilder(), ctx => { ctx.fillStyle = '#336699'; ctx.translate(173.5, 40); ctx.rotate(.7); leaf(ctx) })
+  assert.equal(turned.stats.hits, 1)
+  assert.equal(turned.vertices.length, fresh.vertices.length)
+  for (let k = 0; k < fresh.vertices.length; k++) close(turned.vertices[k], fresh.vertices[k], 1e-2)
   // A shape that changes every frame is drawn but never kept.
   const changing = new ShapeCache(), other = new SceneBuilder(changing)
   for (let k = 0; k < 4; k++) {
-    const view = { x: 0, y: 0, zoom: 1, width: 500, height: 500 }, recorder = new GlRecorder(1, view), ctx = recorder.asContext()
-    ctx.beginPath(); ctx.ellipse(100, 40, 5 + k, 12, 0, 0, Math.PI * 2); ctx.fill()
-    other.reset(1, view); other.add(recorder.ops); other.finish()
-    assert.ok(other.count > 0)
+    const frame = buildFrame(other, ctx => { ctx.beginPath(); ctx.moveTo(100, 40); ctx.lineTo(120, 40); ctx.lineTo(110, 60 + k); ctx.lineTo(105, 50); ctx.fill() })
+    assert.ok(frame.vertices.length > 0)
   }
   assert.equal(changing.size, 0)
+})
+
+test('a whole ellipse is a unit circle through its matrix: the points flattening would give, without the cache', () => {
+  const cache = new ShapeCache(), builder = new SceneBuilder(cache)
+  const view = { x: 0, y: 0, zoom: 1.5, width: 500, height: 500 }
+  for (const [rotation, start, ccw] of [[0, 0, false], [.4, 1.1, false], [0, 0, true]]) {
+    const frame = buildFrame(builder, ctx => {
+      ctx.fillStyle = '#336699'; ctx.translate(120, 80); ctx.rotate(.3); ctx.scale(1, .8)
+      ctx.beginPath(); ctx.ellipse(4, -2, 30, 12, rotation, start, start + (ccw ? -1 : 1) * Math.PI * 2, ccw); ctx.fill()
+    }, view)
+    assert.deepEqual([frame.stats.ellipses, frame.stats.hits, frame.stats.misses], [1, 0, 0])
+    assert.deepEqual(frame.passes.map(p => p.kind), ['direct'])
+    // The same triangles as flattening at the builder's tolerance and fanning from the first point.
+    const recorder = new GlRecorder(1.5, view), ctx = recorder.asContext()
+    ctx.translate(120, 80); ctx.rotate(.3); ctx.scale(1, .8); ctx.beginPath(); ctx.ellipse(4, -2, 30, 12, rotation, start, start + (ccw ? -1 : 1) * Math.PI * 2, ccw); ctx.fill()
+    const [contour] = flatten(recorder.ops[0].commands, .2 / 1.5), p = contour.points, expected = []
+    for (let k = 2; k + 3 < p.length; k += 2) expected.push(p[0], p[1], p[k], p[k + 1], p[k + 2], p[k + 3])
+    assert.equal(frame.vertices.length, expected.length)
+    for (let k = 0; k < expected.length; k++) close(frame.vertices[k], expected[k], 1e-3)
+  }
+  assert.equal(cache.size, 0)
+})
+
+test('a coin edge (an ellipse and its rim, winding one way) is drawn directly; rims and rings winding the other way keep the stencil', () => {
+  const coin = (reverse, color = '#d9a33a') => buildFrame(new SceneBuilder(new ShapeCache()), ctx => {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(101, 50, 6, 10, 0, 0, Math.PI * 2)
+    if (reverse) { ctx.moveTo(98, 40); ctx.lineTo(98, 60); ctx.lineTo(100, 60); ctx.lineTo(100, 40); ctx.closePath() } else ctx.rect(98, 40, 2, 20)
+    ctx.fill()
+  })
+  const edge = coin(false)
+  assert.deepEqual([edge.stats.ellipses, edge.stats.misses], [1, 0])
+  assert.deepEqual(edge.passes.map(p => p.kind), ['direct'])
+  // The ellipse's fan and the rim's two triangles.
+  const fan = buildFrame(new SceneBuilder(new ShapeCache()), ctx => { ctx.fillStyle = '#d9a33a'; ctx.beginPath(); ctx.ellipse(101, 50, 6, 10, 0, 0, Math.PI * 2); ctx.fill() })
+  assert.equal(edge.vertices.length, fan.vertices.length + 12)
+  // A rim winding against the ellipse would cut the overlap away under nonzero: the stencil decides.
+  const against = coin(true)
+  assert.deepEqual([against.stats.ellipses, against.stats.misses], [0, 1])
+  assert.deepEqual(against.passes.map(p => p.kind), ['stencil-fill'])
+  // So does a translucent edge, whose overlap must blend once.
+  assert.deepEqual(coin(false, '#d9a33a80').passes.map(p => p.kind), ['stencil-fill'])
+  // A ring of two circles winding against each other keeps its hole; two winding together are their union.
+  const ring = ccw => buildFrame(new SceneBuilder(new ShapeCache()), ctx => {
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(50, 50, 20, 0, Math.PI * 2); ctx.moveTo(64.6, 50); ctx.arc(50, 50, 14.6, 0, Math.PI * 2, ccw); ctx.fill()
+  })
+  assert.deepEqual(ring(true).passes.map(p => p.kind), ['stencil-fill'])
+  assert.deepEqual(ring(false).passes.map(p => p.kind), ['direct'])
 })
 
 test('scenes draw convex fills and opaque lines directly, and use the stencil or coverage where Canvas unions a shape', () => {

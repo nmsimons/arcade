@@ -164,7 +164,7 @@ test('Google restores the save owner before a game starts, without granting clou
   await providers(page); await useLevelFixtures(page, [FIRST_LEVEL])
   await page.goto('/'); await login(page)
   await page.goto('/lab/levels/built-in/00-fixture.json')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   expect(await page.evaluate(async () => ({ profile: (await import('/src/accounts/profileStorage.ts')).currentProfile(), cloud: (await import('/src/accounts/session.ts')).getSession().cloudEnabled }))).toEqual({ profile: 'google:alice', cloud: false })
   await expect(page.locator('.arcade-account-bar')).toHaveCount(0)
 })

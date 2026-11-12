@@ -340,7 +340,7 @@ test('controller-only play gates launch, supports analog speed and held jumps, a
   await setup(page, true)
   // The link prepares its level in a worker, on real time. Until the level is playing, A would press the
   // focused button on the opening or preparing dialog, and Cancel leaves for the facility.
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)

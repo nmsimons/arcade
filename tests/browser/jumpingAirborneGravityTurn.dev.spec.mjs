@@ -16,7 +16,7 @@ test('fresh controls turn in the air on entering and leaving reversed gravity', 
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect.poll(async () => {
     await page.clock.runFor(16)
-    return page.locator('.jumping-game > canvas').evaluate(canvas => document.activeElement === canvas)
+    return page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => document.activeElement === canvas)
   }, { timeout: 20000 }).toBe(true)
   await finishJumpingEntrance(page)
   await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')
@@ -67,7 +67,7 @@ test('fresh controls catch a rope while the airborne flip is still in progress',
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect.poll(async () => {
     await page.clock.runFor(16)
-    return page.locator('.jumping-game > canvas').evaluate(canvas => document.activeElement === canvas)
+    return page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => document.activeElement === canvas)
   }, { timeout: 20000 }).toBe(true)
   await finishJumpingEntrance(page)
   await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')

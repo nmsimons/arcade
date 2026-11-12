@@ -120,7 +120,7 @@ test('the concourse and Orientation join through bulkheads, arriving at the far 
   const concourse = page.getByRole('img', { name: 'Concourse', exact: true })
   await expect(concourse).toBeVisible(); await finishJumpingEntrance(page)
   expect(Math.abs((await motion(page)).x - toOrientation.x), 'steps out of the Orientation bulkhead').toBeLessThan(16)
-  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('concourse-orientation.png') })
+  await page.locator('.jumping-game > canvas[role="img"]').screenshot({ path: info.outputPath('concourse-orientation.png') })
 
   await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
   await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible()
@@ -130,7 +130,7 @@ test('the concourse and Orientation join through bulkheads, arriving at the far 
   expect(Math.round((await motion(page)).y)).toBe(350)
   expect(Math.abs((await motion(page)).x - 8355), 'steps out of Service access').toBeLessThan(16)
   await expect(page.getByTestId('level-time'), 'Orientation stays untimed').toHaveCount(0)
-  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('orientation-service-access.png') })
+  await page.locator('.jumping-game > canvas[role="img"]').screenshot({ path: info.outputPath('orientation-service-access.png') })
 
   await advanceJumpingSimulation(page, 300); await pressUp(page); await advanceJumpingSimulation(page, 1200)
   await expect(concourse).toBeVisible(); await finishJumpingEntrance(page)

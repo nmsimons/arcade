@@ -17,7 +17,7 @@ for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 
   const play = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   const motion = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   // Advance gameplay until the predicate holds, within a gameplay-time budget.
   const until = (predicate, seconds = 15) => withoutIntermediateFrames(page, async () => {

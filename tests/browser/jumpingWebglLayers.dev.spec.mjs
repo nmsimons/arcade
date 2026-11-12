@@ -115,9 +115,12 @@ test('the world renderer gives WebGL the frames it covers and Canvas the rest, a
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/worldRenderer.ts'), import('/src/games/jumping/challenge.ts'),
       import('/src/games/jumping/level.ts'), import('/src/games/jumping/lightingDefinition.ts')])
     const load = async name => parseLevel(await (await fetch(`/levels/jumping/${name}.jump-level.json`)).json())
-    const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 200
-    const glCanvas = document.createElement('canvas'), lighting = new LightingRenderer({ backend: 'canvas' })
-    const renderer = new WorldRenderer(lighting, glCanvas, 'software'), ctx = canvas.getContext('2d')
+    const host = document.body.appendChild(document.createElement('div'))
+    const canvas = host.appendChild(document.createElement('canvas')); canvas.width = 320; canvas.height = 200
+    const lighting = new LightingRenderer({ backend: 'canvas' })
+    const renderer = new WorldRenderer(lighting, canvas, 'software'), ctx = canvas.getContext('2d')
+    // WebGL's canvas goes right after Canvas's, once WebGL starts.
+    const glCanvas = canvas.nextElementSibling, placed = glCanvas?.className
     const frame = level => {
       const run = createPreviewRun(level)
       const stats = renderer.render(ctx, run, lightingForLevel(level), { x: run.player.x - 100, y: run.player.y - 100, zoom: .8, width: 320, height: 200 }, 1 / 60)
@@ -128,12 +131,39 @@ test('the world renderer gives WebGL the frames it covers and Canvas the rest, a
     lighting.advance = (...args) => { advanced++; return advance(...args) }
     try {
       const day = frame(await load('fulltilt')), night = frame(await load('escapade'))
-      return { day, night, advanced }
-    } finally { renderer.dispose(); lighting.dispose() }
+      renderer.dispose()
+      return { placed, day, night, advanced, left: host.childElementCount }
+    } finally { renderer.dispose(); lighting.dispose(); host.remove() }
   })
+  expect(result.placed).toBe('jumping-webgl-canvas')
+  expect(result.left).toBe(1)
   expect(result.day).toEqual({ backend: 'webgl', shown: 'visible' })
   expect(result.night).toEqual({ backend: expect.stringMatching(/canvas|gpu/), shown: 'hidden' })
   expect(result.advanced).toBe(2)
+})
+
+// The default: WebGL wherever the GPU runs it. A software driver, such as this headless browser's SwiftShader
+// usually is, leaves every frame to Canvas and adds no second canvas.
+test('the default draws with WebGL only on a GPU, and ?renderer=canvas turns it off', async ({ page }) => {
+  await page.goto('/lab/lighting-lab')
+  await expect(page.locator('.lighting-lab-study')).toBeVisible()
+  const result = await page.evaluate(async () => {
+    const [{ LightingRenderer }, { WorldRenderer, worldRendererSetting }, { softwareRenderer }] = await Promise.all([
+      import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/worldRenderer.ts'), import('/src/games/jumping/webgl/glFrame.ts')])
+    const probe = document.createElement('canvas').getContext('webgl2'), software = !probe || softwareRenderer(probe)
+    const settings = {}
+    for (const search of ['', '?renderer=canvas', '?renderer=webgl', '?renderer=webgl-software']) {
+      history.replaceState(null, '', `/lab/lighting-lab${search}`); settings[search || 'default'] = worldRendererSetting()
+    }
+    history.replaceState(null, '', '/lab/lighting-lab')
+    const host = document.body.appendChild(document.createElement('div')), canvas = host.appendChild(document.createElement('canvas'))
+    const lighting = new LightingRenderer({ backend: 'canvas' }), renderer = new WorldRenderer(lighting, canvas, 'hardware')
+    try { return { software, settings, webgl: !!renderer.webgl, canvases: host.childElementCount } }
+    finally { renderer.dispose(); lighting.dispose(); host.remove() }
+  })
+  expect(result.settings).toEqual({ default: 'hardware', '?renderer=canvas': 'off', '?renderer=webgl': 'hardware', '?renderer=webgl-software': 'software' })
+  expect(result.webgl).toBe(!result.software)
+  expect(result.canvases).toBe(result.software ? 1 : 2)
 })
 
 test('levels the layers do not cover yet stay entirely on Canvas', async ({ page }) => {

@@ -31,7 +31,7 @@ test('Quarantine II: Rbot climbs out while normal player controls keep diving', 
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab/library?motionDebug=1')
   await page.locator('.jumping-level-card').filter({ hasText: level.name }).click()
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   await expect(canvas).toBeFocused()
   await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

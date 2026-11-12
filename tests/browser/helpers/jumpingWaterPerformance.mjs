@@ -26,7 +26,7 @@ export async function playWaterPerformanceFixture(page) {
   })
   await page.clock.install()
   await openLevelLink(page, { query: '?motionDebug=1' })
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   await expect(canvas).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(3000); await page.keyboard.up('d')
   await page.clock.runFor(500)
@@ -35,7 +35,7 @@ export async function playWaterPerformanceFixture(page) {
   return { fullPixels: await canvas.evaluate(c => c.width * c.height) }
 }
 
-export const waterEffectsFrame = page => page.locator('.jumping-game > canvas').evaluate(c => c.waterEffectsFrame)
+export const waterEffectsFrame = page => page.locator('.jumping-game > canvas[role="img"]').evaluate(c => c.waterEffectsFrame)
 export async function slowWaterFrames(page) {
   await page.evaluate(() => {
     window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 100)

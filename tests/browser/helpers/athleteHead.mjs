@@ -6,7 +6,8 @@ const installed = new WeakSet()
  * The renderer reports every head it draws (`jumping-head`, see
  * src/games/jumping/debugFrames.ts) once a test turns reporting on, so no canvas
  * call is patched and any renderer can be observed. This keeps the player's
- * heads on the game canvas and passes them on as `jumping-athlete-head`.
+ * heads on the game's canvases (Canvas's or WebGL's) and passes them on as
+ * `jumping-athlete-head`.
  * Palette values come from the artwork so visual tuning cannot disable probes. */
 export async function installAthleteHeadObserver(page, inks = ['#686b6e', '#e5e7e6']) {
   if (installed.has(page)) return

@@ -97,8 +97,23 @@ export function flatten(commands: readonly number[], tolerance: number): Contour
 
 /** A single closed contour that turns one way only, once: its fan needs no stencil. */
 export function isConvex(contours: readonly Contour[]) {
-  if (contours.length !== 1) return false
-  const p = contours[0].points, n = p.length / 2
+  return contours.length === 1 && convexOutline(contours[0].points)
+}
+
+/** Twice the signed area an outline encloses (positive turning from +x towards +y), closing it. */
+export function signedArea(p: readonly number[]) {
+  let area = 0
+  const n = p.length / 2
+  for (let k = 0; k < n; k++) {
+    const j = k + 1 === n ? 0 : k + 1
+    area += p[2 * k] * p[2 * j + 1] - p[2 * j] * p[2 * k + 1]
+  }
+  return area
+}
+
+/** An outline that turns one way only, once. */
+export function convexOutline(p: readonly number[]) {
+  const n = p.length / 2
   if (n < 3) return false
   // Every turn the same way, and the edges' vertical direction changes at most twice around:
   // a polygon that turns one way but winds twice (a star) changes it four times or more.

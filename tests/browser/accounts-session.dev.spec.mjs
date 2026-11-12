@@ -106,9 +106,9 @@ test('refreshing a game restores its save owner before mounting, without grantin
   await microsoftSession(page, context)
   await useLevelFixtures(page, [FIRST_LEVEL])
   await page.goto('/lab/levels/built-in/00-fixture.json')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   await page.reload()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   const owner = await page.evaluate(async () => {
     const { currentProfile } = await import('/src/accounts/profileStorage.ts')
     const { getSession } = await import('/src/accounts/session.ts')

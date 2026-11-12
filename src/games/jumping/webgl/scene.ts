@@ -2,8 +2,10 @@
  * Turns recorded drawing operations into vertices and a list of GPU passes, in
  * painter's order. A retained layer is built once per level and zoom; a frame
  * is built every frame from the same operations, reusing the triangles of any
- * shape it has seen before (`ShapeCache`), so artwork that does not change
- * shape costs a copy, not a tessellation.
+ * shape it has seen before, wherever it has moved and however it has turned
+ * (`ShapeCache`), so artwork that does not change shape costs a copy, not a
+ * tessellation. A whole ellipse (a coin, a joint) is a unit circle through its
+ * matrix and never needs the cache.
  *
  * Fills: a convex outline is drawn directly; anything else (compound terrain,
  * concave or self-overlapping outlines, even-odd) counts its winding in the
@@ -22,9 +24,9 @@
  * Text and shadows are drawn by Canvas into sprites (sprites.ts) and placed as
  * textured quads; images are textured quads too.
  */
-import { FLOATS_PER_VERTEX, dashContours, earClip, fanTriangles, flatten, isConvex, rectTriangles, strokeTriangles, thinStrokeQuads } from './geometry.ts'
+import { FLOATS_PER_VERTEX, convexOutline, dashContours, earClip, fanTriangles, flatten, isConvex, rectTriangles, signedArea, strokeTriangles, thinStrokeQuads } from './geometry.ts'
 import type { Contour } from './geometry.ts'
-import { ARGUMENTS, CLOSE, CUBIC, LINE, MOVE, QUAD, TARC, expandArcs, multiply } from './artPath.ts'
+import { ARGUMENTS, CLOSE, CUBIC, LINE, MOVE, QUAD, TARC, arcSweep, expandArcs, multiply } from './artPath.ts'
 import type { Matrix } from './artPath.ts'
 import { invert } from './recorder.ts'
 import type { Box, DrawOp, Light, Paint, Rgba, StrokeStyle } from './recorder.ts'
@@ -77,26 +79,61 @@ const sameLight = (a: Light | null, b: Light | null) => a === b || !!a && !!b &&
 const union = (a: Box, b: Box): Box => ({ x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) })
 const sameMatrix = (a: Matrix, b: Matrix) => a.a === b.a && a.b === b.b && a.c === b.c && a.d === b.d && a.e === b.e && a.f === b.f
 
-/** A path's first point: where a transformed arc is, its centre. */
-const origin = (commands: readonly number[]) => commands[0] === TARC ? [commands[5], commands[6]] : [commands[1] ?? 0, commands[2] ?? 0]
 /** How finely each of a transformed arc's arguments is keyed: its matrix and angles to 1/65536, its centre (relative) and radii to 1/256. */
 const ARC_STEPS = [65536, 65536, 65536, 65536, 256, 256, 256, 256, 65536, 65536, 65536, 1]
+/** A shape's own direction is taken from its first point at least this far from its origin, in world units. */
+const REACH = .5
 
 /** Fill triangles for flattened contours: true when they can be drawn directly, false when they need the stencil (fan). */
 function fillTriangles(contours: readonly Contour[], evenOdd: boolean, solid: boolean, out: number[]): boolean {
   if (!evenOdd && isConvex(contours)) { fanTriangles(contours, out); return true }
-  // One simple outline covers each sample once; an opaque fill may cover one twice with no difference.
-  if (contours.length === 1 || solid && !evenOdd) {
-    const triangles: number[] = []
-    if (contours.every(c => earClip(c.points, triangles))) { for (const v of triangles) out.push(v); return true }
+  // One simple outline covers each sample once. Outlines that all wind one way fill their union under the
+  // nonzero rule, which an opaque fill may cover twice with no difference; outlines winding both ways may
+  // cut holes, which the stencil keeps.
+  if (contours.length === 1 || solid && !evenOdd && sameWinding(contours)) {
+    const mark = out.length
+    for (const contour of contours) {
+      if (contours.length > 1 && convexOutline(contour.points)) fanTriangles([contour], out)
+      else if (!earClip(contour.points, out)) { out.length = mark; fanTriangles(contours, out); return false }
+    }
+    return true
   }
   fanTriangles(contours, out); return false
+}
+/** Commands that start with one whole ellipse: a transformed arc sweeping a full turn. */
+const ellipseFirst = (c: readonly number[]) => c[0] === TARC && c.length >= 13 && Math.abs(arcSweep(c[10], c[11], !!c[12])) === Math.PI * 2
+/** Commands that are one whole ellipse, perhaps closed. */
+const wholeEllipse = (c: readonly number[]) => ellipseFirst(c) && (c.length === 13 || c.length === 14 && c[13] === CLOSE)
+/**
+ * The straight outline after a whole ellipse (a coin's rim beside its face), when that is all the
+ * commands hold: its points, or null.
+ */
+function outlineAfterEllipse(c: readonly number[]) {
+  let i = c[13] === CLOSE ? 14 : 13
+  if (c[i] !== MOVE) return null
+  const points = [c[i + 1], c[i + 2]]
+  for (i += 3; c[i] === LINE; i += 3) points.push(c[i + 1], c[i + 2])
+  if (c[i] === CLOSE) i++
+  // A lone point after it draws nothing (rect() leaves one).
+  if (c[i] === MOVE) i += 3
+  return i === c.length ? points : null
+}
+function sameWinding(contours: readonly Contour[]) {
+  let sign = 0
+  for (const { points } of contours) {
+    const area = signedArea(points)
+    if (Math.abs(area) < 1e-12) continue
+    const s = area > 0 ? 1 : -1
+    if (sign && s !== sign) return false
+    sign = s
+  }
+  return true
 }
 function strokeContours(contours: Contour[], style: StrokeStyle) {
   return style.dash.length ? dashContours(contours, style.dash, style.dashOffset) : contours
 }
 
-/** Triangles of shapes seen before, relative to their first point, kept while they are in use. */
+/** Triangles of shapes seen before, in each shape's own frame, kept while they are in use. */
 /**
  * Shapes are found by a 64-bit digest of their key (two independent 32-bit
  * hashes and its length); two different shapes sharing one is about as likely
@@ -163,11 +200,14 @@ export class SceneBuilder {
   private fromDevice: Matrix = this.device
   private keyBuffer = new Float64Array(1024)
   private scratch: number[] = []
+  /** Fans over a unit circle from angle 0, as (cos, sin) pairs, by segment count (negative for anticlockwise). */
+  private circles = new Map<number, Float64Array>()
   /** Why the frame cannot be drawn, or null. */
   unsupported: string | null = null
   readonly cache: ShapeCache | null
   readonly sprites: SpriteCache | null
-  stats = { ops: 0, hits: 0, misses: 0, sprites: 0 }
+  /** Operations built, shapes found in the cache and tessellated, sprites placed, and whole ellipses drawn from a unit circle. */
+  stats = { ops: 0, hits: 0, misses: 0, sprites: 0, ellipses: 0 }
 
   constructor(cache: ShapeCache | null = null, sprites: SpriteCache | null = null) { this.cache = cache; this.sprites = sprites }
 
@@ -182,7 +222,7 @@ export class SceneBuilder {
     const z = view?.zoom ?? zoom
     this.device = view ? { a: z, b: 0, c: 0, d: z, e: -view.x * z, f: -view.y * z } : { a: z, b: 0, c: 0, d: z, e: 0, f: 0 }
     this.fromDevice = invert(this.device)
-    this.stats = { ops: 0, hits: 0, misses: 0, sprites: 0 }
+    this.stats = { ops: 0, hits: 0, misses: 0, sprites: 0, ellipses: 0 }
     if (this.cache) {
       if (this.cache.zoom !== zoom) { this.cache.clear(); this.cache.zoom = zoom }
       this.cache.advance()
@@ -199,14 +239,21 @@ export class SceneBuilder {
     const next = new Float32Array(size); next.set(this.f32.subarray(0, this.count * WORDS))
     this.f32 = next; this.u32 = new Uint32Array(next.buffer)
   }
-  /** Append vertices given as FLOATS_PER_VERTEX floats each, moved by (dx, dy), all one colour. */
-  private emit(source: ArrayLike<number>, color: number, dx = 0, dy = 0): Range {
+  /**
+   * Append vertices given as FLOATS_PER_VERTEX floats each, all one colour: turned from +x to the
+   * direction (ux, uy), then moved by (dx, dy). A thin stroke's coverage terms are lengths, which turning keeps.
+   */
+  private emit(source: ArrayLike<number>, color: number, dx = 0, dy = 0, ux = 1, uy = 0): Range {
     const n = source.length / FLOATS_PER_VERTEX, first = this.count
     this.reserve(n)
     const f = this.f32, u = this.u32
     let w = first * WORDS
-    for (let s = 0; s < source.length; s += FLOATS_PER_VERTEX, w += WORDS) {
+    if (ux === 1 && uy === 0) for (let s = 0; s < source.length; s += FLOATS_PER_VERTEX, w += WORDS) {
       f[w] = source[s] + dx; f[w + 1] = source[s + 1] + dy; f[w + 2] = source[s + 2]; f[w + 3] = source[s + 3]; f[w + 4] = source[s + 4]
+      u[w + 5] = color
+    } else for (let s = 0; s < source.length; s += FLOATS_PER_VERTEX, w += WORDS) {
+      const x = source[s], y = source[s + 1]
+      f[w] = ux * x - uy * y + dx; f[w + 1] = uy * x + ux * y + dy; f[w + 2] = source[s + 2]; f[w + 3] = source[s + 3]; f[w + 4] = source[s + 4]
       u[w + 5] = color
     }
     this.count += n
@@ -234,18 +281,39 @@ export class SceneBuilder {
 
   /**
    * A shape's triangles, from the cache when it has this shape: `kind` 0 fill,
-   * 1 stroke, 2 clip. Returns the vertices relative to the commands' first point.
+   * 1 stroke, 2 clip. They are relative to the shape's origin (its first point,
+   * or a transformed arc's centre) and turned to the shape's own direction (to
+   * its first point at least REACH away, or along an arc's first axis); place
+   * them by turning to (ux, uy) and moving by (dx, dy). So a shape that only
+   * moves and turns, as a robot's rigid parts do, costs a copy, not a tessellation.
    */
   private shape(kind: 0 | 1 | 2, commands: readonly number[], evenOdd: boolean, solid: boolean, style: StrokeStyle | null) {
-    const [ox, oy] = origin(commands), cache = this.cache
+    const cache = this.cache
     const tolerance = .2 / this.zoom
     if (!cache) {
       // Retained layers: exact positions, no cache.
       const out: number[] = []
       const direct = this.tessellate(kind, flatten(commands, tolerance), evenOdd, solid, style, out)
-      return { vertices: out, direct, dx: 0, dy: 0 }
+      return { vertices: out, direct, dx: 0, dy: 0, ux: 1, uy: 0 }
     }
-    // The key: what decides the triangles, with positions relative to the first point to 1/256 unit.
+    const arc = commands[0] === TARC
+    const ox = arc ? commands[5] : commands[1] ?? 0, oy = arc ? commands[6] : commands[2] ?? 0
+    let ux = 1, uy = 0
+    if (arc) {
+      const length = Math.hypot(commands[1], commands[2])
+      if (length > 1e-9) { ux = commands[1] / length; uy = commands[2] / length }
+    } else {
+      search: for (let i = 0; i < commands.length;) {
+        const op = commands[i++], count = ARGUMENTS[op]
+        // A transformed arc's centre is a point of the shape like any other.
+        for (let k = op === TARC ? 4 : 0; k < (op === TARC ? 6 : count); k += 2) {
+          const x = commands[i + k] - ox, y = commands[i + k + 1] - oy, length = Math.hypot(x, y)
+          if (length >= REACH) { ux = x / length; uy = y / length; break search }
+        }
+        i += count
+      }
+    }
+    // The key: what decides the triangles, in the shape's own frame, positions to 1/256 unit.
     let key = this.keyBuffer
     const length = 8 + commands.length + (style?.dash.length ?? 0)
     if (key.length < length) key = this.keyBuffer = new Float64Array(length * 2)
@@ -263,10 +331,16 @@ export class SceneBuilder {
       const op = commands[i++], count = ARGUMENTS[op]
       key[n++] = op - 16
       if (op === TARC) {
-        for (let k = 0; k < count; k++) key[n++] = Math.round((commands[i + k] - (k === 4 ? ox : k === 5 ? oy : 0)) * ARC_STEPS[k])
+        // The arc's matrix and centre turned back by the shape's direction; radii and angles as they are.
+        const a = commands[i], b = commands[i + 1], c = commands[i + 2], d = commands[i + 3], x = commands[i + 4] - ox, y = commands[i + 5] - oy
+        key[n++] = Math.round((ux * a + uy * b) * 65536); key[n++] = Math.round((ux * b - uy * a) * 65536)
+        key[n++] = Math.round((ux * c + uy * d) * 65536); key[n++] = Math.round((ux * d - uy * c) * 65536)
+        key[n++] = Math.round((ux * x + uy * y) * 256); key[n++] = Math.round((ux * y - uy * x) * 256)
+        for (let k = 6; k < count; k++) key[n++] = Math.round(commands[i + k] * ARC_STEPS[k])
       } else for (let k = 0; k < count; k += 2) {
-        key[n++] = Math.round((commands[i + k] - ox) * 256)
-        key[n++] = Math.round((commands[i + k + 1] - oy) * 256)
+        const x = commands[i + k] - ox, y = commands[i + k + 1] - oy
+        key[n++] = Math.round((ux * x + uy * y) * 256)
+        key[n++] = Math.round((ux * y - uy * x) * 256)
       }
       i += count
     }
@@ -274,7 +348,7 @@ export class SceneBuilder {
     // Key values stay well inside 32 bits (positions to 1/256 unit within the level, angles to 1/65536).
     for (let i = 0; i < n; i++) { const v = key[i] | 0; hash = Math.imul(hash ^ v, 16777619); check = Math.imul(check ^ v, 2246822519) }
     const found = cache.get(hash, check, n)
-    if (found) { this.stats.hits++; return { vertices: found.vertices, direct: found.direct, dx: ox, dy: oy } }
+    if (found) { this.stats.hits++; return { vertices: found.vertices, direct: found.direct, dx: ox, dy: oy, ux, uy } }
     this.stats.misses++
     // Tessellate the quantised shape, so a later hit draws exactly what this one did.
     const relative: number[] = []
@@ -287,9 +361,65 @@ export class SceneBuilder {
     const out = this.scratch; out.length = 0
     const direct = this.tessellate(kind, flatten(relative, tolerance), evenOdd, solid, style, out)
     // A shape that changes every frame (a limb, a spinning coin) is drawn from the scratch list and not kept.
-    if (!cache.repeated(hash, check)) return { vertices: out, direct, dx: ox, dy: oy }
+    if (!cache.repeated(hash, check)) return { vertices: out, direct, dx: ox, dy: oy, ux, uy }
     const entry = cache.set(hash, check, n, new Float32Array(out), direct)
-    return { vertices: entry.vertices, direct, dx: ox, dy: oy }
+    return { vertices: entry.vertices, direct, dx: ox, dy: oy, ux, uy }
+  }
+  /**
+   * A whole ellipse's fill, with no cache lookup: an ellipse is a circle through its matrix, so its
+   * fan is a unit circle's, cut into as many pieces as flatten would cut it, at the same angles.
+   */
+  private ellipse(c: readonly number[], color: number): Range {
+    const ma = c[1], mb = c[2], mc = c[3], md = c[4], cx = c[5], cy = c[6], rx = c[7], ry = c[8], rotation = c[9], start = c[10]
+    const sweep = arcSweep(start, c[11], !!c[12]), tolerance = .2 / this.zoom
+    const cos = Math.cos(rotation), sin = Math.sin(rotation)
+    const pa = ma * rx * cos + mc * rx * sin, pb = mb * rx * cos + md * rx * sin, qa = -ma * ry * sin + mc * ry * cos, qb = -mb * ry * sin + md * ry * cos
+    const radius = Math.max(Math.hypot(pa, pb), Math.hypot(qa, qb))
+    const step = radius > tolerance ? 2 * Math.acos(1 - tolerance / radius) : Math.PI / 2
+    const n = Math.min(256, Math.max(1, Math.ceil(Math.abs(sweep) / step)))
+    // Points at start + sweep * k / n: a circle turned to start, so the unit fan from angle 0 serves every start.
+    const sc = Math.cos(start), ss = Math.sin(start)
+    const ua = pa * sc + qa * ss, ub = pb * sc + qb * ss, va = qa * sc - pa * ss, vb = qb * sc - pb * ss
+    const id = sweep > 0 ? n : -n
+    let fan = this.circles.get(id)
+    if (!fan) {
+      fan = new Float64Array(Math.max(0, n - 1) * 6)
+      const point = (k: number) => { const t = sweep * k / n; return [Math.cos(t), Math.sin(t)] }
+      for (let k = 1; k < n; k++) fan.set([1, 0, ...point(k), ...point(k + 1)], (k - 1) * 6)
+      this.circles.set(id, fan)
+    }
+    const count = fan.length / 2, first = this.count
+    this.reserve(count)
+    const f = this.f32, u = this.u32
+    let w = first * WORDS
+    for (let k = 0; k < fan.length; k += 2, w += WORDS) {
+      const x = fan[k], y = fan[k + 1]
+      f[w] = cx + ua * x + va * y; f[w + 1] = cy + ub * x + vb * y; f[w + 2] = 0; f[w + 3] = 0; f[w + 4] = 0
+      u[w + 5] = color
+    }
+    this.count += count; this.stats.ellipses++
+    return { first, count }
+  }
+  /**
+   * An opaque nonzero fill of a whole ellipse and one convex straight outline winding the same way
+   * (a coin's edge: its rim beside its face), drawn directly: their union, which may overlap. Null
+   * for anything else, which goes to the shape cache.
+   */
+  private ellipseWithOutline(c: readonly number[], color: number): Range | null {
+    const points = outlineAfterEllipse(c)
+    if (!points) return null
+    const area = signedArea(points)
+    if (points.length >= 6 && Math.abs(area) > 1e-12) {
+      if (!convexOutline(points)) return null
+      // The ellipse winds as its matrix turns, reversed by an anticlockwise sweep.
+      const turn = (c[1] * c[4] - c[2] * c[3]) * c[7] * c[8] * arcSweep(c[10], c[11], !!c[12])
+      if (turn * area < 0) return null
+    }
+    const ellipse = this.ellipse(c, color)
+    if (points.length < 6 || Math.abs(area) <= 1e-12) return ellipse
+    const out = this.scratch; out.length = 0
+    fanTriangles([{ points, closed: true }], out)
+    return { first: ellipse.first, count: ellipse.count + this.emit(out, color).count }
   }
   private tessellate(kind: 0 | 1 | 2, contours: Contour[], evenOdd: boolean, solid: boolean, style: StrokeStyle | null, out: number[]) {
     if (kind === 1) {
@@ -312,9 +442,13 @@ export class SceneBuilder {
           if (op.shadow) this.glow(op)
           const color = op.paint.kind === 'color' ? pack(op.paint.rgba[0], op.paint.rgba[1], op.paint.rgba[2], op.paint.rgba[3] * op.alpha) : pack(1, 1, 1, op.alpha)
           const texture = this.patternTexture(op.paint), solid = this.opaque(op.paint, op.alpha)
+          if (this.cache && ellipseFirst(op.commands)) {
+            const draw = wholeEllipse(op.commands) ? this.ellipse(op.commands, color) : solid && op.rule === 'nonzero' ? this.ellipseWithOutline(op.commands, color) : null
+            if (draw) { this.direct(draw, op.depth, texture, op.light, op.box); break }
+          }
           const shape = this.shape(0, op.commands, op.rule === 'evenodd', solid, null)
           if (!shape.vertices.length) break
-          const draw = this.emit(shape.vertices, color, shape.dx, shape.dy)
+          const draw = this.emit(shape.vertices, color, shape.dx, shape.dy, shape.ux, shape.uy)
           if (shape.direct) this.direct(draw, op.depth, texture, op.light, op.box)
           else this.passes.push({ kind: 'stencil-fill', wind: draw, cover: draw, evenOdd: op.rule === 'evenodd', depth: op.depth, texture, light: op.light, box: op.box })
           break
@@ -325,7 +459,7 @@ export class SceneBuilder {
           const texture = this.patternTexture(op.paint)
           const shape = this.shape(1, op.commands, false, false, op.style)
           if (!shape.vertices.length) break
-          const draw = this.emit(shape.vertices, color, shape.dx, shape.dy)
+          const draw = this.emit(shape.vertices, color, shape.dx, shape.dy, shape.ux, shape.uy)
           const thin = op.style.width * this.zoom < THIN
           if (this.opaque(op.paint, op.alpha) || thin && op.paint.kind === 'pattern') this.direct(draw, op.depth, texture, op.light, op.box)
           else if (thin && op.paint.kind === 'color') {
@@ -336,7 +470,7 @@ export class SceneBuilder {
         }
         case 'clip': {
           const shape = this.shape(2, op.commands, op.rule === 'evenodd', false, null)
-          const wind = this.emit(shape.vertices, 0, shape.dx, shape.dy), box = op.box
+          const wind = this.emit(shape.vertices, 0, shape.dx, shape.dy, shape.ux, shape.uy), box = op.box
           this.passes.push({ kind: 'clip', wind, cover: wind, evenOdd: op.rule === 'evenodd', depth: op.depth, box, end: Infinity })
           this.clipPasses.set(index, this.passes.length - 1)
           break

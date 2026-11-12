@@ -41,7 +41,7 @@ import { GlFrame } from './webgl/glFrame.ts'
 export interface WorldFrameView { x: number; y: number; zoom: number; width: number; height: number; /** The zoom the camera settles at, for the retained scenes. */ restZoom?: number }
 export interface WorldFrameStats {
   lights: number; edges: number; bufferBytes: number; backend: 'webgl'; sources: LightSource[]
-  ops: number; hits: number; misses: number; sprites: number; vertices: number; passes: number; recordMs: number; buildMs: number; drawMs: number
+  ops: number; hits: number; misses: number; ellipses: number; sprites: number; vertices: number; passes: number; recordMs: number; buildMs: number; drawMs: number
 }
 
 /** Far enough past the level's edges that the surrounding rock fills any view. */
@@ -66,7 +66,7 @@ export class WebGLWorldFrame {
   readonly declines: Record<string, number> = {}
   frames = 0
   /** Sums over the frames drawn, for diagnostics: milliseconds recording, building and drawing, and the builder's operations. */
-  readonly totals = { recordMs: 0, buildMs: 0, drawMs: 0, ops: 0, hits: 0, misses: 0, sprites: 0, vertices: 0 }
+  readonly totals = { recordMs: 0, buildMs: 0, drawMs: 0, ops: 0, hits: 0, misses: 0, ellipses: 0, sprites: 0, vertices: 0 }
   private decline(reason: string) {
     this.declined = reason; this.declines[reason] = (this.declines[reason] ?? 0) + 1
     return null
@@ -141,7 +141,7 @@ export class WebGLWorldFrame {
     this.declined = null; this.frames++
     const t = this.totals, s = builder.stats
     t.recordMs += recorded - started; t.buildMs += tessellated - recorded; t.drawMs += drawn - tessellated
-    t.ops += s.ops; t.hits += s.hits; t.misses += s.misses; t.sprites += s.sprites; t.vertices += builder.count
+    t.ops += s.ops; t.hits += s.hits; t.misses += s.misses; t.ellipses += s.ellipses; t.sprites += s.sprites; t.vertices += builder.count
     return {
       lights: 1, edges, bufferBytes: this.bufferBytes(gl, retained.scenes), backend: 'webgl', sources,
       ...builder.stats, vertices: builder.count, passes: builder.passes.length,

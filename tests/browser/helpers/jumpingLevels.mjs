@@ -78,7 +78,7 @@ export async function restartFromPause(page, finishEntrance = true) {
 /** Gameplay routes start after the doorway closes; entrance tests cover the opening itself. */
 export async function finishJumpingEntrance(page) {
   const { expect } = await import('@playwright/test')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   const waking = await page.locator('.jumping-state').textContent() === 'Waking up'
   await page.clock.runFor(waking ? 3600 : 1350)

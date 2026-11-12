@@ -177,7 +177,7 @@ test('existing version-1 levels receive daylight in the live game without upgrad
   await expect.poll(() => page.evaluate(() => !!window.daylightCamera)).toBe(true)
   const pixels = await page.evaluate(async legacy => {
     const { drawLevelBackdrop } = await import('/src/games/jumping/render.ts')
-    const canvas = document.querySelector('.jumping-game > canvas'), ctx = canvas.getContext('2d')
+    const canvas = document.querySelector('.jumping-game > canvas[role="img"]'), ctx = canvas.getContext('2d')
     const { a, d, e, f } = window.daylightCamera
     const reference = document.createElement('canvas'); reference.width = canvas.width; reference.height = canvas.height
     const original = reference.getContext('2d'); original.setTransform(a, 0, 0, d, e, f)
@@ -190,5 +190,5 @@ test('existing version-1 levels receive daylight in the live game without upgrad
   expectDayAmbientPixel(pixels[1].actual, pixels[1].original)
   expect(pixels[2].actual.some(channel => channel > 0)).toBe(true)
   expect(legacy.version).toBe(1); expect(legacy.lighting).toBeUndefined()
-  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('daylight-live-game.png') })
+  await page.locator('.jumping-game > canvas[role="img"]').screenshot({ path: info.outputPath('daylight-live-game.png') })
 })

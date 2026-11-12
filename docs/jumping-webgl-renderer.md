@@ -1,8 +1,8 @@
 # Moving LAB's renderer to WebGL
 
-Status: proposed November 10, 2026. Phases 0 and 1 are done; phase 2 (whole
-daylight frames) was built and measured on November 11 and 12 and awaits your
-review (see [Progress](#progress)).
+Status: proposed November 10, 2026. Phases 0, 1 and 2 are done, and since
+November 12 WebGL is the default for the daylight frames it draws (see
+[Progress](#progress)); `?renderer=canvas` keeps Canvas alone.
 
 ## Why
 
@@ -265,9 +265,8 @@ it would have drawn their vectors, in every pass, so lighting, shadows and the
 other layers are exactly as before. Ground cover and surface depth build
 `ArtPath`s, which Canvas draws as before.
 
-**Where it applies.** A developer setting, off by default: `?renderer=webgl`
-or localStorage `jumping:renderer` = `webgl` (`webgl-software` also accepts
-a software GPU, for browser tests). Daylight levels without an environment
+**Where it applies.** At first a developer setting, off by default (since
+phase 2 it is the default; see below). Daylight levels without an environment
 (the 23 unlit levels and the lit-by-day ones), in play. Night, regional
 lighting, environments and the studio stay on Canvas; so does a frame whose
 zoom is still animating, until it settles. Artwork using anything the recorder
@@ -379,11 +378,25 @@ drawn wrongly: it is left to Canvas, and the reason is counted.
 - **Phase 1's layers** draw through the same renderer (`GlFrame`), and still
   serve daylight levels with lamps (Drain, Tower), which phase 3 takes on.
 
-**Where it applies.** The same developer setting as phase 1. 32 built-in levels
-are daylight without lamps or an environment: the 26 courses and the six
-daylight facility areas (Concourse, Assessment, Construction, Security, Gravity,
-Puzzles). Night, lamps, the interior and landscape environments, the bus ending
-and the studio stay on Canvas.
+**Where it applies.** By default since November 12, wherever the GPU runs
+WebGL 2. 32 built-in levels are daylight without lamps or an environment: the
+26 courses and the six daylight facility areas (Concourse, Assessment,
+Construction, Security, Gravity, Puzzles). Night, lamps, the interior and
+landscape environments, the bus ending and the studio stay on Canvas, and
+phase 1's layers serve the daylight levels with lamps.
+
+- **The setting.** `?renderer=canvas`, or localStorage `jumping:renderer` =
+  `canvas`, keeps every frame on Canvas. A software WebGL driver (SwiftShader,
+  llvmpipe, Microsoft's Basic Render Driver) is refused, as the GPU lighting
+  field refuses it, because Canvas is faster there; `webgl-software` accepts
+  one, for headless browser tests (`worldRendererSetting`).
+- **One canvas until WebGL starts.** The renderer adds WebGL's canvas after the
+  game's only once WebGL 2 starts, so a browser without it, or with a software
+  driver, has exactly the page it had before. Headless Chromium's WebGL is
+  SwiftShader, so the browser suite still exercises Canvas; WebKit's reports a
+  GPU, so its two specs draw with WebGL. Tests find the game's canvas as
+  `.jumping-game > canvas[role="img"]`, and the frame reports (`jumping-wall`,
+  `jumping-head`) come from whichever canvas drew.
 
 **Speed work along the way.** The first build doubled the main thread's frame
 time, and a CPU profile showed where: every coin's arcs became curves before
@@ -451,7 +464,8 @@ by eye.
 **Next.** Phase 3, the lighting composite (night, lamps, environments), and
 before it, the main thread: retained meshes for artwork that only moves (props,
 mechanisms, robots' rigid parts) instead of recording it every frame, and the
-robot's limbs as fixed meshes posed by transform.
+robot's limbs as fixed meshes posed by transform. Both are taken up in
+[After phase 2](#after-phase-2-the-default-and-the-main-thread).
 
 **Memory.** The frame holds 26 bytes a pixel of targets (multisampled colour and
 stencil, the multisampled field and its texture, the coverage target), about
@@ -459,3 +473,63 @@ stencil, the multisampled field and its texture, the coverage target), about
 within the 64 MiB lighting allowance, which Canvas's lighting buffers no longer
 use while WebGL draws (they are released).
 
+### After phase 2: the default, and the main thread
+
+**The default.** Since November 12 WebGL draws the frames it covers wherever
+the GPU runs WebGL 2 (see phase 2's *Where it applies*); `?renderer=canvas`
+keeps Canvas alone.
+
+**What the extra main-thread time was.** Phase 2 measured a WebGL frame at up
+to 1.7 ms more main-thread time than a Canvas frame. Timed inside the game (the
+development server in hardware Edge, DPR 1.5, two runs each), WebGL's drawing
+takes less than Canvas's: 1.4 to 3.0 ms a frame on Full Tilt against 1.8 to 3.3,
+and 2.3 to 3.2 on Ascent against 4.6 to 5.0. The rest of the frame, mostly
+physics, takes longer under WebGL, although physics does the same work under
+either renderer. A fixed piece of arithmetic timed every frame suggests why: in
+three of four runs it took about 1.5 times as long while WebGL drew (a mean of
+0.47 to 0.53 ms against 0.33 to 0.40). With the GPU process no longer busy, the
+processor appears to run at a lower clock, so main-thread times on two
+renderers are not comparable on this laptop, and the plan's target of no more
+main-thread time than Canvas cannot be judged from them. One renderer before and
+after a change, interleaved, can be compared, and that is how the work below
+was measured.
+
+**Shapes in their own frame.** The shape cache keyed a shape relative to its
+first point, so a shape that turned (a robot's head and palm plates as it
+leans, a spinning coin) missed every frame and was tessellated again. It now
+keys each shape in its own frame, turned to the direction of its first point at
+least half a unit away (or an arc's first axis), and turns the cached triangles
+back into place; the key keeps the same 1/256-unit precision. Two kinds of fill
+skip the cache entirely: a whole ellipse is a unit circle through its matrix,
+so its fan comes from a unit circle cut into as many pieces as flattening would
+cut it (coin faces, joints), and a coin's edge, an ellipse and a convex rim
+winding the same way, is drawn as the two fans. A fill of several outlines now
+fans each convex one and ear-clips the rest straight into the frame's vertices.
+
+| Per frame | Full Tilt before | after | Ascent before | after |
+| --- | ---: | ---: | ---: | ---: |
+| Build, Node benchmark (400 frames, median of 7) | 0.312 ms | 0.119 ms | 0.333 ms | 0.252 ms |
+| Shapes tessellated, Node benchmark | 31.6 | 12.6 | 25.0 | 16.4 |
+| Build, in play in Edge (development server) | 0.83 ms | 0.44 to 0.47 ms | 0.90 ms | 0.59 to 0.80 ms |
+| Shapes tessellated, in play in Edge | 35 | 11 | 37 | 16 |
+
+In production bundles in hardware Edge, interleaved, three sections at DPR 1
+and 1.5, three 8 s episodes each, both on WebGL (`.local/perf/next-1-fulltilt`
+and `next-1-ascent`; the display ran at 60 Hz): the main thread's frame time
+(p50) fell in 5 of 6 sections on each level, from a mean of 5.95 to 5.6 ms on
+Full Tilt and from 7.9 to 6.5 ms on Ascent. Missed frames did not change beyond
+the noise of real-time play (13 and 12 on Full Tilt, 37 and 41 on Ascent, over
+18 episodes each). Ascent's p99 frame time is 10 to 27 ms on either build; it is
+the heaviest level for physics, which phase 2's CPU profiles put at 37% to 58%
+of its tick.
+
+**What is still tessellated every frame.** The robots' arm and leg shells and
+torsos, which bend with the pose, the water's waves and the boosters' plumes:
+about 11 shapes a frame on Full Tilt and 16 on Ascent. Making the limbs fixed
+meshes posed by transform would mean drawing the robot differently, so they are
+drawn as before.
+
+**Found along the way.** An opaque nonzero fill of several outlines was
+triangulated outline by outline, which would fill a hole cut by an outline
+winding the other way. No artwork draws one today (the stopwatch's ring is
+filled even-odd), and such fills now go to the stencil.

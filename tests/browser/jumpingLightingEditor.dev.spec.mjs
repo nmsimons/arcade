@@ -88,7 +88,7 @@ test('saved spotlight flicker runs during play and returns to the builder', asyn
   await open(page, flickerLevel(true))
   await saveTestLevel(page, 'Save and Test')
   await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
-  await page.locator('.jumping-game > canvas').focus(); await page.keyboard.press('ArrowRight')
+  await page.locator('.jumping-game > canvas[role="img"]').focus(); await page.keyboard.press('ArrowRight')
   await page.evaluate(() => { window.lampOutputs = [] })
   // Slow software rendering caps each live frame's elapsed time. Advance every
   // animation frame explicitly so a real-time wait cannot miss the next fault.

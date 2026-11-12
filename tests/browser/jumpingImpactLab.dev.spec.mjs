@@ -14,7 +14,7 @@ test('Impact Lab: normal-speed drop, get-up and return ladder use ordinary contr
   await page.getByRole('button', { name: 'Play Impact Lab', exact: true }).click()
   await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await expect(page.locator('.jumping-state')).not.toHaveText('Entering the level')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   await page.keyboard.down('d')
   await expect.poll(async () => (await read())?.x, { intervals: [16], timeout: 8000 }).toBeGreaterThan(470)

@@ -107,15 +107,3 @@ export function layerCrop(layer: LayerView, view: { x: number; y: number; zoom: 
   if (sx < 0 || sy < 0 || sx + view.width > layer.width || sy + view.height > layer.height) return null
   return { sx, sy }
 }
-
-/**
- * The developer setting for this phase: `?renderer=webgl` or localStorage
- * `jumping:renderer` = `webgl`. `webgl-software` also accepts a software WebGL
- * driver, for headless browser tests. Off otherwise.
- */
-export function webglLayersSetting(): 'off' | 'hardware' | 'software' {
-  if (typeof window === 'undefined') return 'off'
-  let value: string | null = null
-  try { value = new URLSearchParams(window.location.search).get('renderer') ?? window.localStorage.getItem('jumping:renderer') } catch { /* Off. */ }
-  return value === 'webgl' ? 'hardware' : value === 'webgl-software' ? 'software' : 'off'
-}

@@ -42,7 +42,7 @@ test('Play Exit uses the authored entrance despite an old outdoor checkpoint; Re
   // Play navigates to the level route without the read-only diagnostic query.
   const reload = new URL(page.url()); reload.searchParams.set('motionDebug', '1')
   await page.goto(reload.toString())
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
   await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await page.clock.pauseAt(new Date('2026-10-29T14:00:00Z'))
   await finishJumpingEntrance(page)

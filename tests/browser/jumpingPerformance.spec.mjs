@@ -23,7 +23,7 @@ for (const { savedPreference, nightMode } of [
     }, savedPreference)
     await page.clock.install()
     await openLevelLink(page)
-    const canvas = page.locator('.jumping-game > canvas')
+    const canvas = page.locator('.jumping-game > canvas[role="img"]')
     await expect(canvas).toBeFocused()
     const fullPixels = await canvas.evaluate(c => c.width * c.height)
     expect(fullPixels).toBeGreaterThan(640 * 360)

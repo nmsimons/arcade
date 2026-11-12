@@ -1,3 +1,4 @@
+import { ArtPath } from './webgl/artPath.ts'
 import { pointInside, polygonArea, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { parseObjectName } from './objectNames.ts'
@@ -105,7 +106,7 @@ export function drawLandscape(ctx: CanvasRenderingContext2D, environment: LevelE
   // Sparse flat silhouettes share one subtle horizontal parallax layer. Their
   // height follows the authored baseline; motion depends only on the camera.
   ctx.fillStyle = '#e8f1f3'
-  cloudPaths ??= cloudContours.map(contour => new Path2D(contour))
+  cloudPaths ??= cloudContours.map(contour => new ArtPath(contour))
   // Cull in the cloud layer's frame, then translate into the existing world
   // transform. The sky and cave clips above stay in the terrain's frame.
   const cloudX = view.x * CLOUD_SCROLL, offsetX = view.x - cloudX

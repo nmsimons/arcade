@@ -9,6 +9,8 @@
 //     --dpr 1,1.5            Device pixel ratios (default 1,1.5) at a 1280x800 CSS viewport.
 //     --at 0,900,1800,2700   Capture times in ms after the opening, running right with a jump every 0.9 s.
 //     --out <dir>            Captures and diff images (default .local/perf/compare-<level>-<time>).
+//     --renderer name=value  Draw that bundle with localStorage `jumping:renderer` = value (such as webgl), so
+//                            one build can be compared with itself on two renderers.
 //
 // Per frame it reports the largest channel difference (of 255), the mean difference, and the share of
 // channels that differ by more than 2. The October 2026 Exit work held changes to max 3, mean < 0.03 and
@@ -17,12 +19,16 @@ import { preview } from 'vite'
 import { chromium } from '@playwright/test'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { resolve, join, basename } from 'node:path'
+// Every built-in level counts as completed, as the browser tests seed it, so the campaign never refuses a level's link.
+const levelIds = JSON.parse(await readFile(resolve('public/levels/jumping/index.json'), 'utf8')).levels
+const unlocked = await Promise.all(levelIds.map(async name => JSON.parse(await readFile(resolve('public/levels/jumping', name), 'utf8')).id))
 
 const args = process.argv.slice(2), file = args.find(a => !a.startsWith('--') && !args[args.indexOf(a) - 1]?.startsWith('--'))
 const option = name => { const i = args.indexOf(`--${name}`); return i < 0 ? undefined : args[i + 1] }
 const options = name => args.flatMap((a, i) => a === `--${name}` ? [args[i + 1]] : [])
 if (!file || !/\.jump-level\.json$/.test(file)) throw new Error('Give a built-in level file, such as fulltilt.jump-level.json')
-const bundles = options('bundle').map(b => { const [name, dir] = b.split('='); return { name, dir: resolve(dir) } })
+const renderers = Object.fromEntries(options('renderer').map(r => r.split('=')))
+const bundles = options('bundle').map(b => { const [name, dir] = b.split('='); return { name, dir: resolve(dir), renderer: renderers[name] } })
 if (bundles.length !== 2) throw new Error('Give exactly two --bundle name=dir')
 const snapshot = JSON.parse(await readFile(option('snapshot') ?? resolve('public/levels/jumping', file), 'utf8'))
 const sections = (option('sections') ?? `${snapshot.entrance.x}:${snapshot.entrance.y}`).split(',').map(s => { const [x, y] = s.split(':').map(Number); return { x, y } })
@@ -39,7 +45,19 @@ try {
     page.on('pageerror', e => errors.push(e.message))
     const moved = { ...snapshot, entrance: { ...snapshot.entrance, x: section.x, y: section.y } }
     await page.route(`**/levels/jumping/${file}`, route => route.fulfill({ body: JSON.stringify(moved), contentType: 'application/json' }))
-    await page.addInitScript(() => { try { localStorage.setItem('jumping:lighting-performance-mode', 'false'); localStorage.removeItem('jumping:measure-skip-layers') } catch { /* Defaults. */ } })
+    await page.addInitScript(ids => {
+      try {
+        const times = JSON.parse(localStorage.getItem('arcade.jumping.times.v1') ?? '{}'), completed = JSON.parse(localStorage.getItem('arcade.jumping.completed.v1') ?? '{}')
+        for (const id of ids) { times[id] ??= 0; completed[id] = true }
+        localStorage.setItem('arcade.jumping.times.v1', JSON.stringify(times)); localStorage.setItem('arcade.jumping.completed.v1', JSON.stringify(completed))
+      } catch { /* Unlocked levels only. */ }
+    }, unlocked)
+    await page.addInitScript(renderer => {
+      try {
+        localStorage.setItem('jumping:lighting-performance-mode', 'false'); localStorage.removeItem('jumping:measure-skip-layers')
+        if (renderer) localStorage.setItem('jumping:renderer', renderer); else localStorage.removeItem('jumping:renderer')
+      } catch { /* Defaults. */ }
+    }, bundles[bundleIndex].renderer ?? null)
     // As openLevelLink in the browser tests: hold the campaign back until the opening dialog shows, then
     // pause the clock and release it, so the run starts at the same fake time in every page.
     let release = () => {}
@@ -50,9 +68,9 @@ try {
       await page.goto(`http://127.0.0.1:${4197 + bundleIndex}/lab/levels/built-in/${file}`)
       await page.getByRole('dialog', { name: 'Opening the facility', exact: true }).waitFor({ timeout: 60000 })
       await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z')); release()
-      const canvas = page.locator('.jumping-game > canvas')
+      const canvas = page.locator('.jumping-game > canvas[role="img"]')
       await canvas.waitFor({ timeout: 60000 })
-      if (!page.url().includes(file)) throw new Error(`The level link was refused at ${section.x},${section.y}`)
+      if (!decodeURIComponent(page.url()).includes(file)) throw new Error(`The level link was refused at ${section.x},${section.y}`)
       await page.waitForFunction(() => !document.querySelector('.jumping-game[aria-busy="true"]'), null, { timeout: 60000 })
       for (let i = 0; i < 600; i++) {
         await page.clock.runFor(16)
@@ -70,7 +88,8 @@ try {
           await advanceTo(jump); await page.keyboard.down('Space'); await advanceTo(Math.min(at, jump + 220)); if (elapsed >= jump + 220) await page.keyboard.up('Space')
         }
         await advanceTo(at)
-        frames.push(await canvas.evaluate(c => c.toDataURL('image/png')))
+        // What is on screen: a WebGL frame draws on its own canvas over this one, and reads back blank once presented.
+        frames.push(`data:image/png;base64,${(await canvas.screenshot({ animations: 'allow', caret: 'initial', scale: 'device' })).toString('base64')}`)
       }
       await page.keyboard.up('d')
       return { frames, begin, errors }

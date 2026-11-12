@@ -1,3 +1,4 @@
+import { ArtPath } from './webgl/artPath.ts'
 import type { Limb, Point } from './limbPose.ts'
 import type { AthleteOutline } from './athleteDraw.ts'
 
@@ -53,7 +54,7 @@ export function drawAndroidPalmPlate(ctx: CanvasRenderingContext2D, limb: Limb, 
   const open = Math.max(0, Math.min(1, limb.handOpen ?? 0)), plate = .85 - open * .3, back = .85 + open * .25
   const { palm, angle } = handGeometry(limb), cos = Math.cos(angle), sin = Math.sin(angle)
   const at = (x: number, y: number): Point => [palm[0] + (x * cos - y * sin) * scale, palm[1] + (x * sin + y * cos) * scale]
-  const path = new Path2D()
+  const path = new ArtPath()
   // Meet the outer palm planes rather than enclosing a bright inset: a dark
   // ring around a tiny plate reads as a hole once the hand is only two pixels.
   path.moveTo(...at(-.65, -1.4)); path.lineTo(...at(back, -1.4))

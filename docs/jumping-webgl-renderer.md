@@ -1,6 +1,8 @@
 # Moving LAB's renderer to WebGL
 
-Status: proposed, November 10, 2026. Nothing here is built yet.
+Status: proposed November 10, 2026. Phases 0 and 1 are done; phase 2 (whole
+daylight frames) was built and measured on November 11 and 12 and awaits your
+review (see [Progress](#progress)).
 
 ## Why
 
@@ -60,17 +62,17 @@ from these parts:
 | Part | What it does | How |
 | --- | --- | --- |
 | Context and resources | One WebGL 2 context per game canvas; buffers, textures and render targets in a registry, within the GPU allowance | On context loss, release everything; on restore, rebuild from level data, which is the source of truth |
-| Paths | The Canvas path model the artwork already uses: `moveTo`, `lineTo`, quadratic and Bézier curves, `arc`, `ellipse`, `roundRect`, `closePath` | A `PathBuilder` with the same calls, flattened to polylines at the current scale, so artwork code ports by changing its target, not its logic |
-| Fills | Triangles from flattened outlines, with the nonzero and even-odd rules the artwork uses | Ear clipping for simple outlines; the stencil buffer for self-overlapping paths and even-odd fills. One small, well-tested triangulation library (earcut, about 3 KB) is the one dependency proposed |
-| Strokes | Lines with Canvas's widths, joins (miter, round, bevel) and caps (butt, round, square), including sub-pixel hairlines (the wall grid, panel lines) | Extruded triangle strips; hairlines thinner than a device pixel keep their width and fade their alpha, as Canvas does |
-| Anti-aliasing | Edges that look like Canvas's | Multisampling (4×) to begin with, judged on contact sheets; analytic edge coverage for hairlines and small shapes if multisampling is not close enough |
-| Batching | Few draw calls per frame | One vertex format (position, colour, texture coordinates, an exposure floor); static meshes in GPU buffers, built once; per-frame geometry streamed into a ring buffer; draws sorted only where painter's order allows |
+| Paths | The Canvas path model the artwork already uses: `moveTo`, `lineTo`, quadratic and Bézier curves, `arc`, `ellipse`, `roundRect`, `closePath` | Built (phase 1): a recording context (`webgl/recorder.ts`) that the unchanged artwork draws into, and `ArtPath` (`webgl/artPath.ts`), a `Path2D` that remembers its geometry. Curves are flattened to 0.2 device pixels at the recorded zoom |
+| Fills | Triangles from flattened outlines, with the nonzero and even-odd rules the artwork uses | Built: a convex outline is fanned; a simple outline, or an opaque fill of simple outlines, is ear-clipped (our own, `webgl/geometry.ts`); anything else, such as overlapping translucent shapes or even-odd, counts winding in the stencil and is then covered. No dependency was needed |
+| Strokes | Lines with Canvas's widths, joins (miter, round, bevel) and caps (butt, round, square), including sub-pixel hairlines (the wall grid, panel lines) | Built: strokes two device pixels wide or more become triangles with Canvas's joins and caps; thinner ones become quads whose exact box-filtered coverage the shader computes, so hairlines keep their brightness as the camera moves. A translucent stroke covers each sample, or pixel, once, as Canvas strokes a path as one shape |
+| Anti-aliasing | Edges that look like Canvas's | Built: 4× multisampling for fills and clips, exact coverage for thin strokes. Colours are kept straight and premultiplied in the shader, as Canvas blends, so faint tints match |
+| Batching | Few draw calls per frame | Built (phase 2): one vertex format (position, line coverage, colour); retained scenes in GPU buffers, built once; each frame's geometry streamed into one buffer, with the triangles of shapes already seen copied from a cache; consecutive draws with the same clip, texture and exposure share a call |
 | Materials | Flat colour, the terrain material patterns, images | Repeating textures at the same half scale as today's patterns |
-| Clips | Ground cover inside its rock and outside its occluders; doorways; levels' bounds | The stencil buffer, which supports nested clips and even-odd |
+| Clips | Ground cover inside its rock and outside its occluders; doorways; levels' bounds | Built: the stencil's high four bits count how many clips a sample is inside, the low four count winding, so clips nest and even-odd works; a clip off screen skips everything inside it |
 | Compositing | Multiply, lighter, destination-in and the other modes the lighting uses | Blend functions where one exists; otherwise a pass in the lighting composite |
-| Glow | `shadowBlur` | A two-pass Gaussian blur on a small render target per glowing group, cached like today's display glow; sigma half the blur, as Canvas defines it |
-| Text | Wall texts, display glyphs, placards | Rasterised once with Canvas 2D into a texture atlas (fonts are already loaded), drawn as quads |
-| Lighting | The day and night composite | See below; the existing shadow-field shaders move into this context |
+| Glow | `shadowBlur` | Built: Canvas draws each glowing shape's shadow once into a cached sprite, placed between pixels as Canvas places its cached glows; WebGL draws the shape over it |
+| Text | Wall texts, display glyphs, placards | Built: Canvas draws each text into a cached sprite at its position's fraction of a pixel, as Canvas positions glyphs (a quarter pixel across, the baseline on a whole pixel), placed on whole pixels |
+| Lighting | The day and night composite | Daylight built: one exposure per draw, from the field read at its pixel; night, lamps and environments in phase 3 |
 
 It targets WebGL 2 for its reach; WebGPU can follow later behind the same
 interface. Development uses a frame debugger (Spector.js or the browser's) to
@@ -91,6 +93,11 @@ shipped as the default for a release.
 Everything above the renderer is untouched: the simulation, `athletePose` (poses
 are computed, then drawn), level parsing, the studio's editing logic, the React
 HUD and dialogs.
+
+Built in phase 2, per frame rather than per mount: `WorldRenderer`
+(`worldRenderer.ts`) advances the lighting once and gives each frame to WebGL
+when it covers it, otherwise to Canvas, and shows WebGL's canvas only while it
+draws. A frame WebGL cannot reproduce is left to Canvas, never drawn wrongly.
 
 ### A retained scene in painter's order
 
@@ -182,8 +189,8 @@ after phase 1, which builds the core and so shows the real pace.
 | Phase | Work | Exit check | Estimate |
 | --- | --- | --- | --- |
 | 0. Foundations | Frame reports for the wall, heads and displays; the head observer, the camera hooks and the clock readers moved to them; each spec's remaining hooks listed by layer | The moved specs green on Canvas; no visual or timing change | 1 week |
-| 1. Core and terrain | The `WorldRenderer` interface, designed against its first WebGL user, around today's renderer; the renderer core (context, paths, fills, strokes, anti-aliasing, batching, materials, clips) and, with it, the backdrop and terrain (fill, texture, edges, ground cover) for Full Tilt by day, Canvas drawing the rest on a transparent canvas above | GPU busy and fps measured against Canvas; terrain, hairlines and ground cover look the same by eye. **Go or no-go on the approach** | 2–3 weeks |
-| 2. Daylight courses | Every layer `drawPuzzleWorld` draws, plus the daylight shadow field, in WebGL; one canvas | All 23 unlit levels pass the contact sheets and targets; WebGL default for them behind a setting | 2–3 weeks |
+| 1. Core and terrain | The renderer core (context, paths, fills, strokes, anti-aliasing, batching, materials, clips) and, with it, the backdrop and terrain (fill, texture, edges, ground cover) for Full Tilt by day, as pictures the Canvas frame places in its order | GPU busy and fps measured against Canvas; terrain, hairlines and ground cover look the same by eye. **Go or no-go on the approach** | 2–3 weeks; built in a day |
+| 2. Daylight courses | Every layer `drawPuzzleWorld` draws, plus the daylight shadow field, in WebGL; one canvas | All 23 unlit levels pass the contact sheets and targets; WebGL default for them behind a setting | 2–3 weeks; built in a day |
 | 3. Lighting | The composite pass: day-lit and night levels, light sources, region lighting, emissions and readable floors, landscape and interior environments, charging bays, bus ending | All 43 levels pass; Exit meets the targets | 2–3 weeks |
 | 4. Facility and studio | Facility areas (doors, boards, placards), the studio view (its selection and handles can stay a 2D overlay on top), thumbnails, lighting lab, model review | Studio and facility browser specs green on WebGL | 1–2 weeks |
 | 5. Default | WebGL default everywhere, Canvas kept as fallback for one release; docs | Full suite on both renderers; targets met on the reference laptop | 1 week |
@@ -200,26 +207,31 @@ About 9–13 weeks in all. Phase 1's look and numbers decide whether it continue
 - **The look drifts.** Contact sheets per phase, then strict regression checks.
 - **Devices.** WebGL 2 is near universal, but context loss, iOS Safari and
   integrated GPUs need testing; Canvas stays as the fallback.
-- **Phase 1 splits the world across two canvases**, which only works
-  for a contiguous bottom band of layers. It is a measurement step, not a
-  shipping state.
+- **Phase 1 hands WebGL pictures to the Canvas frame** (now only on daylight
+  levels with lamps; phase 2 frames draw on their own canvas). That keeps every pass
+  and the drawing order exact, but Chrome charges a canvas about 1 ms of
+  main-thread time per frame for drawing a picture from another GPU context.
+  It is a measurement step, not a shipping state; the charge leaves with phase 2.
 - **Owning the renderer.** Anti-aliasing, strokes and text are ours to get right
   and to maintain. The contact sheets catch the look; a frame debugger and the
   render-path unit tests (paths, triangulation, strokes) catch the mechanics.
 
 ## Decisions for you
 
-1. **Triangulation:** use earcut (about 3 KB, the one proposed dependency), or
-   write our own ear clipping.
+1. **Triangulation:** settled in phase 1 without earcut. Our own ear clipping
+   covers simple outlines and the stencil covers the rest; revisit only if
+   later layers need holes triangulated.
 2. **The bar for "looks the same":** your review of contact sheets, with the
    perceptual check as a guard.
 3. **Device floor:** WebGL 2 required for the new renderer, with Canvas as the
    fallback for how long.
 4. **The studio:** move it fully, or keep its overlays in 2D above a WebGL world.
 
-## First steps
+## Progress
 
-Phase 0 is under way. The wall, head and display reports exist; the head
+### Phase 0: done
+
+The wall, head and display reports exist; the head
 observer, every hook that only found the camera, and every clock reader use
 them, so 12 files no longer patch the canvas. Display readings came first
 because cached display glow (see the performance notes) hid the `shadowBlur`
@@ -236,5 +248,214 @@ watching one layer's artwork, and move with their layer:
 | Force fields, air boosters, wire terminals, terrain relief | jumpingForceField, AirBoosters, WireTerminals, SurfaceDepth |
 | The studio (`LevelBuilder`, `builderPlacement`, `backWallEditing`) | jumpingBuilder, BuilderPlacement |
 
-`jumping.spec.mjs` keeps one `fillText` hook, on the HUD-free view. Phase 1 then
-defines `WorldRenderer` and starts the core with Full Tilt's terrain.
+`jumping.spec.mjs` keeps one `fillText` hook, on the HUD-free view.
+
+### Phase 1: built and measured
+
+**What is built.** The renderer core is in `src/games/jumping/webgl/`:
+`artPath.ts` (the remembering `Path2D`), `recorder.ts` (the recording
+context), `geometry.ts` (flattening, fans, ear clipping, strokes and thin
+lines), `scene.ts` (operations to one static vertex buffer and a list of GPU
+passes) and `glLayers.ts` (WebGL 2: a 4× multisampled target with a stencil,
+resolved and handed out as an `ImageBitmap`). `worldLayers.ts` records the
+backdrop and the terrain once per level and zoom, by running the ordinary
+`drawLevelBackdrop` and `drawTerrain` against the recorder, and draws both
+every frame from GPU memory. `LightingRenderer` places the two pictures where
+it would have drawn their vectors, in every pass, so lighting, shadows and the
+other layers are exactly as before. Ground cover and surface depth build
+`ArtPath`s, which Canvas draws as before.
+
+**Where it applies.** A developer setting, off by default: `?renderer=webgl`
+or localStorage `jumping:renderer` = `webgl` (`webgl-software` also accepts
+a software GPU, for browser tests). Daylight levels without an environment
+(the 23 unlit levels and the lit-by-day ones), in play. Night, regional
+lighting, environments and the studio stay on Canvas; so does a frame whose
+zoom is still animating, until it settles. Artwork using anything the recorder
+does not reproduce (text, gradients, glows, images, dashes) stays on Canvas
+for that layer. The profiler and the frame comparison take
+`--renderer <name>=webgl`, so one build is measured or compared against itself.
+
+**Full Tilt's scenes.** The backdrop is 168 fills, 3 strokes and 2 clips,
+built into 7,596 vertices and 10 passes (the panels' 168 tints are one draw
+call). The terrain is 50 fills, 33 strokes and 15 clips (the moss's planted
+bands), 54,189 vertices and 49 passes: 17 direct draws, 2 stencil fills (the
+translucent relief, whose strips overlap) and 15 clip pairs, of which only
+those on screen are drawn. Recording and building take about 260 ms on the
+development server, once per level and zoom.
+
+**The look.** `compare-jumping-frames.mjs` plays the same build on both
+renderers on a fake clock and compares every pixel. On Full Tilt's opening
+hills, the 3100 hilltop and the 5450 steel section, at 0 and 900 ms, the mean
+difference is 0.05 of 255 at DPR 1.5 and 0.07 to 0.10 at DPR 1; 0.5% to 1.3% of
+channels differ by more than 2, all on edges: the moss bands' rims and the
+terrain's silhouette, where 4× multisampling and Canvas's analytic coverage
+round differently, and faint dots where grid lines cross. Contact sheets of the
+three most different regions of each frame, magnified three times, are in
+`.local/perf/webgl-sheets/`; at that size the two are hard to tell apart. A
+browser test (`jumpingWebglLayers.dev.spec.mjs`) holds the WebGL layers to
+Canvas on a software GPU: mean difference under 0.5, no 20-pixel block off by
+2 or more on average, and the same camera report.
+
+**Measured.** Full Tilt as it is now, in hardware Edge on the reference laptop,
+one production build on both renderers, interleaved, three 6 s episodes per
+section, adaptive quality off (`.local/perf/webgl-phase1-final`):
+
+| Section | DPR 1.5 Canvas | DPR 1.5 WebGL layers | Frame CPU p50, Canvas / WebGL |
+| --- | ---: | ---: | ---: |
+| 120 (opening hills) | 54.6 fps, 12 missed | 56.9 fps, 0 missed | 4.5 / 4.1 ms |
+| 1325 (pit, first rope) | 53.5 fps, 18 missed | 56.7 fps, 0 missed | 4.6 / 5.1 ms |
+| 3100 (hilltop, pool) | 52.8 fps, 21 missed | 56.9 fps, 0 missed | 5.5 / 7.2 ms |
+| 3875 (pool platform) | 48.0 fps, 48 missed | 57.0 fps, 0 missed | 4.6 / 7.1 ms |
+| 5450 (steel, force fields) | 40.8 fps, 87 missed | 56.9 fps, 0 missed | 5.3 / 6.4 ms |
+
+At DPR 1 both renderers hold the display's rate everywhere, with the same frame
+CPU (3.8 to 4.9 ms). The GPU process's main thread, busy 93% to 99% of every
+Canvas frame, is busy 56% to 78% with the WebGL layers, so the layers leave
+headroom where Canvas had none. At DPR 1.5 the first key press stalls for 19 ms instead
+of 36.
+
+Main-thread time rises by up to 1.7 ms at DPR 1.5. Drawing the layers costs
+0.2 ms a frame, less than the 0.6 to 0.7 ms Canvas spent on their vectors; the
+rest is Chrome's charge for a picture from another GPU context (see the risks),
+measured on its own at about 1 ms a frame, the same for one picture or two and
+however it is handed over. It goes when one context draws the frame.
+
+**Go or no-go: go.** The layers that Canvas took longest over now cost the GPU
+little, the frame rate holds at DPR 1.5 where Canvas fell to 41 fps, and the
+artwork is drawn by its own code, unchanged, at the same quality. Phase 2 is the
+next step: every layer `drawPuzzleWorld` draws, the daylight shadow field moved
+into this context, one canvas, and the `WorldRenderer` interface.
+
+**Not yet.** Night and regional lighting, environments (landscape, interior,
+cave), the studio and thumbnails, wall text, glows and gradients; a zoom still
+animating uses Canvas until it settles.
+
+**Memory.** The layers hold a 4× multisampled colour target and stencil (20
+bytes a pixel), a coverage target (1), and the canvas with the two pictures it
+hands out each frame (12): about 75 MB at 1920×1200, outside the 64 MiB lighting
+allowance for now.
+
+### Phase 2: daylight frames
+
+**What is built.** WebGL draws the whole daylight frame on its own canvas, in
+one context, and the game shows that canvas over the Canvas one while it draws
+(`WorldRenderer`, `worldRenderer.ts`). Each frame goes to whichever renderer
+covers it: the lighting state advances once, then WebGL draws daylight play
+without lamps or an environment (`WebGLWorldFrame.covers`), and Canvas draws
+everything else exactly as before. A frame WebGL cannot reproduce is never
+drawn wrongly: it is left to Canvas, and the reason is counted.
+
+- **Retained scenes.** The backdrop and the terrain are recorded once per level
+  and per resting zoom, as in phase 1. The game passes the zoom the camera
+  settles at, so the charging bay's waking zoom draws the same meshes, scaled.
+- **Everything else, every frame.** The ordinary artwork (`drawPuzzleWorld`,
+  wall wiring, wall text, water) runs against the recorder, which now knows the
+  camera: it reports the true device transform, accepts device-space
+  `setTransform`, and leaves out anything wholly off screen. The builder turns
+  the operations into triangles through a cache of shapes it has already
+  tessellated, keyed by shape relative to its first point, so a coin or a
+  robot's panel that only moves costs a copy. Curves are flattened at a zoom
+  step an eighth of an octave wide, so the cache survives a zoom animation.
+- **Exposure.** Daylight's composite reduces to one exposure per draw: the
+  light field where artwork receives light, the ambient level (0.95) where it
+  does not, and at least its readability floor. Canvas reaches it by
+  multiplying the frame by the field and correcting readable and structural
+  artwork in later passes; blending is linear, so multiplying each draw first
+  is the same. The recorder takes each draw's class from the `WorldPaint` call
+  around it, and the shader applies it, reading the field at its pixel.
+- **The field.** Daylight's parallel shadows are cast once for the whole level
+  from the fixed structures and every frame from moving ones, drawn 4×
+  multisampled into a texture with the same formula as the GPU field
+  (`1 − (1 − a) × coverage`).
+- **Text and glows.** Canvas draws them into small sprites (`sprites.ts`),
+  cached. Text is drawn at its position's fraction of a pixel as Canvas places
+  glyphs (a quarter pixel across, the baseline on a whole pixel, measured in
+  Chromium and Edge) and placed on whole pixels, so it lands as crisply as
+  Canvas draws it. A glow (`shadowBlur`) is drawn once and placed between
+  pixels, as Canvas places its cached glows; WebGL draws the shape over it.
+- **Paths.** The robots, pickups, gravity water and the L.A.B. stamp build
+  `ArtPath`s, which now also read SVG path data and draw `roundRect`; the
+  recorder adds dashes and images.
+- **Phase 1's layers** draw through the same renderer (`GlFrame`), and still
+  serve daylight levels with lamps (Drain, Tower), which phase 3 takes on.
+
+**Where it applies.** The same developer setting as phase 1. 32 built-in levels
+are daylight without lamps or an environment: the 26 courses and the six
+daylight facility areas (Concourse, Assessment, Construction, Security, Gravity,
+Puzzles). Night, lamps, the interior and landscape environments, the bus ending
+and the studio stay on Canvas.
+
+**Speed work along the way.** The first build doubled the main thread's frame
+time, and a CPU profile showed where: every coin's arcs became curves before
+culling, limbs that change shape every frame were ear-clipped by an algorithm
+that restarted after each ear, convexity used `atan2` at every corner, and every
+cached shape was compared value by value. Arcs are now recorded whole, with
+their matrix, and become curves only when drawn; ear clipping walks a linked
+ring and tests only reflex corners; convexity counts turns; shapes are found by
+a 64-bit digest; path transforms no longer allocate. Together these took about
+3 ms off each Full Tilt frame. Last, a shape is kept only once it has been
+seen in two frames running: a limb or a spinning coin, which changes every
+frame, is drawn without being stored. Arcs are flattened straight off the
+ellipse, as Canvas draws them exactly.
+
+**Played.** In hardware Edge, all 26 daylight courses were played for 20 s each
+(running, jumping, ropes, swimming, bracing, floating) and the six daylight
+facility areas watched for 10 s each: every frame, about 1,240 per course, was
+drawn by WebGL, none was left to Canvas, and no page errors occurred. In play,
+a Full Tilt frame records in about 1.75 ms, builds in 0.8 and is handed to the
+GPU in 0.3; most of the recording is the artwork's own work, poses included,
+which Canvas pays too.
+
+**The look.** In deterministic play in hardware Edge (`compare-jumping-frames.mjs`,
+one build on both renderers, ten courses at DPR 1 and 1.5, at the opening and
+1.8 s in), WebGL frames differ from Canvas's by a mean of 0.08 to 0.53 of 255,
+on edges. One view of each of the 32 levels on a software GPU differs by 0.4 to
+1.1, the largest 20-pixel block usually by 2 to 2.6 at the robot's edges; at
+four times magnified the robot is the same on both. Contact sheets of each
+course's three most different regions, magnified three times, are in
+`.local/perf/webgl-phase2-sheets/`. A browser test (`jumpingWebglLayers.dev.spec.mjs`)
+holds four levels to Canvas on a software GPU and checks the per-frame choice.
+The largest blocks have two causes, both small:
+
+- **Wall artwork in simple daylight levels.** Doors and other artwork painted
+  through `ambientPaint` receive daylight's ambient exposure, 0.95. Canvas gives
+  them that once the camera rests (its cached background), but while the
+  camera moves its cached ambient pass corrects only 128-pixel tiles over
+  terrain and the robot's surroundings, so elsewhere such artwork is 5% brighter
+  until the camera stops. WebGL always draws Canvas's resting value, so a door
+  no longer brightens and dims as the camera starts and stops.
+- **Glyphs on a quarter-pixel boundary.** Canvas places each glyph at its own
+  quarter pixel; a sprite starts from the string's, so the odd glyph lands a
+  quarter pixel over.
+
+**Measured.** Full Tilt, one build on both renderers, interleaved, at DPR 1.5:
+WebGL holds 56.5 to 56.7 fps (the display's 57 Hz) with 0 or 1 missed frames in
+every section, where Canvas falls to 40.6 to 54.1 fps with 19 to 116 missed;
+the GPU process is busy 20% to 41% instead of 96% to 100%; the first key press
+stalls 19 ms instead of 36 to 53. Ascent, the heaviest level for physics, at DPR
+1.5: 56.0 to 56.7 fps with 0 to 2 missed against Canvas's 48.3 to 51 with 42 to
+60. At DPR 1 Canvas already holds the rate on both levels, and WebGL does too,
+but on Ascent's two busiest sections it missed 2 and 5 frames in 18 s where
+Canvas missed 0 and 1 ([performance notes](jumping-performance.md)).
+
+The main thread is the cost: a WebGL frame takes up to about 1.7 ms more of it
+than a Canvas frame (traces' totals), against the plan's target of no more.
+Recording the world costs less than Canvas's drawing it; the extra is
+tessellating shapes that change every frame and the GL calls.
+
+**Go or no-go: go,** with the main thread as the work that remains. The frame
+rate holds where Canvas could not, the GPU has headroom for phase 3's lighting,
+every frame of play on every covered level was WebGL's, and the look is Canvas's
+by eye.
+
+**Next.** Phase 3, the lighting composite (night, lamps, environments), and
+before it, the main thread: retained meshes for artwork that only moves (props,
+mechanisms, robots' rigid parts) instead of recording it every frame, and the
+robot's limbs as fixed meshes posed by transform.
+
+**Memory.** The frame holds 26 bytes a pixel of targets (multisampled colour and
+stencil, the multisampled field and its texture, the coverage target), about
+52 MB at 2 megapixels, plus at most 4 MB of cached shapes and 8 MB of sprites:
+within the 64 MiB lighting allowance, which Canvas's lighting buffers no longer
+use while WebGL draws (they are released).
+

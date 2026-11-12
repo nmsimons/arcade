@@ -21,7 +21,7 @@ export interface PerformanceSnapshot extends PerformanceSummary {
   scale: number
   dpr: number
   shadows: 'full' | 'structural'
-  lighting: { lights: number; edges: number; bufferBytes: number; backend: 'gpu' | 'canvas' } | null
+  lighting: { lights: number; edges: number; bufferBytes: number; backend: 'gpu' | 'canvas' | 'webgl' } | null
 }
 
 /** Opt-in, bounded frame history. Uses raw rAF intervals, never the physics dt cap. */

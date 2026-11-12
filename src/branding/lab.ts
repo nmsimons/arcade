@@ -1,4 +1,5 @@
 /** The approved L.A.B. mark, shared by SVG UI and Canvas world artwork. */
+import { ArtPath } from '../games/jumping/webgl/artPath.ts'
 export const LAB_NAME = 'L.A.B. Experiments'
 export const LAB_PATH = '/lab'
 export const LAB_LOGO_WIDTH = 876
@@ -31,8 +32,8 @@ export const LAB_SUBTITLE_PATH = [...'experiments'].map((letter, i) => letters[l
 
 let wordmark: Path2D | undefined, subtitle: Path2D | undefined
 export function drawLabLogo(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, ink: string, subtitleInk = ink) {
-  wordmark ??= new Path2D(LAB_WORDMARK_PATH)
-  subtitle ??= new Path2D(LAB_SUBTITLE_PATH)
+  wordmark ??= new ArtPath(LAB_WORDMARK_PATH)
+  subtitle ??= new ArtPath(LAB_SUBTITLE_PATH)
   ctx.save(); ctx.translate(x, y); ctx.scale(width / LAB_LOGO_WIDTH, width / LAB_LOGO_WIDTH)
   ctx.fillStyle = ink; ctx.fill(wordmark, 'evenodd')
   ctx.fillStyle = subtitleInk; ctx.fill(subtitle, 'evenodd')

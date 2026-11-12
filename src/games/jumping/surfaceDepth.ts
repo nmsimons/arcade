@@ -3,6 +3,7 @@ import type { Platform } from './model.ts'
 import { polygonPoints } from './geometry.ts'
 import { bezierKey } from './terrainCurves.ts'
 import { terrainBoundary } from './lightingBoundary.ts'
+import { ArtPath } from './webgl/artPath.ts'
 
 interface WallView { x: number; y: number; w: number; h: number }
 const noise = (x: number, y: number) => {
@@ -21,7 +22,7 @@ export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView) {
   // Each panel's tint differs, so tints are separate fills; the edge lines share
   // two strokes, one per colour, instead of two per panel. Fills never cover a
   // line, so only the few pixels where neighbouring panels' lines meet can differ.
-  const shade = new Path2D(), sheen = new Path2D()
+  const shade = new ArtPath(), sheen = new ArtPath()
   for (let row = Math.floor(view.y / h); row <= Math.floor((view.y + view.h) / h); row++) {
     const stagger = (row % 2) * w / 2
     for (let col = Math.floor((view.x - stagger) / w); col <= Math.floor((view.x + view.w - stagger) / w); col++) {
@@ -71,7 +72,7 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
   const key = platforms.map(b => `${b.x},${b.y},${b.w},${b.h}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
   const cached = reliefs.get(level)
   if (cached?.key === key) return cached
-  const light = new Path2D(), dark = new Path2D()
+  const light = new ArtPath(), dark = new ArtPath()
   const shapes = platforms.map(shape => polygonPoints(shape) as Point[]), boxes = shapes.map(boxOf)
   // The union boundary omits internal seams and retains real gaps and slopes.
   for (const [a, b] of terrainBoundary(platforms)) {

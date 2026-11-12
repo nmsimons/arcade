@@ -1,3 +1,4 @@
+import { ArtPath } from './webgl/artPath.ts'
 import type { NamedObject } from './objectNames.ts'
 import { TUNING } from './model.ts'
 import type { Player } from './model.ts'
@@ -104,7 +105,7 @@ function drawEmp(ctx: CanvasRenderingContext2D, time: number, age: number | null
     ctx.scale(scale, scale); ctx.globalAlpha = alpha * (1 - shrink)
     const angle = time * COIN_SPIN_SPEED + phase, width = Math.cos(angle), depth = COIN_THICKNESS * Math.abs(Math.sin(angle))
     ctx.rotate(Math.sin(angle) * .1)
-    bolt ??= new Path2D(EMP_BOLT_PATH)
+    bolt ??= new ArtPath(EMP_BOLT_PATH)
     ctx.fillStyle = COIN_EDGE_COLOR
     ctx.save(); ctx.translate(depth / 2, 0); ctx.scale(width, 1); ctx.fill(bolt); ctx.restore()
     // Extrude every edge of the bolt so the narrow side stays solid as it turns.
@@ -149,7 +150,7 @@ export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, t
     }
     if (definition.kind === 'coin') drawCoin(ctx, time, definition.x * .013 + definition.y * .007)
     else if (numbered) {
-      bonusArrow ??= new Path2D(TIME_BONUS_ARROW_PATH)
+      bonusArrow ??= new ArtPath(TIME_BONUS_ARROW_PATH)
       ctx.translate(0, -4); ctx.fillStyle = color; ctx.strokeStyle = color
       ctx.lineWidth = TIME_BONUS_ARROW_WIDTH; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
       ctx.save(); ctx.rotate((penalty ? 1 : -1) * time * Math.PI * 2 / 12)
@@ -161,7 +162,7 @@ export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, t
       }
     }
     else {
-      face ??= new Path2D(STOPWATCH_FACE_PATH); details ??= new Path2D(STOPWATCH_DETAILS_PATH); hand ??= new Path2D(STOPWATCH_HAND_PATH)
+      face ??= new ArtPath(STOPWATCH_FACE_PATH); details ??= new ArtPath(STOPWATCH_DETAILS_PATH); hand ??= new ArtPath(STOPWATCH_HAND_PATH)
       ctx.fillStyle = color; ctx.fill(face, 'evenodd'); ctx.fill(details)
       ctx.save(); ctx.rotate(time * Math.PI * 2 * (penalty ? 1 / 1.2 : -1 / 8)); ctx.fill(hand); ctx.restore()
     }

@@ -1,3 +1,4 @@
+import { ArtPath } from './webgl/artPath.ts'
 import type { GravityPlate, GravityField } from './gravity.ts'
 import { gravityAtPoint } from './gravity.ts'
 import { TUNING } from './movementTuning.ts'
@@ -53,7 +54,7 @@ export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPla
     if (space) {
       let path = waterClips.get(space)
       if (!path) {
-        path = new Path2D()
+        path = new ArtPath()
         for (const polygon of space) {
           path.moveTo(polygon[0][0], polygon[0][1])
           for (let i = 1; i < polygon.length; i++) path.lineTo(polygon[i][0], polygon[i][1])

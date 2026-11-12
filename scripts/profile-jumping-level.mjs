@@ -15,6 +15,8 @@
 //                             terrain-texture (flat colour instead of the material pattern),
 //                             fields, climbables, athlete, water; see src/games/jumping/measureLayers.ts). Repeat to
 //                             price several layers; variants alternate with the bundles.
+//     --renderer <name>=<value>  Draw that bundle or variant with localStorage `jumping:renderer` = value (such as
+//                             webgl), so one build can be measured on two renderers.
 //     --trace                 Add one traced episode per section, on the first bundle at the highest DPR, and report
 //                             how busy each browser thread was, the GPU process's included.
 //     --profile               Add one CPU-profiled episode per section, on the first bundle, for attribution.
@@ -37,6 +39,9 @@ import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
 import { cpus } from 'node:os'
 import { parseLevel, snapToGround, spawnProblem } from '../src/games/jumping/level.ts'
+// Every built-in level counts as completed, as the browser tests seed it, so the campaign never refuses a level's link.
+const levelIds = JSON.parse(await readFile(resolve('public/levels/jumping/index.json'), 'utf8')).levels
+const unlocked = await Promise.all(levelIds.map(async name => JSON.parse(await readFile(resolve('public/levels/jumping', name), 'utf8')).id))
 
 const args = process.argv.slice(2), file = args.find(a => !a.startsWith('--') && !args[args.indexOf(a) - 1]?.startsWith('--'))
 const option = name => { const i = args.indexOf(`--${name}`); return i < 0 ? undefined : args[i + 1] }
@@ -58,6 +63,7 @@ let snapshotPath = option('snapshot')
 if (!snapshotPath) { snapshotPath = join(out, `${basename(file, '.json')}.snapshot.json`); await copyFile(resolve('public/levels/jumping', file), snapshotPath) }
 const snapshotText = await readFile(snapshotPath, 'utf8'), snapshot = JSON.parse(snapshotText)
 const level = parseLevel(snapshot)
+const renderers = Object.fromEntries(options('renderer').map(r => r.split('=')))
 const bundles = options('bundle').map(b => { const [name, dir] = b.split('='); return { name, dir: resolve(dir) } })
 if (!bundles.length) bundles.push({ name: 'current', dir: await buildBundle(join(out, 'bundle')) })
 const variants = [...bundles.map((bundle, i) => ({ name: bundle.name, bundle: i, skip: '' })),
@@ -127,10 +133,18 @@ try {
     page.on('pageerror', e => errors.push(e.message))
     const moved = { ...snapshot, entrance: { ...snapshot.entrance, x: section.x, y: section.y } }
     await page.route(`**/levels/jumping/${file}`, route => route.fulfill({ body: JSON.stringify(moved), contentType: 'application/json' }))
-    await page.addInitScript(({ adaptive, skip }) => {
+    await page.addInitScript(ids => {
+      try {
+        const times = JSON.parse(localStorage.getItem('arcade.jumping.times.v1') ?? '{}'), completed = JSON.parse(localStorage.getItem('arcade.jumping.completed.v1') ?? '{}')
+        for (const id of ids) { times[id] ??= 0; completed[id] = true }
+        localStorage.setItem('arcade.jumping.times.v1', JSON.stringify(times)); localStorage.setItem('arcade.jumping.completed.v1', JSON.stringify(completed))
+      } catch { /* Unlocked levels only. */ }
+    }, unlocked)
+    await page.addInitScript(({ adaptive, skip, renderer }) => {
       try {
         if (!adaptive) localStorage.setItem('jumping:lighting-performance-mode', 'false')
         if (skip) localStorage.setItem('jumping:measure-skip-layers', skip); else localStorage.removeItem('jumping:measure-skip-layers')
+        if (renderer) localStorage.setItem('jumping:renderer', renderer); else localStorage.removeItem('jumping:renderer')
       } catch { /* Measured with the defaults. */ }
       const raf = window.requestAnimationFrame.bind(window)
       window.perfFrames = []; window.perfStates = []; window.perfOn = false
@@ -139,12 +153,12 @@ try {
         if (window.perfOn) window.perfFrames.push([time, performance.now() - start])
       })
       setInterval(() => { if (window.perfOn) window.perfStates.push([performance.now(), document.querySelector('.jumping-state')?.textContent ?? '']) }, 100)
-    }, { adaptive: flag('adaptive'), skip: variant.skip })
+    }, { adaptive: flag('adaptive'), skip: variant.skip, renderer: renderers[variant.name] ?? null })
     try {
       await page.goto(`http://127.0.0.1:${4193 + variant.bundle}/lab/levels/built-in/${file}`)
-      const canvas = page.locator('.jumping-game > canvas')
+      const canvas = page.locator('.jumping-game > canvas[role="img"]')
       await canvas.waitFor({ timeout: 60000 })
-      if (!page.url().includes(file)) throw new Error(`The level link was refused at ${section.x},${section.y}`)
+      if (!decodeURIComponent(page.url()).includes(file)) throw new Error(`The level link was refused at ${section.x},${section.y}`)
       await page.waitForFunction(() => !document.querySelector('.jumping-game[aria-busy="true"]'), null, { timeout: 60000 })
       await page.waitForFunction(() => { const s = document.querySelector('.jumping-state')?.textContent; return s && !/Entering|Waking/.test(s) }, null, { timeout: 60000 })
       await canvas.focus(); await page.waitForTimeout(1500)
@@ -179,7 +193,7 @@ try {
       const steadyIntervals = intervals(steady), vsync = steadyIntervals.toSorted((a, b) => a - b)[Math.floor(steadyIntervals.length * .05)]
       const stateCounts = {}; for (const [, s] of states) stateCounts[s] = (stateCounts[s] ?? 0) + 1
       return {
-        bundle: variant.name, skip: variant.skip, section: `${section.x}:${section.y}`, dpr, profiled: !!profiled,
+        bundle: variant.name, skip: variant.skip, renderer: renderers[variant.name] ?? 'canvas', section: `${section.x}:${section.y}`, dpr, profiled: !!profiled,
         backing: backingBefore === backingAfter ? backingAfter : `${backingBefore} -> ${backingAfter}`,
         fps: +(steady.length / ((steady.at(-1) - steady[0]) / 1000)).toFixed(1), vsyncMs: +vsync.toFixed(2),
         frameCpuMs: stats(steady.map(t => byFrame.get(t))), frameIntervalMs: stats(steadyIntervals),

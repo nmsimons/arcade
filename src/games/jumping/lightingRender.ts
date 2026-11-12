@@ -28,6 +28,9 @@ import { NIGHT_PLAYER_COLOR } from './athleteDraw.ts'
 import { awakeningPose, withAthletePose } from './athletePose.ts'
 import { powerOut } from './power.ts'
 import { layerSkipped } from './measureLayers.ts'
+import { WebGLWorldLayers, layerCrop } from './worldLayers.ts'
+import type { WorldLayerFrame } from './worldLayers.ts'
+import { reportWall } from './debugFrames.ts'
 export { lightingPixelRatio } from './lightingBudget.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
@@ -106,9 +109,12 @@ export class LightingRenderer {
   private terrainArtwork?: { buffer: Surface; view: LightingView }
   private objectArtwork?: { buffer: Surface; view: LightingView }
   private terrainRaster?: { key: string; buffer: Surface }
+  /** Phase 1 of the WebGL renderer: daylight backdrop and terrain from retained meshes (worldLayers.ts). */
+  private worldLayers?: WebGLWorldLayers
+  private layerFrame: WorldLayerFrame | null = null
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean; reuseAthletePose?: boolean; reuseTerrainArtwork?: boolean; reuseObjectArtwork?: boolean; skipEmptyAmbientPass?: boolean } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean; reuseAthletePose?: boolean; reuseTerrainArtwork?: boolean; reuseObjectArtwork?: boolean; skipEmptyAmbientPass?: boolean; webglLayers?: 'off' | 'hardware' | 'software' } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
     // The full composition remains available as a pixel/performance reference.
@@ -122,7 +128,10 @@ export class LightingRenderer {
     this.reuseTerrainArtwork = options.reuseTerrainArtwork !== false
     this.reuseObjectArtwork = options.reuseObjectArtwork !== false
     this.skipEmptyAmbientPass = options.skipEmptyAmbientPass !== false
+    if (options.webglLayers === 'hardware' || options.webglLayers === 'software') this.worldLayers = new WebGLWorldLayers(options.webglLayers === 'software')
   }
+  /** What the WebGL layers drew last, for diagnostics; undefined when they are off or not yet built. */
+  get worldLayerStats() { return this.worldLayers?.stats }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
   private daylight?: { key: string; groups: readonly CasterGroup[]; edges: number; buffer: Surface }
@@ -202,8 +211,7 @@ export class LightingRenderer {
     const ink = nightMode ? hasRegionLighting(run.level.environment) ? this.environmentLighting.playerMaterials(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
-    if (backdrop && layer !== 'objects' && !layerSkipped('backdrop')) drawLevelBackdrop(ctx, run.level,
-      { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false, paint === paintNormally)
+    if (backdrop && layer !== 'objects' && !layerSkipped('backdrop')) this.paintBackdrop(ctx, run, view, paint === paintNormally)
     if (run.level.environment?.kind === 'landscape' && layer !== 'objects' && !backdrop) paint(ctx, 1, () => {
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, run.level.width, levelHeight(run.level)); ctx.clip()
       drawLandscape(ctx, run.level.environment!, { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }); ctx.restore()
@@ -260,21 +268,54 @@ export class LightingRenderer {
     }
     ctx.restore()
   }
+  /** The level's backdrop: this frame's WebGL picture where there is one, otherwise Canvas. */
+  private paintBackdrop(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, includeSky: boolean) {
+    const picture = this.layerFrame?.backdrop, crop = picture && layerCrop(this.layerFrame!.view, view)
+    if (picture && crop) {
+      // The wall carries the camera for the browser tests (debugFrames.ts), as Canvas's own wall does.
+      reportWall(ctx.canvas, () => ctx.getTransform())
+      ctx.save(); ctx.resetTransform(); ctx.drawImage(picture, crop.sx, crop.sy, view.width, view.height, 0, 0, view.width, view.height); ctx.restore()
+    } else drawLevelBackdrop(ctx, run.level, { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false, includeSky)
+  }
   private paintTerrain(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView) {
+    const picture = this.layerFrame?.terrain, crop = picture && layerCrop(this.layerFrame!.view, view)
+    if (picture && crop) {
+      ctx.save(); ctx.resetTransform(); ctx.drawImage(picture, crop.sx, crop.sy, view.width, view.height, 0, 0, view.width, view.height); ctx.restore()
+      return
+    }
     const artwork = this.terrainArtwork
     if (artwork && sameView(artwork.view, view)) {
       ctx.save(); ctx.resetTransform(); ctx.drawImage(artwork.buffer.canvas, 0, 0); ctx.restore()
     } else drawTerrain(ctx, 'terrain' in run ? run.terrain : levelTerrain(run.level), run.level.platforms, run.level)
   }
-  render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
+  /**
+   * Advance the lighting state by one frame: the room's lighting (a failed run
+   * powers it down) and its light sources' fades. Exactly once per frame; pass
+   * the result to `render` when the frame was advanced before choosing who draws it.
+   */
+  advance(definition: LightingDefinition, run: LightingWorld, dt: number) {
     const lighting = this.state.roomLighting(definition, run, dt)
-    const render = () => this.renderFrame(ctx, run, lighting, view, dt, onlyLight, editor, shadows, fullBright)
-    try { return this.reuseAthletePose ? withAthletePose(run.player, render) : render() }
-    finally { this.terrainArtwork = undefined; this.objectArtwork = undefined }
+    return { lighting, sources: this.state.sources(lighting, run, dt) }
   }
-  private renderFrame(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
+  /** Daylight's structural shadow casters this frame: terrain and resting mechanisms (fixed), and mechanisms in motion. */
+  daylightCasters(run: LightingWorld) {
+    if (this.terrain?.level !== run.level) this.terrain = { level: run.level, groups: staticCasters(run) }
+    return this.structures.update(this.terrain.groups, dynamicCasters(run, false).filter(group => group.mechanism))
+  }
+  render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false,
+    advanced?: ReturnType<LightingRenderer['advance']>) {
+    const lighting = advanced?.lighting ?? this.state.roomLighting(definition, run, dt)
+    const render = () => this.renderFrame(ctx, run, lighting, view, dt, onlyLight, editor, shadows, fullBright, advanced?.sources)
+    try { return this.reuseAthletePose ? withAthletePose(run.player, render) : render() }
+    finally {
+      this.terrainArtwork = undefined; this.objectArtwork = undefined
+      this.layerFrame?.release(); this.layerFrame = null
+    }
+  }
+  private renderFrame(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false,
+    advancedSources?: LightSource[]) {
     fullBright ||= layerSkipped('lighting')
-    const sources = this.state.sources(definition, run, dt)
+    const sources = advancedSources ?? this.state.sources(definition, run, dt)
     // Hidden/resizing canvases have no drawable area; drawImage rejects empty buffers.
     if (view.width < 1 || view.height < 1) {
       this.release()
@@ -287,6 +328,7 @@ export class LightingRenderer {
     const nightMode = nightModeEnabled(definition)
     const regionLighting = nightMode && hasRegionLighting(run.level.environment)
     if (!regionLighting) this.environmentLighting.release()
+    if (this.worldLayers) this.layerFrame = !nightMode && !editor ? this.worldLayers.frame(run.level, 'terrain' in run ? run.terrain : undefined, view) : null
     if (fullBright) {
       if (this.buffers) this.release()
       this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
@@ -718,11 +760,10 @@ export class LightingRenderer {
           // live in lamp/field. Store the final static background there, adding
           // no surface. A moving view uses the ordinary path until it settles.
           clear(correction, width, height); transform(correction.ctx, view)
-          drawLevelBackdrop(correction.ctx, run.level,
-            { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }, view.zoom, false)
+          this.paintBackdrop(correction.ctx, run, view, true)
           drawWallTexts(correction.ctx, run.level.texts ?? [], false)
           drawHubDoors(correction.ctx, run.level, run.hub, false, paintNormally)
-          drawTerrain(correction.ctx, run.terrain, run.level.platforms, run.level)
+          this.paintTerrain(correction.ctx, run, view)
           correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'multiply'; drawField(correction.ctx)
           correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.drawImage(this.dayAmbient.buffer.canvas, 0, 0)
           this.dayBackground = { key: backgroundKey, groups: structures.fixed, buffer: correction }
@@ -792,5 +833,7 @@ export class LightingRenderer {
     if (this.daylight) this.daylight.buffer.canvas.width = this.daylight.buffer.canvas.height = 0
     this.daylight = undefined
   }
-  dispose() { this.release(); this.terrain = undefined; this.structures.reset(); this.state.reset() }
+  /** Let go of the WebGL layers' GPU memory too; they rebuild if a frame needs them again. */
+  releaseWorldLayers() { this.worldLayers?.dispose() }
+  dispose() { this.release(); this.terrain = undefined; this.structures.reset(); this.state.reset(); this.worldLayers?.dispose() }
 }

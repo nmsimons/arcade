@@ -1,4 +1,5 @@
 // Athlete artwork: skin outlines and Canvas drawing of a solved pose.
+import { ArtPath } from './webgl/artPath.ts'
 import { androidMaterials, androidRearArmColor, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
 import type { AndroidAppearance, AndroidMaterials } from './androidArtwork.ts'
 import { drawAndroidPalmPlate, handGeometry, traceAndroidHand } from './androidHand.ts'
@@ -18,15 +19,15 @@ function fillShape(ctx: CanvasRenderingContext2D, path: Path2D, color: string) {
   ctx.fillStyle = color; ctx.fill(path)
 }
 function roundPath(center: Point, rx: number, ry = rx, angle = 0): Path2D {
-  const path = new Path2D(); path.ellipse(...center, rx, ry, angle, 0, TAU, true); return path
+  const path = new ArtPath(); path.ellipse(...center, rx, ry, angle, 0, TAU, true); return path
 }
 function joined(parts: Path2D[]): Path2D {
   // Every contour winds the same way, so intersecting shapes stay solid.
-  const path = new Path2D(); for (const part of parts) path.addPath(part); return path
+  const path = new ArtPath(); for (const part of parts) path.addPath(part); return path
 }
 /** Simple connected shapes, with just enough taper to keep bent limbs readable. */
 function segmentPath(a: Point, b: Point, r0: number, r1: number, belly: number): Path2D {
-  const path = new Path2D(); traceSegment(path, a, b, r0, r1, belly); return path
+  const path = new ArtPath(); traceSegment(path, a, b, r0, r1, belly); return path
 }
 function traceSegment(path: AthleteOutline, a: Point, b: Point, r0: number, r1: number, belly: number) {
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
@@ -40,7 +41,7 @@ function traceSegment(path: AthleteOutline, a: Point, b: Point, r0: number, r1: 
   path.closePath()
 }
 function footPath(ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1, scale = 1): Path2D {
-  const path = new Path2D(); traceFoot(path, ankle, angle, facing, toeAngle, profile, scale); return path
+  const path = new ArtPath(); traceFoot(path, ankle, angle, facing, toeAngle, profile, scale); return path
 }
 function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1, scale = 1) {
   const at = (p: Point, toe: boolean): Point => {
@@ -66,7 +67,7 @@ function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string, materi
   if ((limb.rear ?? 0) < 1) fillShape(ctx, footPath(limb.end, limb.footAngle, limb.footFacing, limb.toeAngle, 1 - (limb.rear ?? 0), footScale), materials.grip)
 }
 function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1, handScale = 1, shellWidth = 1, rear = false) {
-  const { palm } = handGeometry(limb), hand = new Path2D()
+  const { palm } = handGeometry(limb), hand = new ArtPath()
   traceAndroidHand(hand, limb, handScale)
   const wrist = Math.hypot(palm[0] - limb.end[0], palm[1] - limb.end[1]) > .01 ? [segmentPath(limb.end, palm, .75, .65, .75)] : []
   const path = joined([roundPath(limb.root, SHOULDER_SOCKET_RADIUS), segmentPath(limb.root, limb.joint, SHOULDER_SOCKET_RADIUS, 1.35, SHOULDER_SOCKET_RADIUS), roundPath(limb.joint, 1.4),
@@ -221,7 +222,7 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
 
   if (backPose) drawBack(ctx, hip, waist, shoulder, materials.joint, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else drawTorso(ctx, hip, waist, shoulder, materials.joint)
-  const neck = new Path2D(); traceNeckArtwork(neck, pose); fillShape(ctx, neck, materials.joint)
+  const neck = new ArtPath(); traceNeckArtwork(neck, pose); fillShape(ctx, neck, materials.joint)
   drawAndroidTorso(ctx, pose, backPose, materials)
   drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale, pose.shellWidth)
   drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth)

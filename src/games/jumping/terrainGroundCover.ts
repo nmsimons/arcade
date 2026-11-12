@@ -3,6 +3,7 @@ import type { JumpLevel } from './level.ts'
 import { platformOutline, pointInside } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
+import { ArtPath } from './webgl/artPath.ts'
 
 /** Decoration only; these choices never change terrain contacts or grip. */
 export const GROUND_COVERS = [
@@ -96,7 +97,7 @@ interface CoverArtwork {
 }
 const artwork = new WeakMap<readonly CoverRoot[], CoverArtwork>()
 const outlinePath = (points: readonly Vec[]) => {
-  const path = new Path2D()
+  const path = new ArtPath()
   points.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath()
   return path
 }
@@ -128,20 +129,20 @@ function coverArtwork(level: JumpLevel): CoverArtwork {
       const other = level.platforms[index], bounds = { x0: other.x, y0: other.y, x1: other.x + other.w, y1: other.y + other.h }
       if (!overlaps(band, bounds)) return []
       // Successive outside clips subtract the union, including nested overlaps.
-      const outside = new Path2D(); outside.rect(platform.x - 20, platform.y - 20, platform.w + 40, platform.h + 40)
+      const outside = new ArtPath(); outside.rect(platform.x - 20, platform.y - 20, platform.w + 40, platform.h + 40)
       outside.addPath(outlinePath(platformOutline(other)))
       return [{ path: outside, bounds }]
     })
     const surface: CoverArtwork['surfaces'][number] = { type, clip, occluders, slices: [] }
     surfaces.push(surface)
     for (const slice of slices(owned)) {
-      const paths = colors[type].map(() => new Path2D()), bounds = rootBounds(slice)
+      const paths = colors[type].map(() => new ArtPath()), bounds = rootBounds(slice)
       surface.slices.push({ bounds, paths })
       for (const root of slice) {
       const seed = noise(root.x, root.y), detail = noise(root.y + 19, root.x)
       const tone = Math.floor(seed * 3), height = 4 + detail * 9, lean = (seed - .5) * 5
       const matrix = new DOMMatrix().translate(root.x, root.y).rotate(Math.atan(root.slope) * 180 / Math.PI)
-      const tuft = new Path2D()
+      const tuft = new ArtPath()
       if (type === 'grass') {
         tuft.moveTo(-4 - seed * 2, -height * .65); tuft.quadraticCurveTo(-1, -height * .4, 0, 0)
         tuft.quadraticCurveTo(lean, -height * .5, 2 + lean, -height)
@@ -159,14 +160,14 @@ function coverArtwork(level: JumpLevel): CoverArtwork {
         }
       }
         const key = `${type}:${Math.floor(root.x / SLICE)}`
-        if (!tuftSlices.has(key)) tuftSlices.set(key, { bounds: { ...bounds }, paths: colors[type].map(() => new Path2D()) })
+        if (!tuftSlices.has(key)) tuftSlices.set(key, { bounds: { ...bounds }, paths: colors[type].map(() => new ArtPath()) })
         const tuftSlice = tuftSlices.get(key)!
         tuftSlice.bounds = { x0: Math.min(tuftSlice.bounds.x0, bounds.x0), y0: Math.min(tuftSlice.bounds.y0, bounds.y0),
           x1: Math.max(tuftSlice.bounds.x1, bounds.x1), y1: Math.max(tuftSlice.bounds.y1, bounds.y1) }
         tuftSlice.paths[tone].addPath(tuft, matrix)
         const width = type === 'scrub' ? 7 + seed * 3 : 10 + seed * 3
         const depth = type === 'moss' ? 3 + detail * 4 : type === 'grass' ? 2 + detail * 3 : 1.5 + detail * 2
-        const band = new Path2D()
+        const band = new ArtPath()
         band.moveTo(-width, -1); band.lineTo(width, -1); band.lineTo(width, depth * .45)
         band.quadraticCurveTo(width * .4, depth * .6, 1, depth)
         band.quadraticCurveTo(-width * .4, depth * .55, -width, depth * .35); band.closePath()

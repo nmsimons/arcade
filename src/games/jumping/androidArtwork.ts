@@ -1,3 +1,4 @@
+import { ArtPath } from './webgl/artPath.ts'
 import type { AthleteOutline } from './athleteDraw.ts'
 import type { AthletePose } from './athleteRig.ts'
 import { reportHead } from './debugFrames.ts'
@@ -125,7 +126,7 @@ function headShell(path: AthleteOutline, head: Point, tilt: number, width = 1) {
   path.bezierCurveTo(...at(-5.5, -3.3), ...at(-3.9, -5.8), ...at(-.5, -5.8)); path.closePath()
 }
 function shape(trace: (path: AthleteOutline) => void) {
-  const path = new Path2D(); trace(path); return path
+  const path = new ArtPath(); trace(path); return path
 }
 export function drawAndroidArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, forearmScale = 1, width = 1) {
   ctx.fillStyle = color; ctx.fill(shape(path => armShell(path, limb, forearmScale, width)))
@@ -145,11 +146,11 @@ export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt
   ctx.save(); ctx.translate(...head); ctx.rotate(tilt)
   const outer = shape(path => headShell(path, [0, 0], 0, width))
   const at = headPoint([0, 0], 0, width)
-  const face = new Path2D(); headFront(face, at)
+  const face = new ArtPath(); headFront(face, at)
   face.bezierCurveTo(...at(-1.3, 3.5), ...at(-1.8, -3.8), ...at(-.5, -5.8)); face.closePath()
   // Adjacent color regions share one opacity rather than stacking during
   // the entrance/exit fade. The contact head remains the original round rig.
-  const shell = new Path2D(outer); shell.addPath(face)
+  const shell = new ArtPath(outer); shell.addPath(face)
   ctx.fillStyle = materials.cranial; ctx.fill(shell, 'evenodd')
   ctx.fillStyle = materials.face; ctx.fill(face)
   ctx.restore()

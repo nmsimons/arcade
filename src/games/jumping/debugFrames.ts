@@ -13,9 +13,11 @@ export interface WallReport { canvas: HTMLCanvasElement | OffscreenCanvas; trans
 /** Detail of `jumping-head`: a head was drawn, `head` in the body's space, `body` its transform. */
 export interface HeadReport { canvas: HTMLCanvasElement | OffscreenCanvas; body: DOMMatrix; head: [number, number]; alpha: number; ink: string }
 
-/** Once per drawn world: the course wall fills the level, so its transform is the camera. */
-export function reportWall(canvas: WallReport['canvas'], transform: () => DOMMatrix) {
-  if (enabled) window.dispatchEvent(new CustomEvent<WallReport>('jumping-wall', { detail: { canvas, transform: transform() } }))
+/** Once per drawn world: the course wall fills the level, so its transform is the camera.
+ * A recording for the WebGL renderer has no canvas and reports nothing; that
+ * renderer reports each frame it draws instead. */
+export function reportWall(canvas: WallReport['canvas'] | null, transform: () => DOMMatrix) {
+  if (enabled && canvas) window.dispatchEvent(new CustomEvent<WallReport>('jumping-wall', { detail: { canvas, transform: transform() } }))
 }
 
 /** A robot or the player's head, where the browser tests locate the drawn figure. */

@@ -48,11 +48,11 @@ async function open(page, power = 'always', level = fixture(power)) {
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
 }
 const player = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
-const frame = page => page.locator('canvas').evaluate(canvas => canvas.gravityFrame)
+const frame = page => page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.gravityFrame)
 
 test('normal controls reach and release a flipped ceiling pressure plate in a ceiling gravity field', async ({ page }, info) => {
   const level = fixture(); level.props = []; level.gravityPlates[0].ceiling = true
@@ -82,7 +82,7 @@ for (const night of [false, true]) test(`small weak-gravity fields have visible 
   expect((await frame(page)).dust).not.toEqual(before)
   // Check the final composited pixels, including night lighting, rather than
   // just verifying that the particle drawing commands ran.
-  const visible = await page.locator('canvas').evaluate((canvas, night) => {
+  const visible = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate((canvas, night) => {
     const ctx = canvas.getContext('2d'), samples = canvas.gravityFrame.dustRaster
     const brightness = (x, y) => {
       const [r, g, b] = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data

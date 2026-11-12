@@ -95,8 +95,11 @@ export class WebGLWorldFrame {
     return null
   }
 
-  constructor(canvas: HTMLCanvasElement | OffscreenCanvas, allowSoftware = false) {
-    this.canvas = canvas; this.allowSoftware = allowSoftware
+  /** The canvas this frame stands for in the browser tests' frame reports (debugFrames.ts): the game's own, when it has one. */
+  private readonly reportCanvas: HTMLCanvasElement | OffscreenCanvas
+
+  constructor(canvas: HTMLCanvasElement | OffscreenCanvas, allowSoftware = false, reportCanvas?: HTMLCanvasElement) {
+    this.canvas = canvas; this.allowSoftware = allowSoftware; this.reportCanvas = reportCanvas ?? canvas
     this.gl = GlFrame.create(canvas, allowSoftware)
     // After a lost context comes back, start again: retained scenes are kept and upload on first use.
     canvas.addEventListener('webglcontextrestored', () => { this.gl?.dispose(); this.gl = GlFrame.create(this.canvas, this.allowSoftware) }, { signal: this.listening.signal })
@@ -129,7 +132,8 @@ export class WebGLWorldFrame {
     const started = performance.now()
     // Artwork culls by the canvas's size while it is recorded: size it now, not when the frame is drawn.
     if (gl.canvas.width !== view.width || gl.canvas.height !== view.height) { gl.canvas.width = view.width; gl.canvas.height = view.height }
-    const recorder = new GlRecorder(view.zoom, { ...view, canvas: gl.canvas })
+    // Artwork reads the canvas's size (the same as WebGL's) and reports frames on it.
+    const recorder = new GlRecorder(view.zoom, { ...view, canvas: this.reportCanvas })
     const ctx = recorder.asContext()
     const paint: WorldPaint = (_target, exposure, draw, receivesLight = true) => {
       const saved = recorder.light
@@ -147,7 +151,7 @@ export class WebGLWorldFrame {
         // A landscape's sky follows the camera: drawn each frame, fully exposed, under the retained back walls.
         if (environment?.kind === 'landscape') paint(ctx, 1, () => sky(() => drawLandscape(ctx, environment, bounds)))
         // The wall carries the camera for the browser tests (debugFrames.ts), as Canvas's own wall does.
-        reportWall(gl.canvas, () => recorder.getTransform())
+        reportWall(this.reportCanvas, () => recorder.getTransform())
         // At night the back wall receives only the ambient; lamps reach it through the beam haze.
         paint(ctx, 0, () => recorder.scene('backdrop'), !night)
       }

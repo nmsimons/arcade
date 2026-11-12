@@ -115,7 +115,7 @@ test('player and R-bot roll through a gathered pose in both gravity directions',
     return results
   })
   for (const result of results) { expect(result.inverted).toBe(result.expected); expect(result.turning).toBe(false) }
-  await page.locator('canvas').screenshot({ path: info.outputPath('airborne-gravity-rolls.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('airborne-gravity-rolls.png') })
 })
 
 test('a roll in a low chamber settles into a supported crouch instead of staying folded', async ({ page }, info) => {
@@ -141,5 +141,5 @@ test('a roll in a low chamber settles into a supported crouch instead of staying
     return { inverted: p.inverted, grounded: p.grounded, crouching: p.crouching, turning: !!p.releaseTurn }
   })
   expect(result).toEqual({ inverted: false, grounded: true, crouching: true, turning: false })
-  await page.locator('canvas').screenshot({ path: info.outputPath('settled-crouch-in-low-chamber.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('settled-crouch-in-low-chamber.png') })
 })

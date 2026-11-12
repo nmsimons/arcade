@@ -42,5 +42,5 @@ test('canted wall palms stay settled throughout gravity-field bobbing', async ({
     return outcomes
   })
   for (const result of outcomes) { expect(result.peak).toBeLessThan(5); expect(result.braced).toBe(true) }
-  await page.locator('canvas').screenshot({ path: info.outputPath('canted-wall-bobbing.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('canted-wall-bobbing.png') })
 })

@@ -14,7 +14,7 @@ test('keyboard turns between blocked props retain the whole body and establish t
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.keyboard.down('d');await page.clock.runFor(3000)
   let held='d',previous=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1)),reaches=0,braces=0
   const world=(frame,point)=>[frame.x+point[0]*frame.signals.facing,frame.y+point[1]]
@@ -54,7 +54,7 @@ test('keyboard reversal brakes continuously while steering responds on the first
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(750)
   const before=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1))
   expect(before.vx).toBe(410)
@@ -82,7 +82,7 @@ test('keyboard lowering then Jump away retains the ledge impulse while holding t
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.keyboard.down('s');await page.clock.runFor(1000)
   const hanging=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1))
   expect(hanging.signals.mode).toBe('hang')
@@ -105,7 +105,7 @@ for (const key of ['a','s']) test(`keyboard ${key === 'a' ? 'opposite movement' 
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(300)
   const entered = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   expect(entered.signals.mode).toBe('step')
@@ -123,7 +123,7 @@ for (const operation of ['resume','restart']) test(`keyboard ${operation} clears
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(32)
   const read=()=>page.evaluate(()=>window.jumpingMotion.read().recent)
   const initial=(await read()).at(-1)
@@ -143,7 +143,7 @@ for (const operation of ['resume','restart']) test(`keyboard ${operation} clears
   await page.keyboard.up('a');await page.keyboard.up('Space')
   const action=operation==='resume'?/^Resume$/:/^(Restart level|Reset position)$/
   await page.getByRole('button',{name:action}).click()
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   if (operation === 'restart') await finishJumpingEntrance(page)
   await page.clock.runFor(800)
   const settled=(await read()).at(-1)
@@ -172,7 +172,7 @@ test('motion diagnostics observe real controls and pushing resumes smoothly afte
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
   await page.keyboard.down('d'); await page.clock.runFor(800)
   const read = () => page.evaluate(() => window.jumpingMotion.read())
@@ -213,7 +213,7 @@ for (const direction of [-1, 1]) for (const width of [16, 24]) test(`a keyboard 
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   const key = direction === 1 ? 'd' : 'a'
   // Enter on the full-width floor and reach the original narrow footing using
   // a held jump, slow approach and pull-up. Its geometry stays unchanged.
@@ -254,7 +254,7 @@ for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   const key = direction === 1 ? 'd' : 'a'
   for (const attempt of ['fresh', 'restart']) {
     if (attempt === 'restart') {
@@ -284,7 +284,7 @@ test('held keyboard movement springs a long-fall landing into supported running'
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(2500)
   const frames = await page.evaluate(() => window.jumpingMotion.read().recent)
   const impact = frames.find(frame => frame.signals.grounded && frame.signals.mode === 'get-up')
@@ -312,7 +312,7 @@ for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low d
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   const key = direction === 1 ? 'd' : 'a'
   const checkContact = async () => {
     const samples = await page.evaluate(() => window.jumpingMotion.read().recent)
@@ -356,7 +356,7 @@ for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`cro
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   if (reversed) {
     await page.keyboard.down('ArrowUp'); await page.clock.runFor(16); await page.keyboard.up('ArrowUp')
     await advanceJumpingPassiveWait(page, 6000)
@@ -395,7 +395,7 @@ for (const direction of [-1, 1]) test(`crouched pushing keeps the final head cle
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
   const key = direction === 1 ? 'd' : 'a'
   await page.keyboard.down(key); await page.keyboard.down('ArrowDown')
@@ -420,7 +420,7 @@ test('the rendered torso transfers weight during a real moving push', async ({ p
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
   await page.keyboard.down('d'); await page.clock.runFor(1500)
   const data = await page.evaluate(() => window.jumpingMotion.read())

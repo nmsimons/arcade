@@ -7,7 +7,7 @@ async function open(page, level) {
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
 }
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))

@@ -13,7 +13,7 @@ test('normal keyboard swimming holds depth, collects submerged coins, recovers i
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   const p = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   async function hold(keys, ms) {
     for (const key of keys) await page.keyboard.down(key)

@@ -32,7 +32,7 @@ test('complex imported geometry cannot block the picker and preparation can be c
   await page.goto('/lab/library')
   const card = page.getByRole('button', { name: 'Level 1: Complex rope', exact: true })
   await expect(card).toBeVisible()
-  await expect.poll(() => card.locator('canvas').evaluate(canvas => canvas.width)).toBeGreaterThan(1)
+  await expect.poll(() => card.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.width)).toBeGreaterThan(1)
   expect(await page.evaluate(() => window.levelWorkers)).toEqual([])
   await card.click()
   await expect(page.getByRole('dialog', { name: 'Preparing level' })).toBeVisible()

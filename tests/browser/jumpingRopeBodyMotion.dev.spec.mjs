@@ -84,7 +84,7 @@ test('render enlarged resting, passive-swing and gravity-turn frames for visual 
   })
   expect(gallery.at(-1).inverted).toBe(true)
   for (const frame of gallery) expect(frame.headTilt, frame.label).toBeCloseTo(frame.angle * frame.facing, 6)
-  await page.locator('canvas').screenshot({ path: info.outputPath('rope-body-motion-gallery.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('rope-body-motion-gallery.png') })
 })
 
 test('manual release and automatic support finish the reverse-gravity turn on a ceiling', async ({ page }, info) => {
@@ -150,5 +150,5 @@ test('manual release and automatic support finish the reverse-gravity turn on a 
     expect(result.y).toBeCloseTo(965, 2)
     expect(result.cameraJump).toBeLessThan(8)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath('rope-ceiling-landings.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('rope-ceiling-landings.png') })
 })

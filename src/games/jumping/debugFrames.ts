@@ -8,6 +8,13 @@ const enabled = typeof window !== 'undefined' && (() => {
   try { return window.localStorage.getItem('jumping:debug-frames') === '1' } catch { return false }
 })()
 
+/**
+ * Whether reports are on. A presented WebGL frame cannot be read back, so with
+ * reports on the game also copies each WebGL frame onto its 2D canvas as it is
+ * drawn (worldRenderer.ts), where tests read pixels whichever renderer drew.
+ */
+export const framesReported = enabled
+
 /** Detail of `jumping-wall`: the course wall was drawn, with the world's transform (the camera, in device pixels). */
 export interface WallReport { canvas: HTMLCanvasElement | OffscreenCanvas; transform: DOMMatrix }
 /** Detail of `jumping-head`: a head was drawn, `head` in the body's space, `body` its transform. */

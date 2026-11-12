@@ -68,13 +68,13 @@ test('normal controls settle the player and props in translucent water and allow
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(64); await page.keyboard.up('d')
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
   const player = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   const bob = []
   for (let i = 0; i < 9; i++) { await page.clock.runFor(500); bob.push((await player()).y) }
-  const settled = await player(), frame = await page.locator('canvas').evaluate(c => c.waterFrame)
+  const settled = await player(), frame = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c => c.waterFrame)
   expect(Math.max(...bob) - Math.min(...bob)).toBeGreaterThan(3.2)
   expect(Math.max(...bob) - Math.min(...bob)).toBeLessThan(4.6)
   expect(Math.abs(settled.vy)).toBeLessThan(4)
@@ -134,7 +134,7 @@ for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   const towardBank = side > 0 ? 'd' : 'a'
   // Leave the neutral pool-floor stance before steering: a grounded shove
   // deliberately steps back to give the palms room against this close wall.
@@ -144,7 +144,7 @@ for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${
   await page.screenshot({ path: info.outputPath('water-small-ball-contact.png') })
   await page.clock.runFor(5500)
   const p = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
-  const frame = await page.locator('canvas').evaluate(c => c.waterFrame)
+  const frame = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c => c.waterFrame)
   expect((ballX - frame.ballX) * side).toBeGreaterThan(30)
   expect(Math.abs(frame.ballBottom - 420)).toBeLessThan(2.4)
   expect(p.signals.grounded, JSON.stringify(p)).toBe(true)
@@ -169,7 +169,7 @@ for (const side of [-1, 1]) test(`holding Down at the ${side > 0 ? 'left' : 'rig
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.evaluate(() => {
     const raf = window.requestAnimationFrame
     window.realFrameDurations = []
@@ -223,7 +223,7 @@ for (const left of [false, true]) test(`normal controls pull out at the ${left ?
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused(); await page.clock.runFor(100)
   const direction = left ? 'a' : 'd'
   await page.keyboard.down(direction); await page.clock.runFor(160); await page.keyboard.up(direction)
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
@@ -246,7 +246,7 @@ test('normal controls crouch on the pool floor, rest standing and swim away with
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused(); await page.clock.runFor(100)
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(1800); await page.keyboard.up('ArrowUp')
   const lifted = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   expect(lifted.y).toBeLessThan(880)
@@ -314,7 +314,7 @@ test('normal controls push a float with kicking legs and quickly lose momentum o
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused(); await page.clock.runFor(100)
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
   await page.keyboard.down('d'); await page.clock.runFor(5000)
   const history = await page.evaluate(() => window.jumpingMotion.read().recent)
@@ -327,8 +327,8 @@ test('normal controls push a float with kicking legs and quickly lose momentum o
   await page.keyboard.up('d'); await page.clock.runFor(1200)
   const released = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   expect(released.blends.push).toBe(0); expect(released.blends.fall).toBe(0); expect(Math.abs(released.vx)).toBeLessThan(1)
-  const before = await page.locator('canvas').evaluate(c => c.waterFrame.boxX)
+  const before = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c => c.waterFrame.boxX)
   await page.clock.runFor(1000)
-  const after = await page.locator('canvas').evaluate(c => c.waterFrame.boxX)
+  const after = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c => c.waterFrame.boxX)
   expect(Math.abs(after - before)).toBeLessThan(4)
 })

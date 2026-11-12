@@ -27,7 +27,7 @@ test('exit terminals remain visible outside the pole and open doorway for high a
     return samples
   })
   for (const sample of samples) expect(sample.pin[1], JSON.stringify(sample)).toBeGreaterThan(100)
-  await page.locator('canvas').screenshot({ path: info.outputPath('exit-wire-terminals.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('exit-wire-terminals.png') })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: thin wires have a tight Night glow, follow EMP and remain occluded by wall art`, async ({ page }, info) => {
@@ -91,5 +91,5 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: thin wires have a tig
     expect(sample.wallDifference, JSON.stringify(sample)).toBe(0)
     expect(sample.coveredDifference, JSON.stringify(sample)).toBe(0)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-wire-power.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`${backend}-wire-power.png`) })
 })

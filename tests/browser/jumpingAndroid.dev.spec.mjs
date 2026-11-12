@@ -67,7 +67,7 @@ test('LAB android shell follows the existing poses while remaining separate from
       climbing: !!poses.find(([name]) => name === 'Pull-up')[1].mantle,
       ladder: !!ladder.climbing }
   })
-  await page.locator('canvas').screenshot({ path: info.outputPath('lab-android-poses.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('lab-android-poses.png') })
   expect(result.hanging).toBe(true); expect(result.climbing).toBe(true); expect(result.ladder).toBe(true)
   for (const pose of result.stats) {
     expect(pose.unchanged, pose.name).toBe(true)

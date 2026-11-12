@@ -52,7 +52,7 @@ test('Wake pauses and restarts its awakening, completes with normal keys, and re
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab/library?renderControl=1')
   const card = page.getByRole('button', { name: 'Level 1: Wake', exact: true })
-  await expect.poll(() => card.locator('canvas').evaluate(c => c.width)).toBeGreaterThan(1)
+  await expect.poll(() => card.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c => c.width)).toBeGreaterThan(1)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await card.click()
   await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)

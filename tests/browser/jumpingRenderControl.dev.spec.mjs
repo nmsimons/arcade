@@ -6,6 +6,8 @@ const { level } = JSON.parse(readFileSync(new URL('../fixtures/jumping-lockout2-
 
 async function play(page, query) {
   await page.setViewportSize({ width: 390, height: 844 })
+  // Frame reports also keep a WebGL frame's pixels on the game's canvas, where these read them (debugFrames.ts).
+  await page.addInitScript(() => localStorage.setItem('jumping:debug-frames', '1'))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await openLevelLink(page, { query, pauseAt: new Date('2026-01-01T01:00:00Z') })

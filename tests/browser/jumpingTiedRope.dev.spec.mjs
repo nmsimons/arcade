@@ -50,7 +50,7 @@ test('render enlarged hand-over-hand frames along tied and hanging ropes for vis
     }
     return captured.map(({ label, motion, p, pose }) => ({ label, motion, sideView: pose.sideView, facing: p.facing, shimmy: p.climbing.shimmy, x: p.x, hang: p.climbing.hangBlend }))
   })
-  await page.locator('canvas').screenshot({ path: info.outputPath('tied-rope-shimmy.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('tied-rope-shimmy.png') })
   expect(frames[0].shimmy).toBe(true)
   const shimmy = frames.filter(frame => frame.motion === 'shimmy')
   for (const frame of shimmy) {

@@ -47,7 +47,7 @@ for (const backend of ['canvas', 'gpu']) for (const kind of ['ladder', 'water'])
         readableFraction: differences.filter(value => value >= 19).length / differences.length }
     }, { backend, kind })
     await writeFile(info.outputPath('player-contrast.json'), JSON.stringify(result, null, 2))
-    await page.locator('canvas').screenshot({ path: info.outputPath(`${kind}-phone-shadow.png`) })
+    await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`${kind}-phone-shadow.png`) })
     expect(result.backend).toBe(backend)
     expect(result.mode).toBe(kind)
     expect(result.unchanged).toBe(true)

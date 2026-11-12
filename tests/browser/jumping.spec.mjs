@@ -99,7 +99,7 @@ async function expectCentered(page) {
 }
 async function enter(page) {
   await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
 }
 
@@ -108,7 +108,7 @@ test('desktop hides touch Pause even with touchscreen hardware, until a touch ge
   await setup(page); await enter(page)
   const pause = page.getByRole('button', { name: 'Pause game', exact: true })
   await expect(pause).toHaveCount(0)
-  await page.locator('canvas').click({ position: { x: 640, y: 300 } })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').click({ position: { x: 640, y: 300 } })
   await expect(pause).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
@@ -116,8 +116,8 @@ test('desktop hides touch Pause even with touchscreen hardware, until a touch ge
   await expect(pause).toHaveCount(0)
   // Touch remains usable when hardware detection misses it; only a touch
   // contact enables the fallback button, never a mouse click.
-  await page.locator('canvas').dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 17, clientX: 640, clientY: 300 })
-  await page.locator('canvas').dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 17 })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 17, clientX: 640, clientY: 300 })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 17 })
   await expect(pause).toBeVisible()
   await pause.click()
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
@@ -415,7 +415,7 @@ test('controller pause clears held jump input and reset is available only throug
   await expect(page.getByRole('button', { name: 'Reset position', exact: true })).toBeFocused()
   await tap(page, 0)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await finishJumpingEntrance(page)
   expect(await position(page)).toEqual(initial)
 })

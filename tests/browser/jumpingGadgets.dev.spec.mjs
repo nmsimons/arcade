@@ -70,7 +70,7 @@ test('keyboard movement aims in eight directions, red fields detach, and restart
   await key(page, 'f')
   await page.keyboard.down('d'); await page.clock.runFor(2200); await page.keyboard.up('d'); await page.clock.runFor(200)
   expect((await motion(page)).x).toBeGreaterThan(520)
-  const sleeves = await page.locator('canvas').evaluate(canvas => canvas.sleeves)
+  const sleeves = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.sleeves)
   expect(sleeves).toHaveLength(1)
   expect(sleeves[0].x).toBeLessThan(500)
   await expect(page.getByLabel('Available actions')).toHaveCount(0)
@@ -97,12 +97,12 @@ test('controller directional aim includes low crouched fire and keeps the sleeve
     await page.screenshot({ path: info.outputPath(`eight-direction-aim-${degrees}.png`) })
   }
   await page.evaluate(() => { window.testPad.axes = [-.8, 0, 0, 0] }); await page.clock.runFor(100)
-  const leftSleeve = await page.locator('canvas').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
+  const leftSleeve = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
   expect(leftSleeve.upright).toBe(true)
   await page.screenshot({ path: info.outputPath('right-arm-left-facing.png') })
   await page.evaluate(() => { window.testPad.axes = [0, 0, 0, 0] }); await page.clock.runFor(64)
   await page.evaluate(() => { window.testPad.axes = [.8, 0, 0, 0] }); await page.clock.runFor(100)
-  const rightSleeve = await page.locator('canvas').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
+  const rightSleeve = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
   expect(rightSleeve.upright).toBe(true)
   await page.screenshot({ path: info.outputPath('right-arm-right-facing.png') })
 })
@@ -119,7 +119,7 @@ test('normal Up controls climb with the sleeve, then keep climbing after a red f
   await page.clock.runFor(2600); await page.keyboard.up('ArrowUp')
   expect((await motion(page)).y).toBeLessThan(360)
   await expect(page.getByLabel('Available actions')).toHaveCount(0)
-  const sleeves = await page.locator('canvas').evaluate(canvas => canvas.sleeves)
+  const sleeves = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.sleeves)
   expect(sleeves).toHaveLength(1)
   expect(sleeves[0].y).toBeGreaterThan(372)
   await page.screenshot({ path: info.outputPath('red-field-climb-detached.png') })
@@ -136,7 +136,7 @@ for (const mode of ['player', 'objects']) test(`carried EMP bolt disables the ${
   await page.keyboard.down('d'); await page.clock.runFor(1600); await page.keyboard.up('d')
   expect((await motion(page)).x).toBeGreaterThan(520)
   await expect(page.getByLabel('Available actions')).toHaveCount(0)
-  const sleeve = await page.locator('canvas').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
+  const sleeve = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
   expect(sleeve.x).toBeGreaterThan(520)
   if (mode === 'player') {
     await page.clock.runFor(5500)
@@ -165,7 +165,7 @@ test('a lightning-blue shovebot shocks and pushes the player through normal cont
   await open(page, level)
   await expect.poll(async () => {
     await page.clock.runFor(100)
-    return page.locator('canvas').evaluate(canvas => canvas.contactEmpArcs ?? 0)
+    return page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.contactEmpArcs ?? 0)
   }).toBeGreaterThan(0)
   const contact = await motion(page)
   await page.keyboard.down('ArrowRight'); await page.keyboard.down('Space'); await page.keyboard.down('f')
@@ -187,7 +187,7 @@ test('an EMP bolt stops one shovebot with visible crackle while the other keeps 
   await page.keyboard.down('f'); await page.clock.runFor(48)
   await page.screenshot({ path: info.outputPath('emp-traveling-bolt.png') })
   await page.keyboard.up('f'); await page.clock.runFor(400)
-  const positions = () => page.locator('canvas').evaluate(canvas => canvas.gadgetRobots.map(robot => robot.x))
+  const positions = () => page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.gadgetRobots.map(robot => robot.x))
   const before = await positions()
   await page.screenshot({ path: info.outputPath('emp-shovebot-crackle.png') })
   await page.clock.runFor(400)
@@ -216,7 +216,7 @@ test('the sleeve follows its supporting forearm through both directions of a rop
       const sample = await motion(page), face = sample.signals.facing
       expect(sample.signals.mode).toBe('rope')
       const elbow = sample.points[face < 0 ? 5 : 3], wrist = sample.points[face < 0 ? 6 : 4]
-      const sleeve = await page.locator('canvas').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
+      const sleeve = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
       expect(sleeve.x).toBeCloseTo(sample.x + (elbow[0] + wrist[0]) * .5 * face, 1)
       expect(sleeve.y).toBeCloseTo(sample.y + (elbow[1] + wrist[1]) * .5, 1)
       await page.screenshot({ path: info.outputPath(`swing-${key}-${frame}.png`) })
@@ -230,7 +230,7 @@ test('a repulsor shot visibly recoils the shovebot across successive frames', as
   level.forceFields = []; level.props = level.props.slice(0, 1)
   level.robots = [{ x: 700, y: 600, left: 400, right: 1200 }]
   await open(page, level); await key(page, 'e')
-  const position = () => page.locator('canvas').evaluate(canvas => canvas.gadgetRobots[0].x)
+  const position = () => page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.gadgetRobots[0].x)
   const start = await position(); let previous = start
   await page.keyboard.down('f')
   for (let frame = 0; frame < 12; frame++) {
@@ -254,7 +254,7 @@ test('a repulsor knocks a shovebot off a ledge, where it falls and deactivates o
   level.robots = [{ x: 650, y: 400, left: 166, right: 674 }]
   await open(page, level); await key(page, 'e'); await key(page, 'f')
   await page.clock.runFor(600)
-  const robot = () => page.locator('canvas').evaluate(canvas => canvas.gadgetRobots[0])
+  const robot = () => page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.gadgetRobots[0])
   expect((await robot()).x).toBeGreaterThan(726)
   await page.screenshot({ path: info.outputPath('shovebot-knocked-off-shelf.png') })
   await page.clock.runFor(1400)
@@ -275,7 +275,7 @@ test('a knocked-off shovebot slides past a flared wall and lands instead of hang
   level.props = [{ kind: 'box', gadget: 'repulsor', x: 380, y: 400, size: 40 }]
   level.robots = [{ x: 650, y: 400, left: 166, right: 674 }]
   await open(page, level); await key(page, 'e'); await key(page, 'f')
-  const robot = () => page.locator('canvas').evaluate(canvas => canvas.gadgetRobots[0])
+  const robot = () => page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.gadgetRobots[0])
   await page.clock.runFor(650)
   expect((await robot()).y).toBeGreaterThan(525)
   await page.screenshot({ path: info.outputPath('shovebot-sliding-past-wall.png') })

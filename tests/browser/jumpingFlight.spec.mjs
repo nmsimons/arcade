@@ -7,7 +7,7 @@ for(const hold of [false,true])for(const direction of [-1,1])test(`keyboard ${ho
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   // Establish facing using the real controls, then settle the tiny movement.
   const key=direction<0?'a':'d'
   await page.keyboard.down(key);await page.clock.runFor(16)

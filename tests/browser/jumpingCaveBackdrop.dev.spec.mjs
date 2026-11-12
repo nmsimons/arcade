@@ -76,5 +76,5 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: sky caves use quiet g
     expect(sample.player,sample.lighting).toBeGreaterThan(35)
     expect(sample.terrain,sample.lighting).toBeGreaterThan(20)
   }
-  await page.locator('canvas').screenshot({path:info.outputPath(`sky-cave-stone-${backend}.png`)})
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({path:info.outputPath(`sky-cave-stone-${backend}.png`)})
 })

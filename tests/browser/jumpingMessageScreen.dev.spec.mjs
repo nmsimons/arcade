@@ -52,7 +52,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: message lettering sta
   result.frame.forEach((c, i) => expect(Math.abs(c - result.brightFrame[i] * .35)).toBeLessThanOrEqual(2))
   expect(result.wallDifference, JSON.stringify(result)).toBe(0)
   expect(result.occlusionDifference, JSON.stringify(result)).toBe(0)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-message-screen.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`${backend}-message-screen.png`) })
 })
 
 test('message screens can be placed, edited, duplicated, undone, saved and reopened', async ({ page }, info) => {

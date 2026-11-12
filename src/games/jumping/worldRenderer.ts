@@ -9,6 +9,7 @@ import { LightingRenderer } from './lightingRender.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import type { LightingShadows, LightingView } from './lightingRender.ts'
 import { WebGLWorldFrame } from './worldFrame.ts'
+import { framesReported } from './debugFrames.ts'
 import type { WorldFrameStats } from './worldFrame.ts'
 import type { LightingDefinition, LightingWorld } from './lightingModel.ts'
 
@@ -44,7 +45,8 @@ export class WorldRenderer {
     if (canvas && setting !== 'off') {
       glCanvas = canvas.ownerDocument.createElement('canvas')
       glCanvas.className = 'jumping-webgl-canvas'; glCanvas.setAttribute('aria-hidden', 'true')
-      webgl = new WebGLWorldFrame(glCanvas, setting === 'software')
+      // Its frames stand for the game's canvas, which the browser tests' frame reports name.
+      webgl = new WebGLWorldFrame(glCanvas, setting === 'software', canvas)
       if (webgl.available) canvas.after(glCanvas)
       else { webgl.dispose(); webgl = null; glCanvas = null }
     }
@@ -58,7 +60,15 @@ export class WorldRenderer {
     if (this.webgl && WebGLWorldFrame.covers(world, editor)) {
       const casters = this.lighting.casters(world, nightModeEnabled(advanced.lighting), shadows)
       const stats = this.webgl.render(world, view, advanced.lighting, casters, advanced.sources)
-      if (stats) { this.show(true); return stats }
+      if (stats) {
+        this.show(true)
+        // For browser tests only: the frame on the 2D canvas too, copied before it is presented.
+        if (framesReported && this.glCanvas) {
+          ctx.save(); ctx.resetTransform(); ctx.globalCompositeOperation = 'copy'; ctx.globalAlpha = 1
+          ctx.drawImage(this.glCanvas, 0, 0); ctx.restore()
+        }
+        return stats
+      }
     }
     this.show(false)
     return this.lighting.render(ctx, world, definition, view, dt, undefined, editor, shadows, false, advanced)

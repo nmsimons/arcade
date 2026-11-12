@@ -8,7 +8,7 @@ async function start(page,level) {
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(120)
 }
 const lipLevel=()=>({...blankTrial(),height:600,floor:500,entrance:{x:530,y:300},goal:{x:900,y:500},platforms:[{x:500,y:300,w:200,h:200}]})

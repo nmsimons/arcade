@@ -69,5 +69,5 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: terrain uses whole-pi
   expect(Math.abs(samples.lamp.roof[0] - samples.night.roof[0])).toBeLessThanOrEqual(1)
   expect(samples.night.bytes).toBeLessThan(64 * 1024 * 1024)
   for (const join of samples.joins) expect(join.range, JSON.stringify(join)).toBeLessThanOrEqual(1)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`outdoor-night-silhouettes-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`outdoor-night-silhouettes-${backend}.png`) })
 })

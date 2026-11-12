@@ -46,7 +46,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: indoor day and night 
   expect(samples.day.night[0]).toBeGreaterThan(200)
   expect(samples.night).toEqual(samples.legacyNight)
   expect(samples.mixed.bytes).toBeLessThan(64 * 1024 * 1024)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`indoor-day-night-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`indoor-day-night-${backend}.png`) })
 })
 
 test('wide cave mouths fade continuously without point-source interference at overview and close zoom', async ({ page }, info) => {
@@ -83,7 +83,7 @@ test('wide cave mouths fade continuously without point-source interference at ov
     expect(profile.rows[0][3]).toBeGreaterThan(profile.rows[1][3])
     expect(profile.rows[1][3]).toBeGreaterThan(profile.rows[2][3])
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath('continuous-cave-mouth.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('continuous-cave-mouth.png') })
 })
 
 test('terrain exposure does not glow onto the dark back wall beneath an overhang', async ({ page }, info) => {
@@ -111,7 +111,7 @@ test('terrain exposure does not glow onto the dark back wall beneath an overhang
   })
   // Hardware bilinear interpolation can round the ambient floor by one value.
   for (const sample of samples) for (const value of sample.pixels) expect(Math.abs(value - 89), JSON.stringify(sample)).toBeLessThanOrEqual(1)
-  await page.locator('canvas').screenshot({ path: info.outputPath('overhang-no-light-leak.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('overhang-no-light-leak.png') })
 })
 
 test('cached lighting follows camera motion and invalidates for zoom, changed geometry and moving occluders', async ({ page }) => {
@@ -271,7 +271,7 @@ test('terrain ground cover follows its shape, has distinct styles and invalidate
     expect(sample.cleared).toBe(true)
     for (const changed of sample.different) expect(changed).toBeGreaterThan(100)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath('terrain-ground-cover-slope.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('terrain-ground-cover-slope.png') })
 })
 
 test('terrain Appearance owns ground cover types with undo, save and reopen indoors', async ({ page }, info) => {

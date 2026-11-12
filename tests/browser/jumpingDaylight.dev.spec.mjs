@@ -35,7 +35,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: day lamps fill sunlig
   expect(result.blocked[0]).toEqual(result.sun[0])
   for (const i of [2, 3]) expect(result.lit[i]).toEqual(result.sun[i])
   expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`mixed-daylight-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`mixed-daylight-${backend}.png`) })
 })
 
 test('daylight shades walls and receivers while terrain, mechanisms and borders stay ambient-only', async ({ page }, info) => {
@@ -78,7 +78,7 @@ test('daylight shades walls and receivers while terrain, mechanisms and borders 
   expect(result.empSamples).toEqual(result.samples.map(sample => sample.day))
   expect(result.noLampSamples).toEqual(result.samples.map(sample => sample.day))
   expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
-  await page.locator('canvas').screenshot({ path: info.outputPath('daylight-comparison.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('daylight-comparison.png') })
 })
 
 test('GPU and Canvas mixed daylight agree through camera changes, moving gates and EMP', async ({ page }) => {

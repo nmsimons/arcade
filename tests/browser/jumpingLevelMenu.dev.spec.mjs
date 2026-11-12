@@ -162,6 +162,8 @@ test('pause has no brightness control and night ignores the retired saved prefer
   const maps = levels()
   maps[0].version = 2; maps[0].lighting = { nightMode: true, ambient: 0, lights: [] }
   await page.addInitScript(() => localStorage.setItem('arcade.jumping.night-ambient.v1', '45'))
+  // Frame reports also keep a WebGL frame's pixels on the game's canvas, where this reads them (debugFrames.ts).
+  await page.addInitScript(() => localStorage.setItem('jumping:debug-frames', '1'))
   await open(page, false, maps)
   await page.getByRole('button', { name: 'Play First room', exact: true }).click()
   await expect(page.locator('canvas[role="img"]')).toBeFocused()

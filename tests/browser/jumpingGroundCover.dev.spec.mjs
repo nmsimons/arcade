@@ -67,5 +67,5 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: colored ground surfac
     expect(sample.dayLight).toBeGreaterThan(sample.nightLight * 2)
     expect(Math.max(...sample.rock.slice(0, 3)) - Math.min(...sample.rock.slice(0, 3))).toBeLessThan(20)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath(`ground-cover-surface-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`ground-cover-surface-${backend}.png`) })
 })

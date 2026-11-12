@@ -26,7 +26,7 @@ for (const night of [false, true]) test(`subtle foot jets follow normal jump, st
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Booster check', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
   expect(await page.evaluate(() => window.boosterFills)).toEqual([])
   await page.keyboard.down('ArrowRight'); await page.keyboard.down('Space')

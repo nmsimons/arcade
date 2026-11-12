@@ -1,10 +1,11 @@
 # Moving LAB's renderer to WebGL
 
 Status: proposed November 10, 2026. Phases 0 to 3 are done: since November 12
-WebGL is the default, and it now draws every frame of play, by day and by
-night, with lamps, in caves and under the landscape's sky (see
-[Progress](#progress)); `?renderer=canvas` keeps Canvas alone. The studio and
-the other Canvas owners are phase 4.
+WebGL is the default, and it draws every frame of play, by day and by night,
+with lamps, in caves and under the landscape's sky (see [Progress](#progress));
+`?renderer=canvas` keeps Canvas alone. Phase 4 was not taken: the studio,
+thumbnails and developer tools stay on Canvas, which also remains the fallback.
+Phase 5's browser suite runs on WebGL (`JUMPING_WEBGL=1`).
 
 ## Why
 
@@ -194,8 +195,8 @@ after phase 1, which builds the core and so shows the real pace.
 | 1. Core and terrain | The renderer core (context, paths, fills, strokes, anti-aliasing, batching, materials, clips) and, with it, the backdrop and terrain (fill, texture, edges, ground cover) for Full Tilt by day, as pictures the Canvas frame places in its order | GPU busy and fps measured against Canvas; terrain, hairlines and ground cover look the same by eye. **Go or no-go on the approach** | 2–3 weeks; built in a day |
 | 2. Daylight courses | Every layer `drawPuzzleWorld` draws, plus the daylight shadow field, in WebGL; one canvas | All 23 unlit levels pass the contact sheets and targets; WebGL default for them behind a setting | 2–3 weeks; built in a day |
 | 3. Lighting | The composite pass: day-lit and night levels, light sources, region lighting, emissions and readable floors, landscape and interior environments, charging bays, bus ending | All 43 levels pass; Exit meets the targets | 2–3 weeks; built in a day |
-| 4. Facility and studio | Facility areas (doors, boards, placards), the studio view (its selection and handles can stay a 2D overlay on top), thumbnails, lighting lab, model review | Studio and facility browser specs green on WebGL | 1–2 weeks |
-| 5. Default | WebGL default everywhere, Canvas kept as fallback for one release; docs | Full suite on both renderers; targets met on the reference laptop | 1 week |
+| 4. Facility and studio | Facility areas (doors, boards, placards), the studio view (its selection and handles can stay a 2D overlay on top), thumbnails, lighting lab, model review | Studio and facility browser specs green on WebGL | 1–2 weeks; facility areas in phase 2, the rest not taken |
+| 5. Default | WebGL default everywhere, Canvas kept as fallback for one release; docs | Full suite on both renderers; targets met on the reference laptop | 1 week; WebGL default for play, the suite on WebGL |
 
 About 9–13 weeks in all. Phase 1's look and numbers decide whether it continues.
 
@@ -623,3 +624,48 @@ sections; in the third it falls just short of 58 fps on WebGL (57.1 and 57.6),
 with physics, not drawing, setting the pace. Phase 4 takes the studio and the
 other Canvas owners; the frame-rate gap that remains on Exit and Ascent is
 physics work.
+
+### Phase 4: not taken
+
+The facility areas came with phase 2. For the rest, measurement on November 12
+showed little to gain. The studio redraws only when something changes, and on
+Canvas a redraw takes 3 to 4 ms while panning (p90 6 ms; Full Tilt, Exit and
+escapade in hardware Edge); under WebGL every edit would rebuild the level's
+retained meshes, 100 to 260 ms each, so editing would get slower. Thumbnails
+are pictures drawn once, which Canvas draws faster than WebGL can tessellate
+them. And Canvas stays in any case, for browsers without hardware WebGL. So the
+studio, thumbnails, the lighting lab and the model review stay on Canvas, as
+does a bus ending after another kind of goal.
+
+### Phase 5: the browser suite on WebGL
+
+Headless Chromium's WebGL is software, which the game refuses, so the ordinary
+browser projects still exercise Canvas. `JUMPING_WEBGL=1` switches the
+Playwright configuration to two other pairs of projects, local only (they need
+Edge and a GPU):
+
+- `production-webgl` and `development-webgl` run LAB's specs in headless Edge,
+  whose WebGL runs on the GPU, so the game draws with its default WebGL frame.
+- `production-edge-canvas` and `development-edge-canvas` run them in the same
+  browser with Canvas alone: the baseline that tells a failure WebGL causes
+  from one the browser causes.
+
+```
+JUMPING_WEBGL=1 npx playwright test --project=production-webgl --project=development-webgl --workers=4
+```
+
+Specs that watch the drawing by patching Canvas 2D calls (40 files, found by
+the configuration) cannot see WebGL draw; they run only on Canvas. The rest
+watch the game through its frame reports and pixels, so two things make them
+work on either renderer. WebGL's frames report on the game's canvas, which they
+stand for. And a presented WebGL frame cannot be read back, so with reports on
+(`jumping:debug-frames`, test builds only) the game copies each WebGL frame onto
+its 2D canvas before presenting it, where pixel tests read it.
+
+The first run, 575 tests in 130 files, passed 518. Of the 57 failures, 45 also
+fail on Canvas in Edge: Canvas lighting tests whose expected pixels were taken
+in headless Chromium, and failures that predate this work. Twelve failed only
+on WebGL: ten because WebGL's frame reports named its own canvas, and two that
+read pixels without turning reports on. All twelve now pass. Run again after
+those fixes, the suite passed 530 of 575 on WebGL; the 45 that fail are the same
+45 that fail on Canvas in Edge, so none is WebGL's.

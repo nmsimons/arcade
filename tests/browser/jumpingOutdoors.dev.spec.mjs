@@ -47,7 +47,7 @@ test('clouds span wide maps and scroll at 90 percent without drifting or popping
   for (const count of result.counts) expect(count).toBeGreaterThan(1000)
   expect(result.panError).toBe(0)
   expect(result.stillError).toBe(0)
-  await page.locator('canvas').screenshot({ path: info.outputPath('far-right-clouds.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('far-right-clouds.png') })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall shadows; cave night and exterior daylight share one scene`, async ({ page }, info) => {
@@ -87,7 +87,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall 
   expect(result.night[2][0]).toBeLessThan(result.day[2][0] * .75)
   for (let c = 0; c < 3; c++) expect(Math.abs(result.night[3][c] - result.day[3][c])).toBeLessThanOrEqual(2)
   expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`mixed-cave-daylight-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`mixed-cave-daylight-${backend}.png`) })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: mixed-light outer frame stays dark without a glowing rectangle or stretched artwork`, async ({ page }, info) => {
@@ -128,7 +128,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: mixed-light outer fra
       expect(Math.abs(pixel[c] - Math.round(result.floorMaterial[i][c] * .35))).toBeLessThanOrEqual(3)
     expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath(`constant-frame-lighting-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`constant-frame-lighting-${backend}.png`) })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: terrain touching the left frame has continuous lighting across the join`, async ({ page }) => {

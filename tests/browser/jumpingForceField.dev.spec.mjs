@@ -50,7 +50,7 @@ async function openGame(page, level) {
   await expect(card).toBeVisible({timeout:15000})
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await card.click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(64)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused(); await page.clock.runFor(64)
 }
 async function point(page, x, y) {
   return board(page).evaluate((canvas,[x,y]) => {
@@ -65,7 +65,7 @@ test('a player pushes a box through a vertical field, stops at the beam, and can
   await page.keyboard.down('d'); await page.clock.runFor(3200); await page.keyboard.up('d')
   expect(errors).toEqual([])
   expect((await player(page)).x).toBeCloseTo(474.5,1)
-  const boxes=await page.locator('canvas').evaluate(c=>c.fieldBoxes)
+  const boxes=await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBoxes)
   expect(boxes.some(b=>b.x>520)).toBe(true)
   await page.screenshot({path:info.outputPath('vertical-force-field.png')})
   await page.keyboard.down('Space'); await page.clock.runFor(32); await page.keyboard.up('Space'); await page.clock.runFor(200)
@@ -79,13 +79,13 @@ test('a red vertical field stops a pushed box while the player jumps through', a
   const errors=[]; page.on('pageerror',e=>errors.push(e.message))
   await openGame(page,level)
   await page.keyboard.down('d'); await page.clock.runFor(1800)
-  const boxes=await page.locator('canvas').evaluate(c=>c.fieldBoxes)
+  const boxes=await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBoxes)
   expect(boxes).toHaveLength(1); expect(boxes[0].x).toBeLessThanOrEqual(480.1)
   await page.keyboard.down('Space'); await page.clock.runFor(150); await page.keyboard.up('Space')
   await page.clock.runFor(900); await page.keyboard.up('d')
   expect((await player(page)).x).toBeGreaterThan(560)
-  expect((await page.locator('canvas').evaluate(c=>c.fieldBoxes))[0].x).toBeLessThanOrEqual(480.1)
-  expect((await page.locator('canvas').evaluate(c=>c.fieldBeams)).some(b=>b.red)).toBe(true)
+  expect((await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBoxes))[0].x).toBeLessThanOrEqual(480.1)
+  expect((await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBeams)).some(b=>b.red)).toBe(true)
   await page.screenshot({path:info.outputPath('red-vertical-player-through.png')})
   expect(errors).toEqual([])
 })
@@ -97,7 +97,7 @@ for (const night of [false,true]) test(`red horizontal fields retain objects whi
   await page.keyboard.down('d'); await page.clock.runFor(700); await page.keyboard.up('d'); await page.clock.runFor(1000)
   const standing=await player(page)
   expect(standing.y).toBeCloseTo(600,1); expect(standing.signals.grounded).toBe(true)
-  const canvas=page.locator('canvas')
+  const canvas=page.locator('canvas:not(.jumping-webgl-canvas)')
   expect((await canvas.evaluate(c=>c.fieldBoxes)).some(b=>Math.abs(b.y-330)<1)).toBe(true)
   const visible=await canvas.evaluate(c=>{
     const ctx=c.getContext('2d')
@@ -121,7 +121,7 @@ for (const night of [false,true]) test(`horizontal fields support the player whi
   const standing=await player(page)
   expect(standing.y).toBeCloseTo(330,1); expect(standing.signals.support).toBe('force-field:0'); expect(standing.signals.grounded).toBe(true)
   // Final composited pixels, including the night lighting pass.
-  const visible=await page.locator('canvas').evaluate(c=>{
+  const visible=await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>{
     const ctx=c.getContext('2d')
     return c.fieldBeams.some(p=>{
       if(p.x<2||p.y<2||p.x>=c.width-2||p.y>=c.height-2)return false
@@ -130,11 +130,11 @@ for (const night of [false,true]) test(`horizontal fields support the player whi
     })
   })
   expect(visible).toBe(true)
-  if(!night) expect((await page.locator('canvas').evaluate(c=>c.fieldBoxes)).some(b=>Math.abs(b.y-600)<1)).toBe(true)
-  const sparks=await page.locator('canvas').evaluate(c=>c.fieldSparks)
+  if(!night) expect((await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBoxes)).some(b=>Math.abs(b.y-600)<1)).toBe(true)
+  const sparks=await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldSparks)
   expect(sparks.length).toBeGreaterThan(0)
   await page.clock.runFor(200)
-  expect(await page.locator('canvas').evaluate(c=>c.fieldSparks)).not.toEqual(sparks)
+  expect(await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldSparks)).not.toEqual(sparks)
   await page.screenshot({path:info.outputPath(`horizontal-force-field-${night?'night':'day'}.png`)})
   await page.keyboard.down('Space'); await page.clock.runFor(32); await page.keyboard.up('Space'); await page.clock.runFor(160)
   expect((await player(page)).y).toBeLessThan(300); expect((await player(page)).signals.grounded).toBe(false)
@@ -147,15 +147,15 @@ test('a pressure switch enables a field and a collected EMP removes it, restorin
   level.pickups=[{kind:'emp',x:460,y:575}]
   await openGame(page,level)
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')
-  expect((await page.locator('canvas').evaluate(c=>c.fieldBeams)).length).toBeGreaterThan(0)
+  expect((await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBeams)).length).toBeGreaterThan(0)
   await page.keyboard.down('d'); await page.clock.runFor(1400); await page.keyboard.up('d')
   expect((await player(page)).x).toBeGreaterThan(540)
-  expect((await page.locator('canvas').evaluate(c=>c.fieldBeams)).length).toBe(0)
+  expect((await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBeams)).length).toBe(0)
   await page.screenshot({path:info.outputPath('force-field-emp-disabled.png')})
   await page.clock.runFor(4500)
-  expect((await page.locator('canvas').evaluate(c=>c.fieldBeams)).length).toBeGreaterThan(0)
+  expect((await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBeams)).length).toBeGreaterThan(0)
   await restartFromPause(page); await page.clock.runFor(64)
-  expect((await page.locator('canvas').evaluate(c=>c.fieldBeams)).length).toBe(0)
+  expect((await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c=>c.fieldBeams)).length).toBe(0)
 })
 
 test('both studio tools have end handles, support wiring and group copy, and persist after save/reopen', async ({ page }, info) => {

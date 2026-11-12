@@ -511,7 +511,7 @@
     },
     {
       "id": "door-spire-ii",
-      "x": 305,
+      "x": 995,
       "y": 1575,
       "course": "11234f12-817c-4966-a141-54e70573fae0",
       "power": "switched",
@@ -521,7 +521,7 @@
     },
     {
       "id": "door-scaffold-ii",
-      "x": 995,
+      "x": 305,
       "y": 1575,
       "course": "16782da7-ca7e-40e6-a383-106746fd8df8",
       "power": "switched",

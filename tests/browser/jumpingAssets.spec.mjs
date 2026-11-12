@@ -59,8 +59,11 @@ test('a missing index reports the failure and page reload recovers without a com
   await expect(page.locator('.jumping-level-card')).toHaveCount(0)
   failing = false
   await page.reload()
-  // Every course passed, the facility opens on the concourse with nothing to report.
-  await expect(page.getByRole('img', { name: 'Concourse', exact: true })).toBeVisible({ timeout: 30000 })
+  // Recovered, /lab opens its start screen with nothing to report. With passed courses but no autosaved
+  // place, the robot wakes in Orientation (docs/jumping-facility.md, Starting the game).
+  await expect(page.getByRole('dialog', { name: 'Game start', exact: true })).toBeVisible({ timeout: 30000 })
+  await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Game start', exact: true }).getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
   await expect(page.getByRole('alert')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('built-in-levels.png') })
   for (const [file, level] of entries.slice(0, 2)) expect(await play(page, file)).toBe(level.name)

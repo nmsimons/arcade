@@ -3705,8 +3705,8 @@
     {
       "file": "fulltilt.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 6.649999999999855,
-      "activeTime": 16.508333333333038,
+      "elapsed": 0.9666666666666657,
+      "activeTime": 16.649999999999697,
       "coins": 24,
       "trace": [
         {
@@ -3788,7 +3788,7 @@
           }
         },
         {
-          "frames": 153,
+          "frames": 142,
           "input": {
             "move": 1,
             "jump": false,
@@ -3814,7 +3814,7 @@
           }
         },
         {
-          "frames": 495,
+          "frames": 529,
           "input": {
             "move": 1,
             "jump": false,
@@ -3866,7 +3866,7 @@
           }
         },
         {
-          "frames": 76,
+          "frames": 72,
           "input": {
             "move": 1,
             "jump": false,
@@ -3892,7 +3892,7 @@
           }
         },
         {
-          "frames": 297,
+          "frames": 295,
           "input": {
             "move": 1,
             "jump": false,

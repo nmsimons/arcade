@@ -49,6 +49,8 @@ export type Pass =
   | Lit & { kind: 'thin-max'; draw: Range; cover: Range; color: Rgba; depth: number; box: Box }
   /** A retained layer, drawn here in the frame's order with this clip depth and light. */
   | Lit & { kind: 'scene'; name: string; depth: number }
+  /** An airborne effect over the whole view (glFrame.ts), drawn here in the frame's order. */
+  | { kind: 'effect'; name: 'beam' | 'unbeam' | 'glow'; depth: number }
   /** `end` is the index of the pass that removes this clip (or the pass count): nothing between draws outside `box`. */
   | { kind: 'clip'; wind: Range; cover: Range; evenOdd: boolean; depth: number; box: Box; end: number }
   | { kind: 'unclip'; cover: Range; depth: number; box: Box }
@@ -454,6 +456,7 @@ export class SceneBuilder {
           break
         }
         case 'stroke': {
+          if (op.matrix) { this.stretchedStroke(op, op.matrix); break }
           if (op.shadow) this.glow(op)
           const color = op.paint.kind === 'color' ? pack(op.paint.rgba[0], op.paint.rgba[1], op.paint.rgba[2], op.paint.rgba[3] * op.alpha) : pack(1, 1, 1, op.alpha)
           const texture = this.patternTexture(op.paint)
@@ -487,6 +490,9 @@ export class SceneBuilder {
         case 'scene':
           this.passes.push({ kind: 'scene', name: op.name, depth: op.depth, light: op.light })
           break
+        case 'effect':
+          this.passes.push({ kind: 'effect', name: op.name, depth: op.depth })
+          break
         case 'image': {
           const { image, matrix } = op
           // World positions to the unit square, then to the source rectangle's texture coordinates.
@@ -509,6 +515,27 @@ export class SceneBuilder {
         }
       }
     }
+  }
+
+  /**
+   * A stroke drawn through a stretched transform: outlined where it was drawn,
+   * then mapped through `m` to the world, as Canvas strokes it. However thin, it
+   * is drawn as triangles (multisampled), since a stretched line's width varies
+   * with its direction; such strokes are rare and small (a robot's charging bay).
+   */
+  private stretchedStroke(op: Extract<DrawOp, { kind: 'stroke' }>, m: Matrix) {
+    const stretch = Math.max(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)) || 1
+    const color = op.paint.kind === 'color' ? pack(op.paint.rgba[0], op.paint.rgba[1], op.paint.rgba[2], op.paint.rgba[3] * op.alpha) : pack(1, 1, 1, op.alpha)
+    const out: number[] = []
+    strokeTriangles(strokeContours(flatten(op.commands, .2 / this.zoom / stretch), op.style), op.style, .5 / this.zoom / stretch, out)
+    if (!out.length) return
+    for (let k = 0; k < out.length; k += FLOATS_PER_VERTEX) {
+      const x = out[k], y = out[k + 1]
+      out[k] = m.a * x + m.c * y + m.e; out[k + 1] = m.b * x + m.d * y + m.f
+    }
+    const draw = this.emit(out, color), texture = this.patternTexture(op.paint)
+    if (this.opaque(op.paint, op.alpha)) this.direct(draw, op.depth, texture, op.light, op.box)
+    else this.passes.push({ kind: 'stroke-once', draw, depth: op.depth, texture, light: op.light, box: op.box })
   }
 
   /** A sprite placed in device pixels, as a textured quad. */

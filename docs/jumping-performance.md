@@ -1,5 +1,24 @@
 # LAB performance notes
 
+## November 12, 2026: WebGL draws every frame of play
+
+Phase 3 of the WebGL renderer ([plan](jumping-webgl-renderer.md#phase-3-lighting))
+brings lamps, night, cave regions, the landscape's sky and the bus departure to
+WebGL, so every frame of play is WebGL's; the studio stays on Canvas. Lamps use
+the GPU light field's shader and shadow geometry in the frame's own context;
+the beam haze and source glow are drawn in painter's order; caves copy in
+Canvas's environment fields when they change. All 50 built-in levels and areas
+match Canvas to a mean of 0.03 to 0.67 of 255, and in play every frame was
+WebGL's.
+
+On Exit (hardware Edge, interleaved, `.local/perf/phase3-exit`) WebGL holds
+60 fps in two of three sections at DPR 1 and 1.5 with the GPU process 25% to 27%
+busy; in the prop-heavy section near the start it holds 57.1 to 57.6 fps, where
+Canvas measured 50.5 at DPR 1 and 60 at DPR 1.5 in the same run and 40 to 43
+under the profiler. That section is physics-bound: physics is 69% of the tick
+(props 27%) and drawing 19%, and drawing a frame costs WebGL about half what it
+costs Canvas.
+
 ## November 12, 2026: WebGL by default, and cheaper WebGL frames
 
 WebGL now draws daylight frames by default wherever the GPU runs WebGL 2

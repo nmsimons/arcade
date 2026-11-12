@@ -1,8 +1,10 @@
 # Moving LAB's renderer to WebGL
 
-Status: proposed November 10, 2026. Phases 0, 1 and 2 are done, and since
-November 12 WebGL is the default for the daylight frames it draws (see
-[Progress](#progress)); `?renderer=canvas` keeps Canvas alone.
+Status: proposed November 10, 2026. Phases 0 to 3 are done: since November 12
+WebGL is the default, and it now draws every frame of play, by day and by
+night, with lamps, in caves and under the landscape's sky (see
+[Progress](#progress)); `?renderer=canvas` keeps Canvas alone. The studio and
+the other Canvas owners are phase 4.
 
 ## Why
 
@@ -191,7 +193,7 @@ after phase 1, which builds the core and so shows the real pace.
 | 0. Foundations | Frame reports for the wall, heads and displays; the head observer, the camera hooks and the clock readers moved to them; each spec's remaining hooks listed by layer | The moved specs green on Canvas; no visual or timing change | 1 week |
 | 1. Core and terrain | The renderer core (context, paths, fills, strokes, anti-aliasing, batching, materials, clips) and, with it, the backdrop and terrain (fill, texture, edges, ground cover) for Full Tilt by day, as pictures the Canvas frame places in its order | GPU busy and fps measured against Canvas; terrain, hairlines and ground cover look the same by eye. **Go or no-go on the approach** | 2–3 weeks; built in a day |
 | 2. Daylight courses | Every layer `drawPuzzleWorld` draws, plus the daylight shadow field, in WebGL; one canvas | All 23 unlit levels pass the contact sheets and targets; WebGL default for them behind a setting | 2–3 weeks; built in a day |
-| 3. Lighting | The composite pass: day-lit and night levels, light sources, region lighting, emissions and readable floors, landscape and interior environments, charging bays, bus ending | All 43 levels pass; Exit meets the targets | 2–3 weeks |
+| 3. Lighting | The composite pass: day-lit and night levels, light sources, region lighting, emissions and readable floors, landscape and interior environments, charging bays, bus ending | All 43 levels pass; Exit meets the targets | 2–3 weeks; built in a day |
 | 4. Facility and studio | Facility areas (doors, boards, placards), the studio view (its selection and handles can stay a 2D overlay on top), thumbnails, lighting lab, model review | Studio and facility browser specs green on WebGL | 1–2 weeks |
 | 5. Default | WebGL default everywhere, Canvas kept as fallback for one release; docs | Full suite on both renderers; targets met on the reference laptop | 1 week |
 
@@ -533,3 +535,91 @@ drawn as before.
 triangulated outline by outline, which would fill a hole cut by an outline
 winding the other way. No artwork draws one today (the stopwatch's ring is
 filled even-odd), and such fills now go to the stencil.
+
+### Phase 3: lighting
+
+**What is built.** WebGL draws every frame of play: by day and by night, with
+lamps, in caves and under the landscape's sky, the charging bays, and the bus's
+departure at the exit. Only the studio and the other Canvas owners (phase 4),
+and a bus ending after another kind of goal (no built-in level has one), stay
+on Canvas. Phase 1's layers are no longer made by the game: the frames Canvas
+still draws never used them.
+
+- **The field.** By day it is lit but for the structures' parallel shadows; at
+  night it is the ambient (0.35). Each lamp adds its cone where its shadows
+  allow, the brightest light winning at each pixel, with the GPU light field's
+  own shader (`lightingGpuField.ts`): its seventeen quantized stops, its room
+  edge and its fade. The lamp's shadow mask is drawn 4× multisampled into the
+  field's target, each caster group stamping its shadows into the world's
+  stencil and clearing its own bodies, which receive light as one front; the
+  cone reads the resolved mask. The shadow geometry is the GPU field's, now
+  shared by both (`lampShadowGeometry`).
+- **Exposure.** The rule is phase 2's: the field where artwork receives light,
+  the ambient where it does not, never below its floor. At night the back wall
+  receives only the ambient, as Canvas corrects it, and the robot is kept
+  readable at 0.65.
+- **The light in the air.** Canvas adds the beam haze last, erased behind wall
+  artwork and objects, and lays the lamps' glow over everything but objects and
+  the fixtures. The frame's painter's order gives the same: the beam is added
+  after the back wall (and the water behind it) and before any wall artwork,
+  and the glow after the wall's artwork and before the objects, with the
+  fixtures drawn again over it. Light added behind artwork, opaque or not,
+  composes identically; the glow differs only behind translucent objects such
+  as water, by a second-order term (the glow's alpha times the object's alpha
+  times its transparency).
+- **Environments.** A cave's regions light its night through the fields Canvas
+  draws (`EnvironmentLighting`: daylight through the openings, dithered, at a
+  reduced size), copied into the frame when they change. Their ambient raises
+  the field, and artwork that receives no light takes their ambient, or their
+  readable field, at its pixel. Wall text and the robot's colours follow the air
+  around them as on Canvas. A landscape's sky moves with the camera, so it is
+  drawn every frame, fully exposed, under the retained back walls; Canvas keeps
+  the beam off the sky, and so does the frame, by taking the beam away again
+  inside the open air.
+- **Stretched strokes.** A stroke drawn through an uneven scale (a robot's wider
+  charging bay) is outlined where it was drawn, then stretched, as Canvas
+  strokes it; the recorder used to refuse it, which left Orientation to Canvas.
+- **The bus.** The exit's bus departure is the level seen through the camera
+  the ending holds, so it goes through the world renderer, which keeps the
+  level's scenes at the zoom they were built for rather than rebuilding them.
+
+**The look.** One view of each of the 50 built-in levels and facility areas in
+hardware Edge, against Canvas with its GPU light field: mean differences of 0.03
+to 0.67 of 255, the largest 20-pixel block 2.6, all on edges. Views centred on
+lamps (escapade, Coins, Tower, lockout1, rampingup) match by eye, fixtures,
+beams and glow included; the difference images show edges and a faint ring at
+the haze's 0.4 stop. The browser test now holds eight levels to Canvas on a
+software GPU: four by day, Tower (lamps by day), escapade (night), spelunk
+(cave regions) and exit (the landscape).
+
+**Played.** In hardware Edge with the default setting, all 40 courses and the
+nine facility areas for 6 s each: every frame was drawn by WebGL, none was left
+to Canvas, and no page errors occurred.
+
+**Measured.** Exit, the plan's other reference level (night, the landscape and
+its bus, props), one production build on both renderers in hardware Edge,
+interleaved, three sections at DPR 1 and 1.5, three 8 s episodes each
+(`.local/perf/phase3-exit`; the display ran at 60 Hz):
+
+| Section | DPR 1 Canvas | DPR 1 WebGL | DPR 1.5 Canvas | DPR 1.5 WebGL |
+| --- | ---: | ---: | ---: | ---: |
+| 1530 (props) | 50.5 fps, 54 missed | 57.1 fps, 15 missed | 60 fps, 1 missed | 57.6 fps, 14 missed |
+| 7000 | 60.1 fps, 0 missed | 60 fps, 1 missed | 60.1 fps, 0 missed | 59.9 fps, 2 missed |
+| 14125 | 60.1 fps, 0 missed | 60.1 fps, 0 missed | 60.1 fps, 0 missed | 60.1 fps, 0 missed |
+
+While WebGL draws, the GPU process's main thread is busy 25% to 27% (traced at
+DPR 1.5). The first section is bound by physics, not drawing. CPU-profiled
+there (`phase3-exit-prof-webgl` and `phase3-exit-prof-canvas`), physics is 69%
+of WebGL's tick, the props alone 27%, and drawing 19%; per drawn frame the
+drawing costs WebGL about 3.1 ms and Canvas about 5.7 ms. Under the profiler
+both lose frames there, WebGL holding 56 to 58 fps and Canvas 40 to 43, and the
+slowest frames on either (p99 39 to 87 ms) are physics. Physics also takes about
+a quarter longer under WebGL for the same simulated time: the processor's lower
+clock once the GPU process is idle, as in [After phase 2](#after-phase-2-the-default-and-the-main-thread).
+
+**Exit check.** Every level and facility area is WebGL's and looks like
+Canvas's. Exit meets the GPU target by far and holds 60 fps in two of its three
+sections; in the third it falls just short of 58 fps on WebGL (57.1 and 57.6),
+with physics, not drawing, setting the pace. Phase 4 takes the studio and the
+other Canvas owners; the frame-rate gap that remains on Exit and Ascent is
+physics work.

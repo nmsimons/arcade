@@ -6,6 +6,7 @@
  * placed over the Canvas one when WebGL starts and shown only while it draws.
  */
 import { LightingRenderer } from './lightingRender.ts'
+import { nightModeEnabled } from './ambientLight.ts'
 import type { LightingShadows, LightingView } from './lightingRender.ts'
 import { WebGLWorldFrame } from './worldFrame.ts'
 import type { WorldFrameStats } from './worldFrame.ts'
@@ -54,8 +55,9 @@ export class WorldRenderer {
   render(ctx: CanvasRenderingContext2D, world: LightingWorld, definition: LightingDefinition, view: LightingView & { restZoom?: number }, dt: number,
     editor = false, shadows: LightingShadows = 'structural'): WorldStats {
     const advanced = this.lighting.advance(definition, world, dt)
-    if (this.webgl && WebGLWorldFrame.covers(world, advanced.lighting, advanced.sources, editor)) {
-      const stats = this.webgl.render(world, view, this.lighting.daylightCasters(world), advanced.sources)
+    if (this.webgl && WebGLWorldFrame.covers(world, editor)) {
+      const casters = this.lighting.casters(world, nightModeEnabled(advanced.lighting), shadows)
+      const stats = this.webgl.render(world, view, advanced.lighting, casters, advanced.sources)
       if (stats) { this.show(true); return stats }
     }
     this.show(false)

@@ -297,10 +297,18 @@ export class LightingRenderer {
     const lighting = this.state.roomLighting(definition, run, dt)
     return { lighting, sources: this.state.sources(lighting, run, dt) }
   }
-  /** Daylight's structural shadow casters this frame: terrain and resting mechanisms (fixed), and mechanisms in motion. */
-  daylightCasters(run: LightingWorld) {
+  /**
+   * This frame's shadow casters, as Canvas's lighting takes them: the structures
+   * daylight casts from (terrain and resting mechanisms, `fixed`; mechanisms in
+   * motion, `moving`), and every group a lamp is blocked by (`all`: those, then
+   * props, robots and the rest). Night casts the player's full silhouette only
+   * with `full` shadows.
+   */
+  casters(run: LightingWorld, nightMode = false, shadows: LightingShadows = 'structural') {
     if (this.terrain?.level !== run.level) this.terrain = { level: run.level, groups: staticCasters(run) }
-    return this.structures.update(this.terrain.groups, dynamicCasters(run, false).filter(group => group.mechanism))
+    const dynamic = dynamicCasters(run, nightMode && shadows === 'full')
+    const structures = this.structures.update(this.terrain.groups, dynamic.filter(group => group.mechanism))
+    return { ...structures, all: [...structures.fixed, ...structures.moving, ...dynamic.filter(group => !group.mechanism)] }
   }
   render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false,
     advanced?: ReturnType<LightingRenderer['advance']>) {

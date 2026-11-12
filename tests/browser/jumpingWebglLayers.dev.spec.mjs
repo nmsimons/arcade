@@ -62,9 +62,11 @@ test('WebGL layers draw the backdrop and terrain as Canvas does, and report the 
   expect(result.walls[0]).toEqual([.7, .7, -28.175, expect.any(Number)])
 })
 
-// Phase 2: the whole daylight frame drawn by WebGL on its own canvas, exposure included, on levels with
-// coins, ropes, ladders, wall text, displays and water. Edges anti-alias differently; whole objects may not.
-for (const name of ['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy']) test(`the WebGL frame draws ${name} as Canvas does`, async ({ page }, info) => {
+// The whole frame drawn by WebGL on its own canvas, exposure included: daylight levels with coins, ropes,
+// ladders, wall text, displays and water; lamps by day (Tower) and at night, with their beams and glow
+// (escapade); a cave's regions at night (spelunk); and a landscape's sky (exit). Edges anti-alias
+// differently; whole objects may not.
+for (const file of ['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy', 'Tower', 'escapade', 'spelunk', 'exit']) test(`the WebGL frame draws ${file} as Canvas does`, async ({ page }, info) => {
   await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async name => {
@@ -72,18 +74,18 @@ for (const name of ['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy']) test(
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/worldFrame.ts'), import('/src/games/jumping/challenge.ts'),
       import('/src/games/jumping/level.ts'), import('/src/games/jumping/lightingDefinition.ts')])
     await document.fonts.ready
-    const level = parseLevel(await (await fetch(`/levels/jumping/${name}.jump-level.json`)).json()), run = createPreviewRun(level)
+    const level = parseLevel(await (await fetch(`/levels/jumping/${name}.jump-level.json`)).json()), run = createPreviewRun(level), definition = lightingForLevel(level)
     const width = 960, height = 600, view = { x: run.player.x - 299.63, y: run.player.y - 259.39, width, height, zoom: 1.5789 }
     const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     const reference = new LightingRenderer({ backend: 'canvas' }), lighting = new LightingRenderer({ backend: 'canvas' })
     const glCanvas = document.createElement('canvas'), frame = new WebGLWorldFrame(glCanvas, true)
     try {
-      reference.render(ctx, run, lightingForLevel(level), view, 0); reference.render(ctx, run, lightingForLevel(level), view, 0)
+      reference.render(ctx, run, definition, view, 0); reference.render(ctx, run, definition, view, 0)
       const a = ctx.getImageData(0, 0, width, height).data
-      const advanced = lighting.advance(lightingForLevel(level), run, 0)
-      const covered = WebGLWorldFrame.covers(run, advanced.lighting, advanced.sources, false)
-      const stats = frame.render(run, view, lighting.daylightCasters(run), advanced.sources)
+      const advanced = lighting.advance(definition, run, 0), night = advanced.lighting.nightMode ?? false
+      const covered = WebGLWorldFrame.covers(run, false)
+      const stats = frame.render(run, view, advanced.lighting, lighting.casters(run, night), advanced.sources)
       if (!stats) return { covered, declined: frame.declined }
       // Read the frame before it is presented.
       ctx.clearRect(0, 0, width, height); ctx.drawImage(glCanvas, 0, 0)
@@ -95,9 +97,9 @@ for (const name of ['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy']) test(
         for (let y = by; y < by + 20; y++) for (let x = bx; x < bx + 20; x++) for (let k = 0; k < 3; k++) { const i = (y * width + x) * 4 + k; sum += a[i] - b[i] }
         block = Math.max(block, Math.abs(sum) / 1200)
       }
-      return { covered, mean: total / (a.length * .75), block, ops: stats.ops, image: glCanvas.toDataURL() }
+      return { covered, mean: total / (a.length * .75), block, ops: stats.ops, lights: stats.lights, image: glCanvas.toDataURL() }
     } finally { reference.dispose(); lighting.dispose(); frame.dispose() }
-  }, name)
+  }, file)
   if (result.image) await writeFile(info.outputPath('webgl.png'), Buffer.from(result.image.split(',')[1], 'base64'))
   delete result.image
   await info.attach('comparison', { body: JSON.stringify(result, null, 1), contentType: 'application/json' })
@@ -107,7 +109,7 @@ for (const name of ['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy']) test(
   expect(result.block).toBeLessThan(4)
 })
 
-test('the world renderer gives WebGL the frames it covers and Canvas the rest, advancing lighting once a frame', async ({ page }) => {
+test('the world renderer gives WebGL every frame of play, by day and by night, and the studio to Canvas, advancing lighting once a frame', async ({ page }) => {
   await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async () => {
@@ -121,25 +123,26 @@ test('the world renderer gives WebGL the frames it covers and Canvas the rest, a
     const renderer = new WorldRenderer(lighting, canvas, 'software'), ctx = canvas.getContext('2d')
     // WebGL's canvas goes right after Canvas's, once WebGL starts.
     const glCanvas = canvas.nextElementSibling, placed = glCanvas?.className
-    const frame = level => {
+    const frame = (level, editor = false) => {
       const run = createPreviewRun(level)
-      const stats = renderer.render(ctx, run, lightingForLevel(level), { x: run.player.x - 100, y: run.player.y - 100, zoom: .8, width: 320, height: 200 }, 1 / 60)
+      const stats = renderer.render(ctx, run, lightingForLevel(level), { x: run.player.x - 100, y: run.player.y - 100, zoom: .8, width: 320, height: 200 }, 1 / 60, editor)
       return { backend: stats.backend, shown: glCanvas.style.visibility }
     }
     let advanced = 0
     const advance = lighting.advance.bind(lighting)
     lighting.advance = (...args) => { advanced++; return advance(...args) }
     try {
-      const day = frame(await load('fulltilt')), night = frame(await load('escapade'))
+      const day = frame(await load('fulltilt')), night = frame(await load('escapade')), studio = frame(await load('fulltilt'), true)
       renderer.dispose()
-      return { placed, day, night, advanced, left: host.childElementCount }
+      return { placed, day, night, studio, advanced, left: host.childElementCount }
     } finally { renderer.dispose(); lighting.dispose(); host.remove() }
   })
   expect(result.placed).toBe('jumping-webgl-canvas')
   expect(result.left).toBe(1)
   expect(result.day).toEqual({ backend: 'webgl', shown: 'visible' })
-  expect(result.night).toEqual({ backend: expect.stringMatching(/canvas|gpu/), shown: 'hidden' })
-  expect(result.advanced).toBe(2)
+  expect(result.night).toEqual({ backend: 'webgl', shown: 'visible' })
+  expect(result.studio).toEqual({ backend: expect.stringMatching(/canvas|gpu/), shown: 'hidden' })
+  expect(result.advanced).toBe(3)
 })
 
 // The default: WebGL wherever the GPU runs it. A software driver, such as this headless browser's SwiftShader

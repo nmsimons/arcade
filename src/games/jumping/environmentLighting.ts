@@ -92,6 +92,8 @@ export class EnvironmentLighting {
   private air?: { scene: Scene; zoom: number; width: number; height: number; bounds: Box; smoothBands: boolean }
   private readableCrop!: Box
   private software = false
+  /** Counts the rebuilds of the fields `render` returns, so a renderer copying them knows when they changed. */
+  revision = 0
   private playerAppearance?: { scene: Scene; x: number; y: number; materials: AndroidMaterials }
   private boundedAmbient?: Surface
   private resolved?: Surface
@@ -303,7 +305,7 @@ export class EnvironmentLighting {
     fields.readable.ctx.drawImage(bounded.canvas, 0, 0, view.width, view.height, readableCrop.x, readableCrop.y, readableCrop.w, readableCrop.h)
     fields.readable.ctx.globalCompositeOperation = 'lighten'; fields.readable.ctx.fillStyle = gray(.65); fields.readable.ctx.fillRect(0, 0, fieldWidth, fieldHeight)
     this.readableCrop = readableCrop
-    this.key = key
+    this.key = key; this.revision++
     return { ...fields, ambient: bounded, readableCrop }
   }
   resolve(view: LightingView, drawField: (ctx: CanvasRenderingContext2D) => void) {

@@ -319,3 +319,36 @@ test('ear clipping takes any simple outline, however many reflex corners, and co
   for (let k = 0; k < 6; k++) hexagon.push(Math.cos(k * Math.PI / 3) * 10, Math.sin(k * Math.PI / 3) * 10)
   assert.equal(isConvex([{ points: hexagon, closed: true }]), true)
 })
+
+test('a stroke through a stretched transform is outlined where it was drawn, then stretched, as Canvas strokes', () => {
+  const view = { x: 0, y: 0, zoom: 1, width: 200, height: 200 }
+  const recorder = new GlRecorder(1, view), ctx = recorder.asContext()
+  ctx.translate(50, 20); ctx.scale(2, 1); ctx.strokeStyle = '#a5b1a5'; ctx.lineWidth = 1; ctx.strokeRect(0, 0, 10, 10)
+  assert.equal(recorder.unsupported, null)
+  const [op] = recorder.ops
+  // The path stays in the units it was drawn in, with the matrix that stretches it.
+  assert.deepEqual([op.matrix.a, op.matrix.d, op.matrix.e, op.matrix.f], [2, 1, 50, 20])
+  assert.deepEqual(op.commands.slice(0, 3), [MOVE, 0, 0])
+  assert.equal(op.style.width, 1)
+  const builder = new SceneBuilder(new ShapeCache())
+  builder.reset(1, view); builder.add(recorder.ops); builder.finish()
+  const v = new Float32Array(builder.vertexView.slice().buffer), xs = [], ys = []
+  for (let k = 0; k < builder.count; k++) { xs.push(v[k * 6]); ys.push(v[k * 6 + 1]) }
+  // Vertical sides are stretched to two units wide, horizontal ones stay one: the outline's reach shows both.
+  close(Math.min(...xs), 49, 1e-4); close(Math.max(...xs), 71, 1e-4)
+  close(Math.min(...ys), 19.5, 1e-4); close(Math.max(...ys), 30.5, 1e-4)
+  assert.deepEqual(builder.passes.map(p => p.kind), ['direct'])
+})
+
+test('the airborne effects keep their place in the frame, inside the clips they were recorded in', () => {
+  const view = { x: 0, y: 0, zoom: 1, width: 100, height: 100 }
+  const recorder = new GlRecorder(1, view), ctx = recorder.asContext()
+  ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, 10, 10)
+  recorder.effect('beam')
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, 50, 50); ctx.clip(); recorder.effect('unbeam'); ctx.restore()
+  ctx.fillRect(20, 20, 10, 10); recorder.effect('glow'); ctx.fillRect(40, 40, 10, 10)
+  const builder = new SceneBuilder(new ShapeCache())
+  builder.reset(1, view); builder.add(recorder.ops); builder.finish()
+  assert.deepEqual(builder.passes.map(p => p.kind === 'effect' ? `${p.name}@${p.depth}` : p.kind),
+    ['direct', 'beam@0', 'clip', 'unbeam@1', 'unclip', 'direct', 'glow@0', 'direct'])
+})

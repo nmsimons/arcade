@@ -38,7 +38,8 @@ export interface StrokeStyle { width: number; cap: CanvasLineCap; join: CanvasLi
 interface Drawn { alpha: number; depth: number; light: Light | null; shadow: Shadow | null }
 export type DrawOp =
   | Drawn & { kind: 'fill'; commands: number[]; box: Box; rule: CanvasFillRule; paint: Paint }
-  | Drawn & { kind: 'stroke'; commands: number[]; box: Box; style: StrokeStyle; paint: Paint }
+  /** With `matrix`, a stroke drawn through a stretched transform: `commands` and `style` are in the space it was drawn in, and `matrix` takes it to the world, as Canvas strokes. */
+  | Drawn & { kind: 'stroke'; commands: number[]; box: Box; style: StrokeStyle; paint: Paint; matrix?: Matrix }
   /** Text at `matrix` (text space to world), drawn by Canvas into a sprite. */
   | Drawn & { kind: 'text'; text: string; x: number; y: number; maxWidth?: number; font: string; align: CanvasTextAlign; baseline: CanvasTextBaseline;
     direction: CanvasDirection; matrix: Matrix; color: string; stroke: StrokeStyle | null }
@@ -46,6 +47,8 @@ export type DrawOp =
   | Drawn & { kind: 'image'; image: Sized; sx: number; sy: number; sw: number; sh: number; matrix: Matrix; smooth: boolean }
   /** Where a retained layer (`name`) is drawn in the frame's order. */
   | { kind: 'scene'; name: string; depth: number; light: Light | null }
+  /** Where an airborne effect over the whole view is drawn in the frame's order: the beam haze (or its removal from the sky), or the lamps' glow. */
+  | { kind: 'effect'; name: 'beam' | 'unbeam' | 'glow'; depth: number }
   | { kind: 'clip'; commands: number[]; box: Box; rule: CanvasFillRule; depth: number }
   | { kind: 'unclip'; clip: number; depth: number }
 
@@ -355,21 +358,29 @@ export class GlRecorder {
   fillRect(x: number, y: number, w: number, h: number) {
     const saved = this.path; this.path = []; this.rect(x, y, w, h); this.fill(); this.path = saved
   }
-  private strokeStyle_(): StrokeStyle | null {
-    const s = this.state
-    if (!similarity(s.m)) { this.fail('stretched stroke'); return null }
-    const scale = Math.hypot(s.m.a, s.m.b)
+  /** The stroke's style in world units, or, through a stretched transform, in the units it was drawn in (`stretched`). */
+  private strokeStyle_(): StrokeStyle & { stretched: boolean } {
+    const s = this.state, stretched = !similarity(s.m)
+    const scale = stretched ? 1 : Math.hypot(s.m.a, s.m.b)
     const dash = s.lineDash.some(d => d > 0) ? s.lineDash.map(d => d * scale) : []
-    return { width: s.lineWidth * scale, cap: s.lineCap, join: s.lineJoin, miterLimit: s.miterLimit, dash, dashOffset: s.lineDashOffset * scale }
+    return { width: s.lineWidth * scale, cap: s.lineCap, join: s.lineJoin, miterLimit: s.miterLimit, dash, dashOffset: s.lineDashOffset * scale, stretched }
   }
   stroke(path?: Path2D) {
-    const style = this.strokeStyle_()
-    if (!style) return
+    const { stretched, ...style } = this.strokeStyle_()
     const paint = this.paint(this.state.strokeStyle), commands = this.commands(path), shadow = this.shadow()
     if (!paint || !this.drawable()) return
-    const box = this.box(commands, style.width / 2 * Math.max(1, style.join === 'miter' ? style.miterLimit : 1) + 1 / this.zoom)
+    const s = this.state, m = s.m
+    // How far the stroke reaches past its path in the world: its half width, stretched as far as the transform stretches.
+    const reach = style.width / 2 * Math.max(1, style.join === 'miter' ? style.miterLimit : 1) * (stretched ? Math.max(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)) : 1)
+    const box = this.box(commands, reach + 1 / this.zoom)
     if (!box || !this.seen(box, shadow)) return
-    const s = this.state
+    if (stretched) {
+      if (shadow) { this.fail('stretched shadow'); return }
+      // Canvas strokes the path where it is drawn, then stretches the stroke: keep the path there, and the matrix.
+      const local: number[] = []; appendTransformed(local, commands, invert(m))
+      this.ops.push({ kind: 'stroke', commands: local, box, style, paint, alpha: s.globalAlpha, depth: s.clips.length, light: this.light, shadow, matrix: { ...m } })
+      return
+    }
     this.ops.push({ kind: 'stroke', commands: path ? commands : commands.slice(), box, style, paint, alpha: s.globalAlpha, depth: s.clips.length, light: this.light, shadow })
   }
   strokeRect(x: number, y: number, w: number, h: number) {
@@ -440,6 +451,9 @@ export class GlRecorder {
     if (this.state.globalAlpha !== 1 || !isIdentity(this.state.m)) this.fail('transformed scene')
     this.ops.push({ kind: 'scene', name, depth: this.state.clips.length, light: this.light })
   }
+
+  /** Mark where the airborne effect `name` is drawn, inside the current clips. */
+  effect(name: 'beam' | 'unbeam' | 'glow') { this.ops.push({ kind: 'effect', name, depth: this.state.clips.length }) }
 
   isPointInPath() { this.fail('hit test'); return false }
   isPointInStroke() { this.fail('hit test'); return false }

@@ -17,7 +17,7 @@ import { GlRecorder } from './webgl/recorder.ts'
 import { buildScene } from './webgl/scene.ts'
 import type { Scene } from './webgl/scene.ts'
 import { GlFrame } from './webgl/glFrame.ts'
-import type { FrameView as LayerView } from './webgl/glFrame.ts'
+import type { FieldPlan, FrameView as LayerView } from './webgl/glFrame.ts'
 
 /**
  * This frame's pictures. Chrome charges about 1 ms of main-thread time per frame
@@ -33,7 +33,7 @@ export interface WorldLayerStats { backdrop: 'webgl' | string; terrain: 'webgl' 
 const MARGIN = 10000
 
 /** No shadows: a picture for the Canvas frame is drawn unexposed, and the Canvas frame lights it. */
-const UNLIT = { triangles: new Float32Array(0), count: 0, shadow: 1, ambient: 1 }
+const UNLIT: FieldPlan = { night: false, triangles: new Float32Array(0), count: 0, shadow: 1, ambient: 1, lampAmbient: 1, lamps: [], beam: 0 }
 
 export class WebGLWorldLayers {
   private gl: GlFrame | null | undefined

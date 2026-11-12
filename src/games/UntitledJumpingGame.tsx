@@ -146,9 +146,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const playgroundEntrance = useRef<EntranceAnimation | null>(null)
   const audio = useRef<JumpingSoundSession | null>(null)
   const paintFrame = useRef<() => void>(() => {})
-  // WebGL draws daylight frames where the GPU runs it; ?renderer=canvas keeps Canvas (docs/jumping-webgl-renderer.md).
+  // WebGL draws the world where the GPU runs it; ?renderer=canvas keeps Canvas (docs/jumping-webgl-renderer.md).
   const [webglSetting] = useState(worldRendererSetting)
-  const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto', webglLayers: webglSetting }))
+  // Canvas draws only what WebGL does not (the studio, a bus ending scene, a browser without WebGL), so it needs no WebGL layers of its own.
+  const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto' }))
   const [performanceMonitor] = useState(() => import.meta.env.DEV ? new PerformanceMonitor() : null)
   const [devOpen, setDevOpen] = useState(false)
   const devOpenRef = useRef(false), devReturnFocus = useRef<HTMLElement | null>(null)
@@ -916,14 +917,16 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       // Frame against the drawable area so rounding cannot shift the view.
       const viewWidth = canvas.width / ratio, viewHeight = canvas.height / ratio
       if (endingScene.current && run.current) {
-        worldRenderer.showCanvas()
         const world = run.current
+        // The bus leaving the level is the level itself, through the camera the ending holds.
         if (level.goal?.kind === 'bus') {
           const camera = endingScene.current.camera
-          lightingStats = lightingRenderer.render(ctx, world, lightingForLevel(level),
+          lightingStats = worldRenderer.render(ctx, world, lightingForLevel(level),
             { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, 0)
           return
         }
+        // A bus ending after another goal is its own scene, on Canvas.
+        worldRenderer.showCanvas()
         drawBusEnding(ctx, endingScene.current, level, viewWidth, viewHeight, camera => {
           lightingRenderer.render(ctx, world, lightingForLevel(level),
             { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, 0)

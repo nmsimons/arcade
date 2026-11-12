@@ -28,6 +28,7 @@
     "benchmark:lab-stress": "node scripts/benchmark-lab-stress.mjs",
     "profile:lab-stress": "node scripts/profile-lab-stress.mjs",
     "profile:lab-stress-browser": "node scripts/profile-lab-stress-browser.mjs",
+    "profile:jumping-level": "node scripts/profile-jumping-level.mjs",
     "preview": "vite preview",
     "levels:index": "node scripts/jumping-levels.mjs index",
     "levels:sync": "node scripts/jumping-levels.mjs sync",

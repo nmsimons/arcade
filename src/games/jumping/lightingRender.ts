@@ -27,6 +27,7 @@ import { LIGHTING_BUFFER_BUDGET as BUFFER_BUDGET, gpuLightingBufferBytes } from 
 import { NIGHT_PLAYER_COLOR } from './athleteDraw.ts'
 import { awakeningPose, withAthletePose } from './athletePose.ts'
 import { powerOut } from './power.ts'
+import { layerSkipped } from './measureLayers.ts'
 export { lightingPixelRatio } from './lightingBudget.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
@@ -201,13 +202,13 @@ export class LightingRenderer {
     const ink = nightMode ? hasRegionLighting(run.level.environment) ? this.environmentLighting.playerMaterials(run) : NIGHT_PLAYER_COLOR : run.level.lighting ? '#303c36' : '#686b6e'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
-    if (backdrop && layer !== 'objects') drawLevelBackdrop(ctx, run.level,
+    if (backdrop && layer !== 'objects' && !layerSkipped('backdrop')) drawLevelBackdrop(ctx, run.level,
       { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false, paint === paintNormally)
     if (run.level.environment?.kind === 'landscape' && layer !== 'objects' && !backdrop) paint(ctx, 1, () => {
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, run.level.width, levelHeight(run.level)); ctx.clip()
       drawLandscape(ctx, run.level.environment!, { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }); ctx.restore()
     })
-    if (layer === 'all' && 'elapsed' in run) drawWaterBackdrop(ctx, run, paint)
+    if (layer === 'all' && 'elapsed' in run && !layerSkipped('water')) drawWaterBackdrop(ctx, run, paint)
     if (coverage) {
       const original = paint
       paint = (target, exposure, draw, receivesLight = true, bounds) => {
@@ -272,6 +273,7 @@ export class LightingRenderer {
     finally { this.terrainArtwork = undefined; this.objectArtwork = undefined }
   }
   private renderFrame(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
+    fullBright ||= layerSkipped('lighting')
     const sources = this.state.sources(definition, run, dt)
     // Hidden/resizing canvases have no drawable area; drawImage rejects empty buffers.
     if (view.width < 1 || view.height < 1) {

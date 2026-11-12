@@ -1,5 +1,85 @@
 # LAB performance notes
 
+## November 10, 2026: Full Tilt baseline and a per-level harness
+
+`npm run profile:jumping-level -- <level file>` measures one built-in level in
+hardware Edge on production bundles, against a frozen copy of the level, so the
+author can keep editing. It moves the entrance to several valid start points
+along the level (flat, with a clear doorway; `--sections auto:5`), runs right
+with a jump every 0.9 s, and groups animation-frame callbacks by frame: frame CPU
+is the game tick's main-thread time, physics and drawing together. It reports
+frame rate, frame CPU, frames that miss a display refresh, the hitch on the first
+key press and the whole machine's CPU use. Adaptive quality is off unless
+`--adaptive`, so resolution never changes mid-run. Give two `--bundle name=dir`
+to compare: their episodes alternate. `--build <dir>` builds the current source
+(`--readable` keeps function names for `--profile`, a CPU-sampled pass for
+attribution). Results go to `.local/perf/`.
+
+**Compare only within one run.** Real-time play is not deterministic, and other
+work on the machine moves absolute figures a long way: the same bundle on Full
+Tilt's steel section ran at 28–31 fps (DPR 1.5) during the baseline below and
+50–53 fps twenty minutes later. Before and after are therefore always measured
+together, interleaved, and `machineCpuPercent` flags a busy machine.
+
+The baseline used snapshot `7d49d402` of Full Tilt (8 ropes, 79 pickups, 9 force
+fields, 2 gravity plates, 6450×2100) at `ac3bdee`, Edge 157.0.4341.42 on the
+Adreno X1-85, 1280×800 CSS, adaptive quality off, five 8 s sections and three
+episodes per bundle. The same bundle was measured twice (A/A) to find the noise
+floor. Each cell gives both halves:
+
+| Section start | DPR 1 fps | DPR 1 frame CPU p50 | DPR 1.5 fps | DPR 1.5 frame CPU p50 |
+| --- | ---: | ---: | ---: | ---: |
+| 120 (opening hills) | 57.6 / 57.3 | 5.3 / 5.5 ms | 40.6 / 40.4 | 6.3 / 6.5 ms |
+| 1325 (pit, first rope) | 57.3 / 57.8 | 5.9 / 5.9 ms | 38.5 / 37.4 | 6.9 / 7.1 ms |
+| 3100 (hilltop, pool) | 57.9 / 57.9 | 6.7 / 6.6 ms | 37.8 / 36.6 | 7.8 / 8.3 ms |
+| 3875 (pool platform) | 53.2 / 53.8 | 5.4 / 5.4 ms | 34.1 / 33.1 | 6.9 / 6.7 ms |
+| 5450 (steel, force fields) | 47.9 / 45.6 | 6.4 / 6.7 ms | 27.8 / 28.7 | 8.7 / 7.7 ms |
+
+Identical bundles differ by up to 2.3 fps and 1 ms of median frame CPU; the 99th
+percentile varies by up to 5 ms and is not a reliable signal on its own. The first
+key press stalls for 83–217 ms on every section: it synthesises every sound effect
+synchronously. Main-thread time stays well inside the 16.7 ms budget while the
+frame rate falls with resolution, so most of the loss is likely GPU or compositing
+work; this is not yet confirmed with a GPU trace.
+
+A CPU-sampled pass at DPR 1.5 attributes the main thread: drawing is about two
+thirds (world 35%, the robot 9%, terrain 7%, pickups 7%: all 79 are drawn every
+frame), physics a quarter (the robot's pose and motion most of it). A Node replay
+of the recorded medal route puts physics alone at 0.8 ms per 60 Hz frame (p99
+4.1 ms); the rope solver leads it, since a released rope keeps simulating until
+fully still (the first rope is awake for 76% of the route), followed by
+per-frame string keys for terrain caches (`bezierKey`).
+
+### What the GPU pays for
+
+A browser trace (`--trace`) settles where the frames go: in every section the GPU
+process's main thread is busy 99% of the time, against about 30% for the page's
+main thread. Full Tilt is bound by the GPU process, so main-thread savings alone
+will not raise its frame rate.
+
+`--skip` prices each drawing layer by leaving it out, through the
+measurement-only switch in `measureLayers.ts`, which players never set. Frame
+rates at DPR 1.5, two 6 s episodes per variant, interleaved (noise about ±2.5 fps):
+
+| Left out | 120 | 1325 | 3100 | 3875 | 5450 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| nothing | 50.1 | 47.0 | 45.6 | 43.0 | 35.2 |
+| daylight lighting | 60.6 | 60.3 | 60.2 | 60.9 | 60.5 |
+| all terrain | 60.7 | 60.4 | 60.3 | 60.7 | 60.5 |
+| terrain edges | 60.3 | 60.4 | 58.9 | 57.3 | 50.0 |
+| wall displays | 50.9 | 47.3 | 45.9 | 48.2 | 44.5 |
+| ground cover | 54.3 | 51.3 | 51.4 | 49.3 | 39.8 |
+| backdrop | 57.9 | 50.3 | 49.3 | 47.0 | 38.8 |
+
+Gravity effects, pickups, force fields, ropes, the robot, water and the terrain
+texture each stayed within noise. The layers are not additive: the GPU process is
+saturated, so leaving out any large layer can be enough for 60 fps. The likely
+causes, from the code: terrain edges clip to the whole terrain silhouette every
+frame, a screen-sized mask; the wall displays draw every lit segment with a 3 px
+`shadowBlur` glow; ground cover clips to outlines and occluders; and the daylight
+field is rendered and composited over the whole view every frame, because its
+caches require a level without mechanisms, pickups, ropes or fields.
+
 ## October 28, 2026: Exit GPU budget and repeated artwork
 
 Live regional lighting now selects the largest backing dimensions that fit the

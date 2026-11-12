@@ -22,6 +22,7 @@ import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
 import { drawCaveWall } from './caveWall.ts'
 import { drawAthlete } from './athleteDraw.ts'
+import { layerSkipped } from './measureLayers.ts'
 export { drawAthlete } from './athleteDraw.ts'
 
 const ACCENT = '#df633f'
@@ -83,7 +84,7 @@ function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: {
     h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) })
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
-  if (level) drawTerrainGroundCover(ctx, level)
+  if (level && !layerSkipped('ground-cover')) drawTerrainGroundCover(ctx, level)
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
@@ -120,8 +121,8 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
     }
   }
   if (started) ctx.fill()
-  if (level) drawTerrainGroundCoverSurface(ctx, level)
-  if (level) drawTerrainEdges(ctx, platforms, level)
+  if (level && !layerSkipped('ground-cover')) drawTerrainGroundCoverSurface(ctx, level)
+  if (level && !layerSkipped('terrain-edges')) drawTerrainEdges(ctx, platforms, level)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {
   if (airBoostStrength(p) >= .01) paint(ctx, 1, () => drawFootBoosters(ctx, p))

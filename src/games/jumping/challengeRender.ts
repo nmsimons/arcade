@@ -36,6 +36,7 @@ import { drawRepulsorBot } from './repulsorBotRender.ts'
 import { EMP_PALETTE, ROBOT_PALETTE } from './equipmentPalette.ts'
 import { awakeningPose } from './athletePose.ts'
 import { powerOut } from './power.ts'
+import { layerSkipped } from './measureLayers.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -218,8 +219,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   const { level, player: p } = run, goal = level.goal
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
-    for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, !powerOut(run)), editor, wallPaint)
-    drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
+    if (!layerSkipped('gravity')) for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, !powerOut(run)), editor, wallPaint)
+    if (!layerSkipped('gravity')) drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
     if (goal) wallPaint(ctx, 0, () => drawGoalDoor(ctx, goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
@@ -232,11 +233,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
     const clockStatus = clockFinished ? 'finished' : clockStopped ? 'pause' : clockFast ? 'fast' : undefined
     const clock = level.timing === 'untimed' || !level.times ? undefined : gradeClock({ times: level.times }, run.elapsed, run.failed)
-    for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, clock?.remaining ?? 0, clockStatus, paint, clock?.grade)
-    for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active, paint, run.failed)
+    if (!layerSkipped('displays')) for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, clock?.remaining ?? 0, clockStatus, paint, clock?.grade)
+    if (!layerSkipped('displays')) for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active, paint, run.failed)
     // Collectibles receive the light field without casting shadows. Keep their
     // artwork and collection effects behind terrain and movable objects.
-    paint(ctx, 0, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime) })
+    if (!layerSkipped('pickups')) paint(ctx, 0, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime) })
   }
   if (layer === 'wall') return
   // Open doors show their rising chevrons over the doorway, behind every actor.
@@ -244,7 +245,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   const chevrons = doorChevrons(run, editor)
   for (const door of chevrons.walls) paint(ctx, .65, () => drawDoorChevrons(ctx, door, run.activeTime), true, door)
   paint(ctx, 0, () => {
-    if (terrainArtwork) terrainArtwork(ctx)
+    if (layerSkipped('terrain')) { /* Measurement only. */ }
+    else if (terrainArtwork) terrainArtwork(ctx)
     else drawTerrain(ctx, run.terrain, level.platforms, level)
     const corners = mechanismCornerRadii(run)
     for (const [i, m] of run.mechanisms.entries()) drawMechanism(ctx, m, corners[i])
@@ -256,14 +258,14 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
       drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression, plate.ceiling)
     }
   })
-  for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, !powerOut(run)), paint)
-  for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
+  if (!layerSkipped('gravity')) for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, !powerOut(run)), paint)
+  if (!layerSkipped('fields')) for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
   if (goal && goal.kind !== 'bus') drawGoal(ctx, goal, run.goalLit, paint)
   for (const state of run.floatSwitches) drawFloatSwitchArm(ctx, state, paint)
   paint(ctx, 0, () => {
     if (editor) drawCheckpointMarkers(ctx, p, level)
     for (const b of run.props) drawProp(ctx, b)
-    drawClimbables(ctx, p, level.climbables)
+    if (!layerSkipped('climbables')) drawClimbables(ctx, p, level.climbables)
   })
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, !powerOut(run) && !r.deactivated && !run.gadgets.disabled.has(r), paint, lights.find(light => light.robot === i)?.fade ?? 0)
   for (const r of run.robots) if (r.definition.kind === 'repulsor' && r.definition.chargingBay)
@@ -279,7 +281,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   else {
     drawMovementEffects(ctx, p, paint)
-    paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk))
+    if (!layerSkipped('athlete')) paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk))
   }
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
@@ -288,7 +290,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   // The bus's boarding door is part of the bus, so its chevrons go over the bus.
   if (chevrons.bus) paint(ctx, .65, () => drawDoorChevrons(ctx, chevrons.bus!, run.activeTime), true, chevrons.bus)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
-  for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
+  if (!layerSkipped('water')) for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run, view = gameCamera(width, height, run.player, run.level, true)) {

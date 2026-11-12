@@ -31,12 +31,12 @@ async function open(page, file, finishEntrance = true) {
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab/library?motionDebug=1')
   const card = page.locator('.jumping-level-card[aria-pressed=true]').filter({ hasText: file.name })
   await expect(card).toBeVisible({ timeout: 15000 })
   await card.click()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await restartFromPause(page, finishEntrance)
 }
@@ -54,7 +54,7 @@ test('Rbot climbs past a hostile shovebot crowding a ladder exit', async ({ page
   const positions = []
   for (let frame = 0; frame < 20 && !exited; frame++) {
     await page.clock.runFor(400)
-    const bot = await page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0])
+    const bot = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots[0])
     positions.push(bot)
     if ([5, 11].includes(frame)) await page.screenshot({ path: info.outputPath(`hostile-ladder-${frame}.png`) })
     exited = !!bot && bot.y <= 381 && bot.y >= 370
@@ -83,7 +83,7 @@ test('the broader player rig charges and fires from its palm, pushing the player
   expect((await motion(page)).signals.ragdoll).toBe('repulsor')
   await page.clock.runFor(300)
   expect((await motion(page)).x).toBeLessThan(start - 80)
-  expect(await page.locator('canvas').evaluate(canvas => canvas.repulsorBots.length)).toBe(1)
+  expect(await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots.length)).toBe(1)
   expect(errors).toEqual([])
 })
 
@@ -92,7 +92,7 @@ test('F shoves an adjacent disabled Rbot through normal gameplay without equippi
   file.pickups = [{ kind: 'emp', x: 418, y: 668 }]
   await open(page, file)
   const start = await motion(page)
-  const botX = () => page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0]?.x)
+  const botX = () => page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots[0]?.x)
   const before = await botX()
   await page.keyboard.down('KeyF')
   await page.clock.runFor(64)
@@ -171,11 +171,11 @@ test('shove poses adapt to empty space and a wall-pinned Rbot', async ({ page },
     return pure
   })
   expect(pure).toBe(true)
-  await page.locator('canvas').screenshot({ path: info.outputPath('shove-poses.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('shove-poses.png') })
 })
 
 test('the shove impact texture renders a short, bounded thump', async ({ page }) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async () => {
     const { JumpingSound } = await import('/src/games/jumping/sound.ts')
     const ctx = new OfflineAudioContext(2, 12000, 24000), sound = new JumpingSound(ctx)
@@ -199,7 +199,7 @@ test('the humanoid completes an ordinary ledge climb and keeps traversing instea
   const positions = []
   for (let i = 0; i < 20; i++) {
     await page.clock.runFor(300)
-    positions.push(await page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0]))
+    positions.push(await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots[0]))
     if ([3, 7, 12].includes(i)) await page.screenshot({ path: info.outputPath(`rbot-climb-${i}.png`) })
   }
   expect(Math.min(...positions.map(p => p.y))).toBeLessThan(600)
@@ -215,7 +215,7 @@ test('Rbot approaches an overlapping upper deck from a safe takeoff', async ({ p
   let reached = false, captured = false
   for (let frame = 0; frame < 70 && !reached; frame++) {
     await page.clock.runFor(128)
-    const bot = await page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0])
+    const bot = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots[0])
     if (!captured && bot.y < 600 && bot.y > 500) {
       await page.screenshot({ path: info.outputPath('rbot-safe-ascent.png') }); captured = true
     }
@@ -232,7 +232,7 @@ test('Uninvited Company patrol while the player waits at the entrance', async ({
   const positions = []
   for (let i = 0; i < 8; i++) {
     await page.clock.runFor(1000)
-    positions.push(await page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0]))
+    positions.push(await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots[0]))
     if ([0, 9, 19].includes(i)) await page.screenshot({ path: info.outputPath(`uninvited-entrance-${i + 1}s.png`) })
     if (positions.at(-1)?.x < 350 && positions.at(-1)?.y > 1130) break
   }
@@ -260,7 +260,7 @@ test('Aloft Rbot catches and climbs the final rope when lured into the upper str
   let wait = 0, entered = false, reachedRope = false, climbed = false, crossing = false
   const positions = []
   for (let frame = 0; frame < 150 && !entered; frame++) {
-    const p = await motion(page), bot = await page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0])
+    const p = await motion(page), bot = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots[0])
     const moving = ++wait >= 3, move = moving && p.x < 2050 ? 1 : 0
     if (moving && p.signals.grounded && p.x > 1615 && p.x < 1650) crossing = true
     if (p.x > 1780) crossing = false
@@ -291,7 +291,7 @@ test('Aloft Rbot follows the player out through the open upper structure exit', 
   await page.clock.runFor(250) // Stand on the ordinary entrance toggle to open it.
   const positions = []; let followed = false, rope = false
   for (let frame = 0; frame < 150 && !followed; frame++) {
-    const p = await motion(page), bot = await page.locator('canvas').evaluate(canvas => canvas.repulsorBots[0])
+    const p = await motion(page), bot = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.repulsorBots[0])
     rope ||= p.signals.mode === 'rope'
     const move = !rope && p.x > 935, down = p.y < 1450
     if (move) await page.keyboard.down('ArrowLeft'); else await page.keyboard.up('ArrowLeft')

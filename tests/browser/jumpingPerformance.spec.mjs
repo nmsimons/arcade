@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 
 for (const { savedPreference, nightMode } of [
@@ -22,9 +22,8 @@ for (const { savedPreference, nightMode } of [
       Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
     }, savedPreference)
     await page.clock.install()
-    await page.goto('/lab')
-    await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
-    const canvas = page.locator('.jumping-game > canvas')
+    await openLevelLink(page)
+    const canvas = page.locator('.jumping-game > canvas[role="img"]')
     await expect(canvas).toBeFocused()
     const fullPixels = await canvas.evaluate(c => c.width * c.height)
     expect(fullPixels).toBeGreaterThan(640 * 360)

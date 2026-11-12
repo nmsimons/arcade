@@ -8,6 +8,62 @@ import type { LightingView } from './lightingRender.ts'
 import { clipShadowPolygon, triangulateCaster } from './lightingGpuGeometry.ts'
 import { daylightShadowPolygons } from './daylight.ts'
 
+/** Caster outlines and their triangles, kept per immutable silhouette object across lights and frames. */
+export type Silhouettes = WeakMap<Platform, { points: Vec[]; triangles?: Vec[] }>
+function silhouette(cache: Silhouettes, shape: Platform) {
+  let cached = cache.get(shape)
+  if (!cached) { cached = { points: polygonPoints(shape) }; cache.set(shape, cached) }
+  return cached
+}
+/** One caster group's run of `vertices`: its shadow triangles, then its bodies' (which receive light), and how opaque it is. */
+export interface ShadowBatch { start: number; shadows: number; bodies: number; opacity: number }
+
+/**
+ * Where a lamp's light is blocked in `view`, as triangles appended to `vertices`
+ * (x, y pairs in device pixels): for each caster group, the shadows its edges
+ * cast, then its own bodies, which receive light as one front. Shadows are
+ * clipped to the view before they become 32-bit floats.
+ */
+export function lampShadowGeometry(groups: readonly CasterGroup[], light: LightSource, view: LightingView, reach: number, silhouettes: Silhouettes, vertices: number[]) {
+  const { width, height } = view
+  const bounds = { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }
+  const batches: ShadowBatch[] = []
+  const append = (p: Vec) => vertices.push((p[0] - view.x) * view.zoom, (p[1] - view.y) * view.zoom)
+  let edges = 0
+  // A ray that misses the lamp's cone cannot shadow that lamp. Expand the
+  // test for antialiasing, retaining offscreen blockers and source-haze edges.
+  const affectsCone = (x: number, y: number, w: number, h: number) => lightReachesView(light,
+    { x: x - 2 / view.zoom, y: y - 2 / view.zoom, w: w + 4 / view.zoom, h: h + 4 / view.zoom })
+  for (const group of groups) {
+    const candidates = group.boundary ? [] : group.filter(shape => betweenLightAndView(shape, light, bounds)
+      && affectsCone(shape.x, shape.y, shape.w, shape.h))
+    const boundary = group.boundary?.filter(([a, b]) => isExitEdge(light, [a, b])
+      && affectsCone(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))
+      && Math.min(a[0], b[0]) <= Math.max(light.x, bounds.x + bounds.w) && Math.max(a[0], b[0]) >= Math.min(light.x, bounds.x)
+      && Math.min(a[1], b[1]) <= Math.max(light.y, bounds.y + bounds.h) && Math.max(a[1], b[1]) >= Math.min(light.y, bounds.y))
+    const start = vertices.length / 2
+    const cast = (a: Vec, b: Vec) => {
+      const points = clipShadowPolygon(shadowQuad(light, a, b, reach), bounds)
+      for (let i = 1; i < points.length - 1; i++) { append(points[0]); append(points[i]); append(points[i + 1]) }
+      if (points.length >= 3) edges++
+    }
+    if (boundary) boundary.forEach(([a, b]) => cast(a, b))
+    else for (const shape of candidates) {
+      const { points } = silhouette(silhouettes, shape)
+      for (let i = 0; i < points.length; i++) cast(points[i], points[(i + 1) % points.length])
+    }
+    const shadows = vertices.length / 2 - start
+    if (!shadows) continue
+    for (const shape of candidates) {
+      const cached = silhouette(silhouettes, shape)
+      const triangles = cached.triangles ??= triangulateCaster(cached.points)
+      triangles.forEach(append)
+    }
+    batches.push({ start, shadows, bodies: vertices.length / 2 - start - shadows, opacity: group.opacity ?? 1 })
+  }
+  return { batches, edges }
+}
+
 /** Distinguish a known CPU graphics driver from unsupported WebGL features. */
 export class SoftwareLightingError extends Error {}
 
@@ -21,12 +77,7 @@ export class GpuShadowMask {
   vertexBytes = 0
   // staticCasters and dynamicCasters hand us immutable silhouette objects.
   // Share their contours/triangles across lights without retaining old poses.
-  private silhouettes = new WeakMap<Platform, { points: Vec[]; triangles?: Vec[] }>()
-  private silhouette(shape: Platform) {
-    let cached = this.silhouettes.get(shape)
-    if (!cached) { cached = { points: polygonPoints(shape) }; this.silhouettes.set(shape, cached) }
-    return cached
-  }
+  private silhouettes: Silhouettes = new WeakMap()
   constructor(allowSoftware = false) {
     // A software WebGL implementation can be much slower than the Canvas
     // fallback. Let the browser decline it without reducing lighting quality.
@@ -66,42 +117,9 @@ export class GpuShadowMask {
   render(groups: readonly CasterGroup[], light: LightSource, view: LightingView, reach: number, target: WebGLFramebuffer) {
     const gl = this.gl, { width, height } = view
     gl.bindFramebuffer(gl.FRAMEBUFFER, target)
-    const bounds = { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }
+    // The shared fullscreen quad comes first, for each group's opacity fill.
     const vertices: number[] = [0, 0, width, 0, width, height, 0, 0, width, height, 0, height]
-    const batches: { start: number; shadows: number; bodies: number; opacity: number }[] = []
-    const append = (p: Vec) => vertices.push((p[0] - view.x) * view.zoom, (p[1] - view.y) * view.zoom)
-    let edges = 0
-    // A ray that misses the lamp's cone cannot shadow that lamp. Expand the
-    // test for antialiasing, retaining offscreen blockers and source-haze edges.
-    const affectsCone = (x: number, y: number, w: number, h: number) => lightReachesView(light,
-      { x: x - 2 / view.zoom, y: y - 2 / view.zoom, w: w + 4 / view.zoom, h: h + 4 / view.zoom })
-    for (const group of groups) {
-      const candidates = group.boundary ? [] : group.filter(shape => betweenLightAndView(shape, light, bounds)
-        && affectsCone(shape.x, shape.y, shape.w, shape.h))
-      const boundary = group.boundary?.filter(([a, b]) => isExitEdge(light, [a, b])
-        && affectsCone(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))
-        && Math.min(a[0], b[0]) <= Math.max(light.x, bounds.x + bounds.w) && Math.max(a[0], b[0]) >= Math.min(light.x, bounds.x)
-        && Math.min(a[1], b[1]) <= Math.max(light.y, bounds.y + bounds.h) && Math.max(a[1], b[1]) >= Math.min(light.y, bounds.y))
-      const start = vertices.length / 2
-      const cast = (a: Vec, b: Vec) => {
-        const points = clipShadowPolygon(shadowQuad(light, a, b, reach), bounds)
-        for (let i = 1; i < points.length - 1; i++) { append(points[0]); append(points[i]); append(points[i + 1]) }
-        if (points.length >= 3) edges++
-      }
-      if (boundary) boundary.forEach(([a, b]) => cast(a, b))
-      else for (const shape of candidates) {
-        const { points } = this.silhouette(shape)
-        for (let i = 0; i < points.length; i++) cast(points[i], points[(i + 1) % points.length])
-      }
-      const shadows = vertices.length / 2 - start
-      if (!shadows) continue
-      for (const shape of candidates) {
-        const cached = this.silhouette(shape)
-        const triangles = cached.triangles ??= triangulateCaster(cached.points)
-        triangles.forEach(append)
-      }
-      batches.push({ start, shadows, bodies: vertices.length / 2 - start - shadows, opacity: group.opacity ?? 1 })
-    }
+    const { batches, edges } = lampShadowGeometry(groups, light, view, reach, this.silhouettes, vertices)
     this.vertexBytes = vertices.length * 4
     gl.viewport(0, 0, width, height); gl.useProgram(this.program); gl.uniform2f(this.viewport, width, height)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW)

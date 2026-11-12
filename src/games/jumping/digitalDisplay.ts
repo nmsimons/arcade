@@ -1,6 +1,8 @@
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import type { Grade } from './grading.ts'
+import { drawCachedGlow, glowCacheable } from './glowCache.ts'
+import { reportDisplay } from './debugFrames.ts'
 
 /** Shared six-by-two-tile alarm-clock housing. Digits emit readability, not light. */
 export const DIGITAL_DISPLAY_WIDTH = 120
@@ -59,38 +61,50 @@ function drawSegments(ctx: CanvasRenderingContext2D, value: string, lit: boolean
 export function drawDigitalDisplay(ctx: CanvasRenderingContext2D, x: number, y: number, value: string,
   color = DIGITAL_GREEN, icon?: DigitalIcon, paint: WorldPaint = paintNormally, options: { grade?: Grade; dimmed?: boolean } = {}) {
   ctx.save(); ctx.translate(x, y)
+  reportDisplay(ctx.canvas, () => ctx.getTransform(), value, options.dimmed ? DIGITAL_DIM : color)
   paint(ctx, 0, () => {
     drawDigitalHousing(ctx, DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT)
     ctx.fillStyle = DIGITAL_INACTIVE; drawSegments(ctx, value, false)
     // A separate, quiet LED bay to the left of the numbers.
     ctx.fillStyle = '#15221b'; ctx.fillRect(22, 9, 1, 22)
   })
-  paint(ctx, options.dimmed ? 0 : .65, () => {
-    ctx.fillStyle = options.dimmed ? DIGITAL_DIM : color; ctx.shadowColor = color; ctx.shadowBlur = options.dimmed ? 0 : 3
-    drawSegments(ctx, value, true)
+  // Lit segments and icons glow in their own colour.
+  const lit = (target: CanvasRenderingContext2D) => {
+    drawSegments(target, value, true)
     if (value[2] === ':') {
-      ctx.fillRect(66, 12, 3, 3); ctx.fillRect(66, 25, 3, 3)
+      target.fillRect(66, 12, 3, 3); target.fillRect(66, 25, 3, 3)
     } else {
-      ctx.beginPath(); ctx.moveTo(70, 8); ctx.lineTo(72, 9); ctx.lineTo(65, 32); ctx.lineTo(63, 31); ctx.closePath(); ctx.fill()
+      target.beginPath(); target.moveTo(70, 8); target.lineTo(72, 9); target.lineTo(65, 32); target.lineTo(63, 31); target.closePath(); target.fill()
     }
     if (options.grade) {
       for (const [row, pixels] of gradePixels[options.grade].entries()) for (let column = 0; column < pixels.length; column++) {
-        if (pixels[column] === '1') ctx.fillRect(7 + column * 2, 9 + row * 3, 2, 3)
+        if (pixels[column] === '1') target.fillRect(7 + column * 2, 9 + row * 3, 2, 3)
       }
     } else if (icon === 'pause') {
-      ctx.fillRect(9, 15, 3, 10); ctx.fillRect(15, 15, 3, 10)
+      target.fillRect(9, 15, 3, 10); target.fillRect(15, 15, 3, 10)
     } else if (icon === 'fast') {
-      ctx.beginPath()
-      for (const ix of [7, 13]) { ctx.moveTo(ix, 15); ctx.lineTo(ix + 6, 20); ctx.lineTo(ix, 25); ctx.closePath() }
-      ctx.fill()
+      target.beginPath()
+      for (const ix of [7, 13]) { target.moveTo(ix, 15); target.lineTo(ix + 6, 20); target.lineTo(ix, 25); target.closePath() }
+      target.fill()
     } else if (icon === 'finished') {
-      ctx.beginPath(); ctx.moveTo(7, 20); ctx.lineTo(11, 24); ctx.lineTo(19, 15)
-      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke()
+      target.beginPath(); target.moveTo(7, 20); target.lineTo(11, 24); target.lineTo(19, 15)
+      target.strokeStyle = color; target.lineWidth = 2; target.stroke()
     } else if (icon === 'coin') {
-      ctx.beginPath(); ctx.arc(13, 20, 5, 0, Math.PI * 2)
-      ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillRect(12, 17, 2, 6)
+      target.beginPath(); target.arc(13, 20, 5, 0, Math.PI * 2)
+      target.strokeStyle = color; target.lineWidth = 1.5; target.stroke(); target.fillRect(12, 17, 2, 6)
     }
-    ctx.shadowBlur = 0
+  }
+  paint(ctx, options.dimmed ? 0 : .65, () => {
+    ctx.fillStyle = options.dimmed ? DIGITAL_DIM : color
+    // In ordinary light the glow comes from a cached image, drawn again only when the reading changes.
+    if (!options.dimmed && paint === paintNormally && glowCacheable(ctx)) {
+      drawCachedGlow(ctx, `display:${value}:${icon ?? ''}:${options.grade ?? ''}`, DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT, color, 3, lit)
+      lit(ctx)
+    } else {
+      ctx.shadowColor = color; ctx.shadowBlur = options.dimmed ? 0 : 3
+      lit(ctx)
+      ctx.shadowBlur = 0
+    }
   })
   ctx.restore()
 }

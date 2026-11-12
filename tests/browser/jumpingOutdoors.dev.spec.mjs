@@ -11,7 +11,7 @@ const catalog = JSON.parse(readFileSync(new URL('index.json', root), 'utf8'))
 const spelunkIFile = catalog.levels.find(file => JSON.parse(readFileSync(new URL(file, root), 'utf8')).id === '13b9b9d7-7937-4989-bc03-21238e7e58f2')
 
 test('clouds span wide maps and scroll at 90 percent without drifting or popping', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async () => {
     const { drawLandscape } = await import('/src/games/jumping/environment.ts')
     const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 400
@@ -47,11 +47,11 @@ test('clouds span wide maps and scroll at 90 percent without drifting or popping
   for (const count of result.counts) expect(count).toBeGreaterThan(1000)
   expect(result.panError).toBe(0)
   expect(result.stillError).toBe(0)
-  await page.locator('canvas').screenshot({ path: info.outputPath('far-right-clouds.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('far-right-clouds.png') })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall shadows; cave night and exterior daylight share one scene`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -87,11 +87,11 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: sky receives no wall 
   expect(result.night[2][0]).toBeLessThan(result.day[2][0] * .75)
   for (let c = 0; c < 3; c++) expect(Math.abs(result.night[3][c] - result.day[3][c])).toBeLessThanOrEqual(2)
   expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`mixed-cave-daylight-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`mixed-cave-daylight-${backend}.png`) })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: mixed-light outer frame stays dark without a glowing rectangle or stretched artwork`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const results = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -128,11 +128,11 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: mixed-light outer fra
       expect(Math.abs(pixel[c] - Math.round(result.floorMaterial[i][c] * .35))).toBeLessThanOrEqual(3)
     expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath(`constant-frame-lighting-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`constant-frame-lighting-${backend}.png`) })
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: terrain touching the left frame has continuous lighting across the join`, async ({ page }) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const profiles = await page.evaluate(async backend => {
     const { blankTrial, parseLevel } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -252,13 +252,13 @@ test('the outdoor endpoint waits for Up, retains the view and saves completion',
     lighting: { ...finale.lighting, lights: [] }, triggers: [], mechanisms: [] }
   await installBuiltInFixtures(page, { 'ending.json': level })
   await page.goto('/lab/levels/built-in/ending.json')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
   await expect(page.locator('.jumping-state')).not.toHaveText('Entering the level', { timeout: 30000 })
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused', exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
   await page.keyboard.down('ArrowUp')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible({ timeout: 30000 })
   await page.keyboard.up('ArrowUp')
@@ -273,7 +273,7 @@ test('Spelunk III: keyboard play climbs the whole cave, reveals the exterior con
   await installBuiltInFixtures(page, { 'spelunk3.jump-level.json': finale })
   await page.setViewportSize({ width: 960, height: 640 })
   await page.goto('/lab/builder/built-in/spelunk3.jump-level.json/playtest?motionDebug=1')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused({ timeout: 30000 })
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused({ timeout: 30000 })
   await expect.poll(() => page.evaluate(() => window.jumpingMotion?.read().recent.length ?? 0), { timeout: 30000 }).toBeGreaterThan(0)
   // Read-only motion diagnostics observe the real rendered run. All movement
   // comes from keyboard controls, at normal speed, without a mocked clock.

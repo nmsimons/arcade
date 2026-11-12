@@ -95,6 +95,19 @@ chains use extra velocity iterations to settle their coupled constraints when
 blocked; isolated props retain the usual solver budget. Resting objects still
 sleep normally. Regression coverage lives in `tests/jumping-prop-sleep.test.mjs`.
 
+That wake reaches across one step of gravity sag. Integration lowers an awake,
+pushed crate before contacts are found while a sleeping crate on top stays put,
+so a touching-only probe never found the crate on top: it saw no contact and
+the support slid out from under it (#106, the Concourse freight pile). A crate
+resting on a pushed prop, or on one being carried, is then carried by that prop's actual travel each
+step, the whole slip while its weight's static friction can hold it and
+sliding friction beyond that, from the bottom of a pile up. Matter's own
+friction scales with contact overlap, which the solver's tiny slop keeps near
+zero, so on its own a riding crate crept off the back of a pushed one. Only a
+support that is really travelling carries anything, so a settled pile someone
+hangs from is not nudged, and crates that are merely jostled keep Matter's own
+contact response.
+
 Prop-driven player displacement and carrying sweep against terrain, mechanisms,
 other props and shovebots. During the shared contact solve, these sweeps use
 the latest corrected prop positions, excluding only the object supplying the
@@ -176,7 +189,9 @@ catch arc too. Planned jumps retain running-speed air control during patrol as
 well as pursuit, and passing above a setup cannot skip a required landing.
 Patrol destinations share one reachability search rather than searching again
 for each inaccessible shelf. Planned rope exits issue the ordinary jump
-control instead of continuing to hold the rope.
+control instead of continuing to hold the rope. Leaving a rope for somewhere level
+or lower, the bot holds Detach while the rope is still in reach, so it cannot catch
+the same rope again on the way past (see Rope travel).
 Ground launches check the rising body from its actual position and momentum,
 including terrain, red fields, mechanisms and loose obstacles. A blocked arc
 settles at its planned takeoff once, then chooses another approach if needed;
@@ -437,6 +452,15 @@ edge by one body width; props cannot complete it. The camera's right edge stays
 at the map boundary, with no automatic doorway step or player fade. Other level
 boundaries and normal movement contacts keep their existing rules.
 
+Every door is entered with Up while the robot stands grounded in its open
+doorway: the exit, the bus's boarding entrance, and a facility area's level
+doors and bulkheads. Walking past a door never enters it. At the exit and the
+bus, Up held on the way in enters on arrival; level doors and bulkheads need a
+fresh press, because they stand in rows and the robot steps out of them.
+Each open door shows three faint chevrons stacked in its doorway, with a soft
+glow running up them from the bottom one to the top. Closed and blocked doors
+show none, and neither does the studio's editing view.
+
 Levels begin through a 40-by-80 entrance door, without the exit's indicator.
 Its sill needs continuous flat terrain and an unobstructed doorway. During
 the 1.35-second entrance, a separate presentation actor emerges using the ordinary
@@ -683,6 +707,51 @@ unbounded correction of the first free particle. Solid penetration still
 resolves, and subsequent spans retain their normal padding. Both rolling
 directions and 120/30 Hz steps are covered in `tests/jumping-rope-props.test.mjs`.
 
+### Rope travel
+
+Hanging on a rope is arms-only: the body hangs below its hands and the feet never
+take the rope, on a hanging rope or a tied one. Each hand keeps its own hold.
+Traveling, the hands go hand over hand: one lets go and reaches to its next hold
+while the other bears the weight, so a hand is free to aim a held tool only while it
+is reaching on. Hanging still, both hold, the lower hand sliding up beside the other.
+The highest a grip can go is 18 below the anchor (`ROPE_TOP_GRIP`), leaving the
+reaching hands clear of it; catches and climbs both stop there.
+
+Speed comes from reach, not rhythm. The hands keep a steady 2.5 to 3 changes a
+second, and the grip travels the rhythm times each hand's stride along the rope:
+about 48 a second shimmying along a level rope, 74 climbing up and 79 climbing
+down (`ropeTravelSpeed`). Holding Left or Right fully along a level or sloped rope
+builds, after half a second of travel and over about another second, into a swinging
+run with longer reaches and a slightly slower rhythm, at about 70 a second; easing
+off, stopping or turning back drops to the careful pace within 0.3 seconds. Setting
+off or turning back, the grip eases up to speed rather than reversing at full pace.
+
+The run is drawn heavy and loose (`stepRopeSway`). The hands change about 2.5
+times a second, far quicker than a body the robot's size swings under gravity, so
+the body cannot flip from arm to arm as one stiff piece. The chest leans only part
+way along the line of the holding arm, the bearing arm stays nearly straight, and
+the legs hang from the hips as a pendulum of their own under the game's gravity,
+held toward the chest only by the hips' tone. A surge of the hips swings them back
+and they swing on through each catch, so the body bends at the hips; easing off a
+run, they keep swinging and settle over about a second and a half. Along a level or
+sloping rope, the body also drops a little onto each arm as it takes the weight,
+most when running. All of this is drawn only: the drop has its own spring, apart
+from the sway whose motion the hang's physics reads.
+
+The robot faces the way it travels along a rope and turns around instead of going
+backward; the hands keep their holds while it turns. These rules apply to robots
+too, since they share the player's contacts. A robot's planned leap off a rope toward
+somewhere level or lower declines to catch that same rope again while it is still in
+reach, holding Detach as a player would; leaping for somewhere above, it may take a
+fresh grip higher up the same rope.
+
+Tied ropes hang between two anchors (see the level format). Traveling along one
+follows the same rules, sloped stretches included; arriving where it is tied
+partway up a wall, the feet brace on the wall face as on a wall-side rope. When a
+switch releases one anchor, riders keep their grip and swing down with the rope.
+Regression coverage lives in `tests/jumping-tied-rope.test.mjs`,
+`tests/jumping-climbables.test.mjs` and `tests/browser/jumpingTiedRope.dev.spec.mjs`.
+
 Automatic steps up low terrain prefer their normal 12-unit landing inset, but
 can shorten it to 8 units when the next riser leaves a narrow tread. Both flat
 soles need supported landing contacts, and the entire path uses the ordinary
@@ -794,6 +863,31 @@ actual bindings. Regression coverage includes the action-feedback suite and
   lip, facing, deliberate-release cooldown, collision sweep and clear hanging
   space remain required. A catch consumes a held Jump; Up still requests the
   separate, clearance-checked pull-up.
+- Holding into a steep face from grippable footing stays supported and still,
+  even at the end of a box or ledge. A ball pinned against a box presents its
+  upper quarter to the hull's shoulder corner, a contact too steep to stand on;
+  the clear stance is searched only as far as the footing reaches, never a full
+  body width past its end (#106, Freight). Coverage lives in
+  `tests/jumping-pinned-push.test.mjs` and `tests/jumping-friction.test.mjs`.
+- A blocked body cannot keep pushing a receding face. When something else stops
+  it (a crate riding the pushed one and slipping back against the chest, a low
+  ceiling), a working push ends once the face is more than 30 units from the
+  root; the push stride's ordinary gap is about 25 to 27. A new push on a
+  blocked body starts only within 26.5, so it cannot flicker on and off.
+- Something at head height during a push turns the whole trunk at the hip,
+  just far enough: ducking forward under something above, straightening back
+  from something in front or from the pushed face. The head never moves alone
+  off its neck, and a trunk fitted forward to reach the palms keeps the head's
+  turn from the torso.
+- The drawn rig stays inside fixed limits (`athleteLimits.ts`): exact bone
+  lengths; no knee or elbow closes tighter than 15 degrees; the head within 80
+  degrees of the torso's line at a neck length of 5.5 to 9 units; finite values.
+  `presentedAthletePose` projects every pose into them last: a folded hinge
+  reopens about its own plane, a turned head swings back onto its neck, and a
+  non-finite pose is replaced by the actor's last valid one.
+  `tests/jumping-rig-limits.test.mjs` holds every frame of every recorded route
+  to them. Fix the pose that left the envelope where possible; the limits are a
+  guarantee, not the design.
 - Physical surfaces belong in the collision world. Do not add a second player
   overlap correction after `stepPlayer`, or rewind and recompute its animation.
 - Add future surface friction properties to the contact's collider/material and

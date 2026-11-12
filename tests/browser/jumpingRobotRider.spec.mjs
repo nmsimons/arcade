@@ -1,7 +1,7 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 test('contact turns the bot toward its rider, who can stand, crouch and jump from its body', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Bot rider', width: 1200, height: 600, floor: 600,
@@ -38,10 +38,7 @@ test('contact turns the bot toward its rider, who can stand, crouch and jump fro
       return arc.apply(this, args)
     }
   })
-  await page.goto('/lab?motionDebug=1')
-  await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Bot rider: reach the exit' })
   await expect(canvas).toBeFocused()
   const state = () => canvas.evaluate(c => ({ player: c.rider, bot: c.bot, eye: c.botEye, facing: c.botFacing, roof: c.botRoof }))

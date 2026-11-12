@@ -210,7 +210,12 @@ test('completing an older upload keeps the newer edit visibly pending', async ({
   await page.getByRole('button', { name: 'Connect OneDrive', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Your saves are up to date')
   await page.getByRole('button', { name: 'Back to arcade', exact: true }).click()
-  await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
+  // The compact account indicator sits in the development level library. Open it in place:
+  // the test repository lives in this page.
+  await page.evaluate(() => {
+    const state = { usr: null, key: 'library', idx: (history.state?.idx ?? 0) + 1 }
+    history.pushState(state, '', '/lab/library'); dispatchEvent(new PopStateEvent('popstate', { state }))
+  })
   await expect(page.locator('.account-indicator.is-synced')).toBeVisible()
   let finishUpload
   const upload = new Promise(resolve => { finishUpload = resolve })
@@ -299,4 +304,36 @@ test('frequent game saves are batched, remain local immediately, and Sync now by
   await page.getByRole('button', { name: 'Sync now', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Your saves are up to date')
   expect(drive.find('Untitled Jumping Game/personal-bests.json').text).toBe('{"Tower":6}')
+})
+
+test('another device opens L.A.B. where the robot last stood, once its first cloud check loads', async ({ page }) => {
+  const drive = await account(page)
+  const key = slot => `arcade.player.microsoft%3Aflow-test.${slot}`
+  await page.getByRole('button', { name: 'Connect OneDrive', exact: true }).click()
+  await expect(page.locator('.account-status')).toContainText('Your saves are up to date')
+  // One device leaves the robot at the concourse's Freight bulkhead.
+  const place = JSON.stringify({ place: { kind: 'hub', level: 'facility-concourse', arrival: { kind: 'door', id: 'concourse-to-freight' } } })
+  await page.evaluate(([name, value]) => localStorage.setItem(name, value), [key('arcade.jumping.facility.v1'), place])
+  await page.getByRole('button', { name: 'Sync now', exact: true }).click()
+  await expect(page.locator('.account-status')).toContainText('Your saves are up to date')
+  expect(drive.find('Untitled Jumping Game/facility-place.json').text).toBe(place)
+  // Another device holds nothing and has never synced. Its first check is slow.
+  await page.evaluate(async keys => {
+    const { disconnectCloud } = await import('/src/accounts/session.ts')
+    disconnectCloud()
+    for (const name of keys) localStorage.removeItem(name)
+  }, [key('arcade.jumping.facility.v1'), key('arcade.jumping.times.v1'), key('arcade.cloud.baseline.v2')])
+  let finishCheck
+  const check = new Promise(resolve => { finishCheck = resolve })
+  drive.before = async () => { await check }
+  await page.evaluate(async () => (await import('/src/accounts/session.ts')).enableCloud())
+  await page.evaluate(() => {
+    const state = { usr: null, key: 'lab', idx: (history.state?.idx ?? 0) + 1 }
+    history.pushState(state, '', '/lab'); dispatchEvent(new PopStateEvent('popstate', { state }))
+  })
+  // Without the check, a new save would wake in Orientation.
+  await expect(page.getByText('Checking your cloud saves…', { exact: true })).toBeVisible({ timeout: 30000 })
+  finishCheck(); drive.before = undefined
+  await expect(page.getByRole('img', { name: 'Concourse', exact: true })).toBeVisible({ timeout: 30000 })
+  expect(await page.evaluate(name => localStorage.getItem(name), key('arcade.jumping.facility.v1'))).toBe(place)
 })

@@ -1,4 +1,4 @@
-import { ambientExposure } from './ambientLight.ts'
+import { ambientExposure, nightModeEnabled } from './ambientLight.ts'
 export { ambientExposure } from './ambientLight.ts'
 import type { Run } from './challenge.ts'
 import type { Platform, Player } from './model.ts'
@@ -21,6 +21,7 @@ import { lightFlicker } from './lightFlicker.ts'
 import type { CornerRadii } from './mechanismAppearance.ts'
 
 import type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
+import { powerOut } from './power.ts'
 export type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
 export interface LightSource extends LevelLight { fade: number; robot?: number }
 export type CasterGroup = readonly Platform[] & { opacity?: number; player?: true; mechanism?: true; boundary?: readonly TerrainEdge[] }
@@ -153,10 +154,27 @@ export function dynamicCasters(run: LightingWorld, objectShadows = true): Caster
     }) : []),
     ...(objectShadows && opacity > 0 ? [Object.assign(athleteCasters(entrance?.player ?? run.player), { player: true as const, opacity })] : [])]
 }
+// The cut: dark, a flash of the old light, dark again, a last flash, then dark for good.
+const ROOM_LIGHT_FLICKER = [.08, .14, .26, .31]
+const roomLightsOut = (age: number) => ROOM_LIGHT_FLICKER.filter(time => age >= time).length % 2 === 0
+
 export class LightingState {
   private fades = new Map<string, number>()
   private time = 0
-  reset() { this.fades.clear(); this.time = 0 }
+  private poweredDown: number | null = null
+  reset() { this.fades.clear(); this.time = 0; this.poweredDown = null }
+
+  /**
+   * Once a failed run powers the level down, its room lights cut out. After a
+   * brief flicker a daylit room renders as night, where only its lamps (now
+   * off) and glowing surfaces such as the open exit light it. Restart brings
+   * the day back.
+   */
+  roomLighting(definition: LightingDefinition, run: LightingWorld, dt: number): LightingDefinition {
+    if (!('failed' in run) || !run.failed) { this.poweredDown = null; return definition }
+    this.poweredDown = (this.poweredDown ?? -dt) + dt
+    return nightModeEnabled(definition) || !roomLightsOut(this.poweredDown) ? definition : { ...definition, nightMode: true }
+  }
 
   sources(definition: LightingDefinition, run: LightingWorld, dt: number): LightSource[] {
     this.time += dt
@@ -175,7 +193,7 @@ export class LightingState {
     for (const id of this.fades.keys()) if (!ids.has(id)) this.fades.delete(id)
     for (const light of lights) {
       const robot = light.robot === undefined ? undefined : run.robots[light.robot]
-      const target = Number(run.empRemaining <= 0
+      const target = Number(!powerOut(run)
         && (!robot || !robot.entrance && !robot.deactivated && (!robot.awakening || robot.awakening.elapsed >= 1.15) && (!('gadgets' in run) || !run.gadgets.disabled.has(robot)))
         && (light.power === 'always' || states.get(light.id)))
       const previous = this.fades.get(light.id) ?? target

@@ -5,7 +5,8 @@ test('production excludes stress maps and retired native experiments', async ({ 
   page.on('request', req => requested.push(req.url()))
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/lab?labRopes=wasm&labSolver=active')
-  await expect(page.locator('.jumping-level-browser .jumping-level-card').first()).toBeVisible()
+  // L.A.B. opens the facility; a fresh save wakes in Orientation.
+  await expect(page.getByRole('img', { name: 'Orientation', exact: true })).toBeVisible({ timeout: 30000 })
   await expect(page.locator('.jumping-stress-levels')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Load Test/ })).toHaveCount(0)
   const manifest = await (await request.get('/levels/jumping/index.json')).json()

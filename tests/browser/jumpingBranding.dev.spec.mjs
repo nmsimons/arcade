@@ -10,6 +10,9 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 360, height: 640 
     const card = page.getByRole('button', { name: 'L.A.B. Experiments', exact: true })
     await expect(card.locator('.lab-logo')).toBeVisible()
     await card.click()
+    // The card opens the facility; the level library keeps the branded menu header.
+    await expect(page).toHaveURL(/\/lab$/)
+    await page.goto('/lab/library')
     await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
     await expect(page).toHaveTitle('L.A.B. Experiments | Dream Large Arcade')
     const logo = page.locator('.jumping-menu-heading .lab-logo')
@@ -53,7 +56,7 @@ test('plain and branded crates plus wall stamps edit, undo, save, reopen and ren
       return fill.apply(this, args)
     }
   }, { main: LAB_WORDMARK_PATH, sub: LAB_SUBTITLE_PATH })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await waitForBuilderPreview(page)
   await page.getByRole('button', { name: 'Library', exact: true }).click()

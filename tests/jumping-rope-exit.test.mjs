@@ -2,7 +2,7 @@ import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { climbGait, createRope, ropePoint } from '../src/games/jumping/climbables.ts'
+import { ROPE_TOP_GRIP, climbGait, createRope, ropeGripDistance, ropePoint } from '../src/games/jumping/climbables.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes } from '../src/games/jumping/level.ts'
@@ -88,7 +88,8 @@ test('a rope cannot transfer through a ceiling, across an unreachable gap or wit
 })
 
 test('holding beside an anchor keeps the player clear without holding the loose rope sideways', () => {
-  for (const side of [-1, 1]) for (const distance of [12, 18]) {
+  // From the highest grip a hanging robot can take, and a stride below it.
+  for (const side of [-1, 1]) for (const distance of [ROPE_TOP_GRIP, ROPE_TOP_GRIP + 6]) {
     const terrain = [{ x: side === 1 ? 400 : 0, y: 200, w: 400, h: 20 }]
     const world = { ladders: [], ropes: [{ x: 400, y: 200, length: 160, segments: 12 }] }
     const rope = createRope(world.ropes[0]), p = createPlayer()
@@ -104,7 +105,8 @@ test('holding beside an anchor keeps the player clear without holding the loose 
         assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 160 / 12 * 1.06, 'clearing the ledge must not stretch the rope to reach an impossible grip')
       }
     }
-    const grip = ropePoint(rope, climbGait(c.distance, rope.definition.length).grip), tail = rope.nodes.at(-1)
+    // The body hangs from its grip, the climbing distance.
+    const grip = ropePoint(rope, ropeGripDistance(c)), tail = rope.nodes.at(-1)
     assert.ok(Math.abs(tail.x - grip[0]) < 5, 'the unweighted tail must settle beneath the hand rather than remain bowed sideways')
     assert.ok(tail.y > grip[1] + 135, 'gravity must draw the free section downward')
     assert.ok(Math.abs(p.x - rope.definition.x) < 3, 'a resting body must settle below its anchor instead of being held beside the lip')

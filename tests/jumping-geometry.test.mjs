@@ -103,7 +103,8 @@ test('Down at a rope-side ledge lowers first, then continues down the rope witho
     const p = createPlayer(); Object.assign(p,{x:400+side*offset,y:200,grounded:true})
     for(let i=0;i<60;i++) tick(p,[wall],{},world)
     let lowering=false, ropeFrames=0
-    for(let i=0;i<350;i++) {
+    // Lowering keeps the unhurried rope pace, about 79 a second.
+    for(let i=0;i<450;i++) {
       tick(p,[wall],{descend:true},world)
       lowering ||= !!p.mantle?.descending
       if(p.climbing?.kind==='rope') ropeFrames++

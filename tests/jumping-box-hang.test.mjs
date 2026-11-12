@@ -6,6 +6,8 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { platformLedges } from '../src/games/jumping/terrainLedges.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
+import { boxShape } from '../src/games/jumping/propGeometry.ts'
+import { platformSurface } from '../src/games/jumping/terrain.ts'
 
 function settledBox({ size = 160, angle = .2, platform = false } = {}) {
   const level = blankTrial()
@@ -63,14 +65,16 @@ for (const side of [-1, 1]) for (const wet of [false, true]) for (const baseWeig
         stepRun(run, { ...NEUTRAL_INPUT, climb: true })
       }
       assert.ok(p.grounded && !p.hang && !p.mantle, 'Up pulls onto the supported crate')
-      assert.ok(Math.abs(p.y - (box.y - box.size)) < .01, 'land on the actual box top')
+      // A woken stack can settle a crate by a few thousandths of a degree; measure its real top under the feet.
+      assert.ok(Math.abs(p.y - platformSurface(boxShape(box), p.x, p.y).y) < .01, 'land on the actual box top')
     }
   })
 }
 
 for (const direction of [-1, 1]) for (const approach of ['running', 'pushing']) for (const hold of [14, 22]) {
-  test(`the first level box catches a ${approach} jump, hold ${hold}, direction ${direction}`, () => {
-    const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/LAB1.jump-level.json', import.meta.url))))
+  // Leaps and Bounds I, retired from the built-ins, keeps its lone box as a fixture.
+  test(`the Leaps and Bounds I box catches a ${approach} jump, hold ${hold}, direction ${direction}`, () => {
+    const level = parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/lab1-first-box.json', import.meta.url))))
     if (direction < 0) level.entrance.x = level.width - level.entrance.x
     const run = createRun(level), p = run.player, b = run.props[0]
     let approached = false

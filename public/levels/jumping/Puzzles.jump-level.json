@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "id": "facility-water",
+  "name": "Puzzles",
+  "width": 1800,
+  "height": 720,
+  "platforms": [],
+  "entrance": {
+    "name": "Water entrance",
+    "x": 200,
+    "y": 720
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "id": "door-waterline-i",
+      "x": 1145,
+      "y": 720,
+      "course": "ecbb07bd-b1dd-476c-b09b-82eb321515e9",
+      "targets": [
+        "door-waterline-ii"
+      ]
+    },
+    {
+      "id": "door-waterline-ii",
+      "x": 1500,
+      "y": 720,
+      "course": "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a",
+      "power": "switched"
+    }
+  ],
+  "bulkheads": [
+    {
+      "id": "water-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "facility-concourse"
+    }
+  ],
+  "evaluationBoards": [],
+  "texts": []
+}

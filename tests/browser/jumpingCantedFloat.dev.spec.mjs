@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 test('canted wall palms stay settled throughout gravity-field bobbing', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const outcomes = await page.evaluate(async () => {
     const { floatingWall } = await import('/tests/helpers/jumping-canted-float.mjs')
     const { stepPlayer, STEP, NEUTRAL_INPUT } = await import('/src/games/jumping/model.ts')
@@ -42,5 +42,5 @@ test('canted wall palms stay settled throughout gravity-field bobbing', async ({
     return outcomes
   })
   for (const result of outcomes) { expect(result.peak).toBeLessThan(5); expect(result.braced).toBe(true) }
-  await page.locator('canvas').screenshot({ path: info.outputPath('canted-wall-bobbing.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('canted-wall-bobbing.png') })
 })

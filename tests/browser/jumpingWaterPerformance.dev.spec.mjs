@@ -11,7 +11,7 @@ test('disabling performance mode restores water effects without replaying skippe
   await expect(page.getByText(/water surface effects are off for this run/)).toBeVisible()
   await mode.click()
   await page.keyboard.press('Backquote'); await page.clock.runFor(200)
-  expect(await page.locator('.jumping-game > canvas').evaluate(c => c.width * c.height)).toBe(fullPixels)
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(c => c.width * c.height)).toBe(fullPixels)
   const frame = await waterEffectsFrame(page)
   expect(frame.surface).toBeGreaterThan(0); expect(frame.flat).toBe(1); expect(frame.droplets).toBe(0)
 })

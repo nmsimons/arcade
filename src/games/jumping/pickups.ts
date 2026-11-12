@@ -1,3 +1,4 @@
+import { ArtPath } from './webgl/artPath.ts'
 import type { NamedObject } from './objectNames.ts'
 import { TUNING } from './model.ts'
 import type { Player } from './model.ts'
@@ -7,7 +8,8 @@ import { COIN_COLOR, COIN_EDGE_COLOR, COIN_RADIUS, COIN_SPIN_SPEED, COIN_THICKNE
 export type Pickup = NamedObject & { x: number; y: number } & (
   { kind: 'stopwatch' | 'fast-stopwatch' | 'coin' | 'emp' } | { kind: 'time-bonus' | 'time-penalty'; seconds: number }
 )
-export interface PickupState { definition: Pickup; collectedAge: number | null }
+/** `lostAge` counts from the moment a powered-down level took an uncollected pickup away. */
+export interface PickupState { definition: Pickup; collectedAge: number | null; lostAge?: number }
 export const STOPWATCH_SECONDS = 10
 export const FAST_STOPWATCH_SECONDS = 5
 export const EMP_SECONDS = 5
@@ -17,11 +19,9 @@ export const EMP_BOLT_PATH = `M${EMP_BOLT_POINTS.map(([x, y]) => `${x} ${y}`).jo
 export const EMP_ANIMATION_SECONDS = .55
 export const PICKUP_ANIMATION_SECONDS = .34
 export const TIME_BONUS_LABEL_SECONDS = .8
+export const PICKUP_LOST_SECONDS = .6
 export const STOPWATCH_COLOR = '#ba8542'
 export const TIME_PENALTY_COLOR = '#94433f'
-export const INACTIVE_TIME_COLOR = '#858b86'
-export const isTimePickup = (pickup: Pickup) => pickup.kind === 'time-bonus' || pickup.kind === 'time-penalty'
-  || pickup.kind === 'stopwatch' || pickup.kind === 'fast-stopwatch'
 export const TIME_BONUS_DEFAULT_SECONDS = 5
 export const TIME_BONUS_ARROW_PATH = 'M-14.78-12.41A19.3 19.3 0 1 0 0-19.3L-8-20.3 M-1-27.3L-8-20.3L-1-13.3'
 export const TIME_BONUS_ARROW_WIDTH = 5.4
@@ -63,14 +63,19 @@ function touchesPlayer(p: Player, pickup: Pickup) {
   return face || crown || button
 }
 
-/** Collection effects use simulation time, even while the level clock is stopped. */
-export function stepPickups(pickups: PickupState[], player: Player, dt: number, canCollect: boolean, canCollectTime = true) {
+/**
+ * Collection effects use simulation time, even while the level clock is stopped.
+ * Once the level powers down, every pickup still in place flickers out instead.
+ */
+export function stepPickups(pickups: PickupState[], player: Player, dt: number, canCollect: boolean, poweredDown = false) {
   let seconds = 0, coins = 0, timeOff = 0, timeAdded = 0, fastSeconds = 0, empSeconds = 0
   for (const pickup of pickups) {
-    if (pickup.collectedAge !== null) pickup.collectedAge = Math.min(
+    if (pickup.lostAge !== undefined) pickup.lostAge = Math.min(PICKUP_LOST_SECONDS, pickup.lostAge + dt)
+    else if (pickup.collectedAge !== null) pickup.collectedAge = Math.min(
       pickup.definition.kind === 'time-bonus' || pickup.definition.kind === 'time-penalty' ? TIME_BONUS_LABEL_SECONDS
         : pickup.definition.kind === 'emp' ? EMP_ANIMATION_SECONDS : PICKUP_ANIMATION_SECONDS, pickup.collectedAge + dt)
-    else if (canCollect && (canCollectTime || !isTimePickup(pickup.definition)) && touchesPlayer(player, pickup.definition)) {
+    else if (poweredDown) pickup.lostAge = 0
+    else if (canCollect && touchesPlayer(player, pickup.definition)) {
       pickup.collectedAge = 0
       if (pickup.definition.kind === 'coin') coins++
       else if (pickup.definition.kind === 'time-bonus') timeOff += pickup.definition.seconds
@@ -87,19 +92,20 @@ let face: Path2D | undefined, details: Path2D | undefined, hand: Path2D | undefi
 function drawEmp(ctx: CanvasRenderingContext2D, time: number, age: number | null, phase: number) {
   if (age !== null && age >= EMP_ANIMATION_SECONDS) return
   ctx.save()
+  const alpha = ctx.globalAlpha
   if (age !== null) {
     const progress = age / EMP_ANIMATION_SECONDS
-    ctx.strokeStyle = EMP_COLOR; ctx.lineWidth = 3 * (1 - progress); ctx.globalAlpha = (1 - progress) ** 2
+    ctx.strokeStyle = EMP_COLOR; ctx.lineWidth = 3 * (1 - progress); ctx.globalAlpha = alpha * (1 - progress) ** 2
     ctx.beginPath(); ctx.arc(0, 0, 22 + 130 * (1 - (1 - progress) ** 2), 0, Math.PI * 2); ctx.stroke()
   }
   if (age === null || age < PICKUP_ANIMATION_SECONDS) {
     const shrink = age === null ? 0 : Math.max(0, (age - .09) / (PICKUP_ANIMATION_SECONDS - .09))
     const scale = age === null ? 1
       : age < .09 ? 1 + .18 * Math.sin(age / .09 * Math.PI / 2) : 1.18 * (1 - shrink) ** 2
-    ctx.scale(scale, scale); ctx.globalAlpha = 1 - shrink
+    ctx.scale(scale, scale); ctx.globalAlpha = alpha * (1 - shrink)
     const angle = time * COIN_SPIN_SPEED + phase, width = Math.cos(angle), depth = COIN_THICKNESS * Math.abs(Math.sin(angle))
     ctx.rotate(Math.sin(angle) * .1)
-    bolt ??= new Path2D(EMP_BOLT_PATH)
+    bolt ??= new ArtPath(EMP_BOLT_PATH)
     ctx.fillStyle = COIN_EDGE_COLOR
     ctx.save(); ctx.translate(depth / 2, 0); ctx.scale(width, 1); ctx.fill(bolt); ctx.restore()
     // Extrude every edge of the bolt so the narrow side stays solid as it turns.
@@ -112,14 +118,23 @@ function drawEmp(ctx: CanvasRenderingContext2D, time: number, age: number | null
   }
   ctx.restore()
 }
-export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, time = 0, inactive = false) {
-  const { definition, collectedAge: age } = pickup
+export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, time = 0) {
+  const { definition, collectedAge: age, lostAge } = pickup
+  if (lostAge !== undefined) {
+    // Powering down: the pickup flickers and fades where it stood, with no collection burst.
+    if (lostAge >= PICKUP_LOST_SECONDS) return
+    const flicker = Math.floor(lostAge * 30) % 2 ? .35 : 1
+    ctx.save(); ctx.globalAlpha *= (1 - lostAge / PICKUP_LOST_SECONDS) ** 2 * flicker
+    drawPickup(ctx, { definition, collectedAge: null }, time)
+    ctx.restore()
+    return
+  }
   if (definition.kind === 'emp') {
     ctx.save(); ctx.translate(definition.x, definition.y); drawEmp(ctx, time, age, definition.x * .013 + definition.y * .007); ctx.restore()
     return
   }
   const penalty = definition.kind === 'time-penalty' || definition.kind === 'fast-stopwatch'
-  const color = inactive && isTimePickup(definition) ? INACTIVE_TIME_COLOR : definition.kind === 'coin' ? COIN_COLOR : penalty ? TIME_PENALTY_COLOR : STOPWATCH_COLOR
+  const color = definition.kind === 'coin' ? COIN_COLOR : penalty ? TIME_PENALTY_COLOR : STOPWATCH_COLOR
   const numbered = definition.kind === 'time-bonus' || definition.kind === 'time-penalty'
   if (age !== null && age >= (numbered ? TIME_BONUS_LABEL_SECONDS : PICKUP_ANIMATION_SECONDS)) return
   ctx.save(); ctx.translate(definition.x, definition.y)
@@ -135,7 +150,7 @@ export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, t
     }
     if (definition.kind === 'coin') drawCoin(ctx, time, definition.x * .013 + definition.y * .007)
     else if (numbered) {
-      bonusArrow ??= new Path2D(TIME_BONUS_ARROW_PATH)
+      bonusArrow ??= new ArtPath(TIME_BONUS_ARROW_PATH)
       ctx.translate(0, -4); ctx.fillStyle = color; ctx.strokeStyle = color
       ctx.lineWidth = TIME_BONUS_ARROW_WIDTH; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
       ctx.save(); ctx.rotate((penalty ? 1 : -1) * time * Math.PI * 2 / 12)
@@ -147,7 +162,7 @@ export function drawPickup(ctx: CanvasRenderingContext2D, pickup: PickupState, t
       }
     }
     else {
-      face ??= new Path2D(STOPWATCH_FACE_PATH); details ??= new Path2D(STOPWATCH_DETAILS_PATH); hand ??= new Path2D(STOPWATCH_HAND_PATH)
+      face ??= new ArtPath(STOPWATCH_FACE_PATH); details ??= new ArtPath(STOPWATCH_DETAILS_PATH); hand ??= new ArtPath(STOPWATCH_HAND_PATH)
       ctx.fillStyle = color; ctx.fill(face, 'evenodd'); ctx.fill(details)
       ctx.save(); ctx.rotate(time * Math.PI * 2 * (penalty ? 1 / 1.2 : -1 / 8)); ctx.fill(hand); ctx.restore()
     }

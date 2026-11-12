@@ -13,11 +13,11 @@ for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 
   // Software renderers can draw only a few frames per second. A paused clock
   // keeps gameplay time, input timing and polling independent of that speed.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   const motion = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   // Advance gameplay until the predicate holds, within a gameplay-time budget.
   const until = (predicate, seconds = 15) => withoutIntermediateFrames(page, async () => {
@@ -54,10 +54,10 @@ for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 
   await advanceJumpingSimulation(page, 2400)
   await canvas.screenshot({ path: info.outputPath('lockout2-drained-receiver.png') })
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
-  await page.keyboard.down('ArrowRight')
+  await page.keyboard.down('ArrowRight'); await page.keyboard.down('ArrowUp')
   // The result dialog follows the goal light by 1.5 seconds of gameplay.
   for (let frame = 0; frame < 15 / .048 && !await complete.isVisible(); frame++) await advanceJumpingSimulation(page, 48)
-  await expect(complete).toBeVisible()
+  await expect(complete).toBeVisible(); await page.keyboard.up('ArrowUp')
   await page.keyboard.up('ArrowRight')
   await page.screenshot({ path: info.outputPath('lockout2-complete.png') })
   expect(errors).toEqual([])

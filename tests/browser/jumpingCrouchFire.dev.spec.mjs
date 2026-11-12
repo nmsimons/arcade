@@ -13,7 +13,7 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   // Software renderers can draw only a few frames per second. A paused clock
   // keeps gameplay time, input timing and polling independent of that speed.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)
@@ -53,15 +53,16 @@ test('keyboard-only Lock Out II fires low from the pump plate and returns to the
   const elbow = crouched.points[5], wrist = crouched.points[6]
   expect(Math.abs(wrist[1] - elbow[1])).toBeLessThan(4)
   expect(wrist[0]).toBeGreaterThan(elbow[0])
-  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('crouched-plate-shot.png') })
+  await page.locator('.jumping-game > canvas[role="img"]').screenshot({ path: info.outputPath('crouched-plate-shot.png') })
   await page.keyboard.up('ArrowDown'); await page.keyboard.down('ArrowLeft')
   const door = goalDoor(level.goal), center = door.x + door.w / 2
   await until(p => p.x <= center + 150)
   await page.keyboard.down('Shift'); await until(p => p.x <= center + 10)
   await page.keyboard.up('ArrowLeft'); await page.keyboard.up('Shift')
-  // Stay in the opening while the delivered float finishes settling.
+  // Stay in the opening while the delivered float finishes settling, then go through with Up.
+  await page.keyboard.down('ArrowUp')
   const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
   for (let frame = 0; frame < 20 / .048 && !await complete.isVisible(); frame++) await advanceJumpingSimulation(page, 48)
-  await expect(complete).toBeVisible()
+  await expect(complete).toBeVisible(); await page.keyboard.up('ArrowUp')
   expect(errors).toEqual([])
 })

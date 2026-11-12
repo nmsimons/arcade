@@ -98,9 +98,11 @@ test('current finale assets are valid and follow the Ascent levels', () => {
     assert.deepEqual(levelProblems(level), [])
   }
   const catalog = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url)))
-  const start = catalog.levels.indexOf('Ascent.jump-level.json')
+  // Facility hubs share the collection but are not part of the course order.
+  const courses = catalog.levels.filter(name => read(name).kind !== 'hub')
+  const start = courses.indexOf('Ascent.jump-level.json')
   assert.ok(start >= 0)
-  const closing = catalog.levels.slice(start)
+  const closing = courses.slice(start)
   assert.deepEqual(closing.slice(0, 2), ['Ascent.jump-level.json', 'ascent2.jump-level.json'])
   assert.equal(read(closing[2]).id, '13b9b9d7-7937-4989-bc03-21238e7e58f2', 'Spelunk keeps its identity when the author renames its file')
   assert.deepEqual(closing.slice(2), ['spelunk.jump-level.json', 'exit.jump-level.json'])

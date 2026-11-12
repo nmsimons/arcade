@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { reachReverseRopeCeiling, reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
@@ -9,13 +9,14 @@ import { proneDropLevel } from '../helpers/jumpingProneScenarios.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 
 const sizes = [{ width: 852, height: 393 }, { width: 1280, height: 800 }]
-const builtIn = file => JSON.parse(readFileSync(new URL(`../../public/levels/jumping/${file}`, import.meta.url)))
+// The retired First Gap and A Little Swing tutorials stay as fixtures.
+const fixture = file => JSON.parse(readFileSync(new URL(`../fixtures/jumping/${file}`, import.meta.url)))
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 
 function encounter(kind, night) {
   let level
-  if (kind === 'ladder') level = builtIn('00.json')
-  else if (kind === 'rope') level = builtIn('02.json')
+  if (kind === 'ladder') level = fixture('first-gap-ladder.json')
+  else if (kind === 'rope') level = fixture('little-swing-rope.json')
   else if (kind === 'water') level = waterBindingLevel('bank')
   else if (kind === 'gravity') level = reverseRopeWorkshop()
   else if (kind === 'gate') {
@@ -38,24 +39,20 @@ async function open(page, level, size) {
   expect(levelProblems(level)).toEqual([])
   await useLevelFixtures(page, [level])
   await page.addInitScript(() => {
-    const fill = CanvasRenderingContext2D.prototype.fillRect
-    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed' && this.canvas.matches('.jumping-game > canvas')) {
-        const t = this.getTransform(), rect = this.canvas.getBoundingClientRect(), ratio = this.canvas.width / rect.width
-        const frame = { time: performance.now(), x: -t.e / t.a, y: -t.f / t.d, zoom: t.a / ratio }
-        window.cameraEncounterFrames ??= []
-        if (window.cameraEncounterFrames.at(-1)?.time === frame.time) window.cameraEncounterFrames[window.cameraEncounterFrames.length - 1] = frame
-        else window.cameraEncounterFrames.push(frame)
-      }
-      return fill.apply(this, args)
-    }
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      if (!(canvas instanceof HTMLCanvasElement) || !canvas.matches('.jumping-game > canvas')) return
+      const t = transform, rect = canvas.getBoundingClientRect(), ratio = canvas.width / rect.width
+      const frame = { time: performance.now(), x: -t.e / t.a, y: -t.f / t.d, zoom: t.a / ratio }
+      window.cameraEncounterFrames ??= []
+      if (window.cameraEncounterFrames.at(-1)?.time === frame.time) window.cameraEncounterFrames[window.cameraEncounterFrames.length - 1] = frame
+      else window.cameraEncounterFrames.push(frame)
+    })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
   await page.evaluate(() => { window.cameraEncounterFrames = [window.cameraEncounterFrames.at(-1)] })
 }

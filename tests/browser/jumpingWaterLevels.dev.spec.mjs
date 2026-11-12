@@ -21,7 +21,7 @@ for (const rate of [5, 20]) test(`keyboard swimmer follows a rising ${rate}%/sec
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Rising water jump', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)
@@ -49,7 +49,7 @@ for (const rate of [5, 20]) test(`keyboard swimmer follows a rising ${rate}%/sec
 test('reservoir controls wire both directions, undo, duplicate, save and reopen', async ({ page }, info) => {
   const level = fixture()
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'reservoir.json': level })
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open reservoir.json', exact: true }).click()
@@ -114,7 +114,7 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
   // running clock also advanced while page calls were in flight, so slow CI
   // runners could walk the player past the plate.
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Water reservoir test', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click(); await finishJumpingEntrance(page)
@@ -138,7 +138,7 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
   expect(lowMark).toBeCloseTo(845, 1)
   await advanceJumpingPassiveWait(page, 1500)
   expect(await page.evaluate(() => window.reservoirWaterline)).toBeCloseTo(lowMark, 1)
-  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('reservoir-keyboard-draining.png') })
+  await page.locator('.jumping-game > canvas[role="img"]').screenshot({ path: info.outputPath('reservoir-keyboard-draining.png') })
 })
 
 test('terrain stays opaque inside water and floats meet a submerged roof as the level rises', async ({ page }, info) => {

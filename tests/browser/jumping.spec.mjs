@@ -1,13 +1,27 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
-import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, openLevelLink, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold, tap } from './helpers/controller.mjs'
-import { advanceJumpingSimulation } from './helpers/simulation.mjs'
+import { advanceJumpingSimulation, installUnclampedClockYields } from './helpers/simulation.mjs'
 
+// These tests play long gameplay routes in software rendering. Give a busy
+// machine twice the default time; the speed-ups in `setup` keep a quiet one
+// well inside 30 s.
+test.describe.configure({ timeout: 60_000 })
+
+/**
+ * Drawing every frame of these routes in software once took about the whole
+ * 30 s timeout, so any load on the machine failed them. The page therefore
+ * skips drawing the frames between clock advances (`renderControl`): every
+ * physics step still runs, and the final frame is drawn before control
+ * returns, so positions read after an advance are exact. The clock also stops
+ * waiting Chrome's clamped 4 ms after each fake timer.
+ */
 async function setup(page, controller = false, level = DEFAULT_LEVEL) {
   await useLevelFixtures(page, [level])
+  await installUnclampedClockYields(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(({ controller }) => {
@@ -15,34 +29,29 @@ async function setup(page, controller = false, level = DEFAULT_LEVEL) {
       window.testPad = { index: 0, id: 'Jump test controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
       Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] })
     }
-    // Measure the rendered athlete against the rendered terrain; no simulation backdoor.
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') window.jumpCamera = this.getTransform()
-      return rect.apply(this, args)
-    }
+    // Measure the rendered athlete against the rendered wall, as the renderer reports them; no simulation backdoor.
+    window.addEventListener('jumping-wall', ({ detail }) => { window.jumpCamera = detail.transform })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, head: args } }) => {
       if (window.jumpCamera) {
         const camera = window.jumpCamera
         window.jumpPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
         window.jumpHead = { x: (body.e + body.a * args[0] + body.c * args[1] - camera.e) / camera.a,
           y: (body.f + body.b * args[0] + body.d * args[1] - camera.f) / camera.d }
-        const now = performance.now()
-        window.jumpMotion = [...(window.jumpMotion ?? []).filter(point => now - point.time < 200), { x: window.jumpPlayer.x, time: now }]
         window.jumpScreen = { x: body.e / canvas.width, y: (body.f - Math.abs(body.d) * 31) / canvas.height }
       }
     })
   }, { controller })
-  await page.goto('/lab')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await openLevelLink(page, { query: '?renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') })
   await page.clock.runFor(64)
 }
 const position = page => page.evaluate(() => window.jumpPlayer)
-const speed = page => page.evaluate(() => {
-  const first = window.jumpMotion[0], last = window.jumpMotion.at(-1)
-  return Math.abs(last.x - first.x) / ((last.time - first.time) / 1000) / 60
-})
+/** Advance the clock, returning the horizontal speed over its last 192 ms (12 frames), in units per 60 Hz frame. */
+async function runForMeasuringSpeed(page, milliseconds) {
+  await page.clock.runFor(milliseconds - 192)
+  const start = await position(page)
+  await page.clock.runFor(192)
+  return Math.abs((await position(page)).x - start.x) / .192 / 60
+}
 
 test('jumping across slopes restores traction while holding uphill, then permits stopping and jumping', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))
@@ -89,8 +98,8 @@ async function expectCentered(page) {
   expect(point.x).toBeCloseTo(.5, 5); expect(point.y).toBeCloseTo(.5, 5)
 }
 async function enter(page) {
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await finishJumpingEntrance(page)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
 }
 
@@ -99,7 +108,7 @@ test('desktop hides touch Pause even with touchscreen hardware, until a touch ge
   await setup(page); await enter(page)
   const pause = page.getByRole('button', { name: 'Pause game', exact: true })
   await expect(pause).toHaveCount(0)
-  await page.locator('canvas').click({ position: { x: 640, y: 300 } })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').click({ position: { x: 640, y: 300 } })
   await expect(pause).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
@@ -107,8 +116,8 @@ test('desktop hides touch Pause even with touchscreen hardware, until a touch ge
   await expect(pause).toHaveCount(0)
   // Touch remains usable when hardware detection misses it; only a touch
   // contact enables the fallback button, never a mouse click.
-  await page.locator('canvas').dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 17, clientX: 640, clientY: 300 })
-  await page.locator('canvas').dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 17 })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 17, clientX: 640, clientY: 300 })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 17 })
   await expect(pause).toBeVisible()
   await pause.click()
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
@@ -296,13 +305,13 @@ test('keyboard walks and runs, taps low and holds higher without repeating on la
   level.platforms = level.platforms.filter(platform => platform.x !== 320)
   await setup(page, false, level); await enter(page)
   await expectCentered(page)
-  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.clock.runFor(350)
-  expect(Math.abs(await speed(page) - 2.1)).toBeLessThan(.2)
-  await page.keyboard.up('Shift'); await page.clock.runFor(400)
-  expect(Math.abs(await speed(page) - 6.8)).toBeLessThan(.2)
+  await page.keyboard.down('Shift'); await page.keyboard.down('d')
+  expect(Math.abs(await runForMeasuringSpeed(page, 350) - 2.1)).toBeLessThan(.2)
+  await page.keyboard.up('Shift')
+  expect(Math.abs(await runForMeasuringSpeed(page, 400) - 6.8)).toBeLessThan(.2)
   const runStart = await position(page)
-  await page.keyboard.down('Space'); await page.clock.runFor(400)
-  expect(Math.abs(await speed(page) - 6.8)).toBeLessThan(.2)
+  await page.keyboard.down('Space')
+  expect(Math.abs(await runForMeasuringSpeed(page, 400) - 6.8)).toBeLessThan(.2)
   expect((await position(page)).x - runStart.x).toBeGreaterThan(130)
   await expectCentered(page)
   await page.screenshot({ path: info.outputPath('running-jump.png') })
@@ -329,12 +338,16 @@ test('keyboard walks and runs, taps low and holds higher without repeating on la
 
 test('controller-only play gates launch, supports analog speed and held jumps, and pauses on disconnect', async ({ page }) => {
   await setup(page, true)
+  // The link prepares its level in a worker, on real time. Until the level is playing, A would press the
+  // focused button on the opening or preparing dialog, and Cancel leaves for the facility.
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   expect((await position(page)).y).toBeCloseTo(620)
   await hold(page, 0, 0); await finishJumpingEntrance(page); expect((await position(page)).y).toBeCloseTo(620)
-  await page.evaluate(() => { window.testPad.axes[0] = .59 }); await page.clock.runFor(400)
-  expect(Math.abs(await speed(page) - 3.4)).toBeLessThan(.2)
+  await page.evaluate(() => { window.testPad.axes[0] = .59 })
+  expect(Math.abs(await runForMeasuringSpeed(page, 400) - 3.4)).toBeLessThan(.2)
   await page.evaluate(() => { window.testPad.axes[0] = 0 }); await page.clock.runFor(200)
   await hold(page, 0, 1, 480)
   expect((await position(page)).y).toBeLessThan(440)
@@ -402,7 +415,7 @@ test('controller pause clears held jump input and reset is available only throug
   await expect(page.getByRole('button', { name: 'Reset position', exact: true })).toBeFocused()
   await tap(page, 0)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await finishJumpingEntrance(page)
   expect(await position(page)).toEqual(initial)
 })
@@ -445,7 +458,7 @@ async function reachOverhang(page) {
 }
 
 test('the authored course supports jumping the steps, catching and climbing the tall ledge, and clearing the gap', async ({ page }, info) => {
-  await setup(page); await enter(page); await reachOverhang(page)
+  await setup(page, false); await enter(page); await reachOverhang(page)
   await expectCentered(page)
   await page.screenshot({ path: info.outputPath('ledge-grab.png') })
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(350); await page.keyboard.up('ArrowUp')
@@ -539,15 +552,16 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   await down(false)
 })
 
-test('the playground remains readable at compact sizes', async ({ page }, info) => {
-  await setup(page)
+test('the playground’s pause screen remains readable at compact sizes', async ({ page }, info) => {
+  await setup(page); await enter(page)
+  await page.keyboard.press('Escape')
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport); await page.clock.runFor(64)
-    const dialog = page.getByRole('dialog')
+    const dialog = page.getByRole('dialog', { name: 'Game paused' })
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    await page.locator('.jumping-level-card[aria-pressed=true]').focus()
-    await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeInViewport()
-    await page.screenshot({ path: info.outputPath(`playground-menu-${viewport.width}.png`) })
+    const resume = dialog.getByRole('button', { name: /^Resume/ })
+    await resume.focus(); await expect(resume).toBeInViewport()
+    await page.screenshot({ path: info.outputPath(`playground-pause-${viewport.width}.png`) })
   }
 })
 

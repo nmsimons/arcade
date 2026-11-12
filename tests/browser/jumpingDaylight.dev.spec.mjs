@@ -35,7 +35,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: day lamps fill sunlig
   expect(result.blocked[0]).toEqual(result.sun[0])
   for (const i of [2, 3]) expect(result.lit[i]).toEqual(result.sun[i])
   expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`mixed-daylight-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`mixed-daylight-${backend}.png`) })
 })
 
 test('daylight shades walls and receivers while terrain, mechanisms and borders stay ambient-only', async ({ page }, info) => {
@@ -78,7 +78,7 @@ test('daylight shades walls and receivers while terrain, mechanisms and borders 
   expect(result.empSamples).toEqual(result.samples.map(sample => sample.day))
   expect(result.noLampSamples).toEqual(result.samples.map(sample => sample.day))
   expect(result.bytes).toBeLessThan(64 * 1024 * 1024)
-  await page.locator('canvas').screenshot({ path: info.outputPath('daylight-comparison.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('daylight-comparison.png') })
 })
 
 test('GPU and Canvas mixed daylight agree through camera changes, moving gates and EMP', async ({ page }) => {
@@ -164,21 +164,20 @@ test('existing version-1 levels receive daylight in the live game without upgrad
   const legacy = JSON.parse(readFileSync(new URL('../fixtures/jumping/lighting-prototype.json', import.meta.url))).level
   await useLevelFixtures(page, [legacy])
   await page.addInitScript(() => {
-    const fill = CanvasRenderingContext2D.prototype.fillRect
-    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
-      if (this.canvas.matches('.jumping-game > canvas') && this.fillStyle === '#f1f1ed') {
-        const { a, d, e, f } = this.getTransform(); window.daylightCamera = { a, d, e, f }
-      }
-      return fill.apply(this, args)
-    }
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      if (!(canvas instanceof HTMLCanvasElement) || !canvas.matches('.jumping-game > canvas')) return
+      const { a, d, e, f } = transform; window.daylightCamera = { a, d, e, f }
+    })
   })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: `Play ${legacy.name}`, exact: true }).click()
   await expect(page.getByRole('img', { name: `${legacy.name}: reach the exit` })).toBeFocused()
   await expect.poll(() => page.evaluate(() => !!window.daylightCamera)).toBe(true)
   const pixels = await page.evaluate(async legacy => {
     const { drawLevelBackdrop } = await import('/src/games/jumping/render.ts')
-    const canvas = document.querySelector('.jumping-game > canvas'), ctx = canvas.getContext('2d')
+    const canvas = document.querySelector('.jumping-game > canvas[role="img"]'), ctx = canvas.getContext('2d')
     const { a, d, e, f } = window.daylightCamera
     const reference = document.createElement('canvas'); reference.width = canvas.width; reference.height = canvas.height
     const original = reference.getContext('2d'); original.setTransform(a, 0, 0, d, e, f)
@@ -191,5 +190,5 @@ test('existing version-1 levels receive daylight in the live game without upgrad
   expectDayAmbientPixel(pixels[1].actual, pixels[1].original)
   expect(pixels[2].actual.some(channel => channel > 0)).toBe(true)
   expect(legacy.version).toBe(1); expect(legacy.lighting).toBeUndefined()
-  await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('daylight-live-game.png') })
+  await page.locator('.jumping-game > canvas[role="img"]').screenshot({ path: info.outputPath('daylight-live-game.png') })
 })

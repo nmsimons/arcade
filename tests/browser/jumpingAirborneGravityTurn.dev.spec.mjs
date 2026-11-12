@@ -10,13 +10,13 @@ test('fresh controls turn in the air on entering and leaving reversed gravity', 
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible({ timeout: 20000 })
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect.poll(async () => {
     await page.clock.runFor(16)
-    return page.locator('.jumping-game > canvas').evaluate(canvas => document.activeElement === canvas)
+    return page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => document.activeElement === canvas)
   }, { timeout: 20000 }).toBe(true)
   await finishJumpingEntrance(page)
   await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')
@@ -61,13 +61,13 @@ test('fresh controls catch a rope while the airborne flip is still in progress',
     gravityPlates: [{ id: 'g', x: 0, y: 0, w: 1800, h: 1500, gravity: -1, power: 'always' }] })
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible({ timeout: 20000 })
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect.poll(async () => {
     await page.clock.runFor(16)
-    return page.locator('.jumping-game > canvas').evaluate(canvas => document.activeElement === canvas)
+    return page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => document.activeElement === canvas)
   }, { timeout: 20000 }).toBe(true)
   await finishJumpingEntrance(page)
   await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')
@@ -82,7 +82,7 @@ test('fresh controls catch a rope while the airborne flip is still in progress',
 })
 
 test('player and R-bot roll through a gathered pose in both gravity directions', async ({ page }, info) => {
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   const results = await page.evaluate(async () => {
     const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
     const { createGravityField, updateGravityField } = await import('/src/games/jumping/gravity.ts')
@@ -115,11 +115,11 @@ test('player and R-bot roll through a gathered pose in both gravity directions',
     return results
   })
   for (const result of results) { expect(result.inverted).toBe(result.expected); expect(result.turning).toBe(false) }
-  await page.locator('canvas').screenshot({ path: info.outputPath('airborne-gravity-rolls.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('airborne-gravity-rolls.png') })
 })
 
 test('a roll in a low chamber settles into a supported crouch instead of staying folded', async ({ page }, info) => {
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   const result = await page.evaluate(async () => {
     const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
     const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
@@ -141,5 +141,5 @@ test('a roll in a low chamber settles into a supported crouch instead of staying
     return { inverted: p.inverted, grounded: p.grounded, crouching: p.crouching, turning: !!p.releaseTurn }
   })
   expect(result).toEqual({ inverted: false, grounded: true, crouching: true, turning: false })
-  await page.locator('canvas').screenshot({ path: info.outputPath('settled-crouch-in-low-chamber.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('settled-crouch-in-low-chamber.png') })
 })

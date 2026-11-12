@@ -22,6 +22,7 @@ import type { Vec } from './geometry.ts'
 import { propFloatDrag, propGravity, propWaterStrength } from './gravity.ts'
 import { propWeightScale } from './propWeight.ts'
 import { swimmingTerrainOutline } from './poses/waterPose.ts'
+import { powerOut } from './power.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; fields: Map<ForceFieldState, Matter.Body>; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
@@ -140,7 +141,12 @@ function worldFor(run: Run) {
     if (!world.driven.size) return
     const queue = [...world.driven], reached = new Set(world.driven), props = [...bodies.values()]
     for (let i = 0; i < queue.length; i++) {
-      const body = queue[i], probe = contactProbe(body)
+      // Integration has already lowered an awake body by this step's gravity
+      // while a sleeping neighbor stayed put. Reach across that sag, or a box
+      // resting on a pushed box is never found: no contact, no friction, and
+      // the support slides out from under it (#106).
+      const body = queue[i], seconds = engine.timing.lastDelta * body.timeScale / 1000
+      const probe = contactProbe(body, .001 + 2 * Math.abs(world.gravity.get(body) ?? TUNING.gravity) * seconds ** 2)
       for (const hit of roundQuery(probe, props.filter(b => !reached.has(b)))) {
         const other = hit.parentA === body ? hit.parentB : hit.parentA
         reached.add(other); queue.push(other)
@@ -152,6 +158,48 @@ function worldFor(run: Run) {
     if (queue.length > 1) engine.velocityIterations = 32
   })
   return world
+}
+
+/**
+ * A pushed crate travels partly by the push force's own displacement within the
+ * step, which Matter's overlap-based friction never passes on. A crate resting
+ * on it fell behind about 0.03 units a step and crept off the back into the
+ * pusher's head and arms (#106). Carry each crate resting on a pushed prop, or
+ * on one being carried, by that prop's actual travel, as static friction would, whenever the slip is
+ * within what the crate's weight can hold over the step. A harder shove slides
+ * it, still dragged by sliding friction. Piles are carried from the bottom up.
+ */
+function carryStackedBoxes(world: PropWorld, before: ReadonlyMap<Matter.Body, number>, dt: number) {
+  const props = new Map([...world.bodies].map(([prop, body]) => [body, prop] as const))
+  const supports = new Map<Matter.Body, Matter.Body[]>()
+  for (const pair of world.engine.pairs.list) {
+    if (!pair.isActive || pair.isSensor || Math.abs(pair.collision.normal.y) < .7) continue
+    const a = pair.collision.parentA, b = pair.collision.parentB
+    if (!props.has(a) || !props.has(b)) continue
+    const [upper, lower] = a.position.y < b.position.y ? [a, b] : [b, a]
+    // A ball on a moving support rolls rather than riding it.
+    if (props.get(upper)!.kind === 'box') supports.set(upper, [...supports.get(upper) ?? [], lower])
+  }
+  const travel = (body: Matter.Body) => body.position.x - (before.get(body) ?? body.position.x)
+  // Only crates riding a pushed prop, or riding one that is itself carried; collisions
+  // and settling elsewhere keep Matter's own contact response.
+  const moving = new Set(world.driven)
+  for (const [upper, lowers] of [...supports].sort(([a], [b]) => b.position.y - a.position.y)) {
+    if (!lowers.some(lower => moving.has(lower))) continue
+    // Only a support that is really travelling (a push moves a crate 0.05 or
+    // more a step) carries anything. A rider's load also drives a crate, and
+    // its jostle must not nudge a crate someone is hanging from.
+    const support = lowers.reduce((sum, lower) => sum + travel(lower), 0) / lowers.length
+    if (Math.abs(support) < .01) continue
+    const slip = support - travel(upper)
+    const weight = Math.max(0, world.gravity.get(upper) ?? TUNING.gravity) * dt * dt
+    if (Math.abs(slip) < 1e-9) continue
+    // Static friction holds the whole slip; past that, sliding friction still drags.
+    const carry = Math.abs(slip) <= material.frictionStatic * weight ? slip : Math.sign(slip) * material.friction * weight
+    Body.translate(upper, { x: carry, y: 0 })
+    if (upper.isSleeping) Sleeping.set(upper, false)
+    moving.add(upper)
+  }
 }
 
 /** Repair placed/imported overlaps before the first rendered frame, without
@@ -207,7 +255,7 @@ export function repulseProp(run: Run, prop: Prop, direction: Vec) {
 
 /** Rigid corners, angular momentum and Coulomb contact friction are resolved
  * together for terrain, moving platforms, balls and boxes. */
-export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = run.empRemaining === 0) {
+export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = !powerOut(run)) {
   const world = worldFor(run), push = playerContact.push
   syncForceFieldBodies(run, world)
   const surface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
@@ -370,7 +418,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     Body.setVelocity(body, { x: b.vx / 60, y: Math.max(-1000, Math.min(1000, b.vy)) / 60 })
     if (b.kind === 'box' && Math.abs(Body.getAngularVelocity(body) * 60 - b.angularVelocity) > 1e-5) Body.setAngularVelocity(body, b.angularVelocity / 60)
   }
+  const before = new Map([...world.bodies.values()].map(body => [body, body.position.x] as const))
   Engine.update(world.engine, dt * 1000)
+  carryStackedBoxes(world, before, dt)
   // The synchronous correction stage owns all hull edits from here through
   // the final contact query. Track each write instead of rescanning vertices.
   const solids = [...world.terrain, ...world.mechanisms, ...world.fields.values(), ...world.bodies.values()]

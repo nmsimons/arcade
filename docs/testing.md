@@ -24,6 +24,16 @@ rendering, editor, and dialog bugs, and visually inspect the affected animation 
 layout. Screenshots supplement assertions; merely saving a screenshot does not
 make it a regression test. If a report cannot yet be reproduced, say so explicitly.
 
+L.A.B. browser specs open a level by its direct link with `openLevelLink`, and
+open another in the same session with `followLevelLink`
+(`tests/browser/helpers/jumpingLevels.mjs`). A fixture catalog
+(`useLevelFixtures`) lacks the campaign's opening area, so every fixture level
+is open and plays without a facility door. With `pauseAt`, the link holds the
+campaign back until the clock is paused. Specs about progression serve a small
+campaign of their own, as `jumpingGrades.spec.mjs` does. The level grid is the
+development library at `/lab/library`, so specs that use it are `.dev.spec.mjs`
+files.
+
 Run the affected checks after each fix. These test locations are included in the
 existing unit and browser CI jobs; a separate manual regression command must not
 be the only way to exercise a reported bug.
@@ -131,6 +141,9 @@ conditions locally, prefix the browser command with `HV_TEST_CPU_RATE=6`.
 
 UJG traversal checks wait for the selected level card to become visible before
 pausing the installed clock, then wait for the playable canvas to receive focus.
+A level is ready once `.jumping-game` no longer has `aria-busy="true"`
+(`finishJumpingEntrance` waits for it); the Preparing level dialog appears only
+for slow preparations, so its absence says nothing.
 Keep these readiness observations ahead of clock-controlled input; a loading
 failure and a slow gameplay frame are different failures. Retain traces while
 diagnosing either, and run a costly failing case alone before attributing its

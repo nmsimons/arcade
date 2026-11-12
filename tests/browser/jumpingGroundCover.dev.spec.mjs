@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: colored ground surfaces follow terrain and darken with ambient lighting`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async backend => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -67,5 +67,5 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: colored ground surfac
     expect(sample.dayLight).toBeGreaterThan(sample.nightLight * 2)
     expect(Math.max(...sample.rock.slice(0, 3)) - Math.min(...sample.rock.slice(0, 3))).toBeLessThan(20)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath(`ground-cover-surface-${backend}.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`ground-cover-surface-${backend}.png`) })
 })

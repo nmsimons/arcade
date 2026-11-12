@@ -61,5 +61,5 @@ for (const software of [false,true]) test(`${software ? 'readback canvas' : 'def
   expect(Math.max(...result.dimensions)).toBeLessThanOrEqual(640)
   expect(result.bytes).toBeLessThan(64*1024*1024)
   await info.attach('regional-fade-metrics',{body:JSON.stringify(result,null,2),contentType:'application/json'})
-  await page.locator('canvas').screenshot({path:info.outputPath(`regional-fade-${software?'software':'hardware'}.png`)})
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({path:info.outputPath(`regional-fade-${software?'software':'hardware'}.png`)})
 })

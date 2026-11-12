@@ -5,11 +5,14 @@ import { gradeFor, gradeTimes, gradeClock } from '../src/games/jumping/grading.t
 import { passedLevel, unlockedLevels } from '../src/games/jumping/progression.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
-import { drawPickup, INACTIVE_TIME_COLOR, STOPWATCH_COLOR } from '../src/games/jumping/pickups.ts'
+import { drawPickup, PICKUP_LOST_SECONDS } from '../src/games/jumping/pickups.ts'
+import { drawCoinSwitch } from '../src/games/jumping/coins.ts'
+import { goalDoor } from '../src/games/jumping/goal.ts'
 import { drawWallTimer } from '../src/games/jumping/wallTimer.ts'
-import { DIGITAL_DIM } from '../src/games/jumping/digitalDisplay.ts'
+import { DIGITAL_DIM, DIGITAL_GREEN } from '../src/games/jumping/digitalDisplay.ts'
 
 const scene = () => ({ ...blankTrial(), times: { a: 1, b: 2, c: 3, d: 4 } })
+const steps = (run, count, input = NEUTRAL_INPUT) => { for (let i = 0; i < count; i++) stepRun(run, input) }
 
 test('A through D include their exact deadlines; F has no remaining time', () => {
   const level = scene()
@@ -31,25 +34,51 @@ test('old medal files load without rewriting; new saves use four increasing grad
   }
 })
 
-test('F leaves exploration running but time pickups inactive; coins and EMP still collect', () => {
+test('F powers the level down for the rest of the run, but its exit opens', () => {
   const level = scene()
   level.pickups = [
     { kind: 'time-bonus', seconds: 10 }, { kind: 'time-penalty', seconds: 10 },
     { kind: 'stopwatch' }, { kind: 'fast-stopwatch' }, { kind: 'coin' }, { kind: 'emp' },
   ].map(pickup => ({ ...pickup, x: level.entrance.x, y: level.entrance.y - 35 }))
+  level.goal = { ...level.goal, id: 'exit', power: 'switched' }
+  level.forceFields = [{ id: 'barrier', x: 900, y: 520, w: 12, h: 400, orientation: 'vertical', power: 'always' }]
+  level.mechanisms = [{ id: 'lift', kind: 'lift', x: 1100, y: 890, w: 140, h: 22, travel: 300, power: 'always' }]
+  const powered = createRun({ ...level, pickups: [] })
+  steps(powered, 120)
+  assert.equal(powered.goalLit, false); assert.equal(powered.forceFields[0].active, true)
+  assert.notEqual(powered.mechanisms[0].y, 890, 'the lift runs while the level has power')
+
   const run = createRun(level)
   run.elapsed = 4
   stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
   assert.equal(run.failed, true)
-  assert.ok(run.elapsed > 4)
   assert.ok(run.player.vx > 0, 'ordinary traversal continues')
-  assert.ok(run.pickups.slice(0, 4).every(pickup => pickup.collectedAge === null))
+  assert.ok(run.pickups.every(pickup => pickup.collectedAge === null && pickup.lostAge === 0), 'every pickup is taken away, none collected')
+  assert.equal(run.coinsCollected, 0); assert.equal(run.empRemaining, 0)
   assert.equal(run.timeStopRemaining, 0); assert.equal(run.timeFastRemaining, 0)
-  assert.equal(run.coinsCollected, 1); assert.ok(run.empRemaining > 0)
+  assert.equal(run.forceFields[0].active, false, 'fields switch off')
+  assert.equal(run.goalLit, true, 'the switched exit opens')
+  const liftY = run.mechanisms[0].y
+  steps(run, 120)
+  assert.equal(run.mechanisms[0].y, liftY, 'the lift stops where it was')
+  assert.ok(run.pickups.every(pickup => pickup.lostAge === PICKUP_LOST_SECONDS))
   run.elapsed = 0
   stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.failed, true, 'a score change cannot revive a failed run')
+  assert.equal(run.forceFields[0].active, false)
   assert.deepEqual(gradeClock(level, run.elapsed, run.failed), { grade: 'F', remaining: 0 })
+
+  // The player can still leave, with an F.
+  const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2
+  stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+  assert.ok(run.exit); assert.equal(run.grade, 'F')
+  for (let i = 0; i < 240 && !run.finished; i++) stepRun(run, NEUTRAL_INPUT)
+  assert.equal(run.finished, true)
+
+  // Restart (a fresh run) restores power, every pickup and the shut exit.
+  const restarted = createRun(level)
+  assert.equal(restarted.failed, false); assert.equal(restarted.goalLit, false)
+  assert.ok(restarted.pickups.every(pickup => pickup.collectedAge === null && pickup.lostAge === undefined))
 })
 
 test('a penalty crossing D fails that run; restart restores collectible time items', () => {
@@ -86,19 +115,33 @@ test('failed wall timers dim their grade and zero digits without an emissive pas
   assert.equal(blur.at(-1), 0)
 })
 
-test('inactive time bonuses, penalties and stopwatches draw grey while coins keep their color', () => {
+test('powered-down pickups flicker out where they stood, with no collection burst', () => {
   globalThis.Path2D ??= class {}
-  const capture = (kind, inactive) => {
-    const colors = []
-    const ctx = new Proxy({ globalAlpha: 1, fill() { colors.push(this.fillStyle) }, stroke() { colors.push(this.strokeStyle) } },
+  const capture = pickup => {
+    const alphas = []
+    const ctx = new Proxy({ globalAlpha: 1, fill() { alphas.push(this.globalAlpha) }, stroke() { alphas.push(this.globalAlpha) } },
       { get: (object, key) => key in object ? object[key] : () => {} })
-    drawPickup(ctx, { definition: { kind, seconds: 5, x: 0, y: 0 }, collectedAge: null }, 0, inactive)
-    return colors
+    drawPickup(ctx, pickup, 0)
+    return alphas
   }
-  for (const kind of ['time-bonus', 'time-penalty', 'stopwatch', 'fast-stopwatch']) {
-    assert.ok(capture(kind, true).every(color => color === INACTIVE_TIME_COLOR))
-    assert.ok(!capture(kind, false).includes(INACTIVE_TIME_COLOR))
+  for (const kind of ['time-bonus', 'time-penalty', 'stopwatch', 'fast-stopwatch', 'coin', 'emp']) {
+    const definition = { kind, seconds: 5, x: 0, y: 0 }
+    assert.ok(capture({ definition, collectedAge: null }).every(alpha => alpha === 1), kind)
+    const fading = capture({ definition, collectedAge: null, lostAge: PICKUP_LOST_SECONDS / 2 })
+    assert.ok(fading.length && fading.every(alpha => alpha > 0 && alpha < 1), kind)
+    assert.deepEqual(capture({ definition, collectedAge: null, lostAge: PICKUP_LOST_SECONDS }), [], kind)
   }
-  assert.ok(capture('stopwatch', false).includes(STOPWATCH_COLOR))
-  assert.deepEqual(capture('coin', true), capture('coin', false))
+})
+
+test('a powered-down coin meter dims like a failed wall clock', () => {
+  globalThis.Path2D ??= class {}
+  for (const display of ['digital', 'bar']) {
+    const exposures = [], colors = []
+    const ctx = new Proxy({ globalAlpha: 1, fill() { colors.push(this.fillStyle) } },
+      { get: (object, key) => key in object ? object[key] : () => {} })
+    drawCoinSwitch(ctx, { x: 0, y: 0, w: 120, threshold: 3, display }, 3, true, (_ctx, exposure, draw) => { exposures.push(exposure); draw() }, true)
+    assert.ok(exposures.every(exposure => exposure === 0), display)
+    assert.ok(colors.includes(DIGITAL_DIM) && !colors.includes(DIGITAL_GREEN), display)
+  }
+
 })

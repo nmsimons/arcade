@@ -106,17 +106,17 @@ test('refreshing a game restores its save owner before mounting, without grantin
   await microsoftSession(page, context)
   await useLevelFixtures(page, [FIRST_LEVEL])
   await page.goto('/lab/levels/built-in/00-fixture.json')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   await page.reload()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   const owner = await page.evaluate(async () => {
     const { currentProfile } = await import('/src/accounts/profileStorage.ts')
     const { getSession } = await import('/src/accounts/session.ts')
     return { profile: currentProfile(), cloud: getSession().cloudEnabled }
   })
   expect(owner).toEqual({ profile: `microsoft:${alice}`, cloud: false })
-  await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Level menu', exact: true }).click()
+  // The level library's header shows the account surface.
+  await page.goto('/lab/library')
   await expect(page.getByRole('button', { name: 'Alice Microsoft', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Account levels', exact: true })).toHaveCount(0)
   expect(context.pages()).toHaveLength(1)
@@ -163,7 +163,7 @@ test('Microsoft stays signed in after browser credentials expire and reconnects 
   try {
     const next = await reopened.newPage()
     await microsoftProviders(next, reopened, drive)
-    await next.goto('/lab')
+    await next.goto('/lab/library')
     await expect(next.getByRole('button', { name: 'Alice Microsoft', exact: true })).toBeVisible()
     expect(await next.evaluate(async () => {
       const { currentProfile, gameStorage } = await import('/src/accounts/profileStorage.ts')

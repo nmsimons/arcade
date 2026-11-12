@@ -44,15 +44,15 @@ async function open(page, power = 'always', level = fixture(power)) {
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
 }
 const player = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
-const frame = page => page.locator('canvas').evaluate(canvas => canvas.gravityFrame)
+const frame = page => page.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.gravityFrame)
 
 test('normal controls reach and release a flipped ceiling pressure plate in a ceiling gravity field', async ({ page }, info) => {
   const level = fixture(); level.props = []; level.gravityPlates[0].ceiling = true
@@ -82,7 +82,7 @@ for (const night of [false, true]) test(`small weak-gravity fields have visible 
   expect((await frame(page)).dust).not.toEqual(before)
   // Check the final composited pixels, including night lighting, rather than
   // just verifying that the particle drawing commands ran.
-  const visible = await page.locator('canvas').evaluate((canvas, night) => {
+  const visible = await page.locator('canvas:not(.jumping-webgl-canvas)').evaluate((canvas, night) => {
     const ctx = canvas.getContext('2d'), samples = canvas.gravityFrame.dustRaster
     const brightness = (x, y) => {
       const [r, g, b] = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data
@@ -188,7 +188,7 @@ test('both plate tools snap onto ceilings and preserve their vertical flip on sa
       return fill.apply(this, args)
     }
   })
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open ceiling.json', exact: true }).click()
@@ -233,7 +233,7 @@ test('gravity authoring exposes power, fractional strength, eight resize handles
       return rect.apply(this, args)
     }
   })
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open gravity.json', exact: true }).click()

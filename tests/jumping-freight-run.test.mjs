@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { groundAt } from '../src/games/jumping/terrain.ts'
+import { goalDoor } from '../src/games/jumping/goal.ts'
 import { readLevelAsset } from './helpers/jumping-fixtures.mjs'
 
 // Freight Run is retired from the built-in catalog; keep its route coverage on
@@ -45,13 +46,14 @@ for (const [name, recording, releaseAdjustment] of [['flow', flow, 0], ['early r
   const run = createRun(level())
   const seen = new Set()
   const ropes = new Set(), releases = []
-  const fast = ['flow', 'early releases', 'late releases'].includes(name)
+  const fast = ['flow', 'early releases', 'late releases'].includes(name), exitDoor = goalDoor(run.level.goal)
   const step = input => {
     if (!releaseAdjustment) assert.equal(run.finished, false, 'recordings end at completion')
     assert.equal('jumpStrength' in input, false, 'use current tap/hold controls')
     if (fast) {
       assert.equal(input.move, 1, 'hold Right continuously')
-      assert.ok(Object.keys(input).every(key => key === 'move' || key === 'jump'), 'the fast line needs only Right and Jump')
+      // Up enters the exit, as at every door.
+      assert.ok(Object.keys(input).every(key => key === 'move' || key === 'jump' || key === 'climb' && run.player.x > exitDoor.x - 40), 'the fast line needs only Right and Jump, then Up into the exit')
     }
     const previousX = run.player.x
     const previousRope = run.player.climbing?.kind === 'rope' ? run.player.climbing.index : null

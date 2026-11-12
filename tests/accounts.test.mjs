@@ -11,6 +11,7 @@ import { freshExpedition } from '../src/games/hardVacuum/expedition.ts'
 import { oneDrive } from './helpers/oneDrive.mjs'
 import { CLOUD_BASELINE_SLOT } from '../src/accounts/profileStorage.ts'
 import { confirmedLevelHash, levelSaveState } from '../src/accounts/levelSaveState.ts'
+import { CloudChangedError } from '../src/accounts/errors.ts'
 
 function memory() {
   const data = new Map()
@@ -160,6 +161,62 @@ test('concurrent local changes during a cloud download cannot be overwritten', a
   const read = cloud.read; cloud.read = async entry => { put(b, 7); return read(entry) }
   await assert.rejects(createSync(b, cloud).sync(signal()), /changed in another tab/)
   assert.equal(amount(b), 7)
+})
+
+test('a local change during a download is retryable', async () => {
+  const a = memory(), b = memory(), cloud = cloudMemory(); put(a, 5); await createSync(a, cloud).sync(signal())
+  const read = cloud.read; cloud.read = async entry => { put(b, 7); return read(entry) }
+  await assert.rejects(createSync(b, cloud).sync(signal()), CloudChangedError)
+})
+
+const PLACE = 'arcade.jumping.facility.v1'
+const walk = (store, door) => store.setItem(PLACE, JSON.stringify({ place: { kind: 'hub', level: 'facility-concourse', arrival: { kind: 'door', id: door } } }))
+const door = store => JSON.parse(store.getItem(PLACE)).place.arrival.id
+
+test('the facility place syncs, and a device that only moved takes newer cloud saves without asking', async () => {
+  const a = memory(), b = memory(), cloud = cloudMemory(), syncA = createSync(a, cloud), syncB = createSync(b, cloud)
+  put(a, 1); walk(a, 'freight'); await syncA.sync(signal()); await syncB.sync(signal())
+  assert.equal(door(b), 'freight')
+  // B walks on but closes before uploading; A then makes progress and walks elsewhere.
+  walk(b, 'gravity'); put(a, 2); walk(a, 'puzzles'); await syncA.sync(signal())
+  assert.equal((await syncB.sync(signal())).status, 'synced')
+  assert.equal(amount(b), 2); assert.equal(door(b), 'puzzles')
+  assert.equal(JSON.parse(JSON.parse(b.getItem('arcade.cloud.recovery.v1')).slots[PLACE]).place.arrival.id, 'gravity')
+  // With the cloud unchanged, a place-only change uploads as usual.
+  walk(b, 'security'); await syncB.sync(signal()); await syncA.sync(signal())
+  assert.equal(door(a), 'security'); assert.equal(cloudHeads(cloud.entries).length, 1)
+})
+
+test('progress changed on both devices still asks which to keep, whatever the place', async () => {
+  const a = memory(), b = memory(), cloud = cloudMemory(), syncA = createSync(a, cloud), syncB = createSync(b, cloud)
+  put(a, 1); await syncA.sync(signal()); await syncB.sync(signal())
+  put(a, 2); walk(a, 'freight'); await syncA.sync(signal())
+  put(b, 3); walk(b, 'gravity')
+  assert.equal((await syncB.sync(signal())).status, 'conflict')
+  assert.equal(amount(b), 3); assert.equal(door(b), 'gravity')
+})
+
+test('a never-synced device holding only a place, and a baseline from before places synced, take the cloud', async () => {
+  const a = memory(), b = memory(), cloud = cloudMemory(); put(a, 1); walk(a, 'freight')
+  await createSync(a, cloud).sync(signal())
+  // The facility autosaved B's starting place before its first cloud check.
+  walk(b, 'orientation')
+  assert.equal((await createSync(b, cloud).sync(signal())).status, 'synced')
+  assert.equal(amount(b), 1); assert.equal(door(b), 'freight')
+  // Earlier baselines record no progress hash; their hash covered a workspace with no place.
+  const c = memory(), d = memory(), older = cloudMemory(); put(c, 1)
+  await createSync(c, older).sync(signal()); await createSync(d, older).sync(signal())
+  const { id, hash } = JSON.parse(d.getItem(CLOUD_BASELINE_SLOT)); d.setItem(CLOUD_BASELINE_SLOT, JSON.stringify({ id, hash }))
+  walk(d, 'gravity'); put(c, 2); await createSync(c, older).sync(signal())
+  assert.equal((await createSync(d, older).sync(signal())).status, 'synced')
+  assert.equal(amount(d), 2); assert.equal(d.getItem(PLACE), null)
+})
+
+test('the facility place slot keeps any small object and rejects anything else', () => {
+  const parse = raw => parseWorkspace(JSON.stringify({ version: 1, slots: { [PLACE]: raw }, levels: { files: {}, deleted: [] } }))
+  for (const raw of ['{}', '{"place":{"kind":"unknown"}}']) assert.equal(parse(raw).slots[PLACE], raw)
+  for (const raw of ['[]', '"door"', 'null', JSON.stringify({ place: 'x'.repeat(5000) })]) assert.throws(() => parse(raw), /Invalid facility place/)
+  assert.throws(() => parse('{'))
 })
 
 test('malformed, oversized and tampered cloud data never replaces local progress', async () => {

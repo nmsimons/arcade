@@ -1,13 +1,15 @@
 import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
-import { ropePath } from './climbables.ts'
+import { releaseRopeAnchor, ropePath } from './climbables.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
+import { isHubLevel, isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import { resolveSwitchStates } from './switchPower.ts'
 import { triggerStartsOn, triggerToggleGroup } from './toggleGroups.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
-import type { PuzzleLevel, Mechanism, Pusher, PropDefinition } from './level.ts'
-export type { PuzzleLevel } from './level.ts'
+import type { Mechanism, Pusher, PropDefinition, RunLevel } from './level.ts'
+export type { PuzzleLevel, RunLevel } from './level.ts'
+import { createHubState, hubDoorBounds } from './hub.ts'
+import type { HubDoor, HubState } from './hub.ts'
 import { faceRobotToward, moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer, robotTouchesProps, settleRobot, stepRobotFall, stepRobotRecoil } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
@@ -49,6 +51,7 @@ import { applyContactEmp } from './contactEmp.ts'
 import { chooseShovebotTarget, ramRival } from './botCombat.ts'
 import { recordPlayerNoise, resetPlayerNoise } from './botHearing.ts'
 import { preparePlayerShove } from './shove.ts'
+import { powerOut } from './power.ts'
 
 import { createFloatSwitch, updateFloatSwitch } from './floatSwitch.ts'
 import type { FloatSwitch, FloatSwitchState } from './floatSwitch.ts'
@@ -65,7 +68,7 @@ export interface MechanismState { definition: Mechanism; x: number; y: number; d
 export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean; recoilVx?: number; fallVelocity?: number; deactivated?: boolean; actor?: Player; aim?: number; shots?: number; rams?: number; entrance?: EntranceAnimation; awakening?: { elapsed: number; triggered: boolean } }
 export interface Run {
   gadgets: GadgetState
-  level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
+  level: RunLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
   forceFields: ForceFieldState[]
   floatSwitches: FloatSwitchState[]
@@ -77,6 +80,7 @@ export interface Run {
   elapsed: number; started: boolean; entrance: EntranceAnimation | null; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
   finished: boolean; grade: Grade | null; failed: boolean
   busDeparture?: BusEnding
+  hub?: HubState
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
 export function formatTime(seconds: number) {
@@ -93,11 +97,11 @@ export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds:
   storage.setItem(BEST_TIME_KEY, JSON.stringify({ ...values, [id]: best }))
   return best
 }
-export function createRun(level: PuzzleLevel): Run {
+export function createRun(level: RunLevel): Run {
   return createInitialWorld(prepareLevelRopes(level))
 }
 /** Static editor drawing must not run the rope settling simulation. */
-export function createPreviewRun(level: PuzzleLevel): Run {
+export function createPreviewRun(level: RunLevel): Run {
   return createInitialWorld(level, true)
 }
 /** Placement ghosts and complete worlds start from the same robot rig and state. */
@@ -112,7 +116,7 @@ export function setWaterEffectsEnabled(run: Run, enabled: boolean) {
   if (enabled) run.waterSurface = createWaterSurface(run.water.plates, run.terrain, run.player, run.props, run.gravityField, run.waterSurface)
   if (run.waterSurface) setWaterSurfaceEnabled(run.waterSurface, run.player, run.props, run.gravityField, enabled)
 }
-function createInitialWorld(level: PuzzleLevel, preview = false): Run {
+function createInitialWorld(level: RunLevel, preview = false): Run {
   const floats = (level.floatSwitches ?? []).map(createFloatSwitch)
   const run: Run = { gadgets: createGadgetState(), floatSwitches: floats, level, player: levelPlayer(level, preview), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],
@@ -126,6 +130,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
     water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
     forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, entrance: null, goalLit: false, goalElapsed: 0, exit: null, finished: false, grade: null, failed: false }
+  if (isHubLevel(level)) run.hub = createHubState()
   run.props.push(...floats.map(f => f.prop))
   for (const pool of run.water.pools) run.waterSpaces.set(pool.region, waterSpace({ ...pool.definition, y: pool.definition.y - 6, h: pool.definition.h + 6 }, run.terrain))
   updateSwitchTargets(run)
@@ -288,7 +293,7 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number, powered: bool
   const steps = Math.max(1, Math.ceil(dt * 240), Math.ceil(travel / (Math.min(...run.props.map(b => b.size)) * .15))), h = dt / steps
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h, powered)
 }
-function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
+function stepTriggers(run: Run, dt: number, powered = !powerOut(run)) {
   const toggledGroups = new Set<string>()
   run.level.triggers.forEach((plate, index) => {
     const sensor = run.triggers[index]
@@ -323,11 +328,30 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
   })
   updateSwitchTargets(run)
 }
+/**
+ * A switched rope anchor lets go once its switches turn it on, and stays
+ * released for the rest of the run. Anyone holding the rope keeps their grip.
+ */
+function releaseRopeAnchors(run: Run, states: ReadonlyMap<string, boolean>) {
+  for (const [index, definition] of run.level.climbables.ropes.entries()) {
+    const release = definition.release, rope = run.player.ropes?.[index]
+    if (!release || !rope?.definition.end || !states.get(release.id)) continue
+    const riders = [run.player, ...run.robots.flatMap(r => r.actor ? [r.actor] : [])]
+      .flatMap(actor => actor.climbing?.rope === rope ? [actor.climbing] : [])
+    releaseRopeAnchor(rope, release.anchor, riders)
+  }
+}
 function updateSwitchTargets(run: Run) {
-  for (const state of run.floatSwitches) updateFloatSwitch(state, run.empRemaining === 0)
-  const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches)
+  const powered = !powerOut(run)
+  for (const state of run.floatSwitches) updateFloatSwitch(state, powered)
+  // In a facility area, door and bulkhead switches and grade averages read the facility's records.
+  const hub = run.hub
+  const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches, hub ? { grade: course => hub.grades.get(course) ?? null, complete: area => hub.complete.has(area) } : undefined)
   run.switchStates = states
-  updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0, platform => {
+  // A switched door the facility lets open is open while its wiring is on.
+  if (run.hub) for (const id of run.hub.switched) { if (states.get(id)) run.hub.open.add(id); else run.hub.open.delete(id) }
+  releaseRopeAnchors(run, states)
+  updateForceFields(run.forceFields, run.player, states, powered, platform => {
     const held = heldToolFrame(run.player)
     if (held && polygonIntersects(polygonPoints(toolShape(held)), platform, .001)) return true
     if (run.props.some(b => polygonIntersects(polygonPoints(b.kind === 'box' ? boxShape(b) : ballShape(b)), platform, .001))
@@ -338,9 +362,20 @@ function updateSwitchTargets(run: Run) {
       return path.slice(1).some((point, i) => lineBlocked(path[i], point, [platform]))
     })
   }, field => run.gadgets.disabled.has(field))
-  updateGravityField(run.gravityField, run.water.plates, states, run.empRemaining === 0, run.water.revision, plate => run.gadgets.disabled.has(plate))
+  updateGravityField(run.gravityField, run.water.plates, states, powered, run.water.revision, plate => run.gadgets.disabled.has(plate))
   for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
-  run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || !!states.get(run.level.goal.id ?? '')
+  const goal = run.level.goal
+  // A failed run powers the level down, but its exit opens so the player can still leave.
+  run.goalLit = !!goal && (!!run.exit || run.failed || goal.power !== 'switched' || !!states.get(goal.id ?? ''))
+}
+/**
+ * Derive what follows from a fresh run's switch inputs, as a new run does: switches, fields,
+ * gravity, platforms and the goal light. Call it after a saved place's state is written into the
+ * run (`areaState.ts`), or once the facility supplies a facility area's course grades.
+ */
+export function settleRun(run: Run) {
+  updateSwitchTargets(run); syncPlatforms(run)
+  run.goalElapsed = run.goalLit ? GOAL_OPEN_SECONDS : 0
 }
 function faceContactedRobots(player: Player, contacts: PlayerContacts | null, robots: readonly RobotState[]) {
   const face = (collider?: PlayerCollider) => { if (collider?.robot) faceRobotToward(collider.robot, player.x) }
@@ -409,7 +444,7 @@ function stepRobots(run: Run, dt: number, world: ContactWorld, powered = true) {
   else if (pushed < 0) p.vx = Math.min(p.vx, pushed)
 }
 function collectPickups(run: Run, dt: number) {
-  const collected = stepPickups(run.pickups, run.player, dt, true, !run.failed)
+  const collected = stepPickups(run.pickups, run.player, dt, true, run.failed)
   run.timeStopRemaining += collected.seconds
   run.timeFastRemaining += collected.fastSeconds
   run.empRemaining += collected.empSeconds
@@ -450,7 +485,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     run.exit.elapsed = Math.min(GOAL_EXIT_SECONDS, run.exit.elapsed + dt)
     p.x = goalExitPosition(run.exit); p.vx = (p.x - from[0]) / dt
     finishPlayerStep(p, NEUTRAL_INPUT, dt, syncPlatforms(run), from)
-    stepPickups(run.pickups, p, dt, false)
+    stepPickups(run.pickups, p, dt, false, run.failed)
     run.finished = run.exit.elapsed >= GOAL_EXIT_SECONDS
     return
   }
@@ -462,7 +497,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   input = prepareGadgets(run, shoving ? { ...input, use: false } : input, dt)
   const toolBefore = heldToolFrame(run.player)
   let world = syncPlatforms(run)
-  const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
+  const poweredDt = !run.failed && dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
   stepTriggers(run, poweredDt, powered)
   if (advanceWaterLevels(run.water, run.switchStates, poweredDt)) {
     updateGravityField(run.gravityField, run.water.plates, run.switchStates, powered, run.water.revision, plate => run.gadgets.disabled.has(plate))
@@ -513,33 +548,61 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   collectPickups(run, dt)
   run.failed ||= run.level.timing !== 'untimed' && run.elapsed > gradeTimes(run.level).d + 1e-7
   stepTriggers(run, 0)
-  const p = run.player
-  if (run.level.goal.kind === 'walk-off') {
-    if (!p.inverted && p.x >= run.level.width + TUNING.width && p.y <= run.level.goal.y + .15 && !p.hang && !p.mantle && !p.climbing) {
+  const p = run.player, level = run.level
+  if (!isPuzzleLevel(level)) {
+    if (run.hub) stepHubDoors(run, run.hub, input)
+    return
+  }
+  const goal = level.goal
+  if (goal.kind === 'walk-off') {
+    if (!p.inverted && p.x >= run.level.width + TUNING.width && p.y <= goal.y + .15 && !p.hang && !p.mantle && !p.climbing) {
       run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
       cancelJumpInput(p)
     }
     return
   }
-  if (run.level.goal.kind === 'overlook') {
-    if (input.climb && p.grounded && !p.hang && !p.climbing && Math.abs(p.x - run.level.goal.x) < 45 && Math.abs(p.y - run.level.goal.y) < 2) {
+  if (goal.kind === 'overlook') {
+    if (input.climb && p.grounded && !p.hang && !p.climbing && Math.abs(p.x - goal.x) < 45 && Math.abs(p.y - goal.y) < 2) {
       run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
       cancelJumpInput(p)
     }
     return
   }
   const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
-  const door = goalDoor(run.level.goal)
-  if (!p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
-    && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
+  const door = goalDoor(goal)
+  // Like every door, the open exit is entered with Up. Holding Up on the way
+  // in enters on arrival, so a held press costs no time.
+  if (input.climb && !p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
+    && Math.abs(p.y - goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
     && !exitObstacles.some(b => bodyOverlap(p, b))) {
     // This is a doorway in the back wall. Reaching it permits entry even when
     // a loose prop blocks a sideways step toward its center.
-    const intoDoor = moveBody([p.x, p.y], [run.level.goal.kind === 'bus' ? run.level.goal.x - 34 : door.x + door.w / 2, p.y], exitObstacles)
-    run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
-    run.gadgets.held = null; run.gadgets.aiming = false; delete p.heldTool
-    run.grade = run.level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, run.level)
-    p.vx = 0; p.vy = 0; p.pushing = null; p.pushRig = null; p.wallBrace = null; p.sliding = null; p.freeFall = null; p.anim.ragdoll = null
-    cancelJumpInput(p)
+    const intoDoor = moveBody([p.x, p.y], [goal.kind === 'bus' ? goal.x - 34 : door.x + door.w / 2, p.y], exitObstacles)
+    enterDoorway(run, intoDoor.x)
+    run.grade = level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, level)
   }
+}
+
+/** The robot steps through a doorway in the back wall, leaving its held tool. */
+function enterDoorway(run: Run, toX: number) {
+  const p = run.player
+  run.exit = { elapsed: 0, fromX: p.x, toX }
+  run.gadgets.held = null; run.gadgets.aiming = false; delete p.heldTool
+  p.vx = 0; p.vy = 0; p.pushing = null; p.pushRig = null; p.wallBrace = null; p.sliding = null; p.freeFall = null; p.anim.ragdoll = null
+  cancelJumpInput(p)
+}
+/**
+ * A fresh Up press in an open doorway enters it; walking or running past never
+ * does.
+ */
+function stepHubDoors(run: Run, hub: HubState, input: JumpInput) {
+  const p = run.player, level = run.level, pressed = input.climb && !hub.climbHeld
+  hub.climbHeld = input.climb
+  if (p.inverted || !p.grounded || p.hang || p.mantle || p.climbing) return
+  if (!pressed || p.sliding) return
+  const doors: HubDoor[] = [...(level.courseDoors ?? []).map(door => ({ kind: 'course' as const, door })), ...(level.bulkheads ?? []).map(door => ({ kind: 'bulkhead' as const, door }))]
+  const target = doors.find(({ door }) => hub.open.has(door.id) && Math.abs(p.y - door.y) < 2 && Math.abs(p.x - door.x) < hubDoorBounds(door).w / 2)
+  if (!target) return
+  hub.departure = target
+  enterDoorway(run, moveBody([p.x, p.y], [target.door.x, p.y], run.platforms).x)
 }

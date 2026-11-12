@@ -1,19 +1,19 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, openLevelLink, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const { level } = JSON.parse(readFileSync(new URL('../fixtures/jumping-lockout2-runs.json', import.meta.url), 'utf8'))
 
 async function play(page, query) {
   await page.setViewportSize({ width: 390, height: 844 })
+  // Frame reports also keep a WebGL frame's pixels on the game's canvas, where these read them (debugFrames.ts).
+  await page.addInitScript(() => localStorage.setItem('jumping:debug-frames', '1'))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto(`/lab${query}`)
-  const button = page.getByRole('button', { name: 'Play Lock Out II', exact: true })
-  await expect(button).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await button.click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query, pauseAt: new Date('2026-01-01T01:00:00Z') })
+  await finishJumpingEntrance(page)
 }
-const pixels = page => page.evaluate(() => document.querySelector('.jumping-game > canvas').toDataURL())
+const pixels = page => page.evaluate(() => document.querySelector('.jumping-game > canvas[role="img"]').toDataURL())
 const position = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1).x)
 
 test('render control is absent unless the page opts in', async ({ page }) => {

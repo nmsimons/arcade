@@ -6,7 +6,7 @@ import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 async function open(page) {
   await useLevelFixtures(page, [FIRST_LEVEL])
   await installBuiltInFixtures(page, { 'first.json': FIRST_LEVEL })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await expect(page.locator('.jumping-level-browser .jumping-level-card')).toHaveCount(1)
   // The initial public catalog can be replaced by the writable dev catalog.
   // Wait for its final file identity before measuring the card's CSS.
@@ -114,7 +114,7 @@ test('library and file confirmations keep keyboard focus visible and reflow at e
     const button = buttons.nth(i)
     await expect(button).toBeFocused()
     // Native scroll positions round to pixels; allow a subpixel edge at 200% type.
-    await expect(button).toBeInViewport({ ratio: await button.locator('canvas').count() ? 0 : .99 })
+    await expect(button).toBeInViewport({ ratio: await button.locator('canvas:not(.jumping-webgl-canvas)').count() ? 0 : .99 })
     if (i < count - 1) await page.keyboard.press('Tab')
   }
   expect(await library.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)

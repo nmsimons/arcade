@@ -25,7 +25,8 @@ test('a catch through an open gate can establish a rappel after the body clears 
   Object.assign(p, { x: 344, y: 548, grounded: false, facing: -1, vx: -100, vy: 0 })
   run.mechanisms[1].y = 360
   let caughtInside = false, braced = 0
-  for (let i = 0; i < 240; i++) {
+  // Lowering at the unhurried rope pace, the body takes a moment to swing out against the face.
+  for (let i = 0; i < 320; i++) {
     stepRun(run, { ...NEUTRAL_INPUT, descend: i < 50 })
     caughtInside ||= p.climbing?.caught.x > 340
     braced += Number(!!p.climbing?.wall)

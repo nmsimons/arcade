@@ -25,19 +25,15 @@ async function open(page, level, { renderControl = true } = {}) {
       if (String(args[0]).includes('lightingGeometry.worker')) window.builderLightingWorkers++
       return Reflect.construct(target, args)
     } })
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc, begin = proto.beginPath, move = proto.moveTo, fill = proto.fill
-    proto.beginPath = function (...args) { this.jumpPath = []; return begin.apply(this, args) }
-    proto.moveTo = function (x, y) { this.jumpPath?.push([x, y]); return move.call(this, x, y) }
-    proto.fill = function (...args) {
-      if (this.shadowBlur === 3) this.jumpDigitalFace = JSON.stringify(this.jumpPath)
-      return fill.apply(this, args)
-    }
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc
+    // Wall timers are read from the renderer's display reports (src/games/jumping/debugFrames.ts):
+    // the reading stands for the face, and the transform places it.
+    window.addEventListener('jumping-display', ({ detail: { canvas, transform: t, value } }) => {
+      const camera = canvas.jumpCamera
+      if (value[2] === ':' && camera) canvas.wallTimers?.push({ face: value, x: (t.e - camera.e) / camera.a, screenX: t.e })
+    })
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.builderWorldDraws = (this.canvas.builderWorldDraws ?? 0) + 1; this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = []; this.canvas.builderHandles = []; this.canvas.builderLabels = [] }
-      if (args[0] === 66 && args[1] === 12 && args[2] === 3 && args[3] === 3) {
-        const t = this.getTransform(), camera = this.canvas.jumpCamera
-        if (camera) this.canvas.wallTimers?.push({ face: this.jumpDigitalFace, x: (t.e - camera.e) / camera.a, screenX: t.e })
-      }
       if (this.fillStyle === '#c65231' && args[2] === args[3]) this.canvas.builderHandles?.push({ x: args[0] + args[2] / 2, y: args[1] + args[3] / 2 })
       return rect.apply(this, args)
     }
@@ -65,7 +61,7 @@ async function open(page, level, { renderControl = true } = {}) {
       return text.call(this, value, x, y, ...rest)
     }
   })
-  await page.goto(renderControl ? '/lab?renderControl=1' : '/lab')
+  await page.goto(renderControl ? '/lab/library?renderControl=1' : '/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await waitForBuilderPreview(page)
@@ -766,7 +762,9 @@ test('goal lights flip horizontally, survive moving and save, and still activate
   await page.screenshot({ path: info.outputPath('flipped-goal-lit.png') })
   await page.clock.runFor(1600)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await page.keyboard.down('a'); await page.clock.runFor(1800); await page.keyboard.up('a')
+  // Up held on the way in enters the open exit on arrival.
+  await page.keyboard.down('a'); await page.keyboard.down('w'); await page.clock.runFor(1800)
+  await page.keyboard.up('a'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
 })
 
@@ -1446,7 +1444,8 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
   await page.clock.runFor(350)
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Tap Jump for a short jump; hold it briefly after takeoff to jump higher.')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText(controller ? 'Controller connected. The best way to play.' : 'Best with a controller. Connect one and press any button.')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText(controller ? 'Jump higherHold A / ×' : 'Jump higherHold Space')
   await expect(page.getByRole('region', { name: 'How to play' })).toContainText(controller ? 'B / ○' : 'X')
   await page.getByRole('button', { name: 'Back', exact: true }).click()
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)

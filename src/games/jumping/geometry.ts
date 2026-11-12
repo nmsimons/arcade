@@ -290,17 +290,19 @@ export function bodyIntersects(x: number, y: number, b: Platform, height = 62, o
 function sweep(a: CollisionHull, b: CollisionPiece, delta: Vec) {
   if (separated(a.bounds, b.bounds, delta[0], delta[1])) return null
   const normals = a.axes ??= a.points.length > 1 ? axes(a.points) : []
-  let enter = -Infinity, exit = Infinity, normal: Vec = [0, -1]
+  let enter = -Infinity, exit = Infinity, normal: Vec = [0, -1], enterSpeed = 1
   for (let i = 0; i < normals.length + b.axes.length; i++) {
     const axis = i < normals.length ? normals[i] : b.axes[i - normals.length]
     const [amin, amax] = interval(a.points, axis), [bmin, bmax] = i < normals.length ? interval(b.points, axis) : b.projections[i - normals.length], speed = dot(delta, axis)
     if (Math.abs(speed) < EPS) { if (amax <= bmin + EPS || amin >= bmax - EPS) return null; continue }
     const t0 = (bmin - amax) / speed, t1 = (bmax - amin) / speed, first = Math.min(t0, t1)
-    if (first > enter) { enter = first; normal = speed > 0 ? [-axis[0], -axis[1]] : axis }
+    if (first > enter) { enter = first; normal = speed > 0 ? [-axis[0], -axis[1]] : axis; enterSpeed = Math.abs(speed) }
     exit = Math.min(exit, Math.max(t0, t1))
     if (enter > exit + EPS) return null
   }
-  if (enter < -EPS || enter > 1 || exit <= EPS || dot(delta, normal) >= -EPS) return null
+  // An overlap within EPS is touching, as penetration() counts it, however slowly the body moves into it.
+  // Deeper overlaps are resolved before sweeping.
+  if (enter * enterSpeed < -EPS || enter > 1 || exit <= EPS || dot(delta, normal) >= -EPS) return null
   return { time: Math.max(0, enter), normal }
 }
 export interface TerrainContact { normal: Vec; platform: Platform }

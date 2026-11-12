@@ -82,7 +82,7 @@ test('the player receives light, casts a moving shadow, and releases light while
 
 test('lighting lab loads independently, exposes keyboard controls, and uses fixed night brightness during EMP', async ({ page }) => {
   await page.goto('/lab/lighting-lab')
-  await expect(page.locator('canvas')).toHaveAttribute('data-ready', 'true')
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toHaveAttribute('data-ready', 'true')
   await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveCount(0)
   await page.getByRole('button', { name: 'EMP blackout' }).click()
   await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveCount(0)
@@ -90,7 +90,7 @@ test('lighting lab loads independently, exposes keyboard controls, and uses fixe
   await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('player')
   await expect(page.getByRole('combobox', { name: 'View', exact: true })).toHaveValue('player')
   await page.getByRole('button', { name: 'Play room' }).click()
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.keyboard.press('ArrowRight')
   await page.getByRole('button', { name: 'Inspect room' }).click()
   await expect(page.locator('[role="alert"]')).toHaveCount(0)
@@ -217,7 +217,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player stays read
   expectColor(result.partialHead, result.dark)
   expectColor(result.partialTorso, result.litTorso)
   expectColor(result.fading, result.dark.map((channel, i) => (channel + result.gone[i]) / 2))
-  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-player-and-ball.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`${backend}-player-and-ball.png`) })
 })
 
 test('darkness shades pickups and preserves display exposure without painting through foreground objects', async ({ page }) => {
@@ -368,7 +368,7 @@ test('spotlights stop at all four room edges', async ({ page }) => {
 
 test('study source isolation and elevator controls can freeze a shadow for inspection', async ({ page }) => {
   await page.goto('/lab/lighting-lab')
-  await expect(page.locator('canvas')).toHaveAttribute('data-ready', 'true')
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toHaveAttribute('data-ready', 'true')
   const markers = page.getByRole('button', { name: 'Show sources' })
   await expect(markers).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('bot')

@@ -1,5 +1,239 @@
 # LAB performance notes
 
+## November 12, 2026: WebGL draws every frame of play
+
+Phase 3 of the WebGL renderer ([plan](jumping-webgl-renderer.md#phase-3-lighting))
+brings lamps, night, cave regions, the landscape's sky and the bus departure to
+WebGL, so every frame of play is WebGL's; the studio stays on Canvas. Lamps use
+the GPU light field's shader and shadow geometry in the frame's own context;
+the beam haze and source glow are drawn in painter's order; caves copy in
+Canvas's environment fields when they change. All 50 built-in levels and areas
+match Canvas to a mean of 0.03 to 0.67 of 255, and in play every frame was
+WebGL's.
+
+On Exit (hardware Edge, interleaved, `.local/perf/phase3-exit`) WebGL holds
+60 fps in two of three sections at DPR 1 and 1.5 with the GPU process 25% to 27%
+busy; in the prop-heavy section near the start it holds 57.1 to 57.6 fps, where
+Canvas measured 50.5 at DPR 1 and 60 at DPR 1.5 in the same run and 40 to 43
+under the profiler. That section is physics-bound: physics is 69% of the tick
+(props 27%) and drawing 19%, and drawing a frame costs WebGL about half what it
+costs Canvas.
+
+## November 12, 2026: WebGL by default, and cheaper WebGL frames
+
+WebGL now draws daylight frames by default wherever the GPU runs WebGL 2
+(`?renderer=canvas` keeps Canvas). Its shape cache keys shapes in their own
+frame, so artwork that turns as well as moves (a robot's head and palm plates, a
+coin's spin) reuses its triangles, and whole ellipses and coin edges are drawn
+from a unit circle without the cache. Per frame in play in hardware Edge, the
+build fell from 0.83 to about 0.45 ms on Full Tilt and from 0.90 to 0.59–0.80 ms
+on Ascent; in production bundles, interleaved, the main thread's frame time
+(p50) fell by 0.35 ms on Full Tilt and 1.4 ms on Ascent on average, with missed
+frames unchanged within noise ([details](jumping-webgl-renderer.md#after-phase-2-the-default-and-the-main-thread)).
+
+Main-thread times are not comparable across the two renderers on the reference
+laptop: a fixed computation timed each frame runs about 1.5 times slower while
+WebGL draws, apparently because the processor clocks down once the GPU process
+is idle. Compare one renderer before and after a change, interleaved.
+
+## November 11, 2026: WebGL draws whole daylight frames
+
+Phase 2 of the WebGL renderer ([plan](jumping-webgl-renderer.md#phase-2-daylight-frames))
+draws the whole frame of daylight play without lamps or an environment with
+WebGL 2, on its own canvas in one context; Canvas draws every other frame as
+before. Since November 12 it is the default wherever the GPU runs WebGL 2;
+`?renderer=canvas`, or localStorage `jumping:renderer` = `canvas`, turns it
+off, and the performance monitor's lighting renderer reads "WebGL frame" while
+it draws. The tools take `--renderer <name>=canvas` or `<name>=webgl`.
+
+Full Tilt in hardware Edge, one production build on both renderers,
+interleaved, three 6 s episodes per section, adaptive quality off
+(`.local/perf/webgl-phase2f-fulltilt`; the display ran at 57 Hz):
+
+| Section | DPR 1.5 Canvas | DPR 1.5 WebGL frame | Frame CPU p50, Canvas / WebGL |
+| --- | ---: | ---: | ---: |
+| 120 (opening hills) | 54.1 fps, 19 missed | 56.6 fps, 0 missed | 4.7 / 6.7 ms |
+| 1325 (pit, first rope) | 52.4 fps, 31 missed | 56.6 fps, 1 missed | 4.9 / 6.7 ms |
+| 3100 (hilltop, pool) | 50.9 fps, 40 missed | 56.7 fps, 0 missed | 5.6 / 7.7 ms |
+| 3875 (pool platform) | 46.9 fps, 69 missed | 56.5 fps, 0 missed | 4.6 / 6.6 ms |
+| 5450 (steel, force fields) | 40.6 fps, 116 missed | 56.7 fps, 0 missed | 5.6 / 7.1 ms |
+
+At DPR 1 both hold the display's rate. The GPU process's main thread is busy
+20% to 41% of each WebGL frame, against 96% to 100% with Canvas, and the first
+key press stalls 19 ms instead of 36 to 53.
+
+Frame CPU counts only the frame's callbacks, and Canvas hands its drawing to
+the GPU after them, so the traces' total main-thread time is the fairer
+comparison: per frame, 8.1, 9.1 and 7.2 ms with WebGL against 6.4, 7.4 and 7.2
+ms with Canvas at sections 120, 3100 and 5450. WebGL frames cost the main
+thread up to about 1.7 ms more, which is the plan's one target not yet met.
+Recording the world (the artwork's own work included) costs less than
+Canvas's drawing it; the extra is turning shapes that change every frame (the
+robot's limbs, spinning coins) into triangles, about 0.8 ms, and the GL calls,
+about 0.3 ms.
+
+Ascent, the level heaviest on the main thread (robots, ropes, water), three
+auto sections (`.local/perf/webgl-phase2f-ascent`):
+
+| Section | Canvas | WebGL frame |
+| --- | ---: | ---: |
+| DPR 1.5, 200:4905 | 48.3 fps, 60 missed | 56.7 fps, 0 missed |
+| DPR 1.5, 600:823 | 51.0 fps, 42 missed | 56.0 fps, 2 missed |
+| DPR 1.5, 1225:1738 | 49.1 fps, 54 missed | 56.4 fps, 2 missed |
+| DPR 1, 200:4905 | 56.9 fps, 0 missed | 56.7 fps, 0 missed |
+| DPR 1, 600:823 | 56.9 fps, 0 missed | 56.4 fps, 2 missed |
+| DPR 1, 1225:1738 | 56.8 fps, 1 missed | 55.8 fps, 5 missed |
+
+At DPR 1 Canvas keeps up on Ascent, and WebGL's extra main-thread time shows as
+a few more missed frames in its busiest sections (frame CPU p50 9.4 to 9.6 ms
+against 7.9 to 8.4; p99 20 to 28 ms against 17 to 21). That main-thread time is
+the next thing to bring down.
+
+Checked: typecheck and lint clean; 16 WebGL unit tests and 7 WebGL browser
+tests pass; 99 browser specs nearest the changed artwork pass on Canvas; the
+unit suite passes but for the Full Tilt route that needs re-recording and the
+symlink test this machine refuses (the ledge timing tests fail only when the
+suite runs under load, and pass alone).
+
+The tools now seed every built-in level as completed, as the browser tests do,
+so any level's link opens (Ascent's was refused), and the frame comparison
+captures what is on screen (an element screenshot), since WebGL draws on its
+own canvas.
+
+## November 11, 2026: WebGL layers for the backdrop and terrain
+
+Phase 1 of the WebGL renderer ([plan](jumping-webgl-renderer.md#phase-1-built-and-measured))
+draws Full Tilt's backdrop and terrain with WebGL 2 from meshes built once per
+level and zoom, and the Canvas frame places the two pictures in its usual order.
+Set `?renderer=webgl` or localStorage `jumping:renderer` = `webgl`; both
+tools take `--renderer <name>=webgl` to measure or compare one build on both.
+
+At DPR 1.5, interleaved on one build, every section of Full Tilt holds 56.7 to
+57 fps with no missed frames, against 40.8 to 54.6 fps and 12 to 87 missed frames
+on Canvas; at DPR 1 both hold the display's rate. The GPU process's main thread
+falls from 93–99% busy to 56–78%. Frames match Canvas to a mean of 0.05 of 255
+at DPR 1.5 (0.07 to 0.10 at DPR 1), the differences on anti-aliased edges.
+
+**Pictures from another GPU context cost the drawing canvas about 1 ms of
+main-thread time per frame** in Chrome, measured alone: 1,500 small fills took
+1.5–2.0 ms, and 2.3–2.8 ms in a frame that also drew a WebGL picture, whether
+the picture came first or last, one or two, as an `ImageBitmap`, through a 2D
+relay canvas or as the WebGL canvas itself. The layers' own work is 0.2 ms a
+frame, so frame CPU at DPR 1.5 rose by up to 1.7 ms (4.5–5.5 to 4.1–7.2 ms),
+inside the budget. The existing GPU shadow field pays the same charge on its
+scratch canvases. One context drawing the whole frame removes it.
+
+The first WebGL frame of each layer once lost the wall grid: the coverage
+texture was left bound while being drawn into, a feedback loop that WebGL
+rejects silently. Textures are now unbound before such draws.
+
+## November 10, 2026: Full Tilt baseline and a per-level harness
+
+`npm run profile:jumping-level -- <level file>` measures one built-in level in
+hardware Edge on production bundles, against a frozen copy of the level, so the
+author can keep editing. It moves the entrance to several valid start points
+along the level (flat, with a clear doorway; `--sections auto:5`), runs right
+with a jump every 0.9 s, and groups animation-frame callbacks by frame: frame CPU
+is the game tick's main-thread time, physics and drawing together. It reports
+frame rate, frame CPU, frames that miss a display refresh, the hitch on the first
+key press and the whole machine's CPU use. Adaptive quality is off unless
+`--adaptive`, so resolution never changes mid-run. Give two `--bundle name=dir`
+to compare: their episodes alternate. `--build <dir>` builds the current source
+(`--readable` keeps function names for `--profile`, a CPU-sampled pass for
+attribution). Results go to `.local/perf/`.
+
+**Compare only within one run.** Real-time play is not deterministic, and other
+work on the machine moves absolute figures a long way: the same bundle on Full
+Tilt's steel section ran at 28–31 fps (DPR 1.5) during the baseline below and
+50–53 fps twenty minutes later. Before and after are therefore always measured
+together, interleaved, and `machineCpuPercent` flags a busy machine.
+
+The baseline used snapshot `7d49d402` of Full Tilt (8 ropes, 79 pickups, 9 force
+fields, 2 gravity plates, 6450×2100) at `ac3bdee`, Edge 157.0.4341.42 on the
+Adreno X1-85, 1280×800 CSS, adaptive quality off, five 8 s sections and three
+episodes per bundle. The same bundle was measured twice (A/A) to find the noise
+floor. Each cell gives both halves:
+
+| Section start | DPR 1 fps | DPR 1 frame CPU p50 | DPR 1.5 fps | DPR 1.5 frame CPU p50 |
+| --- | ---: | ---: | ---: | ---: |
+| 120 (opening hills) | 57.6 / 57.3 | 5.3 / 5.5 ms | 40.6 / 40.4 | 6.3 / 6.5 ms |
+| 1325 (pit, first rope) | 57.3 / 57.8 | 5.9 / 5.9 ms | 38.5 / 37.4 | 6.9 / 7.1 ms |
+| 3100 (hilltop, pool) | 57.9 / 57.9 | 6.7 / 6.6 ms | 37.8 / 36.6 | 7.8 / 8.3 ms |
+| 3875 (pool platform) | 53.2 / 53.8 | 5.4 / 5.4 ms | 34.1 / 33.1 | 6.9 / 6.7 ms |
+| 5450 (steel, force fields) | 47.9 / 45.6 | 6.4 / 6.7 ms | 27.8 / 28.7 | 8.7 / 7.7 ms |
+
+Identical bundles differ by up to 2.3 fps and 1 ms of median frame CPU; the 99th
+percentile varies by up to 5 ms and is not a reliable signal on its own. The first
+key press stalls for 83–217 ms on every section: it synthesises every sound effect
+synchronously. Main-thread time stays well inside the 16.7 ms budget while the
+frame rate falls with resolution, so most of the loss is likely GPU or compositing
+work; this is not yet confirmed with a GPU trace.
+
+A CPU-sampled pass at DPR 1.5 attributes the main thread: drawing is about two
+thirds (world 35%, the robot 9%, terrain 7%, pickups 7%: all 79 are drawn every
+frame), physics a quarter (the robot's pose and motion most of it). A Node replay
+of the recorded medal route puts physics alone at 0.8 ms per 60 Hz frame (p99
+4.1 ms); the rope solver leads it, since a released rope keeps simulating until
+fully still (the first rope is awake for 76% of the route), followed by
+per-frame string keys for terrain caches (`bezierKey`).
+
+### What the GPU pays for
+
+A browser trace (`--trace`) settles where the frames go: in every section the GPU
+process's main thread is busy 99% of the time, against about 30% for the page's
+main thread. Full Tilt is bound by the GPU process, so main-thread savings alone
+will not raise its frame rate.
+
+`--skip` prices each drawing layer by leaving it out, through the
+measurement-only switch in `measureLayers.ts`, which players never set. Frame
+rates at DPR 1.5, two 6 s episodes per variant, interleaved (noise about ±2.5 fps):
+
+| Left out | 120 | 1325 | 3100 | 3875 | 5450 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| nothing | 50.1 | 47.0 | 45.6 | 43.0 | 35.2 |
+| daylight lighting | 60.6 | 60.3 | 60.2 | 60.9 | 60.5 |
+| all terrain | 60.7 | 60.4 | 60.3 | 60.7 | 60.5 |
+| terrain edges | 60.3 | 60.4 | 58.9 | 57.3 | 50.0 |
+| wall displays | 50.9 | 47.3 | 45.9 | 48.2 | 44.5 |
+| ground cover | 54.3 | 51.3 | 51.4 | 49.3 | 39.8 |
+| backdrop | 57.9 | 50.3 | 49.3 | 47.0 | 38.8 |
+
+Gravity effects, pickups, force fields, ropes, the robot, water and the terrain
+texture each stayed within noise. The layers are not additive: the GPU process is
+saturated, so leaving out any large layer can be enough for 60 fps. The likely
+causes, from the code: terrain edges clip to the whole terrain silhouette every
+frame, a screen-sized mask; the wall displays draw every lit segment with a 3 px
+`shadowBlur` glow; ground cover clips to outlines and occluders; and the daylight
+field is rendered and composited over the whole view every frame, because its
+caches require a level without mechanisms, pickups, ropes or fields.
+
+### Canvas fixes
+
+Each change was timed against the build before it, interleaved, and its frames
+compared with `scripts/compare-jumping-frames.mjs`. That script plays both builds
+on a fake clock, so their game state is identical, and compares every pixel; the
+same build against itself gives zero difference. Figures are DPR 1.5 fps unless
+noted; absolute rates moved with machine load between runs.
+
+| Change | Pixels | Frame rate |
+| --- | --- | --- |
+| Terrain edges: trim each relief strip to the terrain once, when the relief is cached, instead of clipping to the whole silhouette every frame | A one-pixel ring at the outer edge of the shading, up to 9/255, mean 0.005 | 120: 58.5 → 60.1, 1325: 56.7 → 58.8, 3100: 55.9 → 59.3, 3875: 55.0 → 57.1, 5450: 50.0 → 50.8; at DPR 1, missed frames on the first two sections fell from 21 to 0 and 3 |
+| Display glow: draw each display's glow once into a cached image (`glowCache.ts`), redrawn only when its reading changes, under crisp shapes with no shadow | Identical | 5450: 34.9 → 38.4, frame CPU 7.5 → 5.9 ms; elsewhere no display is on screen |
+| Backdrop panels: two strokes for all panel edges instead of two per panel | Only where neighbouring panels' lines meet: 1 channel in 30,000, up to 13/255 | 120: +2.1, 3100: +4.4, 3875: +2.6, 5450: +2.6, 1325: −0.4 (noise) |
+| Sounds: make the samples in idle time before the first key press (`soundSteps`); the press copies them in when the device rate matches | Samples bit-identical at 24, 44.1 and 48 kHz | Removes about 40 ms of the first-key-press stall; creating the `AudioContext` on the press still takes 11–70 ms |
+
+The edge ring comes from anti-aliasing: under the old clip, an edge pixel half
+inside the terrain got the strip's coverage times the clip's, about a quarter;
+the trimmed strip gives about half. Ground cover's clips were left as they are:
+an exact trim needs polygon subtraction for the occluders, for about 4 fps.
+
+The trim also moved one pixel by one step in `jumpingAmbientBuffer`'s exact
+comparison of the optimized and reference lighting renderers. The optimized one
+redraws the actors' patch through a view offset by whole pixels, and Canvas keeps
+transforms in float32, so an edge on the rasterizer's grid can round either way:
+before the trim, 3 of 40 camera positions already differed by one step, and 5 of
+40 after. The test now allows one step; a stale or leaked buffer differs by far more.
+
 ## October 28, 2026: Exit GPU budget and repeated artwork
 
 Live regional lighting now selects the largest backing dimensions that fit the

@@ -3,8 +3,12 @@ import { getPlatform } from '../platform/runtime.ts'
 import type { KeyStorage } from '../platform/contracts.ts'
 export type { KeyStorage } from '../platform/contracts.ts'
 
+/** Where L.A.B.'s robot is in the facility (`FACILITY_KEY`): a convenience, not progress, when saves meet. */
+export const FACILITY_PLACE_SLOT = 'arcade.jumping.facility.v1'
+/** The state of each untimed place L.A.B.'s robot left (`AREA_STATE_KEY`): like the place, a convenience. */
+export const AREA_STATE_SLOT = 'arcade.jumping.areas.v1'
 /** Anonymous keys stay unchanged. Account data never shares the anonymous slot. */
-export const SAVE_SLOTS = ['hard-vacuum-expedition-v1', 'hard-vacuum-expedition-v1-backup', 'hard-vacuum-expedition-v1-unreadable', 'arcade.jumping.times.v1', 'arcade.jumping.completed.v1'] as const
+export const SAVE_SLOTS = ['hard-vacuum-expedition-v1', 'hard-vacuum-expedition-v1-backup', 'hard-vacuum-expedition-v1-unreadable', 'arcade.jumping.times.v1', 'arcade.jumping.completed.v1', FACILITY_PLACE_SLOT, AREA_STATE_SLOT] as const
 export const LEVELS_SLOT = 'arcade.account.levels.v1'
 export const CLOUD_BASELINE_SLOT = 'arcade.cloud.baseline.v2'
 const writes = new WeakMap<KeyStorage, Promise<unknown>>()

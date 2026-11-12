@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { jumpingRoute, levelPath, playtestPath, JUMPING_MENU, JUMPING_BUILDER, JUMPING_PLAYTEST } from '../src/games/jumping/routes.ts'
+import { jumpingRoute, levelPath, playtestPath, JUMPING_FACILITY, JUMPING_LIBRARY, JUMPING_START, JUMPING_BUILDER, JUMPING_PLAYTEST } from '../src/games/jumping/routes.ts'
 
 test('level links preserve filenames with spaces, Unicode, percent, query and hash characters', () => {
   for (const source of ['built-in']) for (const edit of [true, false]) {
@@ -10,12 +10,19 @@ test('level links preserve filenames with spaces, Unicode, percent, query and ha
   }
 })
 
-test('menu, draft builder and session playtest have distinct routes', () => {
-  assert.equal(JUMPING_MENU, '/lab')
+test('the start screen, the facility, the level library, draft builder and session playtest have distinct routes', () => {
+  // L.A.B. opens on its start screen and plays the facility at its own address; the level grid is a development library.
+  assert.equal(JUMPING_START, '/lab')
+  assert.deepEqual(jumpingRoute(JUMPING_START + '/'), { screen: 'start' })
+  assert.equal(JUMPING_LIBRARY, '/lab/library')
+  assert.deepEqual(jumpingRoute(JUMPING_LIBRARY + '/'), { screen: 'menu' })
   assert.equal(JUMPING_BUILDER, '/lab/builder')
-  assert.deepEqual(jumpingRoute(JUMPING_MENU + '/'), { screen: 'menu' })
   assert.deepEqual(jumpingRoute(JUMPING_BUILDER), { screen: 'builder' })
   assert.deepEqual(jumpingRoute(JUMPING_PLAYTEST), { screen: 'playtest' })
+  assert.equal(JUMPING_FACILITY, '/lab/facility')
+  assert.deepEqual(jumpingRoute(JUMPING_FACILITY + '/'), { screen: 'facility' })
+  assert.deepEqual(jumpingRoute(JUMPING_FACILITY + '/wing'), { screen: 'missing' })
+  assert.deepEqual(jumpingRoute(JUMPING_LIBRARY + '/extra'), { screen: 'missing' })
 })
 
 test('LAB file links use /lab and reject unrelated or retired route prefixes', () => {
@@ -38,5 +45,5 @@ test('playtest URLs identify saved files or unsaved draft IDs without confusing 
 test('malformed and nested file links cannot resolve to another file', () => {
   for (const tail of ['levels/local/legacy.json', 'builder/local/legacy.json', 'builder/local/legacy.json/playtest', 'levels/local/%ZZ.json', 'levels/local/a%2Fb.json', 'levels/local/a%5Cb.json', 'levels/remote/a.json', 'builder/local', 'levels/local/a.json/extra',
     'levels/local/a.json/playtest', 'builder/local/a%2Fb.json/playtest', 'builder/local/%ZZ/playtest', 'builder/playtest/%ZZ', 'builder/playtest/a%2Fb'])
-    assert.deepEqual(jumpingRoute(`${JUMPING_MENU}/${tail}`), { screen: 'missing' })
+    assert.deepEqual(jumpingRoute(`${JUMPING_START}/${tail}`), { screen: 'missing' })
 })

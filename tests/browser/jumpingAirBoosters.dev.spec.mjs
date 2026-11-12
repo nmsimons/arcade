@@ -21,12 +21,12 @@ for (const night of [false, true]) test(`subtle foot jets follow normal jump, st
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
+  await page.goto('/lab/library?motionDebug=1')
   await page.getByRole('button', { name: 'Play Booster check', exact: true }).waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Booster check', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
   expect(await page.evaluate(() => window.boosterFills)).toEqual([])
   await page.keyboard.down('ArrowRight'); await page.keyboard.down('Space')
@@ -51,7 +51,7 @@ for (const night of [false, true]) test(`subtle foot jets follow normal jump, st
 })
 
 test('the booster hiss is quiet, has no tone, reuses its voice and fades to silence', async ({ page }) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async () => {
     const { JumpingSound } = await import('/src/games/jumping/sound.ts')
     const rate = 24000, ctx = new OfflineAudioContext(2, rate, rate), sound = new JumpingSound(ctx)

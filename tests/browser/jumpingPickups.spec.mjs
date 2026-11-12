@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 import { DIGITAL_AMBER } from '../../src/games/jumping/digitalDisplay.ts'
 
@@ -25,9 +25,7 @@ async function open(page) {
       return fill.apply(this, args)
     }
   })
-  await page.goto('/lab?renderControl=1')
-  await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await openLevelLink(page, { query: '?renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') })
 }
 const state = page => page.getByRole('img', { name: 'Stopwatch run: reach the exit' }).evaluate((c, amber) => ({
   scales: c.pickupScales, times: c.digitalClocks.map(clock => clock.value), stopped: c.digitalClocks.some(clock => clock.color === amber),
@@ -38,7 +36,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   // headroom to render every frame without shortening the gameplay assertions.
   test.setTimeout(60000)
   await open(page)
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await finishJumpingEntrance(page)
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.clock.runFor(64)
   expect((await state(page)).scales).toEqual([1, 1])
@@ -71,7 +69,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   await restartFromPause(page); await page.clock.runFor(64)
   expect((await state(page)).scales).toEqual([1, 1])
   expect((await state(page)).times).toEqual(['01:00', '01:00'])
-  await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
   await expect(page.getByText('Grade A', { exact: true })).toBeVisible()
   await expect(page.locator('.jumping-result-time')).toHaveText(/^0:00\./)
@@ -81,11 +79,11 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   await page.screenshot({ path: info.outputPath('stopped-clock-result.png') })
   await page.clock.resume(); await page.reload()
   await expect(page.getByRole('img', { name: 'Stopwatch run: reach the exit' })).toBeFocused()
-  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
+  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Return to the facility', exact: true }).click()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['stopwatch-browser-test'])).toBe(saved)
 })
 
-test('a zero-second personal best remains intact when opening the picker', async ({ page }) => {
+test('a zero-second personal best remains intact when the course opens', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('arcade.jumping.times.v1', JSON.stringify({ 'stopwatch-browser-test': 0 })))
   await open(page)
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['stopwatch-browser-test'])).toBe(0)

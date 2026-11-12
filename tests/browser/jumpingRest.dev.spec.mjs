@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 test('the native quiet standing and crouched silhouettes expose both arms at gameplay scale', async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const samples = await page.evaluate(async () => {
     const [{ createRun, stepRun }, { blankTrial }, { athletePose, drawAthlete }, { NEUTRAL_INPUT }, { athleteSkin }] = await Promise.all([
       import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),

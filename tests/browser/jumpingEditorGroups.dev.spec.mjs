@@ -14,14 +14,14 @@ function fixture() {
 async function open(page, level = fixture()) {
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'groups.json': level })
   await page.addInitScript(() => {
-    const fill = CanvasRenderingContext2D.prototype.fillRect
-    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.editorCamera = this.getTransform()
-      return fill.apply(this, args)
-    }
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.editorCamera = transform
+    })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open groups.json', exact: true }).click()

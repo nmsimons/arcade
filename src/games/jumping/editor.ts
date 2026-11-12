@@ -1,10 +1,15 @@
 import type { JumpLevel } from './level.ts'
-import { copyLevel, newLevelId, levelTerrain, levelHeight, LEVEL_GRID_SIZE } from './level.ts'
+import { blankTrial, copyLevel, isHubLevel, isPuzzleLevel, newLevelId, levelTerrain, levelHeight, snapToGround, LEVEL_GRID_SIZE } from './level.ts'
+import { GRADE_GATE_HEIGHT, GRADE_GATE_WIDTH, GRADE_LETTERS, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_GRADE_GATES, bulkheadSignBounds, courseDoorSignBounds, gradeGateBounds, hubDoorBounds, placardBounds } from './hub.ts'
+import type { Bulkhead, CourseDoor, GradeGate } from './hub.ts'
+import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
+import type { WallDoor } from './wallDoor.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
-import { itemDefinition, objectReference } from './objectLabels.ts'
+import type { NamedObject } from './objectNames.ts'
+import { itemDefinition, itemName, objectReference } from './objectLabels.ts'
 export { itemDefinition } from './objectLabels.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { groundAt, platformSurface } from './terrain.ts'
@@ -12,8 +17,9 @@ import { nearestBoundary, pointInside, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { MAX_CURVE_POINTS, cubicPoint, relativePoint, splitCubic, terrainCubic, terrainCurveOutline, terrainCurveSamples, terrainNodes } from './terrainCurves.ts'
 import type { TerrainBezier } from './terrainCurves.ts'
-import { ropePath, ropeSegmentCount } from './climbables.ts'
-import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import { fitTiedRope, ropeEnds, ropePath, ropeSegmentCount, tiedRopeSpan } from './climbables.ts'
+import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_OFFSET, GOAL_DOOR_WIDTH, goalBounds, goalDoor, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
+import type { Destination } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
@@ -42,13 +48,108 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
+export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+/** Level doors and bulkheads share the entrance's doorway, sill and placement rules. */
+export const isHubDoor = (selection: Selection): selection is Selection & { kind: 'course-door' | 'bulkhead' } => selection.kind === 'course-door' || selection.kind === 'bulkhead'
+export function hubDoorAt(level: JumpLevel, selection: Selection): CourseDoor | Bulkhead | undefined {
+  return selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : selection.kind === 'bulkhead' ? level.bulkheads?.[selection.index] : undefined
+}
+/** A door's selectable outline includes the lettering above it, and a level door's the placard hung to its right. */
+function hubDoorOutline(door: CourseDoor | Bulkhead) {
+  const b = hubDoorBounds(door)
+  if ('to' in door) { const sign = bulkheadSignBounds(door); return { x: b.x - 40, y: sign.y, w: b.w + 80, h: b.y + b.h - sign.y } }
+  const placard = placardBounds(door), sign = courseDoorSignBounds(door)
+  return { x: b.x - 40, y: sign.y, w: placard.x + placard.w - b.x + 40, h: b.y + b.h - sign.y }
+}
+
+/**
+ * Courses end at an exit; facility areas are left only through their doors.
+ * Switching keeps the way out: a doorway exit becomes a bulkhead whose
+ * destination is still to choose, and a facility area's first bulkhead becomes
+ * the exit.
+ */
+export function setLevelType(level: JumpLevel, type: 'course' | 'hub'): JumpLevel {
+  if (type === 'course') {
+    if (!isHubLevel(level)) return isPuzzleLevel(level) ? level : asTrial(level)
+    const next: JumpLevel = copyLevel(level), [bulkhead] = level.bulkheads
+    delete next.kind; delete next.courseDoors; delete next.bulkheads; delete next.evaluationBoards; delete next.timing
+    const flipX = !!bulkhead && bulkhead.x - GOAL_DOOR_OFFSET < 30
+    next.goal = bulkhead ? { x: bulkhead.x + (flipX ? GOAL_DOOR_OFFSET : -GOAL_DOOR_OFFSET), y: bulkhead.y, ...(flipX ? { flipX } : {}) }
+      : snapToGround(next, next.width - 160, next.entrance.y)
+    next.times = blankTrial().times
+    return next
+  }
+  if (isHubLevel(level)) return level
+  const course = asTrial(level)
+  if (!isPuzzleLevel(course)) return level
+  const next: JumpLevel = copyLevel(course), goal = course.goal
+  if (goal.id) removeSwitchTarget(next, goal.id)
+  delete next.goal; delete next.times
+  next.kind = 'hub'; next.timing = 'untimed'
+  next.courseDoors = []; next.evaluationBoards = []
+  next.bulkheads = goal.kind ? [] : [{ id: newLevelId(), x: goalDoor(goal).x + GOAL_DOOR_WIDTH / 2, y: goal.y, to: '' }]
+  return next
+}
+/** Wall doors are art: their condition, frame and facing only change how they look. */
+export function setWallDoor(level: JumpLevel, index: number, patch: Partial<Pick<WallDoor, 'condition' | 'frame' | 'flipX'>>): JumpLevel {
+  if (!level.wallDoors?.[index] || patch.condition && !WALL_DOOR_CONDITIONS.includes(patch.condition)) return level
+  const next = copyLevel(level), door = next.wallDoors![index]
+  if (patch.condition) door.condition = patch.condition
+  if ('frame' in patch) { if (patch.frame === 'bulkhead') door.frame = 'bulkhead'; else delete door.frame }
+  if ('flipX' in patch) { if (patch.flipX) door.flipX = true; else delete door.flipX }
+  return next
+}
+/** A level door names a level by ID; a bulkhead names a facility area by its level ID. */
+export function setHubDoorDestination(level: JumpLevel, selection: Selection, destination: string): JumpLevel {
+  const door = hubDoorAt(level, selection)
+  if (!door || ('course' in door ? door.course : door.to) === destination) return level
+  const next = copyLevel(level), target = hubDoorAt(next, selection)!
+  // A bulkhead's arrival door belongs to the area it led to before.
+  if ('course' in target) target.course = destination; else { target.to = destination; delete target.arrivesAt }
+  return next
+}
+
+/** Where a plain exit leads when its run passes; none sends the robot back where it came from. */
+export function setExitDestination(level: JumpLevel, leadsTo: Destination | undefined): JumpLevel {
+  if (!level.goal || level.goal.kind || JSON.stringify(level.goal.leadsTo) === JSON.stringify(leadsTo)) return level
+  const next = copyLevel(level)
+  if (leadsTo) next.goal!.leadsTo = { level: leadsTo.level, ...(leadsTo.arrival ? { arrival: leadsTo.arrival } : {}) }
+  else delete next.goal!.leadsTo
+  return next
+}
+
+/** The door or bulkhead a level door's course returns the robot through; none returns it through the same door. */
+export function setDoorReturn(level: JumpLevel, selection: Selection, returnsTo: string | undefined): JumpLevel {
+  const door = selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : undefined
+  if (!door || door.returnsTo === returnsTo || returnsTo === door.id && !door.returnsTo) return level
+  const next = copyLevel(level), target = next.courseDoors![selection.index]
+  if (returnsTo && returnsTo !== target.id) target.returnsTo = returnsTo; else delete target.returnsTo
+  return next
+}
+
+/** Mark the dispatch door to the final course. An area has at most one, so marking one clears the rest. */
+export function setDoorDispatch(level: JumpLevel, selection: Selection, dispatch: boolean): JumpLevel {
+  const door = selection.kind === 'course-door' ? level.courseDoors?.[selection.index] : undefined
+  if (!door || !!door.dispatch === dispatch) return level
+  const next = copyLevel(level)
+  for (const [i, other] of next.courseDoors!.entries()) if (dispatch && i === selection.index) other.dispatch = true; else delete other.dispatch
+  return next
+}
+
+/** The door or bulkhead a bulkhead brings the robot out of in the area beyond; none uses the bulkhead there that leads back. */
+export function setBulkheadArrival(level: JumpLevel, selection: Selection, arrivesAt: string | undefined): JumpLevel {
+  const bulkhead = selection.kind === 'bulkhead' ? level.bulkheads?.[selection.index] : undefined
+  if (!bulkhead || bulkhead.arrivesAt === arrivesAt) return level
+  const next = copyLevel(level), target = next.bulkheads![selection.index]
+  if (arrivesAt) target.arrivesAt = arrivesAt; else delete target.arrivesAt
+  return next
+}
 
 /** Finish styles stay authored data, with selectable bounds in the studio. */
 export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk-off' | 'bus'): JumpLevel {
@@ -66,7 +167,8 @@ export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk
     next.timing = 'untimed'
   } else {
     delete next.goal.ending
-    if (kind === 'overlook') { next.goal.kind = kind; next.timing = 'untimed'; delete next.goal.power }
+    // An overlook ends the game, so it leads nowhere.
+    if (kind === 'overlook') { next.goal.kind = kind; next.timing = 'untimed'; delete next.goal.power; delete next.goal.leadsTo }
     else delete next.goal.kind
     const bounds = goalBounds({ ...next.goal, x: 0, y: 0 })
     next.goal.x = clamp(next.goal.x, Math.max(0, -bounds.x), next.width - bounds.x - bounds.w)
@@ -159,10 +261,11 @@ export function setPickupSeconds(level: JumpLevel, index: number, seconds: numbe
   return next
 }
 
+/** Level doors and bulkheads go by where they lead, so they have no name to change. */
 export function renameItem(level: JumpLevel, selection: Selection, value: string): JumpLevel {
-  const item = itemDefinition(level, selection), name = value.trim().slice(0, OBJECT_NAME_MAX_LENGTH)
-  if (!item || (item.name ?? '') === name) return level
-  const next = copyLevel(level), target = itemDefinition(next, selection)!
+  const name = value.trim().slice(0, OBJECT_NAME_MAX_LENGTH)
+  if (!itemDefinition(level, selection) || selection.kind === 'course-door' || selection.kind === 'bulkhead' || (itemName(level, selection) ?? '') === name) return level
+  const next = copyLevel(level), target = itemDefinition(next, selection) as NamedObject
   if (name) target.name = name
   else delete target.name
   return next
@@ -192,10 +295,11 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     for (const cover of next.environment.groundCover ?? []) cover.y += dy
   }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
+    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
-    rope.y += dy
+    for (const point of ropeEnds(rope)) point.y += dy
     // Local terrain anchors stay unchanged. Rebuild cached world-space geometry
     // against the resized room before previewing, playing, or saving the level.
     delete rope.rest
@@ -208,6 +312,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
   if (selection.kind === 'float-switch') { const f = level.floatSwitches?.[i]; return f ? floatSwitchBounds(f) : null }
   if (selection.kind === 'logic-relay') { const relay = level.logicRelays?.[i]; return relay ? logicRelayBounds(relay) : null }
+  if (selection.kind === 'grade-gate') { const gate = level.gradeGates?.[i]; return gate ? gradeGateBounds(gate) : null }
   if (selection.kind === 'force-field') return level.forceFields?.[i] ?? null
   if (selection.kind === 'gravity-plate') return level.gravityPlates?.[i] ?? null
   if (selection.kind === 'platform') return level.platforms[i] ?? null
@@ -222,12 +327,16 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
   if (selection.kind === 'pickup') { const p = level.pickups?.[i]; return p ? pickupBounds(p) : null }
-  const p = selection.kind === 'entrance' ? level.entrance : level.checkpoints[i]
+  if (selection.kind === 'evaluation-board') return level.evaluationBoards?.[i] ?? null
+  const p = selection.kind === 'entrance' ? level.entrance : isHubDoor(selection) ? hubDoorAt(level, selection)
+    : selection.kind === 'wall-door' ? level.wallDoors?.[i] : level.checkpoints[i]
   return p ? { x: p.x, y: p.y, w: 0, h: 0 } : null
 }
 export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'entrance') return entranceBounds(level.entrance)
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
+  if (isHubDoor(selection)) { const door = hubDoorAt(level, selection); return door ? hubDoorOutline(door) : null }
+  if (selection.kind === 'wall-door') { const door = level.wallDoors?.[selection.index]; return door ? wallDoorBounds(door) : null }
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
   if (robot) {
@@ -272,11 +381,14 @@ export function setSwitchTargets(level: JumpLevel, selection: Selection, targets
   if (source.kind === 'trigger') delete source.definition.target
   const available = new Set(switchedItems(next).map(item => item.id))
   source.definition.targets = [...new Set(targets.filter(id => available.has(id)))]
+  // A level door or bulkhead without outputs saves without an empty list.
+  if ((source.kind === 'course-door' || source.kind === 'bulkhead') && !source.definition.targets.length) delete source.definition.targets
   return next
 }
 export function setWallWiring(level: JumpLevel, selection: Selection, enabled: boolean, height?: number): JumpLevel {
   const next = copyLevel(level), source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index)
-  if (!source || height !== undefined && !Number.isFinite(height)) return level
+  // Level doors, bulkheads and grade averages have no wall terminal.
+  if (!source || source.kind === 'course-door' || source.kind === 'bulkhead' || source.kind === 'grade-gate' || height !== undefined && !Number.isFinite(height)) return level
   if (enabled) source.definition.showWires = true
   else delete source.definition.showWires
   if (height !== undefined) source.definition.wireHeight = clamp(Math.round(height), 0, levelHeight(next))
@@ -320,6 +432,14 @@ export function setPressurePlateMount(level: JumpLevel, index: number, mechanism
 }
 export function setObjectPower(level: JumpLevel, selection: Selection, power: PowerMode): JumpLevel {
   if (power !== 'always' && power !== 'switched') return level
+  if (isHubDoor(selection)) {
+    // A door opens always, or only while its wiring is on, like a switched exit.
+    if (!hubDoorAt(level, selection)) return level
+    const next = copyLevel(level), door = hubDoorAt(next, selection)!
+    if (power === 'switched') door.power = 'switched'
+    else { removeSwitchTarget(next, door.id); delete door.power; delete door.switchLogic; delete door.switchReversed }
+    return next
+  }
   const next = copyLevel(level)
   const item = selection.kind === 'goal' ? next.goal : selection.kind === 'mechanism' ? next.mechanisms?.[selection.index]
     : selection.kind === 'force-field' ? next.forceFields?.[selection.index] : selection.kind === 'light' ? next.lighting?.lights[selection.index] : selection.kind === 'gravity-plate' ? next.gravityPlates?.[selection.index] : null
@@ -367,6 +487,19 @@ export function setObjectRelay(level: JumpLevel, selection: Selection, relay: bo
     const item = switchedItems(next).find(item => item.kind === selection.kind && item.index === selection.index)!
     delete item.definition.targets
   }
+  return next
+}
+/** A grade gate's threshold, the level doors it averages, and whether its result is reversed. */
+export function editGradeGate(level: JumpLevel, index: number, patch: Partial<Pick<GradeGate, 'grade' | 'doors' | 'switchReversed'>>): JumpLevel {
+  if (!level.gradeGates?.[index]) return level
+  if (patch.grade !== undefined && !GRADE_LETTERS.includes(patch.grade)) return level
+  const doorIds = new Set((level.courseDoors ?? []).map(door => door.id))
+  if (patch.doors && patch.doors.some(id => !doorIds.has(id))) return level
+  const next = copyLevel(level), gate = next.gradeGates![index]
+  if (patch.grade) gate.grade = patch.grade
+  // Keep the doors in their order in the area, so the list reads the same every time.
+  if (patch.doors) gate.doors = (next.courseDoors ?? []).map(door => door.id).filter(id => patch.doors!.includes(id))
+  if (patch.switchReversed !== undefined) { if (patch.switchReversed) gate.switchReversed = true; else delete gate.switchReversed }
   return next
 }
 function editObjectSwitchSettings(level: JumpLevel, selection: Selection, settings: SwitchSettings): JumpLevel {
@@ -441,8 +574,19 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
     const b = logicRelayBounds(level.logicRelays![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'logic-relay', index: i }
   }
+  for (let i = (level.gradeGates?.length ?? 0) - 1; i >= 0; i--) {
+    const b = gradeGateBounds(level.gradeGates![i])
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'grade-gate', index: i }
+  }
   const entrance = entranceBounds(level.entrance)
   if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) yield { kind: 'entrance', index: 0 }
+  for (const kind of ['course-door', 'bulkhead'] as const) {
+    const doors = kind === 'course-door' ? level.courseDoors : level.bulkheads
+    for (let i = (doors?.length ?? 0) - 1; i >= 0; i--) {
+      const b = hubDoorOutline(doors![i])
+      if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind, index: i }
+    }
+  }
   for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) yield { kind: 'checkpoint', index: i }
   if (level.goal) {
     const b = goalBounds(level.goal)
@@ -508,6 +652,14 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
     const t = level.timers![i]
     if (x >= t.x - tolerance && x <= t.x + WALL_TIMER_WIDTH + tolerance && y >= t.y - tolerance && y <= t.y + WALL_TIMER_HEIGHT + tolerance) yield { kind: 'timer', index: i }
   }
+  for (let i = (level.wallDoors?.length ?? 0) - 1; i >= 0; i--) {
+    const b = wallDoorBounds(level.wallDoors![i])
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'wall-door', index: i }
+  }
+  for (let i = (level.evaluationBoards?.length ?? 0) - 1; i >= 0; i--) {
+    const b = level.evaluationBoards![i]
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'evaluation-board', index: i }
+  }
   for (let i = (level.texts?.length ?? 0) - 1; i >= 0; i--) {
     const t = level.texts![i]
     const local = wallTextLocalPoint(t, x, y)
@@ -526,13 +678,14 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
     ladder.x = ladder.side === 1 ? platform.x - 16 : platform.x + platform.w + 16
     ladder.bottom += platform.y - before.y; ladder.top = platform.y
   }
-  for (const rope of next.climbables.ropes) if (rope.anchor?.platform === index) {
-    rope.anchor.x *= platform.w / before.w; rope.anchor.y *= platform.h / before.h
-    const edge = nearestBoundary(platform, platform.x + rope.anchor.x, platform.y + rope.anchor.y)
-    rope.x = edge.x; rope.y = edge.y; rope.anchor.x = edge.x - platform.x; rope.anchor.y = edge.y - platform.y
+  for (const rope of next.climbables.ropes) for (const point of ropeEnds(rope)) if (point.anchor?.platform === index) {
+    point.anchor.x *= platform.w / before.w; point.anchor.y *= platform.h / before.h
+    const edge = nearestBoundary(platform, platform.x + point.anchor.x, platform.y + point.anchor.y)
+    point.x = edge.x; point.y = edge.y; point.anchor.x = edge.x - platform.x; point.anchor.y = edge.y - platform.y
+    fitTiedRope(rope)
   }
-  // Carry start/checkpoint markers with the surface that supports them.
-  for (const p of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : [])]) {
+  // Carry start/checkpoint markers and doors with the surface that supports them.
+  for (const p of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.wallDoors ?? [])]) {
     const supportX = p === next.goal ? (() => { const b = goalBounds(next.goal); return b.x + b.w / 2 })() : p.x
     if (supportX < before.x || supportX > before.x + before.w || Math.abs(p.y - platformSurface(before, supportX).y) >= .1) continue
     const carriedX = platform.x + (supportX - before.x) / before.w * platform.w
@@ -571,10 +724,11 @@ export function transformTerrain(level: JumpLevel, index: number, transform: Ter
         ...(handle.in ? { in: vector(handle.in) } : {}), ...(handle.out ? { out: vector(handle.out) } : {}) }))
     }
   }
-  for (const rope of next.climbables.ropes) if (rope.anchor?.platform === index) {
-    const [x, y] = point(rope.anchor.x, rope.anchor.y)
-    rope.anchor.x = x; rope.anchor.y = y
-    rope.x = terrain.x + x; rope.y = terrain.y + y
+  for (const rope of next.climbables.ropes) for (const end of ropeEnds(rope)) if (end.anchor?.platform === index) {
+    const [x, y] = point(end.anchor.x, end.anchor.y)
+    end.anchor.x = x; end.anchor.y = y
+    end.x = terrain.x + x; end.y = terrain.y + y
+    fitTiedRope(rope)
     delete rope.rest
   }
   // Legacy ladders are always upright. Leave them in place as independent ladders.
@@ -585,6 +739,17 @@ export function transformTerrain(level: JumpLevel, index: number, transform: Ter
 export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy: number): JumpLevel {
   const b = itemBounds(level, selection)
   if (!b) return level
+  const tied = selection.kind === 'rope' ? level.climbables.ropes[selection.index]?.end : undefined
+  if (tied) {
+    // A tied rope moves whole, both anchors inside the level; either anchor moves alone by its handle.
+    const rope = level.climbables.ropes[selection.index]
+    const mx = clamp(dx, -Math.min(rope.x, tied.x), level.width - Math.max(rope.x, tied.x))
+    const my = clamp(dy, -Math.min(rope.y, tied.y), levelHeight(level) - Math.max(rope.y, tied.y))
+    const next = copyLevel(level), moved = next.climbables.ropes[selection.index]
+    for (const point of ropeEnds(moved)) { point.x += mx; point.y += my; delete point.anchor }
+    delete moved.rest
+    return next
+  }
   const attached = selection.kind === 'platform' ? level.climbables.ladders.filter(l => l.platform === selection.index) : []
   const x = clamp(b.x + dx, attached.some(l => l.side === 1) ? 16 : 0, level.width - b.w - (attached.some(l => l.side === -1) ? 16 : 0))
   const y = clamp(b.y + dy, 0, levelHeight(level) - b.h)
@@ -599,6 +764,9 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   // Moving a marker must honor the requested height, even before its supporting
   // terrain is built. Snapping every move to ground traps nudges at the floor.
   if (selection.kind === 'entrance') next.entrance = { ...next.entrance, x: clamp(x, GOAL_DOOR_WIDTH / 2, level.width - GOAL_DOOR_WIDTH / 2), y: clamp(y, GOAL_DOOR_HEIGHT, levelHeight(level)) }
+  if (isHubDoor(selection) || selection.kind === 'wall-door') Object.assign(isHubDoor(selection) ? hubDoorAt(next, selection)! : next.wallDoors![selection.index],
+    { x: clamp(x, GOAL_DOOR_WIDTH / 2, level.width - GOAL_DOOR_WIDTH / 2), y: clamp(y, GOAL_DOOR_HEIGHT, levelHeight(level)) })
+  if (selection.kind === 'evaluation-board') Object.assign(next.evaluationBoards![selection.index], { x, y })
   if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
@@ -626,6 +794,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'float-switch') { const f = next.floatSwitches![selection.index]; f.x += x - b.x; f.y += y - b.y }
   if (selection.kind === 'logic-relay') Object.assign(next.logicRelays![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
+  if (selection.kind === 'grade-gate') Object.assign(next.gradeGates![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
     const t = next.triggers![selection.index]; t.x = x; t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
     attachPressurePlateOnSurface(next, t)
@@ -654,6 +823,13 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
       field.h = clamp(h, FORCE_FIELD_MIN_LENGTH, top ? before.y + before.h : levelHeight(next) - before.y)
       if (top) field.y = before.y + before.h - field.h
     }
+  }
+  if (selection.kind === 'evaluation-board') {
+    const board = next.evaluationBoards![selection.index], before = { ...board }
+    board.w = clamp(w, 120, Math.min(1200, left ? before.x + before.w : next.width - before.x))
+    board.h = clamp(h, 60, Math.min(600, top ? before.y + before.h : levelHeight(next) - before.y))
+    if (left) board.x = before.x + before.w - board.w
+    if (top) board.y = before.y + before.h - board.h
   }
   if (selection.kind === 'gravity-plate') {
     const p = next.gravityPlates![selection.index], before = { ...p }
@@ -684,7 +860,11 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
         ...(handle.out ? { out: [handle.out[0] / before.w * width, handle.out[1] / before.h * height] as Vec } : {}) })) } : {}),
       ...(before.profile ? { profile: before.profile.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}) })
   }
-  if (selection.kind === 'rope') next.climbables.ropes[selection.index].length = clamp(h, 80, Math.min(2000, levelHeight(level) - next.climbables.ropes[selection.index].y))
+  if (selection.kind === 'rope') {
+    // A tied rope sags between its anchors; it can lengthen to 2,000 but never shorten past their span.
+    const rope = next.climbables.ropes[selection.index]
+    rope.length = rope.end ? clamp(h, Math.max(80, Math.ceil(tiedRopeSpan(rope))), 2000) : clamp(h, 80, Math.min(2000, levelHeight(level) - rope.y))
+  }
   if (selection.kind === 'ladder') {
     const ladder = next.climbables.ladders[selection.index]
     if (top) ladder.top = clamp(ladder.bottom - h, 0, ladder.bottom - 80)
@@ -737,12 +917,15 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   if (selection.kind === 'platform') {
     next.platforms.splice(i, 1)
     next.climbables.ladders = next.climbables.ladders.map(l => ({ ...l, platform: l.platform === i ? -1 : l.platform > i ? l.platform - 1 : l.platform }))
-    for (const r of next.climbables.ropes) if (r.anchor) {
-      if (r.anchor.platform === i) delete r.anchor
-      else if (r.anchor.platform > i) r.anchor.platform--
+    for (const r of next.climbables.ropes) for (const point of ropeEnds(r)) if (point.anchor) {
+      if (point.anchor.platform === i) delete point.anchor
+      else if (point.anchor.platform > i) point.anchor.platform--
     }
   } else if (selection.kind === 'back-wall') next.environment!.walls.splice(i, 1)
-  else if (selection.kind === 'rope') next.climbables.ropes.splice(i, 1)
+  else if (selection.kind === 'rope') {
+    const [rope] = next.climbables.ropes.splice(i, 1)
+    if (rope.release) removeSwitchTarget(next, rope.release.id)
+  }
   else if (selection.kind === 'timer') next.timers!.splice(i, 1)
   else if (selection.kind === 'text') next.texts!.splice(i, 1)
   else if (selection.kind === 'pickup') next.pickups!.splice(i, 1)
@@ -764,6 +947,21 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     removeSwitchTarget(next, light.id)
   }
   else if (selection.kind === 'float-switch') next.floatSwitches!.splice(i, 1)
+  else if (selection.kind === 'course-door') {
+    // Its switch goes with it, and no wiring or average still names it.
+    const [door] = next.courseDoors!.splice(i, 1)
+    removeSwitchTarget(next, door.id)
+    for (const gate of next.gradeGates ?? []) gate.doors = gate.doors.filter(id => id !== door.id)
+    for (const other of next.courseDoors!) if (other.returnsTo === door.id) delete other.returnsTo
+  }
+  else if (selection.kind === 'bulkhead') {
+    const [door] = next.bulkheads!.splice(i, 1); removeSwitchTarget(next, door.id)
+    // A level door that returned the robot through it returns through its own doorway again.
+    for (const other of next.courseDoors ?? []) if (other.returnsTo === door.id) delete other.returnsTo
+  }
+  else if (selection.kind === 'grade-gate') next.gradeGates!.splice(i, 1)
+  else if (selection.kind === 'evaluation-board') next.evaluationBoards!.splice(i, 1)
+  else if (selection.kind === 'wall-door') next.wallDoors!.splice(i, 1)
   else if (selection.kind === 'logic-relay') {
     const [relay] = next.logicRelays!.splice(i, 1)
     removeSwitchTarget(next, relay.id)
@@ -783,6 +981,37 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'wall-door') {
+    const doors = next.wallDoors ??= []
+    if (doors.length >= MAX_WALL_DOORS) throw new Error(`This level already has ${MAX_WALL_DOORS} wall doors.`)
+    doors.push({ x: clamp(end.x, GOAL_DOOR_WIDTH / 2, next.width - GOAL_DOOR_WIDTH / 2), y: clamp(end.y, GOAL_DOOR_HEIGHT, levelHeight(next)), condition: 'jammed' })
+    return { level: next, selection: { kind: 'wall-door', index: doors.length - 1 } }
+  }
+  if (tool === 'grade-gate') {
+    if (!isHubLevel(next)) throw new Error('Grade averages belong in facility areas, with the level doors they average. Change Type in the Level settings first.')
+    const gates = next.gradeGates ??= []
+    if (gates.length >= MAX_GRADE_GATES) throw new Error(`This level already has ${MAX_GRADE_GATES} grade averages.`)
+    gates.push({ id: newLevelId(), x: clamp(start.x, GRADE_GATE_WIDTH / 2, next.width - GRADE_GATE_WIDTH / 2),
+      y: clamp(start.y, GRADE_GATE_HEIGHT / 2, levelHeight(next) - GRADE_GATE_HEIGHT / 2), doors: [], grade: 'd', targets: [] })
+    return { level: next, selection: { kind: 'grade-gate', index: gates.length - 1 } }
+  }
+  if (tool === 'course-door' || tool === 'bulkhead' || tool === 'evaluation-board') {
+    if (!isHubLevel(next)) throw new Error('Level doors, bulkheads and evaluation boards belong in facility areas. Change Type in the Level settings first.')
+    if (tool === 'evaluation-board') {
+      if (next.evaluationBoards.length >= MAX_EVALUATION_BOARDS) throw new Error(`This level already has ${MAX_EVALUATION_BOARDS} evaluation boards.`)
+      const click = Math.hypot(end.x - start.x, end.y - start.y) < 10
+      const w = clamp(click ? 460 : Math.abs(end.x - start.x), 120, Math.min(1200, next.width)), h = clamp(click ? 250 : Math.abs(end.y - start.y), 60, Math.min(600, levelHeight(next)))
+      next.evaluationBoards.push({ id: newLevelId(), x: clamp(Math.min(start.x, end.x), 0, next.width - w), y: clamp(Math.min(start.y, end.y), 0, levelHeight(next) - h), w, h })
+      return { level: next, selection: { kind: tool, index: next.evaluationBoards.length - 1 } }
+    }
+    const doors: (CourseDoor | Bulkhead)[] = tool === 'course-door' ? next.courseDoors : next.bulkheads, max = tool === 'course-door' ? MAX_COURSE_DOORS : MAX_BULKHEADS
+    if (doors.length >= max) throw new Error(`This level already has ${max} ${tool === 'course-door' ? 'level doors' : 'bulkheads'}.`)
+    // Like the entrance, a door's point is the middle of its sill.
+    const door = { id: newLevelId(), x: clamp(end.x, GOAL_DOOR_WIDTH / 2, next.width - GOAL_DOOR_WIDTH / 2), y: clamp(end.y, GOAL_DOOR_HEIGHT, levelHeight(next)) }
+    if (tool === 'course-door') next.courseDoors.push({ ...door, course: '' })
+    else next.bulkheads.push({ ...door, to: '' })
+    return { level: next, selection: { kind: tool, index: doors.length - 1 } }
+  }
   if (tool === 'back-wall') {
     const changed = prepareBackWall(next), environment = changed.environment!
     if (environment.walls.length >= 40) throw new Error('This level already has 40 back walls.')
@@ -892,6 +1121,23 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     else { if (next.checkpoints.length >= 30) throw new Error('This level already has 30 checkpoints.'); next.checkpoints.push(point) }
     return { level: next, selection: { kind: tool, index: tool === 'entrance' ? 0 : next.checkpoints.length - 1 } }
   }
+  if (tool === 'tied-rope') {
+    if (next.climbables.ropes.length >= 40) throw new Error('This level already has 40 ropes.')
+    // Drag from one anchor to the other; a click ties a short level span to the right.
+    const dragged = Math.hypot(end.x - start.x, end.y - start.y) >= 20
+    const from = { x: clamp(start.x, 0, level.width), y: clamp(start.y, 0, levelHeight(level)) }
+    const to = dragged ? { x: clamp(end.x, 0, level.width), y: clamp(end.y, 0, levelHeight(level)) } : { x: clamp(from.x + 240, 0, level.width), y: from.y }
+    const span = Math.hypot(to.x - from.x, to.y - from.y)
+    if (span < 40) throw new Error('Drag farther to tie a rope between two anchors.')
+    if (span > 2000) throw new Error('Keep a tied rope’s anchors within 2,000 units of each other.')
+    // A little slack lets the middle sag into reach.
+    const length = clamp(Math.round(span * 1.1 + 20), 80, 2000)
+    next.climbables.ropes.push({ ...from, length, segments: ropeSegmentCount(length), end: to })
+    const index = next.climbables.ropes.length - 1
+    const placed = anchorRope(anchorRope(next, index, 16), index, 16, 'end')
+    fitTiedRope(placed.climbables.ropes[index])
+    return { level: placed, selection: { kind: 'rope', index } }
+  }
   if (tool === 'rope') {
     if (next.climbables.ropes.length >= 40) throw new Error('This level already has 40 ropes.')
     const length = clamp(Math.abs(end.y - start.y) || 260, 80, Math.min(2000, levelHeight(level) - y))
@@ -933,6 +1179,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     // snapping separately, so Snap off and Alt also preserve the cursor's height.
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
     if (tool === 'goal') {
+      if (!isPuzzleLevel(trial)) throw new Error('Facility areas have no exit. The robot leaves through their bulkheads and level doors.')
       const bounds = goalBounds({ ...trial.goal, x: 0, y: 0 })
       trial.goal = { ...trial.goal, ...point, x: trial.goal?.kind === 'walk-off' ? trial.width : clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
       return { level: trial, selection: { kind: 'goal', index: 0 } }
@@ -989,7 +1236,13 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
     if (next.platforms.length >= 160) return null
     index = next.platforms.push(copyLevel(level).platforms[i]) - 1
   } else if (selection.kind === 'back-wall') { if (next.environment!.walls.length >= 40) return null; index = next.environment!.walls.push(structuredClone(next.environment!.walls[i])) - 1 }
-  else if (selection.kind === 'rope') { if (next.climbables.ropes.length >= 40) return null; index = next.climbables.ropes.push({ ...next.climbables.ropes[i] }) - 1 }
+  else if (selection.kind === 'rope') {
+    if (next.climbables.ropes.length >= 40) return null
+    // A copy is not wired; its release, if any, gets its own switch ID.
+    const copy = structuredClone(next.climbables.ropes[i])
+    if (copy.release) copy.release.id = newLevelId()
+    index = next.climbables.ropes.push(copy) - 1
+  }
   else if (selection.kind === 'ladder') { if (next.climbables.ladders.length >= 40) return null; index = next.climbables.ladders.push({ ...next.climbables.ladders[i], platform: -1 }) - 1 }
   else if (selection.kind === 'timer') { if (next.timers!.length >= 40) return null; index = next.timers!.push({ ...next.timers![i] }) - 1 }
   else if (selection.kind === 'text') { if (next.texts!.length >= 80) return null; index = next.texts!.push({ ...next.texts![i] }) - 1 }
@@ -1004,6 +1257,11 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'float-switch') { if (next.floatSwitches!.length >= MAX_FLOAT_SWITCHES) return null; index = next.floatSwitches!.push({ ...next.floatSwitches![i], targets: [...next.floatSwitches![i].targets], id: newLevelId() }) - 1 }
   else if (selection.kind === 'logic-relay') { if (next.logicRelays!.length >= MAX_LOGIC_RELAYS) return null; index = next.logicRelays!.push({ ...next.logicRelays![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'grade-gate') { if (next.gradeGates!.length >= MAX_GRADE_GATES) return null; index = next.gradeGates!.push({ ...structuredClone(next.gradeGates![i]), id: newLevelId() }) - 1 }
+  else if (selection.kind === 'course-door') { if (next.courseDoors!.length >= MAX_COURSE_DOORS) return null; index = next.courseDoors!.push({ ...structuredClone(next.courseDoors![i]), id: newLevelId() }) - 1 }
+  else if (selection.kind === 'bulkhead') { if (next.bulkheads!.length >= MAX_BULKHEADS) return null; index = next.bulkheads!.push({ ...next.bulkheads![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'evaluation-board') { if (next.evaluationBoards!.length >= MAX_EVALUATION_BOARDS) return null; index = next.evaluationBoards!.push({ ...next.evaluationBoards![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'wall-door') { if (next.wallDoors!.length >= MAX_WALL_DOORS) return null; index = next.wallDoors!.push({ ...next.wallDoors![i] }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
   const moved = moveItem(next, result, 40, 0)
@@ -1011,9 +1269,14 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'entrance', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.courseDoors ?? []).map((_, index) => ({ kind: 'course-door' as const, index })),
+    ...(level.bulkheads ?? []).map((_, index) => ({ kind: 'bulkhead' as const, index })),
+    ...(level.evaluationBoards ?? []).map((_, index) => ({ kind: 'evaluation-board' as const, index })),
+    ...(level.wallDoors ?? []).map((_, index) => ({ kind: 'wall-door' as const, index })),
     ...(level.environment?.walls ?? []).map((_, index) => ({ kind: 'back-wall' as const, index })),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
+    ...(level.gradeGates ?? []).map((_, index) => ({ kind: 'grade-gate' as const, index })),
     ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),
     ...(level.gravityPlates ?? []).map((_, index) => ({ kind: 'gravity-plate' as const, index })),
     ...(level.wallLights ?? []).map((_, index) => ({ kind: 'wall-light' as const, index })),
@@ -1029,13 +1292,55 @@ export function allSelections(level: JumpLevel): Selection[] {
 }
 
 /** Terrain anchors are stored in local coordinates so they travel with edited terrain. */
-export function anchorRope(level: JumpLevel, index: number, maxDistance = 40): JumpLevel {
-  const next = copyLevel(level), r = next.climbables.ropes[index]
+export function anchorRope(level: JumpLevel, index: number, maxDistance = 40, which: 'start' | 'end' = 'start'): JumpLevel {
+  const next = copyLevel(level), rope = next.climbables.ropes[index], r = which === 'end' ? rope?.end : rope
+  if (!r) return next
   const candidates = next.platforms.map((b, platform) => ({ ...nearestBoundary(b, r.x, r.y), platform })).sort((a, b) => a.distance - b.distance)
   const best = candidates[0]
   if (!best || best.distance > maxDistance) return next
   const b = next.platforms[best.platform]
   r.x = best.x; r.y = best.y; r.anchor = { platform: best.platform, x: r.x - b.x, y: r.y - b.y }
+  fitTiedRope(rope)
+  return next
+}
+/**
+ * Move one anchor of a tied rope, leaving the other where it is. Near a terrain
+ * edge it attaches there; the rope lengthens if the anchors move farther apart.
+ */
+export function moveRopeAnchor(level: JumpLevel, index: number, which: 'start' | 'end', x: number, y: number, attach = 16): JumpLevel {
+  const rope = level.climbables.ropes[index]
+  if (!rope?.end || !Number.isFinite(x) || !Number.isFinite(y)) return level
+  const next = copyLevel(level), moved = next.climbables.ropes[index], point = which === 'end' ? moved.end! : moved
+  point.x = clamp(x, 0, next.width); point.y = clamp(y, 0, levelHeight(next)); delete point.anchor
+  delete moved.rest
+  const placed = attach ? anchorRope(next, index, attach, which) : next
+  fitTiedRope(placed.climbables.ropes[index])
+  return placed
+}
+/** Tie a rope's free end where it now rests, or untie a tied rope's second anchor (and its release). */
+export function setRopeTied(level: JumpLevel, index: number, tied: boolean): JumpLevel {
+  const rope = level.climbables.ropes[index]
+  if (!rope || !!rope.end === tied) return level
+  const next = copyLevel(level), r = next.climbables.ropes[index]
+  if (!tied) {
+    if (r.release) removeSwitchTarget(next, r.release.id)
+    delete r.end; delete r.release; delete r.rest
+    return next
+  }
+  const [x, y] = r.rest?.points.at(-1) ?? [r.x, r.y + r.length]
+  r.end = { x: clamp(x, 0, next.width), y: clamp(y, 0, levelHeight(next)) }
+  delete r.rest
+  const placed = anchorRope(next, index, 16, 'end')
+  fitTiedRope(placed.climbables.ropes[index])
+  return placed
+}
+/** Wire a tied rope to let go of one anchor, or remove the release and its connections. */
+export function setRopeRelease(level: JumpLevel, index: number, anchor: 'start' | 'end' | null): JumpLevel {
+  const rope = level.climbables.ropes[index]
+  if (!rope?.end || (rope.release?.anchor ?? null) === anchor) return level
+  const next = copyLevel(level), r = next.climbables.ropes[index]
+  if (anchor) r.release = { ...r.release, id: r.release?.id ?? newLevelId(), anchor }
+  else { removeSwitchTarget(next, r.release!.id); delete r.release }
   return next
 }
 export function polygonPlatform(points: readonly Vec[], material?: TerrainMaterial): Platform {
@@ -1207,13 +1512,19 @@ function replaceEditedTerrain(level: JumpLevel, index: number, points: readonly 
   const next = replacePlatform(level, index, platform)
   // Handle extents change the bounding box without scaling or moving the solid.
   // Keep attachments at their world positions, then project to the changed edge.
-  for (const [i, source] of level.climbables.ropes.entries()) if (source.anchor?.platform === index) {
-    const rope = next.climbables.ropes[i], edge = nearestBoundary(platform, source.x, source.y)
-    rope.x = edge.x; rope.y = edge.y; rope.anchor = { platform: index, x: edge.x - platform.x, y: edge.y - platform.y }
-    delete rope.rest
+  for (const [i, source] of level.climbables.ropes.entries()) {
+    const rope = next.climbables.ropes[i], points = ropeEnds(rope)
+    for (const [k, end] of ropeEnds(source).entries()) if (end.anchor?.platform === index) {
+      const edge = nearestBoundary(platform, end.x, end.y), point = points[k]
+      point.x = edge.x; point.y = edge.y; point.anchor = { platform: index, x: edge.x - platform.x, y: edge.y - platform.y }
+      fitTiedRope(rope)
+      delete rope.rest
+    }
   }
   for (const [source, marker] of [[level.entrance, next.entrance], ...level.checkpoints.map((p, i) => [p, next.checkpoints[i]]),
-    ...(level.goal && next.goal ? [[level.goal, next.goal]] : [])]) {
+    ...(level.goal && next.goal ? [[level.goal, next.goal]] : []),
+    ...(level.courseDoors ?? []).map((p, i) => [p, next.courseDoors![i]]), ...(level.bulkheads ?? []).map((p, i) => [p, next.bulkheads![i]]),
+    ...(level.wallDoors ?? []).map((p, i) => [p, next.wallDoors![i]])]) {
     const before = level.platforms[index], x = source === level.goal ? (() => { const b = goalBounds(level.goal); return b.x + b.w / 2 })() : source.x
     if (x < before.x || x > before.x + before.w || Math.abs(source.y - platformSurface(before, x).y) >= .1) continue
     marker.x = source.x; marker.y = source.y

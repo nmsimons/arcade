@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRun, createPreviewRun, stepRun, BEST_TIME_KEY } from '../src/games/jumping/challenge.ts'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { AWAKENING_SECONDS, awakeningPower, awakeningProgress, chargingBayOpening, entranceBounds, entranceDoor } from '../src/games/jumping/goal.ts'
+import { AWAKENING_SECONDS, awakeningPower, awakeningProgress, chargingBayOpening, entranceBounds, entranceDoor, goalDoor } from '../src/games/jumping/goal.ts'
 import { awakeningCamera, gameCamera } from '../src/games/jumping/camera.ts'
 import { itemOutline, hitItem } from '../src/games/jumping/editor.ts'
 import { awakeningPose, athletePose } from '../src/games/jumping/athlete.ts'
@@ -12,11 +12,11 @@ import { COMPLETION_KEY, readCompleted, saveCompleted } from '../src/games/jumpi
 import { emptyWorkspace, parseWorkspace } from '../src/accounts/data.ts'
 import { workspaceFiles, filesWorkspace } from '../src/accounts/cloudLayout.ts'
 
-const opening = () => parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/Wake.jump-level.json', import.meta.url), 'utf8')))
+// Wake, the retired pod opening (Orientation replaced it), stays as a fixture:
+// it is the smallest authored charging-bay awakening.
+const opening = () => parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/wake-pod.json', import.meta.url), 'utf8')))
 
-test('Wake starts the built-in collection and uses an authored, valid, untimed night room', () => {
-  const index = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url), 'utf8'))
-  assert.equal(index.levels[0], 'Wake.jump-level.json')
+test('Wake is an authored, valid, untimed night room', () => {
   const level = opening()
   assert.deepEqual(levelProblems(level), [])
   assert.equal(level.timing, 'untimed'); assert.equal(level.entrance.kind, 'charging-bay')
@@ -99,9 +99,10 @@ test('the robot wakes inside the raised pod and can hop down to the room without
 
 test('the opening completes with ordinary running and a held jump; time and medals remain absent', () => {
   for (const move of [1, .5]) {
-    const run = createRun(opening())
+    const run = createRun(opening()), door = goalDoor(run.level.goal)
     for (let frame = 0; frame < 2400 && !run.finished; frame++) {
-      stepRun(run, { ...NEUTRAL_INPUT, move: run.started ? move : 0, jump: run.started && run.player.x > 780 && run.player.x < 1050 })
+      // Up enters the exit once the robot reaches its doorway.
+      stepRun(run, { ...NEUTRAL_INPUT, move: run.started ? move : 0, jump: run.started && run.player.x > 780 && run.player.x < 1050, climb: run.player.x > door.x - 20 })
     }
     assert.equal(run.finished, true)
     assert.equal(run.triggers[0].active, true, 'crossing the switch latches access without stopping')

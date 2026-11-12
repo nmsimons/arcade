@@ -4,11 +4,12 @@ import type { Player } from './model.ts'
 import { lineBlocked } from './geometry.ts'
 import { faceRobotToward, robotSensesPlayer, robotSightObstacles, robotTop, robotTouchesPlayer } from './robotPhysics.ts'
 import { repulsePlayer, REPULSOR_BOT_IMPULSE } from './actorImpulse.ts'
+import { powerOut } from './power.ts'
 
 const chargeTargets = new WeakMap<RobotState, Player>()
 export const shovebotTarget = (robot: RobotState) => chargeTargets.get(robot)
 export const botsAreEnemies = (a: RobotState, b: RobotState) => (a.definition.kind === 'repulsor') !== (b.definition.kind === 'repulsor')
-export const botActive = (run: Run, robot: RobotState) => !robot.deactivated && run.empRemaining === 0 && !run.gadgets.disabled.has(robot)
+export const botActive = (run: Run, robot: RobotState) => !robot.deactivated && !powerOut(run) && !run.gadgets.disabled.has(robot)
 
 function* rivalSightObstacles(world: ContactWorld, observer: RobotState, rival: RobotState) {
   for (const collider of world.colliders) if (collider.robot !== observer && collider.robot !== rival && !collider.playerOnly) yield collider.platform

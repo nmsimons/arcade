@@ -1,4 +1,4 @@
-import { unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
+import { unlockJumpingLevels, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import {readFile,writeFile} from 'node:fs/promises'
 import {test,expect} from './helpers/test.mjs'
@@ -9,18 +9,15 @@ import {ledgeApproachLevel} from '../helpers/jumpingLedgeApproachScenarios.mjs'
 test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
 for (const direction of [-1, 1]) {
-  test(`the first level box catches and pulls up with normal keyboard controls, direction ${direction}`, async ({page}, info) => {
-    const level = JSON.parse(await readFile(new URL('../../public/levels/jumping/LAB1.jump-level.json', import.meta.url), 'utf8'))
+  // Leaps and Bounds I, retired from the built-ins, keeps its lone box as a fixture.
+  test(`the Leaps and Bounds I box catches and pulls up with normal keyboard controls, direction ${direction}`, async ({page}, info) => {
+    const level = JSON.parse(await readFile(new URL('../fixtures/jumping/lab1-first-box.json', import.meta.url), 'utf8'))
     if (direction < 0) level.entrance.x = level.width - level.entrance.x
     await useLevelFixtures(page, [level])
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({width: 852, height: 393})
     await page.clock.install({time: new Date('2026-10-10T12:00:00Z')})
-    await page.goto('/lab?motionDebug=1&renderControl=1')
-    const play = page.getByRole('button', {name: `Play ${level.name}`, exact: true})
-    await expect(play).toBeVisible()
-    await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
-    await play.click(); await finishJumpingEntrance(page)
+    await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-10-10T13:00:00Z') }); await finishJumpingEntrance(page)
     await expect(page.getByRole('img', {name: `${level.name}: reach the exit`, exact: true})).toBeFocused()
     await page.clock.runFor(64)
     const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))

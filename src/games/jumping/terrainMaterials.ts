@@ -1,3 +1,4 @@
+import { layerSkipped } from './measureLayers.ts'
 /** Appearance only. All terrain materials share the same collision and grip. */
 export const TERRAIN_MATERIALS = [
   { id: 'stone', label: 'Stone', color: '#999c9e', ink: '#8d9193', marks: [[12, 10, 8, 1.5], [52, 30, 8, 1.5]] },
@@ -13,7 +14,7 @@ const patterns = new WeakMap<CanvasRenderingContext2D, Map<TerrainMaterial, Canv
 /** Small cached tiles repeat in world space, so joins and camera motion never move the grain. */
 export function terrainFill(ctx: CanvasRenderingContext2D, id: TerrainMaterial = 'stone'): string | CanvasPattern {
   const material = terrainMaterial(id)
-  if (!material.marks.length) return material.color
+  if (!material.marks.length || layerSkipped('terrain-texture')) return material.color
   let cache = patterns.get(ctx)
   if (!cache) { cache = new Map(); patterns.set(ctx, cache) }
   const existing = cache.get(id)

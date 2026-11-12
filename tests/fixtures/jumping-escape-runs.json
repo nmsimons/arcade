@@ -1445,9 +1445,16 @@
           "input": {}
         },
         {
-          "frames": 484,
+          "frames": 380,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]
@@ -1521,9 +1528,16 @@
           }
         },
         {
-          "frames": 420,
+          "frames": 316,
           "input": {
             "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]

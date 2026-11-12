@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { writeFile } from 'node:fs/promises'
 
@@ -9,24 +9,20 @@ async function open(page, level, size) {
   expect(levelProblems(level), 'the camera scenario must be a playable level').toEqual([])
   await useLevelFixtures(page, [level])
   await page.addInitScript(() => {
-    const fill = CanvasRenderingContext2D.prototype.fillRect
-    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed' && this.canvas.matches('.jumping-game > canvas')) {
-        const t = this.getTransform(), rect = this.canvas.getBoundingClientRect(), ratio = this.canvas.width / rect.width
-        const c = { time: performance.now(), x: -t.e / t.a, y: -t.f / t.d, zoom: t.a / ratio }
-        window.cameraFrames ??= []
-        if (window.cameraFrames.at(-1)?.time === c.time) window.cameraFrames[window.cameraFrames.length - 1] = c
-        else window.cameraFrames.push(c)
-      }
-      return fill.apply(this, args)
-    }
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      if (!(canvas instanceof HTMLCanvasElement) || !canvas.matches('.jumping-game > canvas')) return
+      const t = transform, rect = canvas.getBoundingClientRect(), ratio = canvas.width / rect.width
+      const c = { time: performance.now(), x: -t.e / t.a, y: -t.f / t.d, zoom: t.a / ratio }
+      window.cameraFrames ??= []
+      if (window.cameraFrames.at(-1)?.time === c.time) window.cameraFrames[window.cameraFrames.length - 1] = c
+      else window.cameraFrames.push(c)
+    })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(64)
 }
 const read = page => page.evaluate(() => ({ camera: window.cameraFrames.at(-1), frames: window.cameraFrames, motion: window.jumpingMotion.read() }))

@@ -1,12 +1,13 @@
 import type { Run } from './challenge.ts'
 import { repulsePlayer } from './actorImpulse.ts'
 import { robotTouchesPlayer } from './robotPhysics.ts'
+import { powerOut } from './power.ts'
 
 export const CONTACT_EMP_SECONDS = 2
 
 /** Electrical contact suppresses control, never the collision/physics step. */
 export function applyContactEmp(run: Run) {
-  if (run.empRemaining > 0) return
+  if (powerOut(run)) return
   for (const robot of run.robots) {
     if (robot.definition.mode !== 'emp' || robot.deactivated || run.gadgets.disabled.has(robot)) continue
     if (robotTouchesPlayer(robot, run.player)) {

@@ -404,8 +404,14 @@
           }
         },
         {
-          "frames": 193,
+          "frames": 89,
           "input": {}
+        },
+        {
+          "frames": 104,
+          "input": {
+            "climb": true
+          }
         }
       ],
       "elapsed": 15.166666666666446,
@@ -517,8 +523,14 @@
           }
         },
         {
-          "frames": 194,
+          "frames": 90,
           "input": {}
+        },
+        {
+          "frames": 104,
+          "input": {
+            "climb": true
+          }
         }
       ],
       "elapsed": 15.84999999999974,

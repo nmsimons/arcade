@@ -2,17 +2,15 @@ import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold } from './helpers/controller.mjs'
-import { finishJumpingEntrance, restartFromPause, useLevelFixtures, unlockJumpingLevels } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, followLevelLink, openLevelLink, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { installDigitalClockSpy, wallTimeFromHud } from './helpers/digitalClock.mjs'
 import { ropeSlope, slopedLip } from '../helpers/rope-slope.mjs'
-import { daylightInkPalette } from './helpers/jumpingLighting.mjs'
 import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 
 async function setup(page, lesson = 0, levels = CAMPAIGN) {
   await useLevelFixtures(page, levels)
-  if (lesson) await unlockJumpingLevels(page, levels.slice(0, lesson))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installDigitalClockSpy(page)
   await installAthleteHeadObserver(page)
@@ -39,17 +37,12 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
       }
     })
   })
-  await page.goto('/lab?renderControl=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  // Let real worker preparation finish before jumping the virtual clock past
-  // its deadline. A visible card can still have an unprepared thumbnail.
-  await expect.poll(() => page.locator('.jumping-level-card[aria-pressed=true] canvas').evaluate(c => c.width)).toBeGreaterThan(1)
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  if (lesson) await page.getByRole('button', { name: `Level ${lesson + 1}:`, exact: false }).focus()
+  // Fixtures sit outside the campaign, so each lesson opens straight from its link.
+  await openLevelLink(page, { file: `0${lesson}-fixture.json`, query: '?renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') })
 }
 const position = page => page.evaluate(() => window.levelPlayer)
 async function enter(page) {
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await finishJumpingEntrance(page)
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.clock.runFor(64)
 }
@@ -64,14 +57,7 @@ async function finishFirst(page) {
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
 }
 
-test('the new level menu presents a readable progression', async ({ page }, info) => {
-  await setup(page); await page.screenshot({ path: info.outputPath('campaign-menu.png') })
-  await expect(page.getByRole('button', { name: 'Level 1: First Leap' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('img', { name: 'Level 3: Locked' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Level 3: Hand Over Hand' })).toHaveCount(0)
-  await expect(page.locator('.jumping-medal-times')).toHaveCount(0)
-})
-test('the trial activates, pauses, restarts, completes, saves a best and advances to the next lesson', async ({ page }, info) => {
+test('the trial activates, pauses, restarts, completes, saves a best and opens the next lesson', async ({ page }, info) => {
   // Advancing the virtual clock still renders every frame on the CI runner.
   test.setTimeout(60000)
   await setup(page); await enter(page)
@@ -107,8 +93,9 @@ test('the trial activates, pauses, restarts, completes, saves a best and advance
   const preparation = new Promise(resolve => { releasePreparation = resolve })
   const delayPreparation = async route => { await preparation; await route.continue() }
   await page.route('**/ropeLayout.worker*', delayPreparation)
-  await page.getByRole('button', { name: 'Next level' }).click()
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toBeVisible()
+  await followLevelLink(page, '01-fixture.json', '?renderControl=1')
+  const preparing = page.locator('.jumping-game[aria-busy="true"]')
+  await expect.poll(async () => { await page.clock.runFor(16); return preparing.count() }).toBe(1)
   await page.clock.runFor(100)
   releasePreparation()
   await expect(page.getByRole('img', { name: 'A Little Swing: reach the exit' })).toBeFocused()
@@ -120,7 +107,6 @@ test('the trial activates, pauses, restarts, completes, saves a best and advance
   expect(Number((await page.getByTestId('level-time').innerText()).slice(2))).toBeLessThan(.3)
   await page.clock.resume(); await page.reload()
   await expect(page.getByRole('img', { name: 'A Little Swing: reach the exit' })).toBeFocused()
-  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['first-leap'])).toBe(record)
 })
 for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${lesson} rope${lesson > 1 ? 's' : ''} using the keyboard`, async ({ page }, info) => {
@@ -251,7 +237,7 @@ test('the simple level view remains usable on a narrow screen', async ({ page },
   await expect(page.getByRole('region', { name: 'How to play' })).toHaveCount(0)
   const pauseBounds = await page.locator('.jumping-dialog-panel').boundingBox()
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Press to jump')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Jump higherHold Space')
   expect(await page.locator('.jumping-dialog-panel').boundingBox()).toEqual(pauseBounds)
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeFocused()
   await page.screenshot({ path: info.outputPath('pause-controls-mobile.png') })
@@ -360,9 +346,9 @@ test('a separate Switch plate opens a hidden black door; entering stops the time
   expect(wallTimes[0]).not.toBe(wallTimeFromHud(time, level.times.d))
   expect(await page.evaluate(() => localStorage.getItem('arcade.jumping.times.v1'))).toBeNull()
   await page.screenshot({ path: info.outputPath('hidden-door-open.png') })
-  await page.keyboard.down('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w')
   for (let i = 0; i < 100 && await page.locator('.jumping-state').innerText() !== 'Entering the exit'; i++) await page.clock.runFor(16)
-  await page.keyboard.up('d'); await page.clock.runFor(160)
+  await page.keyboard.up('d'); await page.keyboard.up('w'); await page.clock.runFor(160)
   const finishTime = await page.getByTestId('level-time').innerText()
   expect(finishTime).not.toBe(runningTime)
   expect(await page.getByRole('img', { name: 'Untitled level: reach the exit' }).evaluate(c => c.digitalClocks.map(clock => clock.value)))
@@ -471,56 +457,6 @@ test('a pointed ramp with an inward-slanting face supports a jump, hang, and pul
   expect((await position(page)).x).toBeCloseTo(480); expect((await position(page)).y).toBeCloseTo(480 + 20 * 100 / 180)
   await page.screenshot({ path: info.outputPath('pointed-ramp-climbed.png') })
 })
-
-test('objects occlude collectibles, wall timers and text in thumbnails and gameplay', async ({ page }, info) => {
-  const level = blankTrial(); level.name = 'Wall layers'; level.width = 1280; level.height = level.floor = 620
-  level.entrance = { x: 80, y: 620 }; level.goal = { x: 1120, y: 620 }
-  const kinds = ['coin', 'stopwatch', 'fast-stopwatch', 'time-bonus', 'time-penalty', 'emp']
-  level.pickups = kinds.map((kind, i) => ({ kind, x: 200 + i * 160, y: 560,
-    ...(['time-bonus', 'time-penalty'].includes(kind) ? { seconds: 5 } : {}) }))
-  level.props = kinds.map((_, i) => ({ kind: i % 2 ? 'box' : 'ball', x: 200 + i * 160, y: 620, size: 120 }))
-  level.props.push({ kind: 'box', x: 430, y: 350, size: 200 }, { kind: 'box', x: 800, y: 350, size: 200 })
-  level.platforms = [{ x: 310, y: 350, w: 240, h: 20 }, { x: 680, y: 350, w: 240, h: 20 }]
-  level.timers = [{ x: 330, y: 220 }]
-  level.texts = [{ x: 715, y: 225, w: 150, h: 60, text: 'BEHIND', fontSize: 24, align: 'left' }]
-  expect(levelProblems(level)).toEqual([])
-  const regions = [...level.pickups.map(p => ({ x: p.x - 24, y: p.y - 32, w: 48, h: 60 })),
-    { x: 330, y: 220, w: 200, h: 60 }, { x: 715, y: 225, w: 150, h: 60 }]
-  const exposed = level.pickups.map(p => ({ ...p, y: 430 }))
-  level.pickups.push(...exposed)
-  const exposedRegions = exposed.map(p => ({ x: p.x - 24, y: p.y - 32, w: 48, h: 60 }))
-  const wallInk = daylightInkPalette(['ba8542', 'dfb44f', 'ac7b35', '94433f', '718074', 'e2e7da', '40574a'])
-  const objectInk = daylightInkPalette(['8f9e98', '667b72', 'b3a28d', '938777'])
-  const visibleInk = (canvas, areas = regions) => canvas.evaluate((c, { regions, wallInk, objectInk }) => {
-    const ctx = c.getContext('2d'), m = c.levelCamera
-    const wall = new Set(wallInk), objects = new Set(objectInk)
-    return regions.map(r => {
-      const x = Math.ceil(r.x * m.a + m.e), y = Math.ceil(r.y * m.d + m.f)
-      const data = ctx.getImageData(x, y, Math.floor(r.w * m.a), Math.floor(r.h * m.d)).data
-      let leaked = 0, object = 0
-      for (let i = 0; i < data.length; i += 4) {
-        const color = [data[i], data[i + 1], data[i + 2]].map(v => v.toString(16).padStart(2, '0')).join('')
-        if (wall.has(color)) leaked++
-        if (objects.has(color)) object++
-      }
-      return { leaked, object }
-    })
-  }, { regions: areas, wallInk, objectInk })
-  const check = async canvas => {
-    const samples = await visibleInk(canvas)
-    for (const sample of samples) { expect(sample.leaked).toBe(0); expect(sample.object).toBeGreaterThan(0) }
-  }
-  await setup(page, 0, [level])
-  const thumbnail = page.locator('.jumping-level-card[aria-pressed=true] canvas')
-  await check(thumbnail)
-  await enter(page)
-  await check(page.locator('canvas[role="img"]'))
-  for (const sample of await visibleInk(page.locator('canvas[role="img"]'), exposedRegions)) {
-    expect(sample.leaked, 'each uncovered collectible is still drawn').toBeGreaterThan(0)
-  }
-  await page.screenshot({ path: info.outputPath('wall-items-behind-objects.png') })
-})
-
 test('the first staircase approach and a restart keep the rendered leg outside the second step', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Staircase clearance'; level.width = 1200; level.height = level.floor = 620
   level.entrance = { x: 268, y: 620 }; level.goal = { x: 1040, y: 620 }

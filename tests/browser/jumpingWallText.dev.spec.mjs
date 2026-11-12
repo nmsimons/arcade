@@ -55,5 +55,5 @@ test('both wall-text styles keep their ink position, blank lines and clipping ac
     expect(crop[0].bottom).toBeLessThan((y + clippedHeight) * scale)
     expect(crop[0].bottom).toBeLessThan(full[0].bottom)
   }
-  await page.locator('canvas').screenshot({ path: info.outputPath('wall-text-position.png') })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath('wall-text-position.png') })
 })

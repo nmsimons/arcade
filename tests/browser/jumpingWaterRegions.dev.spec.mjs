@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: water crosses sky and cave boundaries without a color seam`, async ({ page }, info) => {
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result = await page.evaluate(async backend => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createPreviewRun, setWaterEffectsEnabled } = await import('/src/games/jumping/challenge.ts')
@@ -52,5 +52,5 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: water crosses sky and
   expect(Math.abs(result.halfEdges.dry[0][0]-result.halfEdges.dry[1][0])).toBeGreaterThan(20)
   expect(Math.abs(result.halfEdges.wet[0][0]-result.halfEdges.wet[1][0])).toBeLessThanOrEqual(3)
   expect(result.indoor.day[0]).toBeGreaterThan(result.day.day[0]+20)
-  await page.locator('canvas').screenshot({path:info.outputPath(`water-region-transition-${backend}.png`)})
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({path:info.outputPath(`water-region-transition-${backend}.png`)})
 })

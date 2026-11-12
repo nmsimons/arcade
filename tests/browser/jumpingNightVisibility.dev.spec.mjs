@@ -55,7 +55,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: fixed night ambient r
     h.renderer.dispose(); document.body.replaceChildren(sheet)
     return { samples, dayGraffiti, dayDifference: h.difference(day, dayLegacy), unchanged: JSON.stringify(h.run.level) === before }
   }, backend)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-night-visibility.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`${backend}-night-visibility.png`) })
   expect(result.unchanged).toBe(true); expect(result.dayDifference).toBe(0)
   for (const color of result.dayGraffiti) expect(color).toEqual([148, 67, 63])
   for (const sample of result.samples) {

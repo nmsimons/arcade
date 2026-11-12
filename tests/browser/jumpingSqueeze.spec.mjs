@@ -1,6 +1,6 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { bodyPolygon, polygonIntersects } from '../../src/games/jumping/geometry.ts'
 import { smallPropGap, observeGapHead } from './helpers/jumpingSqueeze.mjs'
@@ -14,10 +14,7 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await observeGapHead(page)
-  await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Small prop gap: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await advanceJumpingPassiveWait(page, 2000)
@@ -85,10 +82,7 @@ test('a shovebot cannot squeeze the player inside two balls, and jumping remains
       }
     })
   })
-  await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Ball squeeze: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   // A short movement input starts the run; the rest of the squeeze is passive.

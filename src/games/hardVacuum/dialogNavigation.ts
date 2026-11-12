@@ -7,7 +7,8 @@ export const isDialogControl = (element: Element | null): element is DialogContr
   element instanceof HTMLElement && element.matches(DIALOG_CONTROL_SELECTOR)
 
 export function isVisibleControl(element: HTMLElement) {
-  return !element.closest('[hidden], [inert]') && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
+  // A closed disclosure keeps its contents laid out but unfocusable: moving there would strand the selection.
+  return !element.closest('[hidden], [inert], details:not([open]) > :not(summary)') && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
 }
 export const dialogButtons = (root: HTMLElement) => [...root.querySelectorAll<DialogControl>(DIALOG_CONTROL_SELECTOR)]
   .filter(button => !('disabled' in button && button.disabled) && button.getAttribute('aria-disabled') !== 'true' && isVisibleControl(button) && button.closest('.game-dialog') === root)

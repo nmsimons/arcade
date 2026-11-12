@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { slideLevel } from '../helpers/jumping-slide.mjs'
 import { pointInside } from '../../src/games/jumping/geometry.ts'
 
@@ -8,10 +8,7 @@ async function open(page, level) {
   await page.setViewportSize({ width: 390, height: 844 })
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-10-08T12:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-10-08T13:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-10-08T13:00:00Z') }); await finishJumpingEntrance(page)
   await expect(page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })).toBeFocused()
   await page.clock.runFor(64)
   await page.keyboard.down('w'); await page.clock.runFor(16); await page.keyboard.up('w')

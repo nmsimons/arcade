@@ -2,20 +2,22 @@ import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, installBuiltInFixtures, useLevelFixtures, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
 
-const wake = JSON.parse(readFileSync(new URL('../../public/levels/jumping/Wake.jump-level.json', import.meta.url), 'utf8'))
-const next = JSON.parse(readFileSync(new URL('../../public/levels/jumping/LAB1.jump-level.json', import.meta.url), 'utf8'))
+// Wake, the retired pod opening (Orientation replaced it), and the level that
+// followed it stay as fixtures.
+const wake = JSON.parse(readFileSync(new URL('../fixtures/jumping/wake-pod.json', import.meta.url), 'utf8'))
+const next = JSON.parse(readFileSync(new URL('../fixtures/jumping/lab1-first-box.json', import.meta.url), 'utf8'))
 
 test('Wake preserves its full-speed running stride after keyboard walking', async ({ page }, info) => {
   test.setTimeout(90_000)
   await page.setViewportSize({ width: 960, height: 600 })
   await useLevelFixtures(page, [wake])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   const play = page.getByRole('button', { name: 'Play Wake', exact: true })
   await expect(play).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await play.click()
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await page.clock.runFor(160)
   await expect(page.locator('.jumping-state')).toHaveText('Waking up')
   await finishJumpingEntrance(page)
@@ -48,12 +50,12 @@ test('Wake pauses and restarts its awakening, completes with normal keys, and re
   await page.setViewportSize({ width: 960, height: 600 })
   await useLevelFixtures(page, [wake, next])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   const card = page.getByRole('button', { name: 'Level 1: Wake', exact: true })
-  await expect.poll(() => card.locator('canvas').evaluate(c => c.width)).toBeGreaterThan(1)
+  await expect.poll(() => card.locator('canvas:not(.jumping-webgl-canvas)').evaluate(c => c.width)).toBeGreaterThan(1)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await card.click()
-  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await expect(page.locator('.jumping-game[aria-busy="true"]')).toHaveCount(0)
   await page.clock.runFor(160)
   await expect(page.locator('.jumping-state')).toHaveText('Waking up')
   await page.keyboard.press('Escape')
@@ -85,7 +87,7 @@ test('Wake pauses and restarts its awakening, completes with normal keys, and re
   await page.clock.runFor(1030)
   await page.clock.runFor(900)
   await page.screenshot({ path: info.outputPath('wake-energized.png') })
-  await page.clock.runFor(3900); await page.keyboard.up('ArrowRight')
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(3900); await page.keyboard.up('ArrowRight'); await page.keyboard.up('ArrowUp')
   await expect(page.getByRole('dialog', { name: 'Level complete', exact: true })).toBeVisible()
   await expect(page.locator('.jumping-result-targets')).toHaveCount(0)
   await expect(page.locator('.jumping-result-time')).toHaveCount(0)
@@ -105,7 +107,7 @@ test('charging bay, untimed mode, and optional conduit edit, undo, save and reop
   // software Chromium on slower desktops needs more than a minute for it.
   test.setTimeout(120000)
   await useLevelFixtures(page, [wake]); await installBuiltInFixtures(page, { 'Wake.json': wake })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open Wake.json', exact: true }).click()

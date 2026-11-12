@@ -1,4 +1,4 @@
-import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, openLevelLink } from './helpers/jumpingLevels.mjs'
 import {test,expect} from './helpers/test.mjs'
 import {useLevelFixtures} from './helpers/jumpingLevels.mjs'
 import {blankTrial,levelProblems} from '../../src/games/jumping/level.ts'
@@ -7,11 +7,8 @@ async function start(page,level) {
   expect(levelProblems(level)).toEqual([])
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
-  await expect(page.locator('canvas')).toBeFocused()
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
+  await expect(page.locator('canvas:not(.jumping-webgl-canvas)')).toBeFocused()
   await page.clock.runFor(120)
 }
 const lipLevel=()=>({...blankTrial(),height:600,floor:500,entrance:{x:530,y:300},goal:{x:900,y:500},platforms:[{x:500,y:300,w:200,h:200}]})
@@ -90,8 +87,9 @@ test('keyboard water feedback matches floor crouching, standing and swimming up 
   await page.getByRole('button',{name:'Controls',exact:true}).click()
   const instructions=page.getByRole('region',{name:'How to play'})
   expect(await instructions.evaluate(section=>section.scrollTop)).toBe(0)
-  await expect(instructions).toContainText('upright float at your reached depth underwater')
-  await expect(instructions).toContainText('release, then press again to leave')
+  await expect(instructions).toContainText('Best with a controller.')
+  await expect(instructions.getByRole('heading', { level: 3 })).toHaveText(['Move', 'Jump', 'Climb', 'Swim', 'Tools'])
+  await expect(instructions).toContainText('Hang from an edgeS / ↓ at the edge')
   await page.screenshot({path:info.outputPath('controls-open-at-first-binding.png')})
   await page.keyboard.press('PageDown');await page.clock.runFor(32)
   expect(await instructions.evaluate(section=>section.scrollTop)).toBeGreaterThan(0)

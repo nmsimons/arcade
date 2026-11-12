@@ -13,6 +13,7 @@ import { LIGHT_RADIUS } from './lightingDefinition.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
+import { powerOut } from './power.ts'
 
 export interface WallWire { source: Selection; target: string; points: Vec[] }
 export const DEFAULT_WIRE_HEIGHT = 160
@@ -22,6 +23,7 @@ export interface WallWireState {
   floatSwitches: readonly { active: boolean }[]
   switchStates: ReadonlyMap<string, boolean>
   empRemaining: number
+  failed?: boolean
 }
 const TERMINAL_GAP = 18, TERMINAL_RADIUS = 3.5
 function fixtureBounds(level: JumpLevel, item: Selection) {
@@ -30,6 +32,11 @@ function fixtureBounds(level: JumpLevel, item: Selection) {
   if (item.kind === 'trigger') {
     const plate = level.triggers![item.index]
     return plate.mode === 'coins' ? coinSwitchBounds(plate) : { x: plate.x, y: plate.y - (plate.ceiling ? 0 : 8), w: plate.w, h: 8 }
+  }
+  if (item.kind === 'rope') {
+    // A rope's wire runs to the anchor it releases.
+    const rope = level.climbables.ropes[item.index], anchor = rope.release?.anchor === 'end' && rope.end ? rope.end : rope
+    return round(anchor.x, anchor.y, 5)
   }
   const d = itemDefinition(level, item) as { x: number; y: number; w?: number; h?: number }
   if (item.kind === 'light') return round(d.x, d.y, LIGHT_RADIUS)
@@ -63,8 +70,9 @@ function terminal(level: JumpLevel, item: Selection, lane: number, approachX?: n
 export function wallWires(level: JumpLevel): WallWire[] {
   const height = level.floor ?? level.height ?? 1020, targets = new Map(switchedItems(level).map(item => [item.id, item]))
   const clampY = (y: number) => Math.max(4, Math.min(height - 4, y))
+  // Level doors, bulkheads and grade averages have no wall terminal: their wiring is studio-only.
   return switchSources(level).flatMap(source => {
-    if (!source.definition.showWires) return []
+    if (source.kind === 'course-door' || source.kind === 'bulkhead' || source.kind === 'grade-gate' || !source.definition.showWires) return []
     const lane = clampY(height - (source.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT))
     const start = terminal(level, source, lane)
     return switchTargets(source.definition).flatMap(id => {
@@ -108,7 +116,7 @@ function initialState(level: JumpLevel): WallWireState {
 }
 /** A wire carries its source's output, before the destination combines inputs. */
 export function wallWireEnergized(level: JumpLevel, wire: WallWire, state: WallWireState): boolean {
-  if (state.empRemaining > 0) return false
+  if (powerOut(state)) return false
   if (wire.source.kind === 'trigger') return !!state.triggers[wire.source.index]?.active
   if (wire.source.kind === 'float-switch') return !!state.floatSwitches[wire.source.index]?.active
   const definition = itemDefinition(level, wire.source) as { id?: string }

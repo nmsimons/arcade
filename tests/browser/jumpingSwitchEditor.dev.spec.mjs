@@ -6,7 +6,7 @@ async function openSwitches(page) {
   const level = readLevelAsset('switch-modes.json')
   level.triggers[0].w = 100
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'switches.json': level })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open switches.json', exact: true }).click()
@@ -205,7 +205,7 @@ test('logic, reversal, opt-in relays and plate mounts save, undo, reopen and fla
 test('plate modes, exit wiring and always-on mechanisms save, undo and reopen in the studio', async ({ page }, info) => {
   const level = readLevelAsset('switch-modes.json')
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'switches.json': level })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open switches.json', exact: true }).click()

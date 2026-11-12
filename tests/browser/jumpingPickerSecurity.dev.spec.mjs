@@ -29,10 +29,10 @@ async function trackWorkers(page) {
 test('complex imported geometry cannot block the picker and preparation can be cancelled', async ({ page }) => {
   await useLevelFixtures(page, [slow, FIRST_LEVEL]); await trackWorkers(page)
   await unlockJumpingLevels(page, [slow, FIRST_LEVEL])
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const card = page.getByRole('button', { name: 'Level 1: Complex rope', exact: true })
   await expect(card).toBeVisible()
-  await expect.poll(() => card.locator('canvas').evaluate(canvas => canvas.width)).toBeGreaterThan(1)
+  await expect.poll(() => card.locator('canvas:not(.jumping-webgl-canvas)').evaluate(canvas => canvas.width)).toBeGreaterThan(1)
   expect(await page.evaluate(() => window.levelWorkers)).toEqual([])
   await card.click()
   await expect(page.getByRole('dialog', { name: 'Preparing level' })).toBeVisible()
@@ -49,7 +49,7 @@ test('complex imported geometry cannot block the picker and preparation can be c
 test('a stalled level times out cleanly and leaves other levels playable', async ({ page }) => {
   await useLevelFixtures(page, [slow, FIRST_LEVEL]); await trackWorkers(page)
   await unlockJumpingLevels(page, [slow, FIRST_LEVEL])
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level 1: Complex rope', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Preparing level' })).toBeVisible()
   await expect(page.locator('.jumping-route-notice')).toContainText('took too long', { timeout: 10_000 })
@@ -62,8 +62,8 @@ test('offscreen thumbnails allocate pixels only when scrolled into view', async 
   const levels = Array.from({ length: 40 }, (_, i) => ({ ...FIRST_LEVEL, id: `level-${i}`, name: `Level ${i}` }))
   await useLevelFixtures(page, levels)
   await unlockJumpingLevels(page, levels)
-  await page.goto('/lab')
-  const first = page.locator('.jumping-level-card .level-thumbnail').first(), last = page.locator('.jumping-level-card .level-thumbnail').last()
+  await page.goto('/lab/library')
+  const thumbnails = page.locator('.jumping-level-browser .jumping-level-card .level-thumbnail'), first = thumbnails.first(), last = thumbnails.last()
   await expect.poll(() => first.evaluate(canvas => canvas.width)).toBeGreaterThan(1)
   await expect.poll(() => last.evaluate(canvas => canvas.width)).toBe(1)
   await last.scrollIntoViewIfNeeded()
@@ -73,7 +73,7 @@ test('offscreen thumbnails allocate pixels only when scrolled into view', async 
 
 test('Back during preparation cancels it and Forward prepares the requested level again', async ({ page }) => {
   await useLevelFixtures(page, [slow]); await trackWorkers(page)
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const card = page.getByRole('button', { name: 'Level 1: Complex rope', exact: true })
   await card.click()
   await expect(page.getByRole('dialog', { name: 'Preparing level' })).toBeVisible()

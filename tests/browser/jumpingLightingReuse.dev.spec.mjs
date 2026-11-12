@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 for(const backend of ['canvas','gpu'])test(`${backend}: foreground reuse and empty-pass pruning preserve water, fades and charging-bay lighting`,async({page},info)=>{
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result=await page.evaluate(async backend=>{
     const {blankTrial}=await import('/src/games/jumping/level.ts')
     const {createPreviewRun}=await import('/src/games/jumping/challenge.ts')
@@ -46,11 +46,11 @@ for(const backend of ['canvas','gpu'])test(`${backend}: foreground reuse and emp
   for(const frame of result){expect(frame.max,JSON.stringify(frame)).toBeLessThanOrEqual(3);expect(frame.mean).toBeLessThan(.03);expect(frame.large).toBeLessThan(.0001);expect(frame.skipped).toBe(!frame.charging)}
   expect(result.some(frame=>frame.reused)).toBe(true)
   expect(result.find(frame=>frame.frame===8).reused).toBe(false)
-  await page.locator('canvas').last().screenshot({path:info.outputPath(`retained-foreground-${backend}.png`)})
+  await page.locator('canvas:not(.jumping-webgl-canvas)').last().screenshot({path:info.outputPath(`retained-foreground-${backend}.png`)})
 })
 
 test('regional high DPI stays on GPU, and an oversized direct viewport can recover after resizing',async({page})=>{
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   const result=await page.evaluate(async()=>{
     const {blankTrial}=await import('/src/games/jumping/level.ts')
     const {createPreviewRun}=await import('/src/games/jumping/challenge.ts')

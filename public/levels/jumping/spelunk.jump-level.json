@@ -1341,7 +1341,10 @@
     "y": 2020,
     "flipX": true,
     "id": "7c314bf7-c34b-4898-8c6a-6b9b02cabecd",
-    "power": "switched"
+    "power": "switched",
+    "leadsTo": {
+      "level": "b42dcd81-427a-4c2b-9c9b-a231874bef5b"
+    }
   },
   "times": {
     "a": 60,

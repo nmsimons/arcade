@@ -12,7 +12,7 @@ import { advanceCharacterAnimation, setAnimationCadence } from '../src/games/jum
 // step, sampled at the same frames, would show. (Physics is the same in both;
 // the golden traces check that.) The ordinary pose tests animate every step.
 const medals = JSON.parse(readFileSync(new URL('./fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
-const ROUTES = ['LAB1.jump-level.json', '03.json', 'Coins.jump-level.json', 'Lock Out 2.jump-level.json', 'Drain.json']
+const ROUTES = ['Boxes.jump-level.json', '03.json', 'Coins.jump-level.json', 'Lock Out 2.jump-level.json', 'Drain.json']
 const points = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
   ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.joint, limb.end])]
 const local = (p, pose) => points(pose).map(([x, y]) => [x * p.facing, y])
@@ -60,7 +60,7 @@ test('frame cadence animates only when a drawn frame asks, and resumes from rest
   setAnimationCadence(p, 'frame')
   assert.equal(p.anim.stride, 0, 'stale animation is reset when it resumes')
   assert.equal(p.anim.cadence, 'frame')
-  const run = createRun(parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/LAB1.jump-level.json', import.meta.url), 'utf8'))))
+  const run = createRun(parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/lab1-first-box.json', import.meta.url), 'utf8'))))
   setAnimationCadence(run.player, 'off')
   for (let i = 0; i < 120; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
   assert.equal(run.player.anim.pending ?? null, null, 'an unanimated player records nothing')

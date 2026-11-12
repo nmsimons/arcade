@@ -1,17 +1,22 @@
 import { LAB_PATH } from '../../branding/lab.ts'
 
-export const JUMPING_MENU = LAB_PATH
-export const JUMPING_BUILDER = `${JUMPING_MENU}/builder`
+/** L.A.B.'s address opens the start screen, over the place the robot wakes in. */
+export const JUMPING_START = LAB_PATH
+export const JUMPING_BUILDER = `${JUMPING_START}/builder`
 export const JUMPING_BUILTIN_BUILDER = `${JUMPING_BUILDER}/built-in`
 export const JUMPING_PLAYTEST = `${JUMPING_BUILDER}/playtest`
+/** The level grid, kept as a development library of every level beside the studio and stress tests. */
+export const JUMPING_LIBRARY = `${JUMPING_START}/library`
+/** The facility in play: the building the robot explores, with a door for each course. */
+export const JUMPING_FACILITY = `${JUMPING_START}/facility`
 export type LevelSource = 'built-in'
 type FileRoute = { source: LevelSource; fileName: string }
-export type JumpingRoute = { screen: 'menu' } | { screen: 'missing' } | { screen: 'playtest'; file?: FileRoute; draftId?: string }
+export type JumpingRoute = { screen: 'start' } | { screen: 'menu' } | { screen: 'missing' } | { screen: 'facility' } | { screen: 'playtest'; file?: FileRoute; draftId?: string }
   | { screen: 'builder'; file?: FileRoute; source?: LevelSource }
   | ({ screen: 'level' } & FileRoute)
 
 export function levelPath(source: LevelSource, fileName: string, edit = false) {
-  return `${edit ? JUMPING_BUILDER : `${JUMPING_MENU}/levels`}/${source}/${encodeURIComponent(fileName)}`
+  return `${edit ? JUMPING_BUILDER : `${JUMPING_START}/levels`}/${source}/${encodeURIComponent(fileName)}`
 }
 export function playtestPath(builderPath: string, levelId: string) {
   const route = jumpingRoute(builderPath)
@@ -20,12 +25,14 @@ export function playtestPath(builderPath: string, levelId: string) {
 
 export function jumpingRoute(pathname: string): JumpingRoute {
   const path = pathname.replace(/\/$/, '')
-  if (path === JUMPING_MENU) return { screen: 'menu' }
+  if (path === JUMPING_START) return { screen: 'start' }
+  if (path === JUMPING_FACILITY) return { screen: 'facility' }
+  if (path === JUMPING_LIBRARY) return { screen: 'menu' }
   if (path === JUMPING_BUILDER) return { screen: 'builder' }
   if (path === JUMPING_BUILTIN_BUILDER) return { screen: 'builder', source: 'built-in' }
   if (path === JUMPING_PLAYTEST) return { screen: 'playtest' }
-  if (!path.startsWith(`${JUMPING_MENU}/`)) return { screen: 'missing' }
-  const tail = path.slice(JUMPING_MENU.length)
+  if (!path.startsWith(`${JUMPING_START}/`)) return { screen: 'missing' }
+  const tail = path.slice(JUMPING_START.length)
   const draft = tail.match(/^\/builder\/playtest\/([^/]+)$/)
   if (draft) {
     try {

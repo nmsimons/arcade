@@ -1,6 +1,6 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 
 for (const gap of [24, 18]) test(`a pull-up beside a box uses available space (${gap}-unit gap)`, async ({ page }, info) => {
@@ -13,11 +13,10 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.climbCamera = this.getTransform().inverse()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.climbCamera = transform.inverse()
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, head: args } }) => {
       if (canvas.climbCamera) {
         const transform = canvas.climbCamera.multiply(body)
@@ -28,10 +27,7 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
       }
     })
   })
-  await page.goto('/lab')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Resisted pull-up: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await page.keyboard.down('Space'); await page.clock.runFor(64); await page.keyboard.up('Space')
@@ -77,11 +73,10 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.ledgeCamera = this.getTransform().inverse()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.ledgeCamera = transform.inverse()
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
       if (canvas.ledgeCamera) {
         const transform = canvas.ledgeCamera.multiply(body)
@@ -89,10 +84,7 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
       }
     })
   })
-  await page.goto('/lab')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Narrow ledge: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await page.keyboard.down('Space'); await page.clock.runFor(100); await page.keyboard.up('Space')

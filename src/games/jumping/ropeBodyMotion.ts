@@ -7,6 +7,7 @@ export interface RopeBodyMotion {
 }
 const clamp = (n: number, limit: number) => Math.max(-limit, Math.min(limit, n))
 const smooth = (n: number) => { const t = Math.max(0, Math.min(1, n)); return t * t * (3 - 2 * t) }
+const lerpNumber = (a: number, b: number, t: number) => a + (b - a) * t
 
 /** Two damped followers respond to acceleration at the same material grip.
  * They never feed forces or presentation velocity back into the rope. */
@@ -37,7 +38,7 @@ export function stepRopeBodyMotion(c: Climbing, gripVx: number, gripVy: number, 
 
 /** Pumping and passive follow-through share fixed-length spine segments.
  * During a gravity turn the pelvis curls ahead of the trailing, gathered feet. */
-export function ropePump(c: Climbing, turnAngle = c.turn?.angle ?? 0, facing = 1) {
+export function ropePump(c: Climbing, turnAngle = c.turn?.angle ?? 0, facing = 1, longLegs = true) {
   const direction = Math.sign(c.lean), turn = smooth(Math.abs(c.lean) / .65)
   const gather = Math.abs(c.lean) * (1 - Math.max(0, Math.min(1, c.lean * c.swingVelocity)))
   const passive = (c.bodyMotion?.angle ?? 0) * (1 - turn * .7), legs = c.bodyMotion?.legs ?? 0
@@ -48,14 +49,45 @@ export function ropePump(c: Climbing, turnAngle = c.turn?.angle ?? 0, facing = 1
   const waist: Point = [Math.sin(chestAngle) * 10.1, Math.cos(chestAngle) * 10.1]
   const hip: Point = [waist[0] + Math.sin(hipAngle) * 6.5, waist[1] + Math.cos(hipAngle) * 6.5]
   const trail = Math.sin(legs) * 24 + curl * 10
-  const frontFoot: Point = [c.lean * (16 + gather * 8) + trail - facing * 2 * (1 - turn),
-    27.5 - turn * 3.5 - gather * 16.5 - tuck * 13 - slack * 3]
-  const backFoot: Point = [c.lean * (9 + gather * 8) + trail * .8 + facing * 2 * (1 - turn),
-    26 - turn * 2.5 - gather * 14 - tuck * 16 - slack * 4]
+  // Pumping, the legs stay long: toward the facing they pike forward, the other way the body arches with the
+  // legs swept back, instead of tucking into a seat.
+  // Wall contact still reads the tucked legs (longLegs false), so a swing's long legs don't brace any sooner.
+  const pike = (foot: Point): Point => {
+    // Leaning into a swing at all, the legs stay long, at both ends of the swing as well as mid-pump.
+    const length = Math.hypot(foot[0], foot[1]) || 1, reach = 30.6 - slack, weight = longLegs ? Math.min(1, Math.max(gather * 3, turn * 1.5, Math.abs(c.swingVelocity) * 2)) : 0
+    return length < reach ? [foot[0] * lerpNumber(1, reach / length, weight), foot[1] * lerpNumber(1, reach / length, weight)] : foot
+  }
+  const frontFoot: Point = pike([c.lean * (16 + gather * 8) + trail - facing * 2 * (1 - turn),
+    27.5 - turn * 3.5 - gather * (longLegs ? 9 : 16.5) - tuck * 13 - slack * 3])
+  const backFoot: Point = pike([c.lean * (9 + gather * 8) + trail * .8 + facing * 2 * (1 - turn),
+    26 - turn * 2.5 - gather * (longLegs ? 7 : 14) - tuck * 16 - slack * 4])
   return { waist, hip, frontFoot, backFoot, curl }
 }
 
-export const ropeArmReach = (c: Climbing) => 17.6 + .7 * (c.bodyMotion?.weight ?? 1) + .5 * smooth(Math.abs(c.lean) / .65)
+/**
+ * How far below the grip the chest hangs. At rest the arms are nearly straight
+ * overhead, the elbows a little flexed. Traveling a level rope, the chest stays 20 below it, the head clear
+ * under the rope, so the hands can reach ahead and behind. Climbing a
+ * steep rope it rides up to 8.5 below the grip, beside the rope, so a hand
+ * reaches from full stretch overhead down to the chest.
+ */
+export function ropeArmReach(c: Climbing) {
+  // A loaded hang keeps a little flex in the elbows; as the rope drops away and the load eases, they soften.
+  const rest = 17.6 + .7 * (c.bodyMotion?.weight ?? 1) + .5 * smooth(Math.abs(c.lean) / .65)
+  const traveling = 20 - 11.5 * (c.ropeVertical ?? 1)
+  return rest + (traveling - rest) * smooth(c.shimmyBlend ?? 0)
+}
+/**
+ * Traveling hand over hand, the body is drawn just behind the rope, so the
+ * robot faces the rope it holds. Turning around carries it smoothly to the
+ * other side. It is presentation only; collision keeps the body on the rope.
+ */
+export function stepRopeSetback(c: Climbing, facing: number, dt: number) {
+  // Climbing a steep rope, the head stays clear behind it; a level rope passes overhead.
+  const setback = 5 + 5 * (c.ropeVertical ?? 1)
+  const target = -facing * setback * smooth(c.shimmyBlend ?? 0), current = c.setback ?? 0
+  c.setback = current + Math.max(-90 * dt, Math.min(90 * dt, target - current))
+}
 
 /** The collision root follows the articulated pelvis, including through turns. */
 export function ropeHangOffset(c: Climbing, facing: number, angle = c.turn?.angle ?? 0): Point {

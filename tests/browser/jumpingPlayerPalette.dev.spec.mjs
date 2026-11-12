@@ -47,5 +47,5 @@ for (const backend of ['canvas','gpu']) test(`${backend}: player materials fade 
   expect(result.interior).toBeGreaterThan(100)
   expect(result.worst).toBeLessThanOrEqual(4)
   expect(result.bytes).toBeLessThan(64*1024*1024)
-  await page.locator('canvas').screenshot({path:info.outputPath(`player-region-palette-${backend}.png`)})
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({path:info.outputPath(`player-region-palette-${backend}.png`)})
 })

@@ -4,7 +4,7 @@ import type { Platform, Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
 import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
 import type { JumpLevel } from './level.ts'
-import { ropePath } from './climbables.ts'
+import { ropeEnds, ropePath } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
@@ -16,11 +16,14 @@ import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
+import { drawWallDoors } from './wallDoor.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
 import { drawCaveWall } from './caveWall.ts'
 import { drawAthlete } from './athleteDraw.ts'
+import { layerSkipped } from './measureLayers.ts'
+import { reportWall } from './debugFrames.ts'
 export { drawAthlete } from './athleteDraw.ts'
 
 const ACCENT = '#df633f'
@@ -37,7 +40,8 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
     ctx.beginPath(); ctx.moveTo(rope.x, rope.y)
     for (const [x, y] of ropePath(rope, p.ropes?.[i])) ctx.lineTo(x, y)
     ctx.stroke()
-    ctx.fillStyle = '#697d72'; ctx.beginPath(); ctx.arc(rope.x, rope.y, 5, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#697d72'
+    for (const anchor of ropeEnds(rope)) { ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill() }
   }
 }
 
@@ -62,11 +66,13 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   if (includeWallArt) drawWallWiring(ctx, level)
   if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
   for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
+  // Blocked doors are painted on the wall, like the pods' housings.
+  drawWallDoors(ctx, level.wallDoors ?? [])
   ctx.restore()
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }
 function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom: number) {
-  ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level))
+  ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level)); reportWall(ctx.canvas, () => ctx.getTransform())
   ctx.lineWidth = 1 / zoom; ctx.strokeStyle = '#353f4810'; ctx.beginPath()
   // Zoomed-out views omit minor lines, but every line remains on the same snap lattice.
   const grid = LEVEL_GRID_SIZE * 2 ** Math.max(0, Math.ceil(Math.log2(8 / (LEVEL_GRID_SIZE * zoom))))
@@ -79,7 +85,7 @@ function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: {
     h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) })
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
-  if (level) drawTerrainGroundCover(ctx, level)
+  if (level && !layerSkipped('ground-cover')) drawTerrainGroundCover(ctx, level)
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
@@ -116,8 +122,8 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
     }
   }
   if (started) ctx.fill()
-  if (level) drawTerrainGroundCoverSurface(ctx, level)
-  if (level) drawTerrainEdges(ctx, platforms, level)
+  if (level && !layerSkipped('ground-cover')) drawTerrainGroundCoverSurface(ctx, level)
+  if (level && !layerSkipped('terrain-edges')) drawTerrainEdges(ctx, platforms, level)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {
   if (airBoostStrength(p) >= .01) paint(ctx, 1, () => drawFootBoosters(ctx, p))

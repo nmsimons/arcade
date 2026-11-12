@@ -9,8 +9,18 @@ import { staticContactWorld, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
-/** Retain the legacy assembly origin so existing doors and indicators never move. */
-export interface Goal extends NamedObject, SwitchSettings { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode; kind?: 'overlook' | 'walk-off' | 'bus'; ending?: 'bus' }
+/**
+ * Where a door leads: a level, and the door in it the robot steps out of. With
+ * no `arrival` it starts at the level's own start. Courses are only entered at
+ * their start; a facility area can be entered from any of its level doors or bulkheads.
+ */
+export interface Destination { level: string; arrival?: string }
+/**
+ * Retain the legacy assembly origin so existing doors and indicators never move.
+ * A plain exit door may lead somewhere when the run passes (`leadsTo`); without
+ * it, the robot goes back where it came from. Overlook, walk-off and bus exits end the game.
+ */
+export interface Goal extends NamedObject, SwitchSettings { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode; kind?: 'overlook' | 'walk-off' | 'bus'; ending?: 'bus'; leadsTo?: Destination }
 export const isOutdoorGoal = (goal?: Goal) => goal?.kind === 'overlook' || goal?.kind === 'walk-off' || goal?.kind === 'bus'
 export const GOAL_POLE_OFFSET = 44
 export const GOAL_LIGHT_HEIGHT = 96
@@ -148,6 +158,31 @@ export function drawDoorway(ctx: CanvasRenderingContext2D, door: ReturnType<type
     ctx.save(); ctx.strokeStyle = '#8a938b'; ctx.lineWidth = 1; ctx.setLineDash([4, 4])
     ctx.strokeRect(door.x, door.y, door.w, door.h); ctx.restore()
   }
+}
+/** One cycle of the glow running up the chevrons, and its delay from one chevron to the next. */
+export const DOOR_CHEVRON_PERIOD = 1.8, DOOR_CHEVRON_DELAY = .22
+/**
+ * Every open door that Up goes through shows three bold chevrons stacked in
+ * the dark doorway. They stay faint; a soft glow runs up the stack from the
+ * bottom chevron to the top, each lifting slightly as it brightens.
+ */
+export function drawDoorChevrons(ctx: CanvasRenderingContext2D, door: { x: number; y: number; w: number; h: number }, time: number) {
+  const cx = door.x + door.w / 2, half = door.w * .28, rise = half * .9, spacing = half * 1.8
+  // Centre the stack, apex of the top chevron to the arms of the bottom one.
+  const top = door.y + (door.h - spacing * 2 - rise) / 2
+  ctx.save()
+  ctx.beginPath(); ctx.rect(door.x, door.y, door.w, door.h); ctx.clip()
+  ctx.strokeStyle = '#e4ece6'; ctx.lineWidth = half * .5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  const base = ctx.globalAlpha
+  for (let i = 0; i < 3; i++) {
+    // Chevron 0 is the bottom one; the glow reaches it first.
+    const phase = ((time - i * DOOR_CHEVRON_DELAY) / DOOR_CHEVRON_PERIOD % 1 + 1) % 1
+    const glow = phase < .4 ? Math.sin(Math.PI * phase / .4) : 0
+    const y = top + (2 - i) * spacing - glow * door.h * .025
+    ctx.globalAlpha = base * (.08 + .16 * glow)
+    ctx.beginPath(); ctx.moveTo(cx - half, y + rise); ctx.lineTo(cx, y); ctx.lineTo(cx + half, y + rise); ctx.stroke()
+  }
+  ctx.restore()
 }
 export function goalExitPosition(exit: GoalExit) {
   const t = 1 - (1 - Math.min(1, exit.elapsed / .3)) ** 3

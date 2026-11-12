@@ -381,3 +381,14 @@ for (const condition of ['blocked', 'carried', 'airborne', 'deactivated', 'direc
     audio.step(run.player, run, STEP)
     assert.equal(audio.drain().loops.filter(loop => loop.kind === 'shovebot').length, 0)
   })
+
+test('running out of time plays one power-down sound, and the switched exit announces it opened', () => {
+  const { run, step } = setup(l => { l.times = { a: 1, b: 2, c: 3, d: 4 }; l.goal = { ...l.goal, id: 'exit', power: 'switched' } })
+  for (let i = 0; i < 30; i++) step()
+  run.elapsed = 4
+  const kinds = []
+  for (let i = 0; i < 60; i++) kinds.push(...step().cues.map(c => c.kind))
+  assert.equal(kinds.filter(kind => kind === 'power-down').length, 1, JSON.stringify(kinds))
+  assert.equal(kinds.filter(kind => kind === 'emp').length, 0, JSON.stringify(kinds))
+  assert.equal(kinds.filter(kind => kind === 'switch').length, 1, JSON.stringify(kinds))
+})

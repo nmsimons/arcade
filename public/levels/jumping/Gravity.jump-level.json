@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "id": "facility-targets",
+  "name": "Gravity",
+  "width": 2150,
+  "height": 720,
+  "platforms": [],
+  "entrance": {
+    "name": "Targets entrance",
+    "x": 200,
+    "y": 720
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "id": "door-drain",
+      "x": 615,
+      "y": 720,
+      "course": "38681eca-a164-4f9a-9113-c3ba119ed3ed",
+      "targets": [
+        "door-ramping-up"
+      ]
+    },
+    {
+      "id": "door-ramping-up",
+      "x": 990,
+      "y": 720,
+      "course": "f647e38f-d47e-4628-b322-b89e98882202",
+      "power": "switched",
+      "targets": [
+        "door-pinball"
+      ]
+    },
+    {
+      "id": "door-pinball",
+      "x": 1340,
+      "y": 720,
+      "course": "19f66cc5-2de3-4a7f-9a4d-7df4092a7354",
+      "power": "switched",
+      "targets": [
+        "843ca4fd-1054-47d1-982f-cd6b385b5d2c"
+      ]
+    },
+    {
+      "id": "843ca4fd-1054-47d1-982f-cd6b385b5d2c",
+      "x": 1685,
+      "y": 720,
+      "course": "ab914f1b-985f-4992-9e03-44506d00cb33",
+      "power": "switched"
+    }
+  ],
+  "bulkheads": [
+    {
+      "id": "targets-to-concourse",
+      "x": 200,
+      "y": 720,
+      "to": "facility-concourse"
+    }
+  ],
+  "evaluationBoards": [],
+  "texts": []
+}

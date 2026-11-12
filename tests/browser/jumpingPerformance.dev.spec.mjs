@@ -9,7 +9,7 @@ async function play(page, lighting = false) {
     level.lighting = { nightMode: lighting !== 'day', ambient: 25, lights: [] }
   }
   await useLevelFixtures(page, [level])
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
@@ -28,7 +28,7 @@ test('performance monitor is opt-in, keeps gameplay focus, freezes on pause and 
   await page.keyboard.press('Backquote')
   await expect(developer).toHaveCount(0)
   await expect(panel).toContainText('FPS')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   await expect(panel).toContainText('Canvas')
   await page.keyboard.press('Escape')
   await expect(toggle).toHaveCount(0)
@@ -55,7 +55,7 @@ test('performance monitor is opt-in, keeps gameplay focus, freezes on pause and 
   await expect(toggle).not.toBeChecked()
   await expect(panel).toHaveCount(0)
   await developer.getByRole('button', { name: /^Close/ }).click()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   await expect(panel).toHaveCount(0)
 })
 
@@ -72,10 +72,10 @@ test('shows actual lighting resolution and fits a narrow viewport', async ({ pag
   await page.screenshot({ path: info.outputPath('developer-panel-mobile.png') })
   await page.keyboard.press('Enter')
   await page.keyboard.press('Escape')
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.locator('.jumping-game > canvas[role="img"]')).toBeFocused()
   const panel = page.getByRole('complementary', { name: 'Performance monitor' })
   await expect(panel).toContainText('FPS')
-  const pixels = await page.locator('.jumping-game > canvas').evaluate(canvas => `${canvas.width} × ${canvas.height}`)
+  const pixels = await page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => `${canvas.width} × ${canvas.height}`)
   await expect(panel).toContainText(pixels)
   await expect(panel).toContainText('0 / 0')
   const bounds = await panel.boundingBox()
@@ -99,7 +99,7 @@ for (const lighting of [true, 'day', false]) for (const savedPreference of [null
   }, savedPreference)
   await page.clock.install()
   await play(page, lighting)
-  const fullPixels = await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)
+  const fullPixels = await page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => canvas.width * canvas.height)
   await page.evaluate(() => {
     // Install after Playwright's clock, which also wraps animation callbacks.
     window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 100)
@@ -118,7 +118,7 @@ for (const lighting of [true, 'day', false]) for (const savedPreference of [null
   await page.keyboard.press('Backquote')
   await page.clock.runFor(2800)
   await expect(shadows).toHaveText('Off')
-  const reducedPixels = await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)
+  const reducedPixels = await page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => canvas.width * canvas.height)
   expect(reducedPixels).toBeLessThan(fullPixels)
   expect(reducedPixels).toBeLessThan(1_005_000)
   await page.keyboard.press('Backquote')
@@ -128,6 +128,6 @@ for (const lighting of [true, 'day', false]) for (const savedPreference of [null
   await page.keyboard.press('Backquote')
   await page.clock.runFor(600)
   await expect(shadows).toHaveText('Off')
-  expect(await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)).toBe(fullPixels)
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(canvas => canvas.width * canvas.height)).toBe(fullPixels)
   expect(await page.evaluate(() => localStorage.getItem('jumping:lighting-performance-mode'))).toBe('false')
 })

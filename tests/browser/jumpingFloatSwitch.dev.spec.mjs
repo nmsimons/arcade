@@ -5,7 +5,7 @@ import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 test('float switch editor controls, outputs, undo, duplication and saved templates work', async ({page}, info) => {
   const level = readLevelAsset('float-switch.json')
   await useLevelFixtures(page,[level]); await installBuiltInFixtures(page,{'floats.json':level})
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   await page.getByRole('button',{name:'Level studio',exact:true}).click()
   await page.getByRole('button',{name:'Library',exact:true}).click()
   await page.getByRole('button',{name:'Open floats.json',exact:true}).click()
@@ -59,7 +59,7 @@ test('normal controls raise water and grav floats, open the exit, drain and rest
     }
   })
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/lab?motionDebug=1&renderControl=1')
+  await page.goto('/lab/library?motionDebug=1&renderControl=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -90,6 +90,6 @@ test('normal controls raise water and grav floats, open the exit, drain and rest
   expect(await contacts()).toEqual({'420':false,'950':false})
   await walkTo(320); await page.clock.runFor(3000)
   await walkTo(870); await page.clock.runFor(1000)
-  await page.keyboard.down('d'); await page.clock.runFor(5000); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(5000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog',{name:'Level complete',exact:true})).toBeVisible()
 })

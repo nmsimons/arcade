@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "d52a327a-3f29-4c04-b501-3ee77d6e2e42",
   "name": "Ascent II",
   "width": 1620,
@@ -269,7 +269,10 @@
   "floor": 4000,
   "goal": {
     "x": 717,
-    "y": 255
+    "y": 255,
+    "leadsTo": {
+      "level": "13b9b9d7-7937-4989-bc03-21238e7e58f2"
+    }
   },
   "times": {
     "a": 30,
@@ -439,6 +442,66 @@
       "flipX": true
     }
   ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "7a65cb91-7cfd-4d54-87c5-86f7841a8edf",
+        "x": 810,
+        "y": 2540,
+        "intensity": 100,
+        "direction": 65,
+        "spread": 150,
+        "power": "always"
+      },
+      {
+        "id": "d6b4b4b3-5835-449b-bc6b-137249515b99",
+        "x": 1085,
+        "y": 2895,
+        "intensity": 100,
+        "direction": 120,
+        "spread": 90,
+        "power": "always"
+      },
+      {
+        "id": "66ecaa75-9a9d-4ef5-9484-d6d65041e1b6",
+        "x": 810,
+        "y": 3400,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 45,
+        "power": "always"
+      },
+      {
+        "id": "3925b269-79b4-4db7-8c46-4e0763f44db3",
+        "x": 1300,
+        "y": 1865,
+        "intensity": 100,
+        "direction": 130,
+        "spread": 90,
+        "power": "always"
+      },
+      {
+        "id": "6d4cccdc-0981-4c5b-866c-5b6e5ea98121",
+        "x": 800,
+        "y": 1050,
+        "intensity": 100,
+        "direction": 40,
+        "spread": 115,
+        "power": "always"
+      },
+      {
+        "id": "a9267bd5-7e49-4c56-98fa-0af0b393fa2e",
+        "x": 1385,
+        "y": 50,
+        "intensity": 100,
+        "direction": 135,
+        "spread": 160,
+        "power": "always"
+      }
+    ]
+  },
   "editorGroups": [
     {
       "id": "c7c1383f-8312-44f5-a65b-9971db5995ad",

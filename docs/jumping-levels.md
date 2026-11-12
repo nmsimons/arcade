@@ -124,8 +124,11 @@ Thumbnails draw authored geometry only and allocate canvas pixels while visible.
 Rope settling and initial world preparation run in a disposable worker. Loading
 and compiling its modules has a separate 30-second startup deadline; the
 five-second preparation budget starts after the worker reports readiness.
-Cancellation terminates the worker in either phase. Failed preparation keeps
-the picker and editor responsive. A geometry timeout suggests simplifying ropes
+Cancellation terminates the worker in either phase. The **Preparing level**
+dialog appears only once preparation has taken a second; until then the current
+screen stays, and the game's root carries `aria-busy`. The facility prepares the
+places behind nearby doors ahead of time ([the facility](jumping-facility.md)).
+Failed preparation keeps the picker and editor responsive. A geometry timeout suggests simplifying ropes
 or terrain; a startup timeout asks the player to retry instead. Saved settled
 ropes still start in their authored positions.
 
@@ -139,11 +142,13 @@ package's `security:check` uses the same script and list.
 ## Development authoring
 
 Level studio is a private development tool. Production builds, including
-`vite preview`, offer only the built-in game and progress. Menu, pause and result
-screens have no editor or folder actions. Builder and playtest links return to
-the level menu; retired local-file links do not load a collection.
+`vite preview`, offer only the facility and progress: the level library is
+development-only, and pause and result screens have no editor or folder actions.
+Builder, playtest and library links return to L.A.B.'s start screen at `/lab`;
+retired local-file links do not load a collection.
 
-With `npm run dev` open on localhost, select **Edit** on a built-in tile, or
+With `npm run dev` open on localhost, open the level library at `/lab/library`
+and select **Edit** on a built-in tile, or
 **Level studio → Library → New level** to add a level. **Library** contains one
 built-in collection. New levels and templates save directly to
 `public/levels/jumping/` in this checkout and appear in Git. **Save and Test** saves
@@ -329,17 +334,32 @@ inside the room even near an edge. **Keep placing** repeats it. Each template
 becomes one ordinary terrain piece with editable nodes,
 dimensions, material, duplication, transforms, and undo/redo.
 
-The level menu loads the built-in JSON collection. Click a tile, press Enter,
+**Movement → Tied rope** places a rope tied at both ends: drag from one anchor to
+the other, and an end near a terrain edge attaches to it. The rope sags by its
+extra **Length**. Selected, it shows a handle on each anchor; dragging either moves
+that anchor alone. The inspector attaches or detaches **Anchor 1** and **Anchor 2**
+separately, **Untie anchor 2** turns it back into a hanging rope, and **Tie the
+free end** ties a hanging rope where its end rests. **Release** chooses whether
+switches can let go of anchor 1 or anchor 2; wire switches to the rope like any
+other switched object.
+
+The development level library, `/lab/library`, loads the built-in JSON
+collection. Facility areas are not tiles. Click a tile, press Enter,
 or press controller A to play. Timed tiles show personal bests and letter grades;
 untimed tiles show completion. Finishing updates those records. In local dev,
 unready maps show repair messages and remain editable. Each tile has **Play**;
 local dev adds **Edit** and deletion. Controller or keyboard Y edits the selected
 level only in local dev.
 
-The first course is unlocked. A timed finish at D or better unlocks the next
-course in catalog order; untimed levels require completion. Locked slots show
-only their number and a lock, with no thumbnail, name or play/edit actions.
-The studio library and playtests remain unrestricted by campaign progress.
+The library follows the facility's locks. A wing course is open when its door
+is: its wing is open, and it is the wing's first course or the course before it
+is passed (D or better; untimed levels need completion). The final course and escape levels open once every wing course is
+passed. Levels outside the campaign are always open, and a collection without
+the campaign's opening area, such as a test fixture catalog, leaves every level
+open. Locked slots show only their number and a lock, with no thumbnail, name
+or play/edit actions. The studio library and playtests remain unrestricted by
+campaign progress. See [the facility](jumping-facility.md) and
+[the campaign](jumping-campaign.md) for the progression rules.
 
 Level studio supports standard controllers. **Y / △** switches between editor
 controls and the canvas cursor. Returning to the controls restores the last
@@ -380,17 +400,24 @@ emptying the bin require confirmation. Recovery files never enter published
 assets. Add external JSON by placing it in `public/levels/jumping/` and refreshing
 the dev library; use `npm run levels:check` before release.
 
-Menu tiles, builder templates and the overview all use the
+Library tiles, builder templates and the overview all use the
 game's world renderer for their static previews. They include props, shovebots,
 pressure plates, both gate orientations, elevators, moving platforms, ropes, ladders, timers, text,
 pickups and goal exits in their starting state.
 
-The level menu is `/lab`; normal play uses
-`/lab/levels/built-in/<filename>`. Development editing uses
+`/lab` opens the start screen, and `/lab/facility` is the facility in play. A
+direct link, `/lab/levels/built-in/<filename>`, plays a level when it is open; a
+course with a door in the facility returns the robot to that door, at
+`/lab/facility`, when finished or left. A locked course, a facility area or a
+missing file opens the start screen instead, with the reason. The development
+library is `/lab/library`, reached only by its address or the **Level library**
+button on the facility's opening screen. Only a run started there returns to
+it; the studio's **Back to game**, playtests and the development review pages go
+to the facility. Development editing uses
 `/lab/builder/built-in/<filename>`, and saved playtests append `/playtest`.
 Filenames are URL encoded. Back, Forward and reload preserve the intended route.
-Production redirects authoring URLs to `/lab`. All LAB entry points use `/lab`;
-the former untitled-game and local-library routes are retired.
+Production redirects authoring URLs and the library to `/lab`. LAB entry points
+use `/lab`; the former untitled-game and local-library routes are retired.
 
 Published hosting rewrites `/lab/*` to the app shell, including playable URLs
 ending in `.json`. Raw JSON assets remain under `/levels/jumping/`. A saved file
@@ -451,9 +478,21 @@ range. Earlier, larger clocks keep their saved top-left positions. Digits are
 green normally and on completion; the left LED bay shows the current A/B/C/D/F
 grade. Freeze/fast effects keep their amber/red digit colors. The face starts
 at the D deadline, pauses with the game and latches on exit entry. At F it stays
-zero and dim, and time pickups turn grey and cannot be collected. Restart
-restores the deadline and pickups. Time bonuses can improve the current grade
-and remaining time before F, but cannot revive a failed run.
+zero and dim, and the level powers down for the rest of the run. Restart
+restores the deadline, power and pickups. Time bonuses can improve the current
+grade and remaining time before F, but cannot revive a failed run.
+
+Powering down at F works like an EMP outage that never ends. Gates, elevators
+and moving platforms stop where they are and stay solid. Plates and float
+switches stop responding, and force fields and gravity plates switch off. Bots
+stop, wiring and coin meters go dark, and carried gadgets read **Power off**.
+The room lights cut out with a breaker clunk and a winding-down hum: after a
+brief flicker, a daylit room renders as night with every lamp off, so the open
+exit's glow stands out. Every coin, clock collectible and EMP still in the
+level flickers out and can no longer be collected. Water,
+ropes, ladders, and loose boxes and balls keep working. The exit opens, a
+switched exit included, so the player can still leave with an F. They can also
+keep exploring, or restart from the pause menu.
 Displays are drawn behind terrain and actors and have no collision. Their size
 and position follow the world camera. There is no visible HUD clock; levels
 without `timers` simply have no wall display. Older files may omit the array.
@@ -541,7 +580,8 @@ disappears on player contact, with a short chime. Coins use
 Their center-based bounds extend 20 units in each direction. They increase the
 level-wide collected total once each and do not change the timer. Their spin and
 collection animation pause with the game; restart restores all coins and clears
-the total. Collection remains available until the player enters the exit.
+the total. Collection remains available until the player enters the exit or the
+run reaches F.
 
 **Mechanisms → Coin switch** mounts a numeric display on the back wall, behind
 terrain and actors with no collision. Set **Coins required** (1–80, default 3)
@@ -710,6 +750,9 @@ at cliffs and walls. A gate can slide past a ball touching its side while still
 stopping before it would crush a prop beneath it.
 
 The goal is an exit door with a pole indicator; it has no built-in pressure plate.
+Like every door, the open exit is entered with **Up** while the robot stands in
+its doorway; walking past it does nothing. Holding Up on the way in enters on
+arrival, so the press costs no time against the deadlines.
 Select it in the builder to choose **Power: Always on** (the default) or **Switched**.
 Always-on exits start fully open. Switched exits use the same **Switched by** and
 **Activates** connections as gates, platforms, and spotlights. Its switch logic
@@ -730,6 +773,15 @@ including in existing files. A switched goal also requires a unique `goal.id` fo
 connections, for example `goal: { "x": 800, "y": 920, "id": "exit", "power": "switched" }`
 and a plate with `targets: ["exit"]`. The builder assigns the ID automatically.
 IDs must be unique across the exit, mechanisms, and spotlights.
+
+In the facility, a plain exit door can lead on when its run passes:
+`goal.leadsTo: { "level": "<level id>", "arrival"?: "<door id>" }`. A course
+is entered at its start; a facility area at its entrance, or out of the level
+door or bulkhead named by `arrival`. Without `leadsTo`, and always after an F or
+when the robot leaves from the pause menu, it goes back where it came from.
+Overlook, walk-off and bus exits end the game and cannot lead on. In the studio,
+**Object → Leads to** on the exit chooses the level, and **Arrives at** the door
+when that level is a facility area. See [the facility](jumping-facility.md#where-doors-and-exits-lead).
 
 Opening the exit does not stop the clock or lock the medal. The player must walk
 into its fully open doorway. Passing above it or rolling an object through it
@@ -765,6 +817,70 @@ Choose **Object → Entrance → Charging bay** while the entrance is selected;
 **Door** restores the ordinary entrance. Both styles preview, save, and reopen. The pod has a 102-by-126 artwork outline
 for selection; its collision and start validation keep the clear 40-by-80 footprint.
 
+### Facility areas
+
+`"kind": "hub"` makes a level a facility area, part of the building between
+courses: the opening, the concourse or a wing (see [the facility](jumping-facility.md)).
+It is untimed (`"timing": "untimed"`), has no `goal` or `times`, and the robot
+leaves only through its doors, by pressing Up in an open doorway. It may hold
+everything a course does except timing equipment: coins, coin switches, wall
+clocks and time pickups stay in courses. Tools and EMP charges are allowed.
+
+- `courseDoors: [{ id, x, y, course, returnsTo?, dispatch? }]`: level doors.
+  `course` is the ID of the level behind the door. Coming back from that level,
+  the robot steps out of this door, or of `returnsTo`, the ID of another level
+  door or bulkhead in this area. `dispatch: true` marks the dispatch door to the
+  final course: lettered DISPATCH, released once the evaluation is complete,
+  and not itself part of the evaluation. The facility has one.
+- `bulkheads: [{ id, x, y, to, arrivesAt? }]`: doors to other facility areas.
+  `to` is the ID of the facility area beyond it. Arriving through a bulkhead
+  steps out of `arrivesAt`, a level door or bulkhead in that area, or else the
+  bulkhead there that leads back.
+- Level doors and bulkheads go by where they lead, so neither has a `name`;
+  one saved on them is dropped when the level loads.
+- `power: "switched"` on a level door or bulkhead opens it only while its
+  wiring is on, like a switched exit, with optional `switchLogic` and
+  `switchReversed`; its `id` is its switch ID. Without it, a level door or
+  bulkhead is always open. A level door whose course is passed stays open,
+  whatever its wiring says.
+- `targets` on a bulkhead lists what it switches once the area beyond it is
+  complete: every level door in that area passed.
+- `targets` on a level door lists what it switches once the level behind it is
+  passed: at D or better, or completed if untimed.
+- `gradeGates: [{ id, name?, x, y, doors, grade, switchReversed?, targets? }]`:
+  studio-only grade averages. `doors` lists level door IDs in this area;
+  their best grades score A 4, B 3, C 2, D 1 and 0 for an F or no finish, and
+  the node is on while the average reaches `grade` (`a` to `d`).
+
+For example, the second door opens once the first course is passed, and a
+bulkhead once both average a B:
+
+```json
+"courseDoors": [
+  { "id": "door-one", "x": 500, "y": 920, "course": "<first course id>", "targets": ["door-two"] },
+  { "id": "door-two", "x": 900, "y": 920, "course": "<second course id>", "power": "switched" }
+],
+"bulkheads": [{ "id": "way-on", "x": 1400, "y": 920, "to": "<area id>", "power": "switched" }],
+"gradeGates": [{ "id": "b-average", "x": 900, "y": 300, "doors": ["door-one", "door-two"], "grade": "b", "targets": ["way-on"] }]
+```
+- `evaluationBoards: [{ id, name?, x, y, w, h }]`: wall displays of the
+  evaluation, filled in during play.
+
+Doors and bulkheads share the entrance's flat 40-by-80 doorway, with `x` at the
+middle of the sill. Each has its destination's name lettered on the wall above
+it, and a level door hangs a placard of its course's data to the right. In the
+studio, as in the facility, a level door or bulkhead goes by where it leads;
+a saved `name` on one is ignored. An empty `course` or
+`to` saves, but validation asks for a destination before the level is played.
+In the studio, **Level → Type → Facility area** converts a course (its doorway
+exit becomes a bulkhead, its destination still to choose) and **Course**
+converts back (the first bulkhead becomes the exit). The Facility tools place
+level doors, bulkheads and evaluation boards, and **Object → Leads to** chooses
+where each door goes: a level door lists every course in the collection, and a
+bulkhead every other facility area. **Returns through** on a level door and
+**Arrives at** on a bulkhead choose the door the robot steps out of, and
+**Dispatch door** marks the door to the final course.
+
 `timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
 level** in the studio. The world and animation time still advance, but the
 score stays zero, time pickups cannot change it, and no medal or personal best
@@ -773,6 +889,30 @@ The shared trial shape retains increasing positive `times` values for a later
 return to timed mode; those values are ignored while untimed. Completion saves
 separately from best times, using stable IDs and the same local/built-in record
 namespaces, and participates in account backups and cloud sync.
+
+In the facility, every untimed level, facility areas included, keeps its state
+between visits: props, mechanisms, switches, float switches, water levels and
+released rope anchors stay as the robot left them, while robots return to their
+posts ([Autosave](jumping-facility.md#autosave)). Timed courses always start as
+authored. A saved state belongs to one version of the level file, so editing
+a level starts it afresh for every player who saved it. Design untimed places
+so that a moved crate or a set switch can never strand the robot: **Restart
+area** returns a place to its authored layout, but a player should rarely need
+it.
+
+### Blocked doors
+
+`wallDoors: [{ name?, x, y, condition, frame?, flipX? }]` paints doors that
+never open into the back wall, in any level: a passage the robot can see but
+not use, such as Orientation's jammed exits. `condition` is `"sealed"` (shut,
+with a dead lamp), `"jammed"` (the panel stuck partway down over a dark gap),
+`"boarded"` (planks nailed across) or `"caved-in"` (rubble piled into the
+doorway and spilling past the frame). `"frame": "bulkhead"` gives the heavy
+striped frame of a bulkhead; `flipX` mirrors the artwork. Like a real door, `x`
+is the middle of the sill and the doorway is 40 by 80, but a blocked door has
+no collision, gives no cover and never responds to Up. In the studio, **Back
+wall → Blocked door** places one on a flat sill, and **Object → Appearance**
+chooses its condition and frame.
 
 ### Optional back-wall wiring
 
@@ -902,6 +1042,23 @@ Ropes contain anchor `x, y`, `length`, and `segments`. Optional
 `anchor: { platform, x, y }` binds the rope to a terrain index with local edge
 coordinates. The coordinates must lie on the terrain boundary. Editing terrain
 carries its rope anchors; deleting terrain detaches its ropes and ladders.
+
+A tied rope also has `end: { x, y }`, its second anchor, which may carry its own
+`anchor: { platform, x, y }` in the same form. It hangs between the two in a sag set
+by `length`: a length shorter than the distance between the anchors is raised to
+that distance, so a tied rope is taut at least, never stretched. The anchors may be
+at most 2000 apart. A tied rope can let go of one anchor during a run:
+`release: { id, anchor: "start" | "end" }` makes it a switch target with that ID,
+accepting the usual `switchLogic` and `switchReversed`. When its switches turn it
+on, that anchor lets go and stays released until the run restarts; the rope then
+hangs and swings from its other anchor, and anyone holding it keeps their grip.
+`release` requires `end`. For example:
+
+```json
+{ "x": 800, "y": 500, "length": 680, "segments": 60,
+  "end": { "x": 1400, "y": 500, "anchor": { "platform": 2, "x": 0, "y": 0 } },
+  "release": { "id": "drop", "anchor": "start" } }
+```
 
 All current terrain uses the same friction. Walking and stable starts depend on
 whether surface grip can resist downhill gravity, with no fixed angle cutoff.
@@ -1665,9 +1822,9 @@ For a bus exit, choose **Level → Timing → Finish → Bus stop (untimed)**. S
 `goal: { "kind": "bus", "x": <rear center>, "y": <ground height> }`. Provide
 continuous flat ground from X − 184 to X + 76 and 144 units of clear space
 above it, all inside the level. The bus uses always-on power and does not flip.
-It is visible during normal play, studio editing, and thumbnails. Walk into
-the open boarding entrance on its left side to finish; no Up press or map-edge
-crossing is required. Jumping above it does not board.
+It is visible during normal play, studio editing, and thumbnails. Press Up in
+the open boarding entrance on its left side to finish, as at any door; no
+map-edge crossing is required. Jumping above it does not board.
 
 Boarding saves completion and starts the departure in the same level view.
 There is no automatic approach, camera reveal, or replacement scenery. The

@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, restartFromPause, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into the ready stance, including crouch and restart`, async ({ page }, info) => {
@@ -7,10 +7,7 @@ for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into 
   const level = { ...blankTrial(), height: 600, floor: 500, entrance: { x: 800, y: 500 }, goal: { x: 1620, y: 500 } }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.clock.runFor(64)
   const read = () => page.evaluate(() => window.jumpingMotion.read().recent)

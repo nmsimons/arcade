@@ -5,13 +5,13 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 async function open(page, level = blankTrial()) {
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'tabs.json': level })
   await page.addInitScript(() => {
-    const fill = CanvasRenderingContext2D.prototype.fillRect
-    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
-      if (this.fillStyle === '#f1f1ed' && args[0] === 0 && args[1] === 0) this.canvas.jumpCamera = this.getTransform()
-      return fill.apply(this, args)
-    }
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.jumpCamera = transform
+    })
   })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open tabs.json', exact: true }).click()

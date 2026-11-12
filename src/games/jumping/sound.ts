@@ -39,14 +39,123 @@ export function loopTone(loop: SoundLoop) {
   }
 }
 
-function makeBuffer(ctx: BaseAudioContext, seconds: number, sample: (time: number, noise: number) => number) {
-  const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * seconds), ctx.sampleRate), data = buffer.getChannelData(0)
+function makeSamples(rate: number, seconds: number, sample: (time: number, noise: number) => number) {
+  const data = new Float32Array(Math.ceil(rate * seconds))
   let seed = 18741
   for (let i = 0; i < data.length; i++) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
-    data[i] = sample(i / ctx.sampleRate, seed / 2147483648 - 1)
+    data[i] = sample(i / rate, seed / 2147483648 - 1)
   }
-  return buffer
+  return data
+}
+
+/** Every sound's samples at one rate. They depend on nothing else, so they can be made ahead of the first key press. */
+export interface SoundSamples { rate: number; noise: Float32Array; cues: Record<SoundCue['kind'], Float32Array> }
+/** Makes the samples one sound per step, so idle time can spread the work. */
+export function* soundSteps(rate: number): Generator<void, SoundSamples> {
+  const noise = makeSamples(rate, 2, (t, noise) => noise * (.8 + .2 * Math.sin(t * Math.PI * 13)))
+  yield
+  const make = (seconds: number, sample: (time: number, noise: number) => number) => () => makeSamples(rate, seconds, sample)
+  let grain = 0, sole = 0, cushion = 0, robotSole = 0, wood = 0, ballSurface = 0, ballBody = 0, waterSurface = 0, waterBody = 0
+  const softening = 1 - Math.exp(-2 * Math.PI * 500 / rate)
+  const cushioning = 1 - Math.exp(-2 * Math.PI * 130 / rate)
+  const woodSoftening = 1 - Math.exp(-2 * Math.PI * 850 / rate)
+  const ballSoftening = 1 - Math.exp(-2 * Math.PI * 650 / rate)
+  const ballDamping = 1 - Math.exp(-2 * Math.PI * 140 / rate)
+  const waterSoftening = 1 - Math.exp(-2 * Math.PI * 1600 / rate)
+  const waterDamping = 1 - Math.exp(-2 * Math.PI * 220 / rate)
+  const recipes: Record<SoundCue['kind'], () => Float32Array> = {
+    footstep: make(.17, (t, noise) => {
+      // A cushioned rubber sole: a rounded low thump and a faint, soft scuff.
+      grain += (noise - grain) * softening
+      sole += (grain - sole) * softening
+      cushion += (sole - cushion) * cushioning
+      const attack = Math.sin(Math.min(1, t / .022) * Math.PI / 2) ** 2
+      return attack * (cushion * 1.8 * Math.exp(-t * 26)
+        + sole * .18 * Math.exp(-t * 38)) * Math.min(1, (.17 - t) / .035)
+    }),
+    'robot-footstep': make(.23, (t, noise) => {
+      // A weighty heel strike with a short metal-shell knock, not a gunshot.
+      robotSole += (noise - robotSole) * softening
+      const attack = Math.sin(Math.min(1, t / .006) * Math.PI / 2) ** 2
+      return attack * (Math.sin(2 * Math.PI * (92 * t - 45 * t * t)) * .42 * Math.exp(-t * 28)
+        + robotSole * .45 * Math.exp(-t * 48)
+        + Math.sin(2 * Math.PI * 620 * t) * .07 * Math.exp(-t * 52)) * Math.min(1, (.23 - t) / .04)
+    }),
+    'box-impact': make(.18, (t, noise) => {
+      // A short, dry wooden knock with a rounded attack and no metallic ring.
+      wood += (noise - wood) * woodSoftening
+      const attack = Math.sin(Math.min(1, t / .005) * Math.PI / 2) ** 2
+      return attack * (wood * .7 * Math.exp(-t * 55)
+        + Math.sin(2 * Math.PI * (145 * t - 60 * t * t)) * .38 * Math.exp(-t * 40)) * Math.min(1, (.18 - t) / .03)
+    }),
+    'ball-impact': make(.24, (t, noise) => {
+      // A rounded, damped thud. Filtered noise gives it body without a hum.
+      ballSurface += (noise - ballSurface) * ballSoftening
+      ballBody += (ballSurface - ballBody) * ballDamping
+      const attack = Math.sin(Math.min(1, t / .008) * Math.PI / 2) ** 2
+      return attack * (ballBody * 1.4 * Math.exp(-t * 24)
+        + ballSurface * .35 * Math.exp(-t * 48)) * Math.min(1, (.24 - t) / .035)
+    }),
+    'water-entry': make(.62, (t, noise) => {
+      // A rounded splash followed by a spreading wash, without pitched bubbles.
+      waterSurface += (noise - waterSurface) * waterSoftening
+      waterBody += (waterSurface - waterBody) * waterDamping
+      const attack = Math.sin(Math.min(1, t / .012) * Math.PI / 2) ** 2
+      return attack * (waterBody * 1.6 * Math.exp(-t * 19)
+        + (waterSurface - waterBody) * .65 * Math.exp(-t * 7)) * Math.min(1, (.62 - t) / .09)
+    }),
+    switch: make(.16, (t, noise) => Math.min(1, t / .002) *
+      (noise * .16 * Math.exp(-t * 90) + Math.sin(t * Math.PI * 2 * 480) * .2 * Math.exp(-t * 55)) * Math.min(1, (.16 - t) / .01)),
+    coin: make(.28, t => Math.min(1, t / .004) *
+      (Math.sin(t * Math.PI * 2 * 1046.5) + .3 * Math.sin(t * Math.PI * 2 * 1568)) * .13 * Math.exp(-t * 19) * Math.min(1, (.28 - t) / .025)),
+    repulsor: make(.22, (t, noise) => Math.min(1, t / .003) *
+      (Math.sin(Math.PI * 2 * (240 * t - 300 * t * t)) * .24 + noise * .06) * Math.exp(-t * 24)),
+    shove: make(.2, (t, noise) => Math.min(1, t / .006) *
+      (Math.sin(Math.PI * 2 * (110 * t - 90 * t * t)) * .4 + noise * .045) * Math.exp(-t * 28) * Math.min(1, (.2 - t) / .03)),
+    'emp-shot': make(.18, (t, noise) => Math.min(1, t / .002) *
+      (noise * .22 + Math.sin(t * Math.PI * 2 * 1450) * .08) * Math.exp(-t * 32)),
+    'timer-paused': make(.46, t => {
+      const note = (start: number, frequency: number) => {
+        const age = t - start
+        return age < 0 ? 0 : Math.sin(age * Math.PI * 2 * frequency) * Math.min(1, age / .006) * Math.exp(-age * 18)
+      }
+      return (note(0, 660) + note(.14, 440)) * .18 * Math.min(1, (.46 - t) / .03)
+    }),
+    'time-penalty': make(.46, t => {
+      const note = (start: number, frequency: number) => {
+        const age = t - start
+        return age < 0 ? 0 : Math.sin(age * Math.PI * 2 * frequency) * Math.min(1, age / .006) * Math.exp(-age * 18)
+      }
+      return (note(0, 330) + note(.14, 220)) * .18 * Math.min(1, (.46 - t) / .03)
+    }),
+    // The whole level losing power: a breaker clunk, a second as the lights cut,
+    // and a mains hum winding down to nothing.
+    'power-down': make(1.7, (t, noise) => {
+      const clunk = (start: number, level: number) => {
+        const age = t - start
+        return age < 0 ? 0 : (Math.sin(age * Math.PI * 2 * 68) * .5 + noise * .3 * Math.exp(-age * 60)) * Math.exp(-age * 34) * Math.min(1, age / .002) * level
+      }
+      const phase = Math.PI * 2 * (24 * t + 116 * (1 - Math.exp(-t * 2.4)) / 2.4)
+      const hum = (Math.sin(phase) + .35 * Math.sin(phase * 2) + .15 * Math.sin(phase * 3))
+        * Math.min(1, t / .015) * Math.exp(-t * 1.5) * .2
+      return (clunk(0, 1) + clunk(.3, .55) + hum) * Math.min(1, (1.7 - t) / .15)
+    }),
+    // A soft electrical power-down, with a rounded attack and no crackle.
+    emp: make(.42, t => {
+      const phase = Math.PI * 2 * (110 * t + 420 * (1 - Math.exp(-t * 12)) / 12)
+      const envelope = Math.min(1, t / .008) * Math.exp(-t * 9) * Math.min(1, (.42 - t) / .04)
+      return (Math.sin(phase) + .18 * Math.sin(phase * 2)) * envelope * .2
+    }),
+  }
+  const cues = {} as Record<SoundCue['kind'], Float32Array>
+  for (const kind of Object.keys(recipes) as SoundCue['kind'][]) { cues[kind] = recipes[kind](); yield }
+  return { rate, noise, cues }
+}
+/** All of them at once. */
+export function synthesizeSounds(rate: number) {
+  const steps = soundSteps(rate)
+  for (let step = steps.next(); ; step = steps.next()) if (step.done) return step.value
 }
 
 /** A small reusable bank bounds the cost even in a tower full of mechanisms. */
@@ -60,90 +169,17 @@ export class JumpingSound {
   private disposed = false
   private variation = 0
 
-  constructor(ctx: BaseAudioContext) {
+  constructor(ctx: BaseAudioContext, prepared?: SoundSamples) {
     this.ctx = ctx
     this.output = ctx.createGain(); this.output.gain.value = .8; this.output.connect(ctx.destination)
-    this.noise = makeBuffer(ctx, 2, (t, noise) => noise * (.8 + .2 * Math.sin(t * Math.PI * 13)))
-    let grain = 0, sole = 0, cushion = 0, robotSole = 0, wood = 0, ballSurface = 0, ballBody = 0, waterSurface = 0, waterBody = 0
-    const softening = 1 - Math.exp(-2 * Math.PI * 500 / ctx.sampleRate)
-    const cushioning = 1 - Math.exp(-2 * Math.PI * 130 / ctx.sampleRate)
-    const woodSoftening = 1 - Math.exp(-2 * Math.PI * 850 / ctx.sampleRate)
-    const ballSoftening = 1 - Math.exp(-2 * Math.PI * 650 / ctx.sampleRate)
-    const ballDamping = 1 - Math.exp(-2 * Math.PI * 140 / ctx.sampleRate)
-    const waterSoftening = 1 - Math.exp(-2 * Math.PI * 1600 / ctx.sampleRate)
-    const waterDamping = 1 - Math.exp(-2 * Math.PI * 220 / ctx.sampleRate)
-    this.cues = {
-      footstep: makeBuffer(ctx, .17, (t, noise) => {
-        // A cushioned rubber sole: a rounded low thump and a faint, soft scuff.
-        grain += (noise - grain) * softening
-        sole += (grain - sole) * softening
-        cushion += (sole - cushion) * cushioning
-        const attack = Math.sin(Math.min(1, t / .022) * Math.PI / 2) ** 2
-        return attack * (cushion * 1.8 * Math.exp(-t * 26)
-          + sole * .18 * Math.exp(-t * 38)) * Math.min(1, (.17 - t) / .035)
-      }),
-      'robot-footstep': makeBuffer(ctx, .23, (t, noise) => {
-        // A weighty heel strike with a short metal-shell knock, not a gunshot.
-        robotSole += (noise - robotSole) * softening
-        const attack = Math.sin(Math.min(1, t / .006) * Math.PI / 2) ** 2
-        return attack * (Math.sin(2 * Math.PI * (92 * t - 45 * t * t)) * .42 * Math.exp(-t * 28)
-          + robotSole * .45 * Math.exp(-t * 48)
-          + Math.sin(2 * Math.PI * 620 * t) * .07 * Math.exp(-t * 52)) * Math.min(1, (.23 - t) / .04)
-      }),
-      'box-impact': makeBuffer(ctx, .18, (t, noise) => {
-        // A short, dry wooden knock with a rounded attack and no metallic ring.
-        wood += (noise - wood) * woodSoftening
-        const attack = Math.sin(Math.min(1, t / .005) * Math.PI / 2) ** 2
-        return attack * (wood * .7 * Math.exp(-t * 55)
-          + Math.sin(2 * Math.PI * (145 * t - 60 * t * t)) * .38 * Math.exp(-t * 40)) * Math.min(1, (.18 - t) / .03)
-      }),
-      'ball-impact': makeBuffer(ctx, .24, (t, noise) => {
-        // A rounded, damped thud. Filtered noise gives it body without a hum.
-        ballSurface += (noise - ballSurface) * ballSoftening
-        ballBody += (ballSurface - ballBody) * ballDamping
-        const attack = Math.sin(Math.min(1, t / .008) * Math.PI / 2) ** 2
-        return attack * (ballBody * 1.4 * Math.exp(-t * 24)
-          + ballSurface * .35 * Math.exp(-t * 48)) * Math.min(1, (.24 - t) / .035)
-      }),
-      'water-entry': makeBuffer(ctx, .62, (t, noise) => {
-        // A rounded splash followed by a spreading wash, without pitched bubbles.
-        waterSurface += (noise - waterSurface) * waterSoftening
-        waterBody += (waterSurface - waterBody) * waterDamping
-        const attack = Math.sin(Math.min(1, t / .012) * Math.PI / 2) ** 2
-        return attack * (waterBody * 1.6 * Math.exp(-t * 19)
-          + (waterSurface - waterBody) * .65 * Math.exp(-t * 7)) * Math.min(1, (.62 - t) / .09)
-      }),
-      switch: makeBuffer(ctx, .16, (t, noise) => Math.min(1, t / .002) *
-        (noise * .16 * Math.exp(-t * 90) + Math.sin(t * Math.PI * 2 * 480) * .2 * Math.exp(-t * 55)) * Math.min(1, (.16 - t) / .01)),
-      coin: makeBuffer(ctx, .28, t => Math.min(1, t / .004) *
-        (Math.sin(t * Math.PI * 2 * 1046.5) + .3 * Math.sin(t * Math.PI * 2 * 1568)) * .13 * Math.exp(-t * 19) * Math.min(1, (.28 - t) / .025)),
-      repulsor: makeBuffer(ctx, .22, (t, noise) => Math.min(1, t / .003) *
-        (Math.sin(Math.PI * 2 * (240 * t - 300 * t * t)) * .24 + noise * .06) * Math.exp(-t * 24)),
-      shove: makeBuffer(ctx, .2, (t, noise) => Math.min(1, t / .006) *
-        (Math.sin(Math.PI * 2 * (110 * t - 90 * t * t)) * .4 + noise * .045) * Math.exp(-t * 28) * Math.min(1, (.2 - t) / .03)),
-      'emp-shot': makeBuffer(ctx, .18, (t, noise) => Math.min(1, t / .002) *
-        (noise * .22 + Math.sin(t * Math.PI * 2 * 1450) * .08) * Math.exp(-t * 32)),
-      'timer-paused': makeBuffer(ctx, .46, t => {
-        const note = (start: number, frequency: number) => {
-          const age = t - start
-          return age < 0 ? 0 : Math.sin(age * Math.PI * 2 * frequency) * Math.min(1, age / .006) * Math.exp(-age * 18)
-        }
-        return (note(0, 660) + note(.14, 440)) * .18 * Math.min(1, (.46 - t) / .03)
-      }),
-      'time-penalty': makeBuffer(ctx, .46, t => {
-        const note = (start: number, frequency: number) => {
-          const age = t - start
-          return age < 0 ? 0 : Math.sin(age * Math.PI * 2 * frequency) * Math.min(1, age / .006) * Math.exp(-age * 18)
-        }
-        return (note(0, 330) + note(.14, 220)) * .18 * Math.min(1, (.46 - t) / .03)
-      }),
-      // A soft electrical power-down, with a rounded attack and no crackle.
-      emp: makeBuffer(ctx, .42, t => {
-        const phase = Math.PI * 2 * (110 * t + 420 * (1 - Math.exp(-t * 12)) / 12)
-        const envelope = Math.min(1, t / .008) * Math.exp(-t * 9) * Math.min(1, (.42 - t) / .04)
-        return (Math.sin(phase) + .18 * Math.sin(phase * 2)) * envelope * .2
-      }),
+    // Samples made ahead at this context's rate are copied in; otherwise they are made here, as before.
+    const samples = prepared?.rate === ctx.sampleRate ? prepared : synthesizeSounds(ctx.sampleRate)
+    const buffer = (data: Float32Array) => {
+      const made = ctx.createBuffer(1, data.length, ctx.sampleRate)
+      made.copyToChannel(data as Float32Array<ArrayBuffer>, 0); return made
     }
+    this.noise = buffer(samples.noise)
+    this.cues = Object.fromEntries(Object.entries(samples.cues).map(([kind, data]) => [kind, buffer(data)])) as Record<SoundCue['kind'], AudioBuffer>
   }
 
   private createVoice(loop: SoundLoop): Voice {
@@ -218,6 +254,11 @@ export class JumpingSound {
   }
 }
 
+/** Samples made this visit, by rate. Every game uses the same ones. */
+const preparedSounds = new Map<number, SoundSamples>()
+/** Most devices output at 48 kHz; the first context this visit says for certain. */
+let likelyRate = 48000
+
 /** Own one context per mounted game. Browsers may decline autoplay; discard
  * unheard events instead of playing a backlog when a gesture unlocks audio. */
 export class JumpingSoundSession {
@@ -225,10 +266,39 @@ export class JumpingSoundSession {
   private sound: JumpingSound | null = null
   private resuming = false
   private disposed = false
+  private cancelPreparation = () => {}
+  constructor() { this.prepare(likelyRate) }
+
+  /** Make the samples in idle time, a sound at a time, so the first key press only copies them in. */
+  private prepare(rate: number) {
+    if (preparedSounds.has(rate) || typeof window === 'undefined') return
+    const steps = soundSteps(rate)
+    const idle = (callback: IdleRequestCallback) => window.requestIdleCallback
+      ? window.requestIdleCallback(callback, { timeout: 1000 })
+      : window.setTimeout(() => callback({ didTimeout: true, timeRemaining: () => 0 }), 50)
+    const cancelIdle = (handle: number) => window.cancelIdleCallback ? window.cancelIdleCallback(handle) : window.clearTimeout(handle)
+    let handle = 0, cancelled = false
+    const slice = (deadline: IdleDeadline) => {
+      if (cancelled) return
+      // A sound takes up to about 13 ms to make: take one while the browser has
+      // time to spare, or one now that it has waited long enough.
+      for (let budget = deadline.didTimeout ? 1 : Infinity; budget > 0 && (deadline.didTimeout || deadline.timeRemaining() > 8); budget--) {
+        const step = steps.next()
+        if (step.done) { preparedSounds.set(rate, step.value); return }
+      }
+      handle = idle(slice)
+    }
+    handle = idle(slice)
+    this.cancelPreparation = () => { cancelled = true; cancelIdle(handle) }
+  }
+
   unlock() {
     if (this.disposed || this.resuming) return
     try {
-      if (!this.ctx) { this.ctx = new AudioContext(); this.sound = new JumpingSound(this.ctx) }
+      if (!this.ctx) {
+        this.ctx = new AudioContext(); likelyRate = this.ctx.sampleRate; this.cancelPreparation()
+        this.sound = new JumpingSound(this.ctx, preparedSounds.get(this.ctx.sampleRate))
+      }
       if (this.ctx.state === 'suspended') {
         this.resuming = true
         void this.ctx.resume().catch(() => {}).finally(() => { this.resuming = false })
@@ -247,7 +317,7 @@ export class JumpingSoundSession {
   silence() { this.sound?.silence() }
 
   dispose() {
-    this.disposed = true; this.sound?.dispose()
+    this.disposed = true; this.cancelPreparation(); this.sound?.dispose()
     if (this.ctx && this.ctx.state !== 'closed') void this.ctx.close().catch(() => {})
     this.ctx = null; this.sound = null
   }

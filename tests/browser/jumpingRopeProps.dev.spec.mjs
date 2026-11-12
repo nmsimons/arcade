@@ -22,7 +22,7 @@ test('pushing a ball over the ledge keeps every rendered rope frame stable', asy
       return arc.call(this, x, y, radius, ...args)
     }
   })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()

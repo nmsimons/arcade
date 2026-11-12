@@ -1,7 +1,7 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { advanceJumpingSimulation as advance } from './helpers/simulation.mjs'
 
 test.use({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true })
@@ -9,11 +9,10 @@ async function open(page, level = blankTrial()) {
   await useLevelFixtures(page, [level])
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.touchCamera = this.getTransform()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.touchCamera = transform
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
       if (canvas.touchCamera) {
         const camera = canvas.touchCamera
@@ -23,17 +22,14 @@ async function open(page, level = blankTrial()) {
     })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   await expect(page.getByRole('button', { name: 'Pause game', exact: true })).toBeVisible()
   await advance(page, 100)
   return level
 }
 const position = page => page.evaluate(() => window.touchPlayer)
 async function pointer(page, type, id, x = 700, y = 270) {
-  await page.locator('.jumping-game > canvas').evaluate((canvas, p) => canvas.dispatchEvent(new PointerEvent(p.type, {
+  await page.locator('.jumping-game > canvas[role="img"]').evaluate((canvas, p) => canvas.dispatchEvent(new PointerEvent(p.type, {
     pointerType: 'touch', pointerId: p.id, isPrimary: p.id === 1,
     clientX: p.x, clientY: p.y, buttons: p.type === 'pointerup' ? 0 : 1, bubbles: true, cancelable: true,
   })), { type, id, x, y })
@@ -56,7 +52,7 @@ test('native tap jumps once; an upward flick gives greater height and gameplay s
   // Allow for WebKit's software rendering at the iPhone pixel density in CI.
   if (browserName === 'webkit') test.setTimeout(60_000)
   const level = await open(page)
-  const canvas = page.locator('.jumping-game > canvas')
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   const styles = await canvas.evaluate(c => {
     const style = getComputedStyle(c)
     return { action: style.touchAction, select: style.getPropertyValue('-webkit-user-select') || style.userSelect }
@@ -128,19 +124,21 @@ test('cancellation, lost capture, pause and rotation clear held movement and que
   await pointer(page, 'pointerdown', 1); await advance(page, 300)
   await page.getByRole('button', { name: 'Pause game', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
-  expect(await page.locator('.jumping-game > canvas').evaluate(c => getComputedStyle(c).touchAction)).toBe('auto')
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(c => getComputedStyle(c).touchAction)).toBe('auto')
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
   const instructions = page.getByRole('region', { name: 'How to play' })
-  await expect(instructions).toContainText('flick up and lift')
-  await expect(instructions).toContainText('Tools: E / X-Square')
+  await expect(instructions).toContainText('Jump higherFlick up')
+  await expect(instructions).toContainText('Best with a controller.')
+  await expect(instructions).toContainText('Fire / Shove button')
+  await expect(instructions, 'touch players are not told keyboard keys').not.toContainText('Space')
   await expect(page.getByRole('heading', { name: 'Controls.', exact: true })).toBeInViewport()
-  await expect(page.getByText('Jump / higher jump', { exact: true })).toBeInViewport()
+  await expect(instructions.getByText('Run', { exact: true }), 'Controls opens on the first row').toBeInViewport()
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport()
   await page.screenshot({ path: info.outputPath('touch-controls.png') })
   await page.getByText('Let go', { exact: true }).scrollIntoViewIfNeeded()
   await expect(page.getByText('Let go', { exact: true })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport()
-  const tools = instructions.getByText(/^Tools:/)
+  const tools = instructions.getByText('Shove things and bots', { exact: true })
   await tools.scrollIntoViewIfNeeded()
   await expect(tools).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport()
@@ -204,13 +202,13 @@ test('trusted simultaneous contacts retain capture when the action finger lifts'
   expect((await position(page)).x).toBeGreaterThan(level.entrance.x + 50)
   await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [mover, action] })
   await page.clock.runFor(32)
-  expect(await page.locator('.jumping-game > canvas').evaluate(c => window.touchNativeIds.map(id => c.hasPointerCapture(id)))).toEqual([true, true])
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(c => window.touchNativeIds.map(id => c.hasPointerCapture(id)))).toEqual([true, true])
   // Release the action contact while retaining the captured movement contact.
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [action] })
   await advance(page, 200)
   await expect(page.locator('.jumping-touch-contact')).toHaveText('Run →')
   expect((await position(page)).y).toBeLessThan(level.entrance.y - 30)
-  expect(await page.locator('.jumping-game > canvas').evaluate(c => c.hasPointerCapture(window.touchNativeIds[0]))).toBe(true)
+  expect(await page.locator('.jumping-game > canvas[role="img"]').evaluate(c => c.hasPointerCapture(window.touchNativeIds[0]))).toBe(true)
   await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] })
   await advance(page, 1000)
   await expect(page.locator('.jumping-touch-contact')).toHaveCount(0)

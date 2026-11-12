@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 test('a button-powered dry lift launches the player beyond its field in a room with water', async ({ page }, info) => {
@@ -12,11 +12,7 @@ test('a button-powered dry lift launches the player beyond its field in a room w
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab?motionDebug=1&renderControl=1')
-  const play = page.getByRole('button', { name: 'Play Gravity launch', exact: true })
-  await expect(play).toBeEnabled()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
+  await openLevelLink(page, { query: '?motionDebug=1&renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page); await page.clock.runFor(64)
   const sample = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   await page.keyboard.down('Shift'); await page.keyboard.down('d')
   let onPlate

@@ -141,7 +141,7 @@ test('an always-on exit stays open and completes a level during an outage', () =
   const run = createRun(level); run.started = true; Object.assign(run.player, level.goal)
   step(run); assert.equal(run.goalLit, true); assert.equal(run.empRemaining, 5)
   step(run, 120); const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2
-  step(run); assert.ok(run.exit); const score = run.elapsed
+  step(run, 1, { ...NEUTRAL_INPUT, climb: true }); assert.ok(run.exit); const score = run.elapsed
   run.pickups.push({ definition: emp(run.player.x), collectedAge: null })
   step(run, 240); assert.equal(run.finished, true); assert.ok(run.empRemaining > 0)
   assert.equal(run.elapsed, score); assert.equal(run.pickups[1].collectedAge, null)

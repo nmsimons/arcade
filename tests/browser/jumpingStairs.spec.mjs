@@ -1,6 +1,6 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { bodyPolygon, polygonIntersects } from '../../src/games/jumping/geometry.ts'
 import { addItem } from '../../src/games/jumping/editor.ts'
@@ -17,11 +17,10 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.stairCamera = this.getTransform().inverse()
-      return rect.apply(this, args)
-    }
+    // The renderer reports the wall, and with it the camera (src/games/jumping/debugFrames.ts).
+    window.addEventListener('jumping-wall', ({ detail: { canvas, transform } }) => {
+      canvas.stairCamera = transform.inverse()
+    })
     window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
       if (canvas.stairCamera) {
         const root = canvas.stairCamera.multiply(body)
@@ -30,10 +29,7 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
       }
     })
   })
-  await page.goto('/lab')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') }); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Stair treads: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await canvas.evaluate(c => { c.stairFrames = [] })

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 test('Waterline II: Rbot swims out of the right pool at normal speed', async ({ page }, info) => {
   test.setTimeout(45000)
@@ -27,9 +27,8 @@ test('Waterline II: Rbot swims out of the right pool at normal speed', async ({ 
     }
   })
   const errors = []; page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/lab')
-  await page.locator('.jumping-level-card').filter({ hasText: level.name }).click()
-  const canvas = page.locator('.jumping-game > canvas')
+  await openLevelLink(page)
+  const canvas = page.locator('.jumping-game > canvas[role="img"]')
   await expect(canvas).toBeFocused()
   await expect.poll(() => canvas.evaluate(c => c.botFrames?.some(p => p.y > 990)), { timeout: 15000 }).toBe(true)
   const screenshot = async name => {

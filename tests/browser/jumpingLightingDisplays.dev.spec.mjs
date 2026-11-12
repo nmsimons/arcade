@@ -59,7 +59,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: timer and numeric coi
     }
     h.renderer.dispose(); document.body.replaceChildren(sheet); return samples
   }, backend)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-display-lighting.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`${backend}-display-lighting.png`) })
   for (const sample of result) {
     expect(sample.backend).toBe(backend)
     expect(sample.digits).toBeGreaterThan(20)

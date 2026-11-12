@@ -1,7 +1,7 @@
 // Pose queries: the per-render pose cache, mode dispatch and the final arm, shove and ankle passes.
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { ankleSkin, bodyIntrusion, clearLimb, limbClearance } from './athleteClearance.ts'
-import { FOREARM, HEAD_RADIUS, UPPER_ARM, add, armPose, clamp, mix, mixAngle, reflectAthletePose, smooth, solve, solveNear, transferPose } from './athleteRig.ts'
+import { FOREARM, HEAD_RADIUS, UPPER_ARM, add, armPose, clamp, mix, mixAngle, reflectAthletePose, smooth, solve, solveNear, solveRear, transferPose } from './athleteRig.ts'
 import type { AthletePose, Leg } from './athleteRig.ts'
 import { footPoint } from './footwork.ts'
 import { lineBlocked, withTerrainQueries } from './geometry.ts'
@@ -17,6 +17,7 @@ import { impactRagdollPose } from './poses/ragdollPose.ts'
 import { releaseTurnPose } from './poses/releaseTurnPose.ts'
 import { waterPose } from './poses/waterPose.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
+import { withinRigLimits } from './athleteLimits.ts'
 import type { Player } from './characterTypes.ts'
 
 const renderPoses = new WeakMap<Player, { pose?: AthletePose; base?: AthletePose }>()
@@ -104,7 +105,44 @@ function equippedArmPose(p: Player, pose: AthletePose, presentation = false): At
 /** Ease only presentation; the arm and its sleeve always share the same bones.
  * Contacts, obstruction queries and fresh shots use the selected direction. */
 export function presentedAthletePose(p: Player): AthletePose {
-  return withTerrainQueries(() => articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p), true))))
+  return withinRigLimits(p, withTerrainQueries(() => reachingForRope(p, articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p), true))))))
+}
+
+/** Flying at a hanging rope, the hands reach out for the point of it the catch will take, so the catch
+ * closes the hands on the rope rather than lunging them there. Presentation only: the catch itself still
+ * probes from just ahead of the head. */
+function reachingForRope(p: Player, pose: AthletePose): AthletePose {
+  if (p.grounded || p.climbing || p.hang || p.mantle || p.inverted || p.waterMotion || p.grabCooldown > 0 || p.heldTool || !p.ropes?.length) return pose
+  const probe: Point = [p.x + p.facing * 10, p.y - 56]
+  let nearest: Point | null = null, gap = Infinity
+  for (const rope of p.ropes) for (let j = 0; j < rope.nodes.length - 1; j++) {
+    const a = rope.nodes[j], b = rope.nodes[j + 1], dx = b.x - a.x, dy = b.y - a.y
+    const t = clamp(((probe[0] - a.x) * dx + (probe[1] - a.y) * dy) / (dx * dx + dy * dy || 1))
+    const q: Point = [a.x + dx * t, a.y + dy * t], d = Math.hypot(q[0] - probe[0], q[1] - probe[1])
+    if (d < gap) { gap = d; nearest = q }
+  }
+  if (!nearest) return pose
+  const target: Point = [(nearest[0] - p.x) * p.facing, nearest[1] - p.y]
+  // Only a rope ahead, from a little beyond the catch's reach until the hands close on it.
+  const weight = smooth((55 - gap) / 30) * smooth((target[0] - 2) / 8)
+  if (weight < .01 || (p.terrain && lineBlocked([p.x + pose.shoulder[0] * p.facing, p.y + pose.shoulder[1]], nearest, p.terrain))) return pose
+  const reach = (arm: Limb, goal: Point): Limb => {
+    const d: Point = [goal[0] - arm.root[0], goal[1] - arm.root[1]], length = Math.hypot(d[0], d[1]), most = UPPER_ARM + FOREARM - .3
+    const end: Point = length > most ? [arm.root[0] + d[0] / length * most, arm.root[1] + d[1] / length * most] : goal
+    const solved = solveRear(arm.root, end, UPPER_ARM, FOREARM, 1, 1, 3)
+    // Each bone turns from the flight pose toward the reach, keeping its length.
+    const bone = (from: number[], to: number[], size: number) => {
+      const v = from.map((x, k) => x + (to[k] - x) * weight), length = Math.hypot(...v) || 1
+      return v.map(x => x / length * size)
+    }
+    const upper = bone([arm.joint[0] - arm.root[0], arm.joint[1] - arm.root[1], arm.jointDepth ?? 0],
+      [solved.joint[0] - arm.root[0], solved.joint[1] - arm.root[1], solved.jointDepth ?? 0], UPPER_ARM)
+    const lower = bone([arm.end[0] - arm.joint[0], arm.end[1] - arm.joint[1], (arm.endDepth ?? 0) - (arm.jointDepth ?? 0)],
+      [solved.end[0] - solved.joint[0], solved.end[1] - solved.joint[1], (solved.endDepth ?? 0) - (solved.jointDepth ?? 0)], FOREARM)
+    const joint: Point = [arm.root[0] + upper[0], arm.root[1] + upper[1]], tip: Point = [joint[0] + lower[0], joint[1] + lower[1]]
+    return { ...arm, joint, end: tip, jointDepth: upper[2], endDepth: upper[2] + lower[2], hand: arm.hand ? mix(arm.hand, tip, weight) : undefined }
+  }
+  return { ...pose, frontArm: reach(pose.frontArm, target), backArm: reach(pose.backArm, [target[0], target[1] + 5]) }
 }
 
 /** Final clearance and pose blends can change the shin after its first solve.

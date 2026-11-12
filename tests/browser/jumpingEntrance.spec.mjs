@@ -1,6 +1,6 @@
 import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, restartFromPause, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { readFile } from 'node:fs/promises'
 
@@ -24,12 +24,7 @@ test('the silhouette emerges through a closing entrance; idle play, pause and re
     })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/lab')
-  const card = page.locator('.jumping-level-card[aria-pressed=true]')
-  await expect(card).toBeVisible()
-  await expect.poll(() => card.locator('canvas').evaluate(c => c.width)).toBeGreaterThan(1)
-  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await card.click(); await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
+  await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') }); await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.clock.runFor(200)
   await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.screenshot({ path: info.outputPath('entrance-reveal.png') })
@@ -60,12 +55,7 @@ for (const file of ['spire1.jump-level.json', '04.json', '05.json', 'spelunk.jum
     const level = JSON.parse(await readFile(new URL(`../../public/levels/jumping/${file}`, import.meta.url), 'utf8'))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-    await page.goto('/lab')
-    const card = page.locator('.jumping-level-card[aria-pressed=true]')
-    await expect(card).toBeVisible()
-    await expect.poll(() => card.locator('canvas').evaluate(c => c.width)).toBeGreaterThan(1)
-    await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-    await card.click()
+    await openLevelLink(page, { pauseAt: new Date('2026-01-01T01:00:00Z') })
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     await page.clock.runFor(700)
     await expect(page.locator('.jumping-state')).toHaveText('Entering the level')

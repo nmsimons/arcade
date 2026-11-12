@@ -52,14 +52,14 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: message lettering sta
   result.frame.forEach((c, i) => expect(Math.abs(c - result.brightFrame[i] * .35)).toBeLessThanOrEqual(2))
   expect(result.wallDifference, JSON.stringify(result)).toBe(0)
   expect(result.occlusionDifference, JSON.stringify(result)).toBe(0)
-  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-message-screen.png`) })
+  await page.locator('canvas:not(.jumping-webgl-canvas)').screenshot({ path: info.outputPath(`${backend}-message-screen.png`) })
 })
 
 test('message screens can be placed, edited, duplicated, undone, saved and reopened', async ({ page }, info) => {
   test.setTimeout(60000)
   const level = { ...blankTrial(), version: 2, name: 'Terminal review', lighting: { nightMode: true, ambient: 0, lights: [] } }
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'terminal.json': level })
-  await page.goto('/lab')
+  await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open terminal.json', exact: true }).click()

@@ -3029,7 +3029,7 @@
         "f4877673-46a1-4c63-adc9-c34497eb0773"
       ],
       "mode": "coins",
-      "threshold": 10,
+      "threshold": 15,
       "display": "digital"
     }
   ],

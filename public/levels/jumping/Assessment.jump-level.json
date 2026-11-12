@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "id": "facility-assessment",
+  "name": "Assessment",
+  "width": 800,
+  "height": 400,
+  "platforms": [],
+  "entrance": {
+    "name": "Assessment entrance",
+    "x": 75,
+    "y": 400
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 400,
+  "kind": "hub",
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "courseDoors": [
+    {
+      "id": "door-world-i",
+      "x": 220,
+      "y": 400,
+      "course": "9c86c84f-5cd0-4cfa-9c78-b257fe402ab1"
+    }
+  ],
+  "bulkheads": [
+    {
+      "id": "assessment-to-concourse",
+      "x": 75,
+      "y": 400,
+      "to": "facility-concourse"
+    }
+  ],
+  "evaluationBoards": [
+    {
+      "id": "e912e726-3130-4a3f-92c4-37534cef1d84",
+      "x": 170,
+      "y": 15,
+      "w": 460,
+      "h": 250
+    }
+  ],
+  "texts": []
+}

@@ -18,9 +18,12 @@ async function open(page, editor = false) {
   if (editor) await installBuiltInFixtures(page, { 'fixture.json': fixture })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, rounded = proto.roundRect, arc = proto.arc, fill = proto.fill, begin = proto.beginPath, move = proto.moveTo
-    proto.beginPath = function (...args) { this.empPath = []; return begin.apply(this, args) }
-    proto.moveTo = function (x, y) { this.empPath?.push([x, y]); return move.call(this, x, y) }
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, rounded = proto.roundRect, arc = proto.arc, fill = proto.fill
+    // The wall clock is read from the renderer's display reports (src/games/jumping/debugFrames.ts).
+    try { localStorage.setItem('jumping:debug-frames', '1') } catch { /* Reports stay off. */ }
+    window.addEventListener('jumping-display', ({ detail: { canvas, value } }) => {
+      if (value[2] === ':' && canvas.empFrame) canvas.empFrame.clock = value
+    })
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
         this.canvas.empFrame = { bolts: 0, eyes: 0, meter: null, discs: 0, edges: 0 }
@@ -28,7 +31,6 @@ async function open(page, editor = false) {
       }
       const frame = this.canvas.empFrame
       if (frame && args[2] === 5 && args[3] === 5 && ['#94433f', '#a5b3a7'].includes(this.fillStyle)) frame.eyes++
-      if (frame && args[0] === 66 && args[1] === 12 && args[2] === 3 && args[3] === 3) frame.clock = this.empDigits
       return rect.apply(this, args)
     }
     proto.roundRect = function (...args) {
@@ -46,7 +48,6 @@ async function open(page, editor = false) {
       return arc.apply(this, args)
     }
     proto.fill = function (...args) {
-      if (this.shadowBlur === 3) this.empDigits = JSON.stringify(this.empPath)
       if (this.canvas.empFrame && this.fillStyle === '#ac7b35' && args[0] instanceof Path2D) this.canvas.empFrame.edges++
       if (this.canvas.empFrame && this.fillStyle === '#dfb44f' && args[0] instanceof Path2D) {
         this.canvas.empFrame.bolts++
@@ -57,7 +58,7 @@ async function open(page, editor = false) {
     }
 
   })
-  await page.goto('/lab?renderControl=1')
+  await page.goto('/lab/library?renderControl=1')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   if (!editor) await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   if (editor) {

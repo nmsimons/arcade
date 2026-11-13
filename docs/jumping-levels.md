@@ -1004,8 +1004,9 @@ The marks repeat on a 240-by-160-unit tile, scattered so they never line up in
 rows or columns across a large mass.
 
 The optional `wallFinish` gives the course wall a wing's finish: `"panels"`
-(large bolted plates with shadowed joints), `"tile"` (pale blue-grey 40-unit
-tiles with grout) or `"bulkhead"` (heavy riveted steel plates). Leave it out for
+(large bolted plates with shadowed joints), `"tile"` (pale blue-grey glazed
+80-by-40 tiles in running bond, their joints drawn as light and shaded bevels)
+or `"bulkhead"` (heavy riveted steel plates). Leave it out for
 the ordinary course wall with its fine grid; the studio's **Wall finish**
 (Level tab, World) saves `"course"` that way. Finishes are artwork only: they
 add no collision, cover or lighting, keep the wall's base colour, and apply

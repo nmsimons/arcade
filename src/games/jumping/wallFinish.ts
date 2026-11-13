@@ -29,14 +29,6 @@ function cells(area: Area, w: number, h: number, stagger = 0) {
   }
   return out
 }
-/** Grid lines every `step` units across the area, as one path. */
-function lines(area: Area, stepX: number, stepY: number) {
-  const path = new ArtPath()
-  for (let x = Math.ceil(area.x / stepX) * stepX; x <= area.x + area.w; x += stepX) { path.moveTo(x, area.y); path.lineTo(x, area.y + area.h) }
-  for (let y = Math.ceil(area.y / stepY) * stepY; y <= area.y + area.h; y += stepY) { path.moveTo(area.x, y); path.lineTo(area.x + area.w, y) }
-  return path
-}
-
 /** Draws a finish over the wall's base fill, within `area` (the visible part of the level). */
 export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<WallFinish, 'course'>, area: Area, zoom: number) {
   if (area.w <= 0 || area.h <= 0) return
@@ -44,7 +36,7 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
   // Fixings smaller than about a pixel only add noise when the view is zoomed out.
   const fixings = zoom >= .35
   if (finish === 'panels') drawPanels(ctx, area, fixings)
-  else if (finish === 'tile') drawTile(ctx, area, zoom)
+  else if (finish === 'tile') drawTile(ctx, area, fixings)
   else drawBulkhead(ctx, area, fixings)
   ctx.restore()
 }
@@ -68,14 +60,21 @@ function drawPanels(ctx: CanvasRenderingContext2D, area: Area, fixings: boolean)
   ctx.fillStyle = '#a9b1ab'; ctx.fill(bolts)
 }
 
-/** A cool tiled wall: 40-unit tiles in pale blue-grey, with grout lines. */
-function drawTile(ctx: CanvasRenderingContext2D, area: Area, zoom: number) {
-  ctx.fillStyle = '#e5edec'; ctx.fillRect(area.x, area.y, area.w, area.h)
-  // Every other tile a shade apart, so the grid reads as tiles rather than graph paper.
-  ctx.fillStyle = 'rgba(88,120,128,.035)'
-  for (const t of cells(area, 40, 40)) if ((t.col + t.row) % 2) ctx.fillRect(t.x, t.y, 40, 40)
-  ctx.strokeStyle = '#9fb7ba'; ctx.lineWidth = Math.max(1, .7 / zoom)
-  ctx.stroke(lines(area, zoom >= .35 ? 40 : 160, zoom >= .35 ? 40 : 160))
+/** A wet room's wall: pale blue-grey glazed tiles, 80 by 40, laid in running bond. A light top-left edge and
+ * a shaded bottom-right edge form each joint, so the tiles read as glazed rather than ruled. */
+function drawTile(ctx: CanvasRenderingContext2D, area: Area, fixings: boolean) {
+  const w = 80, h = 40, tiles = cells(area, w, h, w / 2)
+  ctx.fillStyle = '#e6edec'; ctx.fillRect(area.x, area.y, area.w, area.h)
+  for (const t of tiles) { ctx.fillStyle = `rgba(88,120,128,${.008 + noise(t.col, t.row) * .02})`; ctx.fillRect(t.x, t.y, w, h) }
+  // Joints finer than about a pixel only add noise when the view is zoomed out.
+  if (!fixings) return
+  const light = new ArtPath(), shade = new ArtPath()
+  for (const t of tiles) {
+    light.moveTo(t.x + .5, t.y + h); light.lineTo(t.x + .5, t.y + .5); light.lineTo(t.x + w, t.y + .5)
+    shade.moveTo(t.x, t.y + h - .5); shade.lineTo(t.x + w - .5, t.y + h - .5); shade.lineTo(t.x + w - .5, t.y)
+  }
+  ctx.lineWidth = 1.2; ctx.strokeStyle = '#ffffffb0'; ctx.stroke(light)
+  ctx.strokeStyle = '#9fb6b866'; ctx.stroke(shade)
 }
 
 /** Heavy steel plates on a square grid, with deep seams and rivets along every edge. */

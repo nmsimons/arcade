@@ -56,6 +56,11 @@ test('finishes draw within the visible part of the level, and drop small fixings
     assert.equal(fixings(far.calls), 0, `${finish}: no fixings when zoomed out`)
     assert.ok(near.calls.some(c => c[0] === 'clip'), 'clipped to the area')
   }
+  // Tile joints are two bevel strokes, light and shade, and give way to the plain glaze when zoomed out.
+  const tile = recorder(), tileFar = recorder()
+  drawWallFinish(tile.ctx, 'tile', { x: 0, y: 0, w: 1600, h: 900 }, 1); drawWallFinish(tileFar.ctx, 'tile', { x: 0, y: 0, w: 1600, h: 900 }, .2)
+  assert.equal(tile.calls.filter(c => c[0] === 'stroke').length, 2)
+  assert.equal(tileFar.calls.filter(c => c[0] === 'stroke').length, 0)
   const empty = recorder(); drawWallFinish(empty.ctx, 'tile', { x: 0, y: 0, w: 0, h: 900 }, 1)
   assert.equal(empty.calls.length, 0)
 })

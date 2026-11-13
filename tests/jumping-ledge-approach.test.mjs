@@ -25,7 +25,7 @@ for(const [file,kind,turn,direction,expected] of cases) test(`${file}: ${kind}, 
   const level=ledgeApproachLevel(read(file),kind,direction)
   assert.deepEqual(levelProblems(level),[])
   const run=createRun(level),p=run.player
-  let caught=false,wallJump=false,stable,previous
+  let caught=false,wallJump=false,stable,stablePalms,previous
   for(let tick=0;tick<230;tick++) {
     stepRun(run,caught?NEUTRAL_INPUT:ledgeApproachInput(tick,kind,turn,direction))
     wallJump ||= !!p.wallJump
@@ -41,8 +41,15 @@ for(const [file,kind,turn,direction,expected] of cases) test(`${file}: ${kind}, 
       const points=[pose.hip,pose.shoulder,pose.head,pose.frontArm.joint,pose.frontArm.end,pose.backArm.joint,pose.backArm.end].map(q=>[p.x+q[0]*p.facing,p.y+q[1]])
       if(previous)for(const [i,q]of points.entries())assert.ok(Math.hypot(q[0]-previous.points[i][0],q[1]-previous.points[i][1])<Math.hypot(p.x-previous.x,p.y-previous.y)+6,'catch joints stay continuous')
       if(p.hang.time>.2) {
-        if(stable)for(const [i,q]of points.entries())assert.ok(Math.hypot(q[0]-stable[i][0],q[1]-stable[i][1])<1e-5,'quiet hanging pose stays at rest')
-        stable=points
+        // A braced hang rests. A free one swings gently from its grip (hangSway), the palms holding the lip still.
+        if(stable)for(const [i,q]of points.entries()) {
+          const moved=Math.hypot(q[0]-stable[i][0],q[1]-stable[i][1])
+          if(p.hang.braced)assert.ok(moved<1e-5,'quiet hanging pose stays at rest')
+          else assert.ok(moved<1,'a free hang swings smoothly from its grip')
+        }
+        const palms=[pose.frontArm.hand,pose.backArm.hand].map(q=>[p.x+q[0]*p.facing,p.y+q[1]])
+        if(stablePalms)for(const [i,q]of palms.entries())assert.ok(Math.hypot(q[0]-stablePalms[i][0],q[1]-stablePalms[i][1])<1e-5,'the palms hold the lip at rest')
+        stable=points; stablePalms=palms
       }
       previous={x:p.x,y:p.y,points}
       for(const q of athleteOutlinePoints(p)) {

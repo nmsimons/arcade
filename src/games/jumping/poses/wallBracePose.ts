@@ -10,9 +10,10 @@ import { TUNING } from '../movementTuning.ts'
 import { gaitPose } from '../gait.ts'
 import type { Player } from '../characterTypes.ts'
 
-export function wallBraceArm(p: Player, shoulder: Point, limb: Limb, weight: number, y: number): Limb {
+export function wallBraceArm(p: Player, shoulder: Point, limb: Limb, weight: number, y: number, wallX?: number): Limb {
   const brace = p.wallBrace!, slope = brace.normal ? -brace.normal[1] / brace.normal[0] * p.facing : 0
-  const wall = (brace.wallX - p.x) * p.facing + slope * (p.y + y - (brace.wallY ?? p.y))
+  // The palm meets the brace's face, or the actual face found at its height (see slidingPose).
+  const wall = wallX ?? ((brace.wallX - p.x) * p.facing + slope * (p.y + y - (brace.wallY ?? p.y)))
   const contact = smooth(weight), normal: Point = [-1 / Math.hypot(1, slope), slope / Math.hypot(1, slope)]
   const root = add(shoulder, [0, .7]), frame = pushPalmFrame([wall, y], normal), wrist = frame.wrist
   // A cleared airborne elbow can cross the angular branch cut while the

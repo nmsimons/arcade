@@ -68,9 +68,13 @@ export interface Player {
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; outwardSlope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
+    /** The hang's time when a free hang starts swinging from the hands, after the catch unless set (see hangSway). Presentation only. */
+    swayFrom?: number
     caught: { x: number; y: number; vx: number; vy: number; anim: CaughtAnimation; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; waterMotion?: Player['waterMotion']; heldTool?: Player['heldTool'] } } | null
   mantle: { edgeX: number; edgeY: number; side: number; slope?: number; outwardSlope?: number; toX: number; toY: number; time: number; braced: boolean;
     platform?: number; returning?: boolean; crouched?: boolean; inset?: number; blockedTime?: number;
+    /** Climbing on from a free hang: how long it had been swinging and its catch speed toward the wall, so the swing settles. Presentation only. */
+    sway?: { time: number; vx: number };
     step?: StepUp;
     /** Foreground ladder-to-deck pull-up, viewed from behind. */
     ladder?: { climb: Climbing; x: number; y: number; entry: number };

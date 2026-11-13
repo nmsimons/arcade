@@ -100,11 +100,11 @@ test('the climb preserves limb lengths, ledge supports and clearance on either s
   }
 })
 
-test('a real catch settles into wall bracing or a straight hang, then stands without a pose snap', () => {
+test('a real catch settles into wall bracing or a gently swinging hang, then stands without a pose snap', () => {
   for (const braced of [false, true]) for (const side of [-1, 1]) {
     const p = createPlayer(), world = [{ x: 0, y: 620, w: 2600, h: 400 }, { x: 500, y: 400, w: 220, h: braced ? 220 : 12 }]
     Object.assign(p, { x: side === 1 ? 420 : 800, facing: side })
-    let hangTime = 0, stable, previous, didCatch = false, didClimb = false, didStand = false
+    let hangTime = 0, stable, stablePalms, previous, didCatch = false, didClimb = false, didStand = false
     for (let time = 0; time < 3.5; time += STEP) {
       if (p.hang) hangTime += STEP
       const wasClimbing = !!p.mantle
@@ -113,8 +113,15 @@ test('a real catch settles into wall bracing or a straight hang, then stands wit
       const pose = athletePose(p), worldPoint = a => [p.x + a[0] * side, p.y + a[1]]
       if (p.hang?.time > .2) {
         didCatch = true; assert.equal(p.hang.braced, braced)
-        if (stable) landmarks(pose).forEach((point, i) => close(worldPoint(point), stable[i], 'the hanging body and contacts must settle'))
-        stable = landmarks(pose).map(worldPoint)
+        // A braced body and its contacts settle. Hanging free, the body swings gently from the hands (hangSway),
+        // the palms holding the lip still.
+        if (stable) landmarks(pose).forEach((point, i) => {
+          if (braced) close(worldPoint(point), stable[i], 'the hanging body and contacts must settle')
+          else assert.ok(distance(worldPoint(point), stable[i]) < 1, 'a free hang swings smoothly from its grip')
+        })
+        const palms = [pose.frontArm.hand, pose.backArm.hand].map(worldPoint)
+        if (stablePalms) palms.forEach((point, i) => close(point, stablePalms[i], 'the palms hold the lip at rest'))
+        stable = landmarks(pose).map(worldPoint); stablePalms = palms
         if (braced) {
           for (const leg of [pose.frontLeg, pose.backLeg]) {
             assert.ok(Math.abs(leg.footAngle) < .25, 'the instep projects from the ankle toward the wall')
@@ -129,8 +136,9 @@ test('a real catch settles into wall bracing or a straight hang, then stands wit
           }
         }
         else {
-          assert.ok(Math.abs(pose.hip[0] - pose.shoulder[0]) < .01)
-          for (const leg of [pose.frontLeg, pose.backLeg]) assert.ok(Math.abs(leg.end[0] - pose.hip[0]) <= 1.01)
+          // Nearly straight, within the swing.
+          assert.ok(Math.abs(pose.hip[0] - pose.shoulder[0]) < 3)
+          for (const leg of [pose.frontLeg, pose.backLeg]) assert.ok(Math.abs(leg.end[0] - pose.hip[0]) <= 6)
         }
       }
       if (p.mantle) didClimb = true

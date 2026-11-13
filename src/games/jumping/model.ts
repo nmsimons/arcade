@@ -927,13 +927,13 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.y = m.descending.caught.y + (p.y - m.descending.caught.y) * blend
     }
     if (m.returning && m.time === 0) {
-      p.hang = { platform: m.platform ?? -1, edgeX: m.edgeX, edgeY: m.edgeY, side: m.side, slope: m.slope, outwardSlope: m.outwardSlope, time: 1, queued: false, braced: m.braced, dropLocked: true,
+      p.hang = { platform: m.platform ?? -1, edgeX: m.edgeX, edgeY: m.edgeY, side: m.side, slope: m.slope, outwardSlope: m.outwardSlope, time: 1, swayFrom: 1, queued: false, braced: m.braced, dropLocked: true,
         caught: { x: p.x, y: p.y, vx: 0, vy: 0, anim: { stride: 0, gait: p.anim.gait }, ledgeReach: null } }
       p.mantle = null; return
     }
     if (progress === 1 && m.descending) {
       const c = m.descending.climbable
-      const hang: NonNullable<Player['hang']> = { platform: m.descending.platform, side: m.side, edgeX: m.edgeX, edgeY: m.edgeY, slope: m.slope, outwardSlope: m.outwardSlope, time: 1, queued: false, braced: m.braced, dropLocked: true,
+      const hang: NonNullable<Player['hang']> = { platform: m.descending.platform, side: m.side, edgeX: m.edgeX, edgeY: m.edgeY, slope: m.slope, outwardSlope: m.outwardSlope, time: 1, swayFrom: 1, queued: false, braced: m.braced, dropLocked: true,
         caught: { x: p.x, y: p.y, vx: 0, vy: 0, anim: { stride: 0, gait: p.anim.gait }, ledgeReach: null } }
       if (c) {
         c.caught = { x: p.x, y: p.y, vx: 0, vy: 0, anim: { stride: 0, gait: p.anim.gait, footwork: null }, grounded: false, hang }
@@ -1277,7 +1277,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         const landing = ledgeLanding(platforms, h, h.braced) ?? ledgeLanding(platforms, h, h.braced, fixed)
         if (landing) {
           const { crouched, inset } = landing, toX = h.edgeX + inset * side, toY = h.edgeY + inset * (h.slope ?? 0)
-          p.mantle = { platform: h.platform, edgeX: h.edgeX, edgeY: h.edgeY, slope: h.slope, outwardSlope: h.outwardSlope, side, toX, toY, time: 0, braced: h.braced, crouched, inset }; p.hang = null; cancelJumpInput(p)
+          p.mantle = { platform: h.platform, edgeX: h.edgeX, edgeY: h.edgeY, slope: h.slope, outwardSlope: h.outwardSlope, side, toX, toY, time: 0, braced: h.braced, crouched, inset,
+            sway: { time: h.time - (h.swayFrom ?? catchTime), vx: h.caught.vx * side } }; p.hang = null; cancelJumpInput(p)
         }
       }
     }

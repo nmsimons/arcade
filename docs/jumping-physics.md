@@ -785,6 +785,15 @@ must share the accepted progress. Prop forces still probe the next requested
 step, so a yielding box permits continuous progress while a pinned obstacle
 holds a stable pose. Returning to the ledge remains available.
 
+Hanging free from a ledge, nothing under the feet, the body swings from its
+shoulders beneath arms locked to the grip (`hangSway`). A catch carries it on the
+way it was going, toward the wall or away, settling over a second or so; after
+that it sways slightly, the legs trailing the body and each foot drawn up a little
+in turn. Swinging toward the wall, the trunk stops short of any face below the
+lip and the feet keep clear of it; the palms, wrists and head never move. A braced
+hang stays still. Climbing on from a swing, the swing settles over a quarter of a
+second. It is presentation only.
+
 The usual pull-up lands 20 units inside the lip. If a resisted pull stays below
 half its normal pace for 0.15 seconds, look again for a clear near-edge stance.
 This includes space opened by a still-moving prop, without waiting for it to
@@ -1077,6 +1086,22 @@ either side and in either gravity orientation at 120/30 Hz.
 In weak gravity, the same-face slip also retains the relaxed wall-brace body
 instead of planting the feet beneath a straightened torso against the wall.
 This blends back to downhill balance as the gravity strength increases.
+
+Facing up a steep slope, as against a canted wall, the knees can only bend toward
+it. From about 40 degrees, fully by 60, the hips sit back from the face, the feet
+come together, and the soles tilt their toes up no more than about 35 degrees,
+the ankle raised until the toes rest on the face. A sole laid flat along a steep
+face would need an impossible ankle bend, and the ankle correction would fold
+the knees backward to fit it. The ordinary downhill slide is unchanged.
+
+Sliding down a canted wall, the palms stay on the face at a fixed height above
+the shoulders wherever the face is actually there, placed on the real surface,
+for as long as the brace holds. At a corner the brace's own hand contacts lapse
+until the body has slid past it, and the slip's contact leaves the brace's face a
+step or two before the brace moves on; neither drops the palms. Sliding off the
+foot of a face, the slip's last contact stays behind on the wall, so the fading
+slide pose falls with the body, never more than a few units from it, rather than
+hanging up there and snapping down on landing. All of this is presentation only.
 
 The last supported rig transfers into a new slide over 120 ms, including a
 one-tick slip that temporarily loses contact. A contact-selected facing change

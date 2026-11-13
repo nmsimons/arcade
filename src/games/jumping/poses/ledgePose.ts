@@ -1,6 +1,6 @@
 // Ledge hangs, mantles, step-ups and returning steps.
 import { handGeometry } from '../androidHand.ts'
-import { clearAirborneFoot, clearBody, clearLimb, clearRiserLeg, limbClearance } from '../athleteClearance.ts'
+import { bodyIntrusion, clearAirborneFoot, clearBody, clearLimb, clearRiserLeg, limbClearance } from '../athleteClearance.ts'
 import { athletePose, presentedAthletePose } from '../athletePose.ts'
 import { FOREARM, MIN_KNEE_OPENING, UPPER_ARM, add, armPose, clamp, lerp, mix, mixAngle, reflectAthletePose, smooth, solve, solveLeg, solveNear, transferPose } from '../athleteRig.ts'
 import type { AthletePose, Leg } from '../athleteRig.ts'
@@ -176,6 +176,34 @@ function stepUpPose(p: Player): AthletePose {
 }
 
 /** All supports are authored relative to the corner, independent of the camera and player root. */
+/**
+ * Hanging free from a ledge, nothing under the feet, the body swings from its hands: a catch carries it on
+ * the way it was going, toward the wall or away, settling over a second or so, and after that it sways a
+ * little, the legs trailing the body, each foot now and then drawn up a little in turn. `time` runs from
+ * when the swinging starts, after the catch; `vx` is the catch's speed toward the wall. The angles turn the
+ * body about the shoulders, the feet forward (toward the wall) positive; the lifts raise each foot, in units.
+ * Presentation only.
+ */
+export function hangSway(time: number, vx: number) {
+  const at = (s: number) => s <= 0 ? 0 : Math.max(-1, Math.min(1, vx / 450)) * .27 * Math.exp(-s / 1.1) * Math.sin(2 * Math.PI * s / 1.15)
+    + .06 * Math.sin(2 * Math.PI * s / 2.6) * smooth(s / .6)
+  const lift = (phase: number) => time <= 0 ? 0 : 2.2 * (.5 - .5 * Math.cos(2 * Math.PI * (time / 3.4 + phase))) * smooth(time / 1.2)
+  return { body: at(time), legs: at(time - .15) * 1.3, lifts: [lift(0), lift(.5)] }
+}
+
+/** The swing of a free hang now (see hangSway), or settling as the robot climbs on from one; null when braced. */
+function freeHangSway(p: Player) {
+  if (p.hang) {
+    if (p.hang.braced) return null
+    const catchTime = p.hang.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME
+    return hangSway(p.hang.time - (p.hang.swayFrom ?? catchTime), p.hang.caught.vx * p.hang.side)
+  }
+  const m = p.mantle
+  if (!m?.sway || m.braced || m.descending) return null
+  const settle = 1 - smooth(m.time / .25), { body, legs, lifts } = hangSway(m.sway.time + m.time, m.sway.vx)
+  return settle ? { body: body * settle, legs: legs * settle, lifts: lifts.map(v => v * settle) } : null
+}
+
 export function ledgePose(p: Player): AthletePose {
   if (p.mantle?.ladder) return rearLedgePose(p)
   if (p.hang && p.hang.time < LEDGE_CATCH_TIME && !p.hang.caught.climbing) {
@@ -269,6 +297,28 @@ export function ledgePose(p: Player): AthletePose {
   const cornerX = (edge.edgeX - p.x) * p.facing
   const wristInset = Math.max(0, Math.sqrt(Math.max(0, 1.1 ** 2 - wristLift ** 2)) - Math.abs(wrist[0] - cornerX))
   const frontWrist = add(wrist, [-wristInset, -wristLift])
+  const sway = freeHangSway(p)
+  if (sway) {
+    // Hanging free, the body swings from its shoulders under arms locked to the grip (see hangSway), so the arms,
+    // wrists and head stay exactly as the resting hang places them.
+    const turn = (point: Point, pivot: Point, angle: number): Point => {
+      const x = point[0] - pivot[0], y = point[1] - pivot[1]
+      return [pivot[0] + x * Math.cos(angle) + y * Math.sin(angle), pivot[1] - x * Math.sin(angle) + y * Math.cos(angle)]
+    }
+    const pivot = shoulder, swung = (angle: number) => [hip, waist].map(point => turn(point, pivot, angle))
+    // Swinging toward the wall, the trunk stops short of any face below the lip rather than entering it.
+    const blocked = ([h, w]: Point[]) => [[h, w], [w, shoulder]].some(([a, b]) => [0, .25, .5, .75].some(f => !!bodyIntrusion(p, mix(a, b, f), 2.8)))
+    let angle = sway.body
+    if (angle > 0 && p.terrain && blocked(swung(angle))) {
+      let low = 0, high = angle
+      for (let i = 0; i < 10; i++) { const mid = (low + high) / 2; if (blocked(swung(mid))) high = mid; else low = mid }
+      angle = low
+    }
+    ;[hip, waist] = swung(angle)
+    frontFoot = turn(turn(frontFoot, pivot, angle), hip, sway.legs - sway.body); backFoot = turn(turn(backFoot, pivot, angle), hip, sway.legs - sway.body)
+    // A foot drawn up bends its knee forward a little, as dangling legs do.
+    frontFoot = add(frontFoot, [sway.lifts[0] * .6, -sway.lifts[0]]); backFoot = add(backFoot, [sway.lifts[1] * .6, -sway.lifts[1]])
+  }
   const frontArm = grippingArm(root, frontWrist, grip(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
   const backArm = grippingArm(root, grip(BACK_WRIST), grip(BACK_GRIP), backFree, catchWeight * (1 - frame.backRelease), .9)
   // The loaded palm rests along the top face, including an inclined bank.
@@ -278,10 +328,10 @@ export function ledgePose(p: Player): AthletePose {
   backArm.handAngle = mixAngle(handGeometry(backFree).angle, palmAngle, catchWeight * (1 - frame.backRelease))
   const legRoot = add(hip, [0, 1])
   const folded = crouched && t > .73 || (p.mantle?.inset ?? 20) < 20 && t > .54
-  const frontLeg = solveLeg(legRoot, frontFoot, .15 * (1 - smooth(t / .45)), folded, frame.frontPlanted)
+  let frontLeg = solveLeg(legRoot, frontFoot, .15 * (1 - smooth(t / .45)), folded, frame.frontPlanted)
   // The lifted free shoe can pass close to the hip before it plants. Allow
   // that knee to gather instead of pushing the ankle back down toward the lip.
-  const backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), folded || t > .6 && t < .73, frame.backPlanted)
+  let backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), folded || t > .6 && t < .73, frame.backPlanted)
   // Soften ankle flex before contact; the support foot then remains exactly flat.
   const flatten = (leg: Leg, weight: number) => { leg.footAngle = mixAngle(leg.footAngle, Math.atan(edge.slope ?? 0), weight); leg.toeAngle *= 1 - weight }
   flatten(frontLeg, smooth((t - .86) / .1)); flatten(backLeg, smooth((t - .56) / .07))
@@ -297,6 +347,8 @@ export function ledgePose(p: Player): AthletePose {
       leg.toeAngle = lerp(catchFeet[i].toeAngle, leg.toeAngle, catchWeight)
     }
   }
+  // A swinging free hang keeps its feet out of a face that retreats only a little way below the lip.
+  if (sway && p.terrain) { frontLeg = clearAirborneFoot(p, frontLeg); backLeg = clearAirborneFoot(p, backLeg) }
   return { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
 }
 

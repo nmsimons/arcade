@@ -1498,8 +1498,11 @@ and Down releases it. Lower rims can be swum over directly.
 Both approaches, high tops, delayed hand motion and surface-jump escapes are
 covered at 120/30 Hz in `tests/jumping-water-reach.test.mjs`.
 
-Water draws a blue region at 35% opacity over the player and props. Exposed
-waterlines receive small entry ripples. Static terrain,
+Water draws a blue region at 35% opacity over the player and props. Below
+60 units of depth one further flat band (`#2d78ad` at 16%) reads as deeper
+water: two tones, never a gradient. Exposed waterlines carry a 2-unit pale
+line (`#bce3f2`) and receive small entry ripples. Reduced water effects keep
+the single flat fill, without the deeper band. Static terrain,
 including concave pool openings, clips both the fill and surface; solid dividers separate
 independent ripples, overlapping rectangles share a surface, and flooded roofs
 have no air/water boundary. Crests stay below nearby static roofs.
@@ -1537,7 +1540,7 @@ swimming route and lighting; `WATER_CONTACT_LIGHTING=0` isolates contact and
 artwork costs with effects on/off. `WATER_CONTACT_PROFILE=/tmp/water` saves CPU
 profiles. Reports identify the lighting backend; GPU completion is excluded.
 When automatic performance reduction engages, the surface simulation and its
-float forces stop and water returns to a flat, terrain-clipped fill. Fill/drain
+float forces stop and water returns to a single flat, terrain-clipped fill. Fill/drain
 mechanics keep operating, without rebuilding ripple geometry. Swimming, ordinary
 buoyancy, resistance and splash audio remain active. Restarting or disabling
 performance mode restores fresh effects using current immersion, so old entries

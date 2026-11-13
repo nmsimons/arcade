@@ -10,10 +10,6 @@ import type { Vec } from './geometry.ts'
 
 export const MAX_GRAVITY_DUST = 96
 export const WATER_COLOR = '#58a9df'
-/** Below this depth a pool reads one flat tone deeper: two tones in all, never a gradient. */
-export const WATER_DEEP_DEPTH = 60
-export const WATER_DEEP_COLOR = '#2d78ad'
-const WATER_DEEP_ALPHA = .16
 const MAX_DUST_PER_PLATE = 64, CELL_W = 80, CELL_H = 120
 const seeds = new WeakMap<GravityPlate, number>()
 function plateSeed(plate: GravityPlate) {
@@ -54,7 +50,6 @@ export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPla
   const spans = state?.enabled === false ? undefined : state?.regions.get(plate), moving = spans?.some(span => span.surface.active)
   paint(ctx, 0, () => {
     ctx.save(); ctx.fillStyle = layer === 'background' ? '#bddbea' : WATER_COLOR
-    const alpha = ctx.globalAlpha
     if (layer === 'tint') ctx.globalAlpha *= .35
     if (space) {
       let path = waterClips.get(space)
@@ -84,12 +79,6 @@ export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPla
       }
       ctx.lineTo(plate.x + plate.w, plate.y); ctx.lineTo(plate.x + plate.w, plate.y + plate.h)
       ctx.lineTo(plate.x, plate.y + plate.h); ctx.closePath(); ctx.fill()
-    }
-    // Deeper water, one flat step darker, well below any ripple. Reduced water
-    // effects keep the single flat fill (docs/jumping-performance.md).
-    if (layer === 'tint' && state?.enabled !== false && plate.h > WATER_DEEP_DEPTH + 20) {
-      ctx.globalAlpha = alpha * WATER_DEEP_ALPHA; ctx.fillStyle = WATER_DEEP_COLOR
-      ctx.beginPath(); ctx.rect(plate.x, plate.y + WATER_DEEP_DEPTH, plate.w, plate.h - WATER_DEEP_DEPTH); ctx.fill()
     }
     ctx.restore()
   }, layer !== 'background')

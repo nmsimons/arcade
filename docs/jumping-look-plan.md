@@ -276,7 +276,7 @@ captures, `compare/` (before and after, every scene), `compare-brackets/` (D5),
 | 1 | Built: `worldEffects.ts`, `impactRender.ts`, the splash, and the camera settle in `camera.ts`. The settle skips rooms framed whole, whose camera is still by design (`jumpingCamera.spec.mjs`, portrait short room). Tests: `tests/jumping-world-effects.test.mjs`; the water performance helper now counts splash drops |
 | 2 | Built: teal candidate E (shell `#6e9a8a`, about 2.7:1 against the wall), after the owner found candidate C (`#647469`) too dark and muddy. The phase's 1.6:1-against-terrain target is dropped: with the pale wall it only allowed dark greys. Dark joints and grips carry the outline over terrain. The night palette follows as a pale aqua (shell `#d2ebe1`) with the same light joints as before, so the robot keeps one hue and the regional blend stays in it. Sheets: `phase2/robot-palettes*.png`, `phase2/robot-night-palettes.png`, `compare-teal/`, `compare-night/`. Model-review baselines recorded again |
 | 3 | Mounts built. D5 brackets are a development preview only (`slabBrackets.ts`, localStorage `jumping:look-brackets`); slabs are authored 25 units thick, so the rule uses 30. D2 is **not** enabled: see below |
-| 4 | Built: a 240-by-160 grain tile, a 2-unit waterline, and a deeper band below 60 units, which reduced water effects leave out |
+| 4 | Built: a 240-by-160 grain tile and a 2-unit waterline. A deeper second tone below 60 units was built and then removed: the owner did not like two-tone water |
 | 5 | Not started (needs the owner's go-ahead) |
 | 6 | Opening card restyled; clouds flattened. The label face did not reproduce on a deterministic capture: no change. The resolution cap is **not** raised: see below |
 

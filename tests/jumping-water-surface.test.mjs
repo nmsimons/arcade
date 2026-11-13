@@ -6,7 +6,7 @@ import { createRun, setWaterEffectsEnabled, stepRun } from './helpers/jumping-ac
 import { createPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
 import { advanceWaterSurface, createWaterSurface, disturbWaterSurface, MAX_WATER_POINTS, MAX_WAVE_HEIGHT } from '../src/games/jumping/waterSurface.ts'
-import { WATER_DEEP_DEPTH, drawWaterRegion, drawWaterSurfaceDetails } from '../src/games/jumping/gravityRender.ts'
+import { drawWaterRegion, drawWaterSurfaceDetails } from '../src/games/jumping/gravityRender.ts'
 
 const water = (x = 0, w = 900, y = 400, h = 500) => ({ id: `water-${x}-${y}`, x, y, w, h, gravity: -1, effect: 'water' })
 function fixture(plates = [water()], terrain = [], props = [], y = 300) {
@@ -122,7 +122,7 @@ test('offscreen water effects submit no drawing commands; active fills move the 
   const f = fixture(), plate = [...f.state.regions.keys()][0], calls = []
   const ctx = { canvas: { width: 1000, height: 800 }, globalAlpha: 1,
     getTransform: () => ({ a: 1, d: 1, e: -2000, f: 0 }) }
-  for (const name of ['save', 'restore', 'beginPath', 'moveTo', 'lineTo', 'rect', 'closePath', 'fill', 'stroke', 'fillRect']) ctx[name] = (...args) => calls.push([name, ...args])
+  for (const name of ['save', 'restore', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill', 'stroke', 'fillRect']) ctx[name] = (...args) => calls.push([name, ...args])
   drawWaterRegion(ctx, plate, undefined, f.state); drawWaterSurfaceDetails(ctx, f.state)
   assert.equal(calls.length, 0)
   ctx.getTransform = () => ({ a: 1, d: 1, e: 0, f: 0 })
@@ -130,9 +130,6 @@ test('offscreen water effects submit no drawing commands; active fills move the 
   drawWaterRegion(ctx, plate, undefined, f.state)
   assert.ok(calls.some(c => c[0] === 'lineTo' && c[2] !== 400 && c[2] !== 900))
   assert.equal(calls.some(c => c[0] === 'fillRect'), false, 'the old flat top is replaced, rather than painted beneath the ripple')
-  const deep = calls.findIndex(c => c[0] === 'rect')
-  assert.ok(deep > 0 && calls[deep][2] === 400 + WATER_DEEP_DEPTH, 'one deeper flat band, below any ripple')
-  assert.equal(calls.filter(c => c[0] === 'rect').length, 1)
   calls.length = 0; drawWaterSurfaceDetails(ctx, f.state)
   assert.equal(calls.some(c => c[0] === 'fillRect'), false, 'entries produce no droplets')
 })

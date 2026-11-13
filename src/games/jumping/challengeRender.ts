@@ -171,13 +171,13 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
   paint(ctx, 0, () => {
     ctx.fillStyle = '#738575'
     ctx.fillRect(pole - 2, lamp, 4, GOAL_LIGHT_HEIGHT)
-    // A foot plate where the pole meets the floor.
-    ctx.fillStyle = '#56645c'; ctx.fillRect(pole - 7, goal.y - 3, 14, 3)
   })
   paint(ctx, complete ? 1 : 0, () => {
     ctx.fillStyle = complete ? '#a9d56b' : '#9aa38e'
     ctx.beginPath(); ctx.arc(pole, lamp, 11, 0, Math.PI * 2); ctx.fill()
   }, true, { x: pole - 11, y: lamp - 11, w: 22, h: 22 })
+  // A foot plate where the pole meets the floor, after the post and lamp that wall lights match.
+  paint(ctx, 0, () => { ctx.fillStyle = '#56645c'; ctx.fillRect(pole - 7, goal.y - 3, 14, 3) })
 }
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
   if (goal.kind === 'walk-off') {

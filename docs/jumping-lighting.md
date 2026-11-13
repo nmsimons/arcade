@@ -97,7 +97,7 @@ Older files' retired ambient values and saved player brightness preferences are 
 
 Ambient is not blocked by geometry, consumed, switched, or affected by EMP.
 Disabling Night mode preserves lamps. Toggling is undoable and saved with the
-level. Daytime retains its existing dark player ink. Displays and the thin
+level. Daytime keeps its dark player ink (see Player lighting). Displays and the thin
 night player retain their separate minimum exposures.
 
 ### Daylight
@@ -317,7 +317,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Optional wall wiring | Energized wires and terminal pins are muted green with at least 65% exposure and a tight, soft halo in Night mode. Day keeps the thin crisp line. Inactive cable is lighter gray-green; it and the jack housings receive ordinary lighting. | No. | No; the halo is local artwork. | Wire and pin return to their inactive appearance; live signals reappear after EMP. |
 | Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
 | Graffiti | Warm yellow (`#f4d35e`) in night mode, muted red in daytime. Ordinary exposure, including spotlights and shadows; no brightness floor. | No. | No. | Unchanged. |
-| Player | Near-white in direct night light, with 65% minimum exposure for its thin silhouette in shadow; existing dark ink in Day. | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
+| Player | Near-white pale aqua in direct night light, with 65% minimum exposure for its thin silhouette in shadow; mid-teal ink in Day (see Player lighting). | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
 | Shovebot chassis, wheels, and antenna | Ordinary. | No. | No. | Stops; artwork still receives room lighting. |
 | Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | Optional authored headlight in Day and Night. | Eye and headlight go dark. |
 | Coin | Ordinary face and edge colors; retains its spin and thickness. | No. | No. | Remains collectible and animated. |
@@ -382,13 +382,25 @@ ordering. Do not render all emissive artwork at the very end of the frame.
 
 ### Player lighting
 
-The player's night material is near-white grey `#e5e7e6`, receiving
-`max(localExposure, 0.65)`. The minimum keeps its thin hands, feet and body
+The player's night material (the `#e5e7e6` ink) is a near-white pale aqua, the
+day teal lightened: shell `#d2ebe1`, rear and head `#a8cbbc`, joints `#9cc4b4`,
+grips `#a0c8b8`, chest mark `#e2f4ec`, face `#d8efe6`. It receives
+`max(localExposure, 0.65)`. Its joints and grips stay light, unlike the day
+ink's dark ones: at the 65% floor a dark joint would vanish against the night
+wall. Saturation stays low so the robot never looks self-lit. Sharing the day
+ink's hue keeps one robot across both, and the regional day-to-night blend in
+one hue family. Before November 13, 2026 it was a grey-sage (`#d8ded5` shell). The minimum keeps its thin hands, feet and body
 readable at phone scale on shadowed recovery ladders and against water. The
 earlier ball-matched ambient material lost those contacts in actual phone-size
 frames. Direct lamps still brighten the figure to full exposure, including
 partial shadows, overlapping lamps, EMP, and continuous lamp power fades above
-the minimum. Daytime retains its existing dark ink.
+the minimum. Daytime uses a clean mid-teal ink (`androidArtwork.ts`, November 13,
+2026): shell `#6e9a8a`, rear and head `#62897b`, joints `#2f5248`, grips
+`#33564b`, chest mark `#acd7c4`, face `#7ea898`. The shell is about 2.7:1 against
+the course wall, where the robot mostly stands; over terrain its dark joints and
+grips (2.6 to 2.8:1 against the shell) carry the outline. The earlier ink (`#b5bdb2`
+shell) was 1.7:1 against the wall. A darker grey-sage tried first (`#647469`,
+4.4:1) read clearly but looked muddy, and was replaced the same day.
 
 The whole posed silhouette is one receiver and caster, so overlapping body parts
 do not shade one another. Other objects can cast partial shadows across the

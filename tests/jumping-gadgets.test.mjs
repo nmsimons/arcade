@@ -11,6 +11,7 @@ import { createJumpController } from '../src/games/jumping/input.ts'
 import { boxShape, propHeight } from '../src/games/jumping/propGeometry.ts'
 import { propGravity, propWaterStrength, createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
 import { drawGadgets } from '../src/games/jumping/gadgetRender.ts'
+import { androidMaterials } from '../src/games/jumping/androidArtwork.ts'
 
 const gadget = (kind = 'repulsor', x = 190) => ({ kind: 'box', gadget: kind, x, y: 920, size: 40 })
 function scene(props = [gadget()]) { const level = blankTrial(); level.props = props; return level }
@@ -308,7 +309,7 @@ test('the right sleeve renders behind a left-facing torso and ahead of a right-f
       { get: (object, key) => key in object ? object[key] : () => {} })
       const p = { ...run.player, facing }, pose = presentedAthletePose(p)
       drawAthlete(ctx, p, undefined, { ...pose, backView })
-      const sleeve = operations.indexOf('sleeve'), face = operations.indexOf('#b8c0b5')
+      const sleeve = operations.indexOf('sleeve'), face = operations.indexOf(androidMaterials('#686b6e').face)
       assert.ok(sleeve >= 0 && face >= 0)
       assert.equal(sleeve < face, facing < 0 || !!backView, 'climbing/back-view equipment draws with its arm behind the torso')
       assert.equal(operations.filter(operation => operation === 'sleeve').length, 1)

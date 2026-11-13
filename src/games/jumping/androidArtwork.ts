@@ -10,14 +10,20 @@ export interface AndroidMaterials {
 }
 export type AndroidAppearance = string | AndroidMaterials
 const day: AndroidMaterials = {
-  shell: '#b5bdb2', rear: '#a9b7ad', joint: '#657a70',
-  grip: '#697d70', mark: '#8ba58e', cranial: '#a9b7ad', face: '#b8c0b5',
+  // A clean mid teal: about 2.7:1 against the course wall, where the robot
+  // mostly stands, with dark joints and grips (2.6 to 2.8:1 against the shell) that
+  // keep its outline and articulation readable over terrain (docs/jumping-lighting.md).
+  shell: '#6e9a8a', rear: '#62897b', joint: '#2f5248',
+  grip: '#33564b', mark: '#acd7c4', cranial: '#62897b', face: '#7ea898',
 }
 const night: AndroidMaterials = {
-  // Joints, grips and the back of the head must survive both the night
-  // exposure floor and the translucent water overlay at phone scale.
-  shell: '#d8ded5', rear: '#adbfaa', joint: '#a5b7a8',
-  grip: '#a8bda9', mark: '#bdcfb4', cranial: '#a8bda9', face: '#d4dccf',
+  // The day teal, lightened: one robot by day and night, and the regional
+  // blend between them stays in one hue. Joints, grips and the back of the head
+  // stay light, as they must survive both the night exposure floor and the
+  // translucent water overlay at phone scale; saturation stays low so the robot
+  // never reads as lit from within.
+  shell: '#d2ebe1', rear: '#a8cbbc', joint: '#9cc4b4',
+  grip: '#a0c8b8', mark: '#e2f4ec', cranial: '#a0c8b8', face: '#d8efe6',
 }
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */

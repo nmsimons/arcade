@@ -25,7 +25,8 @@ test('the controller stick folds an upright float before extending down at the s
   for (const start of ['surface', 'underwater']) {
     const upright = await state()
     expect(upright.blends.fall).toBe(0)
-    expect(upright.points[2][1]).toBeLessThan(upright.points[0][1] - 20)
+    // Upright at the surface; the hover underwater leans forward, head up.
+    expect(upright.points[2][1]).toBeLessThan(upright.points[0][1] - (start === 'surface' ? 20 : 15))
     await stick(1, 350)
     const frames = await page.evaluate(time => window.jumpingMotion.read().recent.filter(s => s.time > time), upright.time)
     expect(frames.every(s => s.input.swimVertical > .99)).toBe(true)

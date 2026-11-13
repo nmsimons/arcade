@@ -4,7 +4,7 @@ import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jump
 import { createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
 import { presentedAthletePose } from '../src/games/jumping/athlete.ts'
 import { repulsorBotPose, repulsorBotWidthScale, REPULSOR_BOT_WIDTH_SCALE } from '../src/games/jumping/repulsorBotRig.ts'
-import { repulsorBotHand } from '../src/games/jumping/repulsorBot.ts'
+import { createRepulsorActor, repulsorBotHand } from '../src/games/jumping/repulsorBot.ts'
 import { robotHeadlightPose } from '../src/games/jumping/robotHeadlight.ts'
 
 for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1])
@@ -12,7 +12,7 @@ test(`swimming Rbot turns retain native joints, palms and emitter alignment (${s
   const field = createGravityField()
   updateGravityField(field, [{ id: 'pool', x: 0, y: 400, w: 3000, h: 1200, effect: 'water' }], new Map(), true)
   for (const depth of [450, 1000]) {
-    const actor = createPlayer({ x: 1500, y: depth }); actor.grounded = false; actor.facing = side
+    const actor = createRepulsorActor(1500, depth); actor.grounded = false; actor.facing = side
     const bot = { actor, facing: side, x: actor.x, y: actor.y, phase: 'chase' }
     for (const [seconds, move] of [[1, side], [.8, -side], [.25, side], [1, -side]])
       for (let frame = 0; frame < Math.round(seconds / dt); frame++) {

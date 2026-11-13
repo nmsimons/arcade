@@ -41,7 +41,8 @@ test('normal keyboard swimming holds depth, collects submerged coins, recovers i
     expect(Math.abs(resting.x - hover.x)).toBeLessThan(.1)
     expect(Math.abs(resting.waterCenter - hover.waterCenter)).toBeLessThan(.1)
     expect(resting.blends.fall).toBe(0)
-    expect(resting.points[2][1]).toBeLessThan(resting.points[0][1] - 20)
+    // The hover underwater leans forward, head up.
+    expect(resting.points[2][1]).toBeLessThan(resting.points[0][1] - 15)
     if (!attempt) await page.screenshot({ path: info.outputPath('underwater-upright-float.png') })
     await hold(['a'], 1200); await hold(['d'], 6600)
     const beyondRoof = await p()

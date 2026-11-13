@@ -115,7 +115,8 @@ test('underwater pose review shows braking, ascent, upright rests and gathered r
     return samples
   })
   for (const sample of samples) expect(sample.backView, sample.label).toBe(0)
-  for (const sample of samples.filter(s => s.label.startsWith('Rest /'))) expect(sample.head[1]).toBeLessThan(sample.hip[1] - 20)
+  // A rest underwater is a forward-leaning hover, head up.
+  for (const sample of samples.filter(s => s.label.startsWith('Rest /'))) expect(sample.head[1]).toBeLessThan(sample.hip[1] - 15)
   await page.locator('#underwater-review').screenshot({ path: info.outputPath('underwater-poses.png') })
   await info.attach('underwater-pose-samples', { body: JSON.stringify(samples, null, 2), contentType: 'application/json' })
 })

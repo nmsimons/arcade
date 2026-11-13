@@ -7,7 +7,7 @@
 // Physics never reads animation (docs/jumping-animation.md), so the cadence
 // cannot change motion; the golden traces check that for all three.
 import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceReturningStepPreparation, advanceSlideEntry,
-  dryTurnDirection, settleFallClearance, settlePresentedWaterClearance } from './athleteAnimation.ts'
+  advanceSwimAnimation, dryTurnDirection, settleFallClearance, settlePresentedWaterClearance } from './athleteAnimation.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athleteAnimation.ts'
 import type { CharacterAnimation, JumpInput, Player } from './characterTypes.ts'
 import { advanceFootwork } from './footwork.ts'
@@ -110,6 +110,7 @@ function animateStepIn(p: Player, { input, dt, world, from, contacts, verticalUs
   advanceMovingRecovery(p, dt, Math.abs(input.move) > .01 && Math.abs(contacts.motion.x) > .05, turnFrame)
   advanceDryTurn(p, input, dt, turnFrame)
   advanceSlideEntry(p, dt, slideEntryFrame, input)
+  advanceSwimAnimation(p, input, dt)
 }
 
 export function animateSettle(p: Player, dt: number, previousFacing: number) {

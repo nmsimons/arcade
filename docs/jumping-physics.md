@@ -1223,7 +1223,7 @@ still follows immersion, independently of weight. Players use a fixed density of
 posture-dependent displacement profile: idle floating is upright with the
 waterline at the neck, while horizontal surface swimming lies at the surface.
 Stopping eases into an upright float, including below the surface; a submerged
-rest holds its reached depth with gentle hand sculling. The glide remains
+rest holds its reached depth with hand sculling. The glide remains
 streamlined until the swimmer slows. Posture changes preserve the displaced
 center while the foot root changes its offset, and buoyant force settles the
 new immersion depth.
@@ -1249,7 +1249,8 @@ of at most 2.25 units with a 3.8-second period. Local restoring stiffness scales
 the force, with a cap for very small bodies. Phase varies by initial position.
 It eases in over 0.9 seconds and fades under movement, diving, jumping, pushing
 or impacts over 0.22 seconds. The normal solver retains position and momentum
-through both transitions; drawing has no separate bob offset. A resting rider
+through both transitions. Drawing adds no bob of its own beyond the treading
+rhythm below, which lifts the drawn body less than a unit on each push. A resting rider
 is carried by the actual bobbing support with planted feet. Active bobbing floats
 remain awake, while settled gravity-plate floats can still sleep. Deep water,
 solid footing and leaving the water receive no bob force. EMP leaves water and
@@ -1270,13 +1271,24 @@ regression lives in `tests/jumping-ledge-performance.test.mjs`.
 Left/Right steer horizontally; Up swims upward and Down dives head-first.
 Horizontal swimming, ascent and diving use a coordinated
 breaststroke arm pull, frog kick and glide, blended into and out of the floating
-pose. Stroke phase follows actual traveled distance, including dives; a swimmer
-blocked by terrain does not cycle on a timer. Dive pitch follows resolved vertical and
+pose. The physics stroke phase follows actual traveled distance, including
+dives, and the hull reads it. The drawn stroke keeps that pace at speed, but a
+held direction keeps it working at 0.75 strokes a second when a turn or a wall
+slows the body, so the limbs never freeze mid-stroke. Drawn, the hands and feet
+trace loops: the pull sweeps deep and the hands rise under the chin before
+shooting forward just under the surface, and the heels draw up level with the
+body before the kick drives back and down, landing just after the arms recover.
+The drawn body surges up to 4 units ahead of its root after the kick and drops
+back through the recovery, scaled by the motor's eased effort so a stop at a
+wall fades it. Dive pitch follows resolved vertical and
 horizontal velocity, including diagonals and wall-blocked sideways motion.
-Floating uses only gentle hand sculling and
-keeps the usual side profile and facing. Quiet upright floats also sway gently
-around the hips with slowly drifting ankles, fading into the traveling pose;
-this adds no depth displacement or motion to planted feet. Horizontal swimming targets 110 units
+A resting swimmer treads water, drawn only, at 0.8 cycles a second: the legs
+trail nearly straight with a small alternating flutter, the hands scull a
+figure eight in front of the chest and settle as a stroke takes over, and the
+body lifts a little on each push. At the surface it stays upright, so it braces
+against and reaches for a bank exactly as before; a hover underwater leans
+forward about 34 degrees, head up. The float keeps the usual side profile and
+facing, and adds no depth displacement or motion to planted feet. Horizontal swimming targets 110 units
 per second and vertical swimming 100. A shared normalized steering vector keeps
 diagonals at the same combined pace, with continuous vertical stick control
 below the ladder/grip input threshold. Vertical steering uses a seven-per-second

@@ -34,6 +34,12 @@ export interface CharacterAnimation {
   recovery: { pose: AthletePose; time: number; facing: number } | null
   /** The presented swimmer's clearance offset. The swimming hull uses its own `waterMotion.bodyOffset`. */
   waterClearance: { offset: [number, number]; facing: number } | null
+  /**
+   * The drawn swim: the stroke's own cycle (`stroke`), the treading cycle (`tread`), how hard a held
+   * direction drives the stroke (`drive`, 0 to 1) and the physics stroke cycle last seen (`from`).
+   * The physics rig keeps `waterMotion.phase`, so none of this changes motion.
+   */
+  swim?: { stroke: number; tread: number; drive: number; from: number } | null
   /** When animation runs: every physics step (default), once per drawn frame, or never. */
   cadence?: 'tick' | 'frame' | 'off'
   /** Physics steps since the last drawn frame, for the 'frame' cadence. */

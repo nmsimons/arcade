@@ -2,7 +2,7 @@
 import { clearAirborneFoot, clearBody, clearLimb, clearSlidingJoint } from './athleteClearance.ts'
 import { articulateAnkles, athletePose } from './athletePose.ts'
 import { physicsView } from './gameplayPose.ts'
-import { FOREARM, HEAD_RADIUS, MIN_KNEE_OPENING, UPPER_ARM, add, clamp, lerp, reflectAthletePose, rotatePose, smooth, solveNear, transferPose } from './athleteRig.ts'
+import { FOREARM, HEAD_RADIUS, MIN_KNEE_OPENING, TAU, UPPER_ARM, add, clamp, lerp, reflectAthletePose, rotatePose, smooth, solveNear, transferPose } from './athleteRig.ts'
 import type { AthletePose } from './athleteRig.ts'
 import { FOOT_CONTACT, advanceFootwork, footPoint } from './footwork.ts'
 import { canGrip } from './friction.ts'
@@ -569,6 +569,31 @@ export function settleWaterClearance(p: Player, dt: number) {
   motion.bodyOffset = (motion.bodyOffset ?? [0, 0]).map(relax) as Point
   // The offset moves the swimming hull, so it is solved from the physics rig.
   motion.bodyOffset = waterBodyPose(physicsView(p)).waterOffset ?? [0, 0]
+}
+
+/** A held direction keeps the drawn stroke working at this many strokes a second when a turn or a wall slows the body. */
+const WORKING_STROKE_RATE = .75
+/** Treading water: flutters a second, at the surface and in a hover underwater. */
+const TREAD_RATE = .8
+
+/**
+ * The drawn swim keeps the physics stroke's distance pace at speed. A held
+ * direction keeps it working at `WORKING_STROKE_RATE` when a turn or a wall
+ * slows the body, rather than freezing the limbs mid-stroke. Treading runs on
+ * its own cycle. Physics never reads either.
+ */
+export function advanceSwimAnimation(p: Player, input: JumpInput, dt: number) {
+  const motion = p.waterMotion
+  // A robot fires from its physics rig and draws its emitter at its palm, so it swims as the physics rig does.
+  if (!motion || p.armAim) { if (p.anim.swim !== undefined) delete p.anim.swim; return }
+  const swim = p.anim.swim ??= { stroke: motion.phase, tread: 0, drive: 0, from: motion.phase }
+  const travelled = ((motion.phase - swim.from) % TAU + TAU) % TAU
+  swim.from = motion.phase
+  const vertical = input.swimVertical ?? Number(input.descend || input.drop && !input.detach) - Number(input.climb)
+  const held = !p.grounded && motion.amount > .5 && Math.hypot(input.move, vertical) > .01
+  swim.drive += Math.max(-dt / .3, Math.min(dt / .3, Number(held) - swim.drive))
+  swim.stroke = (swim.stroke + Math.max(travelled, dt * TAU * WORKING_STROKE_RATE * swim.drive)) % TAU
+  swim.tread = (swim.tread + dt * TAU * TREAD_RATE) % TAU
 }
 
 /** The presented swimmer clears its own animated rig, starting from the last

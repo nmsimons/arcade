@@ -48,7 +48,8 @@ test('normal controls enter a narrow flooded tunnel, rest inside and swim back o
   await hold([], 3000)
   const floating = await state()
   expect(floating.blends.fall).toBe(0)
-  expect(floating.points[2][1]).toBeLessThan(floating.points[0][1] - 20)
+  // The hover in open water leans forward, head up.
+  expect(floating.points[2][1]).toBeLessThan(floating.points[0][1] - 15)
   await info.attach('narrow-tunnel-route', { body: JSON.stringify({ start, inside, rest, still, outside, floating }), contentType: 'application/json' })
 })
 

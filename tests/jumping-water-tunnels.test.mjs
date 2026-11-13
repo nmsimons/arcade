@@ -71,7 +71,7 @@ for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const kin
     advance(3)
     assert.equal(p.waterMotion.amount, 0, 'open water still permits the requested upright float')
     const pose = athletePose(p)
-    assert.ok(pose.head[1] < pose.hip[1] - 20)
+    assert.ok(pose.head[1] < pose.hip[1] - 15, 'the hover in open water is head up')
   })
 }
 

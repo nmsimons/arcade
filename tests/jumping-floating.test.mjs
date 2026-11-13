@@ -119,7 +119,8 @@ test('water uses coordinated breaststroke pulls, frog kicks, glides and a head-f
   for (let i = 0; i < 120; i++) stepPlayer(p, { ...NEUTRAL_INPUT, move: 1 }, STEP, [], undefined, undefined, undefined, field)
   let submergedPull = false, forwardGlide = false, frogKick = false
   for (let i = 0; i < 120; i++) {
-    p.waterMotion.phase = i / 120 * Math.PI * 2
+    // The drawn stroke runs on its own cycle; sweep it with the physics one.
+    p.waterMotion.phase = i / 120 * Math.PI * 2; p.anim.swim.stroke = p.waterMotion.phase
     const pose = athletePose(p), arm = pose.frontArm
     submergedPull ||= arm.end[1] > arm.root[1] + 7
     forwardGlide ||= arm.end[0] > arm.root[0] + 17
@@ -524,10 +525,9 @@ for (const dt of [STEP, 1 / 30]) for (const kind of ['box', 'ball']) for (const 
     assert.ok(pose.head[0] - pose.hip[0] > 18, 'body trails horizontally behind the hands')
     assert.equal(pose.frontLeg.planted || pose.backLeg.planted, false)
     const hands = [pose.frontArm.end, pose.backArm.end]
-    p.waterMotion.phase = Math.PI
-    const recovered = athletePose(p)
-    p.waterMotion.phase = 0
-    const extended = athletePose(p)
+    // The drawn stroke runs on its own cycle; set it with the physics one.
+    const stroke = cycle => { p.waterMotion.phase = cycle; if (p.anim.swim) p.anim.swim.stroke = cycle; return athletePose(p) }
+    const recovered = stroke(Math.PI), extended = stroke(0)
     assert.ok(Math.hypot(extended.frontLeg.end[0] - recovered.frontLeg.end[0], extended.frontLeg.end[1] - recovered.frontLeg.end[1]) > 8, 'legs recover and kick while the palms stay pressed')
     for (const value of [recovered, extended]) {
       assert.ok(Math.hypot(value.frontArm.end[0] - hands[0][0], value.frontArm.end[1] - hands[0][1]) < .01)

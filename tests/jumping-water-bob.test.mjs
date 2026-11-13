@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, TUNING, respawn } from '../src/games/jumping/model.ts'
-import { athletePose } from '../src/games/jumping/athlete.ts'
+import { gameplayPose } from '../src/games/jumping/gameplayPose.ts'
 import { playerWaterCenterOffset } from '../src/games/jumping/gravity.ts'
 import { gameCamera } from '../src/games/jumping/camera.ts'
 
@@ -32,7 +32,8 @@ for (const dt of [STEP, 1 / 30]) test(`water gives the player, box and ball a bo
     })
     assert.equal(run.player.waterMotion.amount, 0)
     assert.equal(run.player.grounded, false)
-    assert.ok(Math.abs(run.player.y + athletePose(run.player).shoulder[1] - 2 - water.y) < 3)
+    // The physical float: the drawn shoulders also rise and fall a little as the robot treads water.
+    assert.ok(Math.abs(run.player.y + gameplayPose(run.player).shoulder[1] - 2 - water.y) < 3)
     assert.ok(Math.abs(run.props[0].angle) < .001, 'ambient motion adds no invented torque')
   }
   samples.forEach((ys, index) => {

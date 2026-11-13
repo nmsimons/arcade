@@ -27,7 +27,8 @@ for (const dt of [STEP, 1 / 60, 1 / 30]) for (const side of [-1, 1]) for (const 
     else p.waterMotion = { amount: 0, dive: 0, phase: 0, underwater: true }
     advance(p, f, 3, {}, dt)
     assert.equal(p.waterMotion.amount, 0)
-    assert.ok(athletePose(p).head[1] < athletePose(p).hip[1] - 20, 'the route begins floating upright')
+    // At the surface the robot treads water upright; a hover underwater leans forward, still head up.
+    assert.ok(athletePose(p).head[1] < athletePose(p).hip[1] - (start === 'surface' ? 20 : 15), 'the route begins floating head up')
     let shortestLeg = Infinity, shortestArm = Infinity, deepestTuck = 0, previous
     for (let i = 0; i < Math.round(1.5 / dt); i++) {
       const before = center(p)
@@ -156,8 +157,8 @@ for (const dt of [STEP, 1 / 30]) test(`stopping gathers and extends in proportio
       shortest = Math.min(shortest, Math.hypot(leg.end[0] - leg.root[0], leg.end[1] - leg.root[1], leg.endDepth ?? 0))
     }
     const pose = athletePose(p), leg = pose.frontLeg
-    assert.ok(Math.hypot(leg.end[0] - leg.root[0], leg.end[1] - leg.root[1], leg.endDepth ?? 0) > 28, 'the legs extend again in the quiet float')
-    assert.ok(pose.head[1] < pose.hip[1] - 20)
+    assert.ok(Math.hypot(leg.end[0] - leg.root[0], leg.end[1] - leg.root[1], leg.endDepth ?? 0) > 26, 'the legs trail nearly straight again in the hover')
+    assert.ok(pose.head[1] < pose.hip[1] - 15 && pose.head[0] > pose.hip[0] + 8, 'the hover leans forward, head up')
     rests.push(shortest)
   }
   assert.ok(rests[0] < 16, 'stopping a head-first dive curls the knees close to the hips')
@@ -196,7 +197,8 @@ for (const dt of [STEP, 1 / 60, 1 / 30]) for (const side of [-1, 1]) {
     const stopped = center(p), stoppedX = p.x, pose = athletePose(p)
     assert.ok(Math.abs(p.vy) < .1 && Math.abs(p.vx) < .1)
     assert.equal(p.waterMotion.amount, 0, 'the slowing glide eases fully out of the extended stroke')
-    assert.ok(pose.head[1] < pose.hip[1] - 20 && Math.abs(pose.head[0] - pose.hip[0]) < 5, 'release settles into an upright underwater float')
+    assert.ok(pose.head[1] < pose.hip[1] - 15 && pose.head[0] - pose.hip[0] > 8 && pose.head[0] - pose.hip[0] < 18,
+      'release settles into a forward-leaning underwater hover')
     advance(p, f, 3, {}, dt)
     assert.ok(Math.abs(center(p) - stopped) < .02 && Math.abs(p.x - stoppedX) < .02, 'sculling holds the reached position')
     advance(p, f, 1.2, { move: side }, dt)
@@ -242,26 +244,29 @@ test('underwater control fades at the surface and disappears when the water regi
   assert.ok(p.vy > 250, 'removing water restores ordinary gravity')
 })
 
-for (const submerged of [false, true]) test(`an upright float has subtle continuous body motion without drift, submerged=${submerged}`, () => {
+for (const submerged of [false, true]) test(`a resting swimmer treads water without drift, submerged=${submerged}`, () => {
   const p = swimmer(), f = field()
   advance(p, f, submerged ? 1 : 8, submerged ? { descend: true } : {}, STEP)
   advance(p, f, 3, {}, STEP)
-  const depth = center(p), heads = [], feet = []
+  const depth = center(p), heads = [], feet = [], hands = []
   let previous
   for (let i = 0; i < 720; i++) {
     stepPlayer(p, NEUTRAL_INPUT, STEP, [], undefined, undefined, undefined, f)
     const state = structuredClone(p), pose = athletePose(p)
     assert.deepEqual(p, state, 'the resting motion remains a read-only pose')
     assert.equal(p.waterMotion.amount, 0)
-    assert.ok(pose.head[1] < pose.hip[1] - 20, 'gentle motion keeps the upright silhouette')
-    heads.push(pose.head[0]); feet.push(pose.frontLeg.end[0])
-    if (previous) assert.ok(Math.hypot(pose.head[0] - previous[0], pose.head[1] - previous[1]) < .05, 'the sway advances quietly without a snap')
+    // Upright at the surface; a hover underwater leans forward, still head up.
+    assert.ok(pose.head[1] < pose.hip[1] - (submerged ? 15 : 20), 'treading keeps the head-up silhouette')
+    if (submerged) assert.ok(pose.head[0] > pose.hip[0] + 8, 'the hover leans forward')
+    heads.push(pose.head); feet.push(pose.frontLeg.end[0]); hands.push(pose.frontArm.end[0])
+    if (previous) assert.ok(Math.hypot(pose.head[0] - previous[0], pose.head[1] - previous[1]) < .2, 'the bob advances smoothly without a snap')
     previous = pose.head
   }
   const range = values => Math.max(...values) - Math.min(...values)
-  assert.ok(range(heads) > 1 && range(heads) < 3, 'the torso visibly sways through only a few degrees')
-  assert.ok(range(feet) > 1 && range(feet) < 4, 'the ankles drift gently while floating')
-  if (submerged) assert.ok(Math.abs(center(p) - depth) < .01, 'the resting sway preserves underwater positioning')
+  assert.ok(range(heads.map(h => h[1])) > 1 && range(heads.map(h => h[1])) < 4, 'the body lifts a little on each push')
+  assert.ok(range(feet) > 3 && range(feet) < 12, 'the legs circle visibly')
+  assert.ok(range(hands) > 4 && range(hands) < 12, 'the hands scull')
+  if (submerged) assert.ok(Math.abs(center(p) - depth) < .01, 'treading preserves underwater positioning')
 })
 
 test('a gentle controller vertical deflection gives precise underwater steering before it requests a climb', () => {

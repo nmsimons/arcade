@@ -186,6 +186,12 @@ What gameplay reads instead:
   captured pose's existence.
 - **Water clearance.** The hull keeps `waterMotion.bodyOffset`, solved from the
   physics rig. The presented swimmer keeps its own `p.anim.waterClearance`.
+- **Drawn swim.** The physics rig strokes on `waterMotion.phase`. The drawn
+  player keeps its own stroke and treading cycles in `p.anim.swim`
+  (`advanceSwimAnimation`), so the treading rest, the hover lean, the looped
+  hand and foot paths and the surge never reach the hull, the landing hand or
+  the clearance offset. Robots fire from the physics rig and draw their emitter
+  at the palm, so they keep no `p.anim.swim` and swim as the physics rig does.
 
 Behaviour against fcafc46, comparing positions and velocities over the same
 scripts: 6 of 175 traces change, all of them repulsor robot decisions. A

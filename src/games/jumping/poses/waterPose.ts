@@ -19,6 +19,85 @@ import type { Player } from '../characterTypes.ts'
 /** Breaststroke coordinates the pull, recovery, kick and glide. Submerged
  * steering leads through the chest and neck while the hips and feet trail. */
 let bodySolves = 0, limbFits = 0
+const FLOAT_HIP: Point = [0, -31.4], FLOAT_WAIST: Point = [.2, -38], FLOAT_SHOULDER: Point = [.5, -48], FLOAT_HEAD: Point = [2.8, -55.3]
+
+/** A stroke key: where in the cycle (0 to 1), a point, and whether the limb rests there. */
+type LoopKey = readonly [cycle: number, x: number, y: number, hold?: boolean]
+/**
+ * A point on a closed path through `keys` at `cycle`, moving smoothly through
+ * each key and resting at held ones. The out and back halves of a stroke take
+ * different paths, so a hand or foot traces a loop rather than a line.
+ */
+function loopAt(keys: readonly LoopKey[], cycle: number): Point {
+  const n = keys.length, c = (cycle % 1 + 1) % 1
+  let i = n - 1
+  for (let k = 0; k < n; k++) if (keys[k][0] <= c) i = k
+  const j = (i + 1) % n, t0 = keys[i][0], t1 = keys[j][0] + (j <= i ? 1 : 0)
+  const span = t1 - t0, u = ((c < t0 ? c + 1 : c) - t0) / span
+  const tangent = (k: number): Point => {
+    if (keys[k][3]) return [0, 0]
+    const a = keys[(k + n - 1) % n], b = keys[(k + 1) % n], at = keys[k][0]
+    const ta = a[0] > at ? a[0] - 1 : a[0], tb = b[0] < at ? b[0] + 1 : b[0]
+    return [(b[1] - a[1]) / (tb - ta), (b[2] - a[2]) / (tb - ta)]
+  }
+  const m0 = tangent(i), m1 = tangent(j), u2 = u * u, u3 = u2 * u
+  const h00 = 2 * u3 - 3 * u2 + 1, h10 = (u3 - 2 * u2 + u) * span, h01 = 3 * u2 - 2 * u3, h11 = (u3 - u2) * span
+  return [h00 * keys[i][1] + h10 * m0[0] + h01 * keys[j][1] + h11 * m1[0], h00 * keys[i][2] + h10 * m0[1] + h01 * keys[j][2] + h11 * m1[1]]
+}
+/** The drawn hands from the shoulder, forward and down along the body: the catch
+ * and pull sweep deep, the insweep rises under the chin and the recovery shoots
+ * forward just under the surface before the glide. */
+const HAND_GLIDE: Point = [18.7, 0]
+const HAND_LOOP: readonly LoopKey[] = [[0, 18.7, 0, true], [.16, 18.7, 0, true], [.28, 14, 5], [.4, 7.5, 9], [.5, 3, 4.5],
+  [.57, 6, .5], [.66, 15.5, -1.5], [.74, 18.7, 0, true]]
+/** The drawn feet from the extended glide: the heels draw up level with the
+ * body, then drive back and down and snap together, a little after the hands recover. */
+const FOOT_LOOP: readonly LoopKey[] = [[0, 0, 0, true], [.32, 0, 0, true], [.44, 5.5, -.5], [.56, 13.5, -.8], [.64, 12, 3.5],
+  [.72, 5.5, 5.5], [.82, .5, 1.5], [.92, 0, 0, true]]
+/**
+ * The drawn body's lead on its root through a stroke, from -1 to 1. The body
+ * surges after the kick and the pull and drops back through the recovery, while
+ * the root itself moves at the motor's steady speed.
+ */
+const SURGE_CURVE = (() => {
+  const n = 256, bump = (c: number, center: number, width: number) => Math.exp(-(((((c - center) % 1 + 1.5) % 1 - .5) / width) ** 2))
+  const push = Array.from({ length: n }, (_, i) => bump(i / n, .78, .08) + .45 * bump(i / n, .4, .08))
+  const mean = push.reduce((a, b) => a + b, 0) / n
+  let lead = 0
+  const leads = push.map(v => lead += v - mean), centre = leads.reduce((a, b) => a + b, 0) / n
+  const peak = Math.max(...leads.map(v => Math.abs(v - centre)))
+  return leads.map(v => (v - centre) / peak)
+})()
+const surgeAt = (cycle: number) => {
+  const x = ((cycle % 1 + 1) % 1) * SURGE_CURVE.length, i = Math.floor(x)
+  return lerp(SURGE_CURVE[i % SURGE_CURVE.length], SURGE_CURVE[(i + 1) % SURGE_CURVE.length], x - i)
+}
+/** How far the drawn body surges ahead of its root at full speed. */
+const SURGE = 4
+/** How far a hover underwater leans forward from upright, in radians. At the surface
+ * the robot rests upright, so it braces and reaches for a bank exactly as it would standing. */
+const HOVER_LEAN = .6
+
+/** Resting in the water, drawn only: the legs trail nearly straight with a
+ * small flutter, the hands scull a figure eight and the body lifts a little on
+ * each push. The hands settle as a stroke takes over (`scull` falls to 0), so
+ * they never sweep past the shoulder mid-blend. */
+function treadingPose(tread: number, scull: number): AthletePose {
+  const leg = (back: boolean): Leg => {
+    const a = tread + (back ? Math.PI : 0)
+    const target: Point = [(back ? -1 : 1) + 2.2 * Math.cos(a), (back ? -3 : -2.5) + 2 * Math.sin(a)]
+    return { ...solve(add(FLOAT_HIP, [back ? -1 : 0, 0]), target, 15, 14.5, -1),
+      footAngle: Math.PI / 2 - .25 + .3 * Math.sin(a), toeAngle: 0, footFacing: 1, planted: false }
+  }
+  const arm = (back: boolean): Limb => {
+    const a = tread + (back ? Math.PI : 0)
+    const hand: Point = [(back ? 4 : 10) + (back ? 3 : 4) * scull * Math.sin(a), (back ? -42 : -40.5) + 1.3 * scull * Math.sin(2 * a)]
+    return { ...solve(add(FLOAT_SHOULDER, [back ? -1.2 : 0, .5]), hand, UPPER_ARM, FOREARM, 1), handAngle: (back ? -.4 : .4) * scull * Math.cos(a) }
+  }
+  const pose: AthletePose = { hip: FLOAT_HIP, waist: FLOAT_WAIST, shoulder: FLOAT_SHOULDER, head: FLOAT_HEAD,
+    frontArm: arm(false), backArm: arm(true), frontLeg: leg(false), backLeg: leg(true) }
+  return rotatePose(pose, .03 * Math.sin(tread), 1, FLOAT_HIP, [0, .9 * Math.cos(2 * tread)])
+}
 /** Swimming body solves and limb fits since the module loaded; tests count
  * them instead of timing work. */
 export const waterPoseWork = () => ({ bodySolves, limbFits })
@@ -40,8 +119,10 @@ function solveWaterBody(p: Player): AthletePose {
   bodySolves++
   const motion = p.waterMotion!
   if (motion.landing) return waterLandingPose(p)
+  // The drawn swim's own cycles. The physics rig has no animation and keeps the stroke it always had.
+  const swim = p.anim.swim ?? undefined
   const pushing = !p.grounded ? smooth(p.pushing?.amount ?? 0) : 0
-  const floatHip: Point = [0, -31.4], floatWaist: Point = [.2, -38], floatShoulder: Point = [.5, -48], floatHead: Point = [2.8, -55.3]
+  const floatHip = FLOAT_HIP, floatWaist = FLOAT_WAIST, floatShoulder = FLOAT_SHOULDER, floatHead = FLOAT_HEAD
   const baseScull = motion.scull ?? motion.phase, bob = p.waterBob?.amount ?? 0
   const scull = (Math.sin(baseScull) * (1 - bob) + Math.sin(baseScull + (p.waterBob?.phase ?? 0)) * bob) * .8
   const quietFloat = (1 - smooth(motion.amount)) * (1 - (motion.bottom ?? 0)) * (1 - pushing)
@@ -56,25 +137,33 @@ function solveWaterBody(p: Player): AthletePose {
   const floating = rotatePose({ hip: floatHip, waist: floatWaist, shoulder: floatShoulder, head: floatHead,
     frontArm: floatingArm(false), backArm: floatingArm(true),
     frontLeg: floatingLeg(false), backLeg: floatingLeg(true) }, 0, p.facing)
+  const steering = smooth(motion.steering ?? Number(motion.underwater ?? false))
   // A quiet float breathes through a small sway and drifting ankles. Rotate the
   // intact rig around the hips; the physical depth and clearance solve stay live.
-  const upright = rotatePose(floating, Math.sin(baseScull) * .04 * quietFloat, 1, floatHip)
-  const cycle = (motion.phase / TAU % 1 + 1) % 1
-  const strokeWeight = smooth((motion.amount - .65) / .35) * Math.max(smooth(motion.effort ?? Math.hypot(p.vx, p.vy) / 70), pushing * (p.pushing?.effort ?? 0))
-  const steering = smooth(motion.steering ?? Number(motion.underwater ?? false))
+  // Drawn, the robot treads water instead, and a hover underwater leans forward.
+  const lean = swim ? HOVER_LEAN * steering : 0
+  const upright = swim ? rotatePose(treadingPose(swim.tread, 1 - smooth(motion.amount / .4)), lean, 1, floatHip)
+    : rotatePose(floating, Math.sin(baseScull) * .04 * quietFloat, 1, floatHip)
+  const cycle = ((swim?.stroke ?? motion.phase) / TAU % 1 + 1) % 1
+  const strokeWeight = smooth((motion.amount - .65) / .35) * Math.max(smooth(motion.effort ?? Math.hypot(p.vx, p.vy) / 70),
+    pushing * (p.pushing?.effort ?? 0), swim?.drive ?? 0)
   const breath = smooth((cycle - .22) / .2) * (1 - smooth((cycle - .55) / .17)) * strokeWeight * (1 - steering)
   const resting = steering * (1 - smooth(Math.hypot(p.vx, p.vy) / 35))
   const hip: Point = [-7, -9], waist: Point = [-.5, -8.6], shoulder: Point = [9.6, -8 - breath * 2], head: Point = [17.6, -7.8 - breath * 5]
   const out = smooth((cycle - .18) / .2) * strokeWeight, inward = smooth((cycle - .38) / .17) * strokeWeight, forward = smooth((cycle - .55) / .17) * strokeWeight
   const dx = 18.7 - out * 11.7 - inward * 5 + forward * 16.7 - resting * (2 + scull), dy = out * 6 + inward * 2 - forward * 8 + resting * (1.5 + scull)
+  // Drawn, the hands and feet loop: their power and recovery take different paths.
+  const hand: Point = swim ? add(mix(HAND_GLIDE, loopAt(HAND_LOOP, cycle), strokeWeight), [-resting * (2 + scull), resting * (1.5 + scull)]) : [dx, dy]
   const arm = (back: boolean): Limb => {
     const sweep = Math.sin(Math.PI * smooth((cycle - .18) / .37))
     const root = add(shoulder, [back ? -.5 : 0, back ? -.6 : .6])
-    return solveRear(root, add(root, [dx, dy]), UPPER_ARM, FOREARM, 1, 1 - sweep * .5)
+    return solveRear(root, add(root, hand), UPPER_ARM, FOREARM, 1, 1 - sweep * .5)
   }
-  const tuck = smooth((cycle - .28) / .24), kick = smooth((cycle - .55) / .23), folded = tuck * (1 - kick) * strokeWeight + resting * (.15 + scull * .025)
+  const tuck = smooth((cycle - .28) / .24), kick = smooth((cycle - .55) / .23), restFold = resting * (.15 + scull * .025)
+  const foot: Point = swim ? add(mix([0, 0], loopAt(FOOT_LOOP, cycle), strokeWeight), [restFold * 16, restFold * 5]) : [0, 0]
+  const folded = swim ? Math.min(1, Math.hypot(...foot) / 16.8) : tuck * (1 - kick) * strokeWeight + restFold
   const leg = (back: boolean): Leg => ({ ...solveRear(add(hip, [back ? -.4 : 0, back ? .4 : 1]),
-    [-36.3 + folded * 16, (back ? -8.6 : -8) + folded * 5], 15, 14.5, -1, 1 - folded * .65),
+    swim ? add([-36.3, back ? -8.6 : -8], foot) : [-36.3 + folded * 16, (back ? -8.6 : -8) + folded * 5], 15, 14.5, -1, 1 - folded * .65),
     footAngle: Math.PI - folded * .65, toeAngle: 0, footFacing: 1, planted: false })
   let stroke: AthletePose = { hip, waist, shoulder, head, frontArm: arm(false), backArm: arm(true),
     frontLeg: leg(false), backLeg: leg(true), headTilt: Math.PI / 2 }
@@ -107,10 +196,10 @@ function solveWaterBody(p: Player): AthletePose {
     backLeg: { ...stroke.backLeg, ...limb(stroke.backLeg), footAngle: stroke.backLeg.footAngle + angle }, headTilt: (stroke.headTilt ?? Math.PI / 2) + angle }
   // Rotate the spine into the heading; the deliberate tuck below gathers the
   // limbs without collapsing the torso or changing their segment lengths.
-  const transitionHip = mix(floatHip, stroke.hip, motion.amount)
-  const extended = rotatePose(upright, (Math.PI / 2 + angle) * motion.amount, 1, floatHip,
+  const transitionHip = mix(floatHip, stroke.hip, motion.amount), turnIn = Math.PI / 2 + angle - lean
+  const extended = rotatePose(upright, turnIn * motion.amount, 1, floatHip,
     [transitionHip[0] - floatHip[0], transitionHip[1] - floatHip[1]])
-  const alignedStroke = rotatePose(stroke, -(Math.PI / 2 + angle) * (1 - motion.amount), 1, stroke.hip,
+  const alignedStroke = rotatePose(stroke, -turnIn * (1 - motion.amount), 1, stroke.hip,
     [transitionHip[0] - stroke.hip[0], transitionHip[1] - stroke.hip[1]])
   let pose = motion.amount ? transferPose(extended, alignedStroke, [0, 0], motion.amount, [0, 0], 0, true) : upright
   const gather = (motion.gather ?? 0) * (1 - (motion.bottom ?? 0)) * (1 - pushing)
@@ -174,6 +263,13 @@ function solveWaterBody(p: Player): AthletePose {
     const leg = (value: Leg): Leg => ({ ...value, ...limb(value), footAngle: Math.atan2(Math.sin(value.footAngle), Math.cos(value.footAngle) * cos) })
     pose = { ...pose, hip: point(pose.hip), waist: point(pose.waist, cos * .65 + lead * .35), shoulder, head: point(pose.head, lead),
       frontArm: arm(pose.frontArm), backArm: arm(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
+  }
+  if (swim && !p.grounded) {
+    // Drawn, the body surges ahead of its root after each kick and drops back through the recovery.
+    // It follows the motor's eased effort, so a sudden stop at a wall fades it rather than snapping it away.
+    const surge = SURGE * surgeAt(cycle) * strokeWeight * smooth(motion.effort ?? 0) * (1 - (motion.bottom ?? 0)) * (1 - pushing)
+    const dx = pose.shoulder[0] - pose.hip[0], dy = pose.shoulder[1] - pose.hip[1], length = Math.hypot(dx, dy)
+    if (surge && length > 1) pose = rotatePose(pose, 0, 1, [0, 0], [dx / length * surge, dy / length * surge])
   }
   if (p.terrain && !p.grounded) {
     if (motion.ceiling?.amount) pose = waterCeilingPose(p, pose)

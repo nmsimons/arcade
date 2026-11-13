@@ -7,6 +7,8 @@ import { robotDrive } from './robotPhysics.ts'
 import { chargingBayOpening } from './goal.ts'
 import { triggerToggleGroup } from './toggleGroups.ts'
 import { powerOut } from './power.ts'
+import { landingDustStrength, PROP_TICK_STRENGTH, recordWorldEffect } from './worldEffects.ts'
+import type { WorldEffectKind } from './worldEffects.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo'
 export type CueKind = 'footstep' | 'robot-footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'emp-shot' | 'repulsor' | 'shove'
@@ -62,6 +64,14 @@ function enteredWater(contact: WaterContact, immersion: number, dt: number) {
 function splashStrength(speed: number, size: number) {
   return clamp((.2 + .8 * clamp(speed / 650)) * clamp(Math.sqrt(size / 60), .65, 1.3))
 }
+/** The resting waterline of the pool a body has entered at x, so a splash sits on the surface rather than at the body. */
+function waterline(run: Run, x: number, y: number) {
+  for (const plate of run.water.plates) {
+    if (plate.effect !== 'water' || x < plate.x || x > plate.x + plate.w || y < plate.y - 80 || y > plate.y + plate.h) continue
+    return plate.y
+  }
+  return y
+}
 
 /** Observe solved contacts at physics cadence; drain cues once per rendered frame.
  * Water uses the existing active field and resolved body transforms. Sound never
@@ -94,13 +104,21 @@ export class JumpingAudioState {
       const mix = soundPosition(x, y, p)
       if (mix.volume > .005 && this.cues.length < 8) this.cues.push({ kind, ...mix, strength, size })
     }
+    // What the player sees of the same impacts, wherever they are, heard or not (worldEffects.ts).
+    const effect = (kind: WorldEffectKind, x: number, y: number, strength: number, size: number, angle = 0, up = 1) => {
+      if (run) recordWorldEffect(run, { kind, x, y, strength, size, angle, up, time: run.activeTime })
+    }
+    // A reduced-quality run draws no splashes; recording none keeps a later restore from replaying them.
+    const splashes = run?.waterEffectsEnabled === true && run.waterSurface?.enabled !== false
     // Respawns and editor changes are not impacts. Support transport is excluded
     // by the contact solver, so standing on an elevator never produces footsteps.
     const continuous = Math.hypot(p.x - before.x, p.y - before.y) < 80
     // Resuming, teleporting, or powering water around a body is not an entry.
     if (!continuous || fieldChanged) this.playerWater = waterContact(current.water)
     else if (enteredWater(this.playerWater, current.water, dt)) {
-      cue('water-entry', p.x, p.y, splashStrength(Math.max(Math.hypot(before.vx, before.vy), Math.hypot(p.vx, p.vy)), 60), 60)
+      const strength = splashStrength(Math.max(Math.hypot(before.vx, before.vy), Math.hypot(p.vx, p.vy)), 60)
+      cue('water-entry', p.x, p.y, strength, 60)
+      if (run && splashes) effect('splash', p.x, waterline(run, p.x, p.y), strength, 60)
     }
     const speed = p.contacts?.motion.speed ?? 0
     const plant = p.anim.footwork?.feet.some((f, i) => f.planted && before.feet[i] === false)
@@ -109,6 +127,11 @@ export class JumpingAudioState {
       && (landing || p.grounded && !(p.freeFall?.amount && p.freeFall.recovery !== null) && speed > 8 && plant)) {
       cue('footstep', p.x, p.y, landing ? .5 + clamp(before.vy / 800) * .5 : .3 + clamp(speed / 350) * .5)
       this.stepCooldown = .09
+    }
+    // Hard landings kick up dust; a slide makes its own grit, and the bottom of a pool none.
+    if (continuous && !before.grounded && p.grounded && !p.sliding?.active && current.water < .02) {
+      const dust = landingDustStrength(before.vy * (p.inverted ? -1 : 1))
+      if (dust > 0) effect('landing', p.x, p.y, dust, 60, p.groundAngle, p.inverted ? -1 : 1)
     }
     this.loops = []
     const boost = airBoostStrength(p)
@@ -143,6 +166,10 @@ export class JumpingAudioState {
             cue('robot-footstep', robot.x, robot.y, landing ? .7 + clamp(Math.abs(old.vy) / 800) * .3 : .5 + clamp(speed / 350) * .4)
             this.robotStepCooldowns[i] = .11
           }
+          if (!old.grounded && actor.grounded && !actor.sliding?.active) {
+            const dust = landingDustStrength(old.vy * (actor.inverted ? -1 : 1))
+            if (dust > 0) effect('landing', robot.x, robot.y, dust, 60, actor.groundAngle, actor.inverted ? -1 : 1)
+          }
           // Material grip travel excludes idle rope swing. Pull-ups publish root
           // positions rather than velocities, so follow their advancing pose.
           const climb = actor.climbing
@@ -173,6 +200,7 @@ export class JumpingAudioState {
         else if (enteredWater(this.propWater[i] ??= waterContact(old.water), current.props[i].water, dt)) {
           const speed = Math.max(Math.hypot(old.vx, old.vy), Math.hypot(b.vx, b.vy), Math.abs(b.angularVelocity) * b.size / 2)
           cue('water-entry', b.x, b.y - b.size / 2, splashStrength(speed, b.size), b.size)
+          if (splashes) effect('splash', b.x, waterline(run, b.x, b.y - b.size / 2), splashStrength(speed, b.size), b.size)
         }
         const contact = this.impacts[i] ??= { angle: old.angle, excursion: 0, cooldown: 0 }
         contact.cooldown = Math.max(0, contact.cooldown - dt)
@@ -189,6 +217,11 @@ export class JumpingAudioState {
         }
         if (strength > 0 && contact.cooldown === 0) {
           cue(b.kind === 'box' ? 'box-impact' : 'ball-impact', b.x, b.y, strength, b.size)
+          if (strength >= PROP_TICK_STRENGTH && current.props[i].water < .02) {
+            // A tilted box rests on its lowest corner, below its upright base.
+            const half = b.size / 2, contactY = b.kind === 'box' ? b.y - half + half * (Math.abs(Math.cos(b.angle)) + Math.abs(Math.sin(b.angle))) : b.y
+            effect(b.kind === 'box' ? 'box-impact' : 'ball-impact', b.x, contactY, strength, b.size)
+          }
           contact.angle = b.angle; contact.excursion = 0; contact.cooldown = .1
         }
         if (!b.grounded) continue

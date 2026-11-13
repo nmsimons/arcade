@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect } from './test.mjs'
 import { openLevelLink, useLevelFixtures } from './jumpingLevels.mjs'
+import { SPLASH_COLOR } from '../../../src/games/jumping/impactRender.ts'
 
 /** Observe the real game canvas, without exposing mutable simulation state. */
 export async function playWaterPerformanceFixture(page) {
@@ -9,21 +10,22 @@ export async function playWaterPerformanceFixture(page) {
   level.props = [{ kind: 'box', x: 1020, y: 355, size: 60 }]
   await useLevelFixtures(page, [level])
   await page.setViewportSize({ width: 640, height: 360 })
-  await page.addInitScript(() => {
+  await page.addInitScript(splash => {
     Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
     const proto = CanvasRenderingContext2D.prototype, fillRect = proto.fillRect, stroke = proto.stroke
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.waterEffectsFrame = { surface: 0, droplets: 0, flat: 0 }
       const frame = this.canvas.waterEffectsFrame
       if (frame && this.fillStyle === '#58a9df') frame.flat++
-      if (frame && this.fillStyle === '#bce3f2') frame.droplets++
+      // Splash drops (impactRender.ts), counted per frame and remembered once seen.
+      if (frame && this.fillStyle === splash) { frame.droplets++; this.canvas.splashSeen = true }
       return fillRect.apply(this, args)
     }
     proto.stroke = function (...args) {
       if (this.canvas.waterEffectsFrame && this.strokeStyle === '#bce3f2') this.canvas.waterEffectsFrame.surface++
       return stroke.apply(this, args)
     }
-  })
+  }, SPLASH_COLOR)
   await page.clock.install()
   await openLevelLink(page, { query: '?motionDebug=1' })
   const canvas = page.locator('.jumping-game > canvas[role="img"]')
@@ -31,6 +33,8 @@ export async function playWaterPerformanceFixture(page) {
   await page.keyboard.down('d'); await page.clock.runFor(3000); await page.keyboard.up('d')
   await page.clock.runFor(500)
   expect((await waterEffectsFrame(page)).surface).toBeGreaterThan(0)
+  // At full quality, walking in splashes; the splash has fallen back in by the time the robot floats.
+  expect(await canvas.evaluate(c => c.splashSeen === true), 'entering the pool drew a splash').toBe(true)
   expect((await waterEffectsFrame(page)).droplets).toBe(0)
   return { fullPixels: await canvas.evaluate(c => c.width * c.height) }
 }

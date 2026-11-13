@@ -5,7 +5,7 @@
  * Players never set it, and with it unset each check is an empty-set lookup.
  */
 export type MeasuredLayer = 'lighting' | 'backdrop' | 'gravity' | 'displays' | 'pickups' | 'terrain' | 'ground-cover'
-  | 'terrain-edges' | 'terrain-texture' | 'fields' | 'climbables' | 'athlete' | 'water'
+  | 'terrain-edges' | 'terrain-texture' | 'fields' | 'climbables' | 'athlete' | 'water' | 'effects'
 
 const skipped: ReadonlySet<string> = (() => {
   // Only a browser page can carry the switch; Node's own localStorage would warn.

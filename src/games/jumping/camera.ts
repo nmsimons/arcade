@@ -5,6 +5,7 @@ import type { JumpLevel } from './level.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { AWAKENING_SECONDS, goalEase } from './goal.ts'
 import type { EntranceAnimation } from './goal.ts'
+import { landingDustStrength } from './worldEffects.ts'
 export const LEVEL_BOTTOM_PADDING = 32
 
 function verticalCamera(height: number, zoom: number, center: number, roomHeight: number) {
@@ -65,6 +66,16 @@ export function awakeningCamera(view: ReturnType<typeof gameCamera>, width: numb
     y: entrance.player.y - (height * .76 + (toY - height * .76) * reveal) / zoom }
 }
 
+/** Seconds a hard landing's settle takes to ease out, and its size in screen pixels at the softest and hardest landing. */
+export const LANDING_SETTLE_SECONDS = .18
+export const LANDING_SETTLE_PIXELS = [3, 5] as const
+let reducedMotion: MediaQueryList | null | undefined
+/** Whether the player asked for less motion; read live, so changing the setting applies at once. */
+function prefersReducedMotion() {
+  if (reducedMotion === undefined) reducedMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null
+  return reducedMotion?.matches ?? false
+}
+
 /** Presentation state belongs to the view, so sampling a camera never changes
  * the player or advances the motor. Both renderers can use the returned view. */
 export class GameCamera {
@@ -72,11 +83,39 @@ export class GameCamera {
   private level?: JumpLevel
   private lookAhead = 0
   private verticalLook = 0
+  /** A hard landing nudges the view along the fall for a moment, in screen pixels, then eases back. */
+  private settle = { pixels: 0, age: LANDING_SETTLE_SECONDS, airborne: false, fall: 0 }
 
   view(width: number, height: number, p: Player, level: JumpLevel, challenge: boolean, dt = 0) {
     if (p !== this.player || level !== this.level) {
       this.player = p; this.level = level; this.lookAhead = 0; this.verticalLook = 0
+      this.settle = { pixels: 0, age: LANDING_SETTLE_SECONDS, airborne: !p.grounded, fall: 0 }
     }
+    const offset = this.landingSettle(p, Math.max(0, dt))
+    const view = this.follow(width, height, p, level, challenge, dt)
+    // A short room is framed whole and holds still; only a view that follows the robot settles.
+    const fixed = levelHeight(level) + LEVEL_BOTTOM_PADDING * 2 / view.zoom <= height / view.zoom
+    return offset && !fixed ? { ...view, y: view.y + offset / view.zoom } : view
+  }
+
+  /** Reads the landing from the player each drawn frame: the last airborne fall speed, then the first frame on the ground. */
+  private landingSettle(p: Player, dt: number) {
+    const s = this.settle, up = p.inverted ? -1 : 1
+    if (dt > 0) {
+      s.age += dt
+      if (s.airborne && p.grounded && !p.sliding?.active) {
+        const strength = landingDustStrength(s.fall)
+        if (strength > 0 && !prefersReducedMotion()) {
+          s.pixels = up * (LANDING_SETTLE_PIXELS[0] + (LANDING_SETTLE_PIXELS[1] - LANDING_SETTLE_PIXELS[0]) * strength); s.age = 0
+        }
+      }
+      s.airborne = !p.grounded; s.fall = p.grounded ? 0 : p.vy * up
+    }
+    if (s.age >= LANDING_SETTLE_SECONDS) return 0
+    return s.pixels * (1 - s.age / LANDING_SETTLE_SECONDS) ** 2
+  }
+
+  private follow(width: number, height: number, p: Player, level: JumpLevel, challenge: boolean, dt: number) {
     // The original desktop view already covers a full running jump. Add lead
     // only when the visible half-span falls short of that commitment.
     const base = gameCamera(width, height, p, level, challenge)

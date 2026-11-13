@@ -37,6 +37,7 @@ import { EMP_PALETTE, ROBOT_PALETTE } from './equipmentPalette.ts'
 import { awakeningPose } from './athletePose.ts'
 import { powerOut } from './power.ts'
 import { layerSkipped } from './measureLayers.ts'
+import { drawImpactEffects, drawSplashes } from './impactRender.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -267,6 +268,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, !powerOut(run) && !r.deactivated && !run.gadgets.disabled.has(r), paint, lights.find(light => light.robot === i)?.fade ?? 0)
   for (const r of run.robots) if (r.definition.kind === 'repulsor' && r.definition.chargingBay)
     drawChargingBayCover(ctx, r.definition, r.awakening?.elapsed ?? 0, paint, nightModeEnabled(level.lighting), ROBOT_BAY_WIDTH_SCALE)
+  if (!editor && !layerSkipped('effects')) drawImpactEffects(ctx, run, paint)
   if (!run.started && run.entrance && !editor) {
     const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
     ctx.save(); ctx.globalAlpha *= waking ? .45 + .55 * chargingBayOpening(entrance.elapsed) : entranceVisibility(entrance.elapsed)
@@ -290,6 +292,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   if (!layerSkipped('water')) for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)
+  if (!editor && !layerSkipped('effects')) drawSplashes(ctx, run, paint)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run, view = gameCamera(width, height, run.player, run.level, true)) {
   const { level } = run

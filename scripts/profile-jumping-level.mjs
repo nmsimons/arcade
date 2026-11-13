@@ -13,7 +13,8 @@
 //     --skip <name>=<layers>  A variant of the first bundle that leaves those drawing layers out (comma-separated:
 //                             lighting, backdrop, gravity, displays, pickups, terrain, ground-cover, terrain-edges,
 //                             terrain-texture (flat colour instead of the material pattern),
-//                             fields, climbables, athlete, water; see src/games/jumping/measureLayers.ts). Repeat to
+//                             fields, climbables, athlete, water, effects (impact dust and splashes);
+//                             see src/games/jumping/measureLayers.ts). Repeat to
 //                             price several layers; variants alternate with the bundles.
 //     --renderer <name>=<value>  Draw that bundle or variant with localStorage `jumping:renderer` = value: canvas
 //                             for Canvas alone, webgl for the default (WebGL where the GPU runs it), so one build

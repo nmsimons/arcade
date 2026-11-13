@@ -1548,6 +1548,14 @@ Floating and surface bobbing stay quiet. Spawning or resuming in water,
 teleports, and EMP do not create an entry sound. Water-entry audio
 coverage lives in `tests/jumping-water-audio.test.mjs` and
 `tests/browser/jumpingAudio.dev.spec.mjs`.
+The same observation draws a splash on the waterline: two lobes and six to ten
+drops, gone within 0.6 seconds. Hard landings of the player and walking robots
+leave a short puff of dust, and crates and balls that land hard leave a few
+ticks at their contact. These effects are presentation only (`worldEffects.ts`,
+`impactRender.ts`): they are kept beside the run, never on it, are drawn from
+gameplay time, and freeze while paused. A walk, a small hop or a step down draws
+nothing. Reduced water effects draw no splash and record none, so restoring
+them replays nothing. Coverage lives in `tests/jumping-world-effects.test.mjs`.
 Water remains visible and physical regardless of switches or EMP. The studio
 adds a selection outline. Water shares the 16-region field limit,
 existing overlap averaging and field compiler. Regression

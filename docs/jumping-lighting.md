@@ -333,7 +333,8 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Authored lamp housing | Ambient only, with a small, flat fixture. | No. | No. | Housing remains in place. |
 | Authored lamp lens | Full neutral lens at full power; follows its power fade when switching. | No. | Its defined spotlight cone. | All authored lamps lose power. |
 | Start/checkpoint floor markings in legacy playgrounds | Ordinary. | No. | No navigation beacon. | Unchanged. |
-| Dust, foot/contact effects, and slide marks | Ordinary at their world position. | No. | No. | Existing effect behavior. |
+| Dust, foot/contact effects, and slide marks, including landing dust and crate and ball impact ticks (`impactRender.ts`) | Ordinary at their world position, in the slide grit's grey. | No. | No. | Existing effect behavior. |
+| Water-entry splash: two lobes and a few drops above the waterline (`impactRender.ts`) | Ordinary, drawn over the water's tint. | No. | No. | Continues; drawn only while the run's water surface effects are on. |
 | Pickup pulse/shrink, floating `−n`/`+n`, and EMP ring | Ordinary source color, multiplied by the existing animation opacity. | No. | No flash of environmental light. | Animation continues unless the game is paused. |
 | Menus, dialogs, HUD, focus indicators, editor handles/guides | Outside world lighting. | No. | No. | Unchanged. |
 

@@ -312,7 +312,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Ladder and rope, including anchors | Ordinary; authors must illuminate important exits and catches. | No. | No. | Existing movement remains unchanged. |
 | Pressure plate and its active/inactive strip | Ordinary. Its active color is a state indicator, not a luminous surface. | No; too small to justify extra shadow noise. | No. | Existing load/activation behavior; no invented glow. |
 | Coin switch | Filled gold/green segments retain at least 65% exposure; housing, empty track and dividers receive ordinary lighting. | No. | No. | Readout remains visible and counts coins. Switching still obeys EMP and latching rules. |
-| Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
+| Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame, and the two bolted mounting ears every display housing has at mid-height, receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
 | Message screen | Green phosphor lettering retains at least 65% exposure; its dark glass and frame receive ordinary lighting. The small glyph glow stays inside the screen. | No. | No. | Its static message remains visible. |
 | Optional wall wiring | Energized wires and terminal pins are muted green with at least 65% exposure and a tight, soft halo in Night mode. Day keeps the thin crisp line. Inactive cable is lighter gray-green; it and the jack housings receive ordinary lighting. | No. | No; the halo is local artwork. | Wire and pin return to their inactive appearance; live signals reappear after EMP. |
 | Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
@@ -326,11 +326,11 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Time penalty | Ordinary dark-red arrow and number; retains clockwise rotation. | No. | No. | Remains collectible and animated. |
 | Fast stopwatch | Ordinary dark-red artwork and fast clockwise hand. | No. | No. | Remains collectible and animated. |
 | EMP pickup | Ordinary gold face/edge colors and bolt animation. | No. | No, including during collection. | Remains collectible; another pickup extends the existing outage. |
-| Exit pole and closed-door surroundings | Ordinary. | No extra shadows from the small pole. The back-wall door is not new solid geometry. | No. | The exit follows its power setting and switch inputs. |
+| Exit pole, its foot plate, and closed-door surroundings | Ordinary. | No extra shadows from the small pole. The back-wall door is not new solid geometry. | No. | The exit follows its power setting and switch inputs. |
 | Goal lamp before activation | Ordinary inactive lens. It must not look switched on in darkness. | No. | No. | Unchanged. |
 | Goal lamp after activation | Full existing green lens, visible even at ambient 0. | No. | No; the indicator never lights nearby surfaces. | Stays visibly green. |
 | Open exit doorway | Retains its black opening; wall around it remains ambient-only. | No. | No. | Opens and accepts the player as usual. |
-| Authored lamp housing | Ambient only, with a small, flat fixture. | No. | No. | Housing remains in place. |
+| Authored lamp housing | Ambient only, with a small, flat fixture on a short arm from a wall plate behind it. | No. | No. | Housing remains in place. |
 | Authored lamp lens | Full neutral lens at full power; follows its power fade when switching. | No. | Its defined spotlight cone. | All authored lamps lose power. |
 | Start/checkpoint floor markings in legacy playgrounds | Ordinary. | No. | No navigation beacon. | Unchanged. |
 | Dust, foot/contact effects, and slide marks, including landing dust and crate and ball impact ticks (`impactRender.ts`) | Ordinary at their world position, in the slide grit's grey. | No. | No. | Existing effect behavior. |

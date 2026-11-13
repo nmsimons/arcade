@@ -9,6 +9,8 @@ export function drawLightFixtures(ctx: CanvasRenderingContext2D, lights: readonl
     if (light.robot !== undefined) continue
     ctx.save(); ctx.translate(light.x, light.y); ctx.rotate(light.direction * Math.PI / 180)
     paint(ctx, 0, () => {
+      // A short arm from a wall plate behind the housing, so the lamp is fixed to something.
+      ctx.fillStyle = '#56645c'; ctx.fillRect(-15, -1.5, 6, 3); ctx.fillRect(-17, -5, 2.5, 10)
       ctx.fillStyle = '#687b71'; ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(-6, -4)
       ctx.quadraticCurveTo(-10, -3, -10, 0); ctx.quadraticCurveTo(-10, 3, -6, 4)
       ctx.lineTo(6, 6); ctx.closePath(); ctx.fill()

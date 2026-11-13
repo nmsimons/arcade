@@ -38,6 +38,7 @@ import { awakeningPose } from './athletePose.ts'
 import { powerOut } from './power.ts'
 import { layerSkipped } from './measureLayers.ts'
 import { drawImpactEffects, drawSplashes } from './impactRender.ts'
+import { drawSlabBrackets, slabBracketsPreviewed } from './slabBrackets.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -170,6 +171,8 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
   paint(ctx, 0, () => {
     ctx.fillStyle = '#738575'
     ctx.fillRect(pole - 2, lamp, 4, GOAL_LIGHT_HEIGHT)
+    // A foot plate where the pole meets the floor.
+    ctx.fillStyle = '#56645c'; ctx.fillRect(pole - 7, goal.y - 3, 14, 3)
   })
   paint(ctx, complete ? 1 : 0, () => {
     ctx.fillStyle = complete ? '#a9d56b' : '#9aa38e'
@@ -217,6 +220,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   const { level, player: p } = run, goal = level.goal
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
+    if (slabBracketsPreviewed && !editor) wallPaint(ctx, 0, () => drawSlabBrackets(ctx, level))
     if (!layerSkipped('gravity')) for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, !powerOut(run)), editor, wallPaint)
     if (!layerSkipped('gravity')) drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
     drawLightFixtures(ctx, lights, wallPaint)

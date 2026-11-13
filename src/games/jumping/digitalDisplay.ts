@@ -14,8 +14,15 @@ export const DIGITAL_INACTIVE = '#18271e'
 export const DIGITAL_DIM = '#56645a'
 export type DigitalIcon = 'pause' | 'fast' | 'finished' | 'coin'
 
-/** Local artwork shared by numeric faces and slim progress meters. */
+/** How far the mounting ears reach past each side of a housing. */
+export const DIGITAL_MOUNT_REACH = 3
+/** Local artwork shared by numeric faces and slim progress meters. Two bolted
+ * ears at mid-height hold the housing to the wall, just outside its sides. */
 export function drawDigitalHousing(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const ear = Math.min(10, Math.max(4, h * .3)), top = h / 2 - ear / 2, reach = DIGITAL_MOUNT_REACH
+  ctx.fillStyle = '#56645c'; ctx.beginPath()
+  ctx.roundRect(-reach, top, reach + 2, ear, 1); ctx.roundRect(w - 2, top, reach + 2, ear, 1); ctx.fill()
+  ctx.fillStyle = '#2f3833'; ctx.fillRect(-reach + .8, h / 2 - .7, 1.4, 1.4); ctx.fillRect(w + reach - 2.2, h / 2 - .7, 1.4, 1.4)
   ctx.fillStyle = '#45504b'; ctx.beginPath(); ctx.roundRect(0, 0, w, h, 4); ctx.fill()
   ctx.fillStyle = '#242c28'; ctx.beginPath(); ctx.roundRect(1, 2, w - 2, h - 3, 3); ctx.fill()
   ctx.fillStyle = '#090f0c'; ctx.beginPath(); ctx.roundRect(4, 4, w - 8, h - 8, 2); ctx.fill()

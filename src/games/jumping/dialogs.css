@@ -210,6 +210,39 @@
 .jumping-game .jumping-start .jumping-pause-destinations button { width: auto; min-height: 44px; color: var(--jumping-muted); font-size: var(--jumping-type-small); }
 .jumping-start-hints { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0 0 0 auto; padding-inline: var(--dialog-button-inset); font: var(--jumping-type-small)/1.5 ui-monospace, monospace; text-transform: uppercase; color: var(--jumping-muted); }
 .jumping-game .jumping-start-hints kbd { margin-right: 8px; color: var(--jumping-ink); }
+/* Finishing the game earns the release certificate: the unit rating, lit up as
+   the mark boots, over the tallies behind it. The start screen then carries a
+   stamp of it under the mark, and Progress opens with the certificate. */
+.jumping-release-certificate {
+  /* The system display's phosphor, also under the status, whose title band inverts its ink. */
+  --jumping-ink: #a9ef82; --jumping-muted: #7fb565; color: var(--jumping-ink);
+  margin: 0 0 24px; padding: 16px var(--dialog-button-inset) 14px;
+  border: 1px solid #a9ef8240; border-radius: 4px;
+  background: #a9ef820a; box-shadow: inset 0 0 28px #a9ef8212;
+  text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+.jumping-release-certificate .jumping-release-title { margin: 0; font-size: var(--jumping-type-small); line-height: 1.4; letter-spacing: .14em; color: var(--jumping-muted); }
+.jumping-release-certificate .jumping-release-rating { display: grid; gap: 4px; margin: 12px 0 14px; line-height: 1.2; }
+.jumping-release-rating span { font-size: var(--jumping-type-small); color: var(--jumping-muted); }
+.jumping-release-rating strong {
+  font-size: clamp(26px, 2.8vw, 36px); line-height: 1.05; letter-spacing: .05em;
+  color: var(--jumping-ink); text-shadow: 0 0 12px #a9ef8280;
+}
+/* Revealed at the end of the game, the rating lights up as the mark boots. */
+.jumping-release-certificate.is-revealed .jumping-release-rating strong { animation: jumping-start-boot .9s steps(6, end) .45s both; }
+.jumping-release-certificate dl { display: grid; gap: 6px; margin: 0; padding-top: 12px; border-top: 1px dashed #a9ef8233; }
+.jumping-release-certificate dl > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px 16px; line-height: 1.4; }
+.jumping-release-certificate dt { color: var(--jumping-muted); }
+.jumping-release-certificate dd { margin: 0; color: var(--jumping-ink); }
+.jumping-start-progress .jumping-release-certificate { margin-bottom: 20px; }
+.jumping-dialog-heading > .jumping-release-certificate { margin: 24px calc(-1 * var(--dialog-button-inset)) 0; }
+.jumping-start-logo:has(+ .jumping-release-mark) { margin-bottom: 14px; }
+.jumping-release-mark {
+  justify-self: start; width: fit-content; margin: 0 0 clamp(18px, 4vh, 40px); padding: 4px 10px;
+  border: 1px solid #a9ef8259; border-radius: 3px;
+  font: 700 var(--jumping-type-small)/1.3 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--jumping-ink); text-shadow: 0 0 6px #a9ef8266;
+}
 /* Short screens, such as a phone on its side, put the mark beside the menu. */
 @media (max-height: 540px) and (min-width: 640px) {
   .jumping-dialog-panel.jumping-start:not(.jumping-controls-open) {
@@ -222,10 +255,13 @@
   .jumping-dialog-panel.jumping-start:not(.jumping-controls-open) > .jumping-start-footer { grid-area: 4 / 1 / auto / -1; }
   .jumping-start-logo { margin-bottom: 20px; }
   .jumping-game .jumping-start .jumping-pause-menu .jumping-dialog-actions button { min-height: 46px; }
+  /* The end screen's certificate takes the mark's place beside the menu. */
+  .jumping-dialog-panel.jumping-ending:not(.jumping-controls-open) .jumping-start-logo { display: none; }
+  .jumping-dialog-heading > .jumping-release-certificate { margin-top: 16px; }
 }
 @media (max-width: 420px) {
   .jumping-start-hints { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .jumping-start-logo { animation: none; }
+  .jumping-start-logo, .jumping-release-rating strong { animation: none; }
 }

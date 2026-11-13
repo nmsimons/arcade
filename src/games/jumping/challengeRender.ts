@@ -201,17 +201,14 @@ export function drawWaterBackdrop(ctx: CanvasRenderingContext2D, run: Run, paint
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, surface, run.waterSpaces.get(plate), 'background')
 }
 
-/** The open doors Up would go through now: the lit exit or bus door, and a facility area's open doors. */
+/** The open doors Up would go through now: the lit exit, and a facility area's open doors. The bus is boarded by walking into it. */
 export function doorChevrons(run: Run, editor = false) {
   const walls: ReturnType<typeof goalDoor>[] = []
-  let bus: ReturnType<typeof goalDoor> | undefined
-  if (editor || !run.started || run.exit) return { walls, bus }
+  if (editor || !run.started || run.exit) return { walls }
   const goal = run.level.goal
-  if (goal && (!goal.kind || goal.kind === 'bus') && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS) {
-    if (goal.kind === 'bus') bus = goalDoor(goal); else walls.push(goalDoor(goal))
-  }
+  if (goal && !goal.kind && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS) walls.push(goalDoor(goal))
   if (run.hub) for (const door of [...run.level.courseDoors ?? [], ...run.level.bulkheads ?? []]) if (run.hub.open.has(door.id)) walls.push(hubDoorBounds(door))
-  return { walls, bus }
+  return { walls }
 }
 
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
@@ -285,10 +282,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
+  // Empty pods stand open, as a pod does once its robot has woken and stepped out.
+  for (const pod of level.vacantPods ?? [])
+    drawChargingBayCover(ctx, pod, undefined, paint, nightModeEnabled(level.lighting), pod.robot ? ROBOT_BAY_WIDTH_SCALE : 1)
   if (!editor) drawGadgets(ctx, run, paint, playerExposure)
   if (goal?.kind === 'bus') drawGoal(ctx, goal, run.goalLit, paint, run.busDeparture, run.exit?.elapsed ?? 0)
-  // The bus's boarding door is part of the bus, so its chevrons go over the bus.
-  if (chevrons.bus) paint(ctx, .65, () => drawDoorChevrons(ctx, chevrons.bus!, run.activeTime), true, chevrons.bus)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   if (!layerSkipped('water')) for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)

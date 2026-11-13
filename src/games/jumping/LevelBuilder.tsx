@@ -1637,7 +1637,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         {isPuzzleLevel(level) && <BuilderInspectorSection title="Timing">
           {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }, { value: 'walk-off', label: 'Run off right edge (untimed)' }, { value: 'bus', label: 'Bus stop (untimed)' }]}
             onChange={kind => commit(setFinish(history.present, kind as 'doorway' | 'overlook' | 'walk-off' | 'bus'))} />}
-          {level.goal.kind === 'bus' && <p className="builder-hint">Place the bus on flat ground. Press Up in the open doorway on its left side to board and finish. The bus then drives away in the same view.</p>}
+          {level.goal.kind === 'bus' && <p className="builder-hint">Place the bus on flat ground. Walk into its left side to board and finish; it is solid, so the robot can stand on its roof. The bus then drives away in the same view.</p>}
           {level.goal.kind === 'walk-off' && <p className="builder-hint">Continue flat ground to the right edge. Running or jumping completely off that edge finishes the level. The guide is visible only in the studio.</p>}
           {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
             const next = e.target.checked ? copyLevel(history.present) : setFinish(history.present, 'doorway')

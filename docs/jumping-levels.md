@@ -1822,9 +1822,11 @@ For a bus exit, choose **Level → Timing → Finish → Bus stop (untimed)**. S
 `goal: { "kind": "bus", "x": <rear center>, "y": <ground height> }`. Provide
 continuous flat ground from X − 184 to X + 76 and 144 units of clear space
 above it, all inside the level. The bus uses always-on power and does not flip.
-It is visible during normal play, studio editing, and thumbnails. Press Up in
-the open boarding entrance on its left side to finish, as at any door; no
-map-edge crossing is required. Jumping above it does not board.
+It is visible during normal play, studio editing, and thumbnails. The parked bus
+is solid, 144 wide and 142 high about X: the robot can stand on its roof and
+climb onto it like a crate. Walking into its left side, where its door is, boards
+it and finishes, as the hands meet it: no Up, no door to open, and no map-edge
+crossing. Standing or walking on its roof, or against its far side, never boards.
 
 Boarding saves completion and starts the departure in the same level view.
 There is no automatic approach, camera reveal, or replacement scenery. The

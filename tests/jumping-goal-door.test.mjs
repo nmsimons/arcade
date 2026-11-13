@@ -91,8 +91,12 @@ test('the short exit preserves the walking rig and foot contacts instead of swit
 test('open doors that Up goes through show chevrons; closed and blocked doors do not', () => {
   const run = createRun(blankTrial())
   for (let i = 0; i < 60; i++) stepRun(run, NEUTRAL_INPUT)
-  assert.deepEqual(doorChevrons(run), { walls: [goalDoor(run.level.goal)], bus: undefined }, 'the open exit')
+  assert.deepEqual(doorChevrons(run), { walls: [goalDoor(run.level.goal)] }, 'the open exit')
   assert.deepEqual(doorChevrons(run, true).walls, [], 'the studio draws none')
+  // The bus is boarded by walking into it, so it shows none.
+  const bus = createRun({ ...blankTrial(), timing: 'untimed', times: undefined, goal: { kind: 'bus', x: 1500, y: 920 } })
+  for (let i = 0; i < 60; i++) stepRun(bus, NEUTRAL_INPUT)
+  assert.deepEqual(doorChevrons(bus).walls, [])
   // A switched exit shows its chevrons only once it opens.
   const switched = blankTrial(); switched.goal = { ...switched.goal, id: 'exit', power: 'switched' }
   const locked = createRun(switched)

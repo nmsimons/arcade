@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPlayer, NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
+import { busBody } from '../src/games/jumping/goal.ts'
 import { createBusDeparture, createBusEnding, busEndingCamera, busEndingFrame, advanceBusEnding, BUS_ENDING_SECONDS, BUS_REAR_PIVOT_Y, BUS_REAR_WHEEL_BOTTOM_Y, BUS_DEPARTURE_START_SECONDS } from '../src/games/jumping/busEnding.ts'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { setFinish } from '../src/games/jumping/editor.ts'
@@ -26,23 +27,22 @@ test('a bus is an untimed goal with a supported, clear walk-in entrance', () => 
   assert.deepEqual(levelProblems(selected), [])
 })
 
-for (const rate of [30, 120]) test(`Up at the bus door boards and finishes inside the level at ${rate} Hz`, () => {
-  // Like every door, the boarding entrance needs Up; walking past it does not board.
-  const passing = createRun(busLevel())
-  for (let i = 0; i < rate * 7; i++) stepRun(passing, { ...NEUTRAL_INPUT, move: 1 }, 1 / rate)
-  assert.equal(passing.exit, null)
+for (const rate of [30, 120]) test(`walking into the bus's side boards and finishes inside the level at ${rate} Hz`, () => {
+  // The bus is boarded at its side door by walking into it: no Up, and no door to wait for.
   const run = createRun(busLevel())
-  for (let i = 0; i < rate * 7 && !run.finished; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1, climb: true }, 1 / rate)
+  for (let i = 0; i < rate * 7 && !run.finished; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 }, 1 / rate)
   assert.equal(run.finished, true); assert.ok(run.exit)
   assert.equal(run.player.x, run.level.goal.x - 34)
   assert.ok(run.player.x < run.level.width, 'boarding finishes before the map boundary')
   assert.equal(run.grade, null)
 })
 
-test('passing above a bus does not board; its departure starts at the real goal with a fixed camera', () => {
-  const run = createRun(busLevel())
-  run.player.x = run.level.goal.x - 80; run.player.y = run.level.goal.y - 120; run.player.grounded = false
-  stepRun(run, NEUTRAL_INPUT)
+test('the bus is solid: standing or walking on its roof does not board; its departure starts at the real goal with a fixed camera', () => {
+  const run = createRun(busLevel()), body = busBody(run.level.goal)
+  run.player.x = run.level.goal.x; run.player.y = body.y - 30; run.player.grounded = false
+  for (let i = 0; i < 60; i++) stepRun(run, NEUTRAL_INPUT)
+  assert.equal(run.player.grounded, true); assert.ok(Math.abs(run.player.y - body.y) < .01, 'the robot lands on the roof')
+  for (let i = 0; i < 30; i++) stepRun(run, { ...NEUTRAL_INPUT, move: -1, climb: true })
   assert.equal(run.exit, null); assert.equal(run.finished, false)
   const camera = { x: 700, y: 100, zoom: .8 }, playerBefore = structuredClone(run.player)
   const ending = createBusDeparture(run.level.goal, run.player, camera)

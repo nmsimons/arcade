@@ -66,6 +66,7 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   if (includeWallArt) drawWallWiring(ctx, level)
   if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
   for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
+  for (const pod of level.vacantPods ?? []) drawChargingBay(ctx, pod, pod.robot ? ROBOT_BAY_WIDTH_SCALE : 1)
   // Blocked doors are painted on the wall, like the pods' housings.
   drawWallDoors(ctx, level.wallDoors ?? [])
   ctx.restore()

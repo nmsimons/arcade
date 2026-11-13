@@ -93,6 +93,12 @@ export interface JumpLevel {
   texts?: WallText[]
   /** Blocked and broken doors painted into the back wall. */
   wallDoors?: WallDoor[]
+  /**
+   * Charging pods that stand empty, drawn where they are: a facility area's own pod once the robot arrives
+   * by a door, and the pods of robots that have left them (see `arrivalLevel`). Set as the robot arrives,
+   * never read from a level file. Presentation only.
+   */
+  vacantPods?: { x: number; y: number; robot?: boolean }[]
   pickups?: Pickup[]
   kind?: 'hub'; courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[]
   /** Studio-only nodes that switch on an average of this area's level door grades. */

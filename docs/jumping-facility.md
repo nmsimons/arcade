@@ -47,7 +47,10 @@ in development builds only. What exists:
   robot into Company's dark cave, where the Repulsorbot wakes as the robot
   climbs the rope to Service access, Orientation's bulkhead to the concourse.
   The two dead doors are blocked doors (`wallDoors`), wall art that never opens. Arriving from the concourse steps out of Service
-  access, at that far end. A headless test plays it end to end with ordinary
+  access, at that far end. The robot's own pod stays where it is, open and empty, whenever it arrives by a
+  door. Once Orientation has been visited (it has a saved state), the Repulsorbot has left: its pod stands
+  open and empty and the robot is gone, however the robot arrives (`arrivalLevel`). Restart area forgets the
+  saved state, so the Repulsorbot is back the next time Orientation is entered fresh. A headless test plays it end to end with ordinary
   inputs. Wake, the four tutorial levels and Company stay in the collection but
   leave the campaign; their direct links stay open. Orientation's golden traces await recording on Apple
   Silicon, like the other facility areas.
@@ -72,8 +75,8 @@ in development builds only. What exists:
 - The release: the dispatch door is wired to open once every wing is complete,
   onto Ascent I, the final course. Its exit leads into Ascent II, whose exit
   leads into Spelunk, whose exit leads into Exit; an F, or leaving, returns to
-  the dispatch door. After the bus departs, the closing card offers Return to the
-  facility. The escape levels still keep their timers and coins until their
+  the dispatch door. After the bus departs, the release screen shows the robot's
+  release certificate and offers Return to the facility (see [The release](#the-release)). The escape levels still keep their timers and coins until their
   untimed redesign.
 
 - Places are prepared ahead: within 300 units of an open door or bulkhead, the
@@ -364,8 +367,8 @@ coin locks and clocks, and its exit opens into Ascent II instead of returning to
 a wing. That is where the dispatch route turns out to have collapsed. From there
 the levels are the robot's own route: untimed, with no placards or grades, each
 exit leading directly into the next level. Exit is unchanged; the bus is the
-finish. After the bus departs, one closing card remains (the canon's exception),
-offering **Return to the facility** for replays, and **Back to arcade**.
+finish. After the bus departs, one closing screen remains (the canon's exception),
+the release screen, offering **Return to the facility** for replays, and **Back to arcade**.
 
 Making a level untimed is a redesign, not a setting:
 
@@ -487,7 +490,7 @@ course record offers:
 | Action | What it does |
 | --- | --- |
 | Continue | Plays on from the place behind the display, at `/lab/facility`. Esc, the controller's Menu button and B do the same. |
-| Progress | The evaluation total, then each wing: its passes, or Sealed, and each course's best time and grade or the D deadline to pass. Locked courses stay dark, as their placards do. |
+| Progress | Once released, the release certificate first. The evaluation total, then each wing: its passes, or Sealed, and each course's best time and grade or the D deadline to pass. Locked courses stay dark, as their placards do. |
 | Restart | Asks first, with Cancel as the default, then erases every course record (best times and completions) and the robot's place, and wakes in Orientation's pod at `/lab/facility`. With cloud saves on, the erased save syncs like any other change, and earlier versions stay in the cloud save history. |
 | Controls | How to play: it opens by saying a controller is the best way to play (or that one is connected), then lists what the robot can do, grouped as Move, Jump, Climb, Swim and Tools, each with how to do it on the controller, keyboard or touch in use. The courses teach the rest. |
 
@@ -523,6 +526,31 @@ without the start screen. Courses return the robot to their doors at
    "Boxes passed. Grade B, 42.37 seconds, personal best."
 5. On F, the placard shows the run's time with F and the deadline; the next door stays dark.
 6. **Leave course** on the pause screen returns to the door without a record.
+
+#### The release
+
+Finishing the game ends on the robot's system display too. Once the bus has
+gone, the release screen fills the view over the place, as the start screen
+does: the L.A.B. mark, the level's name and "RELEASED.", then the reward, the
+**release certificate**: the unit rating it earned, then the courses passed, the
+tally of best grades (A, B, C and D) and the total of its best times. The rating
+comes from the average best grade, A = 4 to D = 1, over the graded courses
+(`releaseCertificate.ts`): **Exemplary** with an A on every one, then
+**Distinguished** (3.5 or more), **Commendable** (3), **Proficient** (2) and
+**Satisfactory**. It lights up as the mark boots. The menu offers **Return to
+the facility** (also Esc, the controller's Menu button and B) and **Progress**,
+with Level studio (development builds), Back to arcade and the input reminders
+along the foot. On a short screen the certificate takes the mark's place beside
+the menu.
+
+The release is kept. From then on the start screen carries a "Released for
+dispatch" stamp with the rating under the L.A.B. mark, and Progress, on the
+start and pause screens, opens with the certificate. It is derived from the
+course records, with no saved value of its own: the game is released once a
+level that ends it, such as Exit, has been completed (`gameReleased`), and the
+certificate follows the best times as they improve. Restart erases it with them.
+Outside the facility, as when Exit is played from the level library or a studio
+test, the ordinary result dialog stays.
 
 ### The pause screen
 

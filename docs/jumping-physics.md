@@ -453,10 +453,12 @@ at the map boundary, with no automatic doorway step or player fade. Other level
 boundaries and normal movement contacts keep their existing rules.
 
 Every door is entered with Up while the robot stands grounded in its open
-doorway: the exit, the bus's boarding entrance, and a facility area's level
-doors and bulkheads. Walking past a door never enters it. At the exit and the
-bus, Up held on the way in enters on arrival; level doors and bulkheads need a
-fresh press, because they stand in rows and the robot steps out of them.
+doorway: the exit, and a facility area's level doors and bulkheads. Walking past
+a door never enters it. At the exit, Up held on the way in enters on arrival;
+level doors and bulkheads need a fresh press, because they stand in rows and the
+robot steps out of them. The bus is no door: it is solid, and the robot boards it
+by walking into its left side at the stop, as its hands meet it. Its roof and far
+side never board it.
 Each open door shows three faint chevrons stacked in its doorway, with a soft
 glow running up them from the bottom one to the top. Closed and blocked doors
 show none, and neither does the studio's editing view.

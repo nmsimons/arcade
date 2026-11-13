@@ -98,6 +98,28 @@ test('running at the broken floor catches its far lip, and Drop lets go into the
   assert.ok(p.grounded && p.y > 1000, 'landed in the cave')
 })
 
+test("arriving by a door leaves the robot's charging pod in place, empty", () => {
+  const arrived = arrivalLevel(level, { kind: 'door', id: SERVICE_ACCESS })
+  assert.equal(arrived.entrance.kind, undefined, 'the robot steps out of the door')
+  assert.deepEqual(arrived.vacantPods, [{ x: level.entrance.x, y: level.entrance.y }])
+  assert.equal(arrivalLevel(level, { kind: 'entrance' }).vacantPods, undefined, 'waking in the pod, it is the entrance')
+})
+
+test('after the first visit the response unit has left; its pod stays, empty, however the robot arrives', () => {
+  const unit = level.robots.find(robot => robot.chargingBay)
+  for (const arrival of [{ kind: 'door', id: SERVICE_ACCESS }, { kind: 'entrance' }]) {
+    const arrived = arrivalLevel(level, arrival, true)
+    assert.equal(arrived.robots.some(robot => robot.chargingBay), false, 'no robot in a pod')
+    assert.equal(arrived.robots.length, level.robots.length - 1)
+    assert.ok(arrived.vacantPods.some(pod => pod.robot && pod.x === unit.x && pod.y === unit.y), 'its pod stands empty')
+    assert.equal(arrived.vacantPods.some(pod => !pod.robot), arrival.kind === 'door', "the robot's own pod stays when it arrives by a door")
+    const run = orientationRun(arrived)
+    for (let i = 0; i < 120; i++) stepRun(run, NEUTRAL_INPUT)
+    assert.equal(run.robots.some(robot => robot.definition.chargingBay), false)
+  }
+  assert.deepEqual(levelProblems(arrivalLevel(level, { kind: 'door', id: SERVICE_ACCESS }, true)), [])
+})
+
 test('arriving from the concourse steps out of Service access, above the sleeping response unit', () => {
   const run = orientationRun(arrivalLevel(level, { kind: 'door', id: SERVICE_ACCESS })), p = run.player
   for (let i = 0; i < 240; i++) stepRun(run, NEUTRAL_INPUT)

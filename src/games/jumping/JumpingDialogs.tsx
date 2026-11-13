@@ -5,6 +5,7 @@ import { formatTime } from './challenge'
 import { GRADE_TARGETS, gradeTimes } from './grading'
 import type { PuzzleLevel } from './level'
 import type { CourseRecord, WingRecord } from './facility'
+import { RELEASE_GRADES, releaseCertificate } from './releaseCertificate'
 
 function RestartIcon() {
   return <svg className="jumping-dialog-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
@@ -64,14 +65,31 @@ function ControlsReference({ connected, touchReference }: { connected: boolean; 
 
 /** Where the robot is: a facility area, a course behind a level door, or a course an exit led into (the route). */
 export interface FacilityPauseActions { where: 'course' | 'hub' | 'route'; onLeave: () => void }
-/** The evaluation so far, for the system menu's Progress view. */
-export interface StartProgress { passed: number; required: number; complete: boolean; wings: WingRecord[] }
+/** The evaluation so far, for the system menu's Progress view; `released` once the game has been finished. */
+export interface StartProgress { passed: number; required: number; complete: boolean; wings: WingRecord[]; released?: boolean }
+/**
+ * The release certificate, the reward for finishing the game: the unit rating
+ * earned from the course grades, then the tallies behind it.
+ */
+function ReleaseCertificate({ progress, reveal = false }: { progress: StartProgress; reveal?: boolean }) {
+  const certificate = releaseCertificate(progress)
+  return <section className={`jumping-release-certificate${reveal ? ' is-revealed' : ''}`} aria-label="Release certificate">
+    <p className="jumping-release-title">Release certificate</p>
+    <p className="jumping-release-rating"><span>Unit rating</span> <strong>{certificate.rating}</strong></p>
+    <dl>
+      <div><dt>Courses passed</dt><dd>{certificate.passed} / {certificate.required}</dd></div>
+      <div><dt>Grades</dt><dd>{RELEASE_GRADES.map(grade => `${grade} ${certificate.grades[grade]}`).join(' · ')}</dd></div>
+      {certificate.total !== null && <div><dt>Best times</dt><dd>{formatTime(certificate.total)}</dd></div>}
+    </dl>
+  </section>
+}
 function courseRecord(course: Exclude<CourseRecord, { state: 'locked' }>) {
   if (course.state === 'passed') return course.best === null ? 'Passed' : `${formatTime(course.best)} ${course.grade}`
   return course.deadline === null ? 'Not passed' : `D ${formatTime(course.deadline).replace(/\.00$/, '')} to pass`
 }
 function ProgressReport({ progress }: { progress: StartProgress }) {
   return <section className="jumping-dialog-controls jumping-start-progress" aria-label="Evaluation progress" data-controller-scroll>
+    {progress.released && <ReleaseCertificate progress={progress} />}
     <p className="jumping-start-total">{progress.complete ? 'Evaluation complete. Unit released for dispatch.' : `Evaluation ${progress.passed} / ${progress.required}`}</p>
     {progress.wings.map(wing => <section key={wing.id} aria-label={wing.name}>
       <h3><span>{wing.name}</span> <span>{wing.open ? `${wing.passed}/${wing.courses.length}` : 'Sealed'}</span></h3>
@@ -85,13 +103,15 @@ function ProgressReport({ progress }: { progress: StartProgress }) {
 type SystemMenuMode =
   | { mode: 'start'; fresh: boolean; opening: string; onContinue: () => void; onRestartGame: () => void }
   | { mode: 'pause'; onResume: () => void; restartLabel: string; onRestart: () => void; leave?: { label: string; onLeave: () => void } }
+  | { mode: 'ending'; onReturn: () => void }
 /**
  * The robot's system menu, opening L.A.B. and pausing it alike: the place's
  * name and status, Progress, Controls and the other destinations. As a title
  * screen (`titleScreen`) it fills the view over the place, as the start screen
  * always does and a pause in the facility does; otherwise it is a panel over
  * the paused game. Only the start screen restarts the whole game, erasing the
- * save, and only after asking; a pause restarts the course or area.
+ * save, and only after asking; a pause restarts the course or area. Finishing
+ * the game ends on it too, with the release certificate.
  */
 function SystemMenu(props: SystemMenuMode & {
   name: string; reason: string; connected: boolean; touchControls?: boolean; canEdit: boolean; titleScreen: boolean
@@ -101,11 +121,11 @@ function SystemMenu(props: SystemMenuMode & {
   const [view, setView] = useState<'menu' | 'progress' | 'controls' | 'restart'>('menu')
   const touchReference = !!touchControls && !connected, back = () => setView('menu')
   const reference = view === 'progress' || view === 'controls'
-  const primary = props.mode === 'start' ? props.onContinue : props.onResume
-  const label = mode === 'pause' ? 'Game paused' : view === 'restart' ? 'Restart the game' : 'Game start'
-  const focusKey = mode === 'start' ? `jumping-start-${view}` : view === 'menu' ? 'jumping-paused' : view === 'controls' ? 'jumping-controls' : 'jumping-pause-progress'
-  const heading = view === 'progress' ? 'Progress.' : view === 'controls' ? 'Controls.' : view === 'restart' ? 'Restart?' : mode === 'start' ? 'Online.' : 'Paused.'
-  const panel = titleScreen ? 'jumping-pause-system jumping-start' : 'jumping-pause'
+  const primary = props.mode === 'start' ? props.onContinue : props.mode === 'ending' ? props.onReturn : props.onResume
+  const label = mode === 'pause' ? 'Game paused' : mode === 'ending' ? 'Game complete' : view === 'restart' ? 'Restart the game' : 'Game start'
+  const focusKey = mode !== 'pause' ? `jumping-${mode}-${view}` : view === 'menu' ? 'jumping-paused' : view === 'controls' ? 'jumping-controls' : 'jumping-pause-progress'
+  const heading = view === 'progress' ? 'Progress.' : view === 'controls' ? 'Controls.' : view === 'restart' ? 'Restart?' : mode === 'start' ? 'Online.' : mode === 'ending' ? 'Released.' : 'Paused.'
+  const panel = titleScreen ? `jumping-pause-system jumping-start${mode === 'ending' ? ' jumping-ending' : ''}` : 'jumping-pause'
   const destinations = view === 'menu' && <nav className="jumping-dialog-actions jumping-pause-destinations" aria-label="Other destinations">
     {canEdit && <button onClick={onBuilder}>{builderLabel}</button>}
     <button onClick={onExit}>Back to arcade</button>
@@ -115,10 +135,14 @@ function SystemMenu(props: SystemMenuMode & {
     onClose={view === 'menu' ? primary : back} className={`jumping-overlay jumping-dialog-overlay${titleScreen ? ' jumping-title-screen' : ''}`}>
     <div className={`jumping-dialog-panel ${panel}${reference ? ' jumping-controls-open' : ''}${view === 'controls' && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
       <header className="jumping-dialog-heading">
-        {mode === 'start' && view === 'menu' && <LabLogo className="jumping-start-logo" />}
+        {mode !== 'pause' && view === 'menu' && <LabLogo className="jumping-start-logo" />}
+        {/* Once released, the start screen carries the mark of it. */}
+        {mode === 'start' && view === 'menu' && progress?.released && <p className="jumping-release-mark">Released for dispatch · {releaseCertificate(progress).rating}</p>}
         <div className="jumping-dialog-kicker"><p title={name}>{name}</p><span className="jumping-dialog-light" aria-hidden="true" /></div>
         <h2>{heading}</h2>
         {view === 'menu' && reason && <p className="jumping-pause-reason" role="status">{reason}</p>}
+        {/* The reward sits under the status, beside the menu on a short screen. */}
+        {mode === 'ending' && view === 'menu' && progress && <ReleaseCertificate progress={progress} reveal />}
       </header>
       <div className={`jumping-dialog-body${reference ? '' : ' jumping-pause-menu'}`} data-controller-scroll>
         {reference ? <>
@@ -132,7 +156,10 @@ function SystemMenu(props: SystemMenuMode & {
             <button data-initial-focus onClick={back}>Cancel</button>
             <button onClick={props.onRestartGame}>Erase progress and restart <RestartIcon /></button>
           </nav>
-        </> : props.mode === 'start' ? <nav className="jumping-dialog-actions" aria-label="Start actions">
+        </> : props.mode === 'ending' ? <nav className="jumping-dialog-actions" aria-label="Ending actions">
+          <button data-initial-focus onClick={props.onReturn}>Return to the facility <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
+          {progress && <button onClick={() => setView('progress')}>Progress</button>}
+        </nav> : props.mode === 'start' ? <nav className="jumping-dialog-actions" aria-label="Start actions">
           <button data-initial-focus onClick={props.onContinue}>{props.fresh ? 'Start' : 'Continue'} <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
           {!props.fresh && progress && <button onClick={() => setView('progress')}>Progress</button>}
           {!props.fresh && <button onClick={() => setView('restart')}>Restart <RestartIcon /></button>}
@@ -174,6 +201,20 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
   return <SystemMenu mode="pause" name={name} reason={reason} connected={connected} touchControls={touchControls} canEdit={canEdit}
     titleScreen={!!facility} progress={facility ? progress : null} builderLabel={testing ? 'Return to builder' : 'Level studio'}
     onBuilder={onBuilder} onExit={onExit} onResume={onResume} restartLabel={restartLabel} onRestart={onRestart} leave={leave} />
+}
+
+/**
+ * Finishing the game: once the bus has gone, the robot's system display fills
+ * the screen as it does at the start, under the L.A.B. mark, and shows the
+ * release certificate it earned. Return to the facility to replay, or see the
+ * full evaluation.
+ */
+export function JumpingEndingDialog({ name, reason, progress, connected, touchControls, canEdit, onReturn, onBuilder, onExit }: {
+  name: string; reason: string; progress: StartProgress | null; connected: boolean; touchControls?: boolean; canEdit: boolean
+  onReturn: () => void; onBuilder: () => void; onExit: () => void
+}) {
+  return <SystemMenu mode="ending" name={name} reason={reason} connected={connected} touchControls={touchControls} canEdit={canEdit} titleScreen
+    progress={progress} builderLabel="Level studio" onBuilder={onBuilder} onExit={onExit} onReturn={onReturn} />
 }
 
 /**

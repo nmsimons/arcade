@@ -114,6 +114,8 @@ const returnPlace = (area: HubLevel, door: CourseDoor): HubPlace =>
   ({ kind: 'hub', level: area.id, arrival: { kind: 'door', id: door.returnsTo && doorIn(area, door.returnsTo) ? door.returnsTo : door.id } })
 /** A bus exit ends the game. */
 const endsGame = (level: JumpLevel | undefined) => !!level && isPuzzleLevel(level) && (level.goal?.kind === 'bus' || level.goal?.ending === 'bus')
+/** Whether the robot has been released: a level that ends the game, such as Exit, has been completed. */
+export const gameReleased = (levels: Levels, completed: (id: string) => boolean) => [...levels.values()].some(level => endsGame(level) && completed(level.id))
 
 /**
  * Where a finished run leads. A course that passes follows its exit's
@@ -140,11 +142,20 @@ export function nextPlace(_campaign: Campaign, place: FacilityPlace, departure: 
   return { kind: 'hub', level: target.id, arrival: arrival ? { kind: 'door', id: arrival } : { kind: 'entrance' } }
 }
 
-/** The hub as the robot arrives: its entrance moves to the door it steps out of. */
-export function arrivalLevel(level: HubLevel, arrival: Arrival): HubLevel {
-  if (arrival.kind === 'entrance') return level
-  const door = [...level.courseDoors, ...level.bulkheads].find(d => d.id === arrival.id)
-  return door ? { ...level, entrance: { x: door.x, y: door.y } } : level
+/**
+ * The hub as the robot arrives: its entrance moves to the door it steps out of, and the area's own charging
+ * pod stays where it is, empty. Once the area has been visited before (`visited`, as when it has a saved
+ * state), robots that start asleep in charging pods have left them; their pods stand empty too.
+ */
+export function arrivalLevel(level: HubLevel, arrival: Arrival, visited = false): HubLevel {
+  const door = arrival.kind === 'door' ? [...level.courseDoors, ...level.bulkheads].find(d => d.id === arrival.id) : undefined
+  const departed = visited ? level.robots.filter(robot => robot.chargingBay) : []
+  const pods = [...door && level.entrance.kind === 'charging-bay' ? [{ x: level.entrance.x, y: level.entrance.y }] : [],
+    ...departed.map(robot => ({ x: robot.x, y: robot.y, robot: true }))]
+  if (!door && !departed.length) return level
+  return { ...level, ...door ? { entrance: { x: door.x, y: door.y } } : {},
+    ...departed.length ? { robots: level.robots.filter(robot => !robot.chargingBay) } : {},
+    ...pods.length ? { vacantPods: pods } : {} }
 }
 
 /**

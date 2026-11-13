@@ -40,7 +40,7 @@ export default function EndingReview() {
       advanceBusEnding(scene.current, at)
     }
     world.current = prepared; modeRef.current = kind
-    setMode(kind); setTime(at); setPhase(scene.current ? busEndingFrame(scene.current).phase : 'Walk right and press Up to board')
+    setMode(kind); setTime(at); setPhase(scene.current ? busEndingFrame(scene.current).phase : 'Walk right into the bus to board')
     canvas.current.focus({ preventScroll: true })
   }, [])
   useEffect(() => {

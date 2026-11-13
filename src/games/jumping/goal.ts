@@ -189,6 +189,17 @@ export function goalExitPosition(exit: GoalExit) {
   return exit.fromX + (exit.toX - exit.fromX) * t
 }
 
+const busBodies = new WeakMap<Goal, Platform>()
+/**
+ * The parked bus's body, from its roof to the ground: a solid the robot can stand on and climb onto, like any
+ * crate. Walking into its left side at the stop, where its door is, boards it (see stepGoal).
+ */
+export function busBody(goal: Goal): Platform {
+  let body = busBodies.get(goal)
+  if (!body) { body = { x: goal.x - 72, y: goal.y - 142, w: 144, h: 142 }; busBodies.set(goal, body) }
+  return body
+}
+
 export function goalBounds(goal: Goal) {
   if (goal.kind === 'bus') return { x: goal.x - 184, y: goal.y - 144, w: 260, h: 176 }
   if (goal.kind === 'walk-off') return { x: goal.x - 40, y: goal.y - 100, w: 40, h: 100 }

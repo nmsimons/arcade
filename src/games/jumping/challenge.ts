@@ -13,7 +13,7 @@ import type { HubDoor, HubState } from './hub.ts'
 import { faceRobotToward, moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer, robotTouchesProps, settleRobot, stepRobotFall, stepRobotRecoil } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, entranceFits, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
+import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, entranceFits, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, busBody, goalDoor, goalExitPosition } from './goal.ts'
 import type { EntranceAnimation, GoalExit } from './goal.ts'
 import type { BusEnding } from './busEnding.ts'
 import { stepPickups } from './pickups.ts'
@@ -172,6 +172,8 @@ function createInitialWorld(level: RunLevel, preview = false): Run {
 function syncPlatforms(run: Run): ContactWorld {
   const colliders: PlayerCollider[] = [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
     ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: mechanismShape(m) })),
+    // A parked bus is solid: the robot boards it at its side, and can stand on its roof.
+    ...run.level.goal?.kind === 'bus' ? [{ id: 'bus', platform: busBody(run.level.goal) }] : [],
     ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind && !prop.gadget
       ? [{ id: `prop:${i}`, prop, platform: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) }] : []))]
   run.platforms = colliders.map(c => c.platform)
@@ -568,6 +570,17 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     }
     return
   }
+  if (goal.kind === 'bus') {
+    // The bus is boarded by walking into its left side at the stop, where its door is: as the hands meet it,
+    // with no Up and no door to wait for. Standing on its roof, or against its far side, never boards it.
+    const body = busBody(goal), touching = p.contacts?.push?.collider.id === 'bus' || p.pushing?.colliderId === 'bus'
+    if (!p.inverted && run.goalLit && p.grounded && !p.hang && !p.mantle && !p.climbing && Math.abs(p.y - goal.y) < 2
+      && p.x < body.x && (touching || p.x + TUNING.width / 2 >= body.x - 1)) {
+      enterDoorway(run, goal.x - 34)
+      run.grade = level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, level)
+    }
+    return
+  }
   const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
   const door = goalDoor(goal)
   // Like every door, the open exit is entered with Up. Holding Up on the way
@@ -577,7 +590,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     && !exitObstacles.some(b => bodyOverlap(p, b))) {
     // This is a doorway in the back wall. Reaching it permits entry even when
     // a loose prop blocks a sideways step toward its center.
-    const intoDoor = moveBody([p.x, p.y], [goal.kind === 'bus' ? goal.x - 34 : door.x + door.w / 2, p.y], exitObstacles)
+    const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
     enterDoorway(run, intoDoor.x)
     run.grade = level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, level)
   }

@@ -29,7 +29,7 @@ import { blankTrial, copyLevel, levelProblems, isHubLevel, isPuzzleLevel, levelR
 import type { JumpLevel, RunLevel } from './jumping/level'
 import { loadCampaign } from './jumping/campaign'
 import type { Campaign, CampaignFile } from './jumping/campaign'
-import { arrivalLevel, resolveCampaign, facilityDoorName, facilityRecords, hubCompleteAreas, studioPresentation, facilityStart, GAME_KEYS, hubGrades, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, savedPlace, savedProgress, saveFacilityPlace } from './jumping/facility'
+import { arrivalLevel, gameReleased, resolveCampaign, facilityDoorName, facilityRecords, hubCompleteAreas, studioPresentation, facilityStart, GAME_KEYS, hubGrades, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, savedPlace, savedProgress, saveFacilityPlace } from './jumping/facility'
 import type { FacilityPlace, FacilitySave, SavedPlace } from './jumping/facility'
 import type { HubDoor } from './jumping/hub'
 import { AREA_STATE_KEY, captureAreaState, keepsState, levelFingerprint, readAreaState, restoreAreaState, trackAreaProps, writeAreaState } from './jumping/areaState'
@@ -45,7 +45,7 @@ import { levelFileName } from './jumping/levelFiles'
 import { useBuiltInLevels } from './jumping/builtInLevels'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { LevelProgress } from './jumping/LevelProgress'
-import { JumpingDoorDialog, JumpingPauseDialog, JumpingResultDialog, JumpingStartDialog } from './jumping/JumpingDialogs'
+import { JumpingDoorDialog, JumpingEndingDialog, JumpingPauseDialog, JumpingResultDialog, JumpingStartDialog } from './jumping/JumpingDialogs'
 import type { FacilityPauseActions, StartProgress } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_FACILITY, JUMPING_LIBRARY, JUMPING_START, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
@@ -241,7 +241,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     { getItem: () => savedAreas }), [campaign, levelsById, bestTimes, completedLevels, savedTimes, savedCompletions, savedAreas])
   // The system menu shows the evaluation on the start screen and when pausing in the facility.
   const menuProgress: StartProgress | null = (startScreen || facilityWhere) && progress
-    ? { passed: progress.passed, required: progress.required, complete: progress.complete, wings: progressRecords(campaign!, progress, levelsById, bestTime) } : null
+    ? { passed: progress.passed, required: progress.required, complete: progress.complete, wings: progressRecords(campaign!, progress, levelsById, bestTime),
+      released: gameReleased(levelsById, completed) } : null
   const unlocked = new Set(campaign || campaignError ? catalog.files
     .filter(file => !progress || linkOpen(campaign!, progress, levelsById, file.level.id)).map(file => file.fileName) : [])
   // The library highlights the chosen level, or else the first open one, so a new save never starts on a locked tile.
@@ -280,14 +281,28 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     const cache = placePreparations.current
     return () => { for (const entry of cache.values()) entry.controller.abort(); cache.clear() }
   }, [catalog.files])
-  const placeKey = (place: FacilityPlace) => place.kind === 'hub' ? `hub:${place.level}:${place.arrival.kind === 'door' ? place.arrival.id : ''}` : `${place.kind}:${place.level}`
+  /**
+   * Whether robots that start asleep in this area's charging pods have left them: once it has been visited,
+   * as its saved state shows. An area without such robots is the same either way.
+   */
+  const departedArea = (level: JumpLevel) => {
+    if (!level.robots?.some(robot => robot.chargingBay)) return false
+    try { return !!readAreaState(playerStorage, level) } catch { return false }
+  }
+  /** The level a place is played as: a facility area as the robot arrives in it (`arrivalLevel`). */
+  const placeLevel = (place: FacilityPlace, level: JumpLevel) => place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival, departedArea(level)) : level
+  const placeKey = (place: FacilityPlace) => {
+    if (place.kind !== 'hub') return `${place.kind}:${place.level}`
+    const level = levelsById.get(place.level)
+    return `hub:${place.level}:${place.arrival.kind === 'door' ? place.arrival.id : ''}${level && departedArea(level) ? ':departed' : ''}`
+  }
   function preparePlace(place: FacilityPlace): Promise<PreparedLevel> | null {
     const key = placeKey(place), cache = placePreparations.current, known = cache.get(key)
     if (known) { cache.delete(key); cache.set(key, known); return known.promise }
     const level = levelsById.get(place.level)
     if (!level) return null
     const controller = new AbortController()
-    const promise = prepareLevelInWorker(place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level, { signal: controller.signal, play: true })
+    const promise = prepareLevelInWorker(placeLevel(place, level), { signal: controller.signal, play: true })
     // A failed preparation is tried afresh next time.
     promise.catch(() => { if (cache.get(key)?.promise === promise) cache.delete(key) })
     cache.set(key, { promise, controller })
@@ -324,7 +339,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     setFacilityWhere(whereOf(place))
     // Autosave where the robot is; course records save when a course finishes.
     keepPlace(place)
-    const play = place.kind === 'hub' && isHubLevel(level) ? arrivalLevel(level, place.arrival) : level
+    const play = placeLevel(place, level)
     void beginPlay(play, false, place.kind === 'hub' ? `hub:${level.id}` : level.id, true, preparePlace(place))
   }
   async function startFacility() {
@@ -571,6 +586,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     } else returnTo(library ? JUMPING_LIBRARY : JUMPING_FACILITY)
   }
   const levelsLabel = backToLibrary ? 'Level menu' : 'Return to the facility'
+  /** The game has just been finished in the facility: the bus has left the escape route's last level. */
+  const gameEnding = facilityWhere === 'route' && !testing && !!menuProgress && result.grade !== 'F' && isPuzzleLevel(trial)
+    && (trial.goal.kind === 'bus' || trial.goal.ending === 'bus')
   function playFile(file: LevelFile) {
     if (!unlocked.has(file.fileName)) return
     setSelectedName(file.fileName)
@@ -1095,7 +1113,11 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     </KeyboardDialog>}
     {screen === 'complete' && isHubLevel(trial) && <JumpingDoorDialog name={trial.name} door={doorTaken} testing={testing} canEdit={devEditing}
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} levelsLabel={levelsLabel} onExit={onExit} />}
-    {screen === 'complete' && isPuzzleLevel(trial) && <JumpingResultDialog level={trial} elapsed={result.elapsed} grade={result.grade} best={best}
+    {/* Finishing the game in the facility ends on the system display, with the release certificate. */}
+    {screen === 'complete' && isPuzzleLevel(trial) && gameEnding && <JumpingEndingDialog name={trial.name}
+      reason={saveError ? 'Your completion is kept for this visit. Browser storage is unavailable.' : ''} progress={menuProgress}
+      connected={connected} touchControls={touchAvailable} canEdit={devEditing} onReturn={leaveCourse} onBuilder={openBuilder} onExit={onExit} />}
+    {screen === 'complete' && isPuzzleLevel(trial) && !gameEnding && <JumpingResultDialog level={trial} elapsed={result.elapsed} grade={result.grade} best={best}
       testing={testing} saveError={saveError} onNext={libraryRun && !testing && result.grade !== 'F' && campaignIndex >= 0 && nextFile && unlocked.has(nextFile.fileName) ? () => playFile(nextFile) : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} canEdit={devEditing} onExit={onExit}
       {...facilityWhere === 'route' ? { onLevels: leaveCourse, levelsLabel: 'Return to the facility' } : { onLevels: showMenu, levelsLabel }} />}

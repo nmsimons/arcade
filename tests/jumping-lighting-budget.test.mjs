@@ -21,3 +21,14 @@ test('normal DPR 1 and uniform-light resolution are preserved; regional mode ret
   assert.ok(native>1.2&&native<1.5)
   assert.ok(native>reduced)
 })
+
+test('plain daylight, with no lamps or regions to light, draws sharper on high-density displays', () => {
+  // A 4K display at 200%: 1920x1080 CSS pixels.
+  assert.ok(Math.abs(lightingPixelRatio(1920,1080,2,false,false,true)-Math.sqrt(4_000_000/(1920*1080)))<1e-12)
+  assert.ok(lightingPixelRatio(1920,1080,2,false,false,true)>lightingPixelRatio(1920,1080,2))
+  assert.equal(lightingPixelRatio(1280,800,2,false,false,true),Math.min(2,Math.sqrt(4_000_000/(1280*800))))
+  // Never past the device, nor past ordinary limits when quality is reduced or regions need buffers.
+  assert.equal(lightingPixelRatio(800,600,1.5,false,false,true),1.5)
+  assert.equal(lightingPixelRatio(1920,1080,2,true,false,true),lightingPixelRatio(1920,1080,2,true))
+  assert.equal(lightingPixelRatio(1920,1080,2,false,true,true),lightingPixelRatio(1920,1080,2,false,true))
+})

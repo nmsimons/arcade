@@ -22,10 +22,17 @@ export function gpuLightingBufferBytes(view: LightingView, regional = false, ver
   return view.width * view.height * (8 + 1 + 4 * 2 + 16) + vertexBytes + (regional ? environmentBufferBytes(view, true) : 0)
 }
 
+/** Pixels a frame may have: reduced quality, ordinary, and plain daylight (no
+ * Night mode, lamps or region lighting), which needs no lighting buffers. The
+ * game does not ask for the plain-daylight budget yet: it is enabled only once
+ * a DPR 2 profile shows it costs no frame rate (docs/jumping-look-plan.md, 6.3). */
+export const LIGHTING_PIXEL_BUDGET = { reduced: 1_000_000, ordinary: 2_000_000, plainDaylight: 4_000_000 } as const
+
 /** Choose the largest backing size within the ordinary pixel and GPU budgets.
  * Test rounded dimensions: rounding up each edge can otherwise exceed a cap. */
-export function lightingPixelRatio(width: number, height: number, dpr = 1, reduced = false, regionalGpu = false) {
-  const maximum = Math.min(dpr, reduced ? 1 : 2, Math.sqrt((reduced ? 1_000_000 : 2_000_000) / Math.max(1, width * height)))
+export function lightingPixelRatio(width: number, height: number, dpr = 1, reduced = false, regionalGpu = false, plainDaylight = false) {
+  const budget = reduced ? LIGHTING_PIXEL_BUDGET.reduced : plainDaylight && !regionalGpu ? LIGHTING_PIXEL_BUDGET.plainDaylight : LIGHTING_PIXEL_BUDGET.ordinary
+  const maximum = Math.min(dpr, reduced ? 1 : 2, Math.sqrt(budget / Math.max(1, width * height)))
   if (!regionalGpu) return maximum
   const fits = (ratio: number) => gpuLightingBufferBytes({ width: Math.max(1, Math.round(width * ratio)), height: Math.max(1, Math.round(height * ratio)), x: 0, y: 0, zoom: 1 }, true) <= LIGHTING_BUFFER_BUDGET
   if (fits(maximum)) return maximum

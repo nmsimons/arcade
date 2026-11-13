@@ -1130,16 +1130,23 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       facility={facilityWhere ? { where: facilityWhere, onLeave: leaveCourse } : undefined} progress={menuProgress}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} canEdit={devEditing} onLevels={showMenu} levelsLabel={levelsLabel} onExit={onExit} />}
     {/* Outside the library, the menu screen is the facility opening, or why it could not. */}
+    {/* It is the robot's system display booting, in the start screen's phosphor, not a separate paper card. */}
     {!preparing && !holding && screen === 'menu' && !libraryRoute && <KeyboardDialog label={facilityError ? 'Facility unavailable' : 'Opening the facility'} focusKey="jumping-facility-status"
-      onClose={onExit} className="jumping-overlay jumping-dialog-overlay jumping-ui">
-      <div className="jumping-notice-panel">
-        <header className="jumping-ui-heading jumping-brand-heading"><LabLogo /><h2>{facilityError ? 'The facility could not open.' : 'Opening the facility.'}</h2></header>
-        <div className="jumping-notice-copy"><p role={facilityError ? 'alert' : 'status'}>{facilityError || (checkingCloud ? 'Checking your cloud saves…' : 'Loading…')}</p>
-          {facilityError && catalog.errors.map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}</div>
-        <div className="jumping-notice-actions">
-          {facilityError && <button onClick={() => { setFacilityError(''); void startFacility() }}>Try again</button>}
-          {import.meta.env.DEV && <button onClick={() => visit(JUMPING_LIBRARY)}>Level library</button>}
-          <button onClick={onExit}>Back to arcade</button>
+      onClose={onExit} className="jumping-overlay jumping-dialog-overlay jumping-title-screen">
+      <div className="jumping-dialog-panel jumping-pause-system jumping-start">
+        <header className="jumping-dialog-heading">
+          <LabLogo className="jumping-start-logo" />
+          <div className="jumping-dialog-kicker"><p>{LAB_NAME}</p><span className="jumping-dialog-light" aria-hidden="true" /></div>
+          <h2>{facilityError ? 'The facility could not open.' : 'Opening the facility.'}</h2>
+          <p className="jumping-pause-reason" role={facilityError ? 'alert' : 'status'}>{facilityError || (checkingCloud ? 'Checking your cloud saves…' : 'Loading…')}</p>
+          {facilityError && catalog.errors.map(error => <p className="jumping-pause-reason" role="alert" key={error}>{error}</p>)}
+        </header>
+        <div className="jumping-dialog-body jumping-pause-menu">
+          <nav className="jumping-dialog-actions" aria-label="Facility actions">
+            {facilityError && <button onClick={() => { setFacilityError(''); void startFacility() }}>Try again</button>}
+            {import.meta.env.DEV && <button onClick={() => visit(JUMPING_LIBRARY)}>Level library</button>}
+            <button onClick={onExit}>Back to arcade</button>
+          </nav>
         </div>
       </div>
     </KeyboardDialog>}

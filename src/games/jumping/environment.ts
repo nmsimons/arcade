@@ -77,21 +77,22 @@ export function clipOpenAir(ctx: CanvasRenderingContext2D, environment: LevelEnv
   }
 }
 
-// A few quiet silhouettes, with rounded ends and uneven lobes. Retain the
-// native paths across paints; clouds have no shading or animation to resolve.
+// A few quiet silhouettes: long, flat bases with low, uneven lobes, as distant
+// stratus rather than cartoon cumulus. Retain the native paths across paints;
+// clouds have no shading or animation to resolve.
 const cloudContours = [
-  'M -24 28 C -24 13 -9 2 9 5 C 13 -13 29 -25 49 -23 C 60 -23 70 -18 77 -11 '
-    + 'C 88 -40 113 -51 139 -45 C 166 -41 184 -22 188 -2 C 202 -15 223 -15 238 -4 '
-    + 'C 249 4 254 15 254 24 C 275 21 295 29 297 40 C 300 52 277 57 249 56 '
-    + 'C 188 55 89 59 26 54 C -3 52 -24 45 -24 28 Z',
-  'M -22 28 C -10 10 11 8 34 13 C 44 -7 68 -16 91 -7 C 102 -27 126 -34 149 -22 '
-    + 'C 163 -14 171 -4 175 7 C 204 -3 235 6 246 22 C 274 16 307 23 322 37 '
-    + 'C 315 47 273 48 232 46 C 168 49 88 46 35 48 C 7 48 -29 42 -22 28 Z',
-  'M -18 29 C -20 15 -7 4 9 5 C 11 -18 31 -34 55 -31 C 73 -29 84 -18 89 -4 '
-    + 'C 99 -13 112 -16 124 -10 C 137 -30 161 -34 180 -22 C 194 -13 199 0 198 13 '
-    + 'C 218 9 238 19 239 33 C 241 47 223 52 202 51 C 148 54 80 51 29 51 '
-    + 'C 1 50 -17 44 -18 29 Z',
+  'M -20 26 C -20 16 -6 10 10 12 C 22 -2 46 -8 68 -2 C 86 -16 120 -20 146 -10 '
+    + 'C 168 -18 198 -16 214 -4 C 238 -10 266 -6 280 6 C 312 2 352 8 372 16 '
+    + 'C 396 18 404 28 392 32 C 330 36 120 36 20 34 C -4 33 -20 31 -20 26 Z',
+  'M -16 24 C -10 14 6 10 24 12 C 40 2 70 0 92 8 C 116 -4 152 -6 176 4 '
+    + 'C 204 -2 240 0 262 10 C 300 6 352 10 380 18 C 410 20 428 26 420 30 '
+    + 'C 352 34 140 33 22 32 C -6 31 -20 28 -16 24 Z',
+  'M -14 26 C -12 14 4 8 20 10 C 30 -8 60 -14 84 -4 C 100 -12 128 -12 144 0 '
+    + 'C 170 -6 204 -2 220 10 C 252 8 286 14 300 22 C 312 30 300 34 280 34 '
+    + 'C 210 36 90 35 18 33 C -4 32 -16 30 -14 26 Z',
 ]
+/** The longest contour's reach to the right of its origin, for culling. */
+const CLOUD_LENGTH = 430
 let cloudPaths: Path2D[] | undefined
 const CLOUD_SPAN = 8000
 const CLOUD_SCROLL = .9
@@ -110,10 +111,10 @@ export function drawLandscape(ctx: CanvasRenderingContext2D, environment: LevelE
   // Cull in the cloud layer's frame, then translate into the existing world
   // transform. The sky and cave clips above stay in the terrain's frame.
   const cloudX = view.x * CLOUD_SCROLL, offsetX = view.x - cloudX
-  const first = Math.floor((cloudX - 500) / CLOUD_SPAN), last = Math.floor((cloudX + view.w + 40) / CLOUD_SPAN)
+  const first = Math.floor((cloudX - CLOUD_LENGTH * 1.5 - 20) / CLOUD_SPAN), last = Math.floor((cloudX + view.w + 40) / CLOUD_SPAN)
   for (let span = first; span <= last; span++) for (const [offset, y, scale, shape] of cloudLayout) {
     const x = span * CLOUD_SPAN + offset, top = horizon + y
-    if (x + 325 * scale < cloudX || x - 40 * scale > cloudX + view.w
+    if (x + CLOUD_LENGTH * scale < cloudX || x - 40 * scale > cloudX + view.w
       || top + 60 * scale < view.y || top - 55 * scale > view.y + view.h) continue
     ctx.save(); ctx.translate(x + offsetX, top); ctx.scale(scale, scale)
     ctx.fill(cloudPaths[shape]); ctx.restore()

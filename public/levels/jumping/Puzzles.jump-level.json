@@ -17,6 +17,7 @@
   },
   "timing": "untimed",
   "floor": 720,
+  "wallFinish": "tile",
   "kind": "hub",
   "props": [],
   "mechanisms": [],

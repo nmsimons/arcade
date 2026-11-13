@@ -393,6 +393,31 @@ test('terrain and floor materials undo, save and render consistently in the edit
   await page.screenshot({ path: info.outputPath('terrain-materials-game.png') })
 })
 
+test('the wall finish undoes, saves only when it is not the course wall, and brings the editor grid', async ({ page }, info) => {
+  const level = { ...blankTrial(), width: 1200, height: 800, floor: 800, entrance: { x: 120, y: 800 }, goal: { x: 1040, y: 800 } }
+  await open(page, level)
+  await page.getByRole('tab', { name: 'Level', exact: true }).click()
+  const finish = page.getByRole('combobox', { name: 'Wall finish', exact: true }), grid = page.getByRole('checkbox', { name: 'Editor grid', exact: true })
+  await expect(finish).toContainText('Course wall')
+  // The course wall draws its own grid, so the studio's grid is offered only over a finish.
+  await expect(grid).toHaveCount(0)
+  await selectBuilderOption(page, 'Wall finish', 'bulkhead')
+  await expect(finish).toContainText('Bulkhead')
+  await expect(grid).toBeChecked()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(finish).toContainText('Course wall')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await expect(finish).toContainText('Bulkhead')
+  await page.screenshot({ path: info.outputPath('wall-finish-editor.png') })
+  const saved = await saveTestLevel(page)
+  expect(saved.level.wallFinish).toBe('bulkhead')
+  await reopenTestLevel(page, saved)
+  await page.getByRole('tab', { name: 'Level', exact: true }).click()
+  await expect(finish).toContainText('Bulkhead')
+  await selectBuilderOption(page, 'Wall finish', 'course')
+  expect('wallFinish' in (await saveTestLevel(page)).level).toBe(false)
+})
+
 test('tower edits settle ropes off-thread only after dragging, and never overwrite newer edits', async ({ page }) => {
   await page.addInitScript(() => {
     window.ropeWorkerStarts = 0

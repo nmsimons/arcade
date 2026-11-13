@@ -5,6 +5,7 @@
 //   node scripts/capture-lab-look.mjs --out .local/look/baseline     capture every scene
 //     --url http://localhost:5173    a running dev or preview server (default: the dev server's address)
 //     --only wake,tower,pool-fall    capture only these scenes (comma-separated names, see --list)
+//     --wall-finish panels           serve every level with this back-wall finish, to compare finishes
 //     --storage key=value            set a localStorage entry before the game loads, such as a development
 //                                    look under review (jumping:look-brackets=1); repeat for several
 //     --list                         print the scene names and exit
@@ -38,6 +39,9 @@ const SCENES = [
   { name: 'concourse', hub: 'facility-concourse', door: 'concourse-to-opening' },
   { name: 'freight', hub: 'facility-freight', door: 'door-jk' },
   { name: 'security', hub: 'facility-security', door: 'door-lock-out-i' },
+  { name: 'construction', hub: 'facility-construction', door: 'door-spire-i' },
+  { name: 'water-wing', hub: 'facility-water', door: 'door-waterline-i' },
+  { name: 'targets-wing', hub: 'facility-targets', door: 'door-drain' },
   { name: 'lab', file: 'LAB.jump-level.json' },
   { name: 'tower', file: 'Tower.jump-level.json' },
   { name: 'scaffold1', file: 'scaffold1.jump-level.json' },
@@ -152,8 +156,12 @@ async function captureScene(scene, url, ids, directory) {
     if (storage.length) await page.addInitScript(entries => { for (const [key, value] of entries) localStorage.setItem(key, value) }, storage)
     if (scene.hub) await page.addInitScript(place => localStorage.setItem('arcade.jumping.facility.v1', JSON.stringify({ place })),
       { kind: 'hub', level: scene.hub, arrival: { kind: 'door', id: scene.door } })
-    if (scene.entrance || scene.patch) await serveChangedCourse(page, scene.file, level =>
-      (scene.patch ?? (l => l))({ ...level, entrance: { ...level.entrance, ...scene.entrance } }))
+    const finish = option('--wall-finish')
+    if (scene.entrance || scene.patch || finish) await serveChangedLevels(page, (file, level) => {
+      if (finish) level = { ...level, wallFinish: finish }
+      if (file !== scene.file || !(scene.entrance || scene.patch)) return level
+      return (scene.patch ?? (l => l))({ ...level, entrance: { ...level.entrance, ...scene.entrance } })
+    })
     // Sequences locate the robot on screen: frame reports give the camera of each drawn frame, and the motion
     // probe the robot's feet.
     if (scene.follow) await page.addInitScript(() => {
@@ -234,20 +242,22 @@ async function followClip(page, scene, viewport) {
     y: Math.max(0, Math.min(viewport.height - height, Math.round(y - height * ay))), width, height }
 }
 
-/** Serves a changed copy of the course, through both the public file and the development catalog. */
-async function serveChangedCourse(page, file, move) {
-  await page.route(`**/levels/jumping/${encodeURIComponent(file)}`, async route => {
+/** Serves changed copies of levels, through both the public files and the development catalog. */
+async function serveChangedLevels(page, change) {
+  await page.route('**/levels/jumping/*.json', async route => {
+    const file = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1))
+    if (file === 'index.json') return route.fallback()
     const response = await route.fetch()
-    await route.fulfill({ response, json: move(await response.json()) })
+    await route.fulfill({ response, json: change(file, await response.json()) })
   })
   await page.route('**/__arcade/jumping-levels', async route => {
     if (route.request().method() !== 'POST') return route.fallback()
     const response = await route.fetch()
     let body
     try { body = await response.json() } catch { return route.fulfill({ response }) }
-    for (const entry of body.files ?? []) if (entry.fileName === file) {
-      if (entry.sourceText) entry.sourceText = JSON.stringify(move(JSON.parse(entry.sourceText)))
-      if (entry.level) entry.level = move(entry.level)
+    for (const entry of body.files ?? []) {
+      if (entry.sourceText) entry.sourceText = JSON.stringify(change(entry.fileName, JSON.parse(entry.sourceText)))
+      if (entry.level) entry.level = change(entry.fileName, entry.level)
     }
     await route.fulfill({ response, json: body })
   })

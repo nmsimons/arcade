@@ -35,6 +35,8 @@ import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 import { isTerrainMaterial } from './terrainMaterials.ts'
 import { isGroundCover } from './terrainGroundCover.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
+import { isWallFinish } from './wallFinish.ts'
+import type { WallFinish } from './wallFinish.ts'
 import { lightingProblems, MAX_LIGHTS, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
@@ -82,6 +84,8 @@ export interface JumpLevel {
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
   floorMaterial?: TerrainMaterial
+  /** The course wall's finish (wallFinish.ts); omitted for the ordinary course wall. Artwork only. */
+  wallFinish?: Exclude<WallFinish, 'course'>
   times?: TimeTargets
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
   timers?: WallTimer[]
@@ -461,6 +465,11 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.floorMaterial !== undefined) {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()
     level.floorMaterial = v.floorMaterial
+  }
+  if (v.wallFinish !== undefined) {
+    if (!isWallFinish(v.wallFinish)) return fail()
+    // The ordinary course wall is the default, saved by leaving the field out.
+    if (v.wallFinish !== 'course') level.wallFinish = v.wallFinish
   }
   // Existing local files use "flag". Preserve their assembly origin and export "goal".
   const goal = v.goal === undefined ? v.flag : v.goal

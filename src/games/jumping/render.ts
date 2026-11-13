@@ -15,6 +15,7 @@ import { drawFootBoosters } from './airBoosters.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
+import { drawWallFinish } from './wallFinish.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallDoors } from './wallDoor.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
@@ -74,6 +75,12 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
 }
 function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom: number) {
   ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level)); reportWall(ctx.canvas, () => ctx.getTransform())
+  // A wing's finish replaces the grid and panels; the base fill and camera report stay the same.
+  if (level.wallFinish) {
+    const x = Math.max(0, view.x), y = Math.max(0, view.y)
+    drawWallFinish(ctx, level.wallFinish, { x, y, w: Math.min(level.width, view.x + view.w) - x, h: Math.min(levelHeight(level), view.y + view.h) - y }, zoom)
+    return
+  }
   ctx.lineWidth = 1 / zoom; ctx.strokeStyle = '#353f4810'; ctx.beginPath()
   // Zoomed-out views omit minor lines, but every line remains on the same snap lattice.
   const grid = LEVEL_GRID_SIZE * 2 ** Math.max(0, Math.ceil(Math.log2(8 / (LEVEL_GRID_SIZE * zoom))))

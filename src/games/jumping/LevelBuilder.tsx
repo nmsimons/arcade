@@ -46,6 +46,8 @@ import { facilityDoorName, resolveCampaign, studioPresentation } from './facilit
 import { loadCampaign } from './campaign'
 import type { CampaignFile } from './campaign'
 import { TerrainMaterialPicker } from './TerrainMaterialPicker'
+import { WALL_FINISHES, wallHasGrid } from './wallFinish'
+import type { WallFinish } from './wallFinish'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
 import { EnvironmentFields } from './EnvironmentFields'
@@ -624,7 +626,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
-      if (level.environment && environmentGrid) {
+      if ((level.environment || !wallHasGrid(level.wallFinish)) && environmentGrid) {
         const step = LEVEL_GRID_SIZE * 2 ** Math.max(0, Math.ceil(Math.log2(8 / (LEVEL_GRID_SIZE * view.zoom))))
         ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
         ctx.strokeStyle = '#353f4820'; ctx.lineWidth = 1 / view.zoom; ctx.beginPath()
@@ -1622,7 +1624,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <BuilderInspectorSection title="World">
           <EnvironmentFields level={level} onChange={commit} selectedWall={selection?.kind === 'back-wall' ? selection.index : null} onSelectWall={editBackWall}
             onCreateWall={() => { chooseSelection(null); setTool('back-wall'); canvasRef.current?.focus() }} />
-          {level.environment && <label><input type="checkbox" checked={environmentGrid} onChange={e => setEnvironmentGrid(e.target.checked)} />Editor grid</label>}
+          {(level.environment || !wallHasGrid(level.wallFinish)) && <label><input type="checkbox" checked={environmentGrid} onChange={e => setEnvironmentGrid(e.target.checked)} />Editor grid</label>}
           <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={MAX_LEVEL_WIDTH} {...numberEdit((base, value) => {
             const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.environment?.walls ?? []).map(w => w.x + w.w), ...(base.environment?.groundCover ?? []).map(c => c.x + c.w), ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).filter(s => s.kind !== 'goal' || base.goal?.kind !== 'walk-off').map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
             const width = clamp(value, extent, MAX_LEVEL_WIDTH)
@@ -1633,6 +1635,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(setLightingLayout(history.present, 'uniform'), e.target.checked))} />Night mode</label></div>
           </div>}
           <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
+          <BuilderSelect label="Wall finish" value={level.wallFinish ?? 'course'} options={WALL_FINISHES.map(finish => ({ value: finish.id, label: finish.label }))}
+            onChange={finish => {
+              // The ordinary course wall is saved by leaving the field out.
+              const next = copyLevel(history.present)
+              if (finish === 'course') delete next.wallFinish
+              else next.wallFinish = finish as Exclude<WallFinish, 'course'>
+              commit(next)
+            }} />
         </BuilderInspectorSection>
         {isPuzzleLevel(level) && <BuilderInspectorSection title="Timing">
           {level.goal && <BuilderSelect label="Finish" value={level.goal.kind ?? 'doorway'} options={[{ value: 'doorway', label: 'Doorway' }, { value: 'overlook', label: 'Outdoor overlook (untimed)' }, { value: 'walk-off', label: 'Run off right edge (untimed)' }, { value: 'bus', label: 'Bus stop (untimed)' }]}

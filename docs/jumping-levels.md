@@ -1001,7 +1001,17 @@ Terrain can specify `material: "stone"`, `"earth"`, `"chalk"`, or `"steel"`. Sto
 gray with sparse flecks; Earth is a warm sand color with a fine grain; Chalk is a
 smooth, pale sage; Steel is a blue-gray with fine, horizontal brush marks.
 The marks repeat on a 240-by-160-unit tile, scattered so they never line up in
-rows or columns across a large mass. The level's optional `floorMaterial` applies the same palette
+rows or columns across a large mass.
+
+The optional `wallFinish` gives the course wall a wing's finish: `"panels"`
+(large bolted plates with shadowed joints), `"tile"` (pale blue-grey 40-unit
+tiles with grout) or `"bulkhead"` (heavy riveted steel plates). Leave it out for
+the ordinary course wall with its fine grid; the studio's **Wall finish**
+(Level tab, World) saves `"course"` that way. Finishes are artwork only: they
+add no collision, cover or lighting, keep the wall's base colour, and apply
+wherever the course wall is drawn, including facility back walls in
+environments. The finishes replace the fine grid, so the studio offers its
+**Editor grid** over them. The level's optional `floorMaterial` applies the same palette
 to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a
 terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.

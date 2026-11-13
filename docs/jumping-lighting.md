@@ -303,7 +303,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 
 | Object or part | Response to ambient and lamps | Casts shadows? | Emits into the world? | EMP response |
 | --- | --- | --- | --- | --- |
-| Back wall and grid | Ambient only at night; sunlight and local lamps in Day. A faint airborne beam may be visible in front at night. | No. | No. | Ambient and sunlight unchanged; local lamps fade out. |
+| Back wall and grid, or its wing finish (panels, tile, bulkhead) | Ambient only at night; sunlight and local lamps in Day. A faint airborne beam may be visible in front at night. | No. | No. | Ambient and sunlight unchanged; local lamps fade out. |
 | Terrain, pillars, platforms, slopes, enclosing floor/walls/ceiling | Ambient only; retain material colors and texture relationships. | Yes, using actual outlines. | No. | Unchanged. |
 | Box, including its seams | Ordinary; all parts share exposure. | No. | No. | Keeps its existing loose-body behavior. |
 | Ball and its rolling marker | Ordinary; marker remains part of the same shaded artwork. | No. | No. | Keeps moving normally. |

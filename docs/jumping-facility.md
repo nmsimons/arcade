@@ -189,6 +189,14 @@ Reskins must not change terrain materials, which affect friction and therefore
 physics. Distinct wing looks likely need new art: back-wall variants and trim
 per wing, within a restrained palette each.
 
+The first of that art is the back wall's finish (`wallFinish`, see
+[level files](jumping-levels.md)), set on each wing's hub file since November
+13, 2026: Freight and Construction use bolted panels, Security a riveted
+bulkhead and Water a tiled wall. Orientation, Boot Camp, Gravity, Assessment
+and the concourse keep the course wall, the facility as it was meant to look.
+Courses behind the doors do not inherit their wing's finish yet; each course
+can set its own.
+
 ### Getting around
 
 Moving between wings must stay easy:

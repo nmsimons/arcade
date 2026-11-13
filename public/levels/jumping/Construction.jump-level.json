@@ -484,6 +484,7 @@
   },
   "timing": "untimed",
   "floor": 2000,
+  "wallFinish": "panels",
   "kind": "hub",
   "props": [],
   "mechanisms": [],

@@ -4,9 +4,9 @@
  "math": "f218227f60a5a1d1",
  "cpu": "arm64",
  "recorded": {
-  "physics": "77f1d9f: physics for #106's push fixes (Tower, Tower II, ball-beside-box) and Full Tilt's first traces; state and pose for #106's rig limits, the heavier rope run and the facility's moved doors",
-  "state": "77f1d9f: physics for #106's push fixes (Tower, Tower II, ball-beside-box) and Full Tilt's first traces; state and pose for #106's rig limits, the heavier rope run and the facility's moved doors",
-  "pose": "77f1d9f: physics for #106's push fixes (Tower, Tower II, ball-beside-box) and Full Tilt's first traces; state and pose for #106's rig limits, the heavier rope run and the facility's moved doors"
+  "physics": "be5cc3c: physics for Exit's slanted shelf (0aee74c) and Full Tilt's raised course (c893bfc, e2c8aa4); state and pose for the drawn swim",
+  "state": "be5cc3c: physics for Exit's slanted shelf (0aee74c) and Full Tilt's raised course (c893bfc, e2c8aa4); state and pose for the drawn swim",
+  "pose": "be5cc3c: physics for Exit's slanted shelf (0aee74c) and Full Tilt's raised course (c893bfc, e2c8aa4); state and pose for the drawn swim"
  },
  "traces": {
   "03.json|climber": {
@@ -101,23 +101,23 @@
    ],
    "state": [
     "70704f73fea70a88",
-    "392e0da36d2051ce",
-    "30e7c81f471944cd",
-    "41b5eda5e5c83c43",
-    "f3c6d28a37e616d0",
-    "b58ccffcce0378f5",
-    "39a46e4ee0970fd9",
-    "f5038743168779fc"
+    "71a39a3f5a8e7d2b",
+    "a748e2b0adcb8a6a",
+    "d22f573d4c7e6b55",
+    "21d0176a38ce7932",
+    "524a58197d8850c5",
+    "7e4bd249001b29ba",
+    "03318dfbd3a12a5f"
    ],
    "pose": [
     "36dc92ef406a29b5",
-    "41ba2d05c9f09edb",
-    "ca748e444a63daaa",
-    "a5f9fed6e1c498c6",
-    "fbc84d2bee2b0520",
-    "52698db5fd47c8f2",
-    "7ee56383aa825835",
-    "d4a50213f0edb48a"
+    "677ae40575a6cf6b",
+    "92a6b42d16856929",
+    "a87bf514634e9b6b",
+    "632627a53f400697",
+    "187ed0bc4e9dd281",
+    "929a4ee62b12b94a",
+    "c586d65383ca436e"
    ]
   },
   "04.json|climber": {
@@ -394,20 +394,20 @@
     "6862c18e2b5c9d3d",
     "d70169de15d135c8",
     "820fba86f2769943",
-    "8abf8b5336eecc4c",
-    "b682fe522410aadf",
-    "06cf11db84b85555",
-    "a30a657e6279be8c"
+    "3bc6de5ab3278315",
+    "c0be8e4541ccda00",
+    "e4d081a7ace68984",
+    "af6229e799cdf2ca"
    ],
    "pose": [
     "7ec54aae71653eb3",
     "1f21e1cfae515a45",
     "af0927bc2a603acb",
     "f011aa59904216ca",
-    "b75b7a73cdf0ade7",
-    "a3dfff8ec37f3406",
-    "b33c6fde3afb52e4",
-    "acc70ccac5ca5981"
+    "af5ff0b95f999bd2",
+    "17ea789ea02a4a26",
+    "27e748b5b69ab574",
+    "c52b97494bcc5fb2"
    ]
   },
   "08.json|climber": {
@@ -494,22 +494,22 @@
    "state": [
     "0c3d0d621cd759f2",
     "4432af09a466197b",
-    "81edab5d67d5ce9d",
-    "cc43d38091f0aab2",
-    "5fd022372d952fde",
-    "8539e9bc22d87d9b",
-    "e82da5388cd79404",
-    "c8d19f302152f71b"
+    "fe1924fa40c20bed",
+    "a32f815f79c3fa06",
+    "a0adbeadb063384b",
+    "f3996fc0488fd3cf",
+    "266b11af0bcd8a9d",
+    "ced438c015c1157d"
    ],
    "pose": [
     "57fdfc12bab8bf6b",
     "71b7449c0b5230e8",
-    "36c3bc80d1079c22",
-    "288e6e9abca8d16b",
-    "6605da7390bb6fe8",
-    "ce48d733de84707d",
-    "4bd2f64946e54860",
-    "e0cd2420153b79e3"
+    "ab117d8022a7f786",
+    "e6d09717fe2356bc",
+    "c999a1217f572012",
+    "e368f0dd64ca9348",
+    "eb860729c8fc4640",
+    "f029091682a0611b"
    ]
   },
   "Ascent.jump-level.json|runner": {
@@ -528,12 +528,12 @@
    "state": [
     "5445656697a1239f",
     "0f04d62d390e9b5a",
-    "2c4273051b4c1a89",
-    "05a4464515e9998d",
-    "46ea781df4e4cf3f",
-    "2c2eb61d2bfb2e0b",
-    "feba1dc4ab6a6625",
-    "4b11c7302ab36787"
+    "df932d0697de8e56",
+    "63e63fc9e534bf58",
+    "85d7a4d8b575ce9e",
+    "790132eb3c630c47",
+    "65823af6bfe124fe",
+    "265d079ebd51ae09"
    ],
    "pose": [
     "139ac1eadaa0e3ae",
@@ -541,9 +541,9 @@
     "078e524e16214dde",
     "2568d3bd2e669617",
     "341b8c3e76784965",
-    "eafbe60cbb71d66c",
-    "27c610fa604dc4e6",
-    "68a228ad165ea3d6"
+    "cae7f9cfbadf9358",
+    "a56d79e35d929cc8",
+    "efa5d57c70184264"
    ]
   },
   "Balls.jump-level.json|climber": {
@@ -1206,20 +1206,20 @@
     "f2156a037b1b202d",
     "0e2257c052757d30",
     "16028422becd905d",
-    "6453e843013d4bcf",
-    "f321fe5686f21a15",
-    "4e1d324b44978ebe",
-    "127069e5ad1673e6"
+    "3ab25262adc097e4",
+    "44221b51ee0906c4",
+    "9db75bfd7194132d",
+    "a22734766f110f47"
    ],
    "pose": [
     "23be48d88c907d8a",
     "17f3703adf03979d",
     "3cf4ee4ae60dbdd7",
     "06312a89f27b64ed",
-    "5d6f6c6bddf564c8",
-    "8c5f05b181e8f8e0",
-    "d7db249f99891aa3",
-    "1bc913a18d70e62e"
+    "b67863f5083159c1",
+    "97ad616bb6bb5514",
+    "f9a7c34873d16506",
+    "b671a5c8662e6613"
    ]
   },
   "LAB.jump-level.json|runner": {
@@ -1239,21 +1239,21 @@
     "792a9d8e5508f08a",
     "cc54b9ee7e0cb2dd",
     "40ee86b4d95a1afb",
-    "37267daec6c6eada",
-    "f04a66bce5a6f9fa",
-    "e5a2ca36140a8070",
-    "a72a3863ac48d68a",
-    "fc407a93b3230221"
+    "9e8e912c777cae25",
+    "a686d45f39560b75",
+    "a4bd45c5b3cf7531",
+    "a7b4db6dbb79002e",
+    "b72040808e41a57d"
    ],
    "pose": [
     "945d5696fcabbf4d",
     "3d4f5fdeb6fb26ad",
     "8e97555fc0a6265b",
-    "8b839c1a0d62e96c",
-    "1a7e4d6012a319d9",
-    "949590421020c236",
-    "3428d99115c778ea",
-    "a417d707386c524d"
+    "80b0e8eba22d5175",
+    "fc1ea8da9c81f10c",
+    "efa8c84cc6c3ea2d",
+    "7e05b17256cb6d39",
+    "c9b87bbf7c5f898d"
    ]
   },
   "Lock Out 2.jump-level.json|climber": {
@@ -1436,21 +1436,21 @@
     "1494f17b47148e37",
     "b15f0fceb238adfb",
     "da208d80a93af0fc",
-    "412a169c9cb6258a",
-    "3f577c14b269d593",
-    "728cbfc4291bc09c",
-    "77d51f657b76146b",
-    "4ec2fc73077c1986"
+    "fd4e37f7d4de594f",
+    "b5b08c4d3c1fe49d",
+    "745d677054b2bde5",
+    "c331d406df116639",
+    "a5517f562a35fc56"
    ],
    "pose": [
     "fa67d3e594e8e84a",
     "ab13d9376f687dcd",
     "33f1b87538283977",
-    "21463d10f10ac3d2",
-    "d83354c0ae4472db",
-    "dc61c2676ea4b611",
-    "7d4eb45ed9989cdb",
-    "d8c05eab5467608c"
+    "5ce89e7f9ba86d8b",
+    "0fe4b781beae50a6",
+    "141504d334fbdb90",
+    "6147f54323cde7af",
+    "708e06b165412bc6"
    ]
   },
   "Quarantine III.jump-level.json|climber": {
@@ -1471,20 +1471,20 @@
     "60c14dc138ac2a19",
     "8aff625b9758a996",
     "6c08952e10463c92",
-    "3348120df2c4ffe8",
-    "b1680a4275ed0615",
-    "19f9321da4e8efd5",
-    "a63b6ff414ffcb84"
+    "bb09280598820d87",
+    "4fdf2225213fa958",
+    "959155e648f5cb3f",
+    "900e26bd7da586b9"
    ],
    "pose": [
     "acb3e997f541500e",
     "0175a8bd4b19d86e",
     "36bb3fe084c16b2d",
     "a8a5cf815ad6110b",
-    "084ca4ce712c79cf",
-    "949406c005892f0f",
-    "4963377d21613201",
-    "c0a1381b4e45372a"
+    "a731b7e51450fc02",
+    "9a48c6eaaa2b9201",
+    "95d0d42debe4568a",
+    "f95d68d234281bb2"
    ]
   },
   "Quarantine III.jump-level.json|runner": {
@@ -1506,9 +1506,9 @@
     "904837f412fbb97c",
     "75b011beac05443b",
     "0dfc64cd34c15f72",
-    "50a3eefd1d5d2d23",
-    "8633e78a1a1f3b5e",
-    "cfd82d6c47dda12f"
+    "c0f2e6cc5358f330",
+    "602872662d7eeaf3",
+    "aea90eb1dd520ace"
    ],
    "pose": [
     "699a780d8a3011db",
@@ -1516,9 +1516,9 @@
     "babf93b03ca84824",
     "e12580c2ec012bf1",
     "239de6cee50ccd3a",
-    "1cb60cd486fadf05",
-    "1a4a6fc09b0dd0ca",
-    "99b16981793b07fc"
+    "08aee4735b4dde61",
+    "7cc19036401fab84",
+    "2b52db45a1d2b726"
    ]
   },
   "Quarantine.jump-level.json|climber": {
@@ -2394,24 +2394,24 @@
     "7542de26bcf6cacd"
    ],
    "state": [
-    "2422caeab2b41d4e",
-    "03d1d5a5b5550158",
-    "2a690224132ae2da",
-    "18e5f0176431ea20",
-    "9b48659aa17bbf5d",
-    "e442c2d08ec6e067",
-    "cfee6a414e9f03ea",
-    "442db7425eb691b6"
+    "082c53850a99a205",
+    "c06cf243c85e2c54",
+    "31d481b748493e02",
+    "fb326c41a66e27cc",
+    "bcbdb1fd08eaa982",
+    "9aad96d9d1e9cf41",
+    "c76f787190ba0fa8",
+    "42494d9185134f0e"
    ],
    "pose": [
-    "fcd6692550e38bf1",
-    "df4e5ae035ad28ac",
-    "5ae1e1b848407033",
-    "49fc66a938db75a0",
-    "40447e9ee037d206",
-    "2ac7366ebdc922a3",
-    "b3d44075e1a0293e",
-    "dc4da8101b1cc0ef"
+    "189d1233148bb84a",
+    "23ea940223f454c5",
+    "eccc3bcc16207a07",
+    "0d28d0bfa7feb00c",
+    "fb9df1b5cd0c3136",
+    "756f413d2e852cb5",
+    "dc2a984262aacef0",
+    "848bbd97a3f3e2fd"
    ]
   },
   "Waterline2.jump-level.json|runner": {
@@ -2428,24 +2428,24 @@
     "5e631c0f71203dae"
    ],
    "state": [
-    "76933e4a9757b83c",
-    "25b09af7703dcbbb",
-    "0d22bb5eb86b99ca",
-    "8787fbb0327d20ab",
-    "3a6f6ac488272bb8",
-    "63f1393fd5792a24",
-    "84e2227e1c6ecf92",
-    "704bcdb41ced3392"
+    "3374950513534a44",
+    "a2d1a8a7c1711c8f",
+    "e2bee1290d41eeef",
+    "5e49265183052d18",
+    "6ff6b320b2d2ef25",
+    "4a3b84371d5d26b0",
+    "e98ff790ee618dcb",
+    "c5a5befa0434f952"
    ],
    "pose": [
-    "4202256db73e13b2",
-    "40d82536fbcfd463",
-    "43b5f85e41e65fa0",
-    "666a1911a1762528",
-    "ac49edacca10dea7",
-    "4669337cfd73cfed",
-    "1d83a4314521bde3",
-    "3766fa7a9fee3761"
+    "56f8a1628b91ed56",
+    "07bf8f14c813e3a5",
+    "e333456feef480f8",
+    "9a5155579c632221",
+    "c3f2c47b62d2994c",
+    "a23d3ebec186f6d6",
+    "e023721265e211a7",
+    "fbb740218d5aca30"
    ]
   },
   "ascent2.jump-level.json|climber": {
@@ -2466,20 +2466,20 @@
     "76567d73b0d46be1",
     "46c51bc7bda4d410",
     "16eea4bde8c5fb28",
-    "749d85a628949556",
-    "dba786c402525d9a",
-    "cc9f79da3e06cb77",
-    "9ab276df50f47943"
+    "4b7210700c581987",
+    "e702d1025b31c861",
+    "a84a2a1ae21ff2b5",
+    "a1b1eda12ca994f2"
    ],
    "pose": [
     "5b2cbda651ba35cd",
     "6a6fdd9a340308d7",
     "c81a75acb3842dbf",
     "960296851daf3e0d",
-    "36abc9184e3bebca",
-    "c7c26bd487a6bacd",
-    "47badd32b5156efd",
-    "bfeb90240bba653a"
+    "7cbac976cedec490",
+    "e72fe0b9e493e449",
+    "d328be38e836cf99",
+    "6cefd2d5ac3f28c9"
    ]
   },
   "ascent2.jump-level.json|runner": {
@@ -2497,23 +2497,23 @@
    ],
    "state": [
     "83f79f04d794e34e",
-    "4cebb571148bf2be",
-    "076c6aa7018ef2d3",
-    "0b3607059e120b25",
-    "261ce4436e0f1ab3",
-    "0b720274020cc191",
-    "98d1f4edea03c066",
-    "8badca7d6d807547"
+    "3df8409e9665d20f",
+    "d8bd4d8fc225dbb8",
+    "86c9e8b11c482d58",
+    "fc6ea2baeeeb5391",
+    "6b592e7a4fa7f9a3",
+    "aa225159122e06cd",
+    "92e679998cd2c1a9"
    ],
    "pose": [
     "8f9659b338d3da13",
-    "d54a21d4f995a963",
-    "520da371f0cdaa75",
-    "bf9f4d9ea25b9fcb",
-    "29a41adc5afe142a",
-    "c6abb1287827975b",
-    "979241c89806b3a0",
-    "ab39a3b4b6a1dd14"
+    "a9b7cad36fd0d8a4",
+    "d55cf3126774baab",
+    "3be597b74554e2b1",
+    "dbda3e0cd6e4457a",
+    "c813cf4a32c9343c",
+    "d614c939ee01fc87",
+    "ce02e32814eb024f"
    ]
   },
   "buoyancy.jump-level.json|climber": {
@@ -2536,8 +2536,8 @@
     "b10ac0d6b70c9de1",
     "47f1c2472b9e79ba",
     "e365e29e30704563",
-    "f743f14d00db8d1f",
-    "6191b2d175a5c5fd"
+    "07ed5dd07bc78926",
+    "6d3806239c1906af"
    ],
    "pose": [
     "bc36604e4efe8826",
@@ -2546,8 +2546,8 @@
     "e7b62c13a83a987c",
     "39b1eb2827e0dc96",
     "d2328fd0f498fd84",
-    "ca7eec1ebb697345",
-    "c1f742a7cb9e4f81"
+    "d5a5dee3a167d83c",
+    "ef61313b2f4d3b41"
    ]
   },
   "buoyancy.jump-level.json|runner": {
@@ -2570,8 +2570,8 @@
     "16ca2343e58797d8",
     "90f74bf35d438e6b",
     "6fdb49434499e619",
-    "8c3c19ecaec4d0a4",
-    "c5a715502e1ac64d"
+    "a6d97aec31fde257",
+    "a2a405dac442346c"
    ],
    "pose": [
     "6180289078b1fbdc",
@@ -2580,8 +2580,8 @@
     "a893ba6ca1898656",
     "6b73450e4168571a",
     "2d7b07e7d09662c4",
-    "29b8abc3bd71b091",
-    "002befacea09cdf8"
+    "49f2b6e891670ae0",
+    "a2152953ff940fe4"
    ]
   },
   "escapade.jump-level.json|climber": {
@@ -2656,24 +2656,24 @@
    "ticks": 960,
    "finished": false,
    "physics": [
-    "eaa5b569bb111a5e",
-    "a998ea7a34a582c7",
-    "6bb8c948c03ecd4c",
-    "bdc14c32fc26bbcc",
-    "09ba33d55fc1fc08",
-    "4d8c71f42fe2211b",
-    "e5ea065cc575b640",
-    "2477c14f5e3fca60"
+    "a870ada2c9736fa5",
+    "c19345717d88fd61",
+    "2e2163c3cc96e41d",
+    "2b83eb85db69550f",
+    "c0b6d10bcd73e902",
+    "aa7bd643ce246f4f",
+    "bb8066fa5d348a21",
+    "3cebd636de05e79c"
    ],
    "state": [
-    "3e2d98f3b8871449",
-    "ccb8716998a4d48b",
-    "a2e1b87703a4512d",
-    "8937f96991cdddcc",
-    "654d4c1efa78e13d",
-    "519c1d1e4f6ec2b0",
-    "dd856ab2b5b40651",
-    "4d47b5581b3629ad"
+    "c78769a466e1b8af",
+    "f2706c1c3389d020",
+    "5e2ccc2b246fa912",
+    "1412b7c760bbb734",
+    "fcd9defb2725dba2",
+    "dfe1b1697461ba9f",
+    "398bcef70528eed7",
+    "006536766c0a5eeb"
    ],
    "pose": [
     "a6c6d095496099c6",
@@ -2690,24 +2690,24 @@
    "ticks": 960,
    "finished": false,
    "physics": [
-    "d804ed94c2f8fc0b",
-    "3baac660555d56be",
-    "5785f3e2a7e9d455",
-    "cc45b134efc51cfd",
-    "6a529ac258b0bfe9",
-    "c17202b6776f8d30",
-    "9c84912dfe02cdd1",
-    "73c3fcdecb469ab7"
+    "ff29acc59d3d82f6",
+    "a333ce27aa54bb72",
+    "d3c7373e13d150a1",
+    "f402784fd41d1db7",
+    "96459b7d50a8a9fa",
+    "fb2e18fb33116a74",
+    "729bbda020c9a21a",
+    "aa857d84f10a9c1b"
    ],
    "state": [
-    "c13d5d9633186b8d",
-    "40c054c5e9287434",
-    "1318cd1280dbffc1",
-    "2ee59cb6c28b5fb2",
-    "518628246c2de2ba",
-    "2ab1561a3bc06707",
-    "667f3d4fded955af",
-    "2c6e17b6a059f3aa"
+    "16fba3b54cfbd4db",
+    "bc9e3e856247ab84",
+    "2b2e93d62c47414d",
+    "bee400379507ff34",
+    "7287b3c26905ca5d",
+    "3b80d0a08dbdd008",
+    "1cbc762b0ba0bc30",
+    "73e11ea4a9f26a3b"
    ],
    "pose": [
     "3779d6204f12918a",
@@ -3689,11 +3689,11 @@
     "eb6cb89ed71626f4",
     "535c2b19470aa321",
     "07d0f83299d16f0e",
-    "1cf2d51a3f7686ea",
-    "262d4703dd291ffb",
-    "28e39db80b00a7a1",
-    "01347ffd42c128d9",
-    "4b184a1497af18e4"
+    "9fad7b913a2d35bf",
+    "3ecc2c262dd0a3ce",
+    "53e72a761208ffe2",
+    "0ffa1a5bc7615c6c",
+    "63f3041df39a5e81"
    ],
    "pose": [
     "da9a674223dc849c",
@@ -3701,9 +3701,9 @@
     "7dd57fc69aeba571",
     "5bc588b43c9b9fa3",
     "49f6549497b03719",
-    "8c3929e55cc758ce",
-    "6c323d1969ed9478",
-    "5c87e8d961994457"
+    "287497b30b6c42e0",
+    "a707a8964a425235",
+    "e5f9d72985d2f6d2"
    ]
   },
   "fixture:ladder-scaffold-exit.json|runner": {
@@ -3894,20 +3894,20 @@
     "e1ce20ef2568ac19",
     "3988410ab121fab6",
     "8152e19250048cdd",
-    "bdd736b6cdbf8742",
-    "f352868f67819bef",
-    "27b3f8f5423c6f27",
-    "2d2875e5f97e3b65"
+    "9cabf19700caf981",
+    "110b41b12bd005b5",
+    "4e5d15b47b651967",
+    "b276ecd1632e5e46"
    ],
    "pose": [
     "11fbf6d9b4232d72",
     "358e06f9cd84c0a7",
     "40af8ebf3cdbdcd5",
     "341d92c0cfc7c049",
-    "fae36668b6598c8d",
-    "5c3cf1e13bfe21d4",
-    "a12b24ae486f707f",
-    "4ffa8fce70a4e043"
+    "05643d0c712c274b",
+    "5a4738bb278bcdac",
+    "4753554dd4324acd",
+    "e06bd9311a293ab5"
    ]
   },
   "fixture:little-swing-rope.json|runner": {
@@ -3928,20 +3928,20 @@
     "cd2092e1827bf7ad",
     "81e512f1da51e27b",
     "878831c4df9421b5",
-    "7cd8446dd830b4e4",
-    "23e28bdafd369fc3",
-    "d241561a7222af5c",
-    "d4cbd00132f6afd7"
+    "0c4da8b54576737d",
+    "9d9e69c88206c7c1",
+    "8833fae7c6f78f17",
+    "d2f82582b97d1e4a"
    ],
    "pose": [
     "c2e7cc413f53ef70",
     "c27f33ab1b574c2e",
     "e7263abdc673445e",
     "fae4c9e36ca875c0",
-    "891daf340d71c373",
-    "1e1e6540a1137976",
-    "1e97482d72bf7cbd",
-    "e0a23c12a53b73d2"
+    "e4b48fea493b247b",
+    "4bb23e5ed9e83440",
+    "cdd8841f6171b8ae",
+    "53eac9b1707254ca"
    ]
   },
   "fixture:logic-relay-exclusive.json|climber": {
@@ -4026,24 +4026,24 @@
     "2d25292f87433f36"
    ],
    "state": [
-    "9814f4a106259430",
-    "3d53c7376c05a08a",
-    "16be60a04bc78011",
-    "8297c9a3a8ede759",
-    "3a91d4271c7c6b6e",
-    "2b1b4ac5e249ec5c",
-    "e14b4a69b282aafa",
-    "d4e7520ad5b2bb89"
+    "6fa28b429df52f6e",
+    "8014223ab81a7189",
+    "e2770262ab50746b",
+    "f8fbbc76fa2f8eef",
+    "b7ad445acab5aa85",
+    "da1b295f71fca1af",
+    "064d3a990a2f09b0",
+    "c11343d614e9fca6"
    ],
    "pose": [
-    "9507c1bbe5e31c92",
-    "e13945b2232a3ad7",
-    "d8e2e00d6ce9493c",
-    "1d835c0b374d34c7",
-    "305d7331048a497c",
-    "0c3202e7d724be55",
-    "6877eafb30e48a0a",
-    "78e54514fc7c7ae7"
+    "acbfeaae756665d6",
+    "853ad07df2709a08",
+    "d9cf3c8ac24c113b",
+    "5e86d7da978bf639",
+    "5190d46ef1ce8b0b",
+    "778d8ab758229b91",
+    "87aefe630035e0ec",
+    "c471fba0cb51a427"
    ]
   },
   "fixture:narrow-water-tunnel.json|runner": {
@@ -4060,24 +4060,24 @@
     "14803208678e37c3"
    ],
    "state": [
-    "900d7216eed9a5b9",
-    "de423307c8fce8b9",
-    "6ea711510044245d",
-    "f9a3733146f6ef69",
-    "1027cff83e776502",
-    "4344f8a452fbec5e",
-    "79c3c092588751a7",
-    "8b31428226184353"
+    "fbf1d21daff83dc0",
+    "73f1ba8fb418aa9e",
+    "a217baf761ea63a8",
+    "6499fcd0094af874",
+    "4909d500ae4a2c1b",
+    "b642f4c83989187e",
+    "883a4d33ce5a8248",
+    "3a07b6927e132a1e"
    ],
    "pose": [
-    "6e4c968e12429979",
-    "887deba2540c60e0",
-    "a484942e2d338dd7",
-    "21035f4d6ffce1f4",
-    "06c97cf28d8497ca",
-    "61a05280a52ab7be",
-    "73dcf0e80814b5ff",
-    "135305501f27bc90"
+    "2a84c726cbabc94a",
+    "0c6189ac1ab1ed04",
+    "7ce51ffb6d480584",
+    "92d2061dfc8b2e90",
+    "27599c08cd086b5c",
+    "a375e4c368a934f9",
+    "a0bfbcb96acefdc9",
+    "a0180203e6597318"
    ]
   },
   "fixture:quarantine-ii-rbot-force-field.json|climber": {
@@ -4130,22 +4130,22 @@
    "state": [
     "7fb1872bbe779cdd",
     "1f714ab58a0e1aae",
-    "e66786aab3cc83aa",
-    "b7a17d05328e1f0a",
-    "645b2d1772e23762",
-    "d477dcb53dc23c79",
-    "7b59c91ee8f201e2",
-    "85d34d02c0cd5099"
+    "0d194028cc35f1df",
+    "3d5b1bd5b702b79d",
+    "bb301e85c832734b",
+    "4d41597d8bbe44cf",
+    "179a4ecd841fb26f",
+    "6f291e6f7fa50437"
    ],
    "pose": [
     "1bd407505b148485",
     "2beb58c063503831",
-    "ac9b5d8cb99e8ac9",
-    "aae0b6cb41478292",
-    "1d362d9826b9c485",
-    "86da8a99fed03ce7",
-    "d2431f4dceac9929",
-    "47660c86e6a6a217"
+    "8385a6532b3f608c",
+    "d58bda92772670fd",
+    "fbe63768ffd2aabc",
+    "d45f96aae9889849",
+    "a5af567c5fcbbae1",
+    "b6ebe81c6bc94302"
    ]
   },
   "fixture:quarantine-ii-rbot-water.json|climber": {
@@ -4200,20 +4200,20 @@
     "864c972a5ee81477",
     "d1a1ad2ba8c2b6b4",
     "b733ed09283c8361",
-    "732d46614c7d80f7",
-    "1db4b555cb147598",
-    "6245ad60250a1206",
-    "aa0a9474f1988595"
+    "8d438fb6274d4e5c",
+    "c4b6c35dfefdc167",
+    "3fdbc224e185365b",
+    "27cd46601660df48"
    ],
    "pose": [
     "bedc580542878208",
     "e3ff8aec9c1295c4",
     "602442a6c6d741a0",
     "271a21818ae3d6a5",
-    "00c6969a6a0bedd3",
-    "dff18fbfb034c106",
-    "575ace1df60f1316",
-    "77842a7461eb7d5a"
+    "5cd5db2de78c1463",
+    "2dc2f8464af5a0d1",
+    "2aa82ef8ff075dd9",
+    "5194bec7a22792c7"
    ]
   },
   "fixture:quarantine-iii-rbot-water.json|climber": {
@@ -4234,20 +4234,20 @@
     "01393ca86b1df5cc",
     "31d5dcd4c8e8e58a",
     "1977f77451cac31a",
-    "b5101ac505ad4a32",
-    "15d0540673ddf0a2",
-    "06d548415fbfc6f5",
-    "6150f3f39fe69ff1"
+    "b3cdfca0d965351c",
+    "a0934e20fa7fd86a",
+    "793970e784b5da7c",
+    "883ee6e42e3ee9f3"
    ],
    "pose": [
     "91a867bab763f269",
     "442008cba7734200",
     "ac7678b8f192148e",
     "926966d92cbf2e39",
-    "1c0d44988c173f4f",
-    "69124a7c43d73bc5",
-    "6d451b260a12338d",
-    "7a75639a0d41a9a3"
+    "75d4a5d676f46838",
+    "f71406e0cdfd8432",
+    "6213964ba9d7df8f",
+    "352d8e9506416408"
    ]
   },
   "fixture:quarantine-iii-rbot-water.json|runner": {
@@ -4271,7 +4271,7 @@
     "c881396a324c9789",
     "40dead96ba376349",
     "e90f3c0c2f095d88",
-    "c42776957c169a5c"
+    "b7997ad2af5c04c9"
    ],
    "pose": [
     "f88201870f332239",
@@ -4281,7 +4281,7 @@
     "8ab100aabf7d5f20",
     "aae3eea04d5919a8",
     "066f3b7e6c2c32a8",
-    "17be6be0ffd6f478"
+    "27aa718cfb34f354"
    ]
   },
   "fixture:rope-ball-ledge.json|climber": {
@@ -4573,21 +4573,21 @@
     "0e5e081e115219fb",
     "1739ebf13088aefe",
     "8ecdc5f0abe98532",
-    "4bad01c4565e1023",
-    "f9829b38ddca4839",
-    "1963bd59a7720a4d",
-    "d9a07ac9a4590054",
-    "d56d75528a77332f"
+    "c51ad04f245a8d0d",
+    "c210ffd7639c3d89",
+    "a2842b18223d82c0",
+    "5215b062e1aaba61",
+    "5bc297fab73813d8"
    ],
    "pose": [
     "98188cd1d9dee06e",
     "0a39061cf1b575bf",
     "2b95eb046c0cfab1",
-    "353de4bca689c0b2",
-    "7f280457d6685faf",
-    "077e20390080c9d3",
-    "d222b49cec66d022",
-    "b5283d0d158e34b7"
+    "d5b56bf771e31d81",
+    "5d1d0c22f98ad0bb",
+    "2c3429371243aa50",
+    "e2fe0ca239dc9002",
+    "442a6391bfc21e11"
    ]
   },
   "fixture:single-block-pool.json|runner": {
@@ -4609,9 +4609,9 @@
     "4a1248f0f38fad3e",
     "9ea9be4e04d79dc8",
     "288d87f329de9caf",
-    "2f1690eae1eb0725",
-    "afb7350fad175a13",
-    "c58ee5473c14420a"
+    "fe8c8492e320a0a0",
+    "71605bfa2ffc147c",
+    "dad0fd32a07d0fe8"
    ],
    "pose": [
     "b40620e75ad8f2e6",
@@ -4619,9 +4619,9 @@
     "353beb9fadc20b69",
     "ef7cf13933233fba",
     "df9b6f272c555508",
-    "52509c89729e5419",
-    "a6fd09b4d6d8d13b",
-    "612898c6a31ea99a"
+    "a62f1053109720e8",
+    "50304940eba9cba6",
+    "dedd3aa8d56a0835"
    ]
   },
   "fixture:small-water-prop.json|climber": {
@@ -4638,24 +4638,24 @@
     "e4e5937c926decf5"
    ],
    "state": [
-    "374c2d646cef5bcf",
-    "0a5eb2b58174f834",
-    "aca8724fa6d5c788",
-    "9bbc358dc3fc3e1d",
-    "47717ec7b5886e72",
-    "eaeed9234f92f65a",
-    "8305b26c64b54026",
-    "8536a849a534663c"
+    "fee5a158a2b5b253",
+    "ddfa0d6b32ab7e95",
+    "929b99cfddc6d98a",
+    "ae6e46d74b715d8e",
+    "2308517d47142eec",
+    "2b199af34780d3b9",
+    "d7d9c74f6cdc863a",
+    "8c469b6a30b9a05d"
    ],
    "pose": [
-    "06ac105725e3f61e",
-    "fbd8ddad024b2039",
-    "dde9e3b90df2b88b",
-    "32603e004212c8d3",
-    "ec32f40335cdc1c6",
-    "e12a821f83ff8329",
-    "bdf1d0b805bdca90",
-    "e3667f4b733514db"
+    "934a87b1771ff0e9",
+    "c92d64c91c3eac2f",
+    "3279a627c1fe888a",
+    "2c571dcdafb8e96d",
+    "fbb86051eb07deec",
+    "612db97d34b7b7c8",
+    "54a519a2be11c399",
+    "20a1dc1509970ff4"
    ]
   },
   "fixture:small-water-prop.json|runner": {
@@ -4672,24 +4672,24 @@
     "6cf1d7cd4f857bc8"
    ],
    "state": [
-    "33b7aced13bdb18c",
-    "da28b1607d2d9d65",
-    "f68903954a188fee",
-    "b8be869edc979a0a",
-    "7aa9c675afb253f3",
-    "69d1ea35c8e00d47",
-    "611573e399262374",
-    "2e68ca5d96ed330f"
+    "a913c029f59d1c1d",
+    "0bc3cd40f6c81a71",
+    "cf18029d6515f6bd",
+    "3a66676cfea70868",
+    "519d3abe836f6c25",
+    "4dcd897bc9dadc4b",
+    "dc63ae780d9cb3e4",
+    "9fc8e2619fec1ffa"
    ],
    "pose": [
-    "178d3e8e0873cef8",
-    "6e6924a749345b8e",
-    "47ef9536281533e4",
-    "c655a3dcde02847f",
-    "c77148e728c17b24",
-    "af2b51a4bb835c53",
-    "d6785ada936fb056",
-    "4b820f4daa87cf20"
+    "f96a049bd6a25d53",
+    "7b819954ef0c9b78",
+    "567663ad679c2b8e",
+    "cfd7e5df2c89bc94",
+    "06bf35204908f083",
+    "d224e2e584ebac8f",
+    "73f78ab0d6959a64",
+    "95577ad61884d8eb"
    ]
   },
   "fixture:spelunk1b-rbot-routes.json|climber": {
@@ -5182,24 +5182,24 @@
     "685fa10fa9bcc1f4"
    ],
    "state": [
-    "aa0b586e1f621bcb",
-    "a8c264e9ef7b6552",
-    "037b3943762634e9",
-    "211e6d6ddc82c616",
-    "edc13b05a6436959",
-    "a0f5feee54a605af",
-    "67e5bce9c36c51b3",
-    "67577528744a1323"
+    "7754f96920b14b97",
+    "09a96cdd8f62e6f1",
+    "cd1b16409251756a",
+    "9e9e93ecba976d8f",
+    "9cf36493ee8c960e",
+    "41988cfbb85c4f95",
+    "34f131090fd2fbd9",
+    "1b1efa618c3421b9"
    ],
    "pose": [
-    "7885848b60e1d0e3",
-    "a1513bea501f5c39",
-    "30584ce64d0bf8ee",
-    "0ded43511fe161b0",
-    "dc5cfd3e25e42044",
-    "e5ff92ad5347d6de",
-    "7568330bd9eade00",
-    "c7813e328e1dbf80"
+    "baa0bedcabeece24",
+    "d627c955f81f8ac5",
+    "c85e556238bc3b15",
+    "bdfe6c9f4da8259a",
+    "9786be51e4305fa8",
+    "8d6352c1ce7d8474",
+    "377fb005bb4cf9fe",
+    "fcb1a76323956d10"
    ]
   },
   "fixture:water-tunnel.json|runner": {
@@ -5216,24 +5216,24 @@
     "03f9bdceed8472aa"
    ],
    "state": [
-    "3cc0153855b8dbb2",
-    "26419cf406104124",
-    "3c46b68aacdfb54f",
-    "d4f2acf97dd260c2",
-    "0c1c9a4f06b0a636",
-    "5f3bd2bd270efee2",
-    "5fd97b80c323d8e4",
-    "68f92467bc4b8185"
+    "f2622fb6fea77e80",
+    "7084ccfed7a1bcbe",
+    "ae1d69089a9b5ed1",
+    "f1310041b4d17fa9",
+    "83fdd8511c2252d1",
+    "2dbfad105dca84e2",
+    "6485aefa847c8d7a",
+    "22eb52ed6822ddba"
    ],
    "pose": [
-    "c38280276f1eb908",
-    "c366b842f39a9751",
-    "7a213b36c18bbd37",
-    "84bc4b21f100e245",
-    "472601f055c93f9c",
-    "1e20f97edd8c3cf9",
-    "c7d5929416c91e2c",
-    "389c884043320cab"
+    "0985af217578b839",
+    "04619bfe33611ede",
+    "22dc8785813751a1",
+    "8365f961cf2144fa",
+    "766759fb4476d03c",
+    "8fa3dbc5dda27885",
+    "232df2bcfbcef2bb",
+    "4733608bb36f0824"
    ]
   },
   "fixture:waterline-ii-rbot-water.json|climber": {
@@ -5250,24 +5250,24 @@
     "e248266e339cb298"
    ],
    "state": [
-    "1281751859e3092d",
-    "faa316b58d46de84",
-    "24e6330ffb86cd51",
-    "b242b2c8cc7bc662",
-    "86fcecc8538d129d",
-    "1232d4e660faa874",
-    "b932ccda82f23b86",
-    "074084455605d7cd"
+    "a9101d662e8a3c1b",
+    "cc736eda0fa3013d",
+    "9c13c9a35b38191d",
+    "562f2bc8b60c62ca",
+    "3ef99c228dadd7eb",
+    "03d6b69158990789",
+    "1733f43c44b86201",
+    "d0b80f029454eabf"
    ],
    "pose": [
-    "aa3ff515a7573004",
-    "648d241466890e00",
-    "5f414f3974181353",
-    "532845c4d6e5ec9e",
-    "47145668f0974bb7",
-    "5b8c33d6ab415946",
-    "60773f73cc55d2b5",
-    "383c549084bfd31d"
+    "6aa2f3cb70b67b73",
+    "d2244b00b5b98819",
+    "54256961e05fea3e",
+    "ac8052bb70e037fd",
+    "a2d0bc92bbfac0a9",
+    "53a61ddf6a1f9c7e",
+    "f857a7324212ee5d",
+    "1cb8f15bdcdb4deb"
    ]
   },
   "fixture:waterline-ii-rbot-water.json|runner": {
@@ -5284,153 +5284,153 @@
     "163ae6ffdee92e5a"
    ],
    "state": [
-    "9dba4f1806b39313",
-    "11d6a0b1022266e6",
-    "9bee7ce94d1ed00d",
-    "c17a8a628a71c8eb",
-    "17f7c1f2372b326c",
-    "29456b5553e6c297",
-    "123c855a379f9651",
-    "1e21195e95bead1f"
+    "b5af26cb1eb42d9e",
+    "5e0b99b160520a6d",
+    "0d7dd2cd2e536e00",
+    "1948922eb7c6b115",
+    "ff7901ec3b7b46cd",
+    "ca53e03928957b62",
+    "78319cbf7f3d4a00",
+    "d2f0441cb6137d98"
    ],
    "pose": [
-    "c635d07ed818fec3",
-    "ac5795b77e5252aa",
-    "3d1b3a2785571613",
-    "e892687532f5d2bb",
-    "7ed01d21d9b154a8",
-    "600152bae803a1a9",
-    "fa0a179a58a0f2da",
-    "8e229d45d3e40717"
+    "935ad0314c3e9542",
+    "4fdf32d079579af0",
+    "8403b0e63e5dd66e",
+    "c843af70d95e251c",
+    "320b1f3d621645ed",
+    "6d2af4ad72bd782e",
+    "62214b38bc51ea19",
+    "06ce6422ed8a6508"
    ]
   },
   "fulltilt.jump-level.json|climber": {
    "ticks": 960,
    "finished": false,
    "physics": [
-    "01176adea3837065",
-    "48f061c94cdc9907",
-    "d19d7b4ab8069ee6",
-    "9fc8eeefe990d7c0",
-    "9d6bb6b5789808b6",
-    "2f9720a8bbfbcb94",
-    "41d19eda455a0716",
-    "311eac68240d38cb"
+    "b70451b3ace74d10",
+    "475119d4a46bf6fb",
+    "b623051b58fb870a",
+    "b95fb731c2da42b9",
+    "f3d8f5368cefc072",
+    "a08fbd3f3f6659ab",
+    "6e5b21c29e06b256",
+    "aebf612dd678a163"
    ],
    "state": [
-    "b2925043f97d0c17",
-    "34e357db35242b87",
-    "1fcdd58df7637375",
-    "21b6c90de0bd50d1",
-    "f909f7efb74eddf6",
-    "9418f7376dc69c68",
-    "828d8b85bce7331b",
-    "ad437c2c227aa7bb"
+    "9dddbda8aeccdda5",
+    "ae3dc794a38ed324",
+    "efa83ea3474c084b",
+    "3abdb1a673c9e12f",
+    "3acabdd890b91d8e",
+    "51d04f7d99da6448",
+    "463f59f9c92a2857",
+    "78abdab010606779"
    ],
    "pose": [
-    "00d751cfe958c7e3",
-    "4c8215db2d47149f",
-    "96ad25970de262a3",
-    "8b9f4076628ec251",
-    "3b7c7b8378617644",
-    "55ef477809255546",
-    "0376bc54bcb31b20",
-    "b5d309e95e2ceffd"
+    "2e53f6e88abd89b3",
+    "eac8843316c94e41",
+    "736ea8e6be9a8b10",
+    "4d178459eee5f4ad",
+    "641ec96d7983d7b8",
+    "f7811c931b3cff4f",
+    "7b5d7729b6f1d10a",
+    "7cfad07f552e073f"
    ]
   },
   "fulltilt.jump-level.json|medal-route": {
-   "ticks": 1981,
+   "ticks": 1998,
    "finished": true,
    "physics": [
-    "4b6f068c6a271889",
-    "27c8dcf4fa7a3ea1",
-    "c127a67d3fbe991f",
-    "b4c0e6eab2bf8734",
-    "a9a10ada4a9bdf02",
-    "6b56049628d7b384",
-    "953d8b38d35a6992",
-    "2a7e1c9076a0998b",
-    "71b0e4ff2274517d",
-    "f7440240c53d35c6",
-    "b07d5fa71a04f39c",
-    "eb31f4c997c3e8d3",
-    "04228403ac8bec7d",
-    "917536f0a6e3a71b",
-    "1e9755be69b8e2f9",
-    "e68fa9dfff246cc9",
-    "6c98905ccec438c9"
+    "d563c624c519de8e",
+    "2880e19200e693c0",
+    "0d1ab39a7f174425",
+    "2ef79c1cc5ed34fb",
+    "3572844d10c7deca",
+    "1da2f96a833db03c",
+    "b31c54734d4a83a2",
+    "ef5c5a0a9119a60e",
+    "963bc1f3ff18d8e7",
+    "21e55b2a8274cfdb",
+    "b5e7d40157c193de",
+    "6e089b2260236ac7",
+    "f1522dd12f67fcc0",
+    "08aacfda5d014cf5",
+    "5562099b6373da0d",
+    "ca3f56496035f1d5",
+    "46cf805e9524acad"
    ],
    "state": [
-    "d9d9a435c6033ab4",
-    "ae8ea9febc6751bd",
-    "6531828952269991",
-    "65128897fd9a4cf6",
-    "064233d2c44343c8",
-    "17d8c3cc9ac0a0c6",
-    "f867d2b6b8c76bcf",
-    "35b6ad96d406082a",
-    "26e8479ecea9415b",
-    "64150561acac5989",
-    "451b883e231e5cc2",
-    "9fed309bed589fea",
-    "dbaddb55829bbefd",
-    "ea1b4dd8dca7fa80",
-    "cbb2f25656be9754",
-    "9558b492ccfe37b8",
-    "9d1adb31fa110045"
+    "2e066e5a1661e4f8",
+    "19304d2e3a16879a",
+    "7aefa3f3855f8566",
+    "5c56fdf02d08b278",
+    "190a11a5812d543a",
+    "6db79bb520f34c9c",
+    "332d8e3b8154ea77",
+    "93a0f3a17d1d0b5f",
+    "764a9a964e0b0a71",
+    "8dde5b6a543ddb16",
+    "e6313e39154e39eb",
+    "406624c6987266f7",
+    "3abfa466fc451ced",
+    "832202ac6913c159",
+    "398070f2d16b4320",
+    "b682155fdf46cde7",
+    "e80feb1d8fb84aa8"
    ],
    "pose": [
-    "b137a2266c788983",
-    "bf87800251a79a95",
-    "9759d395406a10e4",
-    "5ec208bc42913b50",
-    "50e88d91c09240c8",
-    "9e1979d5480a89fa",
-    "32a478cf64ce04bd",
-    "13b11ff535720180",
-    "050ab93f5729a400",
-    "a58d1a987ced3307",
-    "4303222b64cc3de1",
-    "699d2a961246740e",
-    "ed200cca4f145c08",
-    "1a958c1f3ffa24cc",
-    "705d78acdf9d214a",
-    "6f0ee78b261290f5",
-    "590f55d36ddafdee"
+    "05ccd600426ed180",
+    "e6847826d3215094",
+    "d47b06f2e5816d24",
+    "390c191cc3147881",
+    "62c5a008619e7578",
+    "95d3279ac7b840ee",
+    "c16be1dbfb00864a",
+    "b507b6b02e15e6e2",
+    "6e58932ff37c58ff",
+    "04029b6fa7c747c9",
+    "31f8c14cc432e330",
+    "71ae5ad5f8eecb8a",
+    "d5c9f95af5b874b0",
+    "ee325f0b6eedc499",
+    "5a8d145eac3325b1",
+    "e35b63d66fcb0e6a",
+    "fbd3d79bd97ea139"
    ]
   },
   "fulltilt.jump-level.json|runner": {
    "ticks": 960,
    "finished": false,
    "physics": [
-    "631c87a61dc8a880",
-    "64181b29848bfc53",
-    "ab78f1ed00c4b66a",
-    "1b2eeefcf4656d4f",
-    "a6e58afd0a7579a8",
-    "6c9ced3e304c8db5",
-    "860c01901ed3c7e9",
-    "61faa464b748cf15"
+    "63c5965f37b77cce",
+    "63bbf17f5723b044",
+    "c42e8943eaba9b6e",
+    "6d547e9491655576",
+    "76da7acb2fa9daf4",
+    "ab894782ea62a5d1",
+    "b86926c4e0605bd5",
+    "55c273743eedd869"
    ],
    "state": [
-    "9145630e2653ca86",
-    "f701b4d2ad40f358",
-    "3d6f27f9af703de2",
-    "08c5542f31411733",
-    "6a993ed510e69aec",
-    "ff1970d3c9a7fe32",
-    "bcb43eba47718f13",
-    "39ac0514a3a7803a"
+    "c6f335fedbda6c62",
+    "77c19945ef860f64",
+    "18af6f5fbb41c162",
+    "f33b4e043c77327e",
+    "2d7e83e6d37c65b2",
+    "140eb0cae26ef88b",
+    "06d8d504efad1b3c",
+    "132f76394a48badf"
    ],
    "pose": [
-    "ab471ee3b9b2da20",
-    "5054467f3f96c5ba",
-    "ac9a19efc7944072",
-    "3901f8138cb4baba",
-    "dae7a61dd7fc3bc5",
-    "14dcafb0327686d5",
-    "8afd849726f9004c",
-    "214ffb8cba5526f7"
+    "37dfd93374fdc344",
+    "31d213e7caf40ec6",
+    "38aca5e53c515aef",
+    "1845e3a59af72ee1",
+    "0398a98638591758",
+    "21df1675d4ee86b2",
+    "373018d8ff48c699",
+    "793b724585850bb7"
    ]
   },
   "hsj.jump-level.json|climber": {
@@ -6162,12 +6162,12 @@
    "state": [
     "488410d7ec51d8d5",
     "7e3dcc9853d5822b",
-    "88635dfd7a90ba4d",
-    "a2a557c306e68d75",
-    "90910d426372a71e",
-    "01116573d793b45e",
-    "a8bbf16536a7fead",
-    "a912f953646997e1"
+    "bde80767ebc5d8c6",
+    "33c4d3cc9e60eddf",
+    "06c1f6d5177c9655",
+    "59e26c02064983e9",
+    "4e9eac6424da89ce",
+    "dc5005706c1f690b"
    ],
    "pose": [
     "343a8ea37c1e2940",
@@ -6176,8 +6176,8 @@
     "0379d2b17ac6a12f",
     "25842b643e42f18f",
     "58ea2a8368c3776a",
-    "f8569ae712ccaadd",
-    "f1670b26b06406e7"
+    "664a71ba5a4b132e",
+    "b2aa1fd022d72088"
    ]
   },
   "scaffold1.jump-level.json|runner": {
@@ -6198,20 +6198,20 @@
     "9a2f0ad4a5103e94",
     "8f0f298efa4e143e",
     "85300fa5a69a91b5",
-    "434ee7624907a01b",
-    "284316c94ed475ec",
-    "9b37352399afaa37",
-    "da630b53289d753f"
+    "36f0bd80205b5099",
+    "90ff050f91b05c8b",
+    "386f13a6e3ccd1d0",
+    "038a75094fad79f1"
    ],
    "pose": [
     "2e627325cb8cd920",
     "bde797d4a9411278",
     "5da5b5e60eb1a541",
     "fd0d691be86e02fe",
-    "2ee2e418e79d0066",
-    "e27d467795ebc0c6",
-    "473e9bdb860e0cb3",
-    "e808af8480cd8ae1"
+    "71964eb73233dbc6",
+    "ffc8122200bd939f",
+    "b97ee9a57901aacc",
+    "b169b2d7f54ca231"
    ]
   },
   "scaffold2.jump-level.json|climber": {
@@ -6229,23 +6229,23 @@
    ],
    "state": [
     "d61e3cc2bd3d2365",
-    "1902f85fc0f832a3",
-    "f7ed1c3810e21de6",
-    "903f9f51ceced951",
-    "2029cef27f7e30ef",
-    "896b0f4150f7fa45",
-    "42756c880815103f",
-    "ce9082957f0de301"
+    "2e6584c108d42858",
+    "2f5dff6024cd92bb",
+    "b609661d0f2a2335",
+    "a008e3b055f1f48f",
+    "2095f44b085b8e2f",
+    "996a028df8eae5d2",
+    "a70c23219542e9d4"
    ],
    "pose": [
     "54ac8e1c05946734",
-    "99ed89bb55d0af09",
-    "e3bdce805009b1e9",
-    "aad9d3c65a3ea719",
-    "26042c7243f2dd4a",
-    "e81f8d15745d4d28",
-    "d5eaadeacd99199c",
-    "61a0522dbc27b09c"
+    "053b205746120872",
+    "de79dee83f2c518f",
+    "4da37270ea44a952",
+    "766efe39b6077ea1",
+    "fbb3ca8ea689f41d",
+    "4b08ae9a589d4b78",
+    "d40e9400b6faec02"
    ]
   },
   "scaffold2.jump-level.json|runner": {
@@ -6265,21 +6265,21 @@
     "5531dcbb16ebc898",
     "922e23b1c7f91e66",
     "17426a0462a32bac",
-    "963ac18f44176d3f",
-    "db3e088d72130382",
-    "e64c122a09d5081c",
-    "93104b3fb51ad388",
-    "389c9634736ffec2"
+    "8698d50007e057c3",
+    "711bcb773f6814ec",
+    "ec8457e6b69e62b1",
+    "452ce9172645bc18",
+    "feb76ffb2e89d904"
    ],
    "pose": [
     "e2475daef333272f",
     "5952e5af480893ed",
     "d34d07c2e53e44d9",
-    "4e7a0a384137e9cf",
-    "eff5b2c192fe3b5c",
-    "74450bfdfbfcba2c",
-    "d3977fa4f5157772",
-    "c94c1038434d5ff9"
+    "cf26a594cdf0bd31",
+    "0a7abb39e93ede28",
+    "d7ac1901795ea069",
+    "60ad8dfd069692f4",
+    "234863c027d52e33"
    ]
   },
   "scaffold3.jump-level.json|climber": {
@@ -6299,21 +6299,21 @@
     "c9cd34b886159fff",
     "5ae53d8086b82f19",
     "970fcee158880147",
-    "fe93a79d7c3e8edb",
-    "9daa960f28d16afe",
-    "1d12adb5193d6a5b",
-    "c3283b4876a1430d",
-    "95daa8d8575d1a73"
+    "4c4b11cab151ad93",
+    "1dda431020b67b08",
+    "b80eab453002c2ce",
+    "573a02a652b27668",
+    "86a36673b14ff1bf"
    ],
    "pose": [
     "3aaf2b65443f9e40",
     "0062f167d1478661",
     "853bd8c29b2e6a85",
-    "4ad5c458b46a061d",
-    "025ef1e72b0eeb04",
-    "404b4bd37a71d398",
-    "ef545a8b37605002",
-    "60e25b9a6c7e34cd"
+    "a7bc5d04f5023639",
+    "60125d95bc19d273",
+    "a6cd36798dab8da6",
+    "22883b76953df9e5",
+    "c94766734b36e5eb"
    ]
   },
   "scaffold3.jump-level.json|runner": {
@@ -6333,21 +6333,21 @@
     "44b166c988f05949",
     "a93a0fb631fad0ca",
     "df7566dad804e5c4",
-    "87e426a405b2a22d",
-    "39346f3ee6a6e681",
-    "53dcbf4d90132c0a",
-    "d0331528637526f5",
-    "f291477afa0fb39a"
+    "b7045842ed811a03",
+    "5c6a465f9e2b1faa",
+    "e015266c7a8e0a71",
+    "c64187162b964e95",
+    "3731f540dce2e2ad"
    ],
    "pose": [
     "6fe71da1850d7db2",
     "086af72fef6dbe63",
     "28b12b353ecbce14",
-    "4b8ab88d3d70b5d9",
-    "14890d2d4a3baf88",
-    "7f550a6ece8f425c",
-    "2e81465cfd983600",
-    "c3cd49f3c2aecabe"
+    "8d936041e788e15c",
+    "8859a5b91affba1b",
+    "20496828c0d5935b",
+    "c13052beb6c056a3",
+    "5248647dacb3da7f"
    ]
   },
   "scaffold4.jump-level.json|climber": {
@@ -6433,23 +6433,23 @@
    ],
    "state": [
     "6965c424098cad97",
-    "8b22270f1fca7202",
-    "f4400a7a510851c9",
-    "52e1812c514c864d",
-    "9f5fd7b3365e2e25",
-    "bf1b0e6f408261bb",
-    "4d271351d208cbe8",
-    "028cdf7ed3a51455"
+    "46f78560cf7ec964",
+    "dcb5337013f9873d",
+    "b58d50fc83bca340",
+    "52faff433dcb6653",
+    "65eb91bbb8cea62e",
+    "77845eeb0926db26",
+    "53c2ae53888900f6"
    ],
    "pose": [
     "d8b6f5c829f7cd17",
-    "bd98afeac61a48da",
-    "707e0b7dbea39ba4",
-    "138f3e95f6064164",
-    "e02935bb9087b5d4",
-    "d968adb221c1184b",
-    "c48295027255723b",
-    "e07d920ab23b5e7c"
+    "bf0384ebb4798428",
+    "3d1ebe02b64d0228",
+    "f6ba26945473805a",
+    "d4170f7482ab5fa8",
+    "a2967d7b2b1f77c6",
+    "19d1a35d6ea03c76",
+    "db1e3590fc9b69a5"
    ]
   },
   "scaffold5.jump-level.json|runner": {
@@ -6467,23 +6467,23 @@
    ],
    "state": [
     "766b21fa3635f45e",
-    "5add08496d50e001",
-    "a42881f69e7abf11",
-    "9ca11e0039442eea",
-    "cfc3952e67668cce",
-    "2afdb55e8d9e3816",
-    "f0094af0bc80ca74",
-    "c3c7e637c4b42ac4"
+    "d5c1e4189c96f6e0",
+    "dcd4bc1675ef0e48",
+    "6ae31343f0b67bb3",
+    "56dc2e649317aeeb",
+    "5f7db96a2a36cfb8",
+    "69fd3e0b6c155fb4",
+    "fb9f38c7829ba67f"
    ],
    "pose": [
     "5440cd76e98080b2",
-    "0d5762e4d3a75249",
-    "0ce9f7e43ed28efc",
-    "4574126b5431d9bb",
-    "fe1a6f74dd37786b",
-    "6114183d9f92cf70",
-    "a929fc44ddb0033e",
-    "1bae7fecfe3a4118"
+    "87e399f4b75d968f",
+    "52f4404a6ac1f54d",
+    "95fdc05e7155fdcf",
+    "77d19ce1d0775365",
+    "505f972afb0ab8f5",
+    "5a36fe64b47fc69b",
+    "83c184c656432974"
    ]
   },
   "spelunk.jump-level.json|climber": {

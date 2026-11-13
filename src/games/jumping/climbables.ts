@@ -89,8 +89,11 @@ export interface Climbing {
   still?: number
   /** Shimmying back the other way, the robot brakes and turns about before it sets off. */
   turningBack?: boolean
-  /** How far the robot has climbed up or down steep rope since taking hold; it paces the body's slow turns on the rope. */
-  climbed?: number
+  /**
+   * Climbing a steep rope hand over hand, the pull the pose draws: how far the body is drawn along the rope
+   * from its grip, in material units, and how far the knees tuck, from 0 to 1. Presentation only.
+   */
+  stroke?: { shift: number; tuck: number }
   /** Turning about while it climbs on, the body turns its back to the camera: 1 side-on, 0 back-on. */
   pivot?: number
   /** How much the robot is lowering itself down the rope, from 0 to 1, eased; the legs reach down instead of flexing. */
@@ -165,7 +168,6 @@ export function stepArmHolds(c: Climbing, travel: number, dt: number) {
   // Stopping, the hands settle while the body still brakes; turning back, they hold where they are.
   const stopping = !c.direction && !c.turningBack
   c.still = stopping ? (c.still ?? 0) + dt : 0
-  c.climbed = (c.climbed ?? 0) + Math.abs(travel) * clamp(((c.ropeVertical ?? 0) - .6) / .3, 0, 1)
   // A reach takes the travel of the rest of a stride, or finishes onto the rope when the robot stops.
   const hold = holdShare(c)
   const reachTravel = (high - low) * (1 - hold) / hold, target = (toward: number) => d + (toward > 0 ? high : toward < 0 ? low : 0)
@@ -192,6 +194,54 @@ export function stepArmHolds(c: Climbing, travel: number, dt: number) {
   const [trailing] = [...holds].sort((a, b) => (a.at - b.at) * dir)
   const spent = dir > 0 ? trailing.at - d <= low : trailing.at - d >= high
   if (spent || Math.abs(holds[0].at - holds[1].at) < (high - low) * .25) reachFrom(trailing, dir)
+}
+/**
+ * Climbing a steep rope hand over hand, how far through its current pull the robot is: 0 as a hand takes
+ * hold, then both hands hold briefly, the lower one lets go and reaches on past the other, and 1 as it takes
+ * hold. Null unless it travels along the rope.
+ */
+export function ropeStrokePhase(c: Climbing): number | null {
+  const direction = Math.sign(c.travelSpeed ?? 0), lead = hangingHold(c)
+  if (!direction || !lead || !c.holds) return null
+  // A pull is half a hand's stride; for its first part both hands hold.
+  const [low, high] = armReachRange(c), hold = holdShare(c), stroke = (high - low) / (2 * hold), together = 2 * hold - 1
+  // How far the grip has traveled since the leading hand took hold, at the end of its range.
+  const offset = lead.at - c.distance, since = direction > 0 ? high - offset : offset - low
+  const reaching = c.holds.find(h => h.reach < 1 && h.toward === direction)
+  if (!reaching) return clamp(since / stroke, 0, together)
+  // A reach carries on from where the pull was as the hand let go, to 1 as it takes hold.
+  const start = clamp((since - reaching.reach * (reaching.span ?? 0)) / stroke, 0, together)
+  return start + (1 - start) * reaching.reach
+}
+/**
+ * How much faster than its grip the body is drawn mid-pull, and slower as it settles, and the phase of the
+ * pull it is slowest at: as the lower hand lets go and sets off on its reach.
+ */
+const PULL_SURGE = .7, PULL_SETTLE = .25
+/**
+ * Climbing a steep rope, each pull draws the body up past its grip: still
+ * rising as a hand takes hold, it settles as the other lets go, then surges as
+ * that hand reaches on, and the knees tuck a little with each surge. It
+ * averages out to the grip's steady travel, so the body is drawn a few units
+ * either side of it, furthest ahead as each hand takes hold, so a hand at full
+ * stretch never holds it back. Stopping, the body settles onto its grip. It is
+ * presentation only.
+ */
+export function stepRopeStroke(c: Climbing, dt: number) {
+  const s = c.stroke ??= { shift: 0, tuck: 0 }, phase = c.wall ? null : ropeStrokePhase(c)
+  if (phase === null) {
+    const settle = 1 - Math.exp(-dt / .07)
+    s.shift -= s.shift * settle; s.tuck -= s.tuck * settle
+    return
+  }
+  const steep = ease(((c.ropeVertical ?? 0) - .6) / .3), [low, high] = armReachRange(c), stroke = (high - low) / (2 * holdShare(c))
+  // The body's speed is the grip's times 1 - PULL_SURGE * cos(2 pi (phase - PULL_SETTLE)); this is how far
+  // that leads it.
+  const wave = 2 * Math.PI * (phase - PULL_SETTLE)
+  const shift = -Math.sign(c.travelSpeed ?? 0) * steep * PULL_SURGE * stroke / (2 * Math.PI) * Math.sin(wave)
+  const tuck = steep * (.5 - .5 * Math.cos(wave))
+  // A change of direction or an uneven reach eases across rather than jumping.
+  s.shift += clamp(shift - s.shift, -110 * dt, 110 * dt); s.tuck += clamp(tuck - s.tuck, -8 * dt, 8 * dt)
 }
 /** How much of the body's weight a hand bears: all of it while it holds, almost none mid-reach, handing over smoothly. */
 export const holdLoad = (h: ArmHold) => h.reach >= 1 ? 1 : 1 - .9 * ease(Math.min(h.reach, 1 - h.reach) / .45)

@@ -1,6 +1,6 @@
 import type { NamedObject } from './objectNames.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
-import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ladderDistance, rappelFrame, ROPE_TOP_GRIP, ropeGripDistance, ropeGripLimit, ropeImpulse, ropePendulumPace, ropeTravelSpeed, stepArmHolds, stepRopeSway, ropePoint, ropeSlopeSupport, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
+import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ladderDistance, rappelFrame, ROPE_TOP_GRIP, ropeGripDistance, ropeGripLimit, ropeImpulse, ropePendulumPace, ropeTravelSpeed, stepArmHolds, stepRopeStroke, stepRopeSway, ropePoint, ropeSlopeSupport, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder } from './climbables.ts'
 import { ladderExitGround, ladderLanding, ladderMantleEntry } from './ladderGeometry.ts'
 import { exposedSide, exposedWallFaces, followGround, groundAt, platformSurface } from './terrain.ts'
@@ -1214,7 +1214,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         p.climbing = c; p.x = oldX; p.y = oldY; p.vx = 0; p.vy = 0
       }
     }
-    if (c.rope) { stepArmHolds(c, (c.travelSpeed ?? 0) * dt, dt); stepRopeSway(c, dt) }
+    if (c.rope) { stepArmHolds(c, (c.travelSpeed ?? 0) * dt, dt); stepRopeSway(c, dt); stepRopeStroke(c, dt) }
     if (c.wallBlend) {
       // A rebounding grip can travel faster than a deliberate wall step. Advance
       // the foothold gait in simulation so it cannot whip through a whole stride.

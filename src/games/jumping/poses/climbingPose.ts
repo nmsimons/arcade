@@ -11,11 +11,6 @@ import type { Limb, Point } from '../limbPose.ts'
 import { ropeArmReach, ropeHangOffset } from '../ropeBodyMotion.ts'
 import { keepRopeGrip } from '../ropeGravity.ts'
 import type { Player } from '../characterTypes.ts'
-/**
- * Climbing a steep rope, the body sets off side-on and turns its back to the
- * camera once per this length of climbing, midway, before turning side-on again.
- */
-const ROPE_SPIN = 420
 
 export function climbingPose(p: Player, turnAngle = 0): AthletePose {
   const c = p.climbing!, blend = smooth(c.time / .16)
@@ -46,15 +41,14 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
   const phase = d / 28 * Math.PI * 2, sway = Math.sin(phase) * 1.4
   const bracing = rappelWeight(c)
   const wallFrame = bracing ? rappelFrame(c) : null
-  // Traveling a rope is seen side-on, facing the way the robot goes. Climbing a steep rope, now and then
-  // the body turns slowly on the rope until its back is to the camera, then back again.
+  // Traveling a rope is seen side-on, facing the way the robot goes, and hanging still, its back to the camera.
   // Swinging on a rope, the robot stays side-on the whole swing, facing the one way, rather than turning
   // toward each pump.
   const swinging = c.rope ? Math.max(Math.abs(c.lean), Math.abs(c.swingVelocity) * 1.5) : Math.abs(c.lean)
   const shimmying = smooth(c.shimmyBlend ?? 0), leaning = lerp(smooth(swinging / .65), 1, bracing)
-  const turnedAway = smooth((.5 - .5 * Math.cos((c.climbed ?? 0) * Math.PI * 2 / ROPE_SPIN) - .7) / .3)
-  const twist = c.rope ? 1 - turnedAway * smooth(((c.ropeVertical ?? 0) - .6) / .3) : 1
-  const travelView = c.rope ? shimmying * twist * smooth(c.pivot ?? 1) : 0
+  const travelView = c.rope ? shimmying * smooth(c.pivot ?? 1) : 0
+  // How much the robot is climbing a steep rope hand over hand, pulling itself up or lowering itself down.
+  const climbing = c.rope ? shimmying * smooth(((c.ropeVertical ?? 0) - .6) / .3) : 0
   // How far into a swinging run along a level rope the robot is, from 0 to 1.
   const run = c.rope ? smooth(c.pace ?? 0) * (1 - (c.ropeVertical ?? 1)) * shimmying : 0
   const sideView = c.rope ? Math.max(leaning, travelView) : leaning
@@ -114,9 +108,11 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
   const feet = [contact(gait.feet[0], true, -1), contact(gait.feet[1], true, 1)]
   if (hanging) {
     // A rope's body hangs from its grip while the hands take turns, just behind the rope while traveling,
-    // swinging toward whichever hand bears its weight.
-    const sway = c.sway ?? { x: 0, y: 0 }
-    const mid = c.rope ? add(local(climbPoint(c, d)), [((c.setback ?? 0) * twist * smooth(c.pivot ?? 1) + sway.x) * p.facing, sway.y + (c.swingAngle?.dip ?? 0)]) : mix(hands[0].point, hands[1].point, .5)
+    // swinging toward whichever hand bears its weight. Climbing a steep rope, each pull draws it up the rope
+    // instead, ahead of the grip and back (see stepRopeStroke).
+    const sway = c.sway ?? { x: 0, y: 0 }, swayShare = 1 - climbing
+    const drawn = c.rope ? Math.max(0, Math.min(c.rope.definition.length, d + (c.stroke?.shift ?? 0))) : d
+    const mid = c.rope ? add(local(climbPoint(c, drawn)), [((c.setback ?? 0) * smooth(c.pivot ?? 1) + sway.x * swayShare) * p.facing, sway.y * swayShare + (c.swingAngle?.dip ?? 0)]) : mix(hands[0].point, hands[1].point, .5)
     // Swinging, the chest hangs back behind the rope whichever way the robot pumps, the rope in front of its
     // face; pumping back, the hips and legs carry the arch.
     const out = -(c.rope ? Math.abs(lean) : lean) * 12, spread = 3.9 * blend * (1 - sideView)
@@ -138,12 +134,12 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     }
     // Traveling hand over hand, as one hand lets go and reaches ahead the holding arm bends at the elbow and
     // pulls the body forward and up toward its hand, then lets it down again as the reaching hand takes hold.
-    // Running, the swing does more of the work; on a steep rope the arms are already bent.
+    // Running, the swing does more of the work; climbing a steep rope, the pull draws the body up the rope.
     // It never draws the head up into the rope, as up a steep stretch toward a higher hand.
     if (c.rope && c.holds) for (const [i, hold] of c.holds.entries()) {
       const other = c.holds[1 - i]
       if (hold.reach < 1 || other.reach >= 1 || !other.toward) continue
-      let amount = 6 * Math.sin(other.reach * Math.PI) * shimmying * (1 - .85 * run) * (1 - .7 * (c.ropeVertical ?? 0))
+      let amount = 6 * Math.sin(other.reach * Math.PI) * shimmying * (1 - .85 * run) * (1 - .7 * (c.ropeVertical ?? 0)) * (1 - climbing)
       const dx = hands[i].point[0] - chest[0], dy = hands[i].point[1] - chest[1], length = Math.hypot(dx, dy)
       if (amount < .01 || length < amount + 8) continue
       const rope = Array.from({ length: 31 }, (_, k) => local(climbPoint(c, Math.max(0, Math.min(c.rope!.definition.length, d - 30 + k * 2)))))
@@ -169,8 +165,9 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     const pump = ropePump(c, turnAngle, p.facing), offset = (point: Point): Point => swung([point[0] * p.facing, point[1]])
     // Traveling hand over hand, the body rocks with the strokes: the hips and legs swing one way as one
     // hand reaches and back the other way as the next one does. Running, a little of it carries on.
+    // Climbing a steep rope, the hips hang still beneath the pulls.
     const reachOf = (i: number) => { const h = c.holds?.[i]; return h && h.reach < 1 && h.toward ? Math.sin(h.reach * Math.PI) : 0 }
-    const rock = (reachOf(0) - reachOf(1)) * shimmying * (1 - .6 * smooth(c.pace ?? 0) * (1 - (c.ropeVertical ?? 1)))
+    const rock = (reachOf(0) - reachOf(1)) * shimmying * (1 - .6 * smooth(c.pace ?? 0) * (1 - (c.ropeVertical ?? 1))) * (1 - climbing)
     const waistPoint = add(chest, offset(pump.waist))
     const pelvis = add(add(waistPoint, turn([(pump.hip[0] - pump.waist[0]) * p.facing, pump.hip[1] - pump.waist[1]], hipSwing)), [rock * 3, 0])
     hip = mix(hip, pelvis, hanging); waist = mix(waist, waistPoint, hanging)
@@ -181,7 +178,8 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     // swinging together after the body as it swings from hand to hand. As a hand lets go and reaches, the
     // leg on its side flexes a little, its foot drawn back under the hips, so the knee never punches
     // forward into the rope; lowering, that leg reaches down instead. In a front or back view the feet
-    // hang apart under the hips.
+    // hang apart under the hips. Climbing a steep rope, the legs hang together a little forward, the knees
+    // tucking a little with each pull (see stepRopeStroke).
     const trail = Math.sin(c.bodyMotion?.legs ?? 0) * 20
     const lowering = smooth(c.lowering ?? 0)
     // Running, the legs swing loosely from the hips, lagging each surge and carrying on through each catch, so
@@ -195,11 +193,14 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     // Hip to ankle, for a knee bent by the given angle.
     const bentLength = (bend: number) => Math.sqrt(15 ** 2 + 14.5 ** 2 + 2 * 15 * 14.5 * Math.cos(bend)) + 1
     const straight = smooth(Math.min(1, run * 2.5))
+    const tuck = c.stroke?.tuck ?? 0
     const relaxed = (i: number): Point => {
       const lift = c.holds?.[i] && c.holds[i].reach < 1 && c.holds[i].toward ? Math.sin(c.holds[i].reach * Math.PI) * (1 - .6 * run) : 0
-      const x = (-2.5 + (i ? 0 : 1.5) * (1 - run) + lift * lerp(-2, .5, lowering)) * sideView + (i ? 3.4 : -3.4) * (1 - sideView)
-        + trail * (i ? .85 : 1) * p.facing * (1 - .7 * legRun) + rock * 3
-      const y = lerp(i ? 29.5 : 29.1, 30.3, straight) + lift * lerp(-2.5, 1, lowering)
+      // Climbing a steep rope, the knees bend about 20 degrees, and about 40 at the height of each pull, and
+      // the legs trail only half as far behind the rope's swing.
+      const side = lerp(-2.5 + (i ? 0 : 1.5) * (1 - run) + lift * lerp(-2, .5, lowering), (i ? 2 : 3) + 2 * tuck, climbing)
+      const x = side * sideView + (i ? 3.4 : -3.4) * (1 - sideView) + trail * (i ? .85 : 1) * p.facing * (1 - .7 * legRun) * (1 - .5 * climbing) + rock * 3
+      const y = lerp(lerp(i ? 29.5 : 29.1, 30.3, straight) + lift * lerp(-2.5, 1, lowering), (i ? 30 : 29.9) - 1.6 * tuck, climbing)
       const length = Math.hypot(x, y), running = bentLength(.17 + .26 * through + (i ? .15 : 0))
       const scale = lerp(length, running, run) / (length || 1)
       return [x * scale, y * scale]
@@ -305,14 +306,23 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
       head = add(head, shift); shoulder = add(shoulder, shift); waist = add(waist, shift); hip = add(hip, shift)
     }
   }
+  // Climbing a steep rope, each elbow points down as far as the arm allows, so the lower arm pulls the rope
+  // down to the chest with its elbow at the side, never pushing it away. It also turns a little away in
+  // depth, so a hand passing close by the shoulder turns its elbow smoothly over rather than flipping it.
+  // Setting off from a still hang, the body rises past the hand still holding at the grip, folding that arm
+  // right up; the elbows turn down only after that, once the arm has opened again.
+  const settingOff = smooth(((c.shimmyBlend ?? 0) - .5) / .5)
+  const wallBend = bracing * smooth(c.rappelPull ?? 0), elbowsDown = climbing * settingOff * sideView * (1 - bracing)
   const arms = hands.map((hand, i) => {
     const side = i ? 1 : -1, socket = add(shoulder, [side * 3.9 * blend * (1 - sideView), .7])
     // Reaching overhead, the shoulder rises a little toward the hand; a running reach leads with the shoulder.
     const leads = c.rope && (c.holds?.[i]?.reach ?? 1) < 1 ? 3 + 3 * run : 3
     const gap = Math.hypot(hand.point[0] - socket[0], hand.point[1] - socket[1]), lift = c.rope ? Math.min(leads, Math.max(0, gap - (UPPER_ARM + FOREARM))) : 0
     const root: Point = lift ? [socket[0] + (hand.point[0] - socket[0]) / gap * lift, socket[1] + (hand.point[1] - socket[1]) / gap * lift] : socket
-    const solved = solveRear(root, hand.point, UPPER_ARM, FOREARM, 1, lerp(side * .6, facing, sideView), 3,
-      bracing * smooth(c.rappelPull ?? 0))
+    const spread = lerp(side * .6, facing, sideView), bent = solveRear(root, hand.point, UPPER_ARM, FOREARM, 1, spread, 3, wallBend)
+    // The same reach in depth as solveRear's, so the two bends share the elbow's circle.
+    const depth = Math.min(3 * Math.sqrt(Math.max(0, 1 - spread * spread)), Math.sqrt(Math.max(0, (UPPER_ARM + FOREARM - .02) ** 2 - Math.hypot(hand.point[0] - root[0], hand.point[1] - root[1]) ** 2)))
+    const solved = elbowsDown > .001 ? turnElbow(bent, limbOnBend(limbReach(root, hand.point, UPPER_ARM, FOREARM, depth), [-.15, 1, -.5]), elbowsDown) : bent
     // Until the top rung is within reach, keep the palm on its wrist instead
     // of stretching the hand artwork to an unreachable support.
     // A hand reaching through the air stays on its wrist, even at full stretch.
@@ -331,6 +341,28 @@ export function climbingPose(p: Player, turnAngle = 0): AthletePose {
     return c.rope && p.terrain ? clearClimbingLeg(p, leg, spread) : leg
   })
   return { hip, waist, shoulder, head, frontArm: arms[0], backArm: arms[1], frontLeg: legs[0], backLeg: legs[1], sideView, backView: blend * (1 - sideView) }
+}
+
+/**
+ * Turns an arm's elbow part way from one bend to another about the line from shoulder to wrist, as the arm
+ * turns in its socket, the short way round at an even rate and keeping both bones' lengths, so it never
+ * swings across the arm. Both bends reach the same wrist.
+ */
+function turnElbow(from: Limb, to: Limb, amount: number): Limb {
+  if (amount >= 1) return to
+  const end = [from.end[0] - from.root[0], from.end[1] - from.root[1], from.endDepth ?? 0], length2 = end[0] ** 2 + end[1] ** 2 + end[2] ** 2
+  if (amount <= 0 || length2 < 1e-6) return from
+  // The elbow circles the shoulder-to-wrist line about this point.
+  const along = (UPPER_ARM ** 2 - FOREARM ** 2 + length2) / (2 * length2), center = end.map(v => v * along)
+  const offset = (limb: Limb) => [limb.joint[0] - limb.root[0] - center[0], limb.joint[1] - limb.root[1] - center[1], (limb.jointDepth ?? 0) - center[2]]
+  const a = offset(from), b = offset(to), radius = Math.hypot(...a)
+  if (radius < 1e-6) return from
+  // The turn's other direction, at right angles to both the arm and the first bend.
+  const unit = a.map(v => v / radius), axis = end.map(v => v / Math.sqrt(length2))
+  const across = [axis[1] * unit[2] - axis[2] * unit[1], axis[2] * unit[0] - axis[0] * unit[2], axis[0] * unit[1] - axis[1] * unit[0]]
+  const angle = Math.atan2(b.reduce((sum, v, i) => sum + v * across[i], 0), b.reduce((sum, v, i) => sum + v * unit[i], 0)) * amount
+  const joint = center.map((v, i) => v + radius * (unit[i] * Math.cos(angle) + across[i] * Math.sin(angle)))
+  return { ...from, joint: [from.root[0] + joint[0], from.root[1] + joint[1]], jointDepth: joint[2] }
 }
 
 /** A reaching foot meets the wall immediately while the torso eases into its brace. */

@@ -738,6 +738,18 @@ sloping rope, the body also drops a little onto each arm as it takes the weight,
 most when running. All of this is drawn only: the drop has its own spring, apart
 from the sway whose motion the hang's physics reads.
 
+A steep climb is drawn as a run of pulls (`stepRopeStroke`). The grip climbs at
+an even pace, but the body is drawn rising in surges: still rising as a hand
+takes hold, it settles as the other lets go, then surges as that hand reaches on,
+at between 0.3 and 1.7 times the grip's speed. Over each pull it keeps the grip's
+pace, so it is never drawn more than about 3 units from it, and it is drawn
+furthest ahead as each hand takes hold, so a hand at full stretch never holds it
+back. The elbows
+point down, so the lower arm draws the rope down to the chest; the legs hang
+together, a little forward, and the knees tuck a little with each surge. The
+robot stays side-on while it climbs and turns its back to the camera only once
+it stops. This too is drawn only; the physics never reads it.
+
 The robot faces the way it travels along a rope and turns around instead of going
 backward; the hands keep their holds while it turns. These rules apply to robots
 too, since they share the player's contacts. A robot's planned leap off a rope toward

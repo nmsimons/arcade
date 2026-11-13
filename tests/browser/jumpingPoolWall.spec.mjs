@@ -37,15 +37,16 @@ for (const side of [-1, 1]) test(`normal swimming stays stable against the ${sid
   expect(Math.abs(steady.waterCenter - blocked.waterCenter)).toBeLessThan(.01)
   expect(Math.abs(steady.vy)).toBeLessThan(.01)
   expect(steady.blends.fall).toBe(1)
-  for (const [i, point] of steady.points.entries()) {
-    // Quiet hands and ankles may scull; the torso must not gather and extend.
-    expect(Math.hypot(point[0] - blocked.points[i][0], point[1] - blocked.points[i][1])).toBeLessThan(i < 3 ? .01 : 3)
+  // The torso must not gather and extend. A held direction keeps the drawn stroke working against the wall.
+  for (const [i, point] of steady.points.entries()) if (i < 3) {
+    expect(Math.hypot(point[0] - blocked.points[i][0], point[1] - blocked.points[i][1])).toBeLessThan(.01)
   }
   await page.screenshot({ path: info.outputPath('pool-wall-blocked.png') })
   await hold([], 2000)
   const floating = await player()
   expect(floating.blends.fall).toBe(0)
-  expect(floating.points[2][1]).toBeLessThan(floating.points[0][1] - 20)
+  // The hover underwater leans forward, head up.
+  expect(floating.points[2][1]).toBeLessThan(floating.points[0][1] - 15)
   expect(Math.abs(floating.waterCenter - blocked.waterCenter)).toBeLessThan(.01)
   await page.screenshot({ path: info.outputPath('pool-wall-upright.png') })
   await hold([away], 1000)

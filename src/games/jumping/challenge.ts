@@ -169,13 +169,17 @@ function createInitialWorld(level: RunLevel, preview = false): Run {
   }
   return run
 }
-function syncPlatforms(run: Run): ContactWorld {
-  const colliders: PlayerCollider[] = [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
+/** The solids a body can stand on, before robots and force fields: terrain, machinery, a parked bus and props. */
+export function solidColliders(run: Run): PlayerCollider[] {
+  return [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
     ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: mechanismShape(m) })),
     // A parked bus is solid: the robot boards it at its side, and can stand on its roof.
     ...run.level.goal?.kind === 'bus' ? [{ id: 'bus', platform: busBody(run.level.goal) }] : [],
     ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind && !prop.gadget
       ? [{ id: `prop:${i}`, prop, platform: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) }] : []))]
+}
+function syncPlatforms(run: Run): ContactWorld {
+  const colliders = solidColliders(run)
   run.platforms = colliders.map(c => c.platform)
   const objectFields = forceFieldPlatforms(run.forceFields, 'objects')
   const supports = objectFields.length ? [...run.platforms, ...objectFields] : run.platforms

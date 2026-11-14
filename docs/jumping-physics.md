@@ -1560,6 +1560,23 @@ it, are drawn from gameplay time, and freeze while paused. A walk, a small hop
 or a step down draws nothing. Reduced water effects draw no splash and record
 none, so restoring them replays nothing. Coverage lives in
 `tests/jumping-world-effects.test.mjs`.
+A landing that raises dust also sounds as an impact, not a step: the player's
+is a deeper cushioned thump with a little grit, about 5 dB over a running step
+at the softest and 12 dB at the hardest, and Rbot's a lower, longer knock 3 to
+6 dB over its fastest step. Softer landings still sound as steps. Steps and
+landings take the character of the solid underfoot (`surfaceOf`,
+`audioState.ts`), always as the stone sound with a change meant to be felt more
+than heard (`SURFACES`, `sound.ts`): chalk is stone; earth is about 1 dB quieter
+with its highs gently dipped; ground cover a little more so, with a trace of
+swish; steel terrain, machinery, the bus and robots add a faint echo and a faint
+ring of overtones (740 to 1,640 Hz, the floor's own pitch under every step, not
+the step's, so walking plays no tune; about 20 dB under the step to the ear,
+though only 2% of its level, since the ear is far keener there than at a step's
+low thump); a crate adds a faint wooden knock; and a ball is a touch duller. A
+crate or ball that strikes something takes its character the same way, from the
+solid just past its lowest point (`surfaceUnder`). Every surface stays within
+1.5 dB of stone. Coverage lives in `tests/jumping-audio.test.mjs` and
+`tests/browser/jumpingAudio.dev.spec.mjs`.
 Water remains visible and physical regardless of switches or EMP. The studio
 adds a selection outline. Water shares the 16-region field limit,
 existing overlap averaging and field compiler. Regression

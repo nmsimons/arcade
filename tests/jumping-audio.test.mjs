@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { JumpingAudioState, soundPosition } from '../src/games/jumping/audioState.ts'
+import { JumpingAudioState, soundPosition, surfaceOf } from '../src/games/jumping/audioState.ts'
 import { loopTone } from '../src/games/jumping/sound.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
@@ -299,23 +299,85 @@ test('Rbot footsteps follow its actual planted feet while it approaches the play
   assert.ok(steps.every(cue => cue.pan > 0 && cue.volume > 0 && cue.volume < 1), 'footfalls come from the bot and fade with distance')
 })
 
-test('Rbot makes one heavier landing thump, with silent idle, airborne, carried and reset poses', () => {
+test('Rbot lands hard with one heavier thump, and softly as a step, with silent idle, airborne, carried and reset poses', () => {
   const { run, audio } = setup(level => { level.robots = [{ kind: 'repulsor', x: 700, y: 920, left: 26, right: 1774 }] })
   const robot = run.robots[0], actor = robot.actor
   const observe = () => { robot.x = actor.x; robot.y = actor.y; audio.step(run.player, run, STEP); return audio.drain() }
+  const sounds = cues => cues.filter(c => c.kind === 'robot-footstep' || c.kind === 'robot-landing')
   actor.anim.footwork = { feet: [{ planted: false }, { planted: true }] }
   actor.contacts = { motion: { speed: 0 } }; audio.reset(run.player, run)
   actor.anim.footwork.feet[0].planted = true; actor.y -= 1
-  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0, 'transport and idle feet stay silent')
-  actor.grounded = false; actor.vy = 600; actor.anim.footwork.feet[0].planted = false
-  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0)
-  actor.grounded = true; actor.vy = 0; actor.anim.footwork.feet[0].planted = true
-  const landed = observe().cues.filter(c => c.kind === 'robot-footstep')
-  assert.equal(landed.length, 1); assert.ok(landed[0].strength >= .7)
-  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0)
+  assert.equal(sounds(observe().cues).length, 0, 'transport and idle feet stay silent')
+  for (const [fall, kind] of [[600, 'robot-landing'], [300, 'robot-footstep']]) {
+    actor.grounded = false; actor.vy = fall; actor.anim.footwork.feet[0].planted = false
+    assert.equal(sounds(observe().cues).length, 0, 'airborne')
+    actor.grounded = true; actor.vy = 0; actor.anim.footwork.feet[0].planted = true
+    const landed = sounds(observe().cues)
+    assert.deepEqual(landed.map(c => c.kind), [kind], `a ${fall} unit/s landing`); assert.ok(landed[0].strength >= .7)
+    // Standing still until the step cooldown has passed.
+    for (let i = 0; i < 20; i++) assert.equal(sounds(observe().cues).length, 0)
+  }
   actor.grounded = false; actor.vy = 600; audio.reset(run.player, run)
   actor.y -= 400; actor.grounded = true
-  assert.equal(observe().cues.filter(c => c.kind === 'robot-footstep').length, 0, 'teleporting does not make a landing sound')
+  assert.equal(sounds(observe().cues).length, 0, 'teleporting does not make a landing sound')
+})
+
+test('steps and landings carry the surface underfoot', () => {
+  const FLOOR = blankTrial().entrance.y
+  for (const [material, groundCover, surface] of [[undefined, undefined, 'stone'], ['chalk', undefined, 'stone'], ['steel', undefined, 'metal'],
+    ['earth', undefined, 'earth'], ['earth', 'grass', 'grass'], ['stone', 'none', 'stone']]) {
+    const { step } = setup(level => {
+      level.platforms = [{ x: 200, y: FLOOR - 100, w: 1200, h: 100, ...material ? { material } : {}, ...groundCover ? { groundCover } : {} }]
+      level.entrance = { x: 600, y: FLOOR - 340 }
+    })
+    const sounds = kinds => cues => cues.filter(c => kinds.includes(c.kind))
+    const landed = [], walked = []
+    for (let i = 0; i < 240; i++) landed.push(...sounds(['landing', 'footstep'])(step().cues))
+    for (let i = 0; i < 150; i++) walked.push(...sounds(['footstep'])(step({ ...NEUTRAL_INPUT, move: 1 }).cues))
+    assert.deepEqual(landed.map(c => [c.kind, c.surface]), [['landing', surface]], `${material}/${groundCover}`)
+    assert.ok(walked.length >= 3 && walked.every(c => c.surface === surface), `${material}/${groundCover}: ${JSON.stringify(walked)}`)
+  }
+  const platform = { x: 0, y: 0, w: 10, h: 10 }
+  assert.equal(surfaceOf({ id: 'prop:0', platform, prop: { kind: 'box' } }), 'wood')
+  assert.equal(surfaceOf({ id: 'prop:1', platform, prop: { kind: 'ball' } }), 'rubber')
+  for (const id of ['mechanism:2', 'bus', 'player']) assert.equal(surfaceOf({ id, platform }), 'metal', id)
+  assert.equal(surfaceOf({ id: 'robot:0:1', platform, robot: {} }), 'metal')
+  assert.equal(surfaceOf({ id: 'force-field:0', platform }), undefined)
+  assert.equal(surfaceOf(undefined), undefined)
+})
+
+test('a crate or ball striking a surface carries that surface', () => {
+  const FLOOR = blankTrial().entrance.y
+  const impacts = (kind, change) => {
+    const { step } = setup(level => { level.entrance = { x: 200, y: FLOOR }; change(level) }), cues = []
+    for (let i = 0; i < 300; i++) cues.push(...step().cues.filter(c => c.kind === `${kind}-impact`))
+    return cues
+  }
+  const ledge = material => ({ x: 400, y: FLOOR - 100, w: 400, h: 100, ...material ? { material } : {} })
+  for (const kind of ['box', 'ball']) {
+    for (const [material, surface] of [[undefined, 'stone'], ['steel', 'metal'], ['earth', 'earth']]) {
+      const [first] = impacts(kind, level => { level.platforms = [ledge(material)]; level.props = [{ kind, size: 60, x: 600, y: FLOOR - 400 }] })
+      assert.equal(first?.surface, surface, `${kind} on ${material}`)
+    }
+    const [onGrass] = impacts(kind, level => { level.platforms = [{ ...ledge('earth'), groundCover: 'grass' }]; level.props = [{ kind, size: 60, x: 600, y: FLOOR - 400 }] })
+    assert.equal(onGrass?.surface, 'grass', `${kind} on grass`)
+  }
+  // A crate dropped onto a resting crate strikes wood; the one below landed on the floor.
+  const stacked = impacts('box', level => { level.props = [{ kind: 'box', size: 60, x: 600, y: FLOOR }, { kind: 'box', size: 40, x: 600, y: FLOOR - 400 }] })
+  assert.ok(stacked.some(c => c.surface === 'wood' && c.size === 40), JSON.stringify(stacked))
+})
+
+test('a hard landing makes one landing thump instead of a step, harder falls stronger; a small hop lands as a step', () => {
+  const FLOOR = blankTrial().entrance.y
+  const land = drop => {
+    const { step } = setup(level => { level.entrance = { x: 600, y: FLOOR - drop } }), cues = []
+    for (let i = 0; i < 240; i++) cues.push(...step().cues.filter(c => c.kind === 'footstep' || c.kind === 'landing'))
+    return cues
+  }
+  const [moderate] = land(240), [hard] = land(600)
+  assert.equal(land(240).length, 1); assert.equal(moderate.kind, 'landing')
+  assert.equal(hard.kind, 'landing'); assert.ok(hard.strength > moderate.strength, `${hard.strength} > ${moderate.strength}`)
+  assert.deepEqual(land(60).map(c => c.kind), ['footstep'], 'a step down')
 })
 
 for (const outage of ['global', 'direct']) test(`${outage} EMP suppresses Rbot steps and movement servos`, () => {

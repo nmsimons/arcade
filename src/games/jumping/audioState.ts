@@ -1,21 +1,63 @@
-import type { Run } from './challenge.ts'
+import type { Prop, Run } from './challenge.ts'
+import { solidColliders } from './challenge.ts'
+import { pointInside } from './geometry.ts'
 import type { Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerSwimStrength, propWaterStrength } from './gravity.ts'
-import { robotDrive } from './robotPhysics.ts'
+import { robotDrive, robotPlatforms } from './robotPhysics.ts'
 import { chargingBayOpening } from './goal.ts'
 import { triggerToggleGroup } from './toggleGroups.ts'
 import { powerOut } from './power.ts'
 import { landingDustStrength, PROP_TICK_STRENGTH, recordWorldEffect } from './worldEffects.ts'
 import type { WorldEffectKind } from './worldEffects.ts'
+import type { PlayerCollider } from './playerContacts.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo'
-export type CueKind = 'footstep' | 'robot-footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'emp-shot' | 'repulsor' | 'shove'
-export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
+export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'emp-shot' | 'repulsor' | 'shove'
+/** What a step or landing comes down on, which colours its sound (sound.ts). */
+export type Surface = 'stone' | 'earth' | 'grass' | 'metal' | 'wood' | 'rubber'
+export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number; surface?: Surface }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
 const clamp = (n: number, min = 0, max = 1) => Math.max(min, Math.min(max, n))
+
+/**
+ * The surface of a supporting solid: a crate is wood and a ball rubber; machinery, the bus and robots are
+ * metal; terrain is its material, with any ground cover over it sounding as grass. Chalk sounds as stone.
+ */
+export function surfaceOf(collider: PlayerCollider | undefined): Surface | undefined {
+  if (!collider) return undefined
+  if (collider.prop) return collider.prop.kind === 'box' ? 'wood' : 'rubber'
+  if (collider.robot || collider.id === 'player' || collider.id === 'bus' || collider.id.startsWith('mechanism:')) return 'metal'
+  if (collider.id.startsWith('force-field:')) return undefined
+  const { material, groundCover } = collider.platform
+  if (groundCover && groundCover !== 'none') return 'grass'
+  return material === 'steel' ? 'metal' : material === 'earth' ? 'earth' : 'stone'
+}
+
+/**
+ * The surface a crate or ball strikes: what lies just past its lowest point, in the direction of its weight.
+ * A box probes its lowest corners and the middle between them, so one tipped onto a ledge finds the ledge.
+ */
+export function surfaceUnder(run: Run, prop: Prop): Surface | undefined {
+  const down = (prop.gravity ?? 1) < 0 ? -1 : 1, half = prop.size / 2
+  let probes: [number, number][]
+  if (prop.kind === 'box') {
+    const cos = Math.cos(prop.angle), sin = Math.sin(prop.angle), cx = prop.x, cy = prop.y - half
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]): [number, number] => [cx + half * (u * cos - v * sin), cy + half * (u * sin + v * cos)])
+    const lowest = Math.max(...corners.map(([, y]) => y * down))
+    const contact = corners.filter(([, y]) => y * down > lowest - 1)
+    probes = [...contact, [contact.reduce((sum, [x]) => sum + x, 0) / contact.length, contact[0][1]]]
+  } else probes = [[prop.x, down > 0 ? prop.y : prop.y - prop.size]]
+  const solids = [...solidColliders(run).filter(c => c.prop !== prop),
+    ...run.robots.flatMap((robot, i) => robotPlatforms(robot).map((platform, piece) => ({ id: `robot:${i}:${piece}`, platform, robot })))]
+  for (const [x, y] of probes) {
+    const hit = solids.find(c => pointInside(c.platform, x, y + 3 * down))
+    if (hit) return surfaceOf(hit)
+  }
+  return undefined
+}
 
 /** World-space falloff keeps distant machinery from filling the whole level with noise. */
 export function soundPosition(x: number, y: number, listener: Player) {
@@ -100,9 +142,9 @@ export class JumpingAudioState {
     if (current.propIdentities.length !== before.propIdentities.length || current.propIdentities.some((prop, i) => prop !== before.propIdentities[i])) { this.reset(p, run); return }
     const fieldChanged = current.fieldRevision !== before.fieldRevision
     this.stepCooldown = Math.max(0, this.stepCooldown - dt)
-    const cue = (kind: CueKind, x: number, y: number, strength = 1, size?: number) => {
+    const cue = (kind: CueKind, x: number, y: number, strength = 1, size?: number, surface?: Surface) => {
       const mix = soundPosition(x, y, p)
-      if (mix.volume > .005 && this.cues.length < 8) this.cues.push({ kind, ...mix, strength, size })
+      if (mix.volume > .005 && this.cues.length < 8) this.cues.push({ kind, ...mix, strength, size, ...surface ? { surface } : {} })
     }
     // What the player sees of the same impacts, wherever they are, heard or not (worldEffects.ts).
     const effect = (kind: WorldEffectKind, x: number, y: number, strength: number, size: number, angle = 0, up = 1) => {
@@ -123,16 +165,18 @@ export class JumpingAudioState {
     const speed = p.contacts?.motion.speed ?? 0
     const plant = p.anim.footwork?.feet.some((f, i) => f.planted && before.feet[i] === false)
     const landing = !before.grounded && p.grounded && before.vy > 80
+    // Hard landings kick up dust and land with a thump of their own, louder than any step; a slide makes its
+    // own grit, and the bottom of a pool none. A softer landing sounds as a step.
+    const dust = continuous && !before.grounded && p.grounded && !p.sliding?.active && current.water < .02
+      ? landingDustStrength(before.vy * (p.inverted ? -1 : 1)) : 0
     if (continuous && !p.sliding?.active && !p.hang && !p.climbing && !p.mantle && this.stepCooldown === 0
       && (landing || p.grounded && !(p.freeFall?.amount && p.freeFall.recovery !== null) && speed > 8 && plant)) {
-      cue('footstep', p.x, p.y, landing ? .5 + clamp(before.vy / 800) * .5 : .3 + clamp(speed / 350) * .5)
+      const surface = surfaceOf(p.contacts?.support?.collider)
+      if (landing && dust > 0) cue('landing', p.x, p.y, .45 + .55 * dust, undefined, surface)
+      else cue('footstep', p.x, p.y, landing ? .5 + clamp(before.vy / 800) * .5 : .3 + clamp(speed / 350) * .5, undefined, surface)
       this.stepCooldown = .09
     }
-    // Hard landings kick up dust; a slide makes its own grit, and the bottom of a pool none.
-    if (continuous && !before.grounded && p.grounded && !p.sliding?.active && current.water < .02) {
-      const dust = landingDustStrength(before.vy * (p.inverted ? -1 : 1))
-      if (dust > 0) effect('landing', p.x, p.y, dust, 60, p.groundAngle, p.inverted ? -1 : 1)
-    }
+    if (dust > 0) effect('landing', p.x, p.y, dust, 60, p.groundAngle, p.inverted ? -1 : 1)
     this.loops = []
     const boost = airBoostStrength(p)
     if (continuous && !run?.exit && boost >= .01) {
@@ -161,15 +205,15 @@ export class JumpingAudioState {
           const speed = actor.contacts?.motion.speed ?? 0
           const plant = actor.anim.footwork?.feet.some((foot, footIndex) => foot.planted && old.feet[footIndex] === false)
           const landing = !old.grounded && actor.grounded && old.vy * (actor.inverted ? -1 : 1) > 80
+          const dust = !old.grounded && actor.grounded && !actor.sliding?.active ? landingDustStrength(old.vy * (actor.inverted ? -1 : 1)) : 0
           if (!actor.sliding?.active && !actor.hang && !actor.climbing && !actor.mantle && !this.robotStepCooldowns[i]
             && (landing || actor.grounded && !(actor.freeFall?.amount && actor.freeFall.recovery !== null) && speed > 8 && plant)) {
-            cue('robot-footstep', robot.x, robot.y, landing ? .7 + clamp(Math.abs(old.vy) / 800) * .3 : .5 + clamp(speed / 350) * .4)
+            const surface = surfaceOf(actor.contacts?.support?.collider)
+            if (landing && dust > 0) cue('robot-landing', robot.x, robot.y, .7 + .3 * dust, undefined, surface)
+            else cue('robot-footstep', robot.x, robot.y, landing ? .7 + clamp(Math.abs(old.vy) / 800) * .3 : .5 + clamp(speed / 350) * .4, undefined, surface)
             this.robotStepCooldowns[i] = .11
           }
-          if (!old.grounded && actor.grounded && !actor.sliding?.active) {
-            const dust = landingDustStrength(old.vy * (actor.inverted ? -1 : 1))
-            if (dust > 0) effect('landing', robot.x, robot.y, dust, 60, actor.groundAngle, actor.inverted ? -1 : 1)
-          }
+          if (dust > 0) effect('landing', robot.x, robot.y, dust, 60, actor.groundAngle, actor.inverted ? -1 : 1)
           // Material grip travel excludes idle rope swing. Pull-ups publish root
           // positions rather than velocities, so follow their advancing pose.
           const climb = actor.climbing
@@ -216,7 +260,7 @@ export class JumpingAudioState {
           if (b.grounded && impact > 18 && contact.excursion > .12) strength = Math.max(strength, .25 + clamp((impact - 18) / 160) * .7)
         }
         if (strength > 0 && contact.cooldown === 0) {
-          cue(b.kind === 'box' ? 'box-impact' : 'ball-impact', b.x, b.y, strength, b.size)
+          cue(b.kind === 'box' ? 'box-impact' : 'ball-impact', b.x, b.y, strength, b.size, surfaceUnder(run, b))
           if (strength >= PROP_TICK_STRENGTH && current.props[i].water < .02) {
             // A tilted box rests on its lowest corner, below its upright base.
             const half = b.size / 2, contactY = b.kind === 'box' ? b.y - half + half * (Math.abs(Math.cos(b.angle)) + Math.abs(Math.sin(b.angle))) : b.y

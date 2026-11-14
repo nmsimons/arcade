@@ -190,3 +190,95 @@ test('normal gameplay plays one splash for the player and each falling prop, the
   expect(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1)?.time ?? 0)).toBeGreaterThan(5)
   expect(await splashes()).toEqual(entries)
 })
+
+test('hard landings sound louder than any step, for the player and for Rbot', async ({ page }) => {
+  await page.goto('/lab/library?renderControl=1')
+  const result = await page.evaluate(async () => {
+    const { JumpingSound } = await import('/src/games/jumping/sound.ts')
+    const rate = 24000, ctx = new OfflineAudioContext(1, rate * 2, rate), sound = new JumpingSound(ctx)
+    // A running step, the softest and hardest player landings that raise dust, then Rbot's step and its softest hard landing.
+    const cues = [[0, 'footstep', .8], [.4, 'landing', .45], [.8, 'landing', 1], [1.2, 'robot-footstep', .9], [1.6, 'robot-landing', .7]]
+    const stages = cues.map(([time, kind, strength]) => ({ ready: ctx.suspend(time), action: () => sound.cue({ kind, volume: 1, pan: 0, strength }) }))
+    const rendering = ctx.startRendering()
+    for (const stage of stages) { await stage.ready; stage.action(); await ctx.resume() }
+    const data = (await rendering).getChannelData(0)
+    sound.dispose()
+    return cues.map(([time]) => { const values = data.slice(time * rate, (time + .1) * rate); return Math.sqrt(values.reduce((sum, v) => sum + v * v, 0) / values.length) })
+  })
+  const [step, softLanding, hardLanding, robotStep, robotLanding] = result
+  const decibels = (a, b) => 20 * Math.log10(a / b)
+  expect(decibels(softLanding, step)).toBeGreaterThan(3)
+  expect(decibels(hardLanding, step)).toBeGreaterThan(9)
+  expect(decibels(robotLanding, robotStep)).toBeGreaterThan(2)
+})
+
+test('every surface sounds as stone with a slight change: earth muted, steel with a faint echo and overtones', async ({ page }) => {
+  await page.goto('/lab/library?renderControl=1')
+  const result = await page.evaluate(async () => {
+    const { JumpingSound, synthesizeSounds } = await import('/src/games/jumping/sound.ts')
+    const surfaces = ['stone', 'earth', 'grass', 'metal', 'wood', 'rubber'], kinds = [['footstep', .8], ['robot-footstep', .8], ['box-impact', .65]], rate = 24000
+    const plan = kinds.flatMap(([kind, strength]) => surfaces.map(surface => ({ kind, strength, surface })))
+    // Steps vary their pitch from one to the next; a fresh bank for each cue plays every surface at the same pitch.
+    // Each cue starts on a render quantum (128 samples), so the same cue on two surfaces lines up sample for sample.
+    const span = 96 * 128 / rate
+    const ctx = new OfflineAudioContext(1, Math.round(rate * plan.length * span), rate), samples = synthesizeSounds(rate), sounds = []
+    const stages = plan.map((cue, i) => ({ ready: ctx.suspend(i * span), action: () => {
+      const sound = new JumpingSound(ctx, samples); sounds.push(sound); sound.cue({ ...cue, volume: 1, pan: 0, size: 50 })
+    } }))
+    const rendering = ctx.startRendering()
+    for (const stage of stages) { await stage.ready; stage.action(); await ctx.resume() }
+    const data = (await rendering).getChannelData(0)
+    for (const sound of sounds) sound.dispose()
+    const at = (i, from, to) => data.slice(Math.round(i * span * rate) + Math.round(from * rate), Math.round(i * span * rate) + Math.round(to * rate))
+    const rms = values => Math.sqrt(values.reduce((sum, v) => sum + v * v, 0) / values.length)
+    // How much of a sound is in sample-to-sample change: a rough measure of brightness.
+    const brightness = values => { let sum = 0, change = 0; for (let j = 1; j < values.length; j++) { sum += values[j] ** 2; change += (values[j] - values[j - 1]) ** 2 } return Math.sqrt(change / sum) }
+    return plan.map(({ kind, surface }, i) => {
+      // Loudness, brightness, and what rings on after the cue's own sound has ended.
+      const length = { footstep: .17, 'robot-footstep': .23, 'box-impact': .18 }[kind], values = at(i, 0, .2), tail = at(i, length + .01, .4)
+      // What the surface adds before steel's first echo: the same cue on stone, taken away.
+      const stone = plan.findIndex(cue => cue.kind === kind && cue.surface === 'stone'), first = at(stone, 0, .07)
+      const added = at(i, 0, .07).map((v, j) => v - first[j])
+      return { kind, surface, rms: rms(values), brightness: brightness(values), tail: rms(tail), added: rms(added) / rms(first), addedBrightness: brightness(added) / brightness(first) }
+    })
+  })
+  for (const kind of ['footstep', 'robot-footstep', 'box-impact']) {
+    const sounds = Object.fromEntries(result.filter(r => r.kind === kind).map(r => [r.surface, r])), stone = sounds.stone
+    const decibels = surface => 20 * Math.log10(sounds[surface].rms / stone.rms)
+    // Felt more than heard: every surface stays within 1.5 dB of stone.
+    for (const surface of Object.keys(sounds)) expect(Math.abs(decibels(surface)), `${kind} on ${surface}`).toBeLessThan(1.5)
+    for (const surface of ['earth', 'grass', 'rubber']) expect(decibels(surface), `${kind} on ${surface} is a little quieter`).toBeLessThan(-.2)
+    expect(sounds.earth.brightness, `${kind} on earth is a little duller`).toBeLessThan(stone.brightness)
+    // Steel's overtones: higher than the cue's own sound, and faint. A step's thump is low, where the ear is
+    // dull, so a ring 30 dB under it by measure is only about 20 dB under it to the ear.
+    const ring = 20 * Math.log10(sounds.metal.added)
+    expect(ring, `${kind} on steel rings faintly`).toBeGreaterThan(-42)
+    expect(ring, `${kind} on steel rings faintly`).toBeLessThan(-30)
+    // A crate's knock is about as high as the ring.
+    if (kind !== 'box-impact') expect(sounds.metal.addedBrightness, `${kind} on steel rings above its own sound`).toBeGreaterThan(2)
+    expect(sounds.metal.tail, `${kind} on steel echoes`).toBeGreaterThan(stone.tail * 2 + 1e-6)
+  }
+})
+
+test('steel rings at its own pitch, the same under every step, while the steps vary theirs', async ({ page }) => {
+  await page.goto('/lab/library?renderControl=1')
+  const result = await page.evaluate(async () => {
+    const { JumpingSound, synthesizeSounds } = await import('/src/games/jumping/sound.ts')
+    // Two steps in a row from one bank, on stone and then on steel; each starts on a render quantum.
+    const rate = 24000, span = 96 * 128 / rate, samples = synthesizeSounds(rate)
+    const ctx = new OfflineAudioContext(1, Math.round(rate * span * 4), rate), banks = { stone: new JumpingSound(ctx, samples), metal: new JumpingSound(ctx, samples) }
+    const plan = ['stone', 'stone', 'metal', 'metal'], stages = plan.map((surface, i) => ({ ready: ctx.suspend(i * span), action: () =>
+      banks[surface].cue({ kind: 'footstep', strength: .8, surface, volume: 1, pan: 0 }) }))
+    const rendering = ctx.startRendering()
+    for (const stage of stages) { await stage.ready; stage.action(); await ctx.resume() }
+    const data = (await rendering).getChannelData(0)
+    for (const bank of Object.values(banks)) bank.dispose()
+    const at = i => data.slice(Math.round(i * span * rate), Math.round(i * span * rate) + Math.round(.07 * rate))
+    const rms = values => Math.sqrt(values.reduce((sum, v) => sum + v * v, 0) / values.length)
+    const difference = (a, b) => rms(a.map((v, j) => v - b[j])) / rms(a)
+    const rings = [at(2).map((v, j) => v - at(0)[j]), at(3).map((v, j) => v - at(1)[j])]
+    return { steps: difference(at(0), at(1)), rings: difference(rings[0], rings[1]) }
+  })
+  expect(result.steps, 'one step differs from the next').toBeGreaterThan(.1)
+  expect(result.rings, 'the floor rings the same under both').toBeLessThan(1e-3)
+})

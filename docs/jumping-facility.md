@@ -191,8 +191,11 @@ per wing, within a restrained palette each.
 
 The first of that art is the back wall's finish (`wallFinish`, see
 [level files](jumping-levels.md)), set on each wing's hub file since November
-13, 2026: Freight and Construction use bolted panels, Security a riveted
-bulkhead and Water a tiled wall. Orientation, Boot Camp, Gravity, Assessment
+13, 2026: Freight and Construction use warm cladding, Security steel plate and
+Water a tiled wall. Each is the course wall's own panelling with another
+module, bond, tint and wear, never added hardware, so a wing reads as another
+part of the same facility. Chamber squares and upright panels are also
+available and not yet assigned. Orientation, Boot Camp, Gravity, Assessment
 and the concourse keep the course wall, the facility as it was meant to look.
 Courses behind the doors do not inherit their wing's finish yet; each course
 can set its own.

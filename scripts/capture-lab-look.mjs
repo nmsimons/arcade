@@ -5,7 +5,7 @@
 //   node scripts/capture-lab-look.mjs --out .local/look/baseline     capture every scene
 //     --url http://localhost:5173    a running dev or preview server (default: the dev server's address)
 //     --only wake,tower,pool-fall    capture only these scenes (comma-separated names, see --list)
-//     --wall-finish panels           serve every level with this back-wall finish, to compare finishes
+//     --wall-finish plank            serve every level with this back-wall finish, to compare finishes
 //     --storage key=value            set a localStorage entry before the game loads, such as a development
 //                                    look under review (jumping:look-brackets=1); repeat for several
 //     --list                         print the scene names and exit

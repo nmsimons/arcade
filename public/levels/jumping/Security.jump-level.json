@@ -17,7 +17,7 @@
   },
   "timing": "untimed",
   "floor": 720,
-  "wallFinish": "bulkhead",
+  "wallFinish": "plate",
   "kind": "hub",
   "props": [],
   "mechanisms": [],

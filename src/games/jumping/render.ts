@@ -16,6 +16,7 @@ import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallFinish } from './wallFinish.ts'
+import { nightModeEnabled } from './ambientLight.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallDoors } from './wallDoor.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
@@ -85,9 +86,10 @@ function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: {
   const area = { x: Math.max(0, view.x), y: Math.max(0, view.y),
     w: Math.min(level.width, view.x + view.w) - Math.max(0, view.x),
     h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) }
-  drawWallPanels(ctx, area)
-  // A wing's finish is a light layer over the grid and panels, never in place of them.
-  if (level.wallFinish) drawWallFinish(ctx, level.wallFinish, area, zoom)
+  // A wing's finish is the course wall's own panelling with another module, bond, tint and wear, drawn
+  // stronger in a dark level so that it survives the darkening.
+  if (level.wallFinish) drawWallFinish(ctx, level.wallFinish, area, nightModeEnabled(level.lighting))
+  else drawWallPanels(ctx, area)
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
   if (level && !layerSkipped('ground-cover')) drawTerrainGroundCover(ctx, level)

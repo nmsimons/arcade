@@ -1003,15 +1003,31 @@ smooth, pale sage; Steel is a blue-gray with fine, horizontal brush marks.
 The marks repeat on a 240-by-160-unit tile, scattered so they never line up in
 rows or columns across a large mass.
 
-The optional `wallFinish` gives the course wall a wing's finish. Every finish
-keeps the course wall itself, its fine grid and its tinted, shaded precast
-panels, and adds only a light layer: `"panels"` puts small bolts at the panel
-corners, `"tile"` a faint cool glaze so the grid reads as tile, and
-`"bulkhead"` a slightly cooler steel tone with short rivet rows under the panel
-joints. Leave it out for the plain course wall; the studio's **Wall finish**,
-directly under **Background** (Level tab, World), saves `"course"` that way.
+The optional `wallFinish` gives the course wall a wing's finish. The course
+wall is a test chamber's precast panelling, a little worn: a fine measurement
+grid, panels that each carry a slightly different faint tint, and soft recessed
+joints. Every finish is that same construction with another panel module, bond,
+tint, joint weight and wear, set far enough apart to tell at a glance, and none
+adds hardware or any other kind of mark:
+
+| `wallFinish` | Studio name | Panels |
+| --- | --- | --- |
+| `"chamber"` | Chamber squares | 240 × 240 squares with stacked joints, in the course wall's sage; some cast as doubles |
+| `"plank"` | Cladding | Long, low 360 × 120 courses stepping a third each row, a warm cast, firm joints along the courses and light ones between panels; some doubles |
+| `"upright"` | Upright panels | 120 × 360 panels on end, alternate columns half a panel down, a neutral grey cast, firm joints up the wall and light ones across it |
+| `"tile"` | Tiled | 120 × 120 tiles with stacked, softer joints, an aqua cast and the widest spread of tone |
+| `"plate"` | Steel plate | 320 × 160 plates with stacked, firm joints both ways and a grey steel cast |
+
+In every finish except Steel plate a few panels are newer and cleaner and a
+few older and darker. A night-mode level draws its finish stronger, the colour
+by 1.8 and the joints by 2.1, because night darkens the wall to about a third
+and would otherwise flatten every finish toward the same grey; structure is
+what reads in the dark, and lamp pools show the colour. Leave the field out for the plain course wall; the
+studio's **Wall finish**, directly under **Background** (Level tab, World),
+saves `"course"` that way. Files saved with the first finish names still load:
+`"panels"` as Cladding and `"bulkhead"` as Steel plate.
 Finishes are artwork only: they add no collision, cover or lighting, keep the
-wall's base colour, and apply wherever the course wall is drawn, including
+wall's base colour and fine grid, and apply wherever the course wall is drawn, including
 facility back walls in environments. The level's optional `floorMaterial` applies the same palette
 to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a

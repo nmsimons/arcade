@@ -2122,7 +2122,7 @@
   "timing": "untimed",
   "floorMaterial": "steel",
   "floor": 1200,
-  "wallFinish": "panels",
+  "wallFinish": "plank",
   "kind": "hub",
   "props": [
     {

@@ -35,7 +35,7 @@ import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 import { isTerrainMaterial } from './terrainMaterials.ts'
 import { isGroundCover } from './terrainGroundCover.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
-import { isWallFinish } from './wallFinish.ts'
+import { wallFinish } from './wallFinish.ts'
 import type { WallFinish } from './wallFinish.ts'
 import { lightingProblems, MAX_LIGHTS, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
@@ -467,9 +467,10 @@ export function parseLevel(value: unknown): JumpLevel {
     level.floorMaterial = v.floorMaterial
   }
   if (v.wallFinish !== undefined) {
-    if (!isWallFinish(v.wallFinish)) return fail()
+    const finish = wallFinish(v.wallFinish)
+    if (!finish) return fail()
     // The ordinary course wall is the default, saved by leaving the field out.
-    if (v.wallFinish !== 'course') level.wallFinish = v.wallFinish
+    if (finish !== 'course') level.wallFinish = finish
   }
   // Existing local files use "flag". Preserve their assembly origin and export "goal".
   const goal = v.goal === undefined ? v.flag : v.goal

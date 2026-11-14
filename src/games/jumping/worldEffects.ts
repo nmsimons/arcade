@@ -1,6 +1,6 @@
 /**
- * Visible consequences of impacts: dust where a body lands hard, ticks where a
- * crate or ball strikes, and a splash where something enters water. The sound
+ * Visible consequences of impacts: dust where a body lands hard or a crate or
+ * ball strikes, and a splash where something enters water. The sound
  * observer (audioState.ts) reports them from the same solved contacts that make
  * its cues, so picture and sound always agree. Effects are presentation only:
  * they live beside a run, keyed by it, never on it, and nothing in the
@@ -15,7 +15,7 @@ export interface WorldEffect {
   x: number; y: number
   /** 0 to 1: how hard the impact was, after each kind's own threshold. */
   strength: number
-  /** The body's size in world units, which scales prop ticks and splashes. */
+  /** The body's size in world units, which scales prop dust and splashes. */
   size: number
   /** The supporting surface's angle, and -1 when the body stands on a ceiling. */
   angle: number; up: number
@@ -24,14 +24,14 @@ export interface WorldEffect {
 }
 
 /** Seconds each kind stays on screen. */
-export const WORLD_EFFECT_LIFE: Readonly<Record<WorldEffectKind, number>> = { landing: .35, 'box-impact': .25, 'ball-impact': .25, splash: .6 }
+export const WORLD_EFFECT_LIFE: Readonly<Record<WorldEffectKind, number>> = { landing: .5, 'box-impact': .4, 'ball-impact': .4, splash: .6 }
 /** A bounded list: a pile of crates landing together still draws a few dozen shapes. */
 export const MAX_WORLD_EFFECTS = 24
 /** Landings softer than this fall speed (units/s) leave no dust: a walk, a step down or a small hop. */
 export const LANDING_DUST_SPEED = 450
 /** Fall speed at which landing dust is at its fullest. */
 export const LANDING_DUST_FULL_SPEED = 1000
-/** Prop impacts quieter than this leave no ticks, so settling chatter stays still. */
+/** Prop impacts quieter than this leave no dust, so settling chatter stays still. */
 export const PROP_TICK_STRENGTH = .3
 
 const NONE: readonly WorldEffect[] = []

@@ -4,8 +4,8 @@ import { WORLD_EFFECT_LIFE, worldEffects } from './worldEffects.ts'
 import type { WorldEffect } from './worldEffects.ts'
 import { TUNING } from './movementTuning.ts'
 
-/** The slide grit's colour (render.ts), shared by landing dust and impact ticks. */
-export const IMPACT_DUST_COLOR = '#777b7e'
+/** A warm grey a little darker than the course wall, so dust reads as a thin haze rather than grit or spray. */
+export const IMPACT_DUST_COLOR = '#a8a195'
 /** Between the water's tint and its waterline highlight, so spray reads against a pale wall. */
 export const SPLASH_COLOR = '#7fbde4'
 
@@ -41,9 +41,9 @@ function live(run: Run, kinds: (kind: WorldEffect['kind']) => boolean) {
 }
 
 /**
- * Landing dust and impact ticks, between the props and the robot player. Flat
- * specks and short strokes in the slide grit's colour: they receive light,
- * cast nothing and emit nothing (docs/jumping-lighting.md, section 4).
+ * Landing dust and prop impact dust, between the props and the robot player:
+ * soft puffs that roll out along the ground, swell and thin away. They receive
+ * light, cast nothing and emit nothing (docs/jumping-lighting.md, section 4).
  */
 export function drawImpactEffects(ctx: CanvasRenderingContext2D, run: Run, paint: WorldPaint = paintNormally) {
   const effects = live(run, kind => kind !== 'splash')
@@ -53,52 +53,70 @@ export function drawImpactEffects(ctx: CanvasRenderingContext2D, run: Run, paint
   if (!visible.length) return
   paint(ctx, 0, () => {
     ctx.save()
-    const alpha = ctx.globalAlpha, floor = view ? 1.5 / view.scale : 0
+    const alpha = ctx.globalAlpha
+    ctx.fillStyle = IMPACT_DUST_COLOR
     for (const { e, age } of visible) {
-      if (e.kind === 'landing') drawLandingDust(ctx, e, age / WORLD_EFFECT_LIFE.landing, alpha, floor)
-      else drawImpactTicks(ctx, e, age / WORLD_EFFECT_LIFE[e.kind], alpha)
+      if (e.kind === 'landing') drawLandingDust(ctx, e, age / WORLD_EFFECT_LIFE.landing, alpha)
+      else drawPropDust(ctx, e, age / WORLD_EFFECT_LIFE[e.kind], alpha)
     }
     ctx.restore()
   })
 }
 
-/** Two low puffs of flat specks run out along the ground from the feet, rise a little and settle. */
-function drawLandingDust(ctx: CanvasRenderingContext2D, e: WorldEffect, t: number, alpha: number, floor: number) {
-  const s = e.strength, seed = effectSeed(e)
-  const reach = 18 + 34 * s, rise = 4 + 6 * s, out = 1 - (1 - t) ** 3
-  const lift = Math.sin(Math.PI * Math.min(1, t * 1.25))
-  const count = 5 + Math.round(2 * s)
-  ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.angle); ctx.scale(1, e.up < 0 ? -1 : 1)
-  ctx.fillStyle = IMPACT_DUST_COLOR
-  ctx.globalAlpha = alpha * .5 * (.55 + .45 * s) * (1 - t) ** 1.2
-  for (const side of [-1, 1]) for (let i = 0; i < count; i++) {
-    const r = seed ^ Math.imul(i + 1, 104395301) ^ Math.imul(side + 2, 668265263)
-    const distance = 5 + reach * out * (.3 + .7 * random(r))
-    const height = rise * (.25 + .75 * random(r + 1)) * lift
-    // Flat specks, wider than tall, smaller as they spread.
-    const w = Math.max(floor, (3 + 3 * random(r + 2) * (.5 + s)) * (1 - .4 * t)), h = Math.max(floor, 2 + random(r + 3))
-    ctx.fillRect(side * distance - w / 2, -height - h, w, h)
+type Puff = readonly [x: number, y: number, radius: number]
+/** Each puff's nested layers, as fractions of its radius. */
+const PUFF_LAYERS = [1, .7, .42]
+/** Puffs are flatter than round, as dust hugs the ground. */
+const PUFF_HEIGHT = .6
+/**
+ * Puffs as nested ellipses, each layer faint, so a puff thickens toward its middle and thins at its edge
+ * without a gradient (the WebGL world draws none). Each layer is one fill, so puffs that overlap merge
+ * into one haze rather than darkening where they cross.
+ */
+function fillPuffs(ctx: CanvasRenderingContext2D, puffs: readonly Puff[], alpha: number) {
+  if (alpha <= .002) return
+  ctx.globalAlpha = alpha
+  for (const layer of PUFF_LAYERS) {
+    ctx.beginPath()
+    for (const [x, y, radius] of puffs) {
+      const rx = radius * layer
+      ctx.moveTo(x + rx, y); ctx.ellipse(x, y, rx, rx * PUFF_HEIGHT, 0, 0, Math.PI * 2)
+    }
+    ctx.fill()
   }
+}
+/** Fades in over the first moment, then thins away slowly. */
+const dustFade = (t: number) => Math.min(1, t / .08) * (1 - t) ** 1.6
+/** A puff resting on the ground, its lowest layer just over the contact line. */
+const resting = (radius: number) => -radius * PUFF_HEIGHT * .8
+
+/** Three puffs each way roll out along the ground from the feet, swelling and rising a little as they slow. */
+function drawLandingDust(ctx: CanvasRenderingContext2D, e: WorldEffect, t: number, alpha: number) {
+  const s = e.strength, seed = effectSeed(e)
+  const reach = 16 + 30 * s, out = 1 - (1 - t) ** 2.5, puffs: Puff[] = []
+  for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const r = seed ^ Math.imul(i + 1, 104395301) ^ Math.imul(side + 2, 668265263), lead = (i + 1) / 3
+    const distance = 3 + reach * out * (.3 + .7 * lead) * (.85 + .3 * random(r))
+    const radius = (3.5 + 3.5 * s) * (.85 + .3 * random(r + 1)) * (1.2 - .35 * lead) * (1 + 1.2 * out)
+    puffs.push([side * distance, resting(radius) - (2 + 5 * s) * out * (.4 + .6 * random(r + 2)), radius])
+  }
+  ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.angle); ctx.scale(1, e.up < 0 ? -1 : 1)
+  fillPuffs(ctx, puffs, alpha * (.08 + .06 * s) * dustFade(t))
   ctx.restore()
 }
 
-/** Short strokes spring out and up from where a crate's corners or a ball's base strike. */
-function drawImpactTicks(ctx: CanvasRenderingContext2D, e: WorldEffect, t: number, alpha: number) {
+/** A little dust squeezes out from under a crate's corners or either side of a ball's base. */
+function drawPropDust(ctx: CanvasRenderingContext2D, e: WorldEffect, t: number, alpha: number) {
   const s = e.strength, seed = effectSeed(e), scale = Math.min(1.6, Math.max(.6, Math.sqrt(e.size / 60)))
   const contacts = e.kind === 'box-impact' ? [-.45, .45] : [0]
-  const out = 1 - (1 - t) ** 2, length = (6 + 8 * s) * scale * (1 - .5 * t)
-  ctx.save()
-  ctx.strokeStyle = IMPACT_DUST_COLOR; ctx.lineWidth = 2; ctx.lineCap = 'round'
-  ctx.globalAlpha = alpha * (.45 + .25 * s) * (1 - t)
-  ctx.beginPath()
-  for (const contact of contacts) for (const side of contact ? [Math.sign(contact)] : [-1, 1]) for (let i = 0; i < 3; i++) {
-    const r = seed ^ Math.imul(i + 1, 104395301) ^ Math.imul(side + 2, 668265263)
-    const angle = (8 + 24 * i + 8 * random(r)) * Math.PI / 180, c = Math.cos(angle) * side, sn = Math.sin(angle)
-    const start = (2 + 16 * out) * scale, x = e.x + contact * e.size + c * start, y = e.y - sn * start
-    ctx.moveTo(x, y); ctx.lineTo(x + c * length, y - sn * length)
+  const out = 1 - (1 - t) ** 2.5, puffs: Puff[] = []
+  for (const contact of contacts) for (const side of contact ? [Math.sign(contact)] : [-1, 1]) for (let i = 0; i < 2; i++) {
+    const r = seed ^ Math.imul(i + 1, 104395301) ^ Math.imul(side + 2, 668265263) ^ Math.imul(Math.round(contact * 4) + 3, 374761393)
+    const distance = (1 + (8 + 14 * s) * out * (.5 + .5 * i) * (.85 + .3 * random(r))) * scale
+    const radius = (3 + 3 * s) * scale * (.85 + .3 * random(r + 1)) * (1 + out)
+    puffs.push([e.x + contact * e.size + side * distance, e.y + resting(radius), radius])
   }
-  ctx.stroke()
-  ctx.restore()
+  fillPuffs(ctx, puffs, alpha * (.07 + .06 * s) * dustFade(t))
 }
 
 /**

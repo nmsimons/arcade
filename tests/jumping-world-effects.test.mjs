@@ -103,21 +103,24 @@ function recorder(view = { e: 0, f: 0 }) {
   const calls = []
   const ctx = { canvas: { width: 1000, height: 800 }, globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 1, lineCap: 'butt',
     getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, ...view }) }
-  for (const name of ['save', 'restore', 'translate', 'rotate', 'scale', 'beginPath', 'moveTo', 'lineTo', 'quadraticCurveTo', 'closePath', 'fill', 'stroke'])
+  for (const name of ['save', 'restore', 'translate', 'rotate', 'scale', 'beginPath', 'moveTo', 'lineTo', 'quadraticCurveTo', 'ellipse', 'closePath', 'stroke'])
     ctx[name] = (...args) => calls.push([name, ...args])
   ctx.fillRect = (...args) => calls.push(['fillRect', ...args, ctx.fillStyle, ctx.globalAlpha])
+  ctx.fill = (...args) => calls.push(['fill', ...args, ctx.fillStyle, ctx.globalAlpha])
   return { ctx, calls }
 }
 const effect = (kind, time = 0, extra = {}) => ({ kind, x: 500, y: 400, strength: 1, size: 60, angle: 0, up: 1, time, ...extra })
 
-test('landing dust and ticks draw only while they last, only on screen, and the same way each time', () => {
+test('landing and crate dust draw only while they last, only on screen, and the same way each time', () => {
   const run = { activeTime: .1 }
   recordWorldEffect(run, effect('landing')); recordWorldEffect(run, effect('box-impact', 0, { x: 700 }))
   const first = recorder(); drawImpactEffects(first.ctx, run)
-  const dust = first.calls.filter(c => c[0] === 'fillRect')
-  assert.ok(dust.length >= 10 && dust.length <= 14, `${dust.length} specks`)
-  assert.ok(dust.every(c => c[5] === IMPACT_DUST_COLOR && c[6] <= .5), 'grit colour, alpha no higher than 0.5')
-  assert.ok(first.calls.some(c => c[0] === 'stroke'), 'crate ticks')
+  const fills = first.calls.filter(c => c[0] === 'fill'), puffs = first.calls.filter(c => c[0] === 'ellipse')
+  assert.equal(fills.length, 6, 'three faint layers for the landing and three for the crate')
+  assert.ok(fills.every(c => c[1] === IMPACT_DUST_COLOR && c[2] > 0 && c[2] <= .15), `dust colour, each layer faint: ${fills.map(c => c[2])}`)
+  assert.equal(puffs.length, 3 * (6 + 4), 'six landing puffs and four crate puffs, in each layer')
+  assert.ok(puffs.every(c => c[4] < c[3]), 'wider than tall')
+  assert.ok(!first.calls.some(c => c[0] === 'stroke' || c[0] === 'fillRect'), 'no specks or ticks')
   const again = recorder(); drawImpactEffects(again.ctx, run)
   assert.deepEqual(again.calls, first.calls, 'evaluated from gameplay time, never random')
   run.activeTime = WORLD_EFFECT_LIFE.landing + .01

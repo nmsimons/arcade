@@ -5,8 +5,8 @@
  "cpu": "arm64",
  "recorded": {
   "physics": "be5cc3c: physics for Exit's slanted shelf (0aee74c) and Full Tilt's raised course (c893bfc, e2c8aa4); state and pose for the drawn swim",
-  "state": "be5cc3c: physics for Exit's slanted shelf (0aee74c) and Full Tilt's raised course (c893bfc, e2c8aa4); state and pose for the drawn swim",
-  "pose": "be5cc3c: physics for Exit's slanted shelf (0aee74c) and Full Tilt's raised course (c893bfc, e2c8aa4); state and pose for the drawn swim"
+  "state": "ba1188f: feet stand only on what is under them, and the neck limit opens as the torso foreshortens",
+  "pose": "ba1188f: feet stand only on what is under them, and the neck limit opens as the torso foreshortens"
  },
  "traces": {
   "03.json|climber": {
@@ -2479,7 +2479,7 @@
     "7cbac976cedec490",
     "e72fe0b9e493e449",
     "d328be38e836cf99",
-    "6cefd2d5ac3f28c9"
+    "27d01698cee32774"
    ]
   },
   "ascent2.jump-level.json|runner": {
@@ -2512,8 +2512,8 @@
     "3be597b74554e2b1",
     "dbda3e0cd6e4457a",
     "c813cf4a32c9343c",
-    "d614c939ee01fc87",
-    "ce02e32814eb024f"
+    "4311c16d59a27aba",
+    "e33872cd45b7e73d"
    ]
   },
   "buoyancy.jump-level.json|climber": {
@@ -3007,23 +3007,23 @@
    ],
    "state": [
     "de1ad9b9c05a7c40",
-    "2de00b11f8c221db",
-    "67cf780222b128f6",
-    "c5edaaa6b8c3e909",
-    "b45afa964b54084e",
-    "98b564eb1dee3dc1",
-    "380ed11dc118d162",
-    "c1ec86aed8a3e6ce"
+    "43f3b7b6892804e6",
+    "88c539a0f9637edd",
+    "aa11e16b416bab05",
+    "ab66d760a4546bb0",
+    "21dbfc3f19b4d5aa",
+    "cd167ceab1316305",
+    "90aa6d6d30ec7431"
    ],
    "pose": [
     "5a2b750b560c3328",
-    "f9560a9ee02fbfd6",
-    "da26a7d2582dee81",
-    "c373cb356e66d232",
-    "ba05a9c8780d5071",
-    "589b5e84e2fe1f46",
-    "32ba488481dc20b8",
-    "b2e5d6d5ea08ca1b"
+    "7521b797cb7c845c",
+    "0acadc8516f6e9cb",
+    "0421a8da9a9ca16b",
+    "f243a9e7fec7c36a",
+    "87e01dc2372c90bd",
+    "9baf35e4fb40fffb",
+    "1a56397428a7cd63"
    ]
   },
   "fixture:company-pod.json|runner": {
@@ -3040,24 +3040,24 @@
     "b18b14b669e4800a"
    ],
    "state": [
-    "6aaf082ae39c56e7",
-    "5db62c7b68dfa0c8",
-    "8db4b6d58eb01b0a",
-    "2c6162d2b8208d1a",
-    "5a1e84b70880fefb",
-    "64a0a67c02ea7599",
-    "527f879b43d25c76",
-    "f53921624aca3926"
+    "0fefa0d6f5665f85",
+    "c82e6fa94083a7c0",
+    "a9e748f3e16bb377",
+    "48fe21362c74cfb5",
+    "e8dd78c1761762d3",
+    "6b6cb52171f66445",
+    "c01ce0a2f8931a79",
+    "1847cbff5f1340e5"
    ],
    "pose": [
-    "a5bd9ce12d0485e2",
-    "412b0ae2decdb6b1",
-    "d6ed48fd8404574c",
-    "e45fb0953d448ea1",
-    "3f0ad7514a4cc17f",
-    "b01611cb21e4f44d",
-    "345cf7e14fe7d095",
-    "037737baee4c14f4"
+    "a428b5097c1b5515",
+    "f5b7fdb49a66985d",
+    "e4bdce9c3b256a3a",
+    "eec48892f5e24901",
+    "f8b0831eefac143d",
+    "1aa43731e66a5ca2",
+    "01a2913e57c16d59",
+    "f9fed6d41b4d0f21"
    ]
   },
   "fixture:downhill-lip.json|climber": {
@@ -3485,21 +3485,21 @@
     "0a589b62daf4e9c9",
     "7a69e7c2e1364e8a",
     "9cfbbfde06926760",
-    "fec1722991ec88a4",
-    "bf4ffb247488f6c8",
-    "d8f6a10cb9308444",
-    "05ece3795d4d6cf7",
-    "767dd23b1a0d3dbb"
+    "434adee34e75c716",
+    "8084f9d50285a122",
+    "61def29c424cdcc4",
+    "60a2044f463527a7",
+    "fed0dcc6f3366c2b"
    ],
    "pose": [
     "e554255a22f0bc70",
     "ab5b810a575ec265",
     "169720b090708800",
-    "92ac9b64da412984",
-    "9373814c1469f9fa",
-    "3a55615a5e46917c",
-    "a29a2b4e0daabac8",
-    "7400a573c0688e2b"
+    "fa1a92a451af481a",
+    "5a07a8cab73b81cb",
+    "65c048195842d631",
+    "fea0a13d06b3f500",
+    "c896543b760b8ceb"
    ]
   },
   "fixture:inset-wall-brace.json|runner": {
@@ -4037,13 +4037,13 @@
    ],
    "pose": [
     "acbfeaae756665d6",
-    "853ad07df2709a08",
-    "d9cf3c8ac24c113b",
-    "5e86d7da978bf639",
-    "5190d46ef1ce8b0b",
-    "778d8ab758229b91",
-    "87aefe630035e0ec",
-    "c471fba0cb51a427"
+    "3a99feb603908fd4",
+    "e9508b76ea067c22",
+    "961d84fce7b58699",
+    "386f8923ee9a524d",
+    "3f202a67a465f368",
+    "8ef6a65541cd6706",
+    "8e09940109305dc3"
    ]
   },
   "fixture:narrow-water-tunnel.json|runner": {
@@ -4075,9 +4075,9 @@
     "7ce51ffb6d480584",
     "92d2061dfc8b2e90",
     "27599c08cd086b5c",
-    "a375e4c368a934f9",
-    "a0bfbcb96acefdc9",
-    "a0180203e6597318"
+    "ab6816ea7f602bd6",
+    "9bb5a2912cf9c94b",
+    "7150a533c47e5f2d"
    ]
   },
   "fixture:quarantine-ii-rbot-force-field.json|climber": {
@@ -4648,14 +4648,14 @@
     "8c469b6a30b9a05d"
    ],
    "pose": [
-    "934a87b1771ff0e9",
-    "c92d64c91c3eac2f",
-    "3279a627c1fe888a",
-    "2c571dcdafb8e96d",
-    "fbb86051eb07deec",
-    "612db97d34b7b7c8",
-    "54a519a2be11c399",
-    "20a1dc1509970ff4"
+    "ee7928643afebd09",
+    "68088f0e812930d5",
+    "80807c4db77a6df7",
+    "01bee3245142ac1e",
+    "8283b5bcbfa5e702",
+    "e237233214c0b677",
+    "a620c8922c4802e3",
+    "352de36c4a61f82b"
    ]
   },
   "fixture:small-water-prop.json|runner": {
@@ -5195,11 +5195,11 @@
     "baa0bedcabeece24",
     "d627c955f81f8ac5",
     "c85e556238bc3b15",
-    "bdfe6c9f4da8259a",
-    "9786be51e4305fa8",
-    "8d6352c1ce7d8474",
-    "377fb005bb4cf9fe",
-    "fcb1a76323956d10"
+    "c6d201e21003924e",
+    "f4bf5f55d801c818",
+    "178daf36093aa808",
+    "f39d32536c4180bb",
+    "10535cd6cfbf66e1"
    ]
   },
   "fixture:water-tunnel.json|runner": {
@@ -5453,8 +5453,8 @@
     "86887f31a032109b",
     "909de4c61f901ab8",
     "78ae791053f053a9",
-    "fee03c59f593e501",
-    "2c408ce500bd866c"
+    "18327444e5158ce8",
+    "e98b92c6547ed077"
    ],
    "pose": [
     "d77ba44b094b9d0a",
@@ -5463,8 +5463,8 @@
     "d98cd7a965113190",
     "025c43f028410cf8",
     "649cff0c4104d995",
-    "f9f5226f8c337942",
-    "f13dd05ce1b61011"
+    "949508b5308f2868",
+    "a7c61131cb93bed7"
    ]
   },
   "hsj.jump-level.json|runner": {
@@ -5531,8 +5531,8 @@
     "082fbc31b0ab0448",
     "6e5f9d3d45474210",
     "c51f2fd8d90a427d",
-    "955ea25da7d70a4d",
-    "668b9d5e0020c6ee"
+    "8e1ec8d4098047bf",
+    "7158e1f5d77f1cbd"
    ]
   },
   "hsj2.jump-level.json|runner": {
@@ -5630,15 +5630,15 @@
     "4364ec9840fbc84f",
     "53aaddcf87bd4326",
     "32f2157acaf60e43",
-    "1e7da2949cdc20f5",
-    "f7249bd81974a148",
-    "9c82ed33eb75da70",
-    "f43914b095f61cb9",
-    "a16f369ec64ce0ab",
-    "6ef2319d3d4f9547",
-    "5d51423f172b39e7",
-    "b9cf42d2592ba6d0",
-    "402666cba332e723"
+    "d64aed1b90a153f6",
+    "d5f8d5a2a78d37d4",
+    "fc435ba68464a0f2",
+    "8c7e1ebcb8bc2bd8",
+    "60ddfe1651ec010c",
+    "1647a673f4c749ef",
+    "32957d6929b23555",
+    "44b2c1fef07dff4b",
+    "e93a7df6fee8680e"
    ],
    "pose": [
     "fca594d921cc2086",
@@ -5647,15 +5647,15 @@
     "ff52b16d93bd6f2a",
     "30e2e51a9b4847a2",
     "fe68711b1a0b9a2a",
-    "102d0cbde5cae0e8",
-    "133e624c319ef1a7",
-    "3829edab61632240",
-    "dc5e8533fbea505a",
-    "239ad0dc4148d368",
-    "ae0aa7302c7690b7",
-    "9bcf661e08a2cbb7",
-    "d963a4f7f4f0326d",
-    "1857553c814d21c3"
+    "b31798ad52353d6c",
+    "0d5efa76d7436095",
+    "37b3d173efddefe9",
+    "60b55dc0093a30c7",
+    "8d748dbb5f6fb84d",
+    "52e66626426f628a",
+    "d379480823115b19",
+    "7cbabd8185bb40ef",
+    "454c233cfba4d8ee"
    ]
   },
   "jk.jump-level.json|runner": {

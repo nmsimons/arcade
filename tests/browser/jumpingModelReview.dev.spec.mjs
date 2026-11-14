@@ -1,4 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
+import { androidMaterials } from '../../src/games/jumping/androidArtwork.ts'
 
 test('the neck shaft and collar overlap as solid artwork in both facings and gravity frames', async ({ page }) => {
   await page.goto('/lab/model-review')
@@ -18,7 +19,9 @@ test('the neck shaft and collar overlap as solid artwork in both facings and gra
     }
     return pixels
   })
-  for (const pixel of pixels) expect(pixel).toEqual([101, 122, 112, 255])
+  // The neck is drawn in the day palette's joint material.
+  const joint = androidMaterials('#686b6e').joint
+  for (const pixel of pixels) expect(pixel).toEqual([...[1, 3, 5].map(at => parseInt(joint.slice(at, at + 2), 16)), 255])
 })
 
 test('model review synchronizes frozen and current artwork, supports inspection and keeps local notes', async ({ page }, info) => {

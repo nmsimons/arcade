@@ -1,4 +1,10 @@
 import { ambientExposure } from '../../src/games/jumping/ambientLight.ts'
+import { androidMaterials } from '../../src/games/jumping/androidArtwork.ts'
+
+// The robot's face (the head's sample) and shell (the torso's), from its night and day palettes.
+const rgb = hex => [1, 3, 5].map(at => parseInt(hex.slice(at, at + 2), 16))
+const night = androidMaterials('#e5e7e6'), day = androidMaterials('#686b6e')
+const NIGHT_FACE = rgb(night.face), NIGHT_SHELL = rgb(night.shell), DAY_FACE = rgb(day.face), DAY_SHELL = rgb(day.shell)
 
 // Canvas multiply/add emission correction can round two 8-bit levels differently
 // across Skia backends. Keep geometry and same-renderer cache checks exact.
@@ -74,8 +80,8 @@ test('the player receives light, casts a moving shadow, and releases light while
   expect(result.crouched).toEqual(result.full)
   expect(result.gone).toEqual(result.full)
   expect(result.outage).toEqual(result.ambient)
-  expectColor(result.ink, [212, 220, 207])
-  expectColor(result.ambientInk, [212, 220, 207].map(channel => Math.round(channel * .65)))
+  expectColor(result.ink, NIGHT_FACE)
+  expectColor(result.ambientInk, NIGHT_FACE.map(channel => Math.round(channel * .65)))
   expect(result.fading[0]).toBeGreaterThan(result.standing[0])
   expect(result.fading[0]).toBeLessThan(result.gone[0])
 })
@@ -123,8 +129,8 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the readable night pl
   for (const result of results) {
     const lit = result.x === 500 && result.condition === 'spotlight'
     // Head and torso have distinct shell materials; light applies to each.
-    const colors = result.nightMode ? { head: [212, 220, 207], torso: [216, 222, 213] }
-      : { head: [184, 192, 181], torso: [181, 189, 178] }
+    const colors = result.nightMode ? { head: NIGHT_FACE, torso: NIGHT_SHELL }
+      : { head: DAY_FACE, torso: DAY_SHELL }
     for (const part of ['head', 'torso']) {
       const expected = colors[part].map(channel => Math.round(channel * (!result.nightMode || lit ? 1 : .65)))
       expectColor(result[part], expected, JSON.stringify(result))
@@ -151,7 +157,7 @@ test('full-bright editing preserves the android material with no lighting surfac
     h.renderer.dispose(); return { comparisons, legacyInk }
   })
   expect(result.comparisons).toEqual(Array.from({ length: 3 }, () => ({ difference: 0, bytes: 0 })))
-  expectColor(result.legacyInk, [184, 192, 181])
+  expectColor(result.legacyInk, DAY_FACE)
 })
 
 test('playground players receive lighting with full or reduced object shadows', async ({ page }) => {
@@ -173,7 +179,7 @@ test('playground players receive lighting with full or reduced object shadows', 
     h.renderer.dispose(); return samples
   })
   // Compare with quantized pixel channels, matching the other ambient checks.
-  for (const sample of samples) expectColor(sample.pixel, [212, 220, 207].map(channel => Math.round(channel * (sample.lit ? 1 : .65))))
+  for (const sample of samples) expectColor(sample.pixel, NIGHT_FACE.map(channel => Math.round(channel * (sample.lit ? 1 : .65))))
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: the player stays readable in darkness and receives partial shadows`, async ({ page }, info) => {
@@ -210,10 +216,10 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player stays read
     document.body.replaceChildren(comparison)
     h.renderer.dispose(); return result
   }, backend)
-  expectColor(result.dark, [212, 220, 207].map(channel => Math.round(channel * .65)))
+  expectColor(result.dark, NIGHT_FACE.map(channel => Math.round(channel * .65)))
   expectColor(result.ball, [143, 158, 152].map(channel => Math.round(channel * .35)))
   expect(result.dark[0] - result.wall[0]).toBeGreaterThan(50)
-  expectColor(result.lit, [212, 220, 207])
+  expectColor(result.lit, NIGHT_FACE)
   expectColor(result.partialHead, result.dark)
   expectColor(result.partialTorso, result.litTorso)
   expectColor(result.fading, result.dark.map((channel, i) => (channel + result.gone[i]) / 2))
@@ -475,9 +481,10 @@ test('source markers use resolved positions and isolation does not mutate the sc
     const after = JSON.stringify({ level: h.run.level, mechanisms: h.run.mechanisms, lights })
     const single = h.render(20, [lights[1]])
     // Isolation keeps the other physical fixtures visible. Compare the field
-    // while excluding only their small silhouettes from this single-lamp view.
+    // while excluding only their small silhouettes, housing, arm and wall plate,
+    // from this single-lamp view.
     for (const source of isolated.stats.sources.filter(l => l.id !== lights[1].id)) {
-      for (let y = source.y - 15; y <= source.y + 15; y++) for (let x = source.x - 15; x <= source.x + 15; x++) {
+      for (let y = source.y - 20; y <= source.y + 20; y++) for (let x = source.x - 20; x <= source.x + 20; x++) {
         const offset = ((y - h.view.y) * h.canvas.width + x) * 4
         single.pixels.set(isolated.pixels.slice(offset, offset + 4), offset)
       }

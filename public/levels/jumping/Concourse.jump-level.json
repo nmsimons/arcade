@@ -109,8 +109,8 @@
       "material": "earth"
     },
     {
-      "x": 140,
-      "y": 560,
+      "x": 125,
+      "y": 580,
       "w": 130,
       "h": 180,
       "zIndex": 13,
@@ -151,8 +151,8 @@
       ]
     },
     {
-      "x": 140,
-      "y": 550,
+      "x": 125,
+      "y": 570,
       "w": 130,
       "h": 10,
       "zIndex": 14,
@@ -1047,17 +1047,21 @@
       "x": 220,
       "y": 1325,
       "size": 30
-    },
-    {
-      "kind": "ball",
-      "x": 244,
-      "y": 730,
-      "size": 30,
-      "weight": "heavy"
     }
   ],
   "mechanisms": [],
-  "triggers": [],
+  "triggers": [
+    {
+      "x": 140,
+      "y": 570,
+      "w": 100,
+      "targets": [
+        "78a04f3b-b631-4064-8bfd-4240e349c2ea:fill",
+        "78a04f3b-b631-4064-8bfd-4240e349c2ea:drain"
+      ],
+      "mode": "touch"
+    }
+  ],
   "robots": [],
   "courseDoors": [
     {
@@ -1283,12 +1287,20 @@
     },
     {
       "id": "78a04f3b-b631-4064-8bfd-4240e349c2ea",
-      "x": 150,
-      "y": 570,
+      "x": 135,
+      "y": 585,
       "w": 110,
       "h": 165,
       "gravity": -1,
-      "effect": "water"
+      "effect": "water",
+      "waterMinLevel": 10,
+      "waterRate": 30,
+      "fill": {
+        "switchReversed": true
+      },
+      "drain": {
+        "switchReversed": false
+      }
     }
   ],
   "forceFields": [
@@ -1316,8 +1328,8 @@
   "floatSwitches": [
     {
       "id": "efd50260-6c3d-497e-bfb4-5b54c2897dfe",
-      "x": 170,
-      "y": 645,
+      "x": 155,
+      "y": 665,
       "armLength": 65,
       "size": 40,
       "targets": [],

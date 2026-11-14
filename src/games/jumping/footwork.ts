@@ -1,5 +1,5 @@
 import type { Platform, Player } from './model.ts'
-import { groundAt } from './terrain.ts'
+import { groundAt, groundUnder } from './terrain.ts'
 import { platformOutline } from './geometry.ts'
 import { canGrip } from './friction.ts'
 
@@ -141,15 +141,16 @@ function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: numb
     }
   }
   // A planted sole follows the actual surface even when its roll crosses a
-  // crease below the anchor's tangent plane. Swinging feet only move upward.
+  // crease below the anchor's tangent plane. Swinging feet only move upward,
+  // and only out of a solid they have entered: never onto a face that leans
+  // over them, such as the raised corner of a crate tipping toward the body.
   let penetration = foot.planted ? -Infinity : 0
   for (const point of FOOT_CONTACT) {
-    const sole = footPoint(point, foot.angle, toe)
-    const surface = groundAt(platforms, foot.x + sole[0] * foot.facing, y)
+    const sole = footPoint(point, foot.angle, toe), surface = groundUnder(platforms, foot.x + sole[0] * foot.facing, foot.y + sole[1], y)
     if (surface) penetration = Math.max(penetration, foot.y + sole[1] - surface.y)
   }
   if (Number.isFinite(penetration)) foot.y -= penetration
-  foot.groundY = groundAt(platforms, foot.x, y)?.y ?? y
+  foot.groundY = groundUnder(platforms, foot.x, foot.y, y)?.y ?? y
 }
 
 function plantFoot(foot: FootContact, platforms: readonly Platform[], y: number, bodyX: number) {
@@ -317,7 +318,8 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     if (rephased) foot.blockedCycle = -1
     const lap = Math.floor(cycle / TAU), step = sampleStride(cycle, run, moving, jog)
     const targetX = p.x + step.ankle[0] * p.facing
-    const targetGround = groundAt(platforms, targetX, p.y)
+    // A step aims only at ground it could stand on, not at a steep face such as a tipping crate's side.
+    const targetGround = groundAt(platforms, targetX, p.y, 26, surface => canGrip(surface.angle))
     const targetY = (targetGround?.y ?? p.y) + step.ankle[1], targetAngle = step.angle + (targetGround?.angle ?? 0) * p.facing
     if (foot.planted && traveling && (!step.planted || Math.abs(foot.x - p.x) > 21)) {
       foot.planted = false; foot.blockedCycle = lap
@@ -347,7 +349,7 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     foot.angle = targetAngle + (release?.angle ?? 0) * weight; foot.facing = p.facing
     foot.groundAngle = targetGround?.angle ?? 0
     foot.release = release && weight > 0 ? { ...release, time } : null
-    const surface = groundAt(platforms, foot.x, p.y)
+    const surface = groundUnder(platforms, foot.x, foot.y, p.y)
     let landingReached = true
     // Rephasing a resumed jog can put a still-raised recovery shoe into the
     // stance part of the cycle. Wait for its real sole to meet the floor rather
@@ -361,7 +363,7 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
       foot.planted = true; foot.groundAngle = surface.angle; foot.angle = step.angle + surface.angle * p.facing; foot.release = null
       const roll = footRoll(step.angle), c = Math.cos(surface.angle), s = Math.sin(surface.angle)
       foot.anchorX = foot.x - roll[0] * foot.facing * c + roll[1] * s
-      foot.anchorY = groundAt(platforms, foot.anchorX, p.y)?.y ?? surface.y
+      foot.anchorY = groundUnder(platforms, foot.anchorX, foot.y, p.y)?.y ?? surface.y
       plantFoot(foot, platforms, p.y, p.x)
     }
     else clearTerrain(foot, platforms, p.y, p.x)

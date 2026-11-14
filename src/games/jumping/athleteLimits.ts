@@ -17,6 +17,8 @@ export const BONE_TOLERANCE = .05
 export const MAX_NECK_ANGLE = 80 * Math.PI / 180
 /** Shoulder to head centre. */
 export const NECK_LENGTH: readonly [number, number] = [5.5, 9]
+/** About half a standing torso's drawn length (10 units). Shorter than this, the torso is foreshortened. */
+export const FORESHORTENED_TORSO = 5
 
 type Vec3 = [number, number, number]
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
@@ -42,6 +44,16 @@ export function neckAngle(pose: AthletePose): number {
   const neck = Math.atan2(pose.head[1] - pose.shoulder[1], pose.head[0] - pose.shoulder[0])
   return Math.atan2(Math.sin(neck - torso), Math.cos(neck - torso))
 }
+/**
+ * How far the head may turn from the torso's drawn line. A torso foreshortened toward the camera or a wall,
+ * as when a climber seen from behind leans over a ladder's top, no longer shows which way the chest faces:
+ * its drawn line shrinks and can flip end for end. The limit opens smoothly from MAX_NECK_ANGLE to any angle
+ * as the torso shortens, so the head is never swung across by a line that has lost its meaning.
+ */
+export function neckTurnLimit(pose: AthletePose): number {
+  const t = Math.max(0, Math.min(1, Math.hypot(pose.shoulder[0] - pose.waist[0], pose.shoulder[1] - pose.waist[1]) / FORESHORTENED_TORSO))
+  return MAX_NECK_ANGLE + (Math.PI - MAX_NECK_ANGLE) * (1 - t * t * (3 - 2 * t))
+}
 const neckLength = (pose: AthletePose) => Math.hypot(pose.head[0] - pose.shoulder[0], pose.head[1] - pose.shoulder[1])
 
 /** Every way a pose leaves the rig's envelope; empty for a valid pose. */
@@ -54,7 +66,7 @@ export function rigViolations(pose: AthletePose): string[] {
     if (Math.abs(a - upper) > BONE_TOLERANCE || Math.abs(b - lower) > BONE_TOLERANCE) problems.push(`${name} bone length`)
     if (jointOpening(limb) < MIN_JOINT_OPENING - 1e-6) problems.push(`${name} folded`)
   }
-  if (Math.abs(neckAngle(pose)) > MAX_NECK_ANGLE + 1e-6) problems.push('neck turned')
+  if (Math.abs(neckAngle(pose)) > neckTurnLimit(pose) + 1e-6) problems.push('neck turned')
   const neck = neckLength(pose)
   if (neck < NECK_LENGTH[0] - 1e-6 || neck > NECK_LENGTH[1] + 1e-6) problems.push('neck length')
   return problems
@@ -79,11 +91,11 @@ function reopen(limb: Limb): Limb {
 
 /** Swing the head about the shoulder back inside the neck's range, at a neck length within its own. */
 function seatHead(pose: AthletePose): AthletePose {
-  const angle = neckAngle(pose), neck = neckLength(pose)
-  const turned = Math.abs(angle) > MAX_NECK_ANGLE, length = Math.max(NECK_LENGTH[0], Math.min(NECK_LENGTH[1], neck))
+  const angle = neckAngle(pose), neck = neckLength(pose), limit = neckTurnLimit(pose)
+  const turned = Math.abs(angle) > limit, length = Math.max(NECK_LENGTH[0], Math.min(NECK_LENGTH[1], neck))
   if (!turned && length === neck) return pose
   const torso = Math.atan2(pose.shoulder[1] - pose.waist[1], pose.shoulder[0] - pose.waist[0])
-  const direction = turned ? torso + Math.sign(angle) * MAX_NECK_ANGLE : Math.atan2(pose.head[1] - pose.shoulder[1], pose.head[0] - pose.shoulder[0])
+  const direction = turned ? torso + Math.sign(angle) * limit : Math.atan2(pose.head[1] - pose.shoulder[1], pose.head[0] - pose.shoulder[0])
   return { ...pose, head: [pose.shoulder[0] + Math.cos(direction) * length, pose.shoulder[1] + Math.sin(direction) * length] }
 }
 

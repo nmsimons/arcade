@@ -44,6 +44,38 @@ export function groundAt(platforms: readonly Platform[], x: number, y: number, r
   return found
 }
 
+/**
+ * The surface a point at (x, y) stands on: the top of the solid holding it, or else the nearest surface
+ * below it, within `reach` of `from`. Unlike groundAt, never a surface across open air above the point, such
+ * as a tipping crate's raised corner beside a planted foot.
+ */
+export function groundUnder(platforms: readonly Platform[], x: number, y: number, from = y, reach = 26,
+  accepts?: (surface: GroundSurface) => boolean): GroundSurface | null {
+  let found: GroundSurface | null = null
+  for (const platform of platforms) {
+    if (x < platform.x || x > platform.x + platform.w) continue
+    let spans: number[][] | undefined
+    for (const surface of platformSurfaces(platform, x)) {
+      if (Math.abs(surface.y - from) > reach || accepts && !accepts(surface) || found && surface.y >= found.y) continue
+      if (surface.y < y - 1e-6 && !(spans ??= solidSpans(platform, x)).some(([start, end]) => Math.abs(start - surface.y) < 1e-6 && y <= end)) continue
+      found = surface
+    }
+  }
+  return found
+}
+
+/**
+ * The top of the solid that holds the point (x, y), when that top is within `reach` above `from`: what a foot
+ * or knee at the point must rise onto. A point in open air holds none, even beneath a face that turns upward,
+ * such as a tipping crate's raised side leaning over a foot.
+ */
+export function solidTopAt(platforms: readonly Platform[], x: number, y: number, from = y, reach = 26): number | null {
+  let top: number | null = null
+  for (const platform of platforms) for (const [start, end] of solidSpans(platform, x))
+    if (y >= start - 1e-6 && y <= end && start >= from - reach && (top === null || start < top)) top = start
+  return top
+}
+
 /** Solid intervals on a vertical slice. Concave terrain can have open air
  * between its ceiling and floor even when both belong to the same polygon. */
 function solidSpans(platform: Platform, x: number): number[][] {

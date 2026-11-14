@@ -80,6 +80,30 @@ cadence. Where no hashes are recorded, only the cadence the game uses
 and the `UJG golden traces` job runs this file alongside the browser shards,
 so it does not delay them.
 
+## Pose flickers
+
+A drawn frame shows whichever physics step it lands on, so a pose that is wrong
+for one to six steps appears only sometimes: a flicker. The hash checks above
+cannot tell a flicker from an intended change, so `tests/jumping-flicker.test.mjs`
+watches the presented pose of the player and every robot on every step
+(`FlickerWatch` in `tests/helpers/jumping-flicker.mjs`). A flicker is a joint
+that leaves where it was by more than 5 units and returns within six steps
+(50 ms, three drawn frames); a snap is a joint that jumps more than 10 units in
+one step, several times further than the steps either side, and stays.
+Positions are relative to the body, so travel and turning blends do not count.
+
+The test runs focused scenarios everywhere, such as pushing a crate until it
+tumbles and climbing off a ladder's top, and expects none. On Apple Silicon it
+also scans every golden route and fails when a route has more flickers of 12
+units or more than its budget in `tests/fixtures/jumping-flicker-budget.json`,
+which records the flickers each route had when the check began. To see them,
+run `node scripts/jumping-flicker.mjs --gate`, or without `--gate` for every
+flicker and snap; `--only <route>` narrows it and `--source <checkout>` scans
+another checkout for comparison. After fixing flickers, record the lower budget
+and why: `node scripts/jumping-flicker.mjs --write-budget --note '...'`. Never
+raise a budget for a new flicker; fix it, or add a scenario showing why it
+cannot be.
+
 `npm run test:fast` runs every UJG unit test except the stress-level routes and
 the long whole-skin acceptance sweeps, in about two minutes on an 18-core
 machine. Run the full `npm test` before finishing a change.

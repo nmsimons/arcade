@@ -6,7 +6,7 @@ import type { AthletePose } from '../athleteRig.ts'
 import { sampleStride } from '../footwork.ts'
 import { BACK_GRIP, BACK_WRIST, FRONT_GRIP, FRONT_WRIST } from '../ledge.ts'
 import type { Limb, Point } from '../limbPose.ts'
-import { groundAt } from '../terrain.ts'
+import { solidTopAt } from '../terrain.ts'
 import { landingPreparation } from './fallPose.ts'
 import { clearLedgeReach, grippingArm } from './ledgePose.ts'
 import { slidingPose, wallBraceSharesSlide } from './slidingPose.ts'
@@ -288,9 +288,10 @@ export function locomotionPose(p: Player): AthletePose {
     backArm = clearLedgeReach(p, add(origin, BACK_WRIST), add(origin, BACK_GRIP), backArm, p.ledgeReach.amount)
   }
   const frontFacing = (contacts?.[0].facing ?? p.facing) * p.facing, backFacing = (contacts?.[1].facing ?? p.facing) * p.facing
-  const terrainHeight = p.anim.footwork ? (x: number) => {
-    const ground = groundAt(p.anim.footwork!.terrain, p.x + x * p.facing, p.y)
-    return ground ? ground.y - p.y : null
+  // A swinging foot or knee rises only out of a solid it has entered, never onto a face that leans over it.
+  const terrainHeight = p.anim.footwork ? (x: number, y: number) => {
+    const top = solidTopAt(p.anim.footwork!.terrain, p.x + x * p.facing, p.y + y, p.y)
+    return top === null ? null : top - p.y
   } : undefined
   // Let the walking foot recover independently of the folding shin. The
   // tighter airborne limit pointed its toes down even on this low swing.

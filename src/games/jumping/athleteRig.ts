@@ -162,7 +162,7 @@ function footAngle(limb: Limb, desired: number, ankleFlex = .35): number {
   return desired + Math.max(-ankleFlex, Math.min(.7, delta)) - delta
 }
 export function solveLeg(root: Point, target: Point, desired: number, grounded: boolean, planted = false, footFacing = 1, load = Number(grounded), kneeDirection = -1,
-  groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null, lowStep = 0, ankleFlex = .35, toeCurl = 0): Leg {
+  groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number, y: number) => number | null, lowStep = 0, ankleFlex = .35, toeCurl = 0): Leg {
   const ankle: Point = [...target]
   // Deep, supported crouches need more knee flexion than an airborne leg.
   // Forcing a nearby foot away from the hip can drive it through the floor;
@@ -179,7 +179,8 @@ export function solveLeg(root: Point, target: Point, desired: number, grounded: 
   }
   const clearKnee = () => {
     if (!grounded || !lowStep || !terrainHeight) return limb
-    const surface = terrainHeight(limb.joint[0])
+    // The knee keeps 1.8 units clear of any solid it is over.
+    const surface = terrainHeight(limb.joint[0], limb.joint[1] + 1.8)
     if (surface === null || limb.joint[1] <= surface - 1.8) return limb
     // A low trailing knee can graze an incline. Fold slightly in depth while
     // preserving both bone lengths, the foot contact, and the body posture.
@@ -188,7 +189,7 @@ export function solveLeg(root: Point, target: Point, desired: number, grounded: 
     const center: Point = [root[0] + dx * along, root[1] + dy * along]
     let low = 0, high = 1
     for (let i = 0; i < 10; i++) {
-      const t = (low + high) / 2, point = mix(center, limb.joint, t), floor = terrainHeight(point[0])
+      const t = (low + high) / 2, point = mix(center, limb.joint, t), floor = terrainHeight(point[0], point[1] + 1.8)
       if (floor === null || point[1] <= floor - 1.8) low = t
       else high = t
     }
@@ -199,7 +200,7 @@ export function solveLeg(root: Point, target: Point, desired: number, grounded: 
   if (grounded) for (let i = 0; i < 4; i++) {
     const bottom = terrainHeight ? Math.max(...FOOT_CONTACT.map(point => {
       const sole = footPoint(point, angle * footFacing, flex() * footFacing)
-      const surface = terrainHeight(limb.end[0] + sole[0] * footFacing)
+      const surface = terrainHeight(limb.end[0] + sole[0] * footFacing, limb.end[1] + sole[1])
       return surface === null ? 0 : limb.end[1] + sole[1] - surface
     })) : limb.end[1] + soleContact(angle * footFacing, flex() * footFacing)[1] - groundY
     if (bottom <= .01) break

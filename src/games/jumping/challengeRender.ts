@@ -5,7 +5,7 @@ import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallTexts } from './wallText.ts'
 import { drawHubDoors, hubDoorBounds } from './hub.ts'
-import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
+import { drawAthlete, drawCheckpointMarkers, drawLadders, drawRopes, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import type { BusEnding } from './busEnding.ts'
@@ -266,8 +266,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const state of run.floatSwitches) drawFloatSwitchArm(ctx, state, paint)
   paint(ctx, 0, () => {
     if (editor) drawCheckpointMarkers(ctx, p, level)
+    // Ladders are fixed to the wall, so props pass in front of them; ropes drape over props, so they follow.
+    const climbables = !layerSkipped('climbables')
+    if (climbables) drawLadders(ctx, level.climbables)
     for (const b of run.props) drawProp(ctx, b)
-    if (!layerSkipped('climbables')) drawClimbables(ctx, p, level.climbables)
+    if (climbables) drawRopes(ctx, p, level.climbables)
   })
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, !powerOut(run) && !r.deactivated && !run.gadgets.disabled.has(r), paint, lights.find(light => light.robot === i)?.fade ?? 0)
   for (const r of run.robots) if (r.definition.kind === 'repulsor' && r.definition.chargingBay)

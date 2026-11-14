@@ -31,12 +31,19 @@ export { drawAthlete } from './athleteDraw.ts'
 const ACCENT = '#df633f'
 
 export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: ClimbableWorld) {
+  drawLadders(ctx, world); drawRopes(ctx, p, world)
+}
+/** Ladders are fixed to the wall, behind props and actors. */
+export function drawLadders(ctx: CanvasRenderingContext2D, world: Pick<ClimbableWorld, 'ladders'>) {
   for (const ladder of world.ladders) {
     ctx.fillStyle = '#87958b'
     ctx.fillRect(ladder.x - 8, ladder.top, 2.5, ladder.bottom - ladder.top)
     ctx.fillRect(ladder.x + 5.5, ladder.top, 2.5, ladder.bottom - ladder.top)
     for (let y = ladder.top; y <= ladder.bottom; y += 14) ctx.fillRect(ladder.x - 8, y, 16, 2)
   }
+}
+/** Ropes hang in the world and drape over the props they touch. */
+export function drawRopes(ctx: CanvasRenderingContext2D, p: Player, world: Pick<ClimbableWorld, 'ropes'>) {
   for (const [i, rope] of world.ropes.entries()) {
     ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
     ctx.beginPath(); ctx.moveTo(rope.x, rope.y)

@@ -393,17 +393,18 @@ test('terrain and floor materials undo, save and render consistently in the edit
   await page.screenshot({ path: info.outputPath('terrain-materials-game.png') })
 })
 
-test('the wall finish undoes, saves only when it is not the course wall, and brings the editor grid', async ({ page }, info) => {
+test('the wall finish sits under Background, undoes, and saves only when it is not the course wall', async ({ page }, info) => {
   const level = { ...blankTrial(), width: 1200, height: 800, floor: 800, entrance: { x: 120, y: 800 }, goal: { x: 1040, y: 800 } }
   await open(page, level)
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
-  const finish = page.getByRole('combobox', { name: 'Wall finish', exact: true }), grid = page.getByRole('checkbox', { name: 'Editor grid', exact: true })
+  const finish = page.getByRole('combobox', { name: 'Wall finish', exact: true })
   await expect(finish).toContainText('Course wall')
-  // The course wall draws its own grid, so the studio's grid is offered only over a finish.
-  await expect(grid).toHaveCount(0)
+  // It belongs with the wall it changes, right under the Background choice.
+  const below = await page.getByRole('combobox', { name: 'Background', exact: true }).evaluate((background, finish) =>
+    !!(background.compareDocumentPosition(finish) & Node.DOCUMENT_POSITION_FOLLOWING), await finish.elementHandle())
+  expect(below).toBe(true)
   await selectBuilderOption(page, 'Wall finish', 'bulkhead')
   await expect(finish).toContainText('Bulkhead')
-  await expect(grid).toBeChecked()
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(finish).toContainText('Course wall')
   await page.getByRole('button', { name: 'Redo', exact: true }).click()

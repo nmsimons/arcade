@@ -11,10 +11,12 @@ const noise = (x: number, y: number) => {
   return n - Math.floor(n)
 }
 
+/** The course wall's precast panels: 360 by 240, each row offset by half a panel. Wall finishes fix to these. */
+export const WALL_PANEL = { w: 360, h: 240 } as const
 /** World-anchored precast panels. Decorative hardware belongs to authored art. */
 export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView) {
   if (view.w <= 0 || view.h <= 0) return
-  const w = 360, h = 240
+  const { w, h } = WALL_PANEL
   ctx.save()
   // A cropped replay can use a larger scratch canvas. Translucent panels
   // must never accumulate beyond the part of the wall being repainted.

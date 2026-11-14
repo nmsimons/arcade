@@ -1,4 +1,6 @@
-import { levelHeight } from './level'
+import { copyLevel, levelHeight } from './level'
+import { WALL_FINISHES } from './wallFinish'
+import type { WallFinish } from './wallFinish'
 import type { JumpLevel } from './level'
 import { usesRegionLighting } from './environment'
 import { setBackground, setLightingLayout } from './environmentEditor'
@@ -14,6 +16,15 @@ export function EnvironmentFields({ level, onChange, selectedWall, onSelectWall,
   return <div className="builder-environment">
     <BuilderSelect label="Background" value={environment?.kind ?? 'interior'} options={[{ value: 'interior', label: 'Indoor wall' }, { value: 'landscape', label: 'Blue sky' }]}
       onChange={kind => onChange(setBackground(level, kind as 'interior' | 'landscape'))} />
+    {/* The indoor wall's finish, which also dresses facility back walls against the sky. */}
+    <BuilderSelect label="Wall finish" value={level.wallFinish ?? 'course'} options={WALL_FINISHES.map(finish => ({ value: finish.id, label: finish.label }))}
+      onChange={finish => {
+        // The ordinary course wall is saved by leaving the field out.
+        const next = copyLevel(level)
+        if (finish === 'course') delete next.wallFinish
+        else next.wallFinish = finish as Exclude<WallFinish, 'course'>
+        onChange(next)
+      }} />
     <BuilderSelect label="Lighting layout" value={regional ? 'regions' : 'uniform'} options={[{ value: 'uniform', label: 'Whole level' }, { value: 'regions', label: 'Day and night regions' }]}
       onChange={layout => onChange(setLightingLayout(level, layout as 'uniform' | 'regions'))} />
     {regional && environment && <>

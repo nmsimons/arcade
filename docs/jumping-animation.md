@@ -347,3 +347,32 @@ the best of several runs before attributing a few percent to a change.
   touches every place a platform is created.
 - The rope solver's constraint iteration (passes times particles) and matter.js
   on the prop-heavy levels.
+
+## After the split: the idle look
+
+Left standing, the robot turns its head to look straight at the camera and
+keeps looking, cocking its head to one side now and then, until something calls
+it away (`idleGlance.ts`, November 15, 2026). It follows the split's rule from
+the drawing side: nothing is stepped and nothing is stored on `Run`, `Player`
+or `Player.anim`.
+
+- The game evaluates it when it draws the player, from `run.activeTime` (so a
+  pause holds it and a restart rewinds it) and from what the player is doing
+  (`standingIdle`). The only memory is when the player was first seen standing
+  idle, kept in a `WeakMap` beside the player.
+- It reaches the artwork through `glancePose`, which sets `faceView` and adds
+  the cock to `headTilt` on the pose handed to `drawAthlete`. No solved pose
+  carries `faceView`, so pose hashes and golden traces do not see it.
+- The head cocks on the top of its neck: `glancePose` moves the head's centre
+  so the point where the neck meets it stays still. Turning the head about its
+  own centre, tried first, swung the chin the other way and leaned the neck,
+  and read as a sign spinning on a post.
+- The head turns after 3 seconds of standing idle and then stays. Once in each
+  7 seconds of looking it cocks about 12 degrees to one side for a second or
+  so, at a moment and to a side that vary the same way on every run.
+- Two things turn it back, within 0.14 seconds: any movement of the player, and
+  a robot within 900 units that has power and has seen the player, is moving,
+  or has left its patrol (`robotsStir`). The wait then starts over.
+- Only the head turns. Profile shows the near eye as an oval; full face shows
+  both eyes round (`androidEyes`). A head with its back to the camera
+  (`backView`) shows only its skull.

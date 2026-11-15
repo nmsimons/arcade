@@ -1,7 +1,7 @@
 // Athlete artwork: skin outlines and Canvas drawing of a solved pose.
 import { ArtPath } from './webgl/artPath.ts'
 import { bodySize } from './sizeFrame.ts'
-import { androidMaterials, androidRearArmColor, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
+import { androidEyes, androidMaterials, androidRearArmColor, drawAndroidArm, drawAndroidEyes, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell, withAndroidBuild } from './androidArtwork.ts'
 import type { AndroidAppearance, AndroidMaterials } from './androidArtwork.ts'
 import { drawAndroidPalmPlate, handGeometry, traceAndroidHand } from './androidHand.ts'
 import { footContours, handOutline } from './athleteClearance.ts'
@@ -187,6 +187,7 @@ export function traceAthlete(path: AthleteOutline, p: Player, pose = athletePose
 
 /** The shell casts light shadows without becoming part of the contact rig. */
 export function traceAthleteArtwork(path: AthleteOutline, p: Player, pose = presentedAthletePose(p)) {
+  pose = withAndroidBuild(pose)
   traceAthleteSkin(path, p, pose, false, pose.footScale, pose.handScale, true)
   traceAndroidShell(path, pose, !!p.climbing || (pose.backView ?? 0) > 0)
 }
@@ -194,6 +195,7 @@ export function traceAthleteArtwork(path: AthleteOutline, p: Player, pose = pres
 export const NIGHT_PLAYER_COLOR = '#e5e7e6'
 /** The android shell follows the original solved joints and contact rig. */
 export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: AndroidAppearance = '#686b6e', pose = presentedAthletePose(p)) {
+  pose = withAndroidBuild(pose)
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
   // The pose is in the body's own units; a larger body draws its artwork at its size (sizeFrame.ts).
   const size = bodySize(p)
@@ -228,10 +230,35 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
   const neck = new ArtPath(); traceNeckArtwork(neck, pose); fillShape(ctx, neck, materials.joint)
   drawAndroidTorso(ctx, pose, backPose, materials)
   drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale, pose.shellWidth)
-  drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth, pose.headScale)
+  drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth, pose.headScale, backView, pose.faceView)
   if (!armsBehind) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
     if (p.facing >= 0) sleeve(frontArm)
   }
+  ctx.restore()
+}
+
+function segmentDistance(point: Point, a: Point, b: Point) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)))
+  return Math.hypot(point[0] - a[0] - dx * t, point[1] - a[1] - dy * t)
+}
+/** The body's own lights, drawn over it again where light and shadow do not reach (worldPaint exposure 1), so
+ * its eyes glow in the dark. Nothing is drawn where the near arm, which the body draws over its head, crosses an eye. */
+export function drawAthleteLights(ctx: CanvasRenderingContext2D, p: Player, body: AndroidAppearance = '#686b6e', pose = presentedAthletePose(p)) {
+  const materials = androidMaterials(body), backView = pose.backView ?? 0
+  if (!materials.eye || backView >= 1) return
+  pose = withAndroidBuild(pose)
+  const tilt = pose.headTilt ?? 0, scale = pose.headScale ?? 1, width = pose.shellWidth ?? 1, cos = Math.cos(tilt), sin = Math.sin(tilt)
+  const behind = (!!p.climbing || backView > 0) && !(p.climbing?.kind === 'rope' && backView < .5)
+  if (!behind) {
+    const arm = pose.frontArm, reach = p.heldTool ? 7 : 4, hand = arm.hand ?? arm.end
+    for (const eye of androidEyes(pose.faceView)) {
+      const x = eye.x * width * scale, y = eye.y * scale, centre: Point = [pose.head[0] + x * cos - y * sin, pose.head[1] + x * sin + y * cos]
+      if (Math.min(segmentDistance(centre, arm.root, arm.joint), segmentDistance(centre, arm.joint, arm.end), segmentDistance(centre, arm.end, hand)) < eye.ry * scale + reach) return
+    }
+  }
+  const size = bodySize(p)
+  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing * size, (p.inverted ? -1 : 1) * size)
+  drawAndroidEyes(ctx, pose.head, tilt, materials, width, scale, backView, pose.faceView)
   ctx.restore()
 }

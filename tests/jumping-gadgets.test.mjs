@@ -6,7 +6,7 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { addItem, duplicateItem, deleteItem } from '../src/games/jumping/editor.ts'
 import { heldToolFrame, toolShape, pulseHit, cancelGadgetInput, finishGadgetMotion, prepareGadgets } from '../src/games/jumping/gadgets.ts'
 import { polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
-import { athletePose, presentedAthletePose, drawAthlete } from '../src/games/jumping/athlete.ts'
+import { NIGHT_PLAYER_COLOR, athletePose, presentedAthletePose, drawAthlete } from '../src/games/jumping/athlete.ts'
 import { createJumpController } from '../src/games/jumping/input.ts'
 import { boxShape, propHeight } from '../src/games/jumping/propGeometry.ts'
 import { propGravity, propWaterStrength, createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
@@ -308,10 +308,12 @@ test('the right sleeve renders behind a left-facing torso and ahead of a right-f
         roundRect(x, y, w, h) { if (x === -8 && y === -4 && w === 16 && h === 8) operations.push('sleeve') } },
       { get: (object, key) => key in object ? object[key] : () => {} })
       const p = { ...run.player, facing }, pose = presentedAthletePose(p)
-      drawAthlete(ctx, p, undefined, { ...pose, backView })
-      const sleeve = operations.indexOf('sleeve'), face = operations.indexOf(androidMaterials('#686b6e').face)
-      assert.ok(sleeve >= 0 && face >= 0)
-      assert.equal(sleeve < face, facing < 0 || !!backView, 'climbing/back-view equipment draws with its arm behind the torso')
+      // The skull places the head, drawn over the torso, in the draw order: a head turned away draws no face.
+      // Only the night palette gives the skull a colour of its own.
+      drawAthlete(ctx, p, NIGHT_PLAYER_COLOR, { ...pose, backView })
+      const sleeve = operations.indexOf('sleeve'), head = operations.indexOf(androidMaterials(NIGHT_PLAYER_COLOR).cranial)
+      assert.ok(sleeve >= 0 && head >= 0)
+      assert.equal(sleeve < head, facing < 0 || !!backView, 'climbing/back-view equipment draws with its arm behind the torso')
       assert.equal(operations.filter(operation => operation === 'sleeve').length, 1)
     }
   } finally { globalThis.Path2D = OriginalPath }

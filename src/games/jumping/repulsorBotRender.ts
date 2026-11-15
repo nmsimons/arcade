@@ -5,6 +5,7 @@ import { repulsorBotPresentation, repulsorBotWidthScale } from './repulsorBotRig
 import { robotHeadlightPose } from './robotHeadlight.ts'
 import { ROBOT_PALETTE } from './equipmentPalette.ts'
 import { drawAthlete } from './athleteDraw.ts'
+import { turnAndroidFace } from './androidArtwork.ts'
 import { bodySize } from './sizeFrame.ts'
 
 /** The visor slit across Rbot's face, in its head's own units, and its repulsor's amber. */
@@ -24,7 +25,7 @@ export function drawRepulsorBot(ctx: CanvasRenderingContext2D, robot: RobotState
     const size = bodySize(actor)
     ctx.save(); ctx.globalAlpha *= opacity; ctx.translate(actor.x, actor.y); ctx.scale(repulsorBotWidthScale(actor), 1)
     ctx.scale(actor.facing * size, (actor.inverted ? -1 : 1) * size); ctx.translate(...pose.head); ctx.rotate(pose.headTilt ?? 0)
-    ctx.scale(pose.headScale ?? 1, pose.headScale ?? 1); ctx.scale(pose.shellWidth ?? 1, 1); ctx.fillStyle = VISOR.color
+    ctx.scale(pose.headScale ?? 1, pose.headScale ?? 1); ctx.scale(pose.shellWidth ?? 1, 1); turnAndroidFace(ctx, pose.backView ?? 0); ctx.fillStyle = VISOR.color
     ctx.beginPath(); ctx.roundRect(VISOR.x, VISOR.y, VISOR.w, VISOR.h, VISOR.h / 2); ctx.fill()
     ctx.restore()
   })

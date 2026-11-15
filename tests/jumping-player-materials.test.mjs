@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { androidMaterials, androidDaylightMaterials } from '../src/games/jumping/androidArtwork.ts'
+import { androidEyes, androidMaterials, androidDaylightMaterials, drawAndroidEyes, drawAndroidHead } from '../src/games/jumping/androidArtwork.ts'
+import { ARGUMENTS, ELLIPSE } from '../src/games/jumping/webgl/artPath.ts'
 import { EnvironmentLighting } from '../src/games/jumping/environmentLighting.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { createPreviewRun } from '../src/games/jumping/challenge.ts'
@@ -59,4 +60,42 @@ test('regional material blending is background-independent and samples the inver
   assert.equal(light.playerMaterials(run),normal)
   const sky={...run,level:{...run.level,environment:{...run.level.environment,kind:'landscape',horizon:300}}}
   assert.deepEqual(new EnvironmentLighting().playerMaterials(sky),normal)
+})
+
+test('a head turned away shows only the back of its skull, and one turned to the camera shows both eyes', () => {
+  const OriginalPath = globalThis.Path2D
+  globalThis.Path2D = class { constructor() { return new Proxy(this, { get: () => () => {} }) } }
+  try {
+    const player = androidMaterials('#686b6e'), mask = androidMaterials('#ffffff')
+    // Each eye is one ellipse in the path the head fills: x, y, rx, ry.
+    let ellipses = []
+    const fills = (draw, palette, back, front) => {
+      const colors = []
+      ellipses = []
+      const ctx = new Proxy({ fillStyle: '', globalAlpha: 1, fill(path) {
+        colors.push(this.fillStyle)
+        const commands = path?.commands ?? []
+        for (let i = 0; i < commands.length; i += 1 + ARGUMENTS[commands[i]]) if (commands[i] === ELLIPSE) ellipses.push(commands.slice(i + 1, i + 5))
+      } }, { get: (object, key) => key in object ? object[key] : () => {} })
+      draw(ctx, [0, 0], 0, palette, 1, 1, back, front)
+      return colors
+    }
+    assert.ok(player.eye && player.accent && !mask.eye && !mask.accent, 'only the player carries eye lights and a signal colour')
+    assert.deepEqual(fills(drawAndroidHead, player, 0, 0), [player.cranial, player.face, player.eye])
+    assert.equal(ellipses.length, 1, 'profile shows the near eye')
+    assert.ok(ellipses[0][2] < ellipses[0][3], 'edge-on, as an oval')
+    assert.deepEqual(fills(drawAndroidHead, player, .5, 0), [player.cranial, player.face, player.eye], 'the face foreshortens through the turn away')
+    assert.deepEqual(fills(drawAndroidHead, player, 1, 0), [player.cranial])
+    assert.deepEqual(fills(drawAndroidHead, player, 0, 1), [player.cranial, player.face, player.eye])
+    assert.equal(ellipses.length, 2, 'full face shows both')
+    assert.ok(ellipses.every(([, , rx, ry]) => Math.abs(rx - ry) < 1e-9), 'as round lights')
+    assert.ok(Math.abs(ellipses[0][0] + ellipses[1][0]) < 1e-9 && ellipses[0][1] === ellipses[1][1], 'set evenly about the middle of the face')
+    assert.deepEqual(fills(drawAndroidHead, mask, 0, 1), [mask.cranial, mask.face], 'a diagnostic mask stays one colour')
+    // The lit pass repeats only the eyes.
+    assert.deepEqual(fills(drawAndroidEyes, player, 0, 0), [player.eye])
+    assert.deepEqual(fills(drawAndroidEyes, player, 0, 1), [player.eye])
+    assert.deepEqual(fills(drawAndroidEyes, player, 1, 0), [])
+    assert.deepEqual(fills(drawAndroidEyes, mask, 0, 0), [])
+    assert.equal(androidEyes(.2).length, 1); assert.equal(androidEyes(.6).length, 2)
+  } finally { globalThis.Path2D = OriginalPath }
 })

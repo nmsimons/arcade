@@ -409,6 +409,18 @@ robot reads as the machine it is. The earlier ink (`#b5bdb2` shell) was 1.7:1
 against the wall. A darker grey-sage tried first (`#647469`, 4.4:1) read
 clearly but looked muddy, and was replaced the same day.
 
+The player also carries one signal colour and two eye lights, both the system
+display's phosphor green (`#a9ef82`, November 15, 2026), which no other body or
+pickup uses. The signal colour is paint: a cell on the back, seen only from
+behind, lit and shadowed with the shell. A green chest mark and a band on the
+upper arm were tried and dropped as too much. The eyes are
+lights. `drawAthlete` draws them with the body, and the game draws them again
+over it at exposure 1 (`drawAthleteLights`), as Rbot's visor is, so they glow
+in the dark at their full colour. That second pass is skipped where the near
+arm, which the body draws over its head, crosses an eye, and for a head turned
+away. Rbot and the diagnostic masks carry neither colour. The eyes are flat
+fills: no halo or blur.
+
 The whole posed silhouette is one receiver and caster, so overlapping body parts
 do not shade one another. Other objects can cast partial shadows across the
 figure. The minimum reuses the existing 65% readable-artwork pass, without a

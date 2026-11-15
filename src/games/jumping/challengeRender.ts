@@ -37,7 +37,11 @@ import { drawLabLogo, LAB_LOGO_HEIGHT, LAB_LOGO_WIDTH } from '../../branding/lab
 import { drawGadgets, drawLooseGadget } from './gadgetRender.ts'
 import { drawRepulsorBot } from './repulsorBotRender.ts'
 import { EMP_PALETTE, ROBOT_PALETTE } from './equipmentPalette.ts'
-import { awakeningPose } from './athletePose.ts'
+import { awakeningPose, presentedAthletePose } from './athletePose.ts'
+import { drawAthleteLights } from './athleteDraw.ts'
+import type { AthletePose } from './athleteRig.ts'
+import type { Player } from './characterTypes.ts'
+import { glancePose, idleGlance, robotsStir } from './idleGlance.ts'
 import { powerOut } from './power.ts'
 import { layerSkipped } from './measureLayers.ts'
 import { drawImpactEffects, drawSplashes } from './impactRender.ts'
@@ -286,18 +290,27 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const r of run.robots) if (r.definition.kind === 'repulsor' && r.definition.chargingBay)
     drawChargingBayCover(ctx, r.definition, r.awakening?.elapsed ?? 0, paint, nightModeEnabled(level.lighting), ROBOT_BAY_WIDTH_SCALE)
   if (!editor && !layerSkipped('effects')) drawImpactEffects(ctx, run, paint)
+  // The body takes the level's light; its eyes are lights of their own, drawn over it where none reaches.
+  const drawPlayer = (actor: Player, pose?: AthletePose) => {
+    paint(ctx, playerExposure, () => drawAthlete(ctx, actor, playerInk, pose))
+    paint(ctx, 1, () => drawAthleteLights(ctx, actor, playerInk, pose))
+  }
   if (!run.started && run.entrance && !editor) {
     const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
     ctx.save(); ctx.globalAlpha *= waking ? .45 + .55 * chargingBayOpening(entrance.elapsed) : entranceVisibility(entrance.elapsed)
-    paint(ctx, playerExposure, () => drawAthlete(ctx, entrance.player, playerInk, waking ? awakeningPose(entrance.player, awakeningProgress(entrance.elapsed)) : undefined)); ctx.restore()
+    drawPlayer(entrance.player, waking ? awakeningPose(entrance.player, awakeningProgress(entrance.elapsed)) : undefined); ctx.restore()
   }
   else if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
-    paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
+    drawPlayer(p); ctx.restore()
   }
   else {
     drawMovementEffects(ctx, p, paint)
-    if (!layerSkipped('athlete')) paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk))
+    if (!layerSkipped('athlete')) {
+      // Left standing, the robot turns to look at the camera until something calls it away (idleGlance.ts).
+      const glance = editor ? null : idleGlance(p, run.activeTime, robotsStir(run))
+      drawPlayer(p, glance?.face ? glancePose(presentedAthletePose(p), glance) : undefined)
+    }
   }
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))

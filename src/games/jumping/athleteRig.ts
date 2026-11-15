@@ -13,6 +13,11 @@ export type AthletePose = {
   shellWidth?: number
   /** Cosmetic size of the head about its centre. */
   headScale?: number
+  /** Cosmetic width of the chest plate at the shoulders; the waist keeps its width. */
+  chestScale?: number
+  /** How far the head alone has turned to face the camera, from profile (0) to full face (1). Drawing sets it;
+   * no solved pose carries it. */
+  faceView?: number
 }
 export const TAU = Math.PI * 2
 export const HEAD_RADIUS = 6.2

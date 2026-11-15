@@ -222,10 +222,9 @@ test('the dispatch door opens by its wiring, here once every wing is complete, a
   const wingTimes = id => id === 'final' ? null : 20
   const sealed = hubPresentation(campaign, progress(everything.slice(0, -1)), levels.get('hall'), levels, wingTimes)
   assert.deepEqual([...sealed.switched], ['dispatch', 'hall-to-w'], 'left to its wiring, like any switched door')
-  assert.deepEqual([sealed.signs.get('dispatch'), sealed.placards.get('dispatch')], ['DISPATCH', ['SEALED']])
+  assert.deepEqual([sealed.signs.get('dispatch'), sealed.placards.has('dispatch')], ['EXIT', false], 'lettered EXIT, with no placard')
   const released = progress(everything)
   assert.deepEqual([released.complete, released.released], [true, true])
-  assert.deepEqual(hubPresentation(campaign, released, levels.get('hall'), levels, wingTimes).placards.get('dispatch'), ['UNIT RELEASED'])
   // Once the final course is passed, its door stays open like any other.
   assert.equal(hubPresentation(campaign, progress([]), levels.get('hall'), levels, () => 20).open.has('dispatch'), true)
   // The door's wiring decides, not the count: wired from the water wing alone, passing it releases the unit.
@@ -306,15 +305,15 @@ test('the studio names doors and bulkheads as the facility shows them, never by 
   const name = facilityDoorName(levels)
   const hall = { ...levels.get('hall'), courseDoors: [{ ...levels.get('hall').courseDoors[0], name: 'Dispatch door' }],
     bulkheads: levels.get('hall').bulkheads.map(bulkhead => ({ ...bulkhead, name: 'Saved name' })) }
-  assert.equal(name(hall.courseDoors[0]), 'Dispatch')
+  assert.equal(name(hall.courseDoors[0]), 'Exit')
   assert.equal(name(hall.bulkheads[2]), 'Freight wing')
   assert.equal(objectLabel(hall, { kind: 'bulkhead', index: 2 }, name), 'Freight wing · Bulkhead 3')
-  assert.equal(objectLabel(hall, { kind: 'course-door', index: 0 }, name), 'Dispatch · Level door 1')
+  assert.equal(objectLabel(hall, { kind: 'course-door', index: 0 }, name), 'Exit · Level door 1')
   assert.equal(objectLabel(hall, { kind: 'bulkhead', index: 2 }), 'Bulkhead 3', 'without the collection, only the kind and number')
   assert.equal(name(levels.get('m-hub').courseDoors[1]), 'A Bigger Swing')
-  // The canvas reads as a new save sees it: lettering, deadlines, a sealed dispatch door and the board.
+  // The canvas reads as a new save sees it: lettering, deadlines, a sealed Exit and the board.
   const shown = studioPresentation(hall, levels, campaign)
-  assert.deepEqual([shown.signs.get('dispatch'), shown.placards.get('dispatch')], ['DISPATCH', ['SEALED']])
+  assert.deepEqual([shown.signs.get('dispatch'), shown.placards.has('dispatch')], ['EXIT', false])
   assert.equal(shown.signs.get('hall-to-f'), 'FREIGHT WING')
   assert.deepEqual(shown.placards.get('board'), ['EVALUATION 0 / 5', 'MOVEMENT WING 0/2', 'FREIGHT WING 0/2', 'WATER WING SEALED'])
   const wing = studioPresentation(levels.get('m-hub'), levels, campaign)

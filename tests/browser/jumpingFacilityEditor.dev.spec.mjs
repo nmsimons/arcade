@@ -183,7 +183,7 @@ test('an exit, a level door and a bulkhead choose where the robot goes and which
     .toHaveText(['This door', 'Second course level door', 'Concourse bulkhead'])
   await page.getByRole('listbox', { name: 'Level door return', exact: true }).locator('[role=option][data-value="wing-out"]').click()
   await expect(back).toHaveText('Concourse bulkhead')
-  const dispatch = page.getByRole('button', { name: 'Dispatch door', exact: true })
+  const dispatch = page.getByRole('button', { name: 'Exit door', exact: true })
   await expect(dispatch).toHaveAttribute('aria-pressed', 'false')
   await dispatch.click()
   await expect(dispatch).toHaveAttribute('aria-pressed', 'true')

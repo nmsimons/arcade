@@ -55,7 +55,7 @@ export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
 
 /**
  * What the facility shows on a level door or bulkhead: the name of the level or
- * area it leads to, or Dispatch for the dispatch door. The studio supplies it,
+ * area it leads to, or Exit for the dispatch door. The studio supplies it,
  * since it needs the collection.
  */
 export type DoorName = (door: CourseDoor | Bulkhead) => string | undefined

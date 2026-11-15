@@ -5,6 +5,7 @@ import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
 import { DOOR_CHEVRON_DELAY, DOOR_CHEVRON_PERIOD, drawDoorChevrons, goalBounds, goalDoor, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
 import { doorChevrons, drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
 import { hubDoorBounds } from '../src/games/jumping/hub.ts'
+import { exitChevrons } from '../src/games/jumping/exitGate.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
@@ -112,6 +113,11 @@ test('open doors that Up goes through show chevrons; closed and blocked doors do
     bulkheads: [{ id: 'bulk', x: 1200, y: 920, to: 'concourse' }], evaluationBoards: [], wallDoors: [{ x: 1400, y: 920, condition: 'jammed' }] })
   hub.hub.open.add('open'); hub.hub.open.add('bulk')
   assert.deepEqual(doorChevrons(hub).walls, [hubDoorBounds(hub.level.courseDoors[0]), hubDoorBounds(hub.level.bulkheads[0])])
+  // The Exit's rise the height of its larger opening, in a level door's proportions.
+  hub.level.courseDoors[1].dispatch = true; hub.hub.open.add('locked')
+  const exit = doorChevrons(hub).walls[1], doorway = hubDoorBounds(hub.level.courseDoors[1])
+  assert.deepEqual(exit, exitChevrons(hub.level.courseDoors[1]))
+  assert.ok(exit.h > doorway.h * 1.5 && exit.w / exit.h === doorway.w / doorway.h && exit.y + exit.h === doorway.y + doorway.h, JSON.stringify(exit))
 })
 
 test('three faint chevrons stay inside the doorway while a glow runs up them', () => {

@@ -160,8 +160,8 @@ export function arrivalLevel(level: HubLevel, arrival: Arrival, visited = false)
 
 /**
  * Which doors open, what is lettered above them and what their placards read.
- * Every door is lettered with where it leads, the dispatch door DISPATCH. A
- * level door's placard is a screen of its level's data, never its name: the D
+ * Every door is lettered with where it leads, the dispatch door EXIT, which has
+ * no placard. A level door's placard is a screen of its level's data, never its name: the D
  * deadline until passed, then the best time and grade. The evaluation board
  * shows each wing's passes, or SEALED. A locked door's placard is dark.
  */
@@ -175,7 +175,7 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
     if (!course || !isPuzzleLevel(course)) { placards.set(door.id, []); continue }
     // The door's own wiring opens it, and a passed course's door stays open. Its placard is dark while it is shut.
     if (door.power === 'switched' && !passed) switched.add(door.id); else open.add(door.id)
-    if (door.dispatch) { signs.set(door.id, 'DISPATCH'); placards.set(door.id, [progress.released ? 'UNIT RELEASED' : 'SEALED']); continue }
+    if (door.dispatch) { signs.set(door.id, 'EXIT'); continue }
     signs.set(door.id, course.name.toUpperCase())
     placards.set(door.id, courseScreen(course, best(door.course), passed))
   }
@@ -198,13 +198,13 @@ function courseScreen(course: PuzzleLevel, time: number | null, passed: boolean)
 }
 
 /**
- * The name the facility gives a door: the dispatch door is Dispatch, any other
+ * The name the facility gives a door: the dispatch door is Exit, any other
  * level door the level it leads to, and a bulkhead the area beyond it. A door's
  * own saved `name` is never shown in the facility.
  */
 export function facilityDoorName(levels: Levels) {
   return (door: CourseDoor | Bulkhead): string | undefined => 'course' in door
-    ? door.dispatch ? 'Dispatch' : door.course ? levels.get(door.course)?.name : undefined
+    ? door.dispatch ? 'Exit' : door.course ? levels.get(door.course)?.name : undefined
     : door.to ? levels.get(door.to)?.name : undefined
 }
 /**
@@ -223,7 +223,8 @@ export function studioPresentation(level: HubLevel, levels: Levels, campaign: Ca
   for (const door of level.courseDoors) {
     const course = levels.get(door.course)
     signs.set(door.id, !door.course ? 'NO LEVEL' : shown?.signs.get(door.id) ?? (name(door) ?? door.course).toUpperCase())
-    placards.set(door.id, shown?.placards.get(door.id) ?? (course && isPuzzleLevel(course) ? courseScreen(course, best(door.course), false) : []))
+    // The Exit has no placard.
+    if (!door.dispatch) placards.set(door.id, shown?.placards.get(door.id) ?? (course && isPuzzleLevel(course) ? courseScreen(course, best(door.course), false) : []))
   }
   for (const bulkhead of level.bulkheads) signs.set(bulkhead.id, !bulkhead.to ? 'NOWHERE' : shown?.signs.get(bulkhead.id) ?? (name(bulkhead) ?? bulkhead.to).toUpperCase())
   for (const board of level.evaluationBoards) placards.set(board.id, shown?.placards.get(board.id) ?? ['EVALUATION'])

@@ -1,4 +1,5 @@
 import { drawDoorway, entranceDoor, entranceFits } from './goal.ts'
+import { drawExitGate, exitSign, exitSignBounds } from './exitGate.ts'
 import type { NamedObject } from './objectNames.ts'
 import type { Platform } from './model.ts'
 import { drawWallTexts } from './wallText.ts'
@@ -20,8 +21,9 @@ export interface DoorPower extends Pick<SwitchSettings, 'switchLogic' | 'switchR
  * course's name. It is also a switch: on once the course is passed, at D or
  * better. `targets` lists what it switches. The robot comes back out of
  * `returnsTo`, another door or bulkhead in this area, or else this door. The
- * `dispatch` door leads to the final course: lettered DISPATCH, released once
- * the evaluation is complete, and not itself part of the evaluation.
+ * `dispatch` door is the facility's Exit, to the final course: a heavier
+ * bulkhead lettered EXIT (exitGate.ts), released once the evaluation is complete, and
+ * not itself part of the evaluation.
  */
 export interface CourseDoor extends DoorPower, Pick<SwitchSettings, 'targets'> { id: string; x: number; y: number; course: string; returnsTo?: string; dispatch?: true }
 /**
@@ -93,12 +95,12 @@ export const createHubState = (): HubState => ({ open: new Set(), placards: new 
 /** Doors share the entrance's 40-by-80 doorway and its flat-sill rule. */
 export const hubDoorBounds = entranceDoor
 export const hubDoorFits = (door: Pick<CourseDoor, 'x' | 'y'>, terrain: readonly Platform[], width: number, height: number) => entranceFits(door, terrain, width, height)
-/** A placard, the screen of the level's data, hangs on the wall to the right of its level door. */
+/** A placard, the screen of the level's data, hangs on the wall to the right of its level door. The Exit has none: whether it is open says everything. */
 export const placardBounds = (door: Pick<CourseDoor, 'x' | 'y'>) => ({ x: door.x + 32, y: door.y - 80, w: 120, h: 66 })
 /** A bulkhead's destination is lettered on the wall above its striped lintel, centered on the doorway. */
 export const bulkheadSignBounds = (door: Pick<Bulkhead, 'x' | 'y'>) => ({ x: door.x - 150, y: door.y - 117, w: 300, h: 24 })
-/** A level door's level is lettered above its lighter frame the same way. */
-export const courseDoorSignBounds = (door: Pick<CourseDoor, 'x' | 'y'>) => ({ x: door.x - 150, y: door.y - 109, w: 300, h: 22 })
+/** A level door's level is lettered above its lighter frame the same way, and the Exit's larger. */
+export const courseDoorSignBounds = (door: Pick<CourseDoor, 'x' | 'y' | 'dispatch'>) => door.dispatch ? exitSignBounds(door) : ({ x: door.x - 150, y: door.y - 109, w: 300, h: 22 })
 
 /** Placards are small message screens, dark while their door is locked. */
 export function hubPlacard(door: Pick<CourseDoor, 'x' | 'y'>, lines: readonly string[]): WallText {
@@ -108,14 +110,15 @@ export function hubPlacard(door: Pick<CourseDoor, 'x' | 'y'>, lines: readonly st
 export function bulkheadSign(door: Pick<Bulkhead, 'x' | 'y'>, text: string): WallText {
   return { ...bulkheadSignBounds(door), text, fontSize: 18, align: 'center', style: 'official' }
 }
-export function courseDoorSign(door: Pick<CourseDoor, 'x' | 'y'>, text: string): WallText {
-  return { ...courseDoorSignBounds(door), text, fontSize: 16, align: 'center', style: 'official' }
+export function courseDoorSign(door: Pick<CourseDoor, 'x' | 'y' | 'dispatch'>, text: string): WallText {
+  return door.dispatch ? exitSign(door, text) : { ...courseDoorSignBounds(door), text, fontSize: 16, align: 'center', style: 'official' }
 }
 /**
  * Doors sit in the back wall with no collision. An open door is a dark doorway;
  * a locked one stays shut. Every door has where it leads lettered above it, and
  * a level door has a placard screen of its level's data beside it. Bulkheads
- * carry a heavier frame and a striped lintel. The editor shows every door open.
+ * carry a heavier frame and a striped lintel, and the Exit is a bigger, heavier
+ * bulkhead, lettered larger (exitGate.ts). The editor shows every door open.
  * Its placards and lettering come from the hub state when the studio supplies
  * them, or else name the destination.
  */
@@ -125,6 +128,7 @@ export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors
   const doors = [...level.courseDoors ?? [], ...level.bulkheads ?? []]
   for (const door of doors) {
     const b = hubDoorBounds(door), open = editor || !!hub?.open.has(door.id), bulkhead = 'to' in door, frame = bulkhead ? 7 : 3
+    if (!bulkhead && door.dispatch) { drawExitGate(ctx, door, open, paint); continue }
     paint(ctx, 0, () => {
       ctx.fillStyle = bulkhead ? '#5c6460' : '#9aa19c'; ctx.fillRect(b.x - frame, b.y - frame, b.w + frame * 2, b.h + frame)
       if (bulkhead) for (let x = b.x - frame, i = 0; x < b.x + b.w + frame; x += 8, i++) {
@@ -140,7 +144,7 @@ export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors
   // A switched level door's placard goes dark while the door is shut, like a locked door's.
   const screen = (door: CourseDoor) => !editor && hub?.switched.has(door.id) && !hub.open.has(door.id) ? [] : hub?.placards.get(door.id) ?? []
   const sign = (door: CourseDoor | Bulkhead) => hub?.signs.get(door.id) ?? (editor ? 'course' in door ? door.course || 'NO LEVEL' : door.to || 'NOWHERE' : '')
-  drawWallTexts(ctx, (level.courseDoors ?? []).map(door => hubPlacard(door, screen(door))), false, paint)
+  drawWallTexts(ctx, (level.courseDoors ?? []).filter(door => !door.dispatch).map(door => hubPlacard(door, screen(door))), false, paint)
   // A door with nowhere to lead has no lettering.
   drawWallTexts(ctx, [...(level.courseDoors ?? []).map(door => courseDoorSign(door, sign(door))), ...(level.bulkheads ?? []).map(door => bulkheadSign(door, sign(door)))].filter(text => text.text), false, paint)
 }

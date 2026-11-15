@@ -1226,8 +1226,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             value={hubDoor.power ?? 'always'} options={[{ value: 'always', label: 'Always open' }, { value: 'switched', label: 'Switched' }]}
             onChange={value => commit(setObjectPower(history.present, selection, value === 'switched' ? 'switched' : 'always'))} />}
           {returnDoor && <button className="builder-property-action" aria-pressed={!!returnDoor.dispatch}
-            title="The door to the final course: lettered DISPATCH, released once the evaluation is complete, and not itself part of the evaluation"
-            onClick={() => commit(setDoorDispatch(history.present, selection, !returnDoor.dispatch))}>Dispatch door</button>}
+            title="The facility's way out, to the final course: a blast gate lettered EXIT, released once the evaluation is complete, and not itself part of the evaluation"
+            onClick={() => commit(setDoorDispatch(history.present, selection, !returnDoor.dispatch))}>Exit door</button>}
           {gradeGate && <>
             <BuilderSelect label="Average" accessibleLabel="Grade average reaches" value={gradeGate.grade}
               options={GRADE_LETTERS.map(letter => ({ value: letter, label: letter === 'a' ? 'A' : `${letter.toUpperCase()} or better` }))}

@@ -829,9 +829,10 @@ clocks and time pickups stay in courses. Tools and EMP charges are allowed.
 - `courseDoors: [{ id, x, y, course, returnsTo?, dispatch? }]`: level doors.
   `course` is the ID of the level behind the door. Coming back from that level,
   the robot steps out of this door, or of `returnsTo`, the ID of another level
-  door or bulkhead in this area. `dispatch: true` marks the dispatch door to the
-  final course: lettered DISPATCH, released once the evaluation is complete,
-  and not itself part of the evaluation. The facility has one.
+  door or bulkhead in this area. `dispatch: true` marks the dispatch door, the
+  facility's Exit, to the final course: drawn as a heavier bulkhead lettered EXIT,
+  released once the evaluation is complete, and not itself part of the
+  evaluation. The facility has one.
 - `bulkheads: [{ id, x, y, to, arrivesAt? }]`: doors to other facility areas.
   `to` is the ID of the facility area beyond it. Arriving through a bulkhead
   steps out of `arrivesAt`, a level door or bulkhead in that area, or else the
@@ -879,7 +880,7 @@ level doors, bulkheads and evaluation boards, and **Object → Leads to** choose
 where each door goes: a level door lists every course in the collection, and a
 bulkhead every other facility area. **Returns through** on a level door and
 **Arrives at** on a bulkhead choose the door the robot steps out of, and
-**Dispatch door** marks the door to the final course.
+**Exit door** marks the dispatch door, the facility's Exit, to the final course.
 
 `timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
 level** in the studio. The world and animation time still advance, but the

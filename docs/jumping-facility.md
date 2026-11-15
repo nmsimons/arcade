@@ -15,7 +15,7 @@ in development builds only. What exists:
 - Facility areas: hub levels (`"kind": "hub"`) with level doors (`courseDoors`),
   bulkheads and evaluation boards (`hub.ts`). Up enters an open door. Every
   door has where it leads lettered on the wall above it: a level door its
-  course (the dispatch door DISPATCH), a bulkhead the area beyond. A level
+  course (the dispatch door EXIT), a bulkhead the area beyond. A level
   door's placard is a screen of its course's data: its D deadline, then its
   best time and grade. The evaluation board shows each wing's passes, or SEALED.
 - The level studio edits all of it. **Type** in the Level tab switches a level
@@ -149,9 +149,15 @@ work on next. Progress opens access; it never changes what the robot can do.
 
 ### The concourse
 
-The central hall. It holds the evaluation board, wall maps, and the sealed exterior dispatch door, which is visible from the first visit so
-the goal is always in view. Every wing's entrance opens off it. Orientation
-leads into it through a bulkhead, which also leads back.
+The central hall. It holds the evaluation board, wall maps, and the sealed
+exterior dispatch door, the Exit, which is visible from the first visit so the
+goal is always in view. It is the facility's one way out, so it is drawn as a
+bulkhead built bigger and heavier rather than a level door (`exitGate.ts`): a
+112-by-136 opening, a frame twice as thick and a deeper striped lintel, with
+EXIT painted over it in larger lettering. Open, its chevrons rise the height of
+the opening. It has no placard: shut, the robot is not released; open, it may
+go through. Every wing's entrance opens off it. Orientation leads into it
+through a bulkhead, which also leads back.
 
 ### Wings by discipline
 
@@ -341,7 +347,6 @@ door is shut:
 | Unlocked, run but not passed | BEST with the run's time and F, and its D deadline. |
 | Passed | BEST with the best time, and GRADE with the best grade. |
 | Untimed | UNTIMED, or COMPLETE once finished. |
-| Dispatch door | SEALED, or UNIT RELEASED. |
 | Improved just now | The new time and grade roll in; "PERSONAL BEST" on a new best. |
 | Certification door | Source group, completion count and points, e.g. "CERTIFICATION 5 / 6", with the source courses' best grades. |
 

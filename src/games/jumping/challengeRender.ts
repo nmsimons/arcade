@@ -5,6 +5,7 @@ import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallTexts } from './wallText.ts'
 import { drawHubDoors, hubDoorBounds } from './hub.ts'
+import { exitChevrons } from './exitGate.ts'
 import { drawAthlete, drawCheckpointMarkers, drawLadders, drawRopes, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
@@ -211,7 +212,8 @@ export function doorChevrons(run: Run, editor = false) {
   if (editor || !run.started || run.exit) return { walls }
   const goal = run.level.goal
   if (goal && !goal.kind && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS) walls.push(goalDoor(goal))
-  if (run.hub) for (const door of [...run.level.courseDoors ?? [], ...run.level.bulkheads ?? []]) if (run.hub.open.has(door.id)) walls.push(hubDoorBounds(door))
+  // The Exit's chevrons rise the height of its larger opening.
+  if (run.hub) for (const door of [...run.level.courseDoors ?? [], ...run.level.bulkheads ?? []]) if (run.hub.open.has(door.id)) walls.push('dispatch' in door && door.dispatch ? exitChevrons(door) : hubDoorBounds(door))
   return { walls }
 }
 

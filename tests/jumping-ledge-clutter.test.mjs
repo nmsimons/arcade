@@ -47,7 +47,7 @@ for (const side of [-1, 1]) test(`a small box, ball and shovebot below a low led
   const run = fixture(side), p = run.player
   const botStart = run.robots[0].x
   for (let cycle = 0; cycle < 2; cycle++) {
-    advance(run, cycle ? 2 : 4, { move: -side, crouch: true, descend: true, drop: true })
+    advance(run, cycle ? 2 : 8, { move: -side, crouch: true, descend: true, drop: true })
     assert.ok(p.hang, 'the folded legs clear the small box beneath the grip')
     const pose = athletePose(p)
     assert.ok(Math.abs(p.x + pose.frontArm.hand[0] * p.facing - (700 + side * 2)) < .01)
@@ -77,7 +77,7 @@ for (const kind of ['box', 'ball']) for (const side of [-1, 1]) test(`an incomin
   const run = fixture(side, false)
   run.level.props = [{ kind, x: 700 - side * 140, y: 620, size: 60 }]
   const withProp = createRun(run.level)
-  advance(withProp, 4, { move: -side, crouch: true, descend: true, drop: true })
+  advance(withProp, 8, { move: -side, crouch: true, descend: true, drop: true })
   assert.ok(withProp.player.hang)
   Object.assign(withProp.props[0], { x: 700 - side * 50, y: 620, vx: side * 160, vy: 0 })
   advance(withProp, 1)

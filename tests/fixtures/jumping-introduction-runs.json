@@ -73,7 +73,7 @@
           }
         },
         {
-          "frames": 233,
+          "frames": 379,
           "input": {
             "move": -1,
             "descend": true
@@ -1418,8 +1418,8 @@
         }
       ],
       "finished": true,
-      "elapsed": 13.433333333333211,
-      "activeTime": 14.291666666666496,
+      "elapsed": 14.649999999999809,
+      "activeTime": 15.508333333333093,
       "grade": "C",
       "x": 1204,
       "y": 1200

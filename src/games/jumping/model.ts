@@ -1396,7 +1396,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (p.waterJump && (swimStrength === 0 || p.vy >= 0 || p.grounded)) p.waterJump = false
 
   const move = Math.max(-1, Math.min(1, input.move)), waterControl = Math.min(1, swimStrength / .2)
-  const drySpeed = p.crouching ? TUNING.walkSpeed : TUNING.runSpeed
+  const drySpeed = p.crouching ? TUNING.crouchSpeed : TUNING.runSpeed
   const airSpeedScale = !p.grounded && !isWeightless(gravity) ? options.airSpeedScale ?? 1 : 1
   const swimMove = p.grounded ? move : swimmingDirection(input).x
   const target = move * drySpeed * airSpeedScale * (1 - waterControl) + swimMove * Math.min(drySpeed, TUNING.swimHorizontalSpeed) * waterControl

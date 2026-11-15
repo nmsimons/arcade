@@ -168,7 +168,7 @@ for (const dt of [STEP, 1 / 30]) for (const crouch of [false, true]) test(`divin
   assert.equal(run.player.anim.stride, stride, 'stationary feet do not step'); assert.equal(run.player.waterMotion.phase, phase, 'no traveling stroke at the floor')
   const x = run.player.x
   const footAnchors = run.player.anim.footwork.feet.map(f => f.anchorX)
-  for (let i = 0; i < Math.round(1 / dt); i++) stepRun(run, { ...hold, move: -1 }, dt)
+  for (let i = 0; i < Math.round(1.5 / dt); i++) stepRun(run, { ...hold, move: -1 }, dt)
   assert.ok(run.player.x < x - 60); assert.equal(run.player.grounded, true); assert.ok(Math.abs(run.player.vx) <= TUNING.swimHorizontalSpeed + .01)
   assert.ok(run.player.anim.stride !== stride || run.player.anim.footwork.feet.some((f, i) => Math.abs(f.anchorX - footAnchors[i]) > 14), 'steps follow actual underwater floor travel')
   for (let i = 0; i < Math.round(.6 / dt); i++) stepRun(run, NEUTRAL_INPUT, dt)

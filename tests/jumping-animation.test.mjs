@@ -2,7 +2,7 @@ import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { athletePose } from '../src/games/jumping/athlete.ts'
-import { gaitPose, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { gaitPose, NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { advanceFootwork, FOOT_CONTACT, footPoint, footRoll, soleContact, toeBend } from '../src/games/jumping/footwork.ts'
 
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
@@ -40,13 +40,13 @@ test('braced pushing steps follow distance travelled and stop when blocked', () 
 })
 
 test('crouch walking uses a full pushing stride with low feet and grounded knees', () => {
-  for (const direction of [-1, 1]) for (const speed of [50, 125]) for (const slope of [-.3, 0, .3]) {
+  for (const direction of [-1, 1]) for (const speed of [30, TUNING.crouchSpeed]) for (const slope of [-.3, 0, .3]) {
     const surface = x => slope < 0 ? 1100 + x * slope : slope > 0 ? 320 + x * slope : 620
     const floor = { x: 0, y: 320, w: 2600, h: 780, profile: [[0, surface(0) - 320], [2600, surface(2600) - 320]] }
     const p = createPlayer(); p.x = 1300; p.y = surface(p.x)
     let steps = 0, planted = [true, true]
     for (let frame = 0; frame < 300; frame++) {
-      stepPlayer(p, { ...NEUTRAL_INPUT, move: direction * speed / 125, descend: true }, STEP, [floor])
+      stepPlayer(p, { ...NEUTRAL_INPUT, move: direction * speed / TUNING.crouchSpeed, descend: true }, STEP, [floor])
       const feet = p.anim.footwork.feet, pose = athletePose(p)
       steps += feet.filter((foot, i) => !foot.planted && planted[i]).length
       planted = feet.map(foot => foot.planted)
@@ -68,6 +68,29 @@ test('crouch walking uses a full pushing stride with low feet and grounded knees
     const stopped = athletePose(p)
     for (let i = 0; i < 60; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, [floor])
     assert.deepEqual(athletePose(p), stopped, 'stopping keeps the crouched feet still')
+  }
+})
+
+test('full input while crouched is a slow duck walk, not walking speed with a frantic shuffle', () => {
+  assert.ok(TUNING.crouchSpeed < TUNING.walkSpeed / 2 + 1)
+  for (const direction of [-1, 1]) for (const entry of ['standing', 'running']) {
+    const floor = { x: 0, y: 620, w: 5000, h: 40 }
+    const p = createPlayer(); p.x = 2500; p.y = 620
+    // Dropping into a crouch from a sprint still settles to the crouched cap.
+    if (entry === 'running') for (let i = 0; i < 90; i++) stepPlayer(p, { ...NEUTRAL_INPUT, move: direction }, STEP, [floor])
+    let steps = 0, planted = [true, true], frames = 0, fastest = 0
+    for (let frame = 0; frame < 720; frame++) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, move: direction, descend: true }, STEP, [floor])
+      if (frame < 120) continue
+      fastest = Math.max(fastest, Math.abs(p.vx)); frames++
+      const feet = p.anim.footwork.feet
+      steps += feet.filter((foot, i) => !foot.planted && planted[i]).length
+      planted = feet.map(foot => foot.planted)
+    }
+    assert.ok(p.crouching)
+    assert.ok(Math.abs(fastest - TUNING.crouchSpeed) < 1e-6, `crouched speed holds at the cap (${fastest.toFixed(1)})`)
+    const cadence = steps / (frames * STEP)
+    assert.ok(cadence > 3 && cadence < 5, `about four deliberate steps per second (${cadence.toFixed(2)})`)
   }
 })
 

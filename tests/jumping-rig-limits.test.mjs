@@ -53,7 +53,7 @@ test('every presented pose on every recorded route is inside the rig limits', ()
   const recordings = JSON.parse(readFileSync(new URL('./fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
   const before = rigLimitCorrections()
   let frames = 0
-  for (const recording of recordings.runs) {
+  for (const recording of [...recordings.runs, ...recordings.completionRuns ?? []]) {
     const file = new URL(encodeURIComponent(recording.file), levels)
     if (recording.historical || !existsSync(file)) continue
     const run = createRun(parseLevel(JSON.parse(readFileSync(file, 'utf8'))))

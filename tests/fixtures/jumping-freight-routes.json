@@ -556,8 +556,8 @@
       "route": "low-ladder",
       "file": "Freight Run.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 35.96666666666527,
-      "activeTime": 36.82499999999855,
+      "elapsed": 38.633333333331784,
+      "activeTime": 39.49166666666507,
       "coins": 6,
       "trace": [
         {
@@ -581,7 +581,7 @@
           }
         },
         {
-          "frames": 304,
+          "frames": 624,
           "input": {
             "move": 1,
             "descend": true,
@@ -634,8 +634,8 @@
       "route": "low-lift",
       "file": "Freight Run.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 25.80833333333251,
-      "activeTime": 26.666666666665794,
+      "elapsed": 29.183333333332317,
+      "activeTime": 30.041666666665602,
       "coins": 6,
       "trace": [
         {
@@ -659,7 +659,7 @@
           }
         },
         {
-          "frames": 304,
+          "frames": 624,
           "input": {
             "move": 1,
             "descend": true,
@@ -687,7 +687,7 @@
           }
         },
         {
-          "frames": 93,
+          "frames": 177,
           "input": {
             "move": 1,
             "crouch": true,
@@ -720,7 +720,7 @@
           }
         },
         {
-          "frames": 104,
+          "frames": 105,
           "input": {
             "move": 1,
             "climb": true

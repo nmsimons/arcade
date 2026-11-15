@@ -433,7 +433,12 @@ rope momentum. Holding cannot turn a ground jump into a later wall jump.
 
 The selected defaults in `movementTuning.ts` are 400 base jump, 800 full held
 jump, 410 running speed, 1550 gravity, 300 air acceleration, 2000 ground
-acceleration and 500 wall jump. The temporary in-game tuning sliders have been
+acceleration and 500 wall jump. Walking is 125 and crouch walking 60. The
+crouched cap follows the crouch shuffle's own stride (a 14-unit step in .24 s,
+about four steps a second); matching walking speed only sped that short step
+into a patter. Crouch speed therefore stays separate from the walking speed,
+and anything that moves a crouched body by input scale, such as the collapsed
+repulsor bot's slide, divides by it. The temporary in-game tuning sliders have been
 removed; saved experimental browser settings no longer override these values.
 The [medal audit](jumping-medal-audit.md) records the earlier directional-jump
 controls. A full medal-time audit with variable-height jumping remains unverified.

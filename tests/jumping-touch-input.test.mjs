@@ -75,7 +75,7 @@ test('vertical holds climb or descend; down holds preserve crouch-walk speed and
   assert.equal(down.crouch, true); assert.equal(down.descend, true); assert.equal(down.detach, false)
   advance(run, touch, 320, 400)
   assert.equal(run.player.crouching, true)
-  assert.ok(Math.abs(run.player.vx - TUNING.walkSpeed) < 1)
+  assert.ok(Math.abs(run.player.vx - TUNING.crouchSpeed) < 1)
   touch.up(2, 300, 275, 750)
   assert.equal(touch.sample(750).detach, false)
   press(touch, 2, 300, 240, 800); touch.move(2, 300, 205, 820)

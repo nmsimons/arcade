@@ -339,8 +339,12 @@ gate or delay saving the completed escape.
 Build around the actual movement envelope. The wall grid uses 20-unit tiles;
 crouching fits a two-tile opening, and automatic step climbing reaches three
 tiles under suitable conditions. These are useful starting dimensions, not proof
-that any corner or ceiling arrangement will work. Test approaches, transitions,
-and exits using normal movement. Editor snapping uses 5-unit steps independently
+that any corner or ceiling arrangement will work. Crouch walking is a deliberate
+60 units per second, half walking pace and far below running, so a mandatory
+crawl costs time: 300 units take 5 seconds and 1,200 take 20. Keep required low
+passages short, or give them a reason to take that long, and end the ceiling
+where the route no longer needs it so players can stand and run. Test
+approaches, transitions, and exits using normal movement. Editor snapping uses 5-unit steps independently
 of these wall tiles; use that precision when the route needs finer placement.
 
 Give ledge hangs and pull-ups room. Test rope exits where the rope meets a slope.

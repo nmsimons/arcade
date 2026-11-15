@@ -114,7 +114,7 @@ for (const pointed of [false, true]) for (const dt of [STEP, 1 / 60]) test(`a di
     }
   }
   for (let cycle = 0; cycle < 2; cycle++) {
-    advance(cycle ? 2 : 6, { move: 1, crouch: true, descend: true, drop: true })
+    advance(cycle ? 2 : 12, { move: 1, crouch: true, descend: true, drop: true })
     assert.ok(run.player.hang)
     const p = run.player, pose = athletePose(p)
     near(p.x + pose.frontArm.hand[0] * p.facing, 658)

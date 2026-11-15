@@ -252,7 +252,7 @@ function collapse(run: Run, robot: RobotState, dt: number, world: ContactWorld) 
   // slump keeps the facing it fell with.
   if (pushed) actor.facing = push.direction
   moveRepulsorActor(run, robot, dt, world, { ...NEUTRAL_INPUT, crouch: !holding, drop: holding, detach: holding, descend: holding,
-    move: pushed ? push.direction * push.effort * COLLAPSED_PUSH_SPEED / TUNING.walkSpeed : 0 })
+    move: pushed ? push.direction * push.effort * COLLAPSED_PUSH_SPEED / TUNING.crouchSpeed : 0 })
   actor.facing = facing; robot.facing = facing
 }
 

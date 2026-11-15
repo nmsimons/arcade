@@ -5,6 +5,29 @@ The former Gold/Silver/Bronze targets now read A/B/C. The separate
 first-completion allowances and additional recovery recordings; it does not
 reclassify the historical evidence below as novice or current-control testing.
 
+November 15 crouch speed: crouch walking now tops out at 60 units per second,
+half walking speed (see [contacts](jumping-physics.md)). Five recorded medal
+routes crawled through low passages at the old speed. Their crawling segments
+were re-timed to reach the same positions, and Spire I's ball push now stands
+and runs once clear of the ceiling. These are automated re-timings of the old
+inputs, not new manual routes.
+
+| Level | Clock | Active | A / B / C | Status |
+| --- | ---: | ---: | --- | --- |
+| Boxes | 27.52 | 28.38 | 30 / 50 / 90 | A, recording kept |
+| Tower II | 107.93 | 108.78 | 110 / 150 / 210 | A, recording kept |
+| Balls | 32.04 | 32.90 | 28 / 40 / 60 | B, completion evidence; A pending |
+| Spire I | 46.54 | 47.40 | 40 / 60 / 90 | B, completion evidence; A pending |
+| Tower I | | | 100 / 140 / 210 | Route superseded; audit pending |
+
+Balls and Spire I keep their targets until a fluent route, standing wherever
+the ceiling allows, shows whether A is still reachable; their re-timed routes
+replay as completion evidence. Tower I's slower crouched push leaves the heavy
+ball short of the slope to the lobby plate, so its old route no longer finishes
+and is kept as superseded evidence. The archived Freight Run lower-storey routes
+now finish at **38.63** (low ladder) and **29.18** (low lift) clock seconds, and
+the first-gap ladder recovery introduction at **14.65**, still a C.
+
 October 23 catalog upkeep: the revised curved pinball file replaces Untitled
 level 2 and retains an explicit pending medal audit. Waterline's pump rates now
 use 20, and its lower-left float was repositioned. Its prior A recording is

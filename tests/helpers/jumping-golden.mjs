@@ -90,7 +90,7 @@ function fixtureLevels(game) {
 export function goldenScripts(game) {
   const catalog = JSON.parse(readFileSync(new URL('index.json', game.levelsRoot), 'utf8'))
   const medals = JSON.parse(readFileSync(new URL('../fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
-  const routes = new Map(medals.runs.map(run => [run.file, run.trace]))
+  const routes = new Map([...medals.runs, ...medals.completionRuns ?? []].map(run => [run.file, run.trace]))
   // Facility areas (#91), Orientation among them, join once their layouts
   // settle. Their traces must be recorded on Apple Silicon, the only machine
   // with a recorded set.

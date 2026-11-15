@@ -1,7 +1,11 @@
 import { LEDGE_CLIMB_TIME } from './ledge.ts'
 
 export const TUNING = {
-  runSpeed: 410, walkSpeed: 125, acceleration: 2000, airAcceleration: 300,
+  runSpeed: 410, walkSpeed: 125,
+  // The crouch shuffle's 14-unit, .24 s step covers about 58 units per second.
+  // Faster crouching only quickens that same short step into a frantic patter.
+  crouchSpeed: 60,
+  acceleration: 2000, airAcceleration: 300,
   braking: 2800, gravity: 1550, jumpSpeed: 400, directedJumpSpeed: 800, jumpHoldTime: .18,
   wallJumpSpeed: 500, wallJumpHeldSpeed: 600, wallJumpPush: 300, wallJumpControlTime: .12,
   wallJumpMaxCant: Math.PI / 6,

@@ -329,14 +329,14 @@ test('Down can finish a ladder descent crouched beneath a low tunnel ceiling', (
   s.world = staticContactWorld(s.terrain); s.p.y = 200
   advance(s, 8, { descend: true, crouch: true })
   assert.equal(s.p.climbing, null); assert.equal(s.p.y, 800); assert.ok(s.p.grounded && s.p.crouching)
-  advance(s, .6, { move: 1, crouch: true })
+  advance(s, 1.2, { move: 1, crouch: true })
   assert.ok(s.p.x > 450); assert.equal(s.p.y, 800)
   assert.ok(!s.terrain.some(b => bodyIntersects(s.p.x, s.p.y, b, 40)))
 })
 
 test('Down keeps walking on a floor when the ladder ends inside that same floor', () => {
   const s = scene(); s.ladders.ladders[0].bottom = 820
-  advance(s, .5, { move: 1, descend: true, crouch: true })
+  advance(s, 1.2, { move: 1, descend: true, crouch: true })
   assert.equal(s.p.climbing, null); assert.equal(s.p.y, 800); assert.ok(s.p.grounded)
   assert.ok(s.p.x > 450)
 })

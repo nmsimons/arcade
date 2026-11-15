@@ -63,7 +63,7 @@ test('crouch walking clears a two-tile opening without pushing its overhead edge
     }
     for (let t = 0; t < .3; t += dt) step({ descend: true })
     let crossedMiddle = false
-    for (let t = 0; t < 3; t += dt) {
+    for (let t = 0; t < 6; t += dt) {
       step({ move: direction, descend: true })
       assert.equal(p.contacts.push, null, 'the overhead face cannot arrest the crouch walk')
       assert.equal(p.grounded, true)
@@ -80,7 +80,7 @@ test('crouch walking clears a two-tile opening without pushing its overhead edge
     }
     assert.ok(crossedMiddle)
     assert.ok(direction > 0 ? p.x > 480 : p.x < 280, 'walks completely through the opening')
-    assert.equal(p.vx, direction * TUNING.walkSpeed, 'crouch speed stays unchanged')
+    assert.equal(p.vx, direction * TUNING.crouchSpeed, 'crouch speed stays unchanged')
     for (let t = 0; t < .3; t += dt) step({})
     assert.equal(p.crouching, false, 'stands normally after clearing the opening')
   }
@@ -110,13 +110,13 @@ test('pressing Down while still pushing an overhead edge enters the two-tile ope
     advance(run, 1, { move: direction, ...down })
     assert.equal(p.crouching, true)
     assert.equal(p.contacts.push, null, 'Down releases the false wall contact without releasing movement')
-    advance(run, 120, { move: direction, ...down })
+    advance(run, 240, { move: direction, ...down })
     assert.ok((p.x - outside) * direction > 100, 'the player enters without backing away or retrying')
     assert.ok(p.x > 320 && p.x < 440)
     advance(run, 36)
     assert.equal(p.crouching, true, 'stopping under the block keeps the player crouched')
     assert.ok(p.y + athletePose(p).head[1] - 6.2 >= 580, 'the resting head also clears the ceiling')
-    advance(run, 180, { move: direction, ...down })
+    advance(run, 360, { move: direction, ...down })
     assert.ok(direction > 0 ? p.x > 480 : p.x < 280, 'the same held input finishes the crossing')
     assert.equal(p.y, 620)
   }

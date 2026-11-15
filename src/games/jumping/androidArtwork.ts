@@ -17,11 +17,12 @@ const day: AndroidMaterials = {
   grip: '#3a3a3a', mark: '#cdcdcd', cranial: '#818181', face: '#9f9f9f',
 }
 const night: AndroidMaterials = {
-  // The day greys, lightened: one robot by day and night. Joints and grips (about 2:1 against the shell)
+  // The day greys, lightened: one robot by day and night. Joints and grips (about 1.7:1 against the shell)
   // and the back of the head stay light, as they must survive both the night exposure floor and the
-  // translucent water overlay at phone scale.
-  shell: '#e5e5e5', rear: '#c3c3c3', joint: '#a4a4a4',
-  grip: '#a8a8a8', mark: '#f0f0f0', cranial: '#bfbfbf', face: '#eaeaea',
+  // translucent water overlay at phone scale: a little darker (#a4a4a4) and in shadow underwater they fall
+  // under the readable contrast (tests/browser/jumpingPlayerVisibility.dev.spec.mjs).
+  shell: '#e5e5e5', rear: '#c3c3c3', joint: '#b0b0b0',
+  grip: '#b4b4b4', mark: '#f0f0f0', cranial: '#bfbfbf', face: '#eaeaea',
 }
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */

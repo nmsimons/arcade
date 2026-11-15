@@ -384,10 +384,12 @@ ordering. Do not render all emissive artwork at the very end of the frame.
 
 The player's night material (the `#e5e7e6` ink) is a near-white grey, the day
 grey lightened: shell `#e5e5e5`, rear `#c3c3c3`, head `#bfbfbf`, joints
-`#a4a4a4`, grips `#a8a8a8`, chest mark `#f0f0f0`, face `#eaeaea`. It receives
-`max(localExposure, 0.65)`. Its joints and grips (about 2:1 against the shell)
+`#b0b0b0`, grips `#b4b4b4`, chest mark `#f0f0f0`, face `#eaeaea`. It receives
+`max(localExposure, 0.65)`. Its joints and grips (about 1.7:1 against the shell)
 stay light, unlike the day ink's dark ones: at the 65% floor a dark joint would
-vanish against the night wall. Being colourless, the robot never looks self-lit,
+vanish against the night wall. Darker joints (`#a4a4a4`) fell under the
+readable contrast underwater in shadow at phone scale
+(`tests/browser/jumpingPlayerVisibility.dev.spec.mjs`). Being colourless, the robot never looks self-lit,
 and the regional day-to-night blend stays grey throughout. Before November 14,
 2026 both inks were teal (night shell `#d2ebe1`), and before November 13 a
 grey-sage (`#d8ded5` shell). The minimum keeps its thin hands, feet and body

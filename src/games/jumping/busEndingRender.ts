@@ -1,28 +1,28 @@
-import { createPlayer } from './model.ts'
+import type { Player } from './model.ts'
 import { drawLandscape } from './environment.ts'
 import type { JumpLevel } from './level.ts'
-import { goalEase } from './goal.ts'
 import type { Goal } from './goal.ts'
-import { busEndingCamera, busEndingFrame, BUS_REAR_PIVOT_Y, BUS_REAR_WHEEL_BOTTOM_Y } from './busEnding.ts'
-import type { BusEnding, EndingCamera } from './busEnding.ts'
+import { boardingDoor, busEndingCamera, busEndingFrame, BUS_REAR_PIVOT_Y, BUS_REAR_WHEEL_BOTTOM_Y } from './busEnding.ts'
+import type { BusEnding, EndingCamera, busCabin } from './busEnding.ts'
 import { drawAthlete } from './athleteDraw.ts'
-import type { AthletePose } from './athleteRig.ts'
+import { presentedAthletePose } from './athletePose.ts'
+import { busPassengerPose } from './poses/passengerPose.ts'
 
 const path = (ctx: CanvasRenderingContext2D, points: number[][]) => {
   ctx.beginPath(); points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill()
 }
-// The rear-window passenger uses the game's head, neck, shoulders, and hands.
-// The seat and window sill cover the lower body; proportions stay unchanged.
-const passenger = createPlayer()
-const seatedPose: AthletePose = {
-  hip: [0, -20], waist: [0, -31], shoulder: [0, -44], head: [0, -58],
-  frontArm: { root: [7, -43], joint: [10, -31], end: [8, -20] },
-  backArm: { root: [-7, -43], joint: [-10, -31], end: [-8, -20] },
-  frontLeg: { root: [5, -20], joint: [6, -5], end: [5, 14], footAngle: 0, toeAngle: 0, footFacing: 1, planted: false },
-  backLeg: { root: [-5, -20], joint: [-6, -5], end: [-5, 14], footAngle: 0, toeAngle: 0, footFacing: 1, planted: false },
+type Cabin = NonNullable<ReturnType<typeof busCabin>>
+/** The passenger in the game's own rig and proportions, standing on the cabin floor at its depth's scale. */
+function drawPassenger(ctx: CanvasRenderingContext2D, passenger: Player, cabin: Cabin) {
+  ctx.save(); ctx.translate(cabin.x, cabin.floor); ctx.scale(cabin.scale, cabin.scale)
+  ctx.translate(-passenger.x, -passenger.y)
+  const walking = cabin.turn < 1 ? presentedAthletePose(passenger) : undefined
+  drawAthlete(ctx, passenger, '#303c36', walking && !cabin.turn && !cabin.sit ? walking
+    : busPassengerPose(walking ?? presentedAthletePose(passenger), cabin.turn, cabin.sit, cabin.settle, cabin.lag))
+  ctx.restore()
 }
 
-function drawBusRear(ctx: CanvasRenderingContext2D, door: number, passengerAlpha: number) {
+function drawBusRear(ctx: CanvasRenderingContext2D, door: number, passenger?: { actor: Player; cabin: Cabin }) {
   // A narrow side doorway lets the robot step around the bus's left side.
   ctx.fillStyle = '#303b35'
   ctx.fillRect(-65, -22, 15, BUS_REAR_WHEEL_BOTTOM_Y + 22); ctx.fillRect(50, -22, 15, BUS_REAR_WHEEL_BOTTOM_Y + 22)
@@ -35,12 +35,14 @@ function drawBusRear(ctx: CanvasRenderingContext2D, door: number, passengerAlpha
   ctx.fillStyle = '#9caa98'; ctx.fillRect(-72, -65, 144, 4)
   ctx.fillStyle = '#334b4a'; ctx.beginPath(); ctx.roundRect(-59, -142, 118, 60, 4); ctx.fill()
   ctx.save(); ctx.beginPath(); ctx.roundRect(-57, -140, 114, 56, 3); ctx.clip()
+  // The row ahead, then the robot in the aisle beyond the back seat, which hides it below the waist.
+  ctx.fillStyle = '#3d544c'; ctx.fillRect(-45, -104, 26, 14); ctx.fillRect(19, -104, 26, 14)
+  if (passenger) drawPassenger(ctx, passenger.actor, passenger.cabin)
   ctx.fillStyle = '#50655a'; ctx.fillRect(-49, -111, 34, 34); ctx.fillRect(15, -111, 34, 34)
-  if (passengerAlpha > 0) {
-    ctx.save(); ctx.globalAlpha *= passengerAlpha; ctx.translate(25, -57)
-    drawAthlete(ctx, passenger, '#303c36', seatedPose); ctx.restore()
-  }
+  ctx.fillStyle = '#5a6f63'; ctx.fillRect(-49, -111, 34, 2); ctx.fillRect(15, -111, 34, 2)
   ctx.fillStyle = '#465d52'; ctx.fillRect(-52, -92, 104, 12)
+  // Tinted glass sets the cabin, and whoever is in it, back behind the window.
+  ctx.fillStyle = '#29403e'; ctx.globalAlpha *= .22; ctx.fillRect(-57, -140, 114, 56)
   ctx.restore()
   ctx.strokeStyle = '#80918a'; ctx.lineWidth = 2
   ctx.beginPath(); ctx.moveTo(0, -141); ctx.lineTo(0, -83); ctx.stroke()
@@ -89,8 +91,7 @@ export function drawBusGoal(ctx: CanvasRenderingContext2D, goal: Goal, ending?: 
     }
     ctx.translate(frame?.busX ?? goal.x, frame?.busY ?? goal.y + 24 + BUS_REAR_PIVOT_Y)
     ctx.scale(frame?.busScale ?? 1, frame?.busScale ?? 1); ctx.translate(0, -BUS_REAR_PIVOT_Y)
-    const closing = goalEase((boarding - .55) / .3)
-    drawBusRear(ctx, frame?.door ?? 1 - closing, frame?.passengerAlpha ?? closing)
+    drawBusRear(ctx, frame?.door ?? boardingDoor(boarding), frame?.cabin && ending ? { actor: ending.passenger, cabin: frame.cabin } : undefined)
     ctx.restore()
   }
   ctx.restore()
@@ -135,7 +136,7 @@ export function drawBusEnding(ctx: CanvasRenderingContext2D, ending: BusEnding, 
     // lower the bus while it keeps shrinking. The passenger shares both.
     ctx.translate(frame.busX, frame.busY); ctx.scale(frame.busScale, frame.busScale)
     ctx.translate(0, -BUS_REAR_PIVOT_Y)
-    drawBusRear(ctx, frame.door, frame.passengerAlpha); ctx.restore()
+    drawBusRear(ctx, frame.door, frame.cabin ? { actor: ending.passenger, cabin: frame.cabin } : undefined); ctx.restore()
   }
   ctx.restore()
 }

@@ -3,7 +3,11 @@ import assert from 'node:assert/strict'
 import { createPlayer, NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { busBody } from '../src/games/jumping/goal.ts'
-import { createBusDeparture, createBusEnding, busEndingCamera, busEndingFrame, advanceBusEnding, BUS_ENDING_SECONDS, BUS_REAR_PIVOT_Y, BUS_REAR_WHEEL_BOTTOM_Y, BUS_DEPARTURE_START_SECONDS } from '../src/games/jumping/busEnding.ts'
+import { createBusDeparture, createBusEnding, busEndingCamera, busEndingFrame, advanceBusEnding, boardingDoor, BUS_CABIN, BUS_ENDING_SECONDS, BUS_REAR_PIVOT_Y, BUS_REAR_WHEEL_BOTTOM_Y, BUS_DEPARTURE_START_SECONDS } from '../src/games/jumping/busEnding.ts'
+import { GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
+import { presentedAthletePose } from '../src/games/jumping/athletePose.ts'
+import { busPassengerPose, rearSeatedPose, rearStandingPose } from '../src/games/jumping/poses/passengerPose.ts'
+import { FOREARM, SHIN, THIGH, UPPER_ARM } from '../src/games/jumping/athleteRig.ts'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { setFinish } from '../src/games/jumping/editor.ts'
 import { readLevelAsset } from './helpers/jumping-fixtures.mjs'
@@ -70,13 +74,10 @@ test('the bus starts lowering at wheel contact with the horizon and keeps shrink
   assert.equal(frame(0).door, 1); assert.equal(frame(5.3).door, 1)
   assert.equal(frame(5.6).playerAlpha, 0)
   assert.equal(frame(6.2).door, 0)
-  assert.equal(frame(5.6).passengerAlpha, 0)
-  assert.equal(frame(6.2).passengerAlpha, 1)
   assert.equal(frame(8.3).busScale, 1, 'hold the full-size rear window before driving away')
-  assert.equal(frame(8.3).passengerAlpha, 1)
   assert.equal(frame(10).busY, frame(8.3).busY)
   assert.ok(frame(10).busScale < frame(8.3).busScale)
-  assert.equal(frame(14).passengerAlpha, 1, 'the passenger does not dissolve during departure')
+  assert.equal(frame(14).cabin.sit, 1, 'the passenger stays seated through the departure')
   assert.equal(frame(14.3).busX, frame(0).busX, 'the bus travels straight away from us')
   let before = 8.3, after = 14.3
   for (let i = 0; i < 40; i++) {
@@ -123,4 +124,61 @@ test('the camera starts at the live view and stays continuous and finite at narr
       before = camera
     }
   }
+})
+
+test('the robot boards out of sight, then walks along the back row, turns its back and sits on one timeline', () => {
+  const ending = scene(), frame = t => busEndingFrame({ ...ending, elapsed: t })
+  // Boarding under normal controls hands over to the departure with the door where the scene has it.
+  assert.equal(boardingDoor(0), 1)
+  for (const e of [0, .3, .6, GOAL_EXIT_SECONDS]) assert.equal(boardingDoor(e), frame(BUS_DEPARTURE_START_SECONDS - GOAL_EXIT_SECONDS + e).door)
+  assert.equal(boardingDoor(GOAL_EXIT_SECONDS), 0, 'the door has shut when the departure takes over')
+  // Nobody is in the window until the door has closed behind the robot; then it appears at the window's left edge.
+  assert.equal(frame(BUS_DEPARTURE_START_SECONDS).cabin, null)
+  assert.equal(frame(BUS_CABIN.enter).cabin.x, BUS_CABIN.fromX)
+  assert.ok(BUS_CABIN.fromX * 1 + 12 * BUS_CABIN.aisle.scale < -57, 'it enters from out of sight beyond the window')
+  let x = -Infinity
+  for (let t = BUS_CABIN.enter; t <= BUS_CABIN.stop; t += 1 / 60) {
+    const cabin = frame(t).cabin
+    assert.ok(cabin.x >= x - 1e-9, 'it never steps back'); x = cabin.x
+    assert.equal(cabin.sit, 0)
+  }
+  assert.equal(frame(BUS_CABIN.stop).cabin.x, BUS_CABIN.seatX)
+  // It turns before it sits, and is seated, nearer the glass, before the bus pulls away.
+  assert.ok(BUS_CABIN.turn[1] > BUS_CABIN.sit[0] && BUS_CABIN.turn[0] < BUS_CABIN.sit[0])
+  const seated = frame(8.3).cabin
+  assert.equal(seated.turn, 1); assert.equal(seated.sit, 1)
+  assert.equal(seated.scale, BUS_CABIN.seat.scale); assert.equal(seated.floor, BUS_CABIN.seat.floor)
+  // The passenger's own walk is stepped only while it is moving; seeking matches playing.
+  const played = createBusDeparture({ kind: 'bus', x: 1840, y: 700 }, createPlayer({ x: 1806, y: 700 }), { x: 0, y: 0, zoom: 1 })
+  const sought = structuredClone(played)
+  for (let i = 0; i < 180; i++) advanceBusEnding(played, 1 / 60)
+  advanceBusEnding(sought, 3)
+  assert.ok(Math.abs(played.elapsed - sought.elapsed) < 1e-9)
+  assert.ok(Math.abs(played.passenger.x - sought.passenger.x) < 1e-6)
+  assert.equal(played.passenger.x, BUS_CABIN.seatX / BUS_CABIN.aisle.scale)
+})
+
+test('the passenger poses keep the rig bone lengths and show the robot back once turned', () => {
+  const length = (from, to, depth = 0) => Math.hypot(to[0] - from[0], to[1] - from[1], depth)
+  const bones = pose => {
+    for (const arm of [pose.frontArm, pose.backArm]) {
+      assert.ok(Math.abs(length(arm.root, arm.joint, arm.jointDepth ?? 0) - UPPER_ARM) < 1e-6)
+      assert.ok(Math.abs(length(arm.joint, arm.end, (arm.endDepth ?? 0) - (arm.jointDepth ?? 0)) - FOREARM) < 1e-6)
+    }
+    for (const leg of [pose.frontLeg, pose.backLeg]) {
+      assert.ok(Math.abs(length(leg.root, leg.joint, leg.jointDepth ?? 0) - THIGH) < 1e-6)
+      assert.ok(Math.abs(length(leg.joint, leg.end, (leg.endDepth ?? 0) - (leg.jointDepth ?? 0)) - SHIN) < 1e-6)
+    }
+  }
+  const walking = presentedAthletePose(createPlayer())
+  const standing = rearStandingPose(), sitting = rearSeatedPose()
+  for (const pose of [standing, sitting, busPassengerPose(walking, .5, 0), busPassengerPose(walking, 1, .5), busPassengerPose(walking, 1, 1, 1.2, .8)]) bones(pose)
+  // The standing rig's own torso, turned: the same hip, shoulder and head heights as the side-on standing robot.
+  for (const key of ['hip', 'shoulder', 'head']) assert.ok(Math.abs(standing[key][1] - walking[key][1]) < 1.2, key)
+  assert.equal(standing.backView, 1); assert.equal(sitting.backView, 1)
+  assert.equal(busPassengerPose(walking, 0, 0).backView, 0)
+  // Seated, the hips drop to the seat while the torso keeps its length; the arms hang either side of the back.
+  assert.ok(sitting.hip[1] > standing.hip[1] + 12)
+  assert.ok(Math.abs((sitting.hip[1] - sitting.head[1]) - (standing.hip[1] - standing.head[1])) < 1e-9)
+  assert.ok(sitting.frontArm.root[0] < sitting.shoulder[0] && sitting.backArm.root[0] > sitting.shoulder[0])
 })

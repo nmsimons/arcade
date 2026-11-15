@@ -403,7 +403,12 @@ flat walk between the final landing and the stop, so the player can see the bus
 and approach it deliberately. The bus departs in the same level view.
 The implied road crosses the platforming plane, and we see the bus from behind.
 Keep the landscape flat, without a drawn road surface or perspective lines. The
-robot boards around its side, then becomes visible seated in the rear window.
+robot boards around its side and the door closes behind it. It then appears at
+the rear window's left edge, walks along the back row behind the seat backs,
+turns its back to the camera and sits on the right-hand seat, a little nearer
+the glass. The passenger is the player's own rig at the game's proportions, and
+every step of that is shown, never a fade between poses (`busEnding.ts` holds the
+timeline, `poses/passengerPose.ts` the rear standing and seated poses).
 Hold this quiet moment before the bus drives directly away from the camera,
 shrinking about a fixed visual center until the wheel bottoms align with the
 flat ground line. It then lowers behind that line while continuing to shrink,

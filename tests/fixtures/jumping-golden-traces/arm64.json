@@ -4,9 +4,9 @@
  "math": "f218227f60a5a1d1",
  "cpu": "arm64",
  "recorded": {
-  "physics": "ae23b69 with uncommitted changes: crouch walking capped at 60 units per second, with the Boxes, Balls, Spire I and Tower II medal routes re-timed for it, for the traces it changes. The 41 state and pose mismatches already on main are left as they were",
-  "state": "ae23b69 with uncommitted changes: crouch walking capped at 60 units per second, with the Boxes, Balls, Spire I and Tower II medal routes re-timed for it, for the traces it changes. The 41 state and pose mismatches already on main are left as they were",
-  "pose": "ae23b69 with uncommitted changes: crouch walking capped at 60 units per second, with the Boxes, Balls, Spire I and Tower II medal routes re-timed for it, for the traces it changes. The 41 state and pose mismatches already on main are left as they were"
+  "physics": "9a24218 with uncommitted changes: Balls and Spire I A targets raised; re-timed crouch routes now record grade A",
+  "state": "9a24218 with uncommitted changes: Balls and Spire I A targets raised; re-timed crouch routes now record grade A",
+  "pose": "9a24218 with uncommitted changes: Balls and Spire I A targets raised; re-timed crouch routes now record grade A"
  },
  "traces": {
   "03.json|climber": {
@@ -616,7 +616,7 @@
     "8f9ec3f56a12f72e",
     "b19bc8cc858d717f",
     "fb88491066892591",
-    "a0672fd9b7070666"
+    "483803075edb7423"
    ],
    "state": [
     "7f29c7b879082d5f",
@@ -651,7 +651,7 @@
     "e3abf7663cf37fd7",
     "3a430dda55735dab",
     "a3c2640d80aae9a8",
-    "2fe5056f2d688e75"
+    "017149d6a09e198a"
    ],
    "pose": [
     "2035cebc73741fa5",
@@ -6477,8 +6477,8 @@
     "6306377b48fae505",
     "d923c66aa5a63362",
     "00203a6458d0cad6",
-    "24c0465778f22bc6",
-    "49087339ca505bc2"
+    "18e334859aa7ff6c",
+    "8812fa3ba3b0532a"
    ],
    "state": [
     "4a7713e1b842a014",
@@ -6527,8 +6527,8 @@
     "c0b64ba674f89b70",
     "e80a6faf4b79c9b9",
     "8057ede80fc2f1d0",
-    "3eb10d3708ad643c",
-    "dae53e9c35921240"
+    "bc397fcc8cc35250",
+    "39bc229f99427d7f"
    ],
    "pose": [
     "41b2586c4d023926",

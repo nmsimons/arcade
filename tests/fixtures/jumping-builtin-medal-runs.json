@@ -98,14 +98,6 @@
       "reason": "The finale edit changes the underwater ball positions and native sizes. The earlier small-ball route no longer loads both exit plates; a fresh normal-control completion and timing audit are required."
     },
     {
-      "file": "Balls.jump-level.json",
-      "reason": "Crouch walking was halved to 60 units per second. The earlier A route, re-timed for the slower crawl, now completes at 32.04 for a B against 28 / 40 / 60. A fluent route that stands wherever the ceiling allows, or revised targets, is still needed."
-    },
-    {
-      "file": "spire1.jump-level.json",
-      "reason": "Crouch walking was halved to 60 units per second. The earlier A route, re-timed for the slower crawl through the long low tunnel, now completes at 46.54 for a B against 40 / 60 / 90. A fluent route, or revised targets, is still needed."
-    },
-    {
       "file": "Tower.jump-level.json",
       "reason": "Crouch walking was halved to 60 units per second. The slower crouched push drops the heavy ball onto the lobby floor without the momentum to roll down to the lobby plate, so this route no longer reaches the exit. A fresh normal-control route and timing audit against 100 / 140 / 210 are required."
     }
@@ -2690,17 +2682,13 @@
           }
         }
       ]
-    }
-  ],
-  "jumpModel": "recorded-impulses",
-  "completionRuns": [
+    },
     {
       "file": "Balls.jump-level.json",
       "jumpModel": "tap-hold",
       "elapsed": 32.04166666666549,
       "activeTime": 32.899999999998776,
       "coins": 0,
-      "grade": "B",
       "trace": [
         {
           "frames": 77,
@@ -3099,7 +3087,6 @@
       "elapsed": 46.54166666666467,
       "activeTime": 47.39999999999795,
       "coins": 0,
-      "grade": "B",
       "trace": [
         {
           "frames": 45,
@@ -3246,6 +3233,8 @@
       ]
     }
   ],
+  "jumpModel": "recorded-impulses",
+  "completionRuns": [],
   "historicalRuns": [
     {
       "file": "Waterline1.jump-level.json",

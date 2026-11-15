@@ -16,13 +16,15 @@ inputs, not new manual routes.
 | --- | ---: | ---: | --- | --- |
 | Boxes | 27.52 | 28.38 | 30 / 50 / 90 | A, recording kept |
 | Tower II | 107.93 | 108.78 | 110 / 150 / 210 | A, recording kept |
-| Balls | 32.04 | 32.90 | 28 / 40 / 60 | B, completion evidence; A pending |
-| Spire I | 46.54 | 47.40 | 40 / 60 / 90 | B, completion evidence; A pending |
+| Balls | 32.04 | 32.90 | 35 / 40 / 60 | A raised from 28, recording kept |
+| Spire I | 46.54 | 47.40 | 50 / 60 / 90 | A raised from 40, recording kept |
 | Tower I | | | 100 / 140 / 210 | Route superseded; audit pending |
 
-Balls and Spire I keep their targets until a fluent route, standing wherever
-the ceiling allows, shows whether A is still reachable; their re-timed routes
-replay as completion evidence. Tower I's slower crouched push leaves the heavy
+Balls and Spire I spend long stretches crawling, so their A targets were raised
+to 35 and 50 to leave about three seconds of margin over the re-timed routes.
+Those routes are automated stretches of the old inputs; a hand-played route
+that stands wherever the ceiling allows may beat them, and could justify
+tightening A again. Tower I's slower crouched push leaves the heavy
 ball short of the slope to the lobby plate, so its old route no longer finishes
 and is kept as superseded evidence. The archived Freight Run lower-storey routes
 now finish at **38.63** (low ladder) and **29.18** (low lift) clock seconds, and

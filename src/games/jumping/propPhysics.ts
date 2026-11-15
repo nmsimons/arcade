@@ -253,6 +253,13 @@ export function repulseProp(run: Run, prop: Prop, direction: Vec) {
   Body.setVelocity(body, { x: prop.vx / 60, y: prop.vy / 60 })
 }
 
+/** Index of the first box in solidColliders: terrain, mechanisms and a parked
+ * bus come first. A grip names its support by this index, so a held box found
+ * at the wrong offset loses its exclusion from the pull-up's own separation. */
+export function firstPropCollider(run: Pick<Run, 'terrain' | 'mechanisms' | 'level'>) {
+  return run.terrain.length + run.mechanisms.length + (run.level.goal?.kind === 'bus' ? 1 : 0)
+}
+
 /** Rigid corners, angular momentum and Coulomb contact friction are resolved
  * together for terrain, moving platforms, balls and boxes. */
 export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = !powerOut(run)) {
@@ -429,7 +436,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const boxes = run.props.filter(b => b.kind === 'box' && !b.gadget)
   const heldBy = (actor: Run['player']) => {
     const grip = actor.hang ?? (actor.mantle?.step ? null : actor.mantle)
-    return grip ? boxes[grip.platform! - run.terrain.length - run.mechanisms.length] : undefined
+    return grip ? boxes[grip.platform! - firstPropCollider(run)] : undefined
   }
   const heldBox = heldBy(p)
   const robotGrips = new Map(robots.map(({ robot }) => [robot, robot.actor && heldBy(robot.actor)]))

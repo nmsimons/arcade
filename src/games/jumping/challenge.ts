@@ -171,7 +171,8 @@ function createInitialWorld(level: RunLevel, preview = false): Run {
   }
   return run
 }
-/** The solids a body can stand on, before robots and force fields: terrain, machinery, a parked bus and props. */
+/** The solids a body can stand on, before robots and force fields: terrain, machinery, a parked bus and props.
+ * Boxes start at firstPropCollider(run); keep the two in step when changing this order. */
 export function solidColliders(run: Run): PlayerCollider[] {
   return [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
     ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: mechanismShape(m) })),

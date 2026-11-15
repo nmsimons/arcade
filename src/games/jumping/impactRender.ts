@@ -1,6 +1,6 @@
 import type { WorldPaint } from './worldPaint.ts'
 import { paintNormally } from './worldPaint.ts'
-import { WORLD_EFFECT_LIFE, worldEffects } from './worldEffects.ts'
+import { WORLD_EFFECT_LIFE, splashDropSpeed, splashOnset, splashScale, worldEffectLife, worldEffects } from './worldEffects.ts'
 import type { WorldEffect } from './worldEffects.ts'
 import { TUNING } from './movementTuning.ts'
 
@@ -35,7 +35,7 @@ function live(run: Run, kinds: (kind: WorldEffect['kind']) => boolean) {
   const now = run.activeTime, out: { e: WorldEffect; age: number }[] = []
   for (const e of worldEffects(run)) {
     const age = now - e.time
-    if (kinds(e.kind) && age >= 0 && age < WORLD_EFFECT_LIFE[e.kind]) out.push({ e, age })
+    if (kinds(e.kind) && age >= 0 && age < worldEffectLife(e)) out.push({ e, age })
   }
   return out
 }
@@ -122,14 +122,18 @@ function drawPropDust(ctx: CanvasRenderingContext2D, e: WorldEffect, t: number, 
 /**
  * Splashes, over the water's tint: two lobes rise from the waterline and fall
  * back, and a few drops arc up and fall in again. Drops below the waterline are
- * not drawn. A run with its water effects reduced draws none.
+ * not drawn. A run with its water effects reduced draws none. The harder the
+ * entry (splashEnergy), the taller and wider the lobes, and the more drops,
+ * thrown higher: a hop in barely ruffles the surface; a long fall throws a crown.
+ * Walking in makes none at all.
  */
 export function drawSplashes(ctx: CanvasRenderingContext2D, run: Run, paint: WorldPaint = paintNormally) {
   if (run.waterEffectsEnabled === false || run.waterSurface?.enabled === false) return
   const effects = live(run, kind => kind === 'splash')
   if (!effects.length) return
   const view = viewOf(ctx)
-  const visible = effects.filter(({ e }) => onScreen(view, e.x, e.y, 120 + e.size))
+  // A hard entry's spray reaches further out and up.
+  const visible = effects.filter(({ e }) => onScreen(view, e.x, e.y, 120 + e.size + 140 * Math.max(0, e.strength - 1)))
   if (!visible.length) return
   paint(ctx, 0, () => {
     ctx.save()
@@ -142,13 +146,16 @@ export function drawSplashes(ctx: CanvasRenderingContext2D, run: Run, paint: Wor
 
 const LOBE_LIFE = .45
 function drawSplash(ctx: CanvasRenderingContext2D, e: WorldEffect, age: number, alpha: number, floor: number) {
-  const s = e.strength, seed = effectSeed(e), scale = Math.min(1.5, Math.max(.7, Math.sqrt(e.size / 60)))
-  if (age < LOBE_LIFE) {
+  const s = e.strength, seed = effectSeed(e), scale = splashScale(e.size), onset = splashOnset(s)
+  // A taller sheet takes longer to rise and fall back, as a thrown body would.
+  const peak = (8 + 20 * s) * onset, lobeLife = LOBE_LIFE * Math.sqrt(Math.max(1, peak / 28))
+  if (age < lobeLife) {
     // Two thin sheets of water flare up and out from the entry, then fall back.
-    const p = age / LOBE_LIFE, height = (8 + 20 * s) * scale * Math.sin(Math.PI * p)
-    const flare = (6 + 12 * s) * scale * (.6 + .6 * p), thickness = (3 + 3 * s) * scale * (1 - .5 * p)
+    const p = age / lobeLife, height = peak * scale * Math.sin(Math.PI * p)
+    const flare = (6 + 12 * s) * onset * scale * (.6 + .6 * p), thickness = (3 + 3 * Math.min(s, 2)) * scale * (1 - .5 * p)
     if (height > .5) {
-      ctx.globalAlpha = alpha * .85 * (1 - .5 * p)
+      // A tall sheet thins away as it falls back, rather than flattening into a wide blade on the water.
+      ctx.globalAlpha = alpha * .85 * (1 - .5 * p) * (1 - Math.min(1, Math.max(0, s - 1)) * p ** 3)
       ctx.beginPath()
       for (const side of [-1, 1]) {
         const base = e.x + side * (3 + 4 * p) * scale, tip = base + side * flare
@@ -160,15 +167,15 @@ function drawSplash(ctx: CanvasRenderingContext2D, e: WorldEffect, age: number, 
       ctx.fill()
     }
   }
-  const count = 6 + Math.round(4 * s), life = WORLD_EFFECT_LIFE.splash
+  const count = Math.round((6 + 4 * s + Math.max(0, s - 1)) * onset), life = worldEffectLife(e), fastest = splashDropSpeed(s, e.size)
   ctx.globalAlpha = alpha * .9 * (1 - (age / life) ** 2)
   for (let i = 0; i < count; i++) {
     const r = seed ^ Math.imul(i + 1, 104395301), side = i % 2 ? 1 : -1
-    const angle = (8 + 50 * random(r)) * Math.PI / 180, speed = (160 + 240 * s) * (.6 + .4 * random(r + 1)) * Math.sqrt(scale)
+    const angle = (8 + 50 * random(r)) * Math.PI / 180, speed = fastest * (.6 + .4 * random(r + 1))
     const x = e.x + side * ((2 + 5 * random(r + 2)) * scale + Math.sin(angle) * speed * age)
     const y = e.y - Math.cos(angle) * speed * age + TUNING.gravity * age * age / 2
     if (y > e.y) continue
-    const size = Math.max(floor, 2 + 1.5 * random(r + 3) * (.5 + s))
+    const size = Math.max(floor, 2 + 1.5 * random(r + 3) * (.5 + Math.min(s, 1.5)))
     ctx.fillRect(x - size / 2, y - size / 2, size, size)
   }
 }

@@ -38,13 +38,20 @@ for (const dt of [STEP, 1 / 30]) for (const kind of ['player', 'ball', 'box']) {
   })
 }
 
-for (const kind of ['player', 'ball', 'box']) test(`${kind} splashes on side entry, rearms after leaving, and ignores waterline chatter`, () => {
+for (const kind of ['player', 'ball', 'box']) test(`${kind} splashes on a fast side entry but not a slow one, rearms after leaving, and ignores waterline chatter`, () => {
   const { run, audio, observe } = setup(l => {
     l.entrance = { x: 370, y: 700 }
     if (kind !== 'player') l.props = [{ kind, size: 60, x: 360, y: 700 }]
   })
   const body = kind === 'player' ? run.player : run.props[0], dryX = body.x
+  // Drifting in slowly from the side slips in without a sound; thrown in from the side, it splashes.
   body.vx = 120; body.vy = 0; body.grounded = false
+  audio.reset(run.player, run)
+  body.x = 420
+  assert.equal(observe().length, 0, 'a slow entry is silent')
+  body.x = dryX
+  for (let i = 0; i < 20; i++) observe()
+  body.vx = 500; body.vy = 300
   audio.reset(run.player, run)
   body.x = 420
   const splash = observe()

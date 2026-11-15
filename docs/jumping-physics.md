@@ -1578,13 +1578,23 @@ buoyancy, resistance and splash audio remain active. Restarting or disabling
 performance mode restores fresh effects using current immersion, so old entries
 and ripples do not replay.
 The player, balls and boxes make a spatial splash on entering active water.
-Entry speed scales its strength; larger props have a fuller, lower sound.
+Entry speed scales its strength: the speed into the water, with motion along
+the surface (a run, a roll) counting for half. At 160 units/s or less a body
+slips in with no splash and no sound, so walking down a beach into the water,
+or running down it barely, makes none. Larger props have a fuller, lower sound.
 Floating and surface bobbing stay quiet. Spawning or resuming in water,
 teleports, and EMP do not create an entry sound. Water-entry audio
 coverage lives in `tests/jumping-water-audio.test.mjs` and
 `tests/browser/jumpingAudio.dev.spec.mjs`.
-The same observation draws a splash on the waterline: two lobes and six to ten
-drops, gone within 0.6 seconds. Hard landings of the player and walking robots
+The same observation draws a splash on the waterline: two lobes and up to ten
+drops, gone within 0.6 seconds, growing in from nothing above the silent entry.
+Past a short drop's entry (650 units/s) the splash keeps growing with the entry
+speed, to three times as hard at 1,200: a jump down from a deck or a long fall
+throws taller, wider sheets and, from the player, up to twenty drops, flung
+higher, which take up to about 0.9 seconds to fall back in (a large prop's is
+bigger again), while the tall sheets thin away as they fall. The entry sound's
+strength still tops out at a short drop's (`splashEnergy` in `worldEffects.ts`).
+Hard landings of the player and walking robots
 raise a low haze of dust that rolls out along the ground and thins away within
 0.5 seconds, and crates and balls that land hard squeeze a little dust from
 their contact within 0.4 seconds. Each puff is a few faint nested ellipses, so

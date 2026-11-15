@@ -9,7 +9,7 @@ import { robotDrive, robotPlatforms } from './robotPhysics.ts'
 import { chargingBayOpening } from './goal.ts'
 import { triggerToggleGroup } from './toggleGroups.ts'
 import { powerOut } from './power.ts'
-import { landingDustStrength, PROP_TICK_STRENGTH, recordWorldEffect } from './worldEffects.ts'
+import { landingDustStrength, PROP_TICK_STRENGTH, recordWorldEffect, splashEnergy, splashEntrySpeed } from './worldEffects.ts'
 import type { WorldEffectKind } from './worldEffects.ts'
 import type { PlayerCollider } from './playerContacts.ts'
 
@@ -103,9 +103,6 @@ function enteredWater(contact: WaterContact, immersion: number, dt: number) {
   contact.wet = true
   return true
 }
-function splashStrength(speed: number, size: number) {
-  return clamp((.2 + .8 * clamp(speed / 650)) * clamp(Math.sqrt(size / 60), .65, 1.3))
-}
 /** The resting waterline of the pool a body has entered at x, so a splash sits on the surface rather than at the body. */
 function waterline(run: Run, x: number, y: number) {
   for (const plate of run.water.plates) {
@@ -158,9 +155,10 @@ export class JumpingAudioState {
     // Resuming, teleporting, or powering water around a body is not an entry.
     if (!continuous || fieldChanged) this.playerWater = waterContact(current.water)
     else if (enteredWater(this.playerWater, current.water, dt)) {
-      const strength = splashStrength(Math.max(Math.hypot(before.vx, before.vy), Math.hypot(p.vx, p.vy)), 60)
-      cue('water-entry', p.x, p.y, strength, 60)
-      if (run && splashes) effect('splash', p.x, waterline(run, p.x, p.y), strength, 60)
+      // Walking in makes no splash, and so no sound; a harder entry makes both, the picture growing on past the sound.
+      const strength = splashEnergy(Math.max(splashEntrySpeed(before.vx, before.vy), splashEntrySpeed(p.vx, p.vy)), 60)
+      if (strength > 0) cue('water-entry', p.x, p.y, Math.min(1, strength), 60)
+      if (run && splashes && strength > 0) effect('splash', p.x, waterline(run, p.x, p.y), strength, 60)
     }
     const speed = p.contacts?.motion.speed ?? 0
     const plant = p.anim.footwork?.feet.some((f, i) => f.planted && before.feet[i] === false)
@@ -242,9 +240,11 @@ export class JumpingAudioState {
         if (distance > 80 || rotation > Math.PI / 2) { delete this.impacts[i]; this.propWater[i] = waterContact(current.props[i].water); continue }
         if (fieldChanged) this.propWater[i] = waterContact(current.props[i].water)
         else if (enteredWater(this.propWater[i] ??= waterContact(old.water), current.props[i].water, dt)) {
-          const speed = Math.max(Math.hypot(old.vx, old.vy), Math.hypot(b.vx, b.vy), Math.abs(b.angularVelocity) * b.size / 2)
-          cue('water-entry', b.x, b.y - b.size / 2, splashStrength(speed, b.size), b.size)
-          if (splashes) effect('splash', b.x, waterline(run, b.x, b.y - b.size / 2), splashStrength(speed, b.size), b.size)
+          // A rolling edge moves along the surface, as sideways motion does.
+          const speed = Math.max(splashEntrySpeed(old.vx, old.vy), splashEntrySpeed(b.vx, b.vy), Math.abs(b.angularVelocity) * b.size / 4)
+          const strength = splashEnergy(speed, b.size)
+          if (strength > 0) cue('water-entry', b.x, b.y - b.size / 2, Math.min(1, strength), b.size)
+          if (splashes && strength > 0) effect('splash', b.x, waterline(run, b.x, b.y - b.size / 2), strength, b.size)
         }
         const contact = this.impacts[i] ??= { angle: old.angle, excursion: 0, cooldown: 0 }
         contact.cooldown = Math.max(0, contact.cooldown - dt)

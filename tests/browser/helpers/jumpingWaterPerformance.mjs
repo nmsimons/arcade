@@ -33,7 +33,7 @@ export async function playWaterPerformanceFixture(page) {
   await page.keyboard.down('d'); await page.clock.runFor(3000); await page.keyboard.up('d')
   await page.clock.runFor(500)
   expect((await waterEffectsFrame(page)).surface).toBeGreaterThan(0)
-  // At full quality, walking in splashes; the splash has fallen back in by the time the robot floats.
+  // At full quality, running off the block into the pool splashes; the splash has fallen back in by the time the robot floats.
   expect(await canvas.evaluate(c => c.splashSeen === true), 'entering the pool drew a splash').toBe(true)
   expect((await waterEffectsFrame(page)).droplets).toBe(0)
   return { fullPixels: await canvas.evaluate(c => c.width * c.height) }

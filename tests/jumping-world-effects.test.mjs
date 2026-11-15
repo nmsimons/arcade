@@ -4,7 +4,7 @@ import { JumpingAudioState } from '../src/games/jumping/audioState.ts'
 import { createRun, stepRun, setWaterEffectsEnabled } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { MAX_WORLD_EFFECTS, WORLD_EFFECT_LIFE, landingDustStrength, recordWorldEffect, worldEffects } from '../src/games/jumping/worldEffects.ts'
+import { MAX_WORLD_EFFECTS, SPLASH_MIN_SPEED, WORLD_EFFECT_LIFE, landingDustStrength, recordWorldEffect, splashEnergy, worldEffectLife, worldEffects } from '../src/games/jumping/worldEffects.ts'
 import { IMPACT_DUST_COLOR, SPLASH_COLOR, drawImpactEffects, drawSplashes } from '../src/games/jumping/impactRender.ts'
 import { GameCamera, LANDING_SETTLE_PIXELS, LANDING_SETTLE_SECONDS, gameCamera } from '../src/games/jumping/camera.ts'
 
@@ -131,6 +131,65 @@ test('landing and crate dust draw only while they last, only on screen, and the 
   assert.equal(away.calls.length, 0, 'off screen submits nothing')
   const quiet = recorder(); drawImpactEffects(quiet.ctx, { activeTime: 1 })
   assert.equal(quiet.calls.length, 0, 'a run with no impacts, such as a studio preview, draws nothing')
+})
+
+test('walking down a beach into the water makes no splash and no sound; running in barely ruffles it; dropping in splashes', () => {
+  // A 25-degree slope running down into a pool.
+  const beach = l => {
+    l.width = 1600; l.entrance = { x: 300, y: 700 }
+    l.platforms = [{ x: 0, y: 700, w: 400, h: 400 }, { x: 400, y: 700, w: 400, h: 400, polygon: [[0, 0], [400, 186], [400, 400], [0, 400]] }]
+    l.gravityPlates = [{ id: 'pool', effect: 'water', power: 'always', x: 400, y: 800, w: 1200, h: 300, gravity: -1 }]
+  }
+  const wade = move => {
+    const level = blankTrial(); beach(level)
+    const run = createRun(level), audio = new JumpingAudioState(), sounds = []
+    audio.reset(run.player, run)
+    for (let time = 0; time < 6; time += STEP) {
+      stepRun(run, { ...NEUTRAL_INPUT, move }); audio.step(run.player, run, STEP)
+      sounds.push(...audio.drain().cues.filter(c => c.kind === 'water-entry'))
+    }
+    assert.ok(run.player.waterMotion || run.player.x > 800, `it went into the water, at ${run.player.x}, ${run.player.y}`)
+    return { splashes: worldEffects(run).filter(e => e.kind === 'splash'), sounds }
+  }
+  for (const move of [.3, .6]) assert.deepEqual(wade(move), { splashes: [], sounds: [] }, `walking in at ${move}`)
+  const run = wade(1)
+  assert.ok(run.splashes.length === 1 && run.splashes[0].strength < .1, `running in: ${run.splashes.map(e => e.strength)}`)
+  assert.equal(splashEnergy(SPLASH_MIN_SPEED, 60), 0)
+  assert.ok(splashEnergy(250, 60) > 0, 'a hop in splashes')
+})
+
+test('a harder entry throws a bigger splash: taller, wider sheets and more drops, thrown higher and falling back later', () => {
+  const measure = speed => {
+    const run = { activeTime: 0, waterEffectsEnabled: true, waterSurface: { enabled: true } }, e = effect('splash', 0, { strength: splashEnergy(speed, 60) })
+    recordWorldEffect(run, e)
+    let sheet = 0, spread = 0, spray = 0, drops = 0, last = 0
+    for (let time = 0; time < 2; time += 1 / 120) {
+      run.activeTime = time
+      const { ctx, calls } = recorder(); drawSplashes(ctx, run)
+      if (calls.length) last = time
+      // Each lobe's tip is the end of its first curve.
+      for (const c of calls.filter(c => c[0] === 'quadraticCurveTo')) { sheet = Math.max(sheet, 400 - c[4]); spread = Math.max(spread, Math.abs(c[3] - 500)) }
+      const specks = calls.filter(c => c[0] === 'fillRect')
+      drops = Math.max(drops, specks.length)
+      for (const c of specks) spray = Math.max(spray, 400 - c[2])
+    }
+    return { sheet, spread, spray, drops, last, life: worldEffectLife(e) }
+  }
+  // A gentle drop in, a short drop, a jump down from a deck, a long fall. The slower two last the shortest splash's time.
+  const splashes = [250, 650, 900, 1200].map(measure)
+  for (let i = 1; i < splashes.length; i++) for (const key of ['sheet', 'spread', 'spray', 'drops', 'last'])
+    assert.ok(splashes[i][key] > splashes[i - 1][key] || key === 'last' && i === 1 && splashes[i][key] === splashes[i - 1][key],
+      `${key}: ${splashes.map(s => s[key].toFixed?.(2) ?? s[key])}`)
+  assert.equal(splashes[1].life, WORLD_EFFECT_LIFE.splash, 'a short drop\'s splash is as every splash used to be')
+  assert.ok(splashes[3].sheet > 2 * splashes[1].sheet, 'a long fall throws a crown more than twice as tall')
+  assert.ok(splashes.every(s => s.last < s.life), 'each is gone when its time is up')
+  // In play, the splash follows the fall.
+  const fall = drop => worldEffects(play(l => {
+    l.gravityPlates = [{ id: 'pool', effect: 'water', power: 'always', x: 400, y: 1500, w: 1000, h: 420, gravity: -1 }]
+    l.height = 2000; l.floor = 1950; l.entrance = { x: 600, y: 1500 - drop }
+  }, 4)).find(e => e.kind === 'splash').strength
+  const [hop, deck, tower] = [40, 200, 1200].map(fall)
+  assert.ok(hop < 1 && hop < deck && deck < tower && tower > 2.4, `splash strengths ${hop}, ${deck}, ${tower}`)
 })
 
 test('splash drops stay above the waterline and are gone within 0.6 s; reduced water effects draw none', () => {

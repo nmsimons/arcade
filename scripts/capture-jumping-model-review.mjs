@@ -38,7 +38,8 @@ try {
     ctx.font = '13px monospace'; ctx.fillText(`${index.revision} · ${index.captured.slice(0, 10)} · day / night`, 24, 67)
     for (const [i, clip] of catalog.clips.entries()) {
       const baseline = index.clips[clip.id], sample = baseline.samples[baseline.poster]
-      const image = new Image(); image.src = `/dev/model-review/baseline/${baseline.image}`; await image.decode()
+      // The review page has already loaded the previous reference: ask for the file just written, not the cached one.
+      const image = new Image(); image.src = `/dev/model-review/baseline/${baseline.image}?captured=${encodeURIComponent(index.captured)}`; await image.decode()
       const x = i % 3 * 400, y = Math.floor(i / 3) * 260 + 90
       ctx.fillStyle = '#e5e7dd'; ctx.fillRect(x + 8, y + 8, 384, 244)
       ctx.fillStyle = '#303c36'; ctx.font = 'bold 16px sans-serif'; ctx.fillText(clip.title, x + 24, y + 36)

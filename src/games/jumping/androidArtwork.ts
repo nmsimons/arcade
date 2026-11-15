@@ -147,9 +147,9 @@ export function drawAndroidTorso(ctx: CanvasRenderingContext2D, pose: AthletePos
   ctx.fill(shape(path => panel(path, along(pose.shoulder, pose.waist, .36), along(pose.shoulder, pose.waist, .58), .7, .7)))
   ctx.restore()
 }
-export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt: number, materials: AndroidMaterials, width = 1) {
+export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt: number, materials: AndroidMaterials, width = 1, scale = 1) {
   reportHead(ctx.canvas, () => ctx.getTransform(), head, ctx.globalAlpha, materials.face)
-  ctx.save(); ctx.translate(...head); ctx.rotate(tilt)
+  ctx.save(); ctx.translate(...head); ctx.rotate(tilt); ctx.scale(scale, scale)
   const outer = shape(path => headShell(path, [0, 0], 0, width))
   const at = headPoint([0, 0], 0, width)
   const face = new ArtPath(); headFront(face, at)

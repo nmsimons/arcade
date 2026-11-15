@@ -1,4 +1,5 @@
 import type { NamedObject } from './objectNames.ts'
+import { bodySize, enterSizeFrame, leaveSizeFrame, scaledPlatform } from './sizeFrame.ts'
 import type { PowerMode, SwitchSettings } from './switchPower.ts'
 import { finishPlayerStep, NEUTRAL_INPUT } from './model.ts'
 import type { Platform, Player } from './model.ts'
@@ -48,7 +49,16 @@ export function createEntranceAnimation(player: Player, platforms: readonly Plat
   if (entrance?.kind === 'charging-bay') return { elapsed: 0, player: structuredClone(player), fromX: player.x, toX: player.x, kind: 'charging-bay' }
   const actor = structuredClone(player), from = moveBody([player.x, player.y], [player.x - player.facing * 10, player.y], platforms)
   actor.terrain = platforms
-  if (!actor.anim.footwork) advanceFootwork(actor, 0, actor.x, platforms)
+  if (!actor.anim.footwork) {
+    // A larger body places its feet in its frame (sizeFrame.ts).
+    const size = bodySize(actor)
+    if (size === 1) advanceFootwork(actor, 0, actor.x, platforms)
+    else {
+      const frame = enterSizeFrame(actor, size); actor.size = 1
+      try { advanceFootwork(actor, 0, actor.x, platforms.map(b => scaledPlatform(b, size))) }
+      finally { actor.size = size; leaveSizeFrame(actor, frame) }
+    }
+  }
   translatePlayer(actor, from.x - player.x, 0)
   return { elapsed: 0, player: actor, fromX: from.x, toX: player.x }
 }

@@ -1,7 +1,7 @@
 import type { RobotState, Run } from './challenge.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import { followPropGrip, playerContactBody } from './playerContacts.ts'
-import { createPlayer, gaitPose, NEUTRAL_INPUT, stepPlayer, TUNING } from './model.ts'
+import { createPlayer, gaitPose, NEUTRAL_INPUT, passesThrough, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput } from './model.ts'
 import type { Player, Platform } from './model.ts'
 import { bodyIntersects, bodyPolygon, lineBlocked } from './geometry.ts'
@@ -12,11 +12,10 @@ import { ballShape, boxShape, propHeight } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { faceRobotToward, repulseRobot, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer } from './robotPhysics.ts'
 import { botActive, visibleShovebotRival } from './botCombat.ts'
-import { botEscapingWater, botMovement } from './botNavigation.ts'
-import { playerSwimStrength } from './gravity.ts'
+import { botEscapingWater, botInWater, botMovement } from './botNavigation.ts'
 import { rightArmSupporting } from './armSupport.ts'
 import { createRope } from './climbables.ts'
-import { REPULSOR_BOT_WIDTH_SCALE, repulsorBotPose, repulsorBotWidthScale } from './repulsorBotRig.ts'
+import { REPULSOR_BOT_SIZE, REPULSOR_BOT_WIDTH_SCALE, repulsorBotChestY, repulsorBotPose, repulsorBotWidthScale } from './repulsorBotRig.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
 export { REPULSOR_BOT_WIDTH_SCALE } from './repulsorBotRig.ts'
 import { botSeesProp, chooseBotTactic } from './botTactics.ts'
@@ -28,10 +27,15 @@ import { advanceShove, beginShove, BOT_SHOVE_WINDUP, canShove, SHOVE_RECOVERY, s
 import { AWAKENING_SECONDS } from './goal.ts'
 import { athletePose } from './athletePose.ts'
 import { physicsView } from './gameplayPose.ts'
+import { bodySize, sizedBodyOutline } from './sizeFrame.ts'
 export { repulsePlayer, REPULSOR_BOT_IMPULSE } from './actorImpulse.ts'
 export { botLastHeard } from './botHearing.ts'
 
 export const REPULSOR_BOT_WINDUP = .8
+/** Without power Rbot slumps to its knees this fast, and gets up this fast when power returns. */
+export const REPULSOR_BOT_COLLAPSE = .35, REPULSOR_BOT_GET_UP = .6
+/** A slumped Rbot slides under a player's push at this pace: heavier going than a crate's 90. */
+export const COLLAPSED_PUSH_SPEED = 60
 export const REPULSOR_BOT_RECOVERY = 1.4
 export const REPULSOR_BOT_RANGE = 1000
 const memories = new WeakMap<RobotState, BotSighting>(), plans = new WeakMap<RobotState, BotTactic>()
@@ -40,7 +44,7 @@ const rivalTargets = new WeakMap<RobotState, RobotState>()
 export const botLastSighting = (robot: RobotState) => { const memory = memories.get(robot); return memory && { ...memory } }
 
 export function createRepulsorActor(x: number, y: number) {
-  const actor = createPlayer({ x, y }); actor.facing = -1
+  const actor = createPlayer({ x, y }); actor.facing = -1; actor.size = REPULSOR_BOT_SIZE
   actor.armAim = { angle: Math.PI, aiming: false }
   return actor
 }
@@ -50,9 +54,9 @@ export function repulsorBotHand(robot: RobotState) {
   // Firing decisions use the physics rig, so the robot's animation cannot steer them.
   const actor = physicsView(robot.actor!), pose = repulsorBotPose(actor, athletePose(actor)), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
   const flip = actor.inverted ? -1 : 1, angle = Math.atan2((arm.end[1] - arm.joint[1]) * flip, (arm.end[0] - arm.joint[0]) * actor.facing)
-  const dx = Math.cos(angle), dy = Math.sin(angle), palm = arm.hand ?? arm.end
+  const dx = Math.cos(angle), dy = Math.sin(angle), palm = arm.hand ?? arm.end, size = bodySize(actor)
   const scale = repulsorBotWidthScale(actor), length = Math.hypot(dx * scale, dy)
-  return { from: [actor.x + palm[0] * actor.facing * scale, actor.y + palm[1] * flip] as Vec,
+  return { from: [actor.x + palm[0] * actor.facing * scale * size, actor.y + palm[1] * flip * size] as Vec,
     direction: [dx * scale / length, dy / length] as Vec }
 }
 
@@ -71,7 +75,7 @@ function fire(run: Run, robot: RobotState) {
     { shape: playerShape, prop: null, robot: null, player: true },
   ]
   const shapes = targets.map(target => target.shape)
-  const blockedArm = lineBlocked([robot.x, robot.y - 42], from, shapes.filter((_, i) => !targets[i].player))
+  const blockedArm = lineBlocked([robot.x, repulsorBotChestY(robot)], from, shapes.filter((_, i) => !targets[i].player))
   const hit = pulseHit(from, direction, shapes, blockedArm ? 0 : REPULSOR_BOT_RANGE), target = blockedArm ? undefined : targets[hit.index]
   if (target?.player) repulsePlayer(run.player, direction)
   if (target?.prop) repulseProp(run, target.prop, direction)
@@ -81,15 +85,18 @@ function fire(run: Run, robot: RobotState) {
 }
 
 function hasFiringLine(run: Run, robot: RobotState, target: Vec, prop?: Run['props'][number], obstruction?: RobotState) {
-  const angle = Math.atan2(target[1] - (robot.y - 42), target[0] - robot.x)
+  const angle = Math.atan2(target[1] - repulsorBotChestY(robot), target[0] - robot.x)
   const actor = { ...robot.actor!, facing: Math.cos(angle) < 0 ? -1 : 1,
     armAim: { angle: Math.atan2(Math.sin(angle), Math.cos(angle) / (robot.actor!.waterMotion ? 1 : REPULSOR_BOT_WIDTH_SCALE)), aiming: true } }
-  const { from } = repulsorBotHand({ ...robot, actor })
+  const { from, direction } = repulsorBotHand({ ...robot, actor })
   const solids = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, x: m.x, y: m.y })),
     ...forceFieldPlatforms(run.forceFields, 'objects'), ...run.props.filter(p => p !== prop && !p.gadget).map(p => p.kind === 'ball' ? ballShape(p) : boxShape(p)),
     ...run.robots.filter(r => r !== robot && r !== obstruction).flatMap(robotPlatforms)]
-  return Math.hypot(target[0] - from[0], target[1] - from[1]) <= REPULSOR_BOT_RANGE
-    && !lineBlocked([robot.x, robot.y - 42], from, solids) && !lineBlocked(from, target, solids)
+  // The pulse leaves the hand along the arm, a little off the line to the target: a shot that only just clears
+  // an edge on that line can clip it. Both must be clear.
+  const reach = Math.hypot(target[0] - from[0], target[1] - from[1]), path: Vec = [from[0] + direction[0] * reach, from[1] + direction[1] * reach]
+  return reach <= REPULSOR_BOT_RANGE
+    && !lineBlocked([robot.x, repulsorBotChestY(robot)], from, solids) && !lineBlocked(from, target, solids) && !lineBlocked(from, path, solids)
 }
 
 const stepOffSides = new WeakMap<RobotState, number>()
@@ -107,7 +114,14 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   if (robot.recoilVx) { repulsePlayer(actor, [robot.recoilVx / 1100, 0]); robot.recoilVx = 0 }
   if (!powered) actor.shove = undefined
   advanceShove(run, actor, [run.player], dt, world)
-  if (!powered || (actor.stagger ?? 0) > 0) {
+  if (!powered) { collapse(run, robot, dt, world); return }
+  // Power back: get up off the knees before anything else.
+  if (robot.collapse) {
+    robot.collapse = Math.max(0, robot.collapse - dt / REPULSOR_BOT_GET_UP)
+    actor.armAim = { angle: robot.aim ?? 0, aiming: false }; robot.phase = 'recover'; robot.time = 0
+    if (robot.collapse > 0) { moveRepulsorActor(run, robot, dt, world, { ...NEUTRAL_INPUT, crouch: true }); return }
+  }
+  if ((actor.stagger ?? 0) > 0) {
     actor.shove = undefined; actor.armAim = { angle: robot.aim ?? 0, aiming: false }
     robot.phase = 'recover'; robot.time = powered ? REPULSOR_BOT_RECOVERY : 0
     moveRepulsorActor(run, robot, dt, world, NEUTRAL_INPUT)
@@ -152,7 +166,7 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     moveRepulsorActor(run, robot, dt, world, NEUTRAL_INPUT)
     return
   }
-  if (playerSwimStrength(run.gravityField, actor) > .05 || botEscapingWater(robot)) {
+  if (botInWater(run, actor) || botEscapingWater(robot)) {
     // Finish getting onto dry footing before resuming combat, even if the
     // player dives, changes banks or offers a tempting shot during recovery.
     actor.shove = undefined; actor.armAim = { angle: robot.aim ?? 0, aiming: false }
@@ -192,7 +206,7 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   if (robot.phase === 'windup') {
     movement = { ...movement, move: 0, jump: false, climb: false, descend: false, crouch: false }
     if (shotTarget && robot.time < REPULSOR_BOT_WINDUP * .55) {
-      robot.aim = Math.atan2(shotTarget[1] - (robot.y - 42), shotTarget[0] - robot.x)
+      robot.aim = Math.atan2(shotTarget[1] - repulsorBotChestY(robot), shotTarget[0] - robot.x)
       actor.facing = Math.cos(robot.aim) < 0 ? -1 : 1
     }
     if (!free || !actor.grounded) { robot.phase = 'chase'; robot.time = 0 }
@@ -207,7 +221,7 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     // Keep that choice until stepping off; crossing the room's center must
     // not reverse it on every frame.
     const preferred = stepOffSides.get(robot) ?? (actor.x < run.level.width / 2 ? 1 : -1)
-    const clear = (side: number) => !world.platforms.some(platform => bodyIntersects(actor.x + side * 45, actor.y, platform, TUNING.height))
+    const size = bodySize(actor), clear = (side: number) => !world.platforms.some(platform => bodyIntersects(actor.x + side * 45 * size, actor.y, platform, TUNING.height * size, 1, 0, sizedBodyOutline(size)))
     const side = clear(preferred) ? preferred : -preferred
     stepOffSides.set(robot, side)
     movement = { ...NEUTRAL_INPUT, move: side * .6 }
@@ -216,6 +230,30 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   const aiming = robot.phase === 'windup' && free
   actor.armAim = { angle: Math.atan2(Math.sin(robot.aim ?? 0), Math.cos(robot.aim ?? 0) / (actor.waterMotion ? 1 : REPULSOR_BOT_WIDTH_SCALE)), aiming }
   moveRepulsorActor(run, robot, dt, world, movement)
+}
+
+/**
+ * Without power (an EMP hit or a blackout) Rbot stops deciding and slumps to its knees, at crouch height. Its body
+ * still falls and settles; it lets go of whatever it holds, and a player pushing into it slides it along like a
+ * heavy crate. It keeps facing the way it fell. When power returns it gets up where it was left.
+ */
+function collapse(run: Run, robot: RobotState, dt: number, world: ContactWorld) {
+  const actor = robot.actor!
+  robot.collapse = Math.min(1, (robot.collapse ?? 0) + dt / REPULSOR_BOT_COLLAPSE)
+  actor.shove = undefined; actor.armAim = { angle: robot.aim ?? 0, aiming: false }
+  robot.phase = 'recover'; robot.time = 0; robot.seesPlayer = false
+  const push = run.player.contacts?.push
+  // It slides only where there is room: pinned against a wall, the push has nowhere to send it.
+  const body = playerContactBody(actor), solids = world.colliders.filter(c => c.robot !== robot && c.id !== 'player').map(c => c.platform)
+  const pushed = !!push && push.collider.robot === robot && !push.anticipation && push.effort > 0 && actor.grounded
+    && !solids.some(solid => bodyIntersects(body.x + push.direction * 2, body.y - .05, solid, body.height, 1, 0, body.outline))
+  const holding = !!(actor.climbing || actor.hang || actor.mantle), facing = actor.facing
+  // Slid along, it faces the way it goes for the step, so the motor shuffles it rather than starting a turn; the
+  // slump keeps the facing it fell with.
+  if (pushed) actor.facing = push.direction
+  moveRepulsorActor(run, robot, dt, world, { ...NEUTRAL_INPUT, crouch: !holding, drop: holding, detach: holding, descend: holding,
+    move: pushed ? push.direction * push.effort * COLLAPSED_PUSH_SPEED / TUNING.walkSpeed : 0 })
+  actor.facing = facing; robot.facing = facing
 }
 
 function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: ContactWorld, movement: JumpInput) {
@@ -229,16 +267,28 @@ function moveRepulsorActor(run: Run, robot: RobotState, dt: number, world: Conta
   actor.ropes = run.player.ropes
   const colliders = [...world.colliders.filter(c => c.robot !== robot && !c.playerOnly),
     ...forceFieldPlatforms(run.forceFields, 'objects').map((platform, i) => ({ id: `red:${i}`, platform })),
-    { id: 'player', platform: playerShapeForNavigation(run.player) }]
+    // Holding the player's rope, Rbot shares it: the player's body does not block its own (model.ts passesThrough).
+    ...(passesThrough(actor, run.player) ? [] : [{ id: 'player', platform: playerShapeForNavigation(run.player) }])]
   const botWorld = { colliders, platforms: colliders.map(c => c.platform), ropePlatforms: world.ropePlatforms }
   followPropGrip(actor, botWorld)
-  stepPlayer(actor, movement, dt, botWorld.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, botWorld, run.gravityField,
-    undefined, 1, undefined, { advanceRopes: false, airSpeedScale: BOT_AIR_SPEED_SCALE, airFacing: 'travel', water: run.water })
+  stepPlayer(actor, repulsorSteering(actor, movement), dt, botWorld.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, botWorld, run.gravityField,
+    undefined, 1, undefined, { advanceRopes: false, ropeRiders: [run.player], airSpeedScale: BOT_AIR_SPEED_SCALE, airFacing: 'travel', water: run.water })
   airborneFacings.set(actor, actor.facing)
   // A blocked shove must not freeze an EMP-disabled body in its incoming run pose.
   if (actor.grounded && (actor.contacts?.motion.speed ?? Math.abs(actor.vx)) < .01) actor.anim.gait = gaitPose(0)
   robot.x = actor.x; robot.y = actor.y; robot.vx = actor.vx; robot.facing = actor.facing; robot.angle = actor.groundAngle
   if (actor.grounded && Math.abs(actor.vx) < 1 && Math.abs(actor.vy) < 1) actor.shoveDrift = false
+}
+
+/**
+ * A larger body would cover ground in proportion to its size. Steer it at its size's share, so it keeps the
+ * player's pace across the ground, through the air and in water, while it rises in proportion (sizeFrame.ts).
+ * On a rope or ladder, or at a ledge, steering swings the body or picks a side, not a pace: it stays whole.
+ */
+export function repulsorSteering(actor: Player, movement: JumpInput): JumpInput {
+  const size = bodySize(actor), holding = !!(actor.climbing || actor.hang || actor.mantle)
+  return size === 1 || holding ? movement
+    : { ...movement, move: movement.move / size, ...(movement.swimVertical !== undefined ? { swimVertical: movement.swimVertical / size } : {}) }
 }
 
 function playerShapeForNavigation(player: Player): Platform {

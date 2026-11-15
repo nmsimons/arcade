@@ -1,4 +1,5 @@
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform } from './gravityFrame.ts'
+import { bodySize, inSizeFrame, scaledContactWorld } from './sizeFrame.ts'
 import type { Prop, RobotState } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { cancelJumpInput, STEP, TUNING } from './model.ts'
@@ -7,7 +8,7 @@ import { exposedWallFaces, groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { boxPushFace, propBounds, propPushHands, PROP_APPROACH_GAP, smallSubmergedProp } from './propGeometry.ts'
 import type { PushHands } from './propGeometry.ts'
-import { bodyContact, bodyIntersects, lineBlocked, moveBody } from './geometry.ts'
+import { bodyContact, bodyIntersects, bodyPolygon, lineBlocked, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
@@ -57,6 +58,23 @@ export interface PlayerContacts {
   motion: { x: number; y: number; speed: number }
 }
 
+/** A contact query for a larger body: solved in its frame against the scaled world, then returned in the world's units. */
+function sizedContacts(p: Player, world: ContactWorld, query: (scaled: ContactWorld) => PlayerContacts): PlayerContacts {
+  const size = bodySize(p), scaled = scaledContactWorld(world, size), byId = new Map(world.colliders.map(c => [c.id, c]))
+  const contacts = inSizeFrame(p, () => query(scaled), true)
+  const collider = (c: PlayerCollider) => byId.get(c.id) ?? c
+  const hands = (value: PushHands | null): PushHands | null => value && ({ ...value, wallX: value.wallX * size,
+    ...(value.height !== undefined ? { height: value.height * size } : {}),
+    ...(value.palms ? { palms: value.palms.map(palm => ({ ...palm, x: palm.x * size, y: palm.y * size })) as NonNullable<PushHands['palms']> } : {}) })
+  return {
+    support: contacts.support && { ...contacts.support, y: contacts.support.y * size, collider: collider(contacts.support.collider), platform: collider(contacts.support.collider).platform },
+    push: contacts.push && { ...contacts.push, wallX: contacts.push.wallX * size, collider: collider(contacts.push.collider), hands: hands(contacts.push.hands) },
+    body: contacts.body.map(c => ({ ...c, collider: collider(c.collider), point: [c.point[0] * size, c.point[1] * size] as Vec,
+      ...(c.impactSpeed !== undefined ? { impactSpeed: c.impactSpeed * size } : {}) })),
+    motion: { x: contacts.motion.x * size, y: contacts.motion.y * size, speed: contacts.motion.speed * size },
+  }
+}
+
 export function staticContactWorld(platforms: readonly Platform[]): ContactWorld {
   return { platforms, colliders: platforms.map((platform, i) => ({ id: `terrain:${i}`, platform })) }
 }
@@ -71,6 +89,16 @@ function propContactNormal(p: Player, collider: PlayerCollider, normal: Vec, poi
 /** Use the existing climb envelope for every solid contact, including props
  * and bots. The locomotion root lies below the feet during a folded hang. */
 export function playerContactBody(p: Player, swimmingOutline = false): { x: number; y: number; height: number; outline?: Vec[] } {
+  const size = bodySize(p)
+  if (size !== 1) {
+    // A larger body's envelope is the player's, solved in its frame and scaled back into the world. Its outline is
+    // always explicit: the default hull's width is the player's, and would not grow with the body.
+    const body = inSizeFrame(p, () => {
+      const local = playerContactBody(p, swimmingOutline)
+      return { ...local, outline: local.outline ?? bodyPolygon(0, 0, local.height, p.inverted ? -1 : 1, playerTurnAngle(p)) }
+    })
+    return { x: body.x * size, y: body.y * size, height: body.height * size, outline: body.outline.map(([x, y]) => [x * size, y * size] as Vec) }
+  }
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try { const body = playerContactBody(p, swimmingOutline); return { ...body, y: -body.y,
@@ -193,6 +221,8 @@ export function narrowMantle(m: NonNullable<Player['mantle']>, world: ContactWor
  * Query before solving, then publish the final contacts after the body sweep.
  * Consumers never independently decide which object the player is pushing. */
 export function playerContacts(p: Player, input: JumpInput, world: ContactWorld, dt = STEP): PlayerContacts {
+  const size = bodySize(p)
+  if (size !== 1) return sizedContacts(p, world, scaled => playerContacts(p, input, scaled, dt)) as PlayerContacts
   if (p.inverted) {
     const reflected = mirrorContactWorld(world)
     mirrorPlayerState(p); p.inverted = false
@@ -433,6 +463,8 @@ function dryPropPushHands(p: Player, prop: Prop, direction: number, maxGap = 38)
 /** Lead a shove with a reach toward the first exposed prop. This deliberately
  * lives outside the force-contact query: preparation cannot move an object. */
 export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld): PushContact | null {
+  const size = bodySize(p)
+  if (size !== 1) return sizedContacts(p, world, scaled => ({ support: null, push: anticipatePush(p, input, scaled), body: [], motion: { x: 0, y: 0, speed: 0 } })).push
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try {

@@ -7,7 +7,8 @@ import { resolveSwitchStates } from './switchPower.ts'
 import { withTriggerActive } from './toggleGroups.ts'
 import { botCanReach, botNavigationGraph, botRouteProgress, botSearchPlaces } from './botNavigation.ts'
 import { forceFieldPlatforms } from './forceField.ts'
-import { robotPlatforms } from './robotPhysics.ts'
+import { robotPlatforms, robotSize } from './robotPhysics.ts'
+import { repulsorBotChestY } from './repulsorBotRig.ts'
 import { TUNING } from './model.ts'
 
 export interface BotSighting { x: number; y: number; vx: number; vy: number; inverted: boolean; time: number; support?: string }
@@ -38,7 +39,7 @@ function disruption(run: Run, memory: BotSighting, states: ReadonlyMap<string, b
 }
 
 export function botSeesProp(run: Run, robot: RobotState, prop: Prop) {
-  const from: Vec = [robot.x, robot.y - 42], to: Vec = [prop.x, prop.y - propHeight(prop) / 2]
+  const from: Vec = [robot.x, repulsorBotChestY(robot)], to: Vec = [prop.x, prop.y - propHeight(prop) / 2]
   return Math.hypot(to[0] - from[0], to[1] - from[1]) < 850 && !lineBlocked(from, to,
     [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, x: m.x, y: m.y })),
       ...forceFieldPlatforms(run.forceFields, 'objects'), ...run.props.filter(p => p !== prop).map(p => p.kind === 'ball' ? ballShape(p) : boxShape(p))])
@@ -85,7 +86,7 @@ export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting
   const obstruction = run.robots.find(other => !other.actor && other !== robot && Math.abs(other.y - robot.y) < 60
     && (other.x - robot.x) * direction > 45 && (other.x - robot.x) * direction < 260
     && Math.abs(other.x - robot.x) < Math.abs(memory.x - robot.x)
-    && !lineBlocked([robot.x, robot.y - 42], [other.x, other.y - 28], [...run.terrain,
+    && !lineBlocked([robot.x, repulsorBotChestY(robot)], [other.x, other.y - 28 * robotSize(other)], [...run.terrain,
       ...run.mechanisms.map(m => ({ ...m.definition, x: m.x, y: m.y })), ...forceFieldPlatforms(run.forceFields, 'objects'),
       ...run.props.filter(prop => !prop.gadget).map(prop => prop.kind === 'ball' ? ballShape(prop) : boxShape(prop)),
       ...run.robots.filter(candidate => candidate !== robot && candidate !== other).flatMap(robotPlatforms)]))

@@ -2,6 +2,7 @@ import { cancelJumpInput } from './model.ts'
 import type { Player } from './model.ts'
 import type { Vec } from './geometry.ts'
 import { startImpactRagdoll } from './athleteAnimation.ts'
+import { bodySize } from './sizeFrame.ts'
 
 export const REPULSOR_BOT_IMPULSE = 1100
 
@@ -16,6 +17,9 @@ export function repulsePlayer(actor: Player, direction: Vec) {
   actor.anim.dryTurn = null; actor.freeFall = null; actor.stepIntent = null; actor.shove = undefined
   actor.grabCooldown = .4; actor.coyote = 0; cancelJumpInput(actor)
   if (gripping || direction[1] * (actor.inverted ? -1 : 1) < -.1) actor.grounded = false
-  actor.vx = Math.max(-1300, Math.min(1300, actor.vx + direction[0] * REPULSOR_BOT_IMPULSE))
-  actor.vy = Math.max(-1300, Math.min(1300, actor.vy + direction[1] * REPULSOR_BOT_IMPULSE))
+  // A larger body brakes and falls its size times as hard (sizeFrame.ts): the square root of its size in speed
+  // carries it as far as a hit carries the player, so a shove still clears room or tips it off a ledge.
+  const carry = Math.sqrt(bodySize(actor)), limit = 1300 * carry
+  actor.vx = Math.max(-limit, Math.min(limit, actor.vx + direction[0] * REPULSOR_BOT_IMPULSE * carry))
+  actor.vy = Math.max(-limit, Math.min(limit, actor.vy + direction[1] * REPULSOR_BOT_IMPULSE * carry))
 }

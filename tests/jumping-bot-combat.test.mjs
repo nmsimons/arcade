@@ -27,7 +27,8 @@ test('shovebots and Rbots are opposing kinds; equal kinds are not rivals', () =>
 })
 
 test('a shovebot acquires Rbot, charges into its real body, and interrupts its shot', () => {
-  const run = pair(), [shove, bot] = run.robots
+  // A low wall hides the player from a full-size Rbot, which can see over the shovebot itself.
+  const run = pair(file => { file.platforms = [{ x: 280, y: 790, w: 20, h: 130 }] }), [shove, bot] = run.robots
   tick(run)
   assert.equal(shovebotTarget(shove), bot.actor)
   assert.equal(shove.seesPlayer, false, 'the player behind the shovebot is not its target')
@@ -122,17 +123,19 @@ for (const mode of ['objects', 'player']) test(`a charge knocks Rbot back throug
 })
 
 test('Rbot resolves a shovebot crowding a ladder exit and gets onto the deck without overlap', () => {
+  // The deck is beyond a full-size Rbot's jump and catch, so the ladder the shovebot crowds is the way up.
+  const deck = 520
   const run = pair(file => {
-    file.entrance = { x: 700, y: 600 }
-    file.platforms = [{ x: 200, y: 600, w: 600, h: 30 }, { x: 500, y: 200, w: 30, h: 400 }]
+    file.entrance = { x: 700, y: deck }
+    file.platforms = [{ x: 200, y: deck, w: 600, h: 30 }, { x: 500, y: 200, w: 30, h: deck - 200 }]
     file.climbables.ladders = [{ x: 300, top: 400, bottom: 920, platform: -1, side: 1 }]
-    file.robots = [{ x: 338, y: 600, left: 300, right: 440 }, { kind: 'repulsor', x: 300, y: 920, left: 26, right: 1774 }]
+    file.robots = [{ x: 338, y: deck, left: 300, right: 440 }, { kind: 'repulsor', x: 300, y: 920, left: 26, right: 1774 }]
   }), [shove, bot] = run.robots
   shove.facing = -1
   let climbed = false, exited = false
   for (let frame = 0; frame < 1500 && !exited; frame++) {
     tick(run); climbed ||= !!bot.actor.climbing
-    exited = bot.actor.grounded && bot.y < 610
+    exited = bot.actor.grounded && bot.y < deck + 10
     for (const hull of robotHulls(bot)) for (const shape of robotPlatforms(shove))
       assert.equal(polygonIntersects(hull, shape, .2), false, `bodies overlap at frame ${frame}`)
   }

@@ -484,8 +484,8 @@ grade and remaining time before F, but cannot revive a failed run.
 
 Powering down at F works like an EMP outage that never ends. Gates, elevators
 and moving platforms stop where they are and stay solid. Plates and float
-switches stop responding, and force fields and gravity plates switch off. Bots
-stop, wiring and coin meters go dark, and carried gadgets read **Power off**.
+switches stop responding, and force fields and gravity plates switch off. Shovebots
+stop and Rbot slumps to its knees, wiring and coin meters go dark, and carried gadgets read **Power off**.
 The room lights cut out with a breaker clunk and a winding-down hum: after a
 brief flicker, a daylit room renders as night with every lamp off, so the open
 exit's glow stands out. Every coin, clock collectible and EMP still in the
@@ -561,7 +561,9 @@ its placement bounds extend 24 units in each direction.
 
 Player contact cuts power to **all gates, elevators, moving platforms, switches, and shovebots for
 5 seconds**. Gates, elevators, moving platforms, and bots stop in place and resume from the same
-position and phase afterward. They remain solid; a disabled bot cannot shove.
+position and phase afterward. They remain solid; a disabled bot cannot shove. Rbot instead slumps
+to its knees where it is, letting go of any rope, ladder or ledge it holds and falling if it must. It
+can be pushed like a heavy crate, and it gets up where it was left when power returns.
 Always-on exits and exits held open by latched switches keep working. The clock, player, ropes, and loose
 objects continue normally. Clock collectibles do not change the outage duration.
 

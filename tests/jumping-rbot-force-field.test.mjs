@@ -69,5 +69,6 @@ for (const dt of [STEP, 1 / 30]) test(`Quarantine II's updated emitters close ar
     }
     previous = points; previousFree = free
   }
-  assert.ok(activated && gripped && landed, 'the closed trap contains the bot while its real platform catch finishes')
+  // At its size (repulsorBotRig.ts) Rbot's jump can clear the lip and land feet-first rather than catch it by hand.
+  assert.ok(activated && landed, `the closed trap contains the bot while its real platform landing finishes${gripped ? ', by a ledge catch' : ''}`)
 })

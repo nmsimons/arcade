@@ -9,7 +9,8 @@ for (const [angle, omega] of [[-.65, .6], [-.35, 1], [-.65, -.6], [-.35, -1]]) {
   test(`Rbot intercepts a swinging rope and completes its climb (${angle}, ${omega})`, () => {
     const file = blankTrial(); file.entrance.x = 1700; file.goal.x = 100
     file.robots = [{ kind: 'repulsor', x: 300, y: 920, left: 26, right: 1774 }]
-    file.platforms = [{ x: 620, y: 550, w: 450, h: 20 }, { x: 1500, y: 0, w: 30, h: 920 }]
+    // The deck is beyond Rbot's jump and catch from the floor (repulsorBotRig.ts REPULSOR_BOT_SIZE): the rope is the way up.
+    file.platforms = [{ x: 620, y: 500, w: 450, h: 20 }, { x: 1500, y: 0, w: 30, h: 920 }]
     file.climbables.ropes = [{ x: 600, y: 150, length: 770, segments: 97 }]
     const run = createRun(file), bot = run.robots[0]; bot.facing = 1
     const rope = createRope(file.climbables.ropes[0]); run.player.ropes = [rope]
@@ -29,10 +30,12 @@ for (const [angle, omega] of [[-.65, .6], [-.35, 1], [-.65, -.6], [-.35, -1]]) {
         const distance = ropeGripDistance(bot.actor.climbing), now = ropePoint(rope, distance), before = ropePoint(rope, distance, true)
         gripSpeed = Math.hypot(now[0] - before[0], now[1] - before[1]) / STEP
       }
-      landed = bot.actor.grounded && bot.y === 550
+      // A larger body's position passes through its size frame, so it lands within rounding of the deck.
+      landed = bot.actor.grounded && Math.abs(bot.y - 500) < 1e-6
     }
     assert.ok(caught >= 0 && caught < 360, `no timely catch: ${caught}`)
-    assert.ok(gripSpeed > 40, `the catch must happen during motion, not after settling: ${gripSpeed}`)
+    // A settled rope barely moves; a larger body can take hold a little later in the swing.
+    assert.ok(gripSpeed > 25, `the catch must happen during motion, not after settling: ${gripSpeed}`)
     assert.ok(landed, `stopped at ${bot.x}, ${bot.y}`)
   })
 }

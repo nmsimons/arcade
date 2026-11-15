@@ -1,4 +1,5 @@
 import { gravityAtPoint } from './gravity.ts'
+import { bodySize, enterSizeFrame, leaveSizeFrame, scaledPlatform } from './sizeFrame.ts'
 import type { GravityField } from './gravity.ts'
 import type { NamedObject } from './objectNames.ts'
 import type { CaughtAnimation, Platform, Player } from './characterTypes.ts'
@@ -17,6 +18,8 @@ const ROPE_SWING_PUSH_STRENGTH = 360
 // Longer chains use modestly wider spans; terrain corners still add bend joints.
 export const ropeSegmentLength = (length: number) => length > 800 ? 12 : 8
 export const ropeSegmentCount = (length: number) => Math.ceil(length / ropeSegmentLength(length))
+/** A live rope's segment length. A copy scaled into a larger body's frame keeps the authored rope's segments (sizeFrame.ts). */
+export const ropeSpacing = (rope: Rope) => ropeSegmentLength(rope.length * (rope.frame ?? 1)) / (rope.frame ?? 1)
 export interface Ladder extends NamedObject { x: number; top: number; bottom: number; platform: number; side: number }
 /** An anchor attached to a terrain edge, in that terrain's local coordinates. */
 export interface RopeAnchor { platform: number; x: number; y: number }
@@ -33,6 +36,8 @@ export interface Rope extends NamedObject {
   end?: RopeEnd
   release?: RopeRelease
   rest?: { key: string; points: Point[]; distances?: number[]; bends?: (Point | null)[] }
+  /** Set only on a copy scaled into a larger body's frame: how many times smaller than the authored rope it is (sizeFrame.ts). */
+  frame?: number
 }
 /** Every anchored end of a rope: its first anchor, and a tied rope's second. */
 export const ropeEnds = (rope: Rope): { x: number; y: number; anchor?: RopeAnchor }[] => rope.end ? [rope, rope.end] : [rope]
@@ -357,7 +362,7 @@ export const ROPE_TOP_GRIP = 18
 export function createRope(definition: Rope): RopeState {
   // An edit can move a tied rope's anchors farther apart than its length; it is then taut.
   if (definition.end && definition.length < tiedRopeSpan(definition)) definition = { ...definition, length: Math.min(2000, Math.ceil(tiedRopeSpan(definition))) }
-  const segments = ropeSegmentCount(definition.length), spacing = ropeSegmentLength(definition.length)
+  const segments = ropeSegmentCount(definition.length * (definition.frame ?? 1)), spacing = ropeSpacing(definition)
   if (definition.segments !== segments) {
     definition = { ...definition, segments }
     delete definition.rest
@@ -454,7 +459,7 @@ export function releaseRopeAnchor(rope: RopeState, anchor: 'start' | 'end', ride
   if (anchor === 'start') {
     Object.assign(definition, { x: end.x, y: end.y })
     if (end.anchor) definition.anchor = { ...end.anchor }; else delete definition.anchor
-    const length = before.length, spacing = ropeSegmentLength(length)
+    const length = before.length, spacing = ropeSpacing(before)
     const points = rope.nodes.map((_, i) => length - Math.min(length, i * spacing))
     const current = points.map(distance => ropePoint(rope, distance)), previous = points.map(distance => ropePoint(rope, distance, true))
     rope.nodes = current.map(([x, y], i) => ({ x, y, oldX: previous[i][0], oldY: previous[i][1] }))
@@ -474,10 +479,10 @@ export function releaseRopeAnchor(rope: RopeState, anchor: 'start' | 'end', ride
 }
 
 function ropeDistance(rope: RopeState, index: number) {
-  return Math.min(rope.definition.length, index * ropeSegmentLength(rope.definition.length))
+  return Math.min(rope.definition.length, index * ropeSpacing(rope.definition))
 }
 function ropeCoordinate(rope: RopeState, distance: number) {
-  const i = Math.min(rope.nodes.length - 2, Math.floor(Math.max(0, distance) / ropeSegmentLength(rope.definition.length)))
+  const i = Math.min(rope.nodes.length - 2, Math.floor(Math.max(0, distance) / ropeSpacing(rope.definition)))
   return i + (Math.max(0, distance) - ropeDistance(rope, i)) / (ropeDistance(rope, i + 1) - ropeDistance(rope, i))
 }
 export function rappelWeight(climb: Climbing) {
@@ -691,13 +696,13 @@ export function stepRope(...args: Parameters<typeof solveRope>) {
 }
 
 function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
-  body?: { climb: Climbing; from: Point; facing: number; platforms?: readonly Platform[] }; gravity?: number } | null, gravityField?: GravityField, frameDirection = 1) {
+  body?: { climb: Climbing; from: Point; facing: number; platforms?: readonly Platform[]; rider?: Player }; gravity?: number } | null, gravityField?: GravityField, frameDirection = 1, gravityScale = 1) {
   const { nodes, definition } = rope, end = definition.end, last = nodes.length - 1
   if (gravityField && (gravityField.strips.length || ropeGravityRevisions.has(rope)) && ropeGravityRevisions.get(rope) !== gravityField.revision) {
     ropeGravityRevisions.set(rope, gravityField.revision)
     initRopeSleep(rope)
   }
-  const gravity = (x: number, y: number) => frameDirection * (gravityField ? gravityAtPoint(gravityField, x, y * frameDirection, 1400) : 1400)
+  const gravity = (x: number, y: number) => frameDirection * gravityScale * (gravityField ? gravityAtPoint(gravityField, x, y * frameDirection, 1400) : 1400)
   // Only geometry near the rope's current sweep can touch it this step. The
   // anchor's full reach pulled most of a tall level into every solver pass.
   let left = definition.x, right = definition.x, top = definition.y, bottom = definition.y
@@ -739,7 +744,7 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
   const loaded = Math.round(loadedAt)
   // Rope mass scales with segment length; the player's mass does not. Sharing
   // that load between adjacent points also avoids a jerk when a grip crosses one.
-  const bodyMass = 160 / ropeSegmentLength(definition.length)
+  const bodyMass = 160 / (ropeSpacing(definition) * (definition.frame ?? 1))
   const supports = nodes.map((_, i) => load ? Math.max(0, 1 - Math.abs(i - loadedAt)) : 0)
   const weights = supports.map((support, i) => i === 0 || i >= free ? 0 : 1 / (1 + bodyMass * support))
   const climb = load?.body?.climb
@@ -848,7 +853,16 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
       const target = wall.x - wall.side * wallGap
       if ((target - n.x) * wall.side < 0) n.x += (target - n.x) * .45
     }
-    if (load?.body && nearby.length) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, bodyTerrain, nearby)
+    if (load?.body && nearby.length) {
+      // A larger rider holds the rope with its own body, in its frame (sizeFrame.ts).
+      const rider = load.body.rider, size = rider ? bodySize(rider) : 1
+      if (size === 1 || !rider?.climbing) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, bodyTerrain, nearby)
+      else {
+        const frame = enterSizeFrame(rider, size, true); rider.size = 1
+        try { constrainRopeBody(rider.climbing, [rider.x, rider.y], rider.facing, bodyTerrain.map(b => scaledPlatform(b, size)), nearby.map(b => scaledPlatform(b, size))) }
+        finally { rider.size = size; leaveSizeFrame(rider, frame, true) }
+      }
+    }
   }
   // Length and body constraints can reintroduce a crossing after contacts.
   // Keep the final movement within the last clear rope configuration.
@@ -934,9 +948,9 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
 
 export function ropeImpulse(rope: RopeState, distance: number, vx: number, vy: number, dt: number) {
   const index = clamp(Math.round(ropeCoordinate(rope, distance)), 1, rope.nodes.length - 1)
-  const radius = Math.ceil(28 / ropeSegmentLength(rope.definition.length))
+  const frame = rope.definition.frame ?? 1, radius = Math.ceil(28 / (ropeSpacing(rope.definition) * frame))
   for (let i = Math.max(1, index - radius); i <= Math.min(rope.nodes.length - (rope.definition.end ? 2 : 1), index + radius); i++) {
-    const weight = Math.max(.15, 1 - Math.abs(ropeDistance(rope, i) - ropeDistance(rope, index)) / 44), n = rope.nodes[i]
+    const weight = Math.max(.15, 1 - Math.abs(ropeDistance(rope, i) - ropeDistance(rope, index)) / (44 / frame)), n = rope.nodes[i]
     n.oldX = n.x - clamp(vx, -600, 600) * dt * weight; n.oldY = n.y - clamp(vy, -400, 400) * dt * weight
   }
 }

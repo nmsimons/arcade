@@ -11,17 +11,20 @@ import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 const spelunk = () => parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/spelunk1b-rbot-routes.json', import.meta.url), 'utf8')))
 const tick = run => stepRun(run, NEUTRAL_INPUT)
 
-test('Spelunk Ib patrol leaves the platform area, crosses the cave rocks and returns to the platforms', () => {
+test('Spelunk Ib patrol leaves the platform area, tours the cave lip, keeps out of the pit below it and returns', () => {
+  // At Rbot's size (repulsorBotRig.ts) the tunnel under the rock column, about its own height, is closed to it,
+  // and the pocket below the cave lip is a drop it could not climb back out of. A patrol tours what it can
+  // come back from.
   const run = createRun(spelunk()), bot = run.robots[0]
-  let crossed = false, returned = false, caveLanding = false
+  let returned = false, caveLanding = false, pit = false
   for (let frame = 0; frame < 9600 && !returned; frame++) {
     tick(run)
     caveLanding ||= bot.actor.grounded && bot.x < 2080 && bot.actor.contacts?.support?.collider.id === 'terrain:5'
-    crossed ||= caveLanding && bot.actor.grounded && bot.x < 1500
-    returned ||= crossed && bot.actor.grounded && bot.x > 3100
+    pit ||= bot.actor.grounded && bot.actor.contacts?.support?.collider.id === 'terrain:0'
+    returned ||= caveLanding && bot.actor.grounded && bot.x > 3100
   }
   assert.ok(caveLanding, `never left the platforms: ${bot.x}, ${bot.y}`)
-  assert.ok(crossed, `did not cross the cave rocks: ${bot.x}, ${bot.y}`)
+  assert.equal(pit, false, 'it never drops into the pocket it cannot climb out of')
   assert.ok(returned, `could not return over the steep rocks: ${bot.x}, ${bot.y}`)
   assert.equal(bot.shots ?? 0, 0, 'this is an ordinary unalerted patrol, without a player sighting to supply faster steering')
 })

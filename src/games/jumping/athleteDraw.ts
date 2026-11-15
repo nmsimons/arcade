@@ -1,5 +1,6 @@
 // Athlete artwork: skin outlines and Canvas drawing of a solved pose.
 import { ArtPath } from './webgl/artPath.ts'
+import { bodySize } from './sizeFrame.ts'
 import { androidMaterials, androidRearArmColor, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
 import type { AndroidAppearance, AndroidMaterials } from './androidArtwork.ts'
 import { drawAndroidPalmPlate, handGeometry, traceAndroidHand } from './androidHand.ts'
@@ -194,7 +195,9 @@ export const NIGHT_PLAYER_COLOR = '#e5e7e6'
 /** The android shell follows the original solved joints and contact rig. */
 export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: AndroidAppearance = '#686b6e', pose = presentedAthletePose(p)) {
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
-  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, p.inverted ? -1 : 1)
+  // The pose is in the body's own units; a larger body draws its artwork at its size (sizeFrame.ts).
+  const size = bodySize(p)
+  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing * size, (p.inverted ? -1 : 1) * size)
   const materials = androidMaterials(body), shell = materials.shell
   const sleeve = (arm: Limb) => {
     const tool = p.heldTool
@@ -225,7 +228,7 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
   const neck = new ArtPath(); traceNeckArtwork(neck, pose); fillShape(ctx, neck, materials.joint)
   drawAndroidTorso(ctx, pose, backPose, materials)
   drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale, pose.shellWidth)
-  drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth)
+  drawAndroidHead(ctx, head, headTilt ?? 0, materials, pose.shellWidth, pose.headScale)
   if (!armsBehind) {
     drawArm(ctx, frontArm, shell, materials, pose.forearmScale, pose.handScale, pose.shellWidth)
     if (p.facing >= 0) sleeve(frontArm)

@@ -11,6 +11,8 @@ export type AthletePose = {
   forearmScale?: number; handScale?: number; calfScale?: number; footScale?: number
   /** Cosmetic width perpendicular to each shell's own axis. */
   shellWidth?: number
+  /** Cosmetic size of the head about its centre. */
+  headScale?: number
 }
 export const TAU = Math.PI * 2
 export const HEAD_RADIUS = 6.2

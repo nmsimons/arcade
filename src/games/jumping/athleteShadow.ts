@@ -1,4 +1,5 @@
 import type { Platform, Player } from './characterTypes.ts'
+import { bodySize } from './sizeFrame.ts'
 import type { Vec } from './geometry.ts'
 import { traceAthleteArtwork } from './athleteDraw.ts'
 import type { AthleteOutline } from './athleteDraw.ts'
@@ -9,11 +10,12 @@ const middle = (a: Vec, b: Vec): Vec => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
 
 /** Flatten the artwork's curves, not the player's rectangular collision body. */
 export function athleteCasters(player: Player, pose?: AthletePose): Platform[] {
-  const shapes: Platform[] = []
+  const shapes: Platform[] = [], size = bodySize(player)
   let points: Vec[] = []
   const close = () => {
     if (points.length > 2) {
-      const world = points.map(([x, y]): Vec => [player.x + x * player.facing, player.y + y * (player.inverted ? -1 : 1)])
+      // The pose is in the body's own units; a larger body casts at its size.
+      const world = points.map(([x, y]): Vec => [player.x + x * player.facing * size, player.y + y * (player.inverted ? -1 : 1) * size])
       const x = Math.min(...world.map(p => p[0])), y = Math.min(...world.map(p => p[1]))
       shapes.push({ x, y, w: Math.max(...world.map(p => p[0])) - x, h: Math.max(...world.map(p => p[1])) - y,
         polygon: world.map(p => [p[0] - x, p[1] - y]) })

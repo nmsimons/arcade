@@ -280,8 +280,18 @@ function penetration(a: CollisionHull, b: CollisionPiece) {
   }
   return { depth, normal }
 }
+const outlineExtents = new WeakMap<readonly Vec[], readonly [number, number, number, number]>()
 export function bodyIntersects(x: number, y: number, b: Platform, height = 62, orientation = 1, angle = 0, outline?: readonly Vec[]) {
-  if (outline) return polygonIntersects(bodyPolygon(x, y, height, orientation, angle, outline), b)
+  if (outline) {
+    // Shapes strictly apart cannot intersect; anything closer takes the full test, so results are unchanged.
+    let extents = outlineExtents.get(outline)
+    if (!extents) {
+      extents = [Math.min(...outline.map(p => p[0])), Math.min(...outline.map(p => p[1])), Math.max(...outline.map(p => p[0])), Math.max(...outline.map(p => p[1]))]
+      outlineExtents.set(outline, extents)
+    }
+    if (x + extents[2] < b.x || x + extents[0] > b.x + b.w || y + extents[3] < b.y || y + extents[1] > b.y + b.h) return false
+    return polygonIntersects(bodyPolygon(x, y, height, orientation, angle, outline), b)
+  }
   if (orientation < 0 || angle) return polygonIntersects(bodyPolygon(x, y, height, orientation, angle), b)
   if (x + 12 <= b.x || x - 12 >= b.x + b.w || y <= b.y || y - height >= b.y + b.h) return false
   const points = bodyPolygon(x, y, height), hull = { points, bounds: bounds(points) }

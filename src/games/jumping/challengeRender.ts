@@ -21,7 +21,7 @@ import { gameCamera } from './camera.ts'
 import { isHorizontalGate } from './mechanisms.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
 import type { CornerRadii } from './mechanismAppearance.ts'
-import { robotTop } from './robotPhysics.ts'
+import { robotSize, robotTop } from './robotPhysics.ts'
 import { robotHeadlightY, ROBOT_HEADLIGHT_X } from './robotHeadlight.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
 import type { Exposure, WorldLayer, WorldPaint } from './worldPaint.ts'
@@ -196,7 +196,10 @@ export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening:
 /** Editor and placement show the full doorway, including starts awaiting manual repair. */
 export function drawRobotPortal(ctx: CanvasRenderingContext2D, robot: RobotState, editor = false, paint: WorldPaint = paintNormally) {
   if (robot.definition.kind !== 'repulsor' || robot.definition.chargingBay || !editor && !robot.entrance) return
-  ambientPaint(paint)(ctx, 0, () => drawDoorway(ctx, entranceDoor(robot.definition), editor ? 1 : entranceOpening(robot.entrance!.elapsed)))
+  // Rbot's portal is a doorway at its size.
+  const door = entranceDoor(robot.definition), size = robotSize(robot)
+  const sized = { x: robot.definition.x - door.w * size / 2, y: robot.definition.y - door.h * size, w: door.w * size, h: door.h * size }
+  ambientPaint(paint)(ctx, 0, () => drawDoorway(ctx, sized, editor ? 1 : entranceOpening(robot.entrance!.elapsed)))
 }
 /** Air and water need different depth layers: a transparent water tint alone
  * exposes the hard sky/cave wall boundary beneath a continuous pool. */

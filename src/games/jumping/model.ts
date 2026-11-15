@@ -7,7 +7,7 @@ import { exposedSide, exposedWallFaces, followGround, groundAt, platformSurface 
 import type { GroundSurface } from './terrain.ts'
 import { canGrabLedge, ledgeExposed, ledgeObstacles, platformLedges, sameLedge } from './terrainLedges.ts'
 import type { TerrainLedge } from './terrainLedges.ts'
-import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
+import { bodyContact, bodyIntersects, bodyPolygon, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
 import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushRig } from './playerContacts.ts'
@@ -18,6 +18,7 @@ import { carryWithRisingWater } from './waterTransport.ts'
 import type { WaterLevels } from './waterLevel.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorLadder } from './gravityFrame.ts'
+import { bodySize, enterSizeFrame, leaveSizeFrame, scaledContactWorld, scaledGravityField, scaledLadder, scaledWater, worldPlatform } from './sizeFrame.ts'
 import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSwimStrength, playerSwimDepth, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration, swimmingDirection, underwaterSwimming } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
 import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeClimbable, ropeShimmyDirection, ropeTravelFacing, ropeTurnHasSupport, ropeVerticality, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn, updateRopeShimmy } from './ropeGravity.ts'
@@ -53,7 +54,47 @@ function faceAlongRope(p: Player, c: Climbing, facing: number) {
 }
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
+interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; ropeMates?: readonly RopeMate[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
+/** Another body holding a rope: its grip, and the stretch of rope below the grip its body hangs along. */
+interface RopeMate { index: number; distance: number; span: number }
+/** How far below its grip a body's stretch of rope runs, in body units: to its feet, where the next body's hands can hold. */
+const ROPE_MATE_SPAN = 66
+const ropeMates = (riders: readonly Player[] = []): RopeMate[] => riders.flatMap(r => r.climbing?.rope
+  ? [{ index: r.climbing.index, distance: r.climbing.distance, span: ROPE_MATE_SPAN * bodySize(r) }] : [])
+/** The shapes of other moving bodies in a world: the player's, and robots'. */
+const movingBodies = (world: ContactWorld) => new Set(world.colliders.filter(c => c.robot || c.id === 'player').map(c => c.platform))
+/** What holds a body hanging on a rope: terrain, not other moving bodies, which only stop its climbing. */
+function ropeBodyTerrain(platforms: readonly Platform[], world: ContactWorld) {
+  const bodies = movingBodies(world)
+  return bodies.size ? platforms.filter(b => !bodies.has(b)) : platforms
+}
+/** The moving bodies among each body's last terrain, so a rope it rides is held off only the rest. */
+const terrainBodies = new WeakMap<Player, ReadonlySet<Platform>>()
+/** Two bodies holding one rope share it: each keeps to its own stretch, and neither's body blocks the other's. */
+export const sharesRope = (a: Player, b: Player) => !!a.climbing?.rope && !!b.climbing?.rope && a.climbing.index === b.climbing.index
+// Bodies that shared a rope pass through each other until they come apart, so one letting go is not shoved.
+const ropePartners = new WeakMap<Player, WeakSet<Player>>()
+const bodyBounds = (p: Player) => {
+  const body = playerContactBody(p), points = bodyPolygon(body.x, body.y, body.height, p.inverted ? -1 : 1, 0, body.outline)
+  const xs = points.map(point => point[0]), ys = points.map(point => point[1])
+  return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }
+}
+/** Whether two bodies ignore each other: while they share a rope, and after, until they no longer overlap. */
+export function passesThrough(a: Player, b: Player) {
+  const mark = (on: boolean) => {
+    for (const [x, y] of [[a, b], [b, a]]) {
+      const partners = ropePartners.get(x) ?? new WeakSet<Player>()
+      ropePartners.set(x, partners)
+      if (on) partners.add(y); else partners.delete(y)
+    }
+  }
+  if (sharesRope(a, b)) { mark(true); return true }
+  if (!ropePartners.get(a)?.has(b)) return false
+  const one = bodyBounds(a), other = bodyBounds(b)
+  if (one.left < other.right && other.left < one.right && one.top < other.bottom && other.top < one.bottom) return true
+  mark(false)
+  return false
+}
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export function wantsCrouch(input: JumpInput, inverted = false) {
   const down = !!(input.descend ?? (input.drop && !input.detach))
@@ -373,7 +414,8 @@ function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[], w
       ? [{ platform, ...edge, braced: ledgeBraced(platforms, edgeX, edgeY, side, edge.outwardSlope) }] : []
   })).sort((a, b) => Math.hypot(a.edgeX - grip[0], a.edgeY - grip[1]) - Math.hypot(b.edgeX - grip[0], b.edgeY - grip[1]))
   return candidates.find(edge => {
-    if (!ledgePathClear(platforms, edge, edge.braced, fixed) || platforms.some(b => overlaps(p.x, p.y, b))) return false
+    // The same landings as a catch from a jump: nearer the lip, or crouched, when the usual one does not clear.
+    if (!ledgeLanding(platforms, edge, edge.braced, fixed) || platforms.some(b => overlaps(p.x, p.y, b))) return false
     const from: [number, number] = [(p.x - edge.edgeX) * edge.side, p.y - edge.edgeY]
     const hangRoot = climbFrame(0, edge.braced, edge.slope, false, 20, edge.outwardSlope).root
     let previous: [number, number] = [p.x, p.y]
@@ -405,6 +447,22 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms), gravityField?: GravityField, gravityOverride?: number, frameDirection = 1,
   fieldMotionOverride?: { floatDrag: number; swimStrength: number; swimDepth: number; swimAcceleration: number; orientationGravity: number },
   options: PlayerStepOptions = {}) {
+  const size = bodySize(p)
+  if (size !== 1) {
+    // A larger body steps as the player does, in a frame scaled down by its size (sizeFrame.ts).
+    if (climbables.ropes.length) p.ropes ??= climbables.ropes.map(createRope)
+    const scaled = scaledContactWorld(world, size), frame = enterSizeFrame(p, size, true, scaled)
+    p.size = 1
+    try {
+      stepPlayer(p, input, dt, scaled.platforms, { ladders: climbables.ladders.map(ladder => scaledLadder(ladder, size)), ropes: p.ropes?.map(r => r.definition) ?? [] },
+        { checkpoints: rules.checkpoints.map(c => ({ ...c, x: c.x / size, y: c.y / size, ...(c.radius ? { radius: c.radius / size } : {}) })), fallY: rules.fallY / size }, scaled,
+        gravityField && scaledGravityField(gravityField, size), gravityOverride, frameDirection,
+        fieldMotionOverride && { ...fieldMotionOverride, swimDepth: fieldMotionOverride.swimDepth / size },
+        { ...options, ropeRiders: undefined, ropeMates: (options.ropeMates ?? ropeMates(options.ropeRiders)).map(m => ({ ...m, distance: m.distance / size, span: m.span / size })),
+          ...(options.water ? { water: scaledWater(options.water, size) } : {}) })
+    } finally { p.size = size; leaveSizeFrame(p, frame, true, world) }
+    return
+  }
   if (frameDirection === 1 && gravityField && options.water) carryWithRisingWater(p, options.water, gravityField, world)
   const swimStrength = fieldMotionOverride?.swimStrength ?? (gravityField ? playerSwimStrength(gravityField, p) : 0)
   const swimDepth = fieldMotionOverride?.swimDepth ?? (gravityField ? playerSwimDepth(gravityField, p) : 0)
@@ -439,6 +497,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     return
   }
   p.terrain = platforms
+  terrainBodies.set(p, new Set([...movingBodies(world)].map(worldPlatform)))
   // The ready unsupported pose already uses an airborne gait. Preserve that
   // starting frame instead of first easing back from an imaginary ground gait.
   p.anim.gait ??= gaitPose(p.vx, !p.grounded && !p.hang && !p.mantle && !p.climbing)
@@ -551,7 +610,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   // The hanging climb clears its own ledge; low steps use the full solid hull.
   const mantle = p.mantle ?? oldMantle
   const obstacles = p.climbing?.ladder || oldLadder || mantle?.ladder ? ladderObstacles(world)
-    : mantle && !mantle.step ? ledgeObstacles(platforms, mantle) : platforms
+    : mantle && !mantle.step ? ledgeObstacles(platforms, mantle) : p.climbing?.rope ? ropeBodyTerrain(platforms, world) : platforms
   const afterBody = playerContactBody(p), offsetX = afterBody.x - p.x, offsetY = afterBody.y - p.y
   const collisionOutline = playerCollisionOutline(p, world)
   const result = moveBody([beforeBody.x, beforeBody.y], [afterBody.x, afterBody.y], obstacles, afterBody.height, 1, playerTurnAngle(p), collisionOutline)
@@ -714,6 +773,15 @@ function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
 /** All movement modes publish contacts and advance presentation once, after
  * their final world position is known, including an authored level exit. */
 export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number], verticalUsed = false, turnFrame?: DryTurnFrame | null, slideEntryFrame?: SlideEntryFrame | null, frameDirection = 1) {
+  const size = bodySize(p)
+  if (size !== 1) {
+    // A larger body animates in its frame, as it steps (sizeFrame.ts).
+    const scaled = scaledContactWorld(world, size), frame = enterSizeFrame(p, size, true, scaled)
+    p.size = 1
+    try { finishPlayerStep(p, input, dt, scaled, [from[0] / size, from[1] / size], verticalUsed, turnFrame, slideEntryFrame, frameDirection) }
+    finally { p.size = size; leaveSizeFrame(p, frame, true, world) }
+    return
+  }
   const rawFrom = from
   const contacts = playerContacts(p, input, world, dt)
   const carrier = contacts.support?.collider.robot
@@ -828,14 +896,18 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const surfaceExit = towardLedge && !input.jump && !input.detach ? findRopeStepUp(p, world) : null
   if (climbables.ropes.length) {
     p.ropes ??= climbables.ropes.map(createRope)
+    // A rider's body is held off terrain, not off other moving bodies, which only stop its climbing.
+    const ropeRiderTerrain = ropeBodyTerrain(platforms, world)
     if (options.advanceRopes !== false) for (const [i, rope] of p.ropes.entries()) {
       const rider = p.climbing?.kind === 'rope' && p.climbing.index === i ? p
         : options.ropeRiders?.find(r => r.climbing?.kind === 'rope' && r.climbing.index === i && !!r.inverted === !!p.inverted)
       const grip = rider?.climbing
+      // A larger rider's rope swings as it would in that rider's frame: its gravity is the rider's size times (sizeFrame.ts).
+      const scale = grip && rider ? bodySize(rider) : 1
       stepRope(rope, dt, world.ropePlatforms ?? platforms, grip && rider ? { distance: grip.distance, move: grip.wall ? 0 : grip.swing,
         wall: grip.wall, bracing: ease(grip.time / .25),
-        body: { climb: grip, from: [rider.x, rider.y], facing: rider.facing, ...(world.ropePlatforms ? { platforms: rider === p ? platforms : rider.terrain ?? platforms } : {}) },
-        gravity: (rider.gravity ?? gravity) * 1400 / TUNING.gravity } : null, gravityField, frameDirection)
+        body: { climb: grip, from: [rider.x, rider.y], facing: rider.facing, rider, ...(world.ropePlatforms ? { platforms: rider === p ? ropeRiderTerrain : rider.terrain?.filter(b => !terrainBodies.get(rider)?.has(b)) ?? ropeRiderTerrain } : {}) },
+        gravity: (rider.gravity ?? gravity) * 1400 / TUNING.gravity * scale } : null, gravityField, frameDirection, scale)
     }
   }
   if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.pushRig = null; p.crouching = !!p.mantle?.crouched; p.crouch = Number(p.crouching); p.reach = 0; p.anim.footwork = null; p.ledgeReach = null; p.landing = 0 }
@@ -1047,7 +1119,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       c.wallCooldown = .35
     }
     if (turning) c.wall = undefined
-    else updateRopeWall(c, platforms, traversing ? 0 : input.move, [p.x, p.y])
+    // The feet brace on terrain, never on another moving body.
+    else updateRopeWall(c, c.rope ? ropeBodyTerrain(platforms, world) : platforms, traversing ? 0 : input.move, [p.x, p.y])
     c.wallPose = c.wall ?? wall ?? c.wallPose
     // Unbrace gradually where a wall becomes a slope, without jerking the grip upward.
     c.wallBlend = approach(c.wallBlend ?? Number(!!wall), Number(!!c.wall), dt / (c.surfaceSupport ? .4 : .22))
@@ -1058,7 +1131,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     // Shimmying spends Left/Right on travel, so it neither pumps a swing nor leans.
     c.swing += ((c.rope && !c.wall && !traversing ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
     c.lean += ((c.rope && !c.wall && !c.direction && !turning && !traversing ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
-    c.surfaceSupport = ropeSlopeSupport(c, platforms)
+    c.surfaceSupport = ropeSlopeSupport(c, c.rope ? ropeBodyTerrain(platforms, world) : platforms)
     const heldGrip = c.rope && turning ? ropeGripDistance(c) : 0
     // Every rope is climbed by the arms alone, so the body always hangs below the hands.
     c.hangBlend = approach(c.hangBlend, Number(!!c.rope), dt / .22)
@@ -1140,7 +1213,14 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const was = c.rope && !c.wall ? c.travelSpeed ?? 0 : 0
     if (was && (Math.sign(speed) !== Math.sign(was) || Math.abs(speed) < Math.abs(was)))
       speed = approach(was, Math.sign(speed) === Math.sign(was) ? speed : 0, ROPE_BRAKE / Math.max(.01, (1 - steep) ** 2) * dt)
-    c.distance = Math.max(minimum, Math.min(bottom, c.distance + speed * dt))
+    // Another body on the rope keeps its stretch of it: a grip climbs up to that body's feet, or down to its
+    // hands, and no further. One already too close is never pushed away, only kept from closing in.
+    let top = minimum, end = bottom
+    if (c.rope) for (const mate of options.ropeMates ?? ropeMates(options.ropeRiders)) if (mate.index === c.index) {
+      if (mate.distance < oldDistance) top = Math.max(top, Math.min(oldDistance, mate.distance + mate.span))
+      else end = Math.min(end, Math.max(oldDistance, mate.distance - ROPE_MATE_SPAN * bodySize(p)))
+    }
+    c.distance = Math.max(top, Math.min(end, c.distance + speed * dt))
     // A grip pushed into its limits is not travel: it carries no speed to brake from.
     if (c.rope) c.travelSpeed = Math.max(-Math.abs(speed), Math.min(Math.abs(speed), (c.distance - oldDistance) / dt))
     if (c.ladder && topFooting && materialVertical > 0) {
@@ -1186,12 +1266,24 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       && !platforms.some(b => overlaps(p.x, c.ladder!.bottom, b, bodyCrouch ? TUNING.crouchHeight : TUNING.height))) {
       leaveLadder(p, groundAt(platforms, p.x, c.ladder.bottom, .2), bodyCrouch); p.y = c.ladder.bottom
     }
+    // Another body (the player, a robot) stops a rope grip climbing into it, but never shoves a body hanging on a
+    // rope: the rope would only swing it back. Terrain keeps the full swept-body rules.
+    const bodies = c.rope ? movingBodies(world) : null, terrain = c.rope ? ropeBodyTerrain(platforms, world) : platforms
+    if (bodies?.size && c.distance !== previousClimb.distance) {
+      const into = (x: number, y: number) => [...bodies].some(b => bodyIntersects(x, y, b, TUNING.height, 1, c.turn?.angle ?? 0))
+      if (into(p.x, p.y) && !into(oldX, oldY)) {
+        c.distance = previousClimb.distance; c.direction = 0; c.screenDirection = 0; c.travelSpeed = 0
+        if (c.turn && previousClimb.turn) c.turn.grip = previousClimb.turn.grip
+        const held = climbRoot(c, p.facing)
+        p.x = c.caught.x + (held[0] - c.caught.x) * blend; p.y = c.caught.y + (held[1] - c.caught.y) * blend
+      }
+    }
     // Foreground ladders cross terrain. Ropes retain their full swept-body rules.
-    let safe = moveBody([oldX, oldY], [p.x, p.y], c.ladder ? ladderObstacles(world) : platforms, TUNING.height, 1, c.turn?.angle)
+    let safe = moveBody([oldX, oldY], [p.x, p.y], c.ladder ? ladderObstacles(world) : terrain, TUNING.height, 1, c.turn?.angle)
     const blocked = Math.hypot(safe.x - p.x, safe.y - p.y)
     p.x = safe.x; p.y = safe.y
     // Up can finish a scramble on a walkable slope, just as Down steps off onto a floor.
-    const footing = c.rope && !turning && gravity >= 0 && (screenVertical < 0 || screenVertical > 0 && c.surfaceSupport) ? groundAt(platforms, p.x, p.y, .2) : null
+    const footing = c.rope && !turning && gravity >= 0 && (screenVertical < 0 || screenVertical > 0 && c.surfaceSupport) ? groundAt(terrain, p.x, p.y, .2) : null
     if (footing && canGrip(footing.angle)) {
       p.climbing = null; p.grabCooldown = .35; p.grounded = true
       p.y = footing.y; p.vx = 0; p.vy = 0; p.groundAngle = footing.angle
@@ -1205,7 +1297,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
           if (c.rope) { c.screenDirection = 0; c.travelSpeed = 0 }
           if (c.turn && previousClimb.turn) c.turn.grip = previousClimb.turn.grip
         }
-        for (let i = 0; i < 4; i++) safe = constrainRopeBody(c, [oldX, oldY], p.facing, platforms, world.ropePlatforms ?? platforms)
+        for (let i = 0; i < 4; i++) safe = constrainRopeBody(c, [oldX, oldY], p.facing, terrain, world.ropePlatforms ?? terrain)
         p.x = safe.x; p.y = safe.y
         p.vx = (p.x - oldX) / dt; p.vy = (p.y - oldY) / dt
       } else {

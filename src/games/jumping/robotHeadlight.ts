@@ -1,6 +1,7 @@
 import type { RobotState } from './challenge.ts'
 import { robotTop } from './robotPhysics.ts'
 import { repulsorBotPose, repulsorBotWidthScale } from './repulsorBotRig.ts'
+import { bodySize } from './sizeFrame.ts'
 
 export const ROBOT_HEADLIGHT_X = 27, ROBOT_HEADLIGHT_SPREAD = 40, ROBOT_HEADLIGHT_TILT = 15
 export const robotHeadlightY = (robot: Pick<RobotState, 'phase'>) => robotTop(robot) + 19
@@ -8,8 +9,8 @@ export const robotHeadlightY = (robot: Pick<RobotState, 'phase'>) => robotTop(ro
 /** Mount just outside the front face, keeping the bot out of its own beam. */
 export function robotHeadlightPose(robot: Pick<RobotState, 'x' | 'y' | 'angle' | 'facing' | 'phase'> & Partial<Pick<RobotState, 'actor'>>) {
   if (robot.actor) {
-    const head = repulsorBotPose(robot.actor).head, flip = robot.actor.inverted ? -1 : 1
-    return { x: robot.x + (head[0] * repulsorBotWidthScale(robot.actor) + 11) * robot.facing, y: robot.y + head[1] * flip,
+    const head = repulsorBotPose(robot.actor).head, flip = robot.actor.inverted ? -1 : 1, size = bodySize(robot.actor)
+    return { x: robot.x + (head[0] * repulsorBotWidthScale(robot.actor) + 11) * robot.facing * size, y: robot.y + head[1] * flip * size,
       direction: robot.facing < 0 ? 165 : 15 }
   }
   const x = ROBOT_HEADLIGHT_X * robot.facing, y = robotHeadlightY(robot) + 9

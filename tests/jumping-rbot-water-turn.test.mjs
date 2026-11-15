@@ -6,6 +6,7 @@ import { presentedAthletePose } from '../src/games/jumping/athlete.ts'
 import { repulsorBotPose, repulsorBotWidthScale, REPULSOR_BOT_WIDTH_SCALE } from '../src/games/jumping/repulsorBotRig.ts'
 import { createRepulsorActor, repulsorBotHand } from '../src/games/jumping/repulsorBot.ts'
 import { robotHeadlightPose } from '../src/games/jumping/robotHeadlight.ts'
+import { bodySize } from '../src/games/jumping/sizeFrame.ts'
 
 for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1])
 test(`swimming Rbot turns retain native joints, palms and emitter alignment (${side}, ${dt})`, () => {
@@ -30,11 +31,12 @@ test(`swimming Rbot turns retain native joints, palms and emitter alignment (${s
           assert.ok(Math.abs(pose[name].hand[0] * width - palm[0]) < 1e-8)
           assert.ok(Math.abs(pose[name].hand[1] - palm[1]) < 1e-8)
         }
-        const arm = pose[actor.facing < 0 ? 'backArm' : 'frontArm'], muzzle = repulsorBotHand(bot)
-        assert.ok(Math.abs(muzzle.from[0] - actor.x - arm.hand[0] * width * actor.facing) < 1e-8)
-        assert.ok(Math.abs(muzzle.from[1] - actor.y - arm.hand[1]) < 1e-8)
+        // Poses are in Rbot's own units; its muzzle and lamp are in the world, at its size.
+        const arm = pose[actor.facing < 0 ? 'backArm' : 'frontArm'], muzzle = repulsorBotHand(bot), size = bodySize(actor)
+        assert.ok(Math.abs(muzzle.from[0] - actor.x - arm.hand[0] * width * actor.facing * size) < 1e-8)
+        assert.ok(Math.abs(muzzle.from[1] - actor.y - arm.hand[1] * size) < 1e-8)
         const lamp = robotHeadlightPose(bot)
-        assert.ok(Math.abs(lamp.x - actor.x - (pose.head[0] * width + 11) * actor.facing) < 1e-8)
+        assert.ok(Math.abs(lamp.x - actor.x - (pose.head[0] * width + 11) * actor.facing * size) < 1e-8)
         assert.deepEqual(actor, before, 'presentation does not alter movement or turn state')
       }
   }
@@ -48,7 +50,8 @@ test('Rbot smoothly returns to the broad dry shell as swimming ends', () => {
   }
   assert.equal(widths[0], 1)
   assert.equal(widths.at(-1), REPULSOR_BOT_WIDTH_SCALE)
-  for (let i = 1; i < widths.length; i++) assert.ok(widths[i] >= widths[i - 1] && widths[i] - widths[i - 1] < .007)
+  // A percent of the swim changes the width by at most the smoothstep's steepest share of the broadening.
+  for (let i = 1; i < widths.length; i++) assert.ok(widths[i] >= widths[i - 1] && widths[i] - widths[i - 1] < (REPULSOR_BOT_WIDTH_SCALE - 1) * .016)
   delete actor.waterMotion
   assert.equal(repulsorBotWidthScale(actor), REPULSOR_BOT_WIDTH_SCALE)
 })

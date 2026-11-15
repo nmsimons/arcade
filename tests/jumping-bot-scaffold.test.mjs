@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseLevel, blankTrial } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
-import { createRepulsorActor } from '../src/games/jumping/repulsorBot.ts'
+import { createRepulsorActor, repulsorSteering } from '../src/games/jumping/repulsorBot.ts'
 import { botMovement } from '../src/games/jumping/botNavigation.ts'
 import { BOT_AIR_SPEED_SCALE } from '../src/games/jumping/botMovementTuning.ts'
+import { REPULSOR_BOT_SIZE } from '../src/games/jumping/repulsorBotRig.ts'
 import { staticContactWorld } from '../src/games/jumping/playerContacts.ts'
 import { NEUTRAL_INPUT, STEP, stepPlayer } from '../src/games/jumping/model.ts'
 
@@ -17,7 +18,7 @@ function navigate(run, from, goal, frames) {
   for (let frame = 0; frame < frames; frame++) {
     const input = botMovement(run, bot, STEP, goal)
     jumps += Number(input.jump); lowering ||= !!bot.actor.mantle?.descending
-    stepPlayer(bot.actor, input, STEP, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world,
+    stepPlayer(bot.actor, repulsorSteering(bot.actor, input), STEP, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world,
       run.gravityField, undefined, 1, undefined, { airSpeedScale: BOT_AIR_SPEED_SCALE })
     bot.x = bot.actor.x; bot.y = bot.actor.y; bot.vx = bot.actor.vx; bot.facing = bot.actor.facing
   }
@@ -29,7 +30,8 @@ test('Scaffold hunter follows the upper V and reaches the actual entrance throug
   for (let frame = 0; frame < 2640 && !bot.shots; frame++) stepRun(run, NEUTRAL_INPUT)
   assert.ok(bot.shots, `stalled at ${bot.x}, ${bot.y}`)
   assert.ok(bot.actor.grounded)
-  assert.equal(bot.y, run.level.entrance.y)
+  // A larger body's position passes through its size frame, so it stands within rounding of the floor.
+  assert.ok(Math.abs(bot.y - run.level.entrance.y) < 1e-6, `stood at ${bot.y}`)
 })
 
 test('a walkable slope remains a walking route instead of triggering repeated jumps', () => {
@@ -49,15 +51,16 @@ test('navigation follows the surface over a crest and finishes beyond the neares
 })
 
 test('a planned ladder descent finishes its lowering animation without climbing back up', () => {
-  const file = blankTrial()
-  file.width = 1000; file.height = 1000; file.floor = 1000
-  file.entrance = { x: 100, y: 800 }; file.goal = { x: 900, y: 800, flipX: true }
-  file.platforms = [{ x: 0, y: 200, w: 400, h: 25 }, { x: 0, y: 800, w: 1000, h: 200 }]
-  file.climbables = { ladders: [{ x: 420, top: 200, bottom: 800, platform: -1, side: -1 }], ropes: [] }
-  file.robots = [{ kind: 'repulsor', x: 380, y: 200, left: 26, right: 974 }]
-  const { bot, lowering } = navigate(createRun(file), { x: 380, y: 200 }, { x: 600, y: 800 }, 1200)
+  // The scene is laid out at Rbot's size, so the drop beside the ladder is too far to jump.
+  const k = REPULSOR_BOT_SIZE, file = blankTrial()
+  file.width = 1000 * k; file.height = 1000 * k; file.floor = 1000 * k
+  file.entrance = { x: 100 * k, y: 800 * k }; file.goal = { x: 900 * k, y: 800 * k, flipX: true }
+  file.platforms = [{ x: 0, y: 200 * k, w: 400 * k, h: 25 * k }, { x: 0, y: 800 * k, w: 1000 * k, h: 200 * k }]
+  file.climbables = { ladders: [{ x: 420 * k, top: 200 * k, bottom: 800 * k, platform: -1, side: -1 }], ropes: [] }
+  file.robots = [{ kind: 'repulsor', x: 380 * k, y: 200 * k, left: 26, right: 974 * k }]
+  const { bot, lowering } = navigate(createRun(file), { x: 380 * k, y: 200 * k }, { x: 600 * k, y: 800 * k }, 1200)
   assert.ok(lowering)
   assert.ok(bot.actor.grounded)
-  assert.equal(bot.y, 800)
-  assert.ok(Math.abs(bot.x - 600) < 15)
+  assert.ok(Math.abs(bot.y - 800 * k) < 1e-6, `stood at ${bot.y}`)
+  assert.ok(Math.abs(bot.x - 600 * k) < 15 * k, `stopped at ${bot.x}`)
 })

@@ -10,7 +10,7 @@ import { botLastSighting, repulsePlayer, REPULSOR_BOT_WINDUP } from '../src/game
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 import { createForceField } from '../src/games/jumping/forceField.ts'
 import { playerContactBody } from '../src/games/jumping/playerContacts.ts'
-import { repulsorBotPose, REPULSOR_BOT_WIDTH_SCALE } from '../src/games/jumping/repulsorBotRig.ts'
+import { repulsorBotPose, REPULSOR_BOT_SIZE, REPULSOR_BOT_WIDTH_SCALE } from '../src/games/jumping/repulsorBotRig.ts'
 import { presentedAthletePose } from '../src/games/jumping/athlete.ts'
 import { botCanReach, botMovement, botNavigationGraph } from '../src/games/jumping/botNavigation.ts'
 import { chooseBotTactic } from '../src/games/jumping/botTactics.ts'
@@ -213,14 +213,16 @@ test('sight acquisition starts a persistent whole-level hunt, beyond legacy patr
 for (const climb of ['ladder', 'rope']) test(`the bot finds a ${climb} route to a platform higher than its jump`, () => {
   const file = level(); file.entrance.x = 1700; file.goal.x = 100
   file.robots[0].x = 300
-  file.platforms = [{ x: 620, y: 550, w: 450, h: 20 }, { x: 1500, y: 0, w: 30, h: 920 }]
-  if (climb === 'ladder') file.climbables.ladders = [{ x: 600, top: 550, bottom: 920, side: 1, platform: 0 }]
+  // Higher than Rbot can jump and catch: 370 units for a player-size body, in proportion to its size.
+  const top = Math.round(920 - 370 * REPULSOR_BOT_SIZE)
+  file.platforms = [{ x: 620, y: top, w: 450, h: 20 }, { x: 1500, y: 0, w: 30, h: 920 }]
+  if (climb === 'ladder') file.climbables.ladders = [{ x: 600, top, bottom: 920, side: 1, platform: 0 }]
   else file.climbables.ropes = [{ x: 600, y: 150, length: 770, segments: 97 }]
   const run = createRun(file), bot = run.robots[0]; bot.facing = 1
   let usedClimb = false, landed = false
   for (let i = 0; i < 6500 && !landed; i++) {
     tick(run); usedClimb ||= bot.actor.climbing?.kind === climb
-    landed = bot.x > 620 && bot.x < 1070 && Math.abs(bot.y - 550) < .1 && bot.actor.grounded
+    landed = bot.x > 620 && bot.x < 1070 && Math.abs(bot.y - top) < .1 && bot.actor.grounded
   }
   assert.ok(usedClimb); assert.ok(landed)
   assert.ok(botNavigationGraph(run).nodes.length <= 160)
@@ -486,7 +488,8 @@ for (const mirror of [false, true]) test(`an irregular overlapping ledge approac
 for (const offset of [-40, 40]) for (const direction of [-1, 1]) test(`a midair player collision cannot leave Rbot hanging from a vanished body (${offset}, ${direction})`, () => {
   const file = level(); file.robots[0].x = 700
   const run = createRun(file), bot = run.robots[0]
-  run.player = createPlayer({ x: 700 - direction * 80, y: 500 + offset })
+  // The player meets Rbot's body above or below its middle, in proportion to Rbot's size.
+  run.player = createPlayer({ x: 700 - direction * 80, y: 500 + offset * REPULSOR_BOT_SIZE })
   Object.assign(run.player, { vx: direction * 400, vy: 50, grounded: false })
   Object.assign(bot.actor, { x: 700, y: 500, vx: -direction * 400, vy: -50, grounded: false })
   bot.x = 700; bot.y = 500; bot.facing = -direction
@@ -504,7 +507,8 @@ for (const offset of [-40, 40]) for (const direction of [-1, 1]) test(`a midair 
 for (const direction of [-1, 1]) test(`airborne Rbot keeps its travel heading while braking toward a waypoint (${direction})`, () => {
   const run = createRun(level()), bot = run.robots[0]
   tick(run)
-  Object.assign(bot.actor, { x: 700, y: 650, vx: direction * 260, vy: 0, grounded: false })
+  // Rbot brakes in the air at its size times the player's rate: start fast enough to still be braking.
+  Object.assign(bot.actor, { x: 700, y: 650, vx: direction * 320, vy: 0, grounded: false })
   bot.x = 700; bot.y = 650
   let turns = 0, previousTurn
   for (let frame = 0; frame < 48; frame++) {
@@ -524,8 +528,9 @@ for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) test(`a genuin
   const file = level(); file.entrance.x = 700 - direction * 400
   const run = createRun(file), bot = run.robots[0]
   tick(run)
-  Object.assign(bot.actor, { x: 700, y: 200, vx: direction * 100, vy: 0, grounded: false })
-  bot.x = 700; bot.y = 200; bot.facing = direction
+  // High enough to stay airborne through the turn under Rbot's gravity, its size times the player's.
+  Object.assign(bot.actor, { x: 700, y: 120, vx: direction * 100, vy: 0, grounded: false })
+  bot.x = 700; bot.y = 120; bot.facing = direction
   let turns = 0, depth = 0, previousFacing = direction, previousPoints
   for (let frame = 0; frame < .83 / dt; frame++) {
     stepRun(run, NEUTRAL_INPUT, dt)
@@ -562,6 +567,9 @@ for (const mirror of [false, true]) test(`Rbot settles at a real takeoff instead
   file.entrance = { x: x(950), y: 425 }
   file.robots[0] = { ...file.robots[0], x: x(1250), y: 625 }
   const run = createRun(file), bot = run.robots[0]
+  // A full-size Rbot can see over the upper deck's edge to the entrance; stand the player out of its sight, so it
+  // heads for the entrance it knows rather than firing from below.
+  run.player = createPlayer({ x: x(100), y: 920 })
   let landed = false, launched = false
   for (let frame = 0; frame < 900 && !landed; frame++) {
     const before = bot.actor.vy

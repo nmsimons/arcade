@@ -8,6 +8,7 @@ import { FOOT_CONTACT, advanceFootwork, footPoint } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { lineBlocked, moveBody, nearestBoundary, platformOutline } from './geometry.ts'
 import { mirrorPlayerState } from './gravityFrame.ts'
+import { bodySize, enterSizeFrame, leaveSizeFrame } from './sizeFrame.ts'
 import { createImpactRagdoll, stepImpactRagdoll } from './impactRagdoll.ts'
 import type { ImpactJoint, ImpactKind } from './impactRagdoll.ts'
 import type { Point } from './limbPose.ts'
@@ -119,6 +120,15 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean,
 export function startImpactRagdoll(p: Player, velocity: Point, kind: ImpactKind) {
   // Presentation only: an unanimated actor has no rig to recoil.
   if (p.anim.cadence === 'off') return
+  const size = bodySize(p)
+  if (size !== 1) {
+    // Seeded in a larger body's frame, where the same recoil fits its rig (sizeFrame.ts). The ragdoll is
+    // kept in the frame's units, so leaving restores nothing it made.
+    const frame = enterSizeFrame(p, size, true); p.size = 1
+    try { startImpactRagdoll(p, [velocity[0] / size, velocity[1] / size], kind) }
+    finally { p.size = size; leaveSizeFrame(p, frame, true) }
+    return
+  }
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try { startImpactRagdoll(p, [velocity[0], -velocity[1]], kind) }

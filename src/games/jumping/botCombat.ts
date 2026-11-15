@@ -2,7 +2,8 @@ import type { RobotState, Run } from './challenge.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Player } from './model.ts'
 import { lineBlocked } from './geometry.ts'
-import { faceRobotToward, robotSensesPlayer, robotSightObstacles, robotTop, robotTouchesPlayer } from './robotPhysics.ts'
+import { faceRobotToward, robotSensesPlayer, robotSightObstacles, robotSize, robotTop, robotTouchesPlayer } from './robotPhysics.ts'
+import { repulsorBotChestY } from './repulsorBotRig.ts'
 import { repulsePlayer, REPULSOR_BOT_IMPULSE } from './actorImpulse.ts'
 import { powerOut } from './power.ts'
 
@@ -23,7 +24,7 @@ export function visibleShovebotRival(run: Run, robot: RobotState, world: Contact
     const dx = other.x - robot.x, dy = other.y - robot.y, gap = Math.hypot(dx, dy)
     const touching = !!robot.actor && robotTouchesPlayer(other, robot.actor)
     if ((!touching && dx * robot.facing <= 0) || Math.abs(dy) > 100 || gap > distance) continue
-    if (!touching && lineBlocked([robot.x + robot.facing * 13.5, robot.y - 42], [other.x, other.y + robotTop(other) / 2], rivalSightObstacles(world, robot, other))) continue
+    if (!touching && lineBlocked([robot.x + robot.facing * 13.5 * robotSize(robot), repulsorBotChestY(robot)], [other.x, other.y + robotTop(other) / 2], rivalSightObstacles(world, robot, other))) continue
     closest = other; distance = gap
   }
   return closest

@@ -9,6 +9,7 @@ import { advanceShove, beginShove, BOT_SHOVE_WINDUP, PLAYER_SHOVE_WINDUP, SHOVE_
 import { repulseProp } from '../src/games/jumping/propPhysics.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { presentedAthletePose } from '../src/games/jumping/athlete.ts'
+import { REPULSOR_BOT_SIZE } from '../src/games/jumping/repulsorBotRig.ts'
 
 const tick = (run, frames = 1, input = {}) => { for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input }) }
 function scene(direction = 1, change = () => {}) {
@@ -75,7 +76,10 @@ test('a held fire button cannot repeat shoves; releasing and pressing again rear
 })
 
 for (const cover of ['wall', 'red field']) test(`close-range shoves cannot reach through a ${cover}`, () => {
+  // Rbot stands clear of the cover at its own width (REPULSOR_BOT_SIZE times the player's).
+  const x = 450 + 12 * (REPULSOR_BOT_SIZE - 1)
   const run = scene(1, file => {
+    file.robots[0].x = x
     const barrier = { x: 433, y: 800, w: 2, h: 120 }
     if (cover === 'wall') file.platforms = [barrier]
     else file.forceFields = [{ ...barrier, id: 'red', mode: 'objects', orientation: 'vertical' }]
@@ -84,7 +88,7 @@ for (const cover of ['wall', 'red field']) test(`close-range shoves cannot reach
   tick(run, 80, { use: true })
   assert.equal(run.player.shoves, 1, 'the hands hit the intervening surface')
   assert.equal(run.robots[0].actor.shoves, 0)
-  assert.equal(run.robots[0].x, 450, 'the bot behind the cover receives no impulse')
+  assert.equal(run.robots[0].x, x, 'the bot behind the cover receives no impulse')
 })
 
 test('a person above or behind the player is not a valid forward shove target', () => {
@@ -243,7 +247,8 @@ for (const direction of [-1, 1]) test(`a wall-pinned Rbot keeps the shove's hand
 })
 
 test('a wall-pinned, disabled Rbot settles out of the incoming running pose after a shove', () => {
-  const run = scene(1, file => { file.platforms = [{ x: 462, y: 700, w: 40, h: 220 }] }), bot = run.robots[0]
+  // The wall stands against Rbot's side at its own width.
+  const run = scene(1, file => { file.platforms = [{ x: 450 + 12 * REPULSOR_BOT_SIZE, y: 700, w: 40, h: 220 }] }), bot = run.robots[0]
   run.gadgets.disabled.set(bot, 10)
   tick(run, 1, { use: true, move: 1 })
   tick(run, 30, { move: 1 })

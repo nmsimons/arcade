@@ -1,4 +1,5 @@
 import type { NamedObject } from './objectNames.ts'
+import { bodySize, inSizeFrame, scaledGravityField } from './sizeFrame.ts'
 import type { PowerMode, SwitchSettings } from './switchPower.ts'
 import type { JumpInput, Player } from './model.ts'
 import type { Prop } from './challenge.ts'
@@ -185,7 +186,12 @@ function playerWaterPoints(player: Player): Vec[] {
 }
 /** Changing pose reparametrizes the foot root around the same displaced center;
  * it must not teleport the body's mass downward when the swimmer becomes prone. */
-export function playerWaterCenterOffset(player: Player) {
+// A larger body (sizeFrame.ts) samples a field scaled into its frame, where it is the player's size: the
+// same share of it is wet. Offsets come in, and lengths go out, in the world's units.
+const sized = (player: Player) => bodySize(player)
+export function playerWaterCenterOffset(player: Player): number {
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerWaterCenterOffset(player)) * size
   const points = playerWaterPoints(player)
   let area = 0, moment = 0
   for (let i = 0; i < points.length; i++) {
@@ -196,6 +202,8 @@ export function playerWaterCenterOffset(player: Player) {
 }
 /** The same displaced body supplies buoyancy and transport by a moving waterline. */
 export function playerWaterHull(player: Player, offsetY = 0): Vec[] {
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerWaterHull(player, offsetY / size)).map(([x, y]) => [x * size, y * size] as Vec)
   const amount = player.freeFall?.recovery === null ? player.freeFall.amount : 0
   const body = playerContactBody(player)
   if (!amount) return bodyPolygon(body.x, body.y + offsetY, body.height, player.inverted ? -1 : 1, playerTurnAngle(player))
@@ -210,23 +218,40 @@ function playerWaterValue(field: GravityField, player: Player, offsetY = 0, prop
   const area = clippedPolygonArea(points, left, top, right, bottom)
   return integrate(field, left, top, right, bottom, area, (l, t, r, b) => clippedPolygonArea(points, l, t, r, b), property, 1, 0)
 }
-export function playerGravity(field: GravityField, player: Player, offsetY = 0) {
+export function playerGravity(field: GravityField, player: Player, offsetY = 0): number {
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerGravity(scaledGravityField(field, size), player, offsetY / size))
   if (!field.hasWater) return playerFieldValue(field, player, offsetY)
   return playerFieldValue(field, player, offsetY, 'dryMultiplier')
     - TUNING.gravity * playerWaterValue(field, player, offsetY) / PLAYER_WATER_DENSITY
 }
 /** Buoyancy can lift a swimmer without reversing their footing or rope hang. */
-export const playerOrientationGravity = (field: GravityField, player: Player) => playerFieldValue(field, player, 0, field.hasWater ? 'dryMultiplier' : 'multiplier')
-export const playerSwimStrength = (field: GravityField, player: Player, offsetY = 0) => field.hasWater ? playerWaterValue(field, player, offsetY) : 0
+export function playerOrientationGravity(field: GravityField, player: Player): number {
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerOrientationGravity(scaledGravityField(field, size), player))
+  return playerFieldValue(field, player, 0, field.hasWater ? 'dryMultiplier' : 'multiplier')
+}
+export function playerSwimStrength(field: GravityField, player: Player, offsetY = 0): number {
+  if (!field.hasWater) return 0
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerSwimStrength(scaledGravityField(field, size), player, offsetY / size))
+  return playerWaterValue(field, player, offsetY)
+}
 /** Compare immersion above the displaced body with its current immersion.
  * A bank clips both samples sideways; only the waterline reduces the upper
  * sample. Surface reorientation therefore cannot masquerade as a dive, and
  * touching a wall cannot masquerade as surfacing. */
-export function playerSwimDepth(field: GravityField, player: Player) {
+export function playerSwimDepth(field: GravityField, player: Player): number {
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerSwimDepth(scaledGravityField(field, size), player))
   const strength = playerSwimStrength(field, player)
   return strength ? Math.min(1, playerSwimStrength(field, player, player.inverted ? 30 : -30) / strength) : 0
 }
-export const playerFieldCoverage = (field: GravityField, player: Player) => field.hasWater ? playerWaterValue(field, player, 0, 'coverage') : playerFieldValue(field, player, 0, 'coverage')
+export function playerFieldCoverage(field: GravityField, player: Player): number {
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerFieldCoverage(scaledGravityField(field, size), player))
+  return field.hasWater ? playerWaterValue(field, player, 0, 'coverage') : playerFieldValue(field, player, 0, 'coverage')
+}
 
 /** One steering vector keeps diagonals at the same pace as axial swimming. */
 export function swimmingDirection(input: JumpInput) {
@@ -291,7 +316,9 @@ function floatDrag(above: number, below: number) {
   const stiffness = (above - below) / 2
   return stiffness > .01 ? 2 * Math.sqrt(stiffness) : 0
 }
-export function playerFloatDrag(field: GravityField, player: Player) {
+export function playerFloatDrag(field: GravityField, player: Player): number {
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerFloatDrag(scaledGravityField(field, size), player))
   if (!field.hasWater || !(playerWaterValue(field, player, -1, 'swim') > 0 || playerWaterValue(field, player, 1, 'swim') > 0)) return 0
   return floatDrag(playerGravity(field, player, -1), playerGravity(field, player, 1))
 }

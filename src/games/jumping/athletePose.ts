@@ -1,11 +1,12 @@
 // Pose queries: the per-render pose cache, mode dispatch and the final arm, shove and ankle passes.
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { ankleSkin, bodyIntrusion, clearLimb, limbClearance } from './athleteClearance.ts'
-import { FOREARM, HEAD_RADIUS, UPPER_ARM, add, armPose, clamp, mix, mixAngle, reflectAthletePose, smooth, solve, solveNear, solveRear, transferPose } from './athleteRig.ts'
+import { FOREARM, HEAD_RADIUS, SHIN, THIGH, UPPER_ARM, add, armPose, clamp, mix, mixAngle, reflectAthletePose, smooth, solve, solveNear, solveRear, transferPose } from './athleteRig.ts'
 import type { AthletePose, Leg } from './athleteRig.ts'
 import { footPoint } from './footwork.ts'
 import { lineBlocked, withTerrainQueries } from './geometry.ts'
 import { mirrorPlatform, mirrorPlayerState } from './gravityFrame.ts'
+import { bodySize, inSizeFrame } from './sizeFrame.ts'
 import { BACK_WRIST, FRONT_WRIST, LEDGE_CLIMB_TIME } from './ledge.ts'
 import { ANKLE_FLEX_LIMIT, openAnkle } from './limbPose.ts'
 import type { Limb, Point } from './limbPose.ts'
@@ -64,6 +65,8 @@ export function dryLedgeReach(p: Player, edgeX: number, edgeY: number, pose: Ath
 
 /** Local-space poses share one rig, from planted contact through flight and landing. */
 export function athletePose(p: Player): AthletePose {
+  // A larger body's pose is solved in its frame and kept in its own units (sizeFrame.ts).
+  if (bodySize(p) !== 1) return inSizeFrame(p, () => athletePose(p), true)
   const frame = renderPoses.get(p)
   if (frame?.pose) return frame.pose
   const pose = withTerrainQueries(() => articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p)))))
@@ -105,6 +108,7 @@ function equippedArmPose(p: Player, pose: AthletePose, presentation = false): At
 /** Ease only presentation; the arm and its sleeve always share the same bones.
  * Contacts, obstruction queries and fresh shots use the selected direction. */
 export function presentedAthletePose(p: Player): AthletePose {
+  if (bodySize(p) !== 1) return inSizeFrame(p, () => presentedAthletePose(p), true)
   return withinRigLimits(p, withTerrainQueries(() => reachingForRope(p, articulateAnkles(p, shovingPose(p, equippedArmPose(p, baseAthletePose(p), true))))))
 }
 
@@ -248,6 +252,7 @@ let solves = 0
 export const athletePoseSolves = () => solves
 
 export function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose {
+  if (bodySize(p) !== 1) return inSizeFrame(p, () => resolveAthletePose(p, deferLooseClearance), true)
   solves++
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
@@ -271,8 +276,30 @@ export function resolveAthletePose(p: Player, deferLooseClearance = false): Athl
 function capturedPose(frame: { pose: AthletePose; facing: number }, facing: number): AthletePose {
   return frame.facing === facing ? frame.pose : reflectAthletePose(frame.pose)
 }
+/**
+ * Slumped without power, in the body's own units: the knees folded to the floor with the feet behind, the torso
+ * leaning forward over them from the hips, the head dropped and the arms hanging. `amount` blends from `pose`.
+ */
+export function collapsedPose(pose: AthletePose, amount: number): AthletePose {
+  if (amount <= 0) return pose
+  // Sat back on its heels, the upright torso slumped forward about a third of a right angle, its head hanging
+  // further. The torso is the standing rig's, not the pose's, which may already lean.
+  const lean = .58, droop = .6, hip: Point = [-5, -16]
+  const turn = ([x, y]: Point, angle: number): Point => [x * Math.cos(angle) - y * Math.sin(angle), x * Math.sin(angle) + y * Math.cos(angle)]
+  const waist = addPoint(hip, turn([0, -6.5], lean)), shoulder = addPoint(hip, turn([0, -16.6], lean))
+  const head = addPoint(shoulder, turn([.45, -7.3], lean + droop))
+  const leg = (source: typeof pose.frontLeg, knee: Point, ankle: Point) => ({ ...source,
+    ...solveNear({ ...source, root: hip, joint: knee, end: ankle }, ankle, THIGH, SHIN), planted: true, footAngle: 0, toeAngle: 0 })
+  const slumped: AthletePose = { ...pose, hip, waist, shoulder, head, headTilt: 1.15,
+    frontLeg: leg(pose.frontLeg, [8, -3], [-8, -2]), backLeg: leg(pose.backLeg, [5, -3], [-11, -2]),
+    frontArm: armPose(shoulder, .2, .25), backArm: armPose(shoulder, .02, .2) }
+  return transferPose(pose, slumped, [0, 0], amount)
+}
+const addPoint = (a: Point, b: Point): Point => [a[0] + b[0], a[1] + b[1]]
+
 /** A quiet head-and-shoulder recovery, with both feet held on the charging sill. */
 export function awakeningPose(p: Player, progress: number): AthletePose {
+  if (bodySize(p) !== 1) return inSizeFrame(p, () => awakeningPose(p, progress), true)
   const target = athletePose(p)
   if (progress >= 1) return target
   const from = structuredClone(target)

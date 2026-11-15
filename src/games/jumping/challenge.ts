@@ -1,6 +1,6 @@
 import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { releaseRopeAnchor, ropePath } from './climbables.ts'
-import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
+import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, passesThrough, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { isHubLevel, isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import { resolveSwitchStates } from './switchPower.ts'
@@ -65,7 +65,9 @@ export interface Prop extends PropDefinition {
   vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
 }
 export interface MechanismState { definition: Mechanism; x: number; y: number; direction: number; wait: number; active: boolean; safetyHold: number | null }
-export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean; recoilVx?: number; fallVelocity?: number; deactivated?: boolean; actor?: Player; aim?: number; shots?: number; rams?: number; entrance?: EntranceAnimation; awakening?: { elapsed: number; triggered: boolean } }
+export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean; recoilVx?: number; fallVelocity?: number; deactivated?: boolean; actor?: Player; aim?: number;
+  /** Rbot without power slumps to its knees (0 standing, 1 slumped): an EMP, a blackout or deactivation, then getting up. */
+  collapse?: number; shots?: number; rams?: number; entrance?: EntranceAnimation; awakening?: { elapsed: number; triggered: boolean } }
 export interface Run {
   gadgets: GadgetState
   level: RunLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
@@ -178,6 +180,12 @@ export function solidColliders(run: Run): PlayerCollider[] {
     ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind && !prop.gadget
       ? [{ id: `prop:${i}`, prop, platform: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) }] : []))]
 }
+/** The world without some colliders; the rope still wraps what it wrapped. */
+function withoutColliders(world: ContactWorld, drop: (c: ContactWorld['colliders'][number]) => boolean): ContactWorld {
+  const colliders = world.colliders.filter(c => !drop(c))
+  return { ...world, colliders, platforms: colliders.map(c => c.platform) }
+}
+
 function syncPlatforms(run: Run): ContactWorld {
   const colliders = solidColliders(run)
   run.platforms = colliders.map(c => c.platform)
@@ -398,9 +406,9 @@ function stepRobots(run: Run, dt: number, world: ContactWorld, powered = true) {
   for (const r of run.robots) {
     const active = powered && !run.gadgets.disabled.has(r)
     if (r.definition.kind === 'repulsor') {
-      // EMP stops decisions; an external physical shove can still move the body.
-      if (active || r.actor?.shoveDrift) stepRepulsorBot(run, r, dt, world, active)
-      else { if (r.actor) r.actor.shove = undefined; r.vx = 0 }
+      // Without power Rbot stops deciding and collapses, but its body still falls, settles and can be pushed.
+      if (r.actor) stepRepulsorBot(run, r, dt, world, active)
+      else r.vx = 0
       continue
     }
     if (!active) { r.vx = 0; continue }
@@ -520,7 +528,9 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (powered && run.robots.length) faceContactedRobots(run.player, beforeContacts, run.robots)
   const robotStarts = run.robots.map(r => r.x)
   if (powered) stepRobots(run, poweredDt, world)
-  else if (run.robots.some(r => r.actor?.shoveDrift)) stepRobots(run, dt, world, false)
+  // In a power cut the other robots stand frozen, but Rbot's body slumps, lets go of what it holds and can be
+  // pushed. Left unstepped on a rope, it froze there while the rope swung on beneath its hands.
+  else if (run.robots.some(r => r.actor)) stepRobots(run, dt, world, false)
   applyContactEmp(run)
   if (run.gadgets.disabled.has(run.player)) input = NEUTRAL_INPUT
   stepProps(run, playerContacts(run.player, input, world, dt), dt, powered)
@@ -538,7 +548,10 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   }
   followPropGrip(run.player, world)
   if (run.gadgets.disabled.has(run.player)) run.player.grabCooldown = Math.max(run.player.grabCooldown, dt + .05)
-  stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world, run.gravityField,
+  // A robot holding the player's rope shares it: its body does not block the player's (model.ts passesThrough).
+  const ropeMates = run.robots.filter(r => r.actor && passesThrough(run.player, r.actor))
+  const playerWorld = ropeMates.length ? withoutColliders(world, c => !!c.robot && ropeMates.includes(c.robot)) : world
+  stepPlayer(run.player, input, dt, playerWorld.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, playerWorld, run.gravityField,
     undefined, 1, undefined, { ropeRiders: run.robots.flatMap(r => r.actor ? [r.actor] : []), water: run.water })
   if (powered && run.robots.length) faceContactedRobots(run.player, run.player.contacts, run.robots)
   applyContactEmp(run)

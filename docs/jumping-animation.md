@@ -101,7 +101,7 @@ listed couplings are the in-step animation calls in `model.ts` (Phase 3) and
 these pose queries, which Phase 4 replaces:
 
 - `gadgets.ts` and `repulsorBot.ts`: `athletePose` for the tool frame and the robot's palm.
-- `repulsorBotRig.ts`: the robot rig's presented and awakening poses.
+- `repulsorBotRig.ts`: the robot rig's presented, awakening and collapsed poses (`collapsedPose`, slumped to its knees without power).
 - `model.ts`: `athletePose`, `dryLedgeReach`, `dryLedgeReachPose` and `swimmingLedgeReach` for ledge reach.
 - `playerContacts.ts` and `propPhysics.ts`: the swimming outline and swimming push hands; `dryPreparationFacesForward` and `retainInterruptedStepPose` for push anticipation.
 - `actorImpulse.ts`: `startImpactRagdoll` when a shove or impulse knocks a body down.
@@ -144,7 +144,9 @@ The boundary test now also lists, per simulation module, the animation fields
 it touches. `model.ts` and `stepUp.ts` touch most of them; the rest are single
 reads or resets in `actorImpulse.ts`, `armSupport.ts`, `botHearing.ts`,
 `challenge.ts`, `climbables.ts`, `gadgets.ts`, `goal.ts`, `gravityFrame.ts`,
-`playerContacts.ts`, `repulsorBot.ts` and `shove.ts`.
+`playerContacts.ts`, `repulsorBot.ts`, `shove.ts` and `sizeFrame.ts` (which, like
+`gravityFrame.ts`, carries footwork into a larger body's frame, and refuses a
+deferred step that would hold world references across it).
 
 ## Phase 4: gameplay reads physics, not animation
 

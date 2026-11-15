@@ -13,6 +13,7 @@ import type { CharacterAnimation, JumpInput, Player } from './characterTypes.ts'
 import { advanceFootwork } from './footwork.ts'
 import { withTerrainQueries } from './geometry.ts'
 import { gaitPose } from './gait.ts'
+import { bodySize } from './sizeFrame.ts'
 import { mirrorPlayerState } from './gravityFrame.ts'
 import { easeHeldTool } from './gadgets.ts'
 import { anticipatePush, updatePushingPose } from './playerContacts.ts'
@@ -42,8 +43,12 @@ export interface PendingAnimation extends AnimationStep {
   settle: number; water: number
 }
 
-/** Switch cadence. Animation resumed after 'off' starts from rest: its state is stale. */
+/**
+ * Switch cadence. Animation resumed after 'off' starts from rest: its state is stale. A larger body (sizeFrame.ts)
+ * animates every step instead of once per frame: animation it deferred would hold the scaled frame's references.
+ */
 export function setAnimationCadence(p: Player, next: AnimationCadence) {
+  if (next === 'frame' && bodySize(p) !== 1) next = 'tick'
   const current = cadence(p)
   if (current === next) return
   if (current === 'off') p.anim = { dryTurn: null, slideEntry: null, footwork: null, stride: 0, gait: null, look: 0, ragdoll: null, recovery: null, waterClearance: null }

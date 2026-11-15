@@ -49,6 +49,8 @@ export interface CharacterAnimation {
  * Poses and restores apply them over the current animation, field by field. */
 export type CaughtAnimation = Pick<CharacterAnimation, 'stride' | 'gait'> & Partial<CharacterAnimation>
 export interface Player {
+  /** A body this many times the player's size, stepped and posed in a scaled frame (sizeFrame.ts). */
+  size?: number
   heldTool?: import('./gadgets.ts').HeldTool
   armAim?: { angle: number; aiming: boolean }
   shove?: { time: number; windup: number; direction: number; struck: boolean; contact?: NonNullable<PushHands['palms']> }

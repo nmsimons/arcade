@@ -220,6 +220,28 @@ vertical jump strength, hand reach and collision rules retain their player value
 The route planner uses that horizontal profile. When a pull-up leaves too little
 runway beside a long-jump lip, Rbot backs up on clear footing and takes a running
 jump instead of repeatedly launching at low speed from the edge.
+Rbot is 1.35 times the player's size (`sizeFrame.ts`), and plans with its own body:
+its clearances, catches and rises are that much larger. A jump down to footing
+steers its arc to land on that footing, as a ledge catch does, instead of pushing
+on at full speed until overhead and carrying past it; coming down where the player
+stands, it lands beside them on the near side. Where even the smallest hop would
+rise into a low ceiling, the graph holds a walk-off drop: the bot walks off the end
+of its footing at the pace the fall needs, lands on footing it can stand on, and
+walks on. On a rope, a waypoint on that rope is reached by the grip's height,
+wherever the rope swings, and the last handhold is never let go by holding Down
+unless a planned drop asks for it. A rope waypoint already stands below the grip
+it is caught by, so a jump to it does not count the arms' reach twice. A patrol
+prefers goals it can come back from: a drop or jump down into a pit it could not
+climb out of is taken only when every way on is one way. A chase may still follow
+the player down. A shot is wound up only when both the line to the target and the
+pulse's actual path along the arm are clear, so it does not clip an edge it only
+just clears. Water shallower than half its height is ground it wades, and so is
+the air above it: jumping from the shallows or holding a rope that hangs into them,
+it is not swimming, so it climbs the rope out instead of letting go to reach the
+floor beneath it. Stuck there with no dry route on, it swims out like any other
+swimmer. A ledge caught from the water is always the way out, never a drop.
+These are covered by `tests/jumping-rbot-pursuit.test.mjs`,
+`tests/jumping-bot-spelunk.test.mjs` and `tests/jumping-bot-level-routes.test.mjs`.
 Exposed-lip climb routes work in both directions: a hunter can lower from a
 platform onto its rope and search back down after the player leaves. Live red
 fields still block that return route; loss of sight alone does not close it.
@@ -590,7 +612,9 @@ corner from the standing-body hull; ceilings and other parts of the same polygon
 still obstruct the climb. A flush wall beneath a separate cap continues the same
 supporting face, so its internal seam cannot block a rope transfer, pull-up or
 lowering motion. Follow only touching face intervals; real gaps retain separate
-collision geometry.
+collision geometry. A rope transfer takes the same landings as a catch from a
+jump (`ledgeLanding`): when the usual landing does not clear, one nearer the lip,
+or a crouched one into an opening as tall as a crouch.
 
 Ladders are foreground passages through static terrain while attached, shared
 by the player and Rbot. Ordinary walking still treats the crossing floor as
@@ -718,6 +742,16 @@ while the other bears the weight, so a hand is free to aim a held tool only whil
 is reaching on. Hanging still, both hold, the lower hand sliding up beside the other.
 The highest a grip can go is 18 below the anchor (`ROPE_TOP_GRIP`), leaving the
 reaching hands clear of it; catches and climbs both stop there.
+
+Two bodies can share a rope, the player and Rbot. The player's step moves the rope
+with its own load and Rbot rides it. Each body keeps its own stretch: a grip climbs
+up to the other body's feet (66 below that body's grip, at its size) or down to its
+hands, and no further, but one already too close is only kept from closing in, never
+pushed away. While they share the rope, and afterwards until they come apart,
+neither body blocks the other. Another moving body (the player, a robot) also never
+shoves a body hanging on a rope, nor gives its feet a wall to brace on: it only
+stops a climb into it. The rope would otherwise swing the shoved body straight back
+(`model.ts` `sharesRope`, `passesThrough`; `tests/jumping-rbot-pursuit.test.mjs`).
 
 Speed comes from reach, not rhythm. The hands keep a steady 2.5 to 3 changes a
 second, and the grip travels the rhythm times each hand's stride along the rope:

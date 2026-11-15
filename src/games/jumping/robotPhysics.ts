@@ -1,4 +1,5 @@
 import type { Platform, Player } from './model.ts'
+import { bodySize } from './sizeFrame.ts'
 import type { RobotState } from './challenge.ts'
 import { bodyIntersects, bodyPolygon, lineBlocked, moveBody, platformOutline, polygonIntersects } from './geometry.ts'
 import { TUNING } from './model.ts'
@@ -22,10 +23,11 @@ export function faceRobotToward(robot: RobotState, x: number) {
 /** A contact-sized sweep uses the actual player envelope and bot pieces, not
  * a proximity/sight radius. This also catches passive side bumps and riders. */
 export function robotTouchesPlayer(robot: RobotState, player: Player) {
-  if (Math.abs(player.x - robot.x) > 80 || Math.abs(player.y - robot.y) > 150) return false
+  const size = robotSize(robot)
+  if (Math.abs(player.x - robot.x) > 80 * size || Math.abs(player.y - robot.y) > 150 * size) return false
   const body = playerContactBody(player, true), flip = player.inverted ? -1 : 1
   const x = body.x + Math.sign(robot.x - body.x) * .25
-  const y = body.y + Math.sign(robot.y - 26 - (body.y - body.height / 2 * flip)) * .25
+  const y = body.y + Math.sign(robot.y - 26 * size - (body.y - body.height / 2 * flip)) * .25
   return moveBody([body.x, body.y], [x, y], robotPlatforms(robot), body.height, flip, playerTurnAngle(player), body.outline).contacts.length > 0
 }
 
@@ -110,15 +112,17 @@ export function stepRobotFall(platforms: readonly Platform[], robot: RobotState,
 }
 
 export const robotDrive = (r: Pick<RobotState, 'phase'> & Partial<Pick<RobotState, 'definition' | 'deactivated'>>) => r.deactivated || r.definition?.kind === 'repulsor' ? 0 : r.phase === 'charge' ? 540 : r.phase === 'chase' ? 235 : r.phase === 'patrol' ? 92 : 0
-export const robotTop = (r: Pick<RobotState, 'phase'> & Partial<Pick<RobotState, 'definition'>>) => r.definition?.kind === 'repulsor' ? -TUNING.height : r.phase === 'windup' ? -39 : -46
+/** How many times the player's size a robot is: Rbot's body is larger (sizeFrame.ts); shovebots keep their own artwork. */
+export const robotSize = (r: Partial<Pick<RobotState, 'definition' | 'actor'>>) => r.definition?.kind === 'repulsor' && r.actor ? bodySize(r.actor) : 1
+export const robotTop = (r: Pick<RobotState, 'phase'> & Partial<Pick<RobotState, 'definition' | 'actor'>>) => r.definition?.kind === 'repulsor' ? -TUNING.height * robotSize(r) : r.phase === 'windup' ? -39 : -46
 
 /** One forward sight line from the eye to the player's body. Facing, range and
  * shape bounds reject irrelevant geometry before any polygon edges are tested. */
 export function robotSensesPlayer(r: RobotState, p: Player, obstacles: Iterable<Platform>) {
   if ((p.x - r.x) * r.facing <= 0 || Math.abs(p.y - r.y) >= (r.definition.kind === 'repulsor' ? 480 : 240) || Math.abs(p.x - r.x) >= 850
     || r.definition.kind !== 'repulsor' && (p.x < r.definition.left - 200 || p.x > r.definition.right + 200)) return false
-  const c = Math.cos(r.angle), s = Math.sin(r.angle), eyeX = 13.5 * r.facing, eyeY = robotTop(r) + 21.5
-  const eye: Vec = [r.x + eyeX * c - eyeY * s, r.y - 9 + eyeX * s + eyeY * c]
+  const size = robotSize(r), c = Math.cos(r.angle), s = Math.sin(r.angle), eyeX = 13.5 * r.facing * size, eyeY = robotTop(r) + 21.5 * size
+  const eye: Vec = [r.x + eyeX * c - eyeY * s, r.y - 9 * size + eyeX * s + eyeY * c]
   const body = playerContactBody(p)
   return !lineBlocked(eye, [body.x, body.y + body.height / 2 * (p.inverted ? 1 : -1)], obstacles)
 }

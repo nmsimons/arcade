@@ -4,6 +4,7 @@ import type { JumpInput, Player, Platform } from './model.ts'
 import { bodyIntersects, moveBody } from './geometry.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
 import { canGrip } from './friction.ts'
+import { ropeGripLimit } from './climbables.ts'
 import { ballShape, boxShape } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { robotPlatforms } from './robotPhysics.ts'
@@ -13,10 +14,13 @@ import { BOT_AIR_SPEED, BOT_AIR_SPEED_SCALE, botJumpReach, botJumpTakeoffSpeed }
 import { ladderLanding } from './ladderGeometry.ts'
 import { botSwimClear, botWaterDetour, botWaterGraphKey, botWaterNodes, botWaterPoint, botWaterPosition, botWaterSurface, MAX_BOT_WATER_NODES } from './botWaterNavigation.ts'
 import { isWeightless, playerSwimStrength } from './gravity.ts'
+import { bodySize, sizedBodyOutline } from './sizeFrame.ts'
 
 type Node = { x: number; y: number; climb?: string; swim?: boolean }
-type Edge = { to: number; jump: boolean; climb: boolean; swim?: boolean; cost: number; strength?: number; takeoff?: Node; catchX?: number; catchReach?: number }
-interface Graph { nodes: Node[]; edges: Edge[][]; solids: readonly Platform[]; waterKey: string }
+type Edge = { to: number; jump: boolean; climb: boolean; swim?: boolean; cost: number; strength?: number; takeoff?: Node; catchX?: number; catchReach?: number;
+  // Walking off the footing's end at x, at this pace, and falling to the next footing, without a jump.
+  drop?: { x: number; speed: number } }
+interface Graph { nodes: Node[]; edges: Edge[][]; solids: readonly Platform[]; waterKey: string; size: number }
 interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: Node; previousX: number; stuck: number; patrol: number; avoided: Map<number, number>; trying: boolean;
   graph?: Graph;
   waterExit?: { node?: number; goal: Node };
@@ -34,77 +38,138 @@ interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: 
   descendingJump?: boolean;
   departureY?: number;
   ropeDescent?: { index: number; distance: number; blocked: number };
+  // Held at a rope's top below the ledge it is climbing to: how long, and how long to swing out before trying again.
+  ropeTop?: { index: number; distance: number; held: number; swing: number };
   // The rope a planned leap just left and the height it left from, until the bot lands or takes hold of something.
   leftRope?: { index: number; y: number };
   ladderBlocked?: { index: number; distance: number; blocked: number };
+  // Stuck wading with no dry route on: it is swimming out, until it is out of the water.
+  wadingEscape?: boolean;
   flight?: { to: Node; catchX?: number; reach?: number; side: number; water?: boolean };
   transition?: { key: string; x: number; y: number; progress: number; blocked: number; releasing: boolean } }
-const graphs = new WeakMap<Run, Graph>(), navigation = new WeakMap<RobotState, Navigation>()
+const graphs = new WeakMap<Run, Map<number, Graph>>(), navigation = new WeakMap<RobotState, Navigation>()
 const distance = (a: Node, b: Node) => Math.hypot(a.x - b.x, a.y - b.y)
+/*
+ * A larger bot (sizeFrame.ts) plans with its own body, `k` times the player's: its clearance, hand reach,
+ * step and catch geometry, and how high it rises are k times as large. repulsorBot.ts steers it at its
+ * size's share, so its ground and air speeds stay the player's, and its accelerations, like its gravity
+ * and jump speed, are k times the player's: a jump takes as long and rises k times as high.
+ */
 const jumpRise = TUNING.directedJumpSpeed ** 2 / (2 * TUNING.gravity)
+/** Whether a body of size k standing at x, y is clear of every solid. */
+const bodyClear = (solids: readonly Platform[], x: number, y: number, k: number) =>
+  !solids.some(s => bodyIntersects(x, y, s, TUNING.height * k, 1, 0, k === 1 ? undefined : sizedBodyOutline(k)))
+/** Where a jump puts the feet t seconds after leaving the ground: k times the player's rise. */
+const jumpY = (fromY: number, speed: number, t: number, k: number) => fromY + k * (-speed * t + TUNING.gravity * t * t / 2)
+const jumpSpeedFor = (strength: number) => TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * strength
 // The controller can catch while the feet are up to 90 units below the lip.
 // Keep the ordinary margin, using more of that real window for near-apex grips.
-const catchReachFor = (dy: number) => dy < -(jumpRise + TUNING.hangReach - 20) ? TUNING.hangReach + 10 : TUNING.hangReach - 20
-function jumpFlight(from: Node, to: Node, strength: number, catchReach = 0) {
-  const speed = TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * strength
-  const discriminant = speed ** 2 + 2 * TUNING.gravity * (to.y - from.y + catchReach)
+const catchReachFor = (dy: number, k: number) => k * (dy / k < -(jumpRise + TUNING.hangReach - 20) ? TUNING.hangReach + 10 : TUNING.hangReach - 20)
+function jumpFlight(from: Node, to: Node, strength: number, catchReach = 0, k = 1) {
+  const speed = jumpSpeedFor(strength)
+  const discriminant = speed ** 2 + 2 * TUNING.gravity * (to.y - from.y + catchReach) / k
   return discriminant < 0 ? 0 : (speed + Math.sqrt(discriminant)) / TUNING.gravity
 }
 function jumpDestination(graph: Graph, from: Node, to: Node, edge?: Edge) {
-  const side = Math.sign(to.x - from.x)
-  if (edge?.catchX !== undefined) return { to, side, catchX: edge.catchX, reach: Math.max(TUNING.hangReach, edge.catchReach ?? 0) }
-  const lip = to.y < from.y - 190 ? graph.solids.flatMap(platformLedges).find(ledge => ledge.side === side
-    && Math.abs(ledge.edgeY - to.y) < 3 && (to.x - ledge.edgeX) * side >= 0 && (to.x - ledge.edgeX) * side < 60
+  const side = Math.sign(to.x - from.x), k = graph.size
+  if (edge?.catchX !== undefined) return { to, side, catchX: edge.catchX, reach: Math.max(TUNING.hangReach * k, edge.catchReach ?? 0) }
+  const lip = to.y < from.y - 190 * k ? graph.solids.flatMap(platformLedges).find(ledge => ledge.side === side
+    && Math.abs(ledge.edgeY - to.y) < 3 && (to.x - ledge.edgeX) * side >= 0 && (to.x - ledge.edgeX) * side < 60 * k
     && ledgeExposed(graph.solids, ledge)) : undefined
-  return { to, side, ...(lip ? { catchX: lip.edgeX - side * 20,
-    reach: Math.max(TUNING.hangReach, catchReachFor(to.y - from.y)) } : {}) }
+  return { to, side, ...(lip ? { catchX: lip.edgeX - side * 20 * k,
+    reach: Math.max(TUNING.hangReach * k, catchReachFor(to.y - from.y, k)) } : {}) }
+}
+/**
+ * Whether the bot is in the water as navigation sees it: wet, with its middle under the water. Shallow water a
+ * larger bot (sizeFrame.ts) wades through is ground to it, as the graph's water points say, and so is the air
+ * above it: jumping from the shallows, or holding a rope that hangs into them, it is not swimming. Counted as a
+ * swimmer there, its way out was the floor beneath the rope, and it let go as soon as it took hold.
+ */
+export function botInWater(run: Run, actor: Player) {
+  if (playerSwimStrength(run.gravityField, actor) <= .05) return false
+  return botWaterPoint(run, botWaterPosition(actor), bodySize(actor))
 }
 export const botRouteProgress = (robot: RobotState) => navigation.get(robot)?.progress ?? 0
 export const botEscapingWater = (robot: RobotState) => !!navigation.get(robot)?.waterExit
 export function botNavigationRoute(run: Run, robot: RobotState) {
-  const state = navigation.get(robot), graph = botNavigationGraph(run)
+  const state = navigation.get(robot), graph = botNavigationGraph(run, bodySize(robot.actor!))
   return state && { goal: { ...state.goal }, waypoints: state.path.map(index => ({ ...graph.nodes[index] })) }
 }
 const barriersFor = (run: Run): Platform[] => [...forceFieldPlatforms(run.forceFields, 'objects'),
   ...run.mechanisms.map(m => ({ ...m.definition, x: m.x, y: m.y }))]
 
-function edgeClear(a: Node, b: Node, edge: Edge, barriers: readonly Platform[]) {
+function edgeClear(a: Node, b: Node, edge: Edge, barriers: readonly Platform[], k: number) {
   if (!barriers.length) return true
   a = edge.takeoff ?? a
-  const dy = b.y - a.y, catching = edge.jump && (edge.catchX !== undefined || dy < -190)
-  const speed = TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * (edge.strength ?? 1)
-  const flight = edge.jump ? (speed + Math.sqrt(speed ** 2 + 2 * TUNING.gravity * (dy + (catching ? edge.catchReach ?? catchReachFor(dy) : 0)))) / TUNING.gravity : 0
+  const dy = b.y - a.y, catching = edge.jump && (edge.catchX !== undefined || dy < -190 * k)
+  const speed = jumpSpeedFor(edge.strength ?? 1)
+  const flight = edge.jump ? (speed + Math.sqrt(speed ** 2 + 2 * TUNING.gravity * (dy + (catching ? edge.catchReach ?? catchReachFor(dy, k) : 0)) / k)) / TUNING.gravity : 0
   for (let step = 0; step <= 16; step++) {
     const fraction = step / 16, t = flight * fraction
-    const x = a.x + ((edge.catchX ?? b.x - (catching ? Math.sign(b.x - a.x) * 32 : 0)) - a.x) * fraction
-    const y = edge.jump ? a.y - speed * t + TUNING.gravity * t * t / 2 : a.y + dy * fraction
-    if (barriers.some(s => bodyIntersects(x, y - .05, s, TUNING.height))) return false
+    const x = a.x + ((edge.catchX ?? b.x - (catching ? Math.sign(b.x - a.x) * 32 * k : 0)) - a.x) * fraction
+    const y = edge.jump ? jumpY(a.y, speed, t, k) : a.y + dy * fraction
+    if (!bodyClear(barriers, x, y - .05, k)) return false
   }
   return true
 }
 
-function walkClear(a: Node, b: Node, solids: readonly Platform[]) {
-  if (Math.abs(b.x - a.x) > 180 || Math.abs(b.y - a.y) > 45) return false
+function walkClear(a: Node, b: Node, solids: readonly Platform[], k: number) {
+  if (Math.abs(b.x - a.x) > 180 || Math.abs(b.y - a.y) > 45 * k) return false
   for (let step = 1; step <= 9; step++) {
     const t = step / 9, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t
-    const support = groundAt(solids, x, y, 12)
+    const support = groundAt(solids, x, y, 12 * k)
     // Follow the actual surface around shallow corners. A chord between
     // samples can run inside a convex crest even though walking clears it.
-    if (!support || !canGrip(support.angle) || solids.some(s => bodyIntersects(x, support.y - .05, s, TUNING.height))) return false
+    if (!support || !canGrip(support.angle) || !bodyClear(solids, x, support.y - .05, k)) return false
   }
   return true
+}
+
+/**
+ * A walk off the end of the footing down to lower footing, where even the smallest hop would rise into a low
+ * ceiling. The body walks to where its footing ends and falls on at its pace, landing on footing it can stand on
+ * and walk from to b. The slowest pace that does so is the drop.
+ */
+function dropArc(a: Node, b: Node, solids: readonly Platform[], k: number) {
+  const side = Math.sign(b.x - a.x)
+  if (!side || b.y - a.y <= 15 * k) return undefined
+  let edge = a.x
+  while ((b.x - edge) * side > 4 && groundAt(solids, edge + side * 4, a.y, 6 * k)) edge += side * 4
+  // Footing all the way across is a walk, not a drop.
+  if ((b.x - edge) * side <= 4) return undefined
+  // The walk out follows the footing's surface.
+  for (let step = 1; step <= 4; step++) {
+    const x = a.x + (edge - a.x) * step / 4, support = groundAt(solids, x, a.y, 6 * k)
+    if (!support || !bodyClear(solids, x, support.y - .05, k)) return undefined
+  }
+  // Past the end, the body slides off the corner until its side clears it, then falls.
+  const leave = groundAt(solids, edge, a.y, 6 * k)!.y, clearOf = edge + side * (TUNING.width / 2 * k + 1)
+  for (const speed of [TUNING.walkSpeed, 200, 300, TUNING.runSpeed]) {
+    // In the world a larger body falls k times as fast (sizeFrame.ts).
+    for (let t = 1 / 60; t < 1.5; t += 1 / 60) {
+      const x = clearOf + side * speed * t, y = Math.min(b.y, leave + k * TUNING.gravity * t * t / 2)
+      if ((x - b.x) * side > 0) break
+      if (y === b.y || !bodyClear(solids, x, y - .05, k)) {
+        // It meets footing: one it can stand on, with a clear walk on to b, completes the drop.
+        const footing = groundAt(solids, x, y, 12 * k)
+        if (footing && canGrip(footing.angle) && walkClear({ x, y: footing.y }, b, solids, k)) return { x: edge, speed }
+        break
+      }
+    }
+  }
+  return undefined
 }
 
 /** Check the actual launch, including momentum, rather than only its graph sample. */
 function launchClear(actor: Player, strength: number, move: number, solids: readonly Platform[]) {
   let x = actor.x, y = actor.y, vx = actor.vx
-  const orientation = actor.inverted ? -1 : 1
-  const speed = TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * strength
+  const orientation = actor.inverted ? -1 : 1, k = bodySize(actor)
+  const speed = jumpSpeedFor(strength)
   const target = move * BOT_AIR_SPEED, dt = 1 / 120
   for (let frame = 1; frame * dt <= speed / TUNING.gravity; frame++) {
-    vx += Math.max(-TUNING.airAcceleration * dt, Math.min(TUNING.airAcceleration * dt, target - vx))
-    const nextY = actor.y + orientation * (-speed * frame * dt + TUNING.gravity * (frame * dt) ** 2 / 2)
-    const sweep = moveBody([x, y], [x + vx * dt, nextY], solids, TUNING.height, orientation)
+    vx += Math.max(-TUNING.airAcceleration * k * dt, Math.min(TUNING.airAcceleration * k * dt, target - vx))
+    const nextY = actor.y + orientation * k * (-speed * frame * dt + TUNING.gravity * (frame * dt) ** 2 / 2)
+    const sweep = moveBody([x, y], [x + vx * dt, nextY], solids, TUNING.height * k, orientation, 0, k === 1 ? undefined : sizedBodyOutline(k, TUNING.height, orientation))
     if (sweep.contacts.some(contact => contact.normal[1] * orientation > .5)) return false
     x = sweep.x; y = sweep.y
   }
@@ -113,18 +178,21 @@ function launchClear(actor: Player, strength: number, move: number, solids: read
 
 /** A bounded shared graph suggests controls; the real player controller decides
  * every contact and landing. Moving obstacles never become teleport routes. */
-export function botNavigationGraph(run: Run): Graph {
-  const saved = graphs.get(run), waterKey = botWaterGraphKey(run)
+export function botNavigationGraph(run: Run, k = 1): Graph {
+  const sizes = graphs.get(run) ?? new Map<number, Graph>(), saved = sizes.get(k), waterKey = botWaterGraphKey(run)
+  graphs.set(run, sizes)
   if (saved && saved.waterKey === waterKey) return saved
   const nodes: Node[] = [], solids = run.terrain
-  const clear = (x: number, y: number) => !solids.some(s => bodyIntersects(x, y - .05, s, TUNING.height))
+  // Footing just past an edge: the player's 18, until a larger body's half-width needs more.
+  const inset = Math.max(18, 13 * k)
+  const clear = (x: number, y: number) => bodyClear(solids, x, y - .05, k)
   const lips = solids.flatMap(platformLedges).filter(ledge => ledgeExposed(solids, ledge))
   const add = (node: Node, limit = 160) => {
-    if (nodes.length < limit && node.x >= 20 && node.x <= run.level.width - 20 && node.y >= TUNING.height
-      && !nodes.some(n => distance(n, node) < 12 && n.climb === node.climb)) nodes.push({ ...node, ...(botWaterPoint(run, node) && !node.climb ? { swim: true } : {}) })
+    if (nodes.length < limit && node.x >= 20 && node.x <= run.level.width - 20 && node.y >= TUNING.height * k
+      && !nodes.some(n => distance(n, node) < 12 * k && n.climb === node.climb)) nodes.push({ ...node, ...(botWaterPoint(run, node, k) && !node.climb ? { swim: true } : {}) })
   }
   for (const solid of solids) {
-    const left = Math.max(20, solid.x + 18), right = Math.min(run.level.width - 20, solid.x + solid.w - 18)
+    const left = Math.max(20, solid.x + inset), right = Math.min(run.level.width - 20, solid.x + solid.w - inset)
     if (right < left) continue
     const samples = Math.max(1, Math.ceil((right - left) / 140))
     for (let sample = 0; sample <= samples; sample++) {
@@ -135,7 +203,7 @@ export function botNavigationGraph(run: Run): Graph {
   for (const [i, ladder] of run.level.climbables.ladders.entries()) {
     const landing = ladderLanding(ladder, solids)
     add({ x: ladder.x, y: ladder.bottom, climb: `ladder:${i}` })
-    add({ x: ladder.x, y: (landing?.y ?? ladder.top) + 35, climb: `ladder:${i}` })
+    add({ x: ladder.x, y: (landing?.y ?? ladder.top) + 35 * k, climb: `ladder:${i}` })
     // Each clear floor crossing is a boarding/exit point. The vertical leg
     // belongs to the ladder and may pass through any intervening terrain.
     for (const solid of solids) for (const surface of platformSurfaces(solid, ladder.x)) {
@@ -151,112 +219,128 @@ export function botNavigationGraph(run: Run): Graph {
     // Nodes describe feet, while a rope is caught at the hands. A dangling end
     // can be reached with the body below it, including the final Aloft gap.
     add({ x: rope.x, y: rope.y + rope.length, climb: `rope:${i}` })
-    add({ x: rope.x, y: Math.min(run.level.floor, rope.y + rope.length + 50), climb: `rope:${i}` })
-    add({ x: rope.x, y: rope.y + 70, climb: `rope:${i}` })
-    for (const lip of lips) if (Math.abs(lip.edgeX - rope.x) < 32 && lip.edgeY > rope.y
-      && lip.edgeY + 70 < rope.y + rope.length) add({ x: rope.x, y: lip.edgeY + 70, climb: `rope:${i}` })
+    add({ x: rope.x, y: Math.min(run.level.floor, rope.y + rope.length + 50 * k), climb: `rope:${i}` })
+    add({ x: rope.x, y: rope.y + 70 * k, climb: `rope:${i}` })
+    for (const lip of lips) if (Math.abs(lip.edgeX - rope.x) < 32 * k && lip.edgeY > rope.y
+      && lip.edgeY + 70 * k < rope.y + rope.length) add({ x: rope.x, y: lip.edgeY + 70 * k, climb: `rope:${i}` })
   }
   // Uniform samples can miss the usable end of a broad, irregular mass. Add
   // actual exposed-lip footing after the existing climb nodes, preserving
   // their indices and the graph's bounded size. The same body-clearance and
   // jump checks still decide which connections are physically possible.
   for (const lip of lips) {
-    const x = lip.edgeX + lip.side * 18, y = lip.edgeY + (lip.slope ?? 0) * 18
-    const support = groundAt(solids, x, y, 5, surface => canGrip(surface.angle))
+    const x = lip.edgeX + lip.side * inset, y = lip.edgeY + (lip.slope ?? 0) * inset
+    const support = groundAt(solids, x, y, 5 * k, surface => canGrip(surface.angle))
     if (support && clear(x, support.y)) add({ x, y: support.y })
   }
   // Keep the original surface/rope/ladder topology and its stable indices.
   // Large maps must not lose their final rope merely because they have a pool.
-  for (const node of botWaterNodes(run, solids)) add(node, 160 + MAX_BOT_WATER_NODES)
+  for (const node of botWaterNodes(run, solids, k)) add(node, 160 + MAX_BOT_WATER_NODES)
   const edges = nodes.map((): Edge[] => [])
   for (const [i, a] of nodes.entries()) for (const [j, b] of nodes.entries()) {
     if (i === j) continue
     const dx = Math.abs(b.x - a.x), dy = b.y - a.y
     if (a.climb && a.climb === b.climb) { edges[i].push({ to: j, climb: true, jump: false, cost: Math.abs(dy) * 2 }); continue }
-    if (a.swim && b.swim && botSwimClear(run, a, b, solids)) {
+    if (a.swim && b.swim && botSwimClear(run, a, b, solids, k)) {
       edges[i].push({ to: j, climb: false, jump: false, swim: true, cost: distance(a, b) * TUNING.runSpeed / TUNING.swimHorizontalSpeed }); continue
     }
     // Submerged jumps cannot follow a dry ballistic arc. Surface waypoints
     // retain ordinary jump/ledge edges for leaving the pool.
-    if (a.swim && b.swim || a.swim && run.water.pools.some(({ region: p }) => p.h > 0 && a.x >= p.x && a.x <= p.x + p.w && a.y > p.y + TUNING.height + 15)) continue
+    if (a.swim && b.swim || a.swim && run.water.pools.some(({ region: p }) => p.h > 0 && a.x >= p.x && a.x <= p.x + p.w && a.y > p.y + (TUNING.height + 15) * k)) continue
     if ((a.climb?.startsWith('ladder:') && !b.climb || b.climb?.startsWith('ladder:') && !a.climb)
-      && Math.abs(dy) < 1 && walkClear(a, b, solids)) {
+      && Math.abs(dy) < 1 && walkClear(a, b, solids, k)) {
       edges[i].push({ to: j, climb: true, jump: false, cost: distance(a, b) + 15 }); continue
     }
     // A climb ends with a hand-to-ledge transfer, not a standing-body jump
     // through the underside of its supporting platform. Match an exposed lip;
     // the ordinary controller still performs and checks the actual pull-up.
-    if (a.climb && !b.climb && dy < -15 && dy > -110 && dx < 60 && clear(b.x, b.y)
-      && lips.some(lip => Math.abs(lip.edgeX - a.x) < 32 && Math.abs(lip.edgeY - b.y) < 3
-        && (b.x - lip.edgeX) * lip.side >= 10 && (b.x - lip.edgeX) * lip.side < 60)) {
+    if (a.climb && !b.climb && dy < -15 * k && dy > -110 * k && dx < 60 * k && clear(b.x, b.y)
+      && lips.some(lip => Math.abs(lip.edgeX - a.x) < 32 * k && Math.abs(lip.edgeY - b.y) < 3
+        && (b.x - lip.edgeX) * lip.side >= 10 * k && (b.x - lip.edgeX) * lip.side < 60 * k)) {
       edges[i].push({ to: j, jump: false, climb: true, cost: distance(a, b) + 80 }); continue
     }
     // The same exposed lip also permits the ordinary lowering animation onto
     // its rope. An ascending-only graph makes a hunter see the room as a trap
     // even when the doorway and a usable rope exit are open.
-    if (!a.climb && b.climb && dy > 15 && dy < 110 && dx < 60 && clear(a.x, a.y)
-      && lips.some(lip => Math.abs(lip.edgeX - b.x) < 32 && Math.abs(lip.edgeY - a.y) < 3
-        && (a.x - lip.edgeX) * lip.side >= 10 && (a.x - lip.edgeX) * lip.side < 60)) {
+    if (!a.climb && b.climb && dy > 15 * k && dy < 110 * k && dx < 60 * k && clear(a.x, a.y)
+      && lips.some(lip => Math.abs(lip.edgeX - b.x) < 32 * k && Math.abs(lip.edgeY - a.y) < 3
+        && (a.x - lip.edgeX) * lip.side >= 10 * k && (a.x - lip.edgeX) * lip.side < 60 * k)) {
       edges[i].push({ to: j, jump: false, climb: true, cost: distance(a, b) + 80 }); continue
     }
-    const catchReach = catchReachFor(dy)
+    const catchReach = catchReachFor(dy, k)
     const ropeTarget = b.climb?.startsWith('rope:')
-    if (dx > (ropeTarget || a.climb?.startsWith('rope:') ? 500 * BOT_AIR_SPEED_SCALE : 360) || dy < -(jumpRise + catchReach) || dy > 450) continue
+    if (dx > (ropeTarget || a.climb?.startsWith('rope:') ? 500 * BOT_AIR_SPEED_SCALE : 360) || dy < -(jumpRise * k + catchReach) || dy > 450 * k) continue
     const side = Math.sign(b.x - a.x)
     // Even a modest rise can need a hand catch to cross beneath a ceiling.
     // Requiring a feet-first landing rejects usable low-arc jumps at cave lips.
-    const landingLip = !b.climb && dy < -15 && dy >= -190 ? lips.find(lip => lip.side === side && Math.abs(lip.edgeY - b.y) < 3
-      && (b.x - lip.edgeX) * side >= 0 && (b.x - lip.edgeX) * side < 60) : undefined
-    const landingX = landingLip ? landingLip.edgeX - side * 20 : undefined
+    const landingLip = !b.climb && dy < -15 * k && dy >= -190 * k ? lips.find(lip => lip.side === side && Math.abs(lip.edgeY - b.y) < 3
+      && (b.x - lip.edgeX) * side >= 0 && (b.x - lip.edgeX) * side < 60 * k) : undefined
+    const landingX = landingLip ? landingLip.edgeX - side * 20 * k : undefined
     const launchLip = ropeTarget && !a.climb && dx > 320 ? lips.find(lip => lip.side === -side && Math.abs(lip.edgeY - a.y) < 3
-      && (lip.edgeX - a.x) * side >= 0 && (lip.edgeX - a.x) * side < 30) : undefined
+      && (lip.edgeX - a.x) * side >= 0 && (lip.edgeX - a.x) * side < 30 * k) : undefined
     const takeoff = launchLip ? { x: launchLip.edgeX, y: launchLip.edgeY } : undefined
-    const walk = walkClear(a, b, solids)
+    const walk = walkClear(a, b, solids, k)
     let strength: number | undefined, catchX: number | undefined
     if (!walk) {
       // Prefer the established feet-first arc. Try a lower hand catch only
       // when that landing cannot be reached or its jump hits the ceiling.
       for (const handCatch of landingLip ? [false, true] : [false]) {
-        const catching = handCatch || dy < -190, landingY = dy + (catching ? catchReach : 0)
+        // A rope waypoint already stands 50k below the grip it is caught by (see the rope nodes above): the arms
+        // reach the rest of the way, and must not be counted twice.
+        const catching = handCatch || dy < -190 * k, landingY = dy + (catching ? Math.max(0, catchReach - (ropeTarget ? 50 * k : 0)) : 0)
         for (const candidate of [0, .5, 1]) {
-          const speed = TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * candidate
-          const discriminant = speed ** 2 + 2 * TUNING.gravity * landingY
+          const speed = jumpSpeedFor(candidate)
+          const discriminant = speed ** 2 + 2 * TUNING.gravity * landingY / k
           if (discriminant < 0) continue
           const flight = (speed + Math.sqrt(discriminant)) / TUNING.gravity
-          const travel = dx - (takeoff ? distance(a, takeoff) : 0) - (ropeTarget ? 35 : 0)
-          if (travel > botJumpReach(flight) * (ropeTarget ? .98 : .85) || dx < 20 && !a.climb && !b.climb) continue
+          const travel = dx - (takeoff ? distance(a, takeoff) : 0) - (ropeTarget ? 35 * k : 0)
+          if (travel > botJumpReach(flight, undefined, k) * (ropeTarget ? .98 : .85) || dx < 20 && !a.climb && !b.climb) continue
           let blocked = false
           for (let step = 1; step < 16; step++) {
             const t = flight * step / 16
-            const start = takeoff ?? a, endX = handCatch ? landingX! : b.x - side * (catching ? 32 : ropeTarget ? 20 : 0)
-            if (!clear(start.x + (endX - start.x) * step / 16, start.y - speed * t + TUNING.gravity * t * t / 2)) { blocked = true; break }
+            const start = takeoff ?? a, endX = handCatch ? landingX! : b.x - side * (catching ? 32 * k : ropeTarget ? 20 * k : 0)
+            if (!clear(start.x + (endX - start.x) * step / 16, jumpY(start.y, speed, t, k))) { blocked = true; break }
           }
           if (!blocked) { strength = candidate; catchX = handCatch ? landingX : undefined; break }
         }
         if (strength !== undefined) break
       }
-      if (strength === undefined) continue
+      if (strength === undefined) {
+        // Under a low ceiling a hop rises into the rock; walking off the end drops beneath it.
+        const drop = !a.climb && !b.climb && !a.swim && !b.swim ? dropArc(a, b, solids, k) : undefined
+        if (drop) edges[i].push({ to: j, jump: false, climb: false, drop, cost: distance(a, b) + 60 })
+        continue
+      }
     }
     edges[i].push({ to: j, jump: !walk, climb: false, cost: distance(a, b) + (walk ? 0 : 140), ...(strength === undefined ? {} : { strength }), ...(takeoff ? { takeoff } : {}),
       ...(catchX !== undefined ? { catchX, catchReach } : {}) })
   }
-  const graph = { nodes, edges, solids, waterKey }; graphs.set(run, graph); return graph
+  const graph = { nodes, edges, solids, waterKey, size: k }; sizes.set(k, graph); return graph
 }
 
 const closestNode = (graph: Graph, point: Node, left: number, right: number) => graph.nodes.reduce((best, node, index) =>
   node.x >= left && node.x <= right && distance(node, point) < distance(graph.nodes[best], point) ? index : best, 0)
 
+/** The nodes with a route on to any of these, by the graph's own edges. */
+function returnable(graph: Graph, to: readonly number[]) {
+  const incoming = graph.nodes.map((): number[] => [])
+  for (const [from, edges] of graph.edges.entries()) for (const edge of edges) incoming[edge.to].push(from)
+  const found = new Set(to), queue = [...to]
+  while (queue.length) for (const from of incoming[queue.pop()!]) if (!found.has(from)) { found.add(from); queue.push(from) }
+  return found
+}
+
 function routeTree(run: Run, graph: Graph, actor: Player, left: number, right: number, avoided: ReadonlyMap<number, number>, barriers: readonly Platform[], target = -1, allowSwimming = true) {
-  const costs = graph.nodes.map(() => Infinity), previous = graph.nodes.map(() => -1), visited = new Set<number>()
+  const costs = graph.nodes.map(() => Infinity), previous = graph.nodes.map(() => -1), visited = new Set<number>(), k = graph.size
   // Plan from the actual position, with several directly reachable roots. A
   // nearest-node reset used to pull the bot backward each time it replanned.
   const climb = actor.climbing && `${actor.climbing.kind}:${actor.climbing.index}`
   const solids = barriers.length ? [...graph.solids, ...barriers] : graph.solids
-  for (const [i, node] of graph.nodes.entries()) if (!avoided.has(i) && (allowSwimming || !botWaterPoint(run, node)) && (climb ? node.climb === climb
-    && edgeClear(actor, node, { to: i, jump: false, climb: true, cost: 0 }, barriers)
-    : node.swim && botSwimClear(run, actor, node, solids) || walkClear(actor, node, solids))) costs[i] = distance(actor, node)
-  if (graph.nodes.length && !costs.some(Number.isFinite) && (allowSwimming || playerSwimStrength(run.gravityField, actor) <= .05)) {
-    const root = graph.nodes.reduce((best, node, index) => (allowSwimming || !botWaterPoint(run, node))
+  for (const [i, node] of graph.nodes.entries()) if (!avoided.has(i) && (allowSwimming || !botWaterPoint(run, node, k)) && (climb ? node.climb === climb
+    && edgeClear(actor, node, { to: i, jump: false, climb: true, cost: 0 }, barriers, k)
+    : node.swim && botSwimClear(run, actor, node, solids, k) || walkClear(actor, node, solids, k))) costs[i] = distance(actor, node)
+  if (graph.nodes.length && !costs.some(Number.isFinite) && (allowSwimming || !botInWater(run, actor))) {
+    const root = graph.nodes.reduce((best, node, index) => (allowSwimming || !botWaterPoint(run, node, k))
       && (best < 0 || distance(node, actor) < distance(graph.nodes[best], actor)) ? index : best, -1)
     if (root >= 0) costs[root] = 0
   }
@@ -268,18 +352,18 @@ function routeTree(run: Run, graph: Graph, actor: Player, left: number, right: n
     for (const edge of graph.edges[next]) {
       const node = graph.nodes[edge.to]
       if (avoided.has(edge.to) || node.x < left || node.x > right || costs[next] + edge.cost >= costs[edge.to]
-        || !allowSwimming && (botWaterPoint(run, node) || botWaterPoint(run, graph.nodes[next]))
-        || edge.swim && !botSwimClear(run, graph.nodes[next], node, solids)
-        || !edgeClear(graph.nodes[next], node, edge, barriers)) continue
+        || !allowSwimming && (botWaterPoint(run, node, k) || botWaterPoint(run, graph.nodes[next], k))
+        || edge.swim && !botSwimClear(run, graph.nodes[next], node, solids, k)
+        || !edgeClear(graph.nodes[next], node, edge, barriers, k)) continue
       costs[edge.to] = costs[next] + edge.cost; previous[edge.to] = next
     }
   }
   return { costs, previous }
 }
 
-const dryFooting = (run: Run, graph: Graph, node: Node, solids: readonly Platform[]) => !node.climb && !botWaterPoint(run, node)
+const dryFooting = (run: Run, graph: Graph, node: Node, solids: readonly Platform[]) => !node.climb && !botWaterPoint(run, node, graph.size)
   && !!groundAt(graph.solids, node.x, node.y, 1, surface => canGrip(surface.angle))
-  && !solids.some(s => bodyIntersects(node.x, node.y - .05, s, TUNING.height))
+  && bodyClear(solids, node.x, node.y - .05, graph.size)
 
 function route(run: Run, graph: Graph, actor: Player, goal: Node, left: number, right: number, avoided: ReadonlyMap<number, number> = new Map(), barriers: readonly Platform[] = [], allowSwimming = false) {
   if (!graph.nodes.length) return []
@@ -298,14 +382,14 @@ function route(run: Run, graph: Graph, actor: Player, goal: Node, left: number, 
 
 /** One graph search supplies actual route costs for every place worth checking. */
 export function botSearchPlaces(run: Run, robot: RobotState) {
-  const graph = botNavigationGraph(run), state = navigation.get(robot)
+  const graph = botNavigationGraph(run, bodySize(robot.actor!)), state = navigation.get(robot)
   const { costs } = routeTree(run, graph, robot.actor!, 20, run.level.width - 20, state?.avoided ?? new Map(), barriersFor(run), -1,
-    botEscapingWater(robot) || playerSwimStrength(run.gravityField, robot.actor!) > .05)
+    botEscapingWater(robot) || botInWater(run, robot.actor!))
   return graph.nodes.flatMap((node, index) => !node.climb && Number.isFinite(costs[index]) ? [{ ...node, cost: costs[index] }] : [])
 }
 
 export function botMovement(run: Run, robot: RobotState, dt: number, target?: Node): JumpInput {
-  const actor = robot.actor!, graph = botNavigationGraph(run), left = 20, right = run.level.width - 20, barriers = barriersFor(run)
+  const actor = robot.actor!, k = bodySize(actor), graph = botNavigationGraph(run, k), left = 20, right = run.level.width - 20, barriers = barriersFor(run)
   const walkingSolids = barriers.length ? [...graph.solids, ...barriers] : graph.solids
   let state = navigation.get(robot)
   if (!state) { state = { path: [], age: 1, jumpCooldown: 0, goal: { x: actor.x, y: actor.y }, previousX: actor.x, stuck: 0, patrol: 0, avoided: new Map(), trying: false,
@@ -315,7 +399,12 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     if (state.waterExit) state.waterExit = { goal: state.waterExit.goal }
     state.avoided.clear(); state.distances.clear(); state.age = 1
   }
-  const inWater = playerSwimStrength(run.gravityField, actor) > .05
+  // Wading counts as ground only while it leads on. Stuck in the shallows with no dry route, it swims out like any
+  // other swimmer, and keeps at that until it is out of the water.
+  const wet = !!actor.waterMotion && playerSwimStrength(run.gravityField, actor) > .05, wading = actor.grounded && wet
+  if (!wet) state.wadingEscape = false
+  else if (wading && state.stuck > 1 && !state.path.length) state.wadingEscape = true
+  const inWater = botInWater(run, actor) || wading && !!state.wadingEscape
   if (state.waterJumpHold !== undefined) {
     state.waterJumpHold -= dt
     if (state.waterJumpHold <= 0 || actor.grounded || actor.climbing || actor.hang || actor.mantle || actor.vy >= 0) state.waterJumpHold = undefined
@@ -330,7 +419,8 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   }
   if (swimming) { state.flight = undefined; state.runningJump = false; state.runup = undefined; state.launchSetup = undefined; state.backoff = undefined }
   if (actor.grounded) state.departureY = actor.y
-  if (actor.grounded || actor.climbing) state.descendingJump = false
+  // A jump down ends on footing, a hold or in water. Out of water, a caught ledge is the way up, never a drop.
+  if (actor.grounded || actor.climbing || actor.waterMotion) state.descendingJump = false
   state.age += dt; state.jumpCooldown = Math.max(0, state.jumpCooldown - dt)
   if (state.waterExit && inWater && state.age >= .35 && !actor.hang && !actor.mantle) {
     // Escape takes priority over a moving sighting. Search all reachable dry
@@ -351,8 +441,8 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     // left for takeoff. Keep that clear departure while approaching its bank;
     // live barriers and changed exits still replace the route normally.
     const departing = goal && state.waterExit.node === exit && state.leg?.jump && state.launchFrom?.swim && state.path.length
-      && edgeClear(state.launchFrom, graph.nodes[state.path[0]], state.leg, barriers)
-      && botSwimClear(run, actor, state.launchFrom, walkingSolids)
+      && edgeClear(state.launchFrom, graph.nodes[state.path[0]], state.leg, barriers, k)
+      && botSwimClear(run, actor, state.launchFrom, walkingSolids, k)
     if (departing) state.age = 0
     else if (goal) {
       if (state.waterExit.node !== exit) state.distances.clear()
@@ -360,12 +450,12 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
       state.goal = goal; state.path = [exit]; state.leg = undefined; state.age = 0
       while (previous[state.path[0]] >= 0) state.path.unshift(previous[state.path[0]])
     } else {
-      state.waterExit = { goal: botWaterSurface(run, botWaterPosition(actor)) ?? botWaterPosition(actor) }
+      state.waterExit = { goal: botWaterSurface(run, botWaterPosition(actor), k) ?? botWaterPosition(actor) }
       state.goal = state.waterExit.goal; state.path = []; state.leg = undefined; state.age = 0
     }
   }
   if (state.waterExit) target = state.waterExit.goal
-  else if (target && botWaterPoint(run, target)) {
+  else if (target && botWaterPoint(run, target, k)) {
     // Pursue a submerged player from reachable footing. Diving back after the
     // same clue would undo a completed escape and repeat it indefinitely.
     if (state.shoreTarget) state.shoreTarget.age += dt
@@ -394,7 +484,7 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   const transfer = actor.mantle ?? actor.hang
   if (transfer) {
     if (actor.mantle?.ladder) {
-      const descending = !!target && target.y > actor.mantle.edgeY + 110
+      const descending = !!target && target.y > actor.mantle.edgeY + 110 * k
       return { ...NEUTRAL_INPUT, climb: !descending, descend: descending }
     }
     const key = `${transfer.edgeX}:${transfer.edgeY}:${transfer.side}`, progress = actor.mantle?.time ?? 0
@@ -404,8 +494,8 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     state.transition = { key, x: actor.x, y: actor.y, progress, blocked, releasing }
     if (releasing && state.path.length) state.avoided.set(state.path[0], 5)
     const landing = state.path.map(index => graph.nodes[index]).find(node => !node.climb)
-    const descendingRoute = !!landing && landing.y > (state.departureY ?? transfer.edgeY) + 110 && landing.y > transfer.edgeY + 110
-      && !actor.hang?.caught.climbing && (!target || target.y > transfer.edgeY + 300)
+    const descendingRoute = !!landing && landing.y > (state.departureY ?? transfer.edgeY) + 110 * k && landing.y > transfer.edgeY + 110 * k
+      && !actor.hang?.caught.climbing && (!target || target.y > transfer.edgeY + 300 * k)
       && graph.solids.some(platform => platform.h <= 30 && transfer.edgeX >= platform.x - 1
         && transfer.edgeX <= platform.x + platform.w + 1 && Math.abs(platform.y - transfer.edgeY) < 31)
     if (actor.mantle?.step && descendingRoute) {
@@ -449,8 +539,8 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   // Checking the entrance must finish on its floor, facing the actual doorway.
   // Otherwise a final ladder node can count as arrival before the rider gets off.
   const checkingEntrance = state.goal.x === run.level.entrance.x && state.goal.y === run.level.entrance.y
-  const patrolArrived = checkingEntrance ? actor.grounded && distance(actor, state.goal) < 12
-    : distance(actor, state.goal) < 45 || state.path.length === 1 && distance(actor, graph.nodes[state.path[0]]) < 45
+  const patrolArrived = checkingEntrance ? actor.grounded && distance(actor, state.goal) < 12 * k
+    : distance(actor, state.goal) < 45 * k || state.path.length === 1 && distance(actor, graph.nodes[state.path[0]]) < 45 * k
   if (!target && (patrolArrived || !state.path.length && state.age > 2)) {
     // The entrance is known map information, independent of any player sighting.
     // Check it before a general patrol; sight acquisition can interrupt this trip.
@@ -459,19 +549,26 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     const entrance = !state.entranceChecked && distance(actor, run.level.entrance) > 60
       && botCanReach(run, robot, run.level.entrance, []) ? run.level.entrance : undefined
     state.entranceChecked = true
-    const candidates = graph.nodes.filter(n => n.x >= left && n.x <= right && !n.climb && !botWaterPoint(run, n))
+    const candidates = graph.nodes.filter(n => n.x >= left && n.x <= right && !n.climb && !botWaterPoint(run, n, k))
     const phase = state.patrol % 3
     candidates.sort((a, b) => phase === 0 ? a.y - b.y || distance(a, actor) - distance(b, actor)
       : (phase === 2 ? a.x - b.x : b.x - a.x) || a.y - b.y)
     // One search answers every patrol candidate. Searching again for each
     // unreachable shelf makes disconnected cave regions expensive to patrol.
-    const reachable = new Set<Node>()
+    const reachable = new Set<Node>(), returning = new Set<Node>()
     if (!entrance) {
       const { costs, previous } = routeTree(run, graph, actor, left, right, state.avoided, barriers, -1, false)
-      for (const [index, node] of graph.nodes.entries()) if (Number.isFinite(costs[index]) && previous[index] >= 0) reachable.add(node)
+      // A patrol prefers ground it can come back from. A drop or jump down it cannot climb back from would
+      // leave it pacing a pit for good. Only where every way on is one way does it take one.
+      const here = graph.nodes.flatMap((_, index) => Number.isFinite(costs[index]) && previous[index] < 0 ? [index] : [])
+      const back = returnable(graph, here)
+      for (const [index, node] of graph.nodes.entries()) if (Number.isFinite(costs[index]) && previous[index] >= 0) {
+        reachable.add(node)
+        if (back.has(index)) returning.add(node)
+      }
     }
-    state.goal = entrance ? { x: entrance.x, y: entrance.y } : candidates.find(n => distance(n, actor) > 60 && reachable.has(n))
-      ?? { x: actor.x < (left + right) / 2 ? right : left, y: actor.y }
+    state.goal = entrance ? { x: entrance.x, y: entrance.y } : candidates.find(n => distance(n, actor) > 60 && returning.has(n))
+      ?? candidates.find(n => distance(n, actor) > 60 && reachable.has(n)) ?? { x: actor.x < (left + right) / 2 ? right : left, y: actor.y }
     if (!entrance) state.patrol++
     state.age = 1; state.path = []; state.distances.clear()
   }
@@ -483,13 +580,13 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   const launchEdge = state.path.length > 1 && graph.edges[state.path[0]].find(edge => edge.to === state!.path[1])
   if (actor.grounded && launchEdge && launchEdge.takeoff && !state.runup) {
     const lip = launchEdge.takeoff, to = graph.nodes[launchEdge.to], side = Math.sign(to.x - lip.x)
-    const time = jumpFlight(lip, to, launchEdge.strength ?? 1)
-    const required = botJumpTakeoffSpeed(Math.max(0, Math.abs(to.x - lip.x) - 35), time) + 20
-    const room = Math.max(0, (lip.x - actor.x) * side - 12)
-    const available = Math.sqrt(Math.max(0, actor.vx * side) ** 2 + 2 * TUNING.acceleration * room)
+    const time = jumpFlight(lip, to, launchEdge.strength ?? 1, 0, k)
+    const required = botJumpTakeoffSpeed(Math.max(0, Math.abs(to.x - lip.x) - 35 * k), time, k) + 20
+    const room = Math.max(0, (lip.x - actor.x) * side - 12 * k)
+    const available = Math.sqrt(Math.max(0, actor.vx * side) ** 2 + 2 * TUNING.acceleration * k * room)
     if (Math.abs(actor.y - lip.y) < 3 && required > available) {
       const point = [100, 80, 60].map(back => ({ x: lip.x - side * back, y: lip.y, side }))
-        .find(point => walkClear(actor, point, [...graph.solids, ...barriers]))
+        .find(point => walkClear(actor, point, [...graph.solids, ...barriers], k))
       if (point) state.runup = point
     }
   }
@@ -514,20 +611,28 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     // until the actual release can reach the next ledge, rather than jumping
     // from the broad waypoint arrival window and falling back into the pool.
     if (state.waterExit && actor.climbing && node.climb && departure?.jump
-      && !jumpFlight(actor, next, departure.strength ?? 1, jumpDestination(graph, actor, next).reach ?? 0)) break
+      && !jumpFlight(actor, next, departure.strength ?? 1, jumpDestination(graph, actor, next).reach ?? 0, k)) break
     // Passing above a setup does not provide footing for its next jump.
-    const passing = !departure?.jump && !actor.grounded && !node.climb && actor.y < node.y - 30 && Math.abs(actor.x - node.x) < 45
+    const passing = !departure?.jump && !actor.grounded && !node.climb && actor.y < node.y - 30 * k && Math.abs(actor.x - node.x) < 45 * k
       && (next.x - actor.x) * actor.vx > 0
     const launchApproach = actor.grounded && !node.climb && graph.edges[state.path[0]].some(edge => edge.to === state!.path[1] && edge.jump)
-    if (!passing && (Math.abs(actor.x - approach.x) > (departure?.takeoff ? 4 : launchApproach ? 12 : 30) || Math.abs(actor.y - approach.y) > 50)) break
+    // Holding the waypoint's rope, the rope carries the body wherever it swings: the grip's height is the arrival,
+    // and so is the last handhold for a waypoint below the rope's end.
+    const onRope = !!actor.climbing?.rope && node.climb === `rope:${actor.climbing.index}` && !departure?.takeoff
+    const ropeEnd = onRope && actor.climbing!.distance >= ropeGripLimit(actor.climbing!.rope!.definition) - .5 && node.y >= actor.y
+    if (!passing && !ropeEnd && ((!onRope && Math.abs(actor.x - approach.x) > (departure?.takeoff ? 4 : launchApproach ? 12 : 30 * k)) || Math.abs(actor.y - approach.y) > 50 * k)) break
     advance()
   }
   let routeNode = graph.nodes[state.path[0]] ?? target ?? state.goal
   // Graph samples lead onto the destination surface. Finish the remaining
   // clear walk to the actual target instead of stopping at a coarse sample.
   const destination = target ?? state.goal
-  if (state.path.length <= 1 && (!routeNode.climb || actor.grounded) && (walkClear(actor, destination, walkingSolids)
-    || swimming && botSwimClear(run, actor, destination, walkingSolids))) routeNode = destination
+  if (state.path.length <= 1 && (!routeNode.climb || actor.grounded) && (walkClear(actor, destination, walkingSolids, k)
+    || swimming && botSwimClear(run, actor, destination, walkingSolids, k))) {
+    // The walk to the target replaces the last leg: a jump planned toward an earlier goal no longer applies.
+    if (state.leg && graph.nodes[state.leg.to] !== destination) state.leg = undefined
+    routeNode = destination
+  }
   const departure = state.path.length > 1 && graph.edges[state.path[0]].find(edge => edge.to === state!.path[1])
   const waypoint = departure && departure.takeoff ? { ...routeNode, ...departure.takeoff } : routeNode
   const ropeApproach = botRopeApproach(run, actor, waypoint, barriers)
@@ -544,23 +649,28 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     // all contacts. A surface jump is a normal buffered jump, never a lift.
     const position = botWaterPosition(actor)
     let detour = state.waterDetour
-    if (detour && !botSwimClear(run, position, { x: detour.x, y: detour.cleared ? detour.surfaceY : detour.y }, walkingSolids)) detour = undefined
-    if (detour && Math.abs(actor.x - detour.x) < 12) detour.cleared = true
-    if (detour?.cleared && position.y <= detour.surfaceY + 12) detour = undefined
-    detour ??= botWaterDetour(run, actor, node, walkingSolids)
+    if (detour && !botSwimClear(run, position, { x: detour.x, y: detour.cleared ? detour.surfaceY : detour.y }, walkingSolids, k)) detour = undefined
+    if (detour && Math.abs(actor.x - detour.x) < 12 * k) detour.cleared = true
+    if (detour?.cleared && position.y <= detour.surfaceY + 12 * k) detour = undefined
+    detour ??= botWaterDetour(run, actor, node, walkingSolids, k)
     state.waterDetour = detour
     const swimNode = detour ? { x: detour.x, y: detour.cleared ? detour.surfaceY : detour.y } : node
     input.move = Math.max(-1, Math.min(1, (swimNode.x - actor.x - actor.vx * .2) / 70))
     const swimDy = swimNode.y - position.y
     input.swimVertical = Math.max(-1, Math.min(1, (swimDy - actor.vy * .2) / 60))
-    const leaving = !detour && !botWaterPoint(run, node) && dy < -20
-    input.climb = leaving || !detour && !!node.climb && Math.abs(dx) < 30 && dy < 10
-    input.descend = !detour && !!node.climb && Math.abs(dx) < 30 && dy > 20
+    const leaving = !detour && !botWaterPoint(run, node, k) && dy < -20 * k
+    input.climb = leaving || !detour && !!node.climb && Math.abs(dx) < 30 * k && dy < 10 * k
+    input.descend = !detour && !!node.climb && Math.abs(dx) < 30 * k && dy > 20 * k
     if (leaving) input.swimVertical = -1
-    if (leaving && Math.abs(dx) < (actor.grounded ? 180 : 100) && !state.jumpCooldown
+    // A bank that overhangs the water stops a leap from beneath it: rise only where the body, a little way
+    // toward the bank, clears everything up to the bank's height, and back out from under it first.
+    const overhung = leaving && Math.abs(dx) < (actor.grounded ? 180 : 100) && !Array.from({ length: 6 }, (_, i) => actor.y + (node.y - actor.y) * (i + 1) / 6)
+      .every(y => bodyClear(walkingSolids, actor.x + Math.sign(dx) * 20 * k, y, k))
+    if (overhung) input.move = -Math.sign(dx)
+    if (leaving && !overhung && Math.abs(dx) < (actor.grounded ? 180 : 100) && !state.jumpCooldown
       && (actor.grounded || isWeightless(actor.gravity ?? TUNING.gravity))) {
       input.jump = true; input.jumpStrength = 1; state.jumpCooldown = .65
-      if (node.climb || dy < -190 || actor.grounded) {
+      if (node.climb || dy < -190 * k || actor.grounded) {
         state.flight = { ...jumpDestination(graph, actor, node), water: true }
         input.swimVertical = 0
       }
@@ -574,26 +684,42 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   const approachingJump = state.path.length > 1 && graph.edges[state.path[0]].find(edge => edge.to === state!.path[1] && edge.jump)
   if (actor.grounded && approachingJump && Math.abs(dx) > 9) {
     const landing = jumpDestination(graph, node, graph.nodes[approachingJump.to], approachingJump)
-    const time = jumpFlight(node, landing.to, approachingJump.strength ?? 1, landing.reach ?? 0)
+    const time = jumpFlight(node, landing.to, approachingJump.strength ?? 1, landing.reach ?? 0, k)
     // Arrive at takeoff with the speed this arc needs. A long descent needs a
     // run-up; a nearly vertical ledge catch needs room to brake before its lip.
     const speed = Math.min(TUNING.runSpeed, Math.abs((landing.catchX ?? landing.to.x) - node.x) / Math.max(.1, time))
     input.move = Math.sign(dx) * Math.max(.15, speed / TUNING.runSpeed)
   }
-  else if (actor.grounded && Math.abs(dy) < 30) input.move *= Math.min(1, Math.abs(dx) / 85)
+  else if (actor.grounded && Math.abs(dy) < 30 * k) input.move *= Math.min(1, Math.abs(dx) / 85)
   state.trying = Math.abs(input.move) > .1
-  if (actor.climbing || node.climb && Math.abs(dx) < 30) {
+  if (actor.climbing || node.climb && Math.abs(dx) < 30 * k) {
     const ladder = actor.climbing?.ladder || node.climb?.startsWith('ladder:')
-    input.climb = dy < (ladder ? 0 : 10); input.descend = dy > (ladder ? 0 : 20)
+    input.climb = dy < (ladder ? 0 : 10 * k); input.descend = dy > (ladder ? 0 : 20 * k)
+    // Down at a rope's last handhold lets go. Only a planned drop below does that (it holds Detach too).
+    const held = actor.climbing
+    if (held?.rope && held.distance >= ropeGripLimit(held.rope.definition) - .5) input.descend = false
     if (actor.climbing) input.move = actor.climbing.rope ? Math.sign(dx) * .5
-      : !node.climb && Math.abs(dy) < 5 ? Math.sign(dx) * .6 : 0
+      : !node.climb && Math.abs(dy) < 5 * k ? Math.sign(dx) * .6 : 0
+    // At the top of a rope hanging against the face below a ledge, the body hangs too close to the face to catch
+    // the lip, and the climb can go no higher. Swing out from the face, then come back holding Up: the returning
+    // swing carries the hands to the lip from outside, as a person would pump a rope.
+    const grip = actor.climbing
+    if (grip?.rope && !node.climb && input.climb) {
+      const top = state.ropeTop?.index === grip.index && Math.abs(grip.distance - state.ropeTop.distance) < .05 ? state.ropeTop : undefined
+      state.ropeTop = { index: grip.index, distance: grip.distance, held: top ? top.held + dt : 0, swing: top?.swing ?? 0 }
+      if (state.ropeTop.held > .6) state.ropeTop.swing = .5
+    } else if (!state.ropeTop?.swing) state.ropeTop = undefined
+    if (state.ropeTop?.swing && grip?.rope) {
+      state.ropeTop.swing = Math.max(0, state.ropeTop.swing - dt); state.ropeTop.held = 0; state.ropeTop.distance = grip.distance
+      input.climb = false; input.descend = false; input.move = -Math.sign(dx)
+    } else if (state.ropeTop?.swing) state.ropeTop = undefined
     if (actor.climbing?.ladder && (input.climb || input.descend)) {
       const grip = actor.climbing, old = state.ladderBlocked
       const blocked = old?.index === grip.index && Math.abs(grip.distance - old.distance) < .05 ? old.blocked + dt : 0
       state.ladderBlocked = { index: grip.index, distance: grip.distance, blocked }
       // A person or prop can occupy the landing. Step off into clear air and
       // approach beside it, using the ordinary release and falling contacts.
-      if (blocked > .6 && !walkingSolids.some(s => bodyIntersects(actor.x, actor.y, s, TUNING.height))) {
+      if (blocked > .6 && bodyClear(walkingSolids, actor.x, actor.y, k)) {
         state.ladderBlocked = undefined; state.path = []; state.leg = undefined; state.age = 1
         return { ...NEUTRAL_INPUT, move: Math.sign(dx) || actor.facing, detach: true }
       }
@@ -601,14 +727,14 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     // Rope grip distance and the actor's feet use different origins. Near the
     // floor the next walking node can sit inside the vertical deadband: let go
     // through the ordinary controller instead of holding the last handhold.
-    if (actor.climbing && !node.climb && dy >= -10 && groundAt(run.terrain, actor.x, actor.y, actor.climbing.ladder ? 5 : 90)
-      && (!actor.climbing.ladder || !walkingSolids.some(s => bodyIntersects(actor.x, actor.y, s, TUNING.height)))) {
+    if (actor.climbing && !node.climb && dy >= -10 * k && groundAt(run.terrain, actor.x, actor.y, (actor.climbing.ladder ? 5 : 90) * k)
+      && (!actor.climbing.ladder || bodyClear(walkingSolids, actor.x, actor.y, k))) {
       input.climb = false; input.descend = true; input.detach = true
     }
-    if (actor.climbing?.rope && node.climb && dy > 20 && input.descend && Math.abs(dx) < 60) {
+    if (actor.climbing?.rope && node.climb && dy > 20 * k && input.descend && Math.abs(dx) < 60 * k) {
       // Keep the body outside the decks beside an end rope while lowering.
       // Steering toward its anchor can pin the rider against the next shelf.
-      const clear = (side: number) => !walkingSolids.some(s => bodyIntersects(actor.x + side * 30, actor.y + 30, s, TUNING.height))
+      const clear = (side: number) => bodyClear(walkingSolids, actor.x + side * 30 * k, actor.y + 30 * k, k)
       const leftClear = clear(-1), rightClear = clear(1)
       if (leftClear !== rightClear) input.move = leftClear ? -.6 : .6
       const grip = actor.climbing, old = state.ropeDescent
@@ -628,38 +754,39 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   const obstacles = [...run.props.filter(prop => !prop.gadget).map(prop => prop.kind === 'ball' ? ballShape(prop) : boxShape(prop)),
     ...run.robots.filter(other => other !== robot).flatMap(robotPlatforms)]
   const obstacle = obstacles.some(shape => {
-    const gap = Math.sign(dx) > 0 ? shape.x - actor.x - TUNING.width / 2 : actor.x - TUNING.width / 2 - shape.x - shape.w
-    return gap >= -2 && gap < 75 && shape.y < actor.y - 15 && shape.y + shape.h > actor.y - TUNING.height
+    const gap = Math.sign(dx) > 0 ? shape.x - actor.x - TUNING.width * k / 2 : actor.x - TUNING.width * k / 2 - shape.x - shape.w
+    return gap >= -2 && gap < 75 * k && shape.y < actor.y - 15 * k && shape.y + shape.h > actor.y - TUNING.height * k
   })
   const leavingClimb = actor.climbing && state.leg?.jump && node.climb !== `${actor.climbing.kind}:${actor.climbing.index}`
-  if (leavingClimb && actor.climbing?.ladder && dy > 110) {
+  if (leavingClimb && actor.climbing?.ladder && dy > 110 * k) {
     // Leave a descending ladder below the floor instead of jumping back into
     // its underside. Stay attached until the ordinary body has room to fall.
     input.climb = false; input.descend = true
-    input.detach = !walkingSolids.some(s => bodyIntersects(actor.x, actor.y, s, TUNING.height))
+    input.detach = bodyClear(walkingSolids, actor.x, actor.y, k)
     return input
   }
   const followingWalk = state.leg && !state.leg.jump && !state.leg.climb
-    || !state.leg && actor.grounded && !node.climb && dy < -30 && walkClear(actor, node, walkingSolids)
+    || !state.leg && actor.grounded && !node.climb && dy < -30 * k && walkClear(actor, node, walkingSolids, k)
   // A clear narrow opening needs a controlled step down. A jump overshoots
   // the hatch and lands back on its upper deck.
-  const droppingThrough = actor.grounded && !obstacle && !actor.contacts?.support?.collider.prop && !node.climb && dy > 110 && Math.abs(dx) < 180
-    && run.level.climbables.ladders.some(ladder => Math.abs(ladder.x - node.x) < 20 && ladder.top <= actor.y && ladder.bottom >= node.y - 30)
-    && !groundAt(walkingSolids, node.x, actor.y, 12)
+  const droppingThrough = actor.grounded && !obstacle && !actor.contacts?.support?.collider.prop && !node.climb && dy > 110 * k && Math.abs(dx) < 180
+    && run.level.climbables.ladders.some(ladder => Math.abs(ladder.x - node.x) < 20 * k && ladder.top <= actor.y && ladder.bottom >= node.y - 30 * k)
+    && !groundAt(walkingSolids, node.x, actor.y, 12 * k)
     && Array.from({ length: 9 }, (_, i) => actor.y + dy * (i + 1) / 9)
-      .every(y => !walkingSolids.some(s => bodyIntersects(node.x, y - .05, s, TUNING.height)))
-  const needJump = (state.leg?.jump || dy < -30 && !followingWalk || obstacle || state.stuck > .28 || !(departure && departure.takeoff)
-    && dy < 30 && Math.abs(dx) > 20 && !groundAt(run.terrain, actor.x + Math.sign(dx) * 35, actor.y, 35))
-    && !actor.climbing && !droppingThrough && !(node.climb?.startsWith('ladder:') && Math.abs(dx) < 25 && !state.leg?.jump)
+      .every(y => bodyClear(walkingSolids, node.x, y - .05, k))
+  const needJump = (state.leg?.jump || dy < -30 * k && !followingWalk || obstacle || state.stuck > .28 || !(departure && departure.takeoff)
+    // Footing short of the waypoint is walked to: the probe goes no farther than the waypoint.
+    && dy < 30 * k && Math.abs(dx) > 20 && !state.leg?.drop && !groundAt(run.terrain, actor.x + Math.sign(dx) * Math.min(35 * k, Math.abs(dx)), actor.y, 35 * k))
+    && !actor.climbing && !droppingThrough && !(node.climb?.startsWith('ladder:') && Math.abs(dx) < 25 * k && !state.leg?.jump)
   if (droppingThrough && !actor.climbing) {
     input.move = Math.abs(dx) < 6 ? 0 : Math.max(-.45, Math.min(.45, dx / 85))
     input.descend = true; input.climb = false; state.runningJump = false; state.descendingJump = true
   }
   const plannedFlight = state.leg?.jump && !obstacle ? jumpDestination(graph, actor, node, state.leg) : undefined
-  const flightTime = plannedFlight ? jumpFlight(actor, node, state.leg?.strength ?? 1, plannedFlight.reach ?? 0) : 0
-  const takeoffSpeed = plannedFlight ? botJumpTakeoffSpeed(Math.abs((plannedFlight.catchX ?? node.x) - actor.x), flightTime) : 0
+  const flightTime = plannedFlight ? jumpFlight(actor, node, state.leg?.strength ?? 1, plannedFlight.reach ?? 0, k) : 0
+  const takeoffSpeed = plannedFlight ? botJumpTakeoffSpeed(Math.abs((plannedFlight.catchX ?? node.x) - actor.x), flightTime, k) : 0
   const preparing = actor.grounded && needJump && plannedFlight && actor.vx * plannedFlight.side < takeoffSpeed - 15
-    && groundAt(run.terrain, actor.x + plannedFlight.side * 12, actor.y, 12)
+    && groundAt(run.terrain, actor.x + plannedFlight.side * 12 * k, actor.y, 12 * k)
   if (preparing) input.move = plannedFlight.side * Math.min(1, Math.max(.2, (takeoffSpeed + 40) / TUNING.runSpeed))
   const canLaunch = actor.grounded || !!(state.leg?.takeoff && actor.coyote > 0)
   if ((canLaunch && needJump && !preparing || leavingClimb) && !state.jumpCooldown) {
@@ -667,7 +794,7 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     if (actor.grounded && !launchClear(actor, input.jumpStrength, input.move, [...walkingSolids, ...obstacles])) {
       // The setup sample was clear, but this actual position or momentum is
       // not. Settle at that takeoff before trying another route.
-      if (state.launchFrom && distance(actor, state.launchFrom) < 100 && walkClear(actor, state.launchFrom, walkingSolids)) {
+      if (state.launchFrom && distance(actor, state.launchFrom) < 100 * k && walkClear(actor, state.launchFrom, walkingSolids, k)) {
         state.launchSetup = { ...state.launchFrom, time: 0 }; state.launchFrom = undefined
       } else {
         if (state.path.length) state.avoided.set(state.path[0], 1.5)
@@ -682,18 +809,31 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     input.climb = false; input.descend = false; input.detach = false
     // Planned arcs use running-speed reach even during a quiet patrol. Keep
     // that air control on rising jumps too; patrol walking pace falls short.
-    state.runningJump = !!plannedFlight || !!leavingClimb || dy >= -30 && !obstacle
-    state.descendingJump = dy > 110 && !obstacle
+    state.runningJump = !!plannedFlight || !!leavingClimb || dy >= -30 * k && !obstacle
+    state.descendingJump = dy > 110 * k && !obstacle
     if (state.runningJump) input.move = Math.sign(dx)
   }
   if (state.runningJump && !actor.climbing && Math.abs(dx) > 9) input.move = Math.sign(dx)
-  if (state.flight?.catchX !== undefined && !actor.climbing) {
-    const flight = state.flight, catchX = flight.catchX!
-    const speed = input.jump ? -(TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * input.jumpStrength!) : actor.vy
-    const discriminant = speed ** 2 + 2 * TUNING.gravity * (flight.to.y + (flight.reach ?? TUNING.hangReach) - actor.y)
-    const time = discriminant >= 0 ? Math.max(.08, (-speed + Math.sqrt(discriminant)) / TUNING.gravity) : .08
+  // A drop walks off the end of its footing at the pace its fall needs, then steers its landing like a jump.
+  const drop = state.leg?.drop
+  if (drop && !actor.climbing && !swimming) {
+    if (actor.grounded) input.move = Math.sign(dx) * Math.min(1, (drop.speed + 30) / TUNING.runSpeed)
+    else state.flight ??= { to: node, side: Math.sign(node.x - actor.x) || actor.facing }
+  }
+  // Steer the arc to arrive where it means to: a ledge catch at the hands' reach, a landing on the feet. Pushing
+  // on at full speed until overhead carries a long drop well past its landing.
+  if (state.flight && (state.flight.catchX !== undefined || !state.flight.water) && !actor.climbing) {
+    const flight = state.flight, player = run.player, landing = flight.catchX === undefined
+    // Coming down where the player stands, it lands beside them on the near side, not on their head.
+    const besidePlayer = landing && Math.abs(player.y - flight.to.y) < 40 * k && Math.abs(player.x - flight.to.x) < 36 * k
+    const catchX = flight.catchX ?? (besidePlayer ? player.x - flight.side * 36 * k : flight.to.x)
+    const reach = landing ? 0 : flight.reach ?? TUNING.hangReach * k
+    // In the world, a larger body leaves the ground and falls k times as fast as the player.
+    const speed = input.jump ? -jumpSpeedFor(input.jumpStrength!) * k : actor.vy, gravity = TUNING.gravity * k
+    const discriminant = speed ** 2 + 2 * gravity * (flight.to.y + reach - actor.y)
+    const time = discriminant >= 0 ? Math.max(.08, (-speed + Math.sqrt(discriminant)) / gravity) : .08
     const acceleration = 2 * (catchX - actor.x - actor.vx * time) / (time * time)
-    let velocity = actor.vx + Math.max(-TUNING.airAcceleration, Math.min(TUNING.airAcceleration, acceleration)) * dt
+    let velocity = actor.vx + Math.max(-TUNING.airAcceleration * k, Math.min(TUNING.airAcceleration * k, acceleration)) * dt
     // Brake while still facing the direction of travel. Tiny corrections near
     // a handhold must not spin the body back and forth on successive frames.
     if (velocity * flight.side < 5) velocity = flight.side * 5
@@ -707,8 +847,8 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
   }
   if (!actor.grounded && !actor.climbing) {
     const wanted = node.climb ?? next.climb
-    const nearby = run.level.climbables.ladders.findIndex(ladder => Math.abs(actor.x - ladder.x) < 25
-      && actor.y >= ladder.top && actor.y <= ladder.bottom + 5)
+    const nearby = run.level.climbables.ladders.findIndex(ladder => Math.abs(actor.x - ladder.x) < 25 * k
+      && actor.y >= ladder.top && actor.y <= ladder.bottom + 5 * k)
     // Up now catches ladders even during a held jump. Request that grip only
     // at the planned ladder, rather than catching an incidental one en route.
     // Ropes retain their automatic airborne catches without this Up request.
@@ -717,10 +857,10 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     // once its grab cooldown runs out; holding Detach declines the catch while the rope is still within reach.
     // Leaping for somewhere above, a fresh grip higher up the same rope is a way up, so it stays allowed.
     const leaving = state.leftRope
-    const left = leaving && wanted !== `rope:${leaving.index}` && node.y > leaving.y - 40 ? actor.ropes?.[leaving.index] : undefined
+    const left = leaving && wanted !== `rope:${leaving.index}` && node.y > leaving.y - 40 * k ? actor.ropes?.[leaving.index] : undefined
     if (left) {
-      const probe = [actor.x + actor.facing * 10, actor.y - 56]
-      if (left.nodes.some(node => Math.hypot(node.x - probe[0], node.y - probe[1]) < 45)) input.detach = true
+      const probe = [actor.x + actor.facing * 10 * k, actor.y - 56 * k]
+      if (left.nodes.some(node => Math.hypot(node.x - probe[0], node.y - probe[1]) < 45 * k)) input.detach = true
     }
   }
   if (inWater && state.flight?.water && actor.vy < 0) input.swimVertical = 0
@@ -729,9 +869,9 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
 }
 
 export function botCanReach(run: Run, robot: RobotState, goal: Node, barriers: readonly Platform[] = barriersFor(run)) {
-  const graph = botNavigationGraph(run), path = route(run, graph, robot.actor!, goal, 20, run.level.width - 20, undefined, barriers,
-    botEscapingWater(robot) || playerSwimStrength(run.gravityField, robot.actor!) > .05)
+  const k = bodySize(robot.actor!), graph = botNavigationGraph(run, k), path = route(run, graph, robot.actor!, goal, 20, run.level.width - 20, undefined, barriers,
+    botEscapingWater(robot) || botInWater(run, robot.actor!))
   const last = graph.nodes[path.at(-1) ?? -1]
-  return !!(last && (distance(last, goal) < 35 || walkClear(last, goal, [...graph.solids, ...barriers])
-    || last.swim && botSwimClear(run, last, goal, [...graph.solids, ...barriers])))
+  return !!(last && (distance(last, goal) < 35 * k || walkClear(last, goal, [...graph.solids, ...barriers], k)
+    || last.swim && botSwimClear(run, last, goal, [...graph.solids, ...barriers], k)))
 }

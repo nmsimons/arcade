@@ -76,7 +76,8 @@ test('ropes at the underside corner or hanging straight below the lip clear the 
 test('a rope cannot transfer through a ceiling, across an unreachable gap or without climb input', () => {
   for (const side of [-1, 1]) for (const kind of ['ceiling', 'distant', 'holding']) {
     const scene = setup(side)
-    if (kind === 'ceiling') scene.terrain.push({ x: 360, y: 100, w: 80, h: 60 })
+    // Lower than a crouch: a rope, like a jump, can take a crouched pull-up into a gap as tall as a crouch.
+    if (kind === 'ceiling') scene.terrain.push({ x: 360, y: 100, w: 80, h: 75 })
     if (kind === 'distant') scene.terrain[0].x += side * 100
     for (let i = 0; i < 260; i++) {
       tick(scene, { climb: kind !== 'holding' })

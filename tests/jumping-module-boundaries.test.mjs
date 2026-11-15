@@ -43,7 +43,7 @@ const ALLOWED = {
   'gadgets.ts': { 'athletePose.ts': ['athletePose'], 'characterAnimation.ts': ['cadence'], 'gameplayPose.ts': ['gameplayPose'] },
   // The robot's palm and firing line use the physics rig.
   'repulsorBot.ts': { 'athletePose.ts': ['athletePose'], 'gameplayPose.ts': ['physicsView'] },
-  'repulsorBotRig.ts': { 'athletePose.ts': ['awakeningPose', 'presentedAthletePose'] },
+  'repulsorBotRig.ts': { 'athletePose.ts': ['awakeningPose', 'collapsedPose', 'presentedAthletePose'] },
   // Foot contact geometry and the toe brace profile.
   'ledge.ts': { 'footwork.ts': ['wallToeBrace'] },
   'stepUp.ts': { 'footwork.ts': ['FOOT_CONTACT'] },
@@ -102,7 +102,7 @@ const ANIM_FIELDS = {
   'goal.ts': ['footwork'], 'gravityFrame.ts': ['footwork'],
   'model.ts': ['cadence', 'dryTurn', 'footwork', 'gait', 'pending', 'ragdoll', 'slideEntry', 'stride'],
   'playerContacts.ts': ['dryTurn', 'footwork', 'slideEntry'], 'repulsorBot.ts': ['gait'], 'shove.ts': ['dryTurn'],
-  'stepUp.ts': ['dryTurn', 'footwork', 'gait', 'stride'],
+  'sizeFrame.ts': ['footwork', 'pending'], 'stepUp.ts': ['dryTurn', 'footwork', 'gait', 'stride'],
 }
 
 test('simulation modules touch only the listed animation fields', () => {

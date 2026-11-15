@@ -1,10 +1,19 @@
 import type { RobotState } from './challenge.ts'
+import { bodySize } from './sizeFrame.ts'
 import { AWAKENING_SECONDS, awakeningProgress, entranceVisibility } from './goal.ts'
 import type { Player } from './model.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
-import { awakeningPose, presentedAthletePose } from './athletePose.ts'
+import { awakeningPose, collapsedPose, presentedAthletePose } from './athletePose.ts'
 
-export const REPULSOR_BOT_WIDTH_SCALE = 1.45
+/** Rbot is this many times the player's size: its body, reach and rig, stepped and posed in a scaled frame (sizeFrame.ts). */
+export const REPULSOR_BOT_SIZE = 1.35
+/** And broader again than its size: a heavy machine, not a large player. */
+export const REPULSOR_BOT_WIDTH_SCALE = 1.62
+/** Its head is smaller than its size would make it, so the body carries the mass. */
+const HEAD_SCALE = .8
+/** The height Rbot sights and aims from, above its feet, at the player's size. */
+const CHEST = 42
+export const repulsorBotChestY = (robot: Pick<RobotState, 'y' | 'actor'>) => robot.y - CHEST * (robot.actor ? bodySize(robot.actor) : 1)
 const smooth = (n: number) => { const t = Math.max(0, Math.min(1, n)); return t * t * (3 - 2 * t) }
 
 /** Screen-horizontal broadening flattens a pitched swimmer and its yaw turn. */
@@ -13,10 +22,12 @@ export const repulsorBotWidthScale = (actor: Player) => 1 + (REPULSOR_BOT_WIDTH_
 /** Artwork and shadow geometry must use the same entrance or waking actor. */
 export function repulsorBotPresentation(robot: RobotState) {
   const actor = robot.entrance?.player ?? robot.actor!
-  return { actor, opacity: robot.entrance ? entranceVisibility(robot.entrance.elapsed) : 1,
-    pose: repulsorBotPose(actor, robot.awakening && robot.awakening.elapsed < AWAKENING_SECONDS
-      ? awakeningPose(actor, awakeningProgress(robot.awakening.elapsed)) : undefined) }
+  const base = robot.awakening && robot.awakening.elapsed < AWAKENING_SECONDS ? awakeningPose(actor, awakeningProgress(robot.awakening.elapsed))
+    : robot.collapse ? collapsedPose(presentedAthletePose(actor), smooth(robot.collapse)) : undefined
+  return { actor, opacity: robot.entrance ? entranceVisibility(robot.entrance.elapsed) : 1, pose: repulsorBotPose(actor, base) }
 }
+
+
 
 /** Broaden the shell and upper limbs without sliding planted feet or palms. */
 export function repulsorBotPose(actor: Player, pose = presentedAthletePose(actor)) {
@@ -40,7 +51,7 @@ export function repulsorBotPose(actor: Player, pose = presentedAthletePose(actor
         : limb.hand ? { hand: armPoint(limb.hand) } : {}) }
   }
   return { ...pose, hip: trunk(pose.hip), waist: trunk(pose.waist), shoulder: trunk(pose.shoulder), head: trunk(pose.head),
-    shellWidth: 1 + (REPULSOR_BOT_WIDTH_SCALE - 1) * swimming,
+    shellWidth: 1 + (REPULSOR_BOT_WIDTH_SCALE - 1) * swimming, headScale: HEAD_SCALE,
     // Keep the soles compact beneath the widened leg armor.
     forearmScale: 2.6, handScale: 2, calfScale: 2.6, footScale: 1,
     frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg), frontArm: arm(pose.frontArm), backArm: arm(pose.backArm) }

@@ -3,13 +3,14 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
-import { createPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { createPlayer, NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { botCanReach, botNavigationGraph } from '../src/games/jumping/botNavigation.ts'
 import { botSwimClear, botWaterPosition } from '../src/games/jumping/botWaterNavigation.ts'
 import { presentedAthletePose } from '../src/games/jumping/athlete.ts'
-import { repulsorBotPose, repulsorBotWidthScale } from '../src/games/jumping/repulsorBotRig.ts'
+import { repulsorBotPose, repulsorBotWidthScale, REPULSOR_BOT_SIZE } from '../src/games/jumping/repulsorBotRig.ts'
 import { robotHeadlightPose } from '../src/games/jumping/robotHeadlight.ts'
 import { advanceWaterLevels } from '../src/games/jumping/waterLevel.ts'
+import { bodySize } from '../src/games/jumping/sizeFrame.ts'
 import { playerSwimStrength, updateGravityField } from '../src/games/jumping/gravity.ts'
 import { createRepulsorActor } from '../src/games/jumping/repulsorBot.ts'
 
@@ -32,7 +33,8 @@ function assertSwimmingRig(bot) {
   for (const name of ['frontArm', 'backArm']) for (const point of ['root', 'joint', 'end']) {
     assert.ok(Math.abs(pose[name][point][0] * width - native[name][point][0]) < 1e-8, 'both hands retain the shared solved stroke and contact targets')
   }
-  assert.ok(Math.abs(robotHeadlightPose(bot).x - (bot.x + (pose.head[0] * width + 11) * bot.facing)) < 1e-8)
+  // The pose is in Rbot's own units; its lamp is in the world, at its size.
+  assert.ok(Math.abs(robotHeadlightPose(bot).x - (bot.x + (pose.head[0] * width + 11) * bot.facing * bodySize(actor))) < 1e-8)
 }
 
 for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) test(`a submerged Rbot surfaces and jumps onto a high bank (${side}, ${dt})`, () => {
@@ -95,6 +97,8 @@ test('a large map with water retains all of its existing surface, ladder and rop
 
 test('Quarantine II: a fresh fall commits to a bank exit while the player keeps diving', () => {
   const run = createRun(quarantine()), bot = run.robots[0]
+  // A full-size Rbot can stay out of the pool from its ledge; drop it in, as the fall this test is about.
+  bot.actor = createRepulsorActor(1300, 980); bot.actor.grounded = false; bot.x = 1300; bot.y = 980
   let wet = false, exited = false, exitFrame, previousPalms, previousWet = false
   let flightTurns = 0, previousFlightTurn = false
   for (let frame = 0; frame < 16 * 120; frame++) {
@@ -196,15 +200,26 @@ test(`Quarantine III: Rbot leaves ${fill}% water from ${x} using real jumps and 
   level.gravityPlates.find(p => p.effect === 'water').waterLevel = fill
   const run = createRun(level), bot = run.robots[0]
   bot.actor = createRepulsorActor(x, 1380); bot.actor.grounded = false; bot.x = x; bot.y = 1380
-  let jumped = false, climbed = false, exited = false
+  // Rbot is REPULSOR_BOT_SIZE times the player's size. Water shallower than half its height is ground it wades
+  // through; deeper, it leaves with a real jump, straight to the bank (a player-size bot needed the rope from
+  // the low water).
+  const depth = run.water.pools[0].region.h, wading = depth < TUNING.height * REPULSOR_BOT_SIZE / 2
+  let jumped = false, exited = false, swam = false, landed = false, from = bot.x, travelled = 0
   for (let frame = 0; frame < 30 / dt && !exited; frame++) {
     stepRun(run, NEUTRAL_INPUT, dt)
     jumped ||= !!bot.actor.waterJump || !!bot.actor.jumpLift
-    climbed ||= bot.actor.climbing?.kind === 'rope'
-    exited = bot.actor.grounded && playerSwimStrength(run.gravityField, bot.actor) < .05
+    // It is dropped in from above: once its feet find the floor, it wades rather than swims.
+    landed ||= bot.actor.grounded
+    swam ||= landed && (bot.actor.waterMotion?.amount ?? 0) > .5
+    travelled = Math.max(travelled, Math.abs(bot.x - from))
+    exited = !wading && bot.actor.grounded && playerSwimStrength(run.gravityField, bot.actor) < .05
+  }
+  if (wading) {
+    assert.ok(!swam && bot.actor.grounded, `shallow water is ground to Rbot: ${bot.x},${bot.y}`)
+    assert.ok(travelled > 100, 'it wades on, rather than waiting to escape water it stands in')
+    return
   }
   assert.ok(jumped, 'surface jumps and shallow ground takeoffs use the shared motor')
-  if (fill <= 20) assert.ok(climbed, 'the low water is too far below the bank for a direct jump')
   assert.ok(exited, `failed to climb out from the low water: ${bot.x},${bot.y}`)
 })
 
@@ -213,6 +228,8 @@ for (const dt of [STEP, 1 / 30]) test(`Rbot can board a submerged ladder and cli
   level.platforms.forEach(p => { p.y = 100; p.h = 700 })
   level.entrance.y = 100
   level.climbables.ladders = [{ x: 970, top: 100, bottom: 800, platform: -1, side: -1 }]
+  // Keep the banks beyond a full-size Rbot's jump and catch from the surface, so the ladder is the way out.
+  level.gravityPlates[0] = { ...level.gravityPlates[0], y: 520, h: 280 }
   const run = createRun(level), bot = run.robots[0]
   let climbed = false, exited = false
   for (let frame = 0; frame < 20 / dt && !exited; frame++) {

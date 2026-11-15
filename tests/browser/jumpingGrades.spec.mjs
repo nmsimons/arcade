@@ -84,17 +84,24 @@ for (const storageAvailable of [true, false]) test(`a D run opens the next cours
   }
 })
 
-test('F dims the zero timer and greys time pickups; exploring and finishing never opens the next course', async ({ page }, info) => {
+test('F stops the timer at the D limit, dims it, and greys time pickups; exploring and finishing never opens the next course', async ({ page }, info) => {
   const levels = maps()
   levels[0].pickups = [
     { kind: 'time-bonus', seconds: 9, x: 250, y: 885 }, { kind: 'time-penalty', seconds: 9, x: 330, y: 885 },
     { kind: 'stopwatch', x: 410, y: 885 }, { kind: 'fast-stopwatch', x: 490, y: 885 }, { kind: 'coin', x: 570, y: 885 },
   ]
   await open(page, levels); await start(page)
-  await advanceJumpingPassiveWait(page, 4500)
-  await expect(page.locator('.jumping-grade-status')).toContainText('Grade F')
+  // D at four seconds is inside the ten-second warning from the start: the clock flashes red.
   const canvas = page.getByRole('img', { name: 'First course: reach the exit', exact: true })
-  await expect.poll(() => canvas.evaluate(c => c.digitalClocks?.some(clock => clock.value === '00:00' && clock.color === '#56645a'))).toBe(true)
+  await advanceJumpingPassiveWait(page, 1000)
+  await expect(page.getByRole('alert')).toHaveText('Power down in under 10 seconds.')
+  // Half of each beat is red; step through one to catch it.
+  await expect.poll(async () => { await page.clock.runFor(100); return canvas.evaluate(c => c.digitalClocks?.some(clock => clock.color === '#e98678')) }).toBe(true)
+  await advanceJumpingPassiveWait(page, 3500)
+  await expect(page.locator('.jumping-grade-status')).toContainText('Grade F')
+  await expect.poll(() => canvas.evaluate(c => c.digitalClocks?.some(clock => clock.value === '00:04' && clock.color === '#56645a'))).toBe(true)
+  // Power down ends the warning.
+  await expect(page.getByRole('alert')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('failed-exploration.png') })
   await expect(await finish(page)).toHaveText(/^First course not passed\. /)
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}')['graded-one'], BEST_TIME_KEY)).toBeGreaterThan(4)

@@ -476,6 +476,11 @@ extra clock needs a visibility reason. Current clocks have a fixed six-by-two
 tile footprint, so make them unobtrusive through placement rather than assuming
 they can be resized.
 
+Clocks count up. The run itself warns of the power-down in its last 10 seconds
+before D, with red clocks, a glow along the level's border and a double pip each
+second, so no clock needs placing just to carry that warning. A level whose D
+deadline is under 10 seconds warns for the whole run.
+
 Compose clocks, meters, and text together, with consistent margins and clear
 space around them. Inspect them at gameplay scale, including while moving.
 Cleanliness comes from fewer purposeful elements and disciplined use of the

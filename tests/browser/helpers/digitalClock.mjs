@@ -13,8 +13,4 @@ export async function installDigitalClockSpy(page) {
 }
 
 /** HUD/result timing retains hundredths; the wall face shows whole seconds. */
-export const wallTimeFromHud = (value, deadline) => {
-  const [minutes, seconds] = value.split(':').map(Number)
-  const remaining = Math.ceil(Math.max(0, deadline - minutes * 60 - seconds) - 1e-7)
-  return `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
-}
+export const wallTimeFromHud = value => value.split('.')[0].padStart(5, '0')

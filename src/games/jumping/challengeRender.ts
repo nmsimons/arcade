@@ -14,7 +14,9 @@ import { drawBusGoal } from './busEndingRender.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, drawDoorChevrons, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds, goalDoor, goalEase, goalPoleX, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import type { AndroidAppearance } from './androidArtwork.ts'
 import { drawWallTimer } from './wallTimer.ts'
-import { gradeClock } from './grading.ts'
+import { gradeClock, gradeTimes } from './grading.ts'
+import { levelHeight } from './level.ts'
+import { drawPowerDownBorder, powerDownFlash, powerDownWarning } from './powerDownWarning.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
 import { drawCoinSwitch } from './coins.ts'
 import { gameCamera } from './camera.ts'
@@ -240,7 +242,10 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
     const clockStatus = clockFinished ? 'finished' : clockStopped ? 'pause' : clockFast ? 'fast' : undefined
     const clock = level.timing === 'untimed' || !level.times ? undefined : gradeClock({ times: level.times }, run.elapsed, run.failed)
-    if (!layerSkipped('displays')) for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, clock?.remaining ?? 0, clockStatus, paint, clock?.grade)
+    const warning = !editor && powerDownFlash(powerDownWarning(run))
+    // At F the clocks stop at the D deadline, showing the limit that was passed.
+    const shown = !clock ? 0 : run.failed ? gradeTimes({ times: level.times! }).d : run.elapsed
+    if (!layerSkipped('displays')) for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, shown, clockStatus, paint, clock?.grade, warning)
     if (!layerSkipped('displays')) for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active, paint, run.failed)
     // Collectibles receive the light field without casting shadows. Keep their
     // artwork and collection effects behind terrain and movable objects.
@@ -305,6 +310,9 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   if (!layerSkipped('water')) for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)
   if (!editor && !layerSkipped('effects')) drawSplashes(ctx, run, paint)
+  // The power-down warning glows along the level's border, over everything in it.
+  const borderWarning = editor ? null : powerDownWarning(run)
+  if (borderWarning) drawPowerDownBorder(ctx, { width: level.width, height: levelHeight(level) }, borderWarning, paint)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run, view = gameCamera(width, height, run.player, run.level, true)) {
   const { level } = run

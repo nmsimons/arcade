@@ -38,6 +38,7 @@ import type { Run } from './jumping/challenge'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration } from './jumping/goal'
 import { COMPLETION_KEY, readCompleted, saveCompleted } from './jumping/completion'
 import { gradeClock } from './jumping/grading'
+import { POWER_DOWN_WARNING_SECONDS, powerDownWarning } from './jumping/powerDownWarning'
 import type { EntranceAnimation } from './jumping/goal'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile, LocalLevelEntry } from './jumping/levelAssets'
@@ -440,7 +441,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const [endingPhase, setEndingPhase] = useState('')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
-  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0, grade: 'A', remaining: 0 })
+  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0, grade: 'A', remaining: 0, warning: false })
 
   /** `quiet` opens the paused screen without the pause sound, as the start screen does. */
   function changeScreen(next: Screen, reason?: string, quiet = false) {
@@ -1053,6 +1054,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       } else adaptiveLighting?.suspend()
       const updated = measuring ? performance.now() : 0
       paint(input ? dt : 0)
+      const warning = run.current && screenRef.current === 'playing' ? powerDownWarning(run.current) : null
       if (measuring && input && screenRef.current === 'playing') {
         const summary = performanceMonitor?.record(now, updated - started, performance.now() - updated, steps)
         if (summary) setPerformanceSnapshot({ ...summary, width: canvas.width, height: canvas.height, scale: ratio,
@@ -1064,11 +1066,12 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         const entering = run.current?.entrance || playgroundEntrance.current
         const next = { state: entering ? entering.kind === 'charging-bay' ? 'Waking up' : 'Entering the level' : run.current?.exit ? 'Entering the exit' : playerState(p),
           elapsed: run.current?.elapsed ?? 0,
-          ...(run.current?.level.times ? gradeClock({ times: run.current.level.times }, run.current.elapsed, run.current.failed) : { grade: 'A', remaining: 0 }) }
+          ...(run.current?.level.times ? gradeClock({ times: run.current.level.times }, run.current.elapsed, run.current.failed) : { grade: 'A', remaining: 0 }),
+          warning: !!warning }
         // Unchanged metrics, as while paused, must not re-render: on a slow frame those renders
         // would starve the router's transition, and a link followed from the pause screen would never open.
         setMetrics(current => current.state === next.state && current.elapsed === next.elapsed && current.grade === next.grade
-          && current.remaining === next.remaining ? current : next)
+          && current.remaining === next.remaining && current.warning === next.warning ? current : next)
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -1100,6 +1103,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         {facilityWhere && <span role="status" aria-live="polite" data-testid="facility-notice">{facilityNotice}</span>}
         <span className="jumping-state">{metrics.state}</span>
         {challenge && trial.timing !== 'untimed' && <span className="jumping-grade-status">Grade {metrics.grade}{metrics.grade === 'F' ? ' · Exploration run; restart to progress.' : ` · ${Math.ceil(metrics.remaining)} seconds remaining`}</span>}
+        {challenge && trial.timing !== 'untimed' && metrics.warning && <span role="alert">Power down in under {POWER_DOWN_WARNING_SECONDS} seconds.</span>}
         {challenge && trial.timing !== 'untimed' && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}
       </aside>
     </>}

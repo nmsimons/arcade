@@ -9,6 +9,7 @@ import { robotDrive, robotPlatforms } from './robotPhysics.ts'
 import { chargingBayOpening } from './goal.ts'
 import { triggerToggleGroup } from './toggleGroups.ts'
 import { powerOut } from './power.ts'
+import { powerDownWarning } from './powerDownWarning.ts'
 import { landingDustStrength, PROP_TICK_STRENGTH, recordWorldEffect, splashEnergy, splashEntrySpeed } from './worldEffects.ts'
 import type { WorldEffectKind } from './worldEffects.ts'
 import type { PlayerCollider } from './playerContacts.ts'
@@ -20,7 +21,7 @@ import { goalEase } from './goal.ts'
 import { openAirAt } from './environment.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo' | 'pump'
-export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'emp-shot' | 'repulsor' | 'shove'
+export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'power-warning' | 'emp-shot' | 'repulsor' | 'shove'
   | 'relay' | 'drip' | 'bubble' | 'bird-whistle' | 'bird-trill' | 'bird-chirp' | 'air-brake'
 /** What a step or landing comes down on, which colours its sound (sound.ts). */
 export type Surface = 'stone' | 'earth' | 'grass' | 'metal' | 'wood' | 'rubber'
@@ -167,6 +168,8 @@ export class JumpingAudioState {
   private readonly bubbles = new Occasional(13, .9, 2.2)
   private readonly endingBirds = new Occasional(29, 2.2, 5)
   private endingTime: number | null = null
+  /** The power-down warning beat last sounded, so each beat beeps once. */
+  private warningBeat: number | null = null
 
   reset(p: Player, run: Run | null) {
     this.previous = snapshot(p, run)
@@ -178,6 +181,8 @@ export class JumpingAudioState {
     const time = run?.activeTime ?? 0
     this.drips.start(time); this.birds.start(time); this.bubbles.start(time)
     this.endingTime = null
+    // A respawn or resumed view does not repeat the beat already heard.
+    this.warningBeat = run ? powerDownWarning(run)?.beat ?? null : null
   }
 
   step(p: Player, run: Run | null, dt: number) {
@@ -357,6 +362,13 @@ export class JumpingAudioState {
         this.cues.unshift({ kind: 'power-down', volume: 1, pan: 0, strength: 1 })
         if (this.cues.length > 8) this.cues.pop()
       }
+      // Its last ten seconds beep once a second, everywhere, until the power goes; the final three a little higher.
+      const warning = powerDownWarning(run)
+      if (warning && warning.beat !== this.warningBeat) {
+        this.cues.unshift({ kind: 'power-warning', volume: 1, pan: 0, strength: 1, pitch: warning.remaining < 3 ? 1.19 : 1 })
+        if (this.cues.length > 8) this.cues.pop()
+      }
+      this.warningBeat = warning?.beat ?? null
       if (run.gadgets.shots > before.shots) cue(run.gadgets.lastShotKind === 'emp' ? 'emp-shot' : 'repulsor', p.x, p.y - 30)
       if (run.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length > before.penalties) cue('time-penalty', p.x, p.y - 30)
       // Another stopwatch extends an existing pause and still deserves feedback.

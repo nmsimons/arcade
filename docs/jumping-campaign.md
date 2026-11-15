@@ -222,8 +222,10 @@ the course it is playing, or its escape level) and the state of each untimed
 place it has left. Wake's pod is the game's only charging bay; the facility has
 no save points to visit.
 
-The wall clock counts down to the D deadline while showing the current A/B/C/D
-grade. Passing D permanently makes that run F: the timer dims at zero and the
+The wall clock counts the run's time up while showing the current A/B/C/D
+grade. In the last 10 seconds before the D deadline, the clocks flash red, the
+level's border glows and a double pip sounds each second until the power goes.
+Passing D permanently makes that run F: the timer stops at D and dims, and the
 level powers down with a breaker clunk. The room lights flicker out, coins and
 clock collectibles vanish, and mechanisms, fields, bots and gadgets lose power
 for the rest of the run, but the exit opens and glows in the dark. The player

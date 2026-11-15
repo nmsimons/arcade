@@ -37,7 +37,9 @@ const SURFACES: Readonly<Record<Surface, SurfaceTone>> = {
  * the bus's air brakes letting go about as loud as a hard landing.
  */
 const CUE_LEVEL: Partial<Record<SoundCue['kind'], number>> = { relay: .08, drip: .035, bubble: .0083,
-  'bird-whistle': .00207, 'bird-trill': .00355, 'bird-chirp': .00279, 'air-brake': .0288 }
+  'bird-whistle': .00207, 'bird-trill': .00355, 'bird-chirp': .00279, 'air-brake': .0288,
+  // Heard over everything for ten seconds: urgent, but no louder than the pickups' chimes.
+  'power-warning': .34 }
 /** Where the muffling shelf starts, in hertz: above a step's thump, below a crate's knock. */
 const MUFFLE_FROM = 700
 
@@ -411,6 +413,16 @@ export function* soundSteps(rate: number): Generator<void, SoundSamples> {
         return age < 0 ? 0 : Math.sin(age * Math.PI * 2 * frequency) * Math.min(1, age / .006) * Math.exp(-age * 18)
       }
       return (note(0, 330) + note(.14, 220)) * .18 * Math.min(1, (.46 - t) / .03)
+    }),
+    // The power-down warning: an urgent double pip, bright with odd harmonics like an alarm's buzzer, each one short and clipped.
+    'power-warning': make(.24, t => {
+      const pip = (start: number) => {
+        const age = t - start
+        if (age < 0 || age > .07) return 0
+        const phase = age * Math.PI * 2 * 1175
+        return (Math.sin(phase) + .3 * Math.sin(phase * 3) + .12 * Math.sin(phase * 5)) * Math.min(1, age / .004) * Math.min(1, (.07 - age) / .012)
+      }
+      return (pip(0) + pip(.11)) * .2
     }),
     // The whole level losing power: a breaker clunk, a second as the lights cut,
     // and a mains hum winding down to nothing.

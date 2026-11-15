@@ -471,16 +471,26 @@ duplicate, or delete it. Inspector Y measures its top
 above the floor, and increasing level height preserves that height. Terrain edits
 do not move these wall objects.
 
-Every display shows time remaining before F as glowing seven-segment `00:00`
+Every display counts the run's time up from `00:00` as glowing seven-segment
 minutes and seconds, with no hours or fractions. The face saturates at `59:59`;
 the underlying run time, grades, and best times retain their full precision and
 range. Earlier, larger clocks keep their saved top-left positions. Digits are
 green normally and on completion; the left LED bay shows the current A/B/C/D/F
-grade. Freeze/fast effects keep their amber/red digit colors. The face starts
-at the D deadline, pauses with the game and latches on exit entry. At F it stays
-zero and dim, and the level powers down for the rest of the run. Restart
-restores the deadline, power and pickups. Time bonuses can improve the current
-grade and remaining time before F, but cannot revive a failed run.
+grade. Freeze/fast effects keep their amber/red digit colors. The face pauses
+with the game and latches on exit entry.
+
+When fewer than 10 seconds remain before the D deadline, the run warns of the
+coming power-down once a second of play: every clock lights red for the first
+half of each second, the level's border glows red, swelling on each beat,
+and a quick double pip sounds, a little higher for the last three seconds. The
+warning keeps going, through a stopwatch's freeze, until the level powers down.
+Reaching the exit first ends it, as does a time bonus that takes the run back
+above 10 seconds before the deadline.
+
+At F the clock stops at the D deadline, showing the limit that was passed, and
+dims, and the level powers down for the rest of the run. Restart restores the
+clock, power and pickups. Time bonuses can improve the current grade and time
+before F, but cannot revive a failed run.
 
 Powering down at F works like an EMP outage that never ends. Gates, elevators
 and moving platforms stop where they are and stay solid. Plates and float

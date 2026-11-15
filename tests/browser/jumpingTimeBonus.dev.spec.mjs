@@ -67,7 +67,7 @@ test('numbered bonuses subtract elapsed time, clamp to zero, disappear and retur
   await page.screenshot({ path: info.outputPath('time-bonuses-ready.png') })
   await page.keyboard.down('w'); await page.clock.runFor(6000); await page.keyboard.up('w')
   const before = (await state(page)).times[0]
-  expect(before).toBe('00:54')
+  expect(before).toBe('00:06')
   await expect(page.getByTestId('level-time')).toHaveText(/^0:06\./)
   await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d'); await page.clock.runFor(100)
   const firstLabel = (await state(page)).labels[0]
@@ -75,7 +75,7 @@ test('numbered bonuses subtract elapsed time, clamp to zero, disappear and retur
   await page.clock.runFor(300)
   const collected = await state(page)
   expect(collected.numbers).toEqual(['9'])
-  expect(collected.times[0]).toBe('00:58')
+  expect(collected.times[0]).toBe('00:02')
   await expect(page.getByTestId('level-time')).toHaveText(/^0:02\./)
   expect(collected.labels).toHaveLength(1)
   expect(collected.labels[0].value).toBe('−5')
@@ -85,17 +85,17 @@ test('numbered bonuses subtract elapsed time, clamp to zero, disappear and retur
   await page.screenshot({ path: info.outputPath('time-bonus-collected.png') })
   await page.keyboard.down('d'); await page.clock.runFor(700); await page.keyboard.up('d'); await page.clock.runFor(400)
   expect((await state(page)).numbers).toEqual([])
-  expect((await state(page)).times[0]).toBe('01:00')
+  expect((await state(page)).times[0]).toBe('00:00')
   await expect(page.getByTestId('level-time')).toHaveText(/^0:00\./)
   expect((await state(page)).labels.map(label => label.value)).toEqual(['−9'])
   await page.clock.runFor(1000)
-  expect((await state(page)).times[0]).toBe('00:59')
+  expect((await state(page)).times[0]).toBe('00:01')
   await expect(page.getByTestId('level-time')).toHaveText(/^0:01\./)
   expect((await state(page)).labels).toEqual([])
   await restartFromPause(page); await page.clock.runFor(64)
   expect((await state(page)).numbers).toEqual(['5', '9'])
   expect((await state(page)).labels).toEqual([])
-  expect((await state(page)).times).toEqual(['01:00'])
+  expect((await state(page)).times).toEqual(['00:00'])
 })
 
 test('Time bonus places, edits its number, undoes, saves and reopens', async ({ page }, info) => {

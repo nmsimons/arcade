@@ -15,8 +15,9 @@ export function formatWallTime(seconds: number) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
+/** Clocks count the run's time up from zero. `warning` lights them red for the flash of each power-down warning beat. */
 export function drawWallTimer(ctx: CanvasRenderingContext2D, timer: WallTimer, seconds: number,
-  status?: Exclude<DigitalIcon, 'coin'>, paint?: WorldPaint, grade?: Grade) {
-  const color = status === 'pause' ? DIGITAL_AMBER : status === 'fast' ? DIGITAL_RED : DIGITAL_GREEN
-  drawDigitalDisplay(ctx, timer.x, timer.y, formatWallTime(grade ? Math.ceil(seconds - 1e-7) : seconds), color, status, paint, { grade, dimmed: grade === 'F' })
+  status?: Exclude<DigitalIcon, 'coin'>, paint?: WorldPaint, grade?: Grade, warning = false) {
+  const color = warning || status === 'fast' ? DIGITAL_RED : status === 'pause' ? DIGITAL_AMBER : DIGITAL_GREEN
+  drawDigitalDisplay(ctx, timer.x, timer.y, formatWallTime(seconds), color, status, paint, { grade, dimmed: grade === 'F' })
 }

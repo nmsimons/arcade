@@ -483,8 +483,8 @@
     ]
   },
   "timing": "untimed",
+  "wallFinish": "upright",
   "floor": 2000,
-  "wallFinish": "plank",
   "kind": "hub",
   "props": [],
   "mechanisms": [],

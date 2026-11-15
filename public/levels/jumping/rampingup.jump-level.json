@@ -457,6 +457,7 @@
     "ropes": []
   },
   "floorMaterial": "earth",
+  "wallFinish": "plate",
   "floor": 1600,
   "goal": {
     "switchLogic": "and",

@@ -127,6 +127,7 @@
     "ladders": [],
     "ropes": []
   },
+  "wallFinish": "plate",
   "floor": 920,
   "goal": {
     "name": "Transfer interlock exit",

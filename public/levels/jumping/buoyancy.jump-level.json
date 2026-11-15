@@ -255,6 +255,7 @@
     "ladders": [],
     "ropes": []
   },
+  "wallFinish": "plate",
   "floor": 1340,
   "goal": {
     "x": 30,

@@ -1131,6 +1131,7 @@
     ]
   },
   "floorMaterial": "steel",
+  "wallFinish": "upright",
   "floor": 2050,
   "goal": {
     "name": "Coin exit",

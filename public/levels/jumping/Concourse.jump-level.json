@@ -1006,6 +1006,7 @@
   },
   "timing": "untimed",
   "floorMaterial": "stone",
+  "wallFinish": "upright",
   "floor": 1900,
   "kind": "hub",
   "props": [

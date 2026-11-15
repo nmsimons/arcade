@@ -1193,6 +1193,7 @@
     ]
   },
   "floorMaterial": "earth",
+  "wallFinish": "upright",
   "floor": 2000,
   "goal": {
     "x": 1282.8382352941176,

@@ -452,6 +452,7 @@
       }
     ]
   },
+  "wallFinish": "plate",
   "floor": 920,
   "goal": {
     "wireTerminal": {

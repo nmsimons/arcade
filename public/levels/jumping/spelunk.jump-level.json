@@ -1334,6 +1334,7 @@
       }
     ]
   },
+  "wallFinish": "plate",
   "floor": 2020,
   "goal": {
     "switchLogic": "and",

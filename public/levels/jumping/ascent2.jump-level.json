@@ -266,6 +266,7 @@
     "ladders": [],
     "ropes": []
   },
+  "wallFinish": "upright",
   "floor": 4000,
   "goal": {
     "x": 717,

@@ -1444,6 +1444,7 @@
       "startsOn": true
     }
   ],
+  "wallFinish": "plank",
   "floor": 1400,
   "goal": {
     "x": 1295.9607843137255,

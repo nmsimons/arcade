@@ -773,6 +773,7 @@
     ]
   },
   "floorMaterial": "steel",
+  "wallFinish": "plank",
   "floor": 3000,
   "goal": {
     "name": "Coin exit",

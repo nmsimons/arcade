@@ -3264,6 +3264,7 @@
     ]
   },
   "floorMaterial": "stone",
+  "wallFinish": "upright",
   "floor": 5000,
   "goal": {
     "x": 415,

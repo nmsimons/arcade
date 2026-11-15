@@ -412,6 +412,7 @@
       }
     ]
   },
+  "wallFinish": "upright",
   "floor": 1300,
   "goal": {
     "x": 1260,

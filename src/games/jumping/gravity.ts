@@ -81,6 +81,20 @@ export function gravityAtPoint(field: GravityField, x: number, y: number, baseli
   return baseline
 }
 
+/** How much of a point is water, 0 to 1: the listener's head, for the sound of being under water (ambience.ts). */
+export function waterAtPoint(field: GravityField, x: number, y: number) {
+  if (!field.hasWater) return 0
+  for (const strip of field.strips) {
+    if (strip.left > x) break
+    if (x >= strip.right) continue
+    for (const span of strip.spans) {
+      if (span.top > y) break
+      if (y < span.bottom) return span.swim
+    }
+  }
+  return 0
+}
+
 // Fixed scratch space: clipping convex player/box hulls creates no per-cell arrays.
 const scratchA = new Float64Array(32), scratchB = new Float64Array(32)
 export function clippedPolygonArea(points: readonly Vec[], left: number, top: number, right: number, bottom: number) {

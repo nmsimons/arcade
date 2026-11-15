@@ -98,5 +98,7 @@ test('one quiet unpitched hiss follows the same thrust and disappears when it st
   assert.deepEqual(audio.drain().loops, [])
   p.airBoost.x = 1; p.grounded = true; audio.step(p, null, STEP)
   assert.deepEqual(audio.drain().loops, [])
-  audio.reset(p, null); assert.deepEqual(audio.drain(), { loops: [], cues: [] })
+  audio.reset(p, null)
+  const { loops, cues } = audio.drain()
+  assert.deepEqual({ loops, cues }, { loops: [], cues: [] })
 })

@@ -12,14 +12,25 @@ import { powerOut } from './power.ts'
 import { landingDustStrength, PROP_TICK_STRENGTH, recordWorldEffect, splashEnergy, splashEntrySpeed } from './worldEffects.ts'
 import type { WorldEffectKind } from './worldEffects.ts'
 import type { PlayerCollider } from './playerContacts.ts'
+import { levelAmbience, listenerUnderwater, runningPumps, underOpenSky } from './ambience.ts'
+import { busEndingFrame } from './busEnding.ts'
+import type { BusEnding } from './busEnding.ts'
+import { goalEase } from './goal.ts'
+import { openAirAt } from './environment.ts'
 
-export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo'
+export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo' | 'pump'
 export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'emp-shot' | 'repulsor' | 'shove'
+  | 'relay' | 'drip' | 'bubble' | 'bird-whistle' | 'bird-trill' | 'bird-chirp' | 'air-brake'
 /** What a step or landing comes down on, which colours its sound (sound.ts). */
 export type Surface = 'stone' | 'earth' | 'grass' | 'metal' | 'wood' | 'rubber'
-export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number; surface?: Surface }
+/** `pitch` plays a cue faster or slower than written: a bird or a bubble of another size. */
+export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number; surface?: Surface; pitch?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
-export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
+/**
+ * `ambience` is the level's standing sound (ambience.ts); a frame without it lets every bed fall silent. `underwater`,
+ * 0 to 1, is how far under water the listener's head is: everything heard through the air is muffled by it.
+ */
+export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[]; ambience?: Ambience; underwater?: number }
 const clamp = (n: number, min = 0, max = 1) => Math.max(min, Math.min(max, n))
 
 /**
@@ -89,6 +100,9 @@ function snapshot(p: Player, run: Run | null) {
     penalties: run?.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length ?? 0,
     emps: run?.pickups.filter(p => p.definition.kind === 'emp' && p.collectedAge !== null).length ?? 0,
     goalLit: run?.goalLit ?? false, stopped: run?.timeStopRemaining ?? 0, exiting: !!run?.exit,
+    lights: run?.level.wallLights?.map(light => !!run.switchStates.get(light.id)) ?? [],
+    fields: run?.forceFields.map(field => field.active) ?? [],
+    floats: run?.floatSwitches.map(float => float.active) ?? [],
   }
 }
 
@@ -112,6 +126,24 @@ function waterline(run: Run, x: number, y: number) {
   return y
 }
 
+/** Sounds that come now and then, spaced and placed from a fixed seed of their own, so a replay hears them as before. */
+class Occasional {
+  next = 0
+  private seed: number; private readonly gap: number; private readonly spread: number
+  constructor(seed: number, gap: number, spread: number) { this.seed = seed; this.gap = gap; this.spread = spread }
+  random() {
+    this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0
+    return this.seed / 4294967296
+  }
+  start(time: number) { this.next = time + .4 * this.gap + this.spread * this.random() }
+  due(time: number) {
+    if (time < this.next) return false
+    this.next = time + this.gap + this.spread * this.random()
+    return true
+  }
+}
+const BIRDS: readonly CueKind[] = ['bird-whistle', 'bird-trill', 'bird-chirp']
+
 /** Observe solved contacts at physics cadence; drain cues once per rendered frame.
  * Water uses the existing active field and resolved body transforms. Sound never
  * changes physics, queries collision geometry, or advances the gait. */
@@ -124,12 +156,27 @@ export class JumpingAudioState {
   private impacts: { angle: number; excursion: number; cooldown: number }[] = []
   private playerWater: WaterContact = waterContact(0)
   private propWater: WaterContact[] = []
+  /** Where the ambience is heard from, read once per drawn frame rather than every step. */
+  private listening: { run: Run | null; listener: Player } | null = null
+  /** How far under water the listener's head is (listenerUnderwater). */
+  private underwater = 0
+  /** Drops into pools, birds under open sky and bubbles under water, on `run.activeTime`; the ending's birds on its own clock. */
+  private readonly drips = new Occasional(1, 2.5, 5.5)
+  private readonly birds = new Occasional(7, 2.2, 5)
+  private readonly bubbles = new Occasional(13, .9, 2.2)
+  private readonly endingBirds = new Occasional(29, 2.2, 5)
+  private endingTime: number | null = null
 
   reset(p: Player, run: Run | null) {
     this.previous = snapshot(p, run)
     this.loops = []; this.cues = []; this.stepCooldown = 0; this.robotStepCooldowns = []; this.impacts = []
     this.playerWater = waterContact(this.previous.water)
     this.propWater = this.previous.props.map(b => waterContact(b.water))
+    this.listening = { run, listener: p }
+    this.underwater = listenerUnderwater(run, p)
+    const time = run?.activeTime ?? 0
+    this.drips.start(time); this.birds.start(time); this.bubbles.start(time)
+    this.endingTime = null
   }
 
   step(p: Player, run: Run | null, dt: number) {
@@ -315,11 +362,83 @@ export class JumpingAudioState {
       if (run.timeStopRemaining > before.stopped + .01 || run.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length > before.timeBonuses
         || run.exit && !before.exiting) cue('timer-paused', p.x, p.y - 30)
     }
+    if (run) {
+      for (const pump of runningPumps(run)) {
+        const mix = soundPosition(pump.x, pump.y, p)
+        this.loops.push({ id: `pump:${pump.index}`, kind: 'pump', ...mix, volume: mix.volume * .8, pace: clamp(pump.rate / 30), size: 0 })
+      }
+      // A light, a force field or a float switch changing over clicks its relay.
+      const relays: [number, number][] = []
+      for (const [i, light] of (run.level.wallLights ?? []).entries()) if (current.lights[i] !== before.lights[i]) relays.push([light.x, light.y])
+      for (const [i, field] of run.forceFields.entries()) if (current.fields[i] !== before.fields[i]) {
+        const d = field.definition
+        relays.push([d.orientation === 'vertical' ? d.x + d.w / 2 : d.x, d.orientation === 'vertical' ? d.y : d.y + d.h / 2])
+      }
+      for (const [i, float] of run.floatSwitches.entries()) if (current.floats[i] !== before.floats[i]) relays.push([float.definition.x, float.definition.y])
+      if (relays.length <= 4) for (const [x, y] of relays) cue('relay', x, y)
+      else cue('relay', p.x, p.y - 30)
+      this.drip(run, p)
+      this.underwater = listenerUnderwater(run, p)
+      // Under open sky the birds sing now and then; under water, bubbles rise past the head.
+      if (this.birds.due(run.activeTime) && !this.underwater && underOpenSky(run, p) && this.cues.length < 8) this.cues.push(this.bird(this.birds))
+      if (this.bubbles.due(run.activeTime) && this.underwater > .6 && this.cues.length < 8) {
+        const b = this.bubbles
+        this.cues.push({ kind: 'bubble', volume: 1, pan: (b.random() - .5) * .4, strength: .5 + .5 * b.random(), pitch: .8 + .45 * b.random() })
+      }
+    } else this.underwater = 0
+    this.listening = { run, listener: p }
     this.previous = current
+  }
+
+  /** Now and then a drop falls into a pool within earshot, at a random place along its surface. Not outdoors. */
+  private drip(run: Run, listener: Player) {
+    const drips = this.drips
+    if (!drips.due(run.activeTime)) return
+    const environment = run.level.environment
+    const pools = run.water.pools.filter(pool => pool.region.h > 0 && pool.region.w > 0)
+    if (!pools.length) return
+    const pool = pools[Math.floor(drips.random() * pools.length)].region
+    const x = pool.x + pool.w * (.1 + .8 * drips.random())
+    if (environment && openAirAt(environment, x, pool.y) && environment.kind === 'landscape') return
+    const mix = soundPosition(x, pool.y, listener)
+    if (mix.volume > .005 && this.cues.length < 8) this.cues.push({ kind: 'drip', ...mix, strength: .6 + .4 * drips.random() })
+  }
+
+  /** A bird somewhere out in the open, at a distance: one of a few calls, at its own pitch, off to one side. */
+  private bird(schedule: Occasional): SoundCue {
+    const kind = BIRDS[Math.floor(schedule.random() * BIRDS.length)]
+    return { kind, volume: .3 + .7 * schedule.random(), pan: (schedule.random() - .5) * 1.4, strength: 1, pitch: .85 + .35 * schedule.random() }
   }
 
   drain(): SoundFrame {
     const cues = this.cues; this.cues = []
-    return { loops: this.loops, cues }
+    const listening = this.listening
+    return { loops: this.loops, cues, underwater: this.underwater,
+      ambience: listening ? levelAmbience(listening.run, listening.listener, this.underwater) : {} }
+  }
+
+  /**
+   * The bus ending, which plays on after the run: the bus idling while the robot boards, its doors and then its
+   * brakes letting go, its engine revving through a gear change as it pulls away, and fading as the bus shrinks into
+   * the distance, under the open air and the birds.
+   */
+  ending(ending: BusEnding, run: Run | null): SoundFrame {
+    const t = ending.elapsed, before = this.endingTime ?? t
+    if (this.endingTime === null) this.endingBirds.start(t)
+    this.endingTime = t
+    const frame = busEndingFrame(ending), cues: SoundCue[] = []
+    const crossed = (time: number) => before < time && t >= time
+    if (crossed(5.6)) cues.push({ kind: 'air-brake', volume: 1, pan: 0, strength: .55 })
+    if (crossed(7.7)) cues.push({ kind: 'air-brake', volume: 1, pan: 0, strength: 1 })
+    const goal = run?.level.goal
+    const outside = goal?.kind === 'bus' && run ? underOpenSky(run, goal) : true
+    if (this.endingBirds.due(t) && outside) cues.push(this.bird(this.endingBirds))
+    // Revs: idle, then up as it pulls away, down through a gear change at 9.3 s, and up again.
+    const rev = t < 7.9 ? 0 : t < 9.3 ? .85 * goalEase((t - 7.9) / 1.4) : t < 9.9 ? .85 - .35 * goalEase((t - 9.3) / .6) : .5 + .3 * goalEase((t - 9.9) / 2.5)
+    // Walking up to a bus waiting at a stop brings it nearer; driving away it fades as it shrinks, a little lower in pitch.
+    const near = t < 3.8 ? .55 + .45 * t / 3.8 : 1
+    const ambience = goal?.kind === 'bus' && run ? levelAmbience(run, goal) : { air: { volume: 1, pan: 0, power: 1 } }
+    ambience.engine = { volume: frame.busVisible ? near * frame.busScale ** 1.2 : 0, pan: 0, power: 1, pace: rev * (.85 + .15 * frame.busScale) }
+    return { loops: [], cues, ambience }
   }
 }

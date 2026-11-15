@@ -452,7 +452,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       setPerformanceSnapshot(null); adaptiveLighting?.reset(); setLightingReduced(false)
       if (run.current) setWaterEffectsEnabled(run.current, true)
     }
-    audio.current?.silence()
+    // The bus ending plays on from the level's own sound: the bus idling as it was, then pulling away.
+    if (next !== 'ending') audio.current?.silence()
     if (next === 'paused' && screenRef.current === 'playing' && !reason && !quiet) audio.current?.pauseCue()
     audioState.reset(player.current, run.current)
     keys.current.clear(); controller.reset(); touch.reset(); cancelJumpInput(player.current)
@@ -1040,6 +1041,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         sound.update(audioState.drain())
       } else { accumulator = 0; motion?.reset() }
       advanceEnding(dt)
+      if (screenRef.current === 'ending' && endingScene.current) sound.update(audioState.ending(endingScene.current, run.current))
       autosaveArea(now)
       prepareNearby(now)
       if (adaptiveLighting && adaptiveEnabled.current && input && !document.hidden) {

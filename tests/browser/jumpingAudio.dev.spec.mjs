@@ -87,6 +87,120 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
   expect(result.stopped.peak).toBe(0)
 })
 
+test('ambient beds sit at their levels under a running lift, run down with the power, and stop without ambience', async ({ page }) => {
+  await page.goto('/lab/library?renderControl=1')
+  const result = await page.evaluate(async () => {
+    const { JumpingSound } = await import('/src/games/jumping/sound.ts')
+    const rate = 48000, empty = { loops: [], cues: [] }
+    // Plays frames as the game sends them, every 50 ms.
+    const play = async (seconds, frame) => {
+      const ctx = new OfflineAudioContext(1, Math.round(rate * seconds), rate), sound = new JumpingSound(ctx)
+      const stages = Array.from({ length: Math.round(seconds * 20) - 1 }, (_, i) => ({ ready: ctx.suspend((i + 1) / 20), time: (i + 1) / 20 }))
+      sound.update(frame(0))
+      const rendering = ctx.startRendering()
+      for (const stage of stages) { await stage.ready; sound.update(frame(stage.time)); await ctx.resume() }
+      const data = (await rendering).getChannelData(0); sound.dispose(); return data
+    }
+    const slice = (data, from, to) => data.slice(Math.round(from * rate), Math.round(to * rate))
+    const rms = data => Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length)
+    const peak = data => data.reduce((max, v) => Math.max(max, Math.abs(v)), 0)
+    // A-weighted level in decibels, from the weighting's poles: high passes at 20.6 (twice), 107.7 and 737.9 Hz.
+    const weighted = data => {
+      let x = data
+      for (const f of [20.6, 20.6, 107.7, 737.9]) {
+        const a = 1 / (1 + 2 * Math.PI * f / rate), y = new Float32Array(x.length)
+        for (let i = 1; i < x.length; i++) y[i] = a * (y[i - 1] + x[i] - x[i - 1])
+        x = y
+      }
+      return 20 * Math.log10(rms(x.slice(rate / 4)))
+    }
+    const lift = weighted(slice(await play(2, () => ({ ...empty, loops: [{ id: 'lift', kind: 'elevator', volume: 1, pan: 0, pace: .5, size: 0 }] })), 1, 2))
+    const beds = {}
+    for (const kind of ['hvac', 'air', 'hum', 'gravity', 'buzz', 'field', 'whir', 'water', 'underwater', 'engine']) {
+      beds[kind] = weighted(slice(await play(4, () => ({ ...empty, ambience: { [kind]: { volume: 1, pan: 0, power: 1 } } })), 1.25, 4)) - lift
+    }
+    // The power goes at 2 s and comes back at 6 s.
+    const cut = await play(9, time => ({ ...empty, ambience: { hvac: { volume: 1, pan: 0, power: time >= 2 && time < 6 ? 0 : 1 } } }))
+    let jump = 0
+    for (let i = 1; i < cut.length; i++) jump = Math.max(jump, Math.abs(cut[i] - cut[i - 1]))
+    const gone = await play(3, time => time < 1 ? { ...empty, ambience: { field: { volume: 1, pan: .5, power: 1 }, water: { volume: 1, pan: -.5, power: 1 } } } : empty)
+    return { beds, running: rms(slice(cut, 1, 2)), early: rms(slice(cut, 2.3, 2.8)), late: rms(slice(cut, 4.5, 5.5)), back: rms(slice(cut, 8.5, 9)),
+      peak: peak(cut), jump, gone: peak(slice(gone, 2.6, 3)) }
+  })
+  // Decibels under the lift, as sound.ts documents them.
+  const targets = { hvac: -12, air: -10, hum: -10, gravity: -9, buzz: -15, field: -4, whir: -12, water: -8, underwater: -6, engine: 5 }
+  for (const [kind, target] of Object.entries(targets)) expect(Math.abs(result.beds[kind] - target), `${kind}: ${result.beds[kind].toFixed(1)} dB`).toBeLessThan(2)
+  // A power cut runs the air handling down over a couple of seconds, and power back runs it up again.
+  expect(result.early).toBeLessThan(result.running * .8)
+  expect(result.early).toBeGreaterThan(result.running * .2)
+  expect(result.late).toBeLessThan(result.running * .05)
+  expect(result.back).toBeGreaterThan(result.running * .5)
+  expect(result.jump, 'no click').toBeLessThan(result.peak)
+  expect(result.gone).toBeLessThan(1e-4)
+})
+
+test('under water the air is muffled but the water is not, and silent beds let their voices go', async ({ page }) => {
+  await page.goto('/lab/library?renderControl=1')
+  const result = await page.evaluate(async () => {
+    // Count the oscillators and noise sources running. A buffer source has a start of its own.
+    let live = 0
+    for (const type of [AudioScheduledSourceNode, AudioBufferSourceNode]) {
+      const start = type.prototype.start
+      type.prototype.start = function (...args) { live++; return start.apply(this, args) }
+    }
+    const stop = AudioScheduledSourceNode.prototype.stop
+    AudioScheduledSourceNode.prototype.stop = function (...args) { live--; return stop.apply(this, args) }
+    const { JumpingSound } = await import('/src/games/jumping/sound.ts')
+    const rate = 48000, empty = { loops: [], cues: [] }, bed = { volume: 1, pan: 0, power: 1 }
+    const play = async (seconds, frame, at = {}) => {
+      const ctx = new OfflineAudioContext(1, Math.round(rate * seconds), rate), sound = new JumpingSound(ctx), counts = {}
+      const stages = Array.from({ length: Math.round(seconds * 20) - 1 }, (_, i) => ({ ready: ctx.suspend((i + 1) / 20), time: Math.round((i + 1) * 5) / 100 }))
+      sound.update(frame(0, sound))
+      const rendering = ctx.startRendering()
+      for (const stage of stages) {
+        await stage.ready
+        sound.update(frame(stage.time, sound))
+        if (at[stage.time]) at[stage.time](sound)
+        counts[stage.time] = live
+        await ctx.resume()
+      }
+      const data = (await rendering).getChannelData(0); sound.dispose(); return { data, counts }
+    }
+    const slice = (data, from, to) => data.slice(Math.round(from * rate), Math.round(to * rate))
+    const rms = data => Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length)
+    // Energy above 1 kHz, from a one-pole high pass.
+    const bright = data => { const a = 1 / (1 + 2 * Math.PI * 1000 / rate), y = new Float32Array(data.length); for (let i = 1; i < data.length; i++) y[i] = a * (y[i - 1] + data[i] - data[i - 1]); return rms(y) }
+    // A lamp's buzz in the air, then the head goes under.
+    const buzz = (await play(3, time => ({ ...empty, ambience: { buzz: bed }, underwater: time >= 1.5 ? 1 : 0 }))).data
+    // The water round the head is heard as it is: the same, rendered with the head under and not.
+    const water = (await play(3, () => ({ ...empty, ambience: { underwater: bed }, underwater: 0 }))).data
+    const waterUnder = (await play(3, () => ({ ...empty, ambience: { underwater: bed }, underwater: 1 }))).data
+    // A field heard for a second, then nothing: its voice goes after three seconds of silence.
+    const field = await play(6, time => time < 1 ? { ...empty, ambience: { field: bed } } : empty)
+    // Pausing lets every voice go at once.
+    const paused = await play(2, time => time < 1 ? { ...empty, ambience: { hvac: bed, water: bed } } : empty, { 1: sound => sound.silence() })
+    // A long outage lets the air handling's voice go; power back builds it again, running up from stopped.
+    const outage = await play(14, time => ({ ...empty, ambience: { hvac: { ...bed, power: time >= 1 && time < 10 ? 0 : 1 } } }))
+    return {
+      buzzDry: bright(slice(buzz, .75, 1.5)), buzzUnder: bright(slice(buzz, 2, 3)),
+      waterDry: rms(slice(water, 2, 3)), waterUnder: rms(slice(waterUnder, 2, 3)),
+      fieldPlaying: field.counts[.5], fieldGone: field.counts[5.5],
+      pausedPlaying: paused.counts[.5], pausedGone: paused.counts[1.05],
+      outageGone: outage.counts[9.5], outageBack: outage.counts[10.5],
+      spinStart: rms(slice(outage.data, 10.05, 10.4)), spinRunning: rms(slice(outage.data, 13, 14)),
+    }
+  })
+  expect(result.buzzUnder).toBeLessThan(result.buzzDry * .15)
+  expect(Math.abs(result.waterUnder / result.waterDry - 1)).toBeLessThan(.02)
+  expect(result.fieldPlaying).toBeGreaterThan(0)
+  expect(result.fieldGone).toBe(0)
+  expect(result.pausedPlaying).toBeGreaterThan(0)
+  expect(result.pausedGone).toBe(0)
+  expect(result.outageGone).toBe(0)
+  expect(result.outageBack).toBeGreaterThan(0)
+  expect(result.spinStart).toBeLessThan(result.spinRunning * .5)
+})
+
 async function setup(page, savedMute = false) {
   const level = blankTrial()
   level.name = 'Sound test'; level.mechanisms = [{ id: 'gate', kind: 'gate', x: 650, y: 520, w: 20, h: 400, travel: 400 }]

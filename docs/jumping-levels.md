@@ -1997,3 +1997,70 @@ fields produce a validation error before play. Geometry preparation runs in a
 cancellable worker. Prefer one or two architecturally positioned beams per area;
 the count limit is a safety bound, not a promise that twenty overlapping beams
 will be inexpensive on every device.
+
+## Ambient sound
+
+A level is never silent. Its standing sound (`ambience.ts`) comes from what is in
+it, so authors place no sound objects:
+
+| Bed | Sources | Heard |
+| --- | --- | --- |
+| Air handling | Every indoor level, a landscape's facility walls, and play with no run | Everywhere, unpanned |
+| Open air | A landscape's open sky; a cave wall, fainter | Everywhere, unpanned |
+| Machine hum | Lifts and gates (louder when switched on), the lit exit, charging pods | From each source's nearest point |
+| Gravity drone | Active gravity plates: a low beating drone, higher in pitch the stronger the pull either way | From the nearest point of the plate, fullest inside it |
+| Buzz | Lit wall lights, powered spotlights, wall timers, facility signs and boards | Only close to |
+| Crackle | Active force fields | From the nearest point of the beam |
+| Whir | Robots with power, until Rbot slumps | Close to |
+| Water | Pools with water in them | From the nearest point of the pool |
+| Engine | The exit bus, idling, power or not | From the bus |
+
+Each bed is one voice however many sources feed it: its loudness is the power
+sum of the sources within earshot, using the same falloff as moving machinery,
+and its bearing their loudness-weighted mean. A level full of lamps costs no
+more to play than one lamp. Running pumps add a motor-and-wash loop at the
+bottom of their reservoir. Every few seconds a drop falls into a pool within
+earshot (never outdoors), and under open sky a bird calls from somewhere off to
+one side, never in a cave or a facility wall; both come at the same times and
+places in a replayed run. A wall light, a force field or a float switch
+changing state clicks its relay.
+
+A power cut (an EMP outage, or the D deadline passing) takes power from every
+electrical bed. The air handling runs down over about three seconds, falling in
+pitch as it slows, machines and gravity plates over about a second, and lamps
+and force fields go out at once; when power returns they run back up. The water,
+the open air and the bus go on, so an outage is the quietest a level gets. An
+EMP-disabled machine, field or robot drops out of its bed for as long as it is
+disabled.
+
+With the robot's head under water, everything heard through the air is muffled:
+dulled above 450 Hz and about 7 dB quieter. The lapping at the surface gives way
+to the water all round, a deep slow pressure, and now and then bubbles rise past
+the head. The water and the bubbles are not muffled. The head is sampled at its
+top and a little below, so floating with it out of the water sounds dry.
+
+The bus ending plays on from the level's sound: the bus idles while the robot
+settles in, its air brakes hiss, and its engine revs as it pulls away, drops
+through a gear change, revs again and fades as the bus shrinks to the horizon,
+under the open air and the birds. A bus ending after another goal idles at its
+stop as the robot walks up, and its doors hiss as they close. The diesel is a
+big six-cylinder whose balance and clatter were matched, by measurement, to
+recordings of real ones (a Mercedes OM 67 truck and bus engine, a Detroit 6.2
+and an idling mine locomotive): its knock and the rattle of its valve train sit
+about 6 dB under its low end, as theirs do.
+
+The beds sit well under the sound of things moving. Measured A-weighted against
+a lift running beside the listener, the air handling is 12 dB under it, the open
+air 10, a machine at rest beside the listener 10, a gravity plate 9, a lamp 15,
+an idle robot 12, a pool 8, the water round a head under it 6 and a force field
+4, as a warning; the bus, a big clattering diesel, idles 5 dB over it and revs
+away about 10 over.
+Against a running step, bubbles are 6 dB under it and a bird at most 10.
+`AMBIENT_LEVEL` and `CUE_LEVEL` in `sound.ts` hold them.
+
+A bed's voice is built when it becomes audible and let go after three seconds
+of silence, and pausing lets them all go, so the audio thread works only on what
+can be heard: about 1% of one core in a typical level. The speed of a bed's
+machinery outlives its voice, so one rebuilt during an outage still runs up when
+power returns. Coverage lives in `tests/jumping-ambience.test.mjs` and
+`tests/browser/jumpingAudio.dev.spec.mjs`.

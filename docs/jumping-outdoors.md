@@ -155,8 +155,9 @@ for reduced motion, with no effect on simulation or visibility rules.
 
 Let the machinery sound fall away as the robot leaves. A sparse wind bed and
 occasional distant natural sound can support the exterior without telling the
-player what to feel. These require new audio support and assets; they are not
-already supplied by the impact and mechanism sound system. Muted play must
+player what to feel. The open-air ambience supplies the wind bed, replacing the
+facility's air handling under open sky (see Ambient sound in
+`jumping-levels.md`); distant natural sound would need new support. Muted play must
 still communicate the whole reveal. The pause and accessibility settings apply
 throughout. Avoid mandatory speech or explanatory ending text over the horizon.
 

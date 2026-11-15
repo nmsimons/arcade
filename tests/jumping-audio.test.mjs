@@ -170,7 +170,8 @@ test('airborne rotation, resting jitter, transport, reset and teleports do not c
   box.angle = 0; audio.reset(run.player, run)
   for (let i = 0; i < 50; i++) {
     box.x += 1; box.y -= 1
-    assert.deepEqual(observe(), { loops: [], cues: [] }, 'being carried is silent')
+    const { loops, cues } = observe()
+    assert.deepEqual({ loops, cues }, { loops: [], cues: [] }, 'being carried is silent')
   }
 })
 

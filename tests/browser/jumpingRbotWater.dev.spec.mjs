@@ -6,7 +6,7 @@ import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 // Snapshot of the actual Quarantine II draft; portable without publishing it.
 const quarantine = () => parseLevel(JSON.parse(readFileSync(new URL('../fixtures/jumping/quarantine-ii-rbot-water.json', import.meta.url), 'utf8')))
 
-test('Quarantine II: Rbot climbs out while normal player controls keep diving', async ({ page }, info) => {
+test('Quarantine II: Rbot follows the player down onto the floor beside the water, not into it, while normal player controls keep diving', async ({ page }, info) => {
   test.setTimeout(90000)
   const level = quarantine(), errors = []
   expect(levelProblems(level)).toEqual([])
@@ -45,7 +45,9 @@ test('Quarantine II: Rbot climbs out while normal player controls keep diving', 
     if ([11, 19, 27].includes(i)) await page.screenshot({ path: info.outputPath(`quarantine-water-entry-${i}.png`) })
   }
   await page.keyboard.up('a')
-  expect(positions.some(p => p?.y > 1040), JSON.stringify(positions)).toBe(true)
+  // Its jumps down steer onto footing: it lands on the floor (1015) beside the water (from 1035), never in it.
+  expect(positions.some(p => Math.abs(p?.y - 1015) < 2), JSON.stringify(positions)).toBe(true)
+  expect(positions.every(p => p?.y < 1040), JSON.stringify(positions)).toBe(true)
   await page.keyboard.down('d'); await page.keyboard.down('s')
   for (let i = 0; i < 24; i++) {
     await page.clock.runFor(250)
@@ -57,7 +59,7 @@ test('Quarantine II: Rbot climbs out while normal player controls keep diving', 
   expect(errors).toEqual([])
 })
 
-test('Quarantine II: enlarged flight, swim-out and bank-catch review preserves the live pose', async ({ page }, info) => {
+test('Quarantine II: enlarged flight, swim-out and leap-out review preserves the live pose', async ({ page }, info) => {
   test.setTimeout(90000)
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   const results = await page.evaluate(async level => {
@@ -71,9 +73,10 @@ test('Quarantine II: enlarged flight, swim-out and bank-catch review preserves t
     const sheet = document.createElement('canvas'); sheet.width = 1500; sheet.height = 660
     sheet.style.width = '1500px'; sheet.style.height = '660px'; sheet.id = 'rbot-water-review'
     const flight = sheet.cloneNode(); flight.id = 'rbot-flight-review'
-    const flightCtx = flight.getContext('2d'), flightFrames = [113, 129, 196, 206, 224, 242]
-    const ctx = sheet.getContext('2d'), frames = [270, 300, 330, 360, 365, 720]
-    let column = 0, wet = false, exited = false, pure = true, flightTurns = 0, previousTurn = false
+    // Its jump down from the deck end, into the channel; then swimming, the leap out and the landing.
+    const flightCtx = flight.getContext('2d'), flightFrames = [270, 285, 300, 315, 330, 345]
+    const ctx = sheet.getContext('2d'), frames = [400, 520, 640, 660, 700, 765]
+    let column = 0, wet = false, exited = false, pure = true, flightTurns = 0, previousTurn = false, halted = false
     const drawPanel = (ctx, index, frame, bot) => {
       const before = JSON.stringify(bot), xPanel = index % 3 * 500, yPanel = Math.floor(index / 3) * 330
       ctx.save(); ctx.beginPath(); ctx.rect(xPanel, yPanel, 500, 330); ctx.clip(); ctx.translate(xPanel, yPanel)
@@ -88,6 +91,9 @@ test('Quarantine II: enlarged flight, swim-out and bank-catch review preserves t
         swimVertical: p.waterMotion ? Math.max(-1, Math.min(1, vertical)) : 0,
         jump: frame === 1320, jumpStrength: 1, climb: t >= 11 })
       const bot = run.robots[0]
+      // Rbot steers its jump down onto the floor beside the channel. Halt it mid-jump, as a short jump did, so
+      // it drops into the water and the review shows it swimming out.
+      if (!halted && frame > 240 && !bot.actor.grounded && bot.actor.vy > 0 && bot.y > 745) { bot.actor.vx = 0; halted = true }
       if (frame <= flightFrames.at(-1)) {
         const actor = bot.actor, turn = !actor.grounded && !actor.hang && !actor.climbing && !actor.mantle && !!actor.anim.dryTurn
         if (turn && !previousTurn) flightTurns++
@@ -103,7 +109,9 @@ test('Quarantine II: enlarged flight, swim-out and bank-catch review preserves t
     document.body.replaceChildren(flight, sheet)
     return { pure, wet, exited, flightTurns }
   }, quarantine())
-  expect(results).toEqual({ pure: true, wet: true, exited: true, flightTurns: 1 })
+  const { flightTurns, ...outcome } = results
+  expect(outcome).toEqual({ pure: true, wet: true, exited: true })
+  expect(flightTurns, 'it never turns back and forth in flight').toBeLessThanOrEqual(1)
   await page.setViewportSize({ width: 1500, height: 660 })
   await page.locator('#rbot-water-review').screenshot({ path: info.outputPath('quarantine-rbot-water-closeups.png') })
   await page.locator('#rbot-flight-review').screenshot({ path: info.outputPath('quarantine-rbot-flight-closeups.png') })

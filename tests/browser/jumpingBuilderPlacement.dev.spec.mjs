@@ -5,12 +5,13 @@ import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { itemBounds } from '../../src/games/jumping/editor.ts'
 import { nearestBoundary } from '../../src/games/jumping/geometry.ts'
+import { REPULSOR_BOT_SIZE } from '../../src/games/jumping/repulsorBotRig.ts'
 
 const board = page => page.getByRole('application', { name: 'Level canvas' })
 const ghost = page => page.locator('.builder-placement-preview').evaluate(canvas => canvas.placement ?? null)
 async function open(page, level = blankTrial()) {
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'preview.json': level })
-  await page.addInitScript(() => {
+  await page.addInitScript(botSize => {
     window.testPad = { index: 0, id: 'Placement controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0],
       buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
     Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.testPad] })
@@ -25,7 +26,8 @@ async function open(page, level = blankTrial()) {
         }
         if (this.fillStyle === '#f1f1ed' && args[0] === 0 && args[1] === 0) this.canvas.camera = this.getTransform()
       }
-      if (this.fillStyle === '#000000' && args[3] === 80) {
+      // Doorways: the player's is 80 tall, and Rbot's a doorway at its size.
+      if (this.fillStyle === '#000000' && (args[3] === 80 || args[3] === 80 * botSize)) {
         this.canvas.robotPortals ??= []
         this.canvas.robotPortals.push({ x: args[0], y: args[1], w: args[2], h: args[3] })
       }
@@ -64,7 +66,7 @@ async function open(page, level = blankTrial()) {
       }
       return stroke.call(this, x, y, w, h)
     }
-  })
+  }, REPULSOR_BOT_SIZE)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
@@ -111,7 +113,8 @@ for (const night of [false, true]) test(`${night ? 'night' : 'day'} Rbot placeme
   const previewCanvas = page.locator('.builder-placement-preview'), preview = await appearance(previewCanvas)
   expect(preview.actor).toBe(true)
   expect(preview.wheels).toBeNull()
-  const door = { x: 630, y: level.floor - 80, w: 40, h: 80 }
+  // Rbot's portal is a doorway at its size.
+  const door = { x: 650 - 40 * REPULSOR_BOT_SIZE / 2, y: level.floor - 80 * REPULSOR_BOT_SIZE, w: 40 * REPULSOR_BOT_SIZE, h: 80 * REPULSOR_BOT_SIZE }
   expect(preview.portals).toContainEqual(door)
   expect((await ghost(page)).h).toBeCloseTo(80, 5)
   await page.screenshot({ path: info.outputPath('rbot-placement-portal.png') })

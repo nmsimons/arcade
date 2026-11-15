@@ -51,10 +51,19 @@ test('LAB android shell follows the existing poses while remaining separate from
           return { canvas, pixels: c.getImageData(0, 0, 140, 200).data }
         }
         const art = render(ink), mask = render('#fff', true)
+        // The shell is drawn in its own materials, not as one flat ink: joints, grips, face and markings
+        // stand apart in tone from the plates around them.
+        const tones = new Map()
+        for (let i = 0; i < art.pixels.length; i += 4) if (art.pixels[i + 3] === 255) {
+          const tone = art.pixels[i] << 16 | art.pixels[i + 1] << 8 | art.pixels[i + 2]
+          tones.set(tone, (tones.get(tone) ?? 0) + 1)
+        }
+        const plate = [...tones].reduce((best, entry) => entry[1] > best[1] ? entry : best, [0, 0])[0]
+        const apart = i => Math.max(...[16, 8, 0].map((shift, c) => Math.abs((plate >> shift & 255) - art.pixels[i + c]))) > 12
         let outside = 0, changedInterior = 0
         for (let i = 0; i < art.pixels.length; i += 4) {
           if (art.pixels[i + 3] > 10 && mask.pixels[i + 3] === 0) outside++
-          if (art.pixels[i + 3] === 255 && art.pixels[i] !== art.pixels[i + 1]) changedInterior++
+          if (art.pixels[i + 3] === 255 && apart(i)) changedInterior++
         }
         ctx.drawImage(art.canvas, col * 140, row * 250 + 30)
         ctx.fillStyle = row ? '#e5e7e6' : '#526659'; ctx.font = '12px monospace'

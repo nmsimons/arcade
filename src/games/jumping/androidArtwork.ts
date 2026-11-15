@@ -10,20 +10,18 @@ export interface AndroidMaterials {
 }
 export type AndroidAppearance = string | AndroidMaterials
 const day: AndroidMaterials = {
-  // A clean mid teal: about 2.7:1 against the course wall, where the robot
-  // mostly stands, with dark joints and grips (2.6 to 2.8:1 against the shell) that
-  // keep its outline and articulation readable over terrain (docs/jumping-lighting.md).
-  shell: '#6e9a8a', rear: '#62897b', joint: '#2f5248',
-  grip: '#33564b', mark: '#acd7c4', cranial: '#62897b', face: '#7ea898',
+  // Neutral greys: a shell about 2.7:1 against the course wall, where the robot mostly stands, with dark
+  // joints and grips (3.6 to 3.8:1 against the shell) that keep its outline and articulation readable over
+  // terrain (docs/jumping-lighting.md).
+  shell: '#919191', rear: '#818181', joint: '#363636',
+  grip: '#3a3a3a', mark: '#cdcdcd', cranial: '#818181', face: '#9f9f9f',
 }
 const night: AndroidMaterials = {
-  // The day teal, lightened: one robot by day and night, and the regional
-  // blend between them stays in one hue. Joints, grips and the back of the head
-  // stay light, as they must survive both the night exposure floor and the
-  // translucent water overlay at phone scale; saturation stays low so the robot
-  // never reads as lit from within.
-  shell: '#d2ebe1', rear: '#a8cbbc', joint: '#9cc4b4',
-  grip: '#a0c8b8', mark: '#e2f4ec', cranial: '#a0c8b8', face: '#d8efe6',
+  // The day greys, lightened: one robot by day and night. Joints and grips (about 2:1 against the shell)
+  // and the back of the head stay light, as they must survive both the night exposure floor and the
+  // translucent water overlay at phone scale.
+  shell: '#e5e5e5', rear: '#c3c3c3', joint: '#a4a4a4',
+  grip: '#a8a8a8', mark: '#f0f0f0', cranial: '#bfbfbf', face: '#eaeaea',
 }
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */

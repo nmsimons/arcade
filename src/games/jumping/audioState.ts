@@ -13,6 +13,7 @@ import { landingDustStrength, PROP_TICK_STRENGTH, recordWorldEffect, splashEnerg
 import type { WorldEffectKind } from './worldEffects.ts'
 import type { PlayerCollider } from './playerContacts.ts'
 import { levelAmbience, listenerUnderwater, runningPumps, underOpenSky } from './ambience.ts'
+import type { Ambience } from './ambience.ts'
 import { busEndingFrame } from './busEnding.ts'
 import type { BusEnding } from './busEnding.ts'
 import { goalEase } from './goal.ts'

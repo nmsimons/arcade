@@ -60,7 +60,11 @@ test('a finish is the course wall\'s construction: light panel tints that never 
     assert.equal(strokes.length, 4, `${finish}: a shade and a light lip, along the wall and up it, each a single path`)
     assert.deepEqual(strokes.map(s => s[2]), [1.1, .8, 1.1, .8], `${finish}: the course wall's joint widths`)
     for (const shade of [strokes[0], strokes[2]]) assert.ok(alpha(shade[1]) <= .22, `${finish}: a soft joint shade, ${shade[1]}`)
-    assert.equal(calls.some(c => c[0] === 'fill'), false, `${finish}: no hardware or other marks`)
+    // Grit is wear, not hardware: one translucent path of water stains running down from the joints, in the
+    // finish's own ink, and nothing else filled.
+    const marks = calls.filter(c => c[0] === 'fill')
+    assert.equal(marks.length, 1, `${finish}: one path of stains and no hardware or other marks`)
+    assert.ok(alpha(marks[0][1]) <= .1, `${finish}: faint stains, ${marks[0][1]}`)
     const fills = calls.filter(c => c[0] === 'fillRect'), whole = fills.filter(f => f[3] === area.w && f[4] === area.h)
     assert.ok(whole.length <= 1 && whole.every(f => alpha(f.at(-1)) <= .1), `${finish}: at most one light wash`)
     const panels = fills.filter(f => !whole.includes(f))
@@ -93,12 +97,14 @@ test('a dark level draws its finish stronger, the joints most of all, on the sam
     const day = recorder(), night = recorder()
     drawWallFinish(day.ctx, finish, area)
     drawWallFinish(night.ctx, finish, area, true)
-    const shape = calls => calls.map(c => c[0] === 'fillRect' ? c.slice(0, 5) : c[0] === 'stroke' ? [c[0], c[2]] : c)
+    const shape = calls => calls.map(c => c[0] === 'fillRect' ? c.slice(0, 5) : c[0] === 'stroke' ? [c[0], c[2]] : c[0] === 'fill' ? [c[0]] : c)
     assert.deepEqual(shape(night.calls), shape(day.calls), `${finish}: the same panels and joints by night`)
     const strokes = calls => calls.filter(c => c[0] === 'stroke').map(c => alpha(c[1]))
     const fills = calls => calls.filter(c => c[0] === 'fillRect').map(c => alpha(c.at(-1)))
     strokes(day.calls).forEach((a, i) => assert.ok(strokes(night.calls)[i] > a && strokes(night.calls)[i] <= .9, `${finish}: joint ${i}, ${a} by day and ${strokes(night.calls)[i]} by night`))
     fills(day.calls).forEach((a, i) => assert.ok(fills(night.calls)[i] > a && fills(night.calls)[i] <= .25, `${finish}: fill ${i}, ${a} by day and ${fills(night.calls)[i]} by night`))
+    const stains = calls => alpha(calls.find(c => c[0] === 'fill')[1])
+    assert.ok(stains(night.calls) > stains(day.calls), `${finish}: the stains strengthen with the rest of the finish`)
   }
   // The level decides: night mode strengthens the finish, daylight leaves it as it was.
   const lit = recorder(), dark = recorder()

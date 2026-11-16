@@ -41,6 +41,8 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   bulkhead: 'M3 21V6h18v15M1 21h22M3 3h18v3H3zM7 3l3 3M13 3l3 3M8 21V10h8v11',
   'evaluation-board': 'M2 4h20v14H2zM5 8h8M5 11h12M5 14h10M12 18v3M8 21h8',
   'wall-door': 'M5 21V3h14v18M2 21h20M5 9l14 4M5 15l14-3',
+  pipe: 'M2 6h11a4 4 0 0 1 4 4v12M2 10h9a2 2 0 0 1 2 2v10M7 4v8M13 16h6',
+  'wall-stripes': 'M2 8h20v8H2zM6 8l-4 8M11 8l-4 8M16 8l-4 8M21 8l-4 8',
   'grade-gate': 'M3 21h18M6 21v-6M11 21V9M16 21v-8M2 12h20',
 }
 export function BuilderIcon({ kind }: { kind: Tool | TerrainTransform }) {

@@ -200,7 +200,9 @@ The first of that art is the back wall's finish (`wallFinish`, see
 13, 2026: Freight and Construction use warm cladding, Security steel plate and
 Water a tiled wall. Each is the course wall's own panelling with another
 module, bond, tint and wear, never added hardware, so a wing reads as another
-part of the same facility. Chamber squares and upright panels are also
+part of the same facility. Hardware is authored per room: pipes and hazard
+stripes (November 15, 2026, see [level files](jumping-levels.md)) carry the
+Water wing's pipework and the Freight wing's striping where a room needs them. Chamber squares and upright panels are also
 available and not yet assigned. Orientation, Boot Camp, Gravity, Assessment
 and the concourse keep the course wall, the facility as it was meant to look.
 Courses behind the doors do not inherit their wing's finish yet; each course

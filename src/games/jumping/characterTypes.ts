@@ -16,7 +16,7 @@ import type { TerrainMaterial } from './terrainMaterials.ts'
 import type { WaterBob, WaterCamera } from './waterBob.ts'
 
 /** Runtime prop hulls allow free swimming limbs to pass through depth. */
-export interface Platform extends NamedObject { looseProp?: boolean; x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; bezier?: readonly (import('./terrainCurves.ts').TerrainBezier | null)[]; material?: TerrainMaterial; groundCover?: GroundCover; zIndex?: number }
+export interface Platform extends NamedObject { looseProp?: boolean; x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; bezier?: readonly (import('./terrainCurves.ts').TerrainBezier | null)[]; material?: TerrainMaterial; groundCover?: GroundCover; /** A painted band under its exposed tops; artwork only. */ trim?: import('./hazardStripes.ts').TerrainTrim; zIndex?: number }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 /** Animation state: visible turns, foot placement, gait and look blends, and the
  * impact ragdoll. The movement step advances it today; it never changes motion

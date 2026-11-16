@@ -11,6 +11,22 @@ const noise = (x: number, y: number) => {
   return n - Math.floor(n)
 }
 
+/**
+ * Grit on a wall panel: now and then a faint stain where water has run down from its top joint. Deterministic
+ * per panel, so the wall is the same on every visit; added to `path`, which the caller fills once.
+ */
+export function panelStains(path: ArtPath, x: number, y: number, w: number, h: number, col: number, row: number) {
+  const seed = noise(col * 3.1 + 11.7, row * 2.3 - 4.1)
+  if (seed > .34) return
+  const count = seed < .12 ? 2 : 1
+  for (let i = 0; i < count; i++) {
+    const at = x + w * (.12 + .76 * noise(col + i * 5.3, row - i * 1.7)), width = 8 + 20 * noise(row + i, col * .7)
+    const length = h * (.18 + .5 * noise(col * .9 - i, row * 1.3 + i)), lean = (noise(row, col + i) - .5) * width * .6
+    path.moveTo(at - width / 2, y + 1.5); path.lineTo(at + width / 2, y + 1.5)
+    path.lineTo(at + width * .2 + lean, y + length); path.lineTo(at - width * .25 + lean, y + length * .9); path.closePath()
+  }
+}
+
 /** World-anchored precast panels. Decorative hardware belongs to authored art. */
 export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView) {
   if (view.w <= 0 || view.h <= 0) return
@@ -22,7 +38,7 @@ export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView) {
   // Each panel's tint differs, so tints are separate fills; the edge lines share
   // two strokes, one per colour, instead of two per panel. Fills never cover a
   // line, so only the few pixels where neighbouring panels' lines meet can differ.
-  const shade = new ArtPath(), sheen = new ArtPath()
+  const shade = new ArtPath(), sheen = new ArtPath(), stains = new ArtPath()
   for (let row = Math.floor(view.y / h); row <= Math.floor((view.y + view.h) / h); row++) {
     const stagger = (row % 2) * w / 2
     for (let col = Math.floor((view.x - stagger) / w); col <= Math.floor((view.x + view.w - stagger) / w); col++) {
@@ -31,8 +47,10 @@ export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView) {
       ctx.fillRect(x + 1, y + 1, w - 2, h - 2)
       shade.moveTo(x, y + h); shade.lineTo(x, y); shade.lineTo(x + w, y)
       sheen.moveTo(x + 1.4, y + h); sheen.lineTo(x + 1.4, y + 1.4); sheen.lineTo(x + w, y + 1.4)
+      panelStains(stains, x, y, w, h, col, row)
     }
   }
+  ctx.fillStyle = 'rgba(74,78,62,.075)'; ctx.fill(stains)
   ctx.strokeStyle = '#52635421'; ctx.lineWidth = 1.1; ctx.stroke(shade)
   ctx.strokeStyle = '#ffffff91'; ctx.lineWidth = .8; ctx.stroke(sheen)
   ctx.restore()
@@ -64,7 +82,7 @@ export function insideConvex(subject: readonly Point[], convex: readonly Point[]
   return output
 }
 
-interface Relief { key: string; light: Path2D; dark: Path2D }
+interface Relief { key: string; light: Path2D; dark: Path2D; grime: Path2D; chips: Path2D }
 const reliefs = new WeakMap<object, Relief>()
 function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
   // Editor geometry can be edited in place. Appearance caches never own or
@@ -72,8 +90,18 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
   const key = platforms.map(b => `${b.x},${b.y},${b.w},${b.h}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
   const cached = reliefs.get(level)
   if (cached?.key === key) return cached
-  const light = new ArtPath(), dark = new ArtPath()
+  const light = new ArtPath(), dark = new ArtPath(), grime = new ArtPath(), chips = new ArtPath()
   const shapes = platforms.map(shape => polygonPoints(shape) as Point[]), boxes = shapes.map(boxOf)
+  /** Add `piece` to `path`, trimmed to the terrain under it. */
+  const inTerrain = (path: ArtPath, piece: Point[]) => {
+    const bounds = boxOf(piece)
+    shapes.forEach((shape, i) => {
+      if (!overlaps(bounds, boxes[i])) return
+      const part = insideConvex(shape, piece)
+      if (part.length < 3) return
+      part.forEach(([x, y], k) => k ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath()
+    })
+  }
   // The union boundary omits internal seams and retains real gaps and slopes.
   for (const [a, b] of terrainBoundary(platforms)) {
     const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy)
@@ -92,15 +120,31 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
       if (piece.length < 3) return
       piece.forEach(([x, y], k) => k ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath()
     })
+    // Grit along an exposed top: grime run down the face from it, and chips knocked out of its edge.
+    // Only the part of an edge inside the level: the enclosing floor runs far past both sides of it.
+    const from = dx ? Math.max(0, (-a[0]) / dx * length) : 0, to = dx ? Math.min(length, (level.width - a[0]) / dx * length) : length
+    if (ny < -.6 && to - from > 6) for (let at = from + 4 + noise(a[0], a[1]) * 10; at < to - 3; at += 16 + noise(at, a[0]) * 22) {
+      const x = a[0] + dx / length * at, y = a[1] + dy / length * at, seed = noise(x * .37, y * .53)
+      if (seed < .5) {
+        // Most runs are short; one in five runs well down the face.
+        const width = 2 + seed * 7, run = 7 + noise(y, x) * 18 + (seed < .1 ? 26 + noise(x, x) * 30 : 0)
+        inTerrain(grime, [[x - width / 2, y + 2], [x + width / 2, y + 2], [x + width * .18, y + 2 + run], [x - width * .22, y + 2 + run * .85]])
+      } else if (seed > .86) {
+        const wide = 1.5 + noise(x, y * 2) * 3.5, deep = .8 + noise(y, x * 2) * 1.4
+        inTerrain(chips, [[x, y], [x + wide, y + dy / length * wide], [x + wide * .7, y + deep], [x + wide * .2, y + deep * .8]])
+      }
+    }
   }
-  const result = { key, light, dark }; reliefs.set(level, result); return result
+  const result = { key, light, dark, grime, chips }; reliefs.set(level, result); return result
 }
 
 /** Fine relief stays inside the real collision silhouette. */
 export function drawTerrainEdges(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], level: JumpLevel) {
   const r = relief(platforms, level)
   ctx.save()
+  ctx.fillStyle = 'rgba(46,48,38,.17)'; ctx.fill(r.grime)
   ctx.fillStyle = '#ffffff35'; ctx.fill(r.light)
   ctx.fillStyle = '#26382d25'; ctx.fill(r.dark)
+  ctx.fillStyle = 'rgba(40,44,38,.3)'; ctx.fill(r.chips)
   ctx.restore()
 }

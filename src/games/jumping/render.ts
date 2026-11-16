@@ -19,6 +19,8 @@ import { drawWallFinish } from './wallFinish.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallDoors } from './wallDoor.ts'
+import { drawTerrainTrim, drawWallStripes } from './hazardStripes.ts'
+import { drawWallPipes } from './wallPipes.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
@@ -72,12 +74,15 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
       ctx.restore()
     }
   } else drawCourseWall(ctx, level, view, zoom)
+  // Hazard stripes are painted on the wall; pipes are fixed to it, over its paint.
+  drawWallStripes(ctx, level.stripes ?? [])
   if (includeWallArt) drawWallWiring(ctx, level)
   if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
   for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
   for (const pod of level.vacantPods ?? []) drawChargingBay(ctx, pod, pod.robot ? ROBOT_BAY_WIDTH_SCALE : 1)
   // Blocked doors are painted on the wall, like the pods' housings.
   drawWallDoors(ctx, level.wallDoors ?? [])
+  drawWallPipes(ctx, level.pipes ?? [])
   ctx.restore()
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }
@@ -137,6 +142,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
   }
   if (started) ctx.fill()
   if (level && !layerSkipped('ground-cover')) drawTerrainGroundCoverSurface(ctx, level)
+  if (level && !layerSkipped('terrain-edges')) drawTerrainTrim(ctx, platforms, level)
   if (level && !layerSkipped('terrain-edges')) drawTerrainEdges(ctx, platforms, level)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {

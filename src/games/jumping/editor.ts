@@ -4,6 +4,10 @@ import { exitGateBounds, exitSignBounds } from './exitGate.ts'
 import { GRADE_GATE_HEIGHT, GRADE_GATE_WIDTH, GRADE_LETTERS, MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_GRADE_GATES, bulkheadSignBounds, courseDoorSignBounds, gradeGateBounds, hubDoorBounds, placardBounds } from './hub.ts'
 import type { Bulkhead, CourseDoor, GradeGate } from './hub.ts'
 import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
+import { MAX_PIPE_POINTS, MAX_WALL_PIPES, hitsWallPipe, isPipeSize, wallPipeBounds } from './wallPipes.ts'
+import type { WallPipe } from './wallPipes.ts'
+import { MAX_WALL_STRIPES, WALL_STRIPES_MIN } from './hazardStripes.ts'
+import type { WallStripes } from './hazardStripes.ts'
 import type { WallDoor } from './wallDoor.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
@@ -49,13 +53,17 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'pipe' | 'wall-stripes' | 'grade-gate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate'; index: number }
+export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate' | 'pipe' | 'wall-stripes'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+const pointBounds = (points: readonly (readonly [number, number])[]) => {
+  const xs = points.map(p => p[0]), ys = points.map(p => p[1]), x = Math.min(...xs), y = Math.min(...ys)
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
+}
 /** Level doors and bulkheads share the entrance's doorway, sill and placement rules. */
 export const isHubDoor = (selection: Selection): selection is Selection & { kind: 'course-door' | 'bulkhead' } => selection.kind === 'course-door' || selection.kind === 'bulkhead'
 export function hubDoorAt(level: JumpLevel, selection: Selection): CourseDoor | Bulkhead | undefined {
@@ -105,6 +113,51 @@ export function setWallDoor(level: JumpLevel, index: number, patch: Partial<Pick
   if (patch.condition) door.condition = patch.condition
   if ('frame' in patch) { if (patch.frame === 'bulkhead') door.frame = 'bulkhead'; else delete door.frame }
   if ('flipX' in patch) { if (patch.flipX) door.flipX = true; else delete door.flipX }
+  return next
+}
+/** A pipe's size only changes how it looks. */
+export function setPipe(level: JumpLevel, index: number, patch: Partial<Pick<WallPipe, 'size'>>): JumpLevel {
+  if (!level.pipes?.[index] || patch.size && !isPipeSize(patch.size)) return level
+  const next = copyLevel(level), pipe = next.pipes![index]
+  if (patch.size === 'medium') delete pipe.size; else if (patch.size) pipe.size = patch.size
+  return next
+}
+const inLevel = (level: JumpLevel, x: number, y: number): [number, number] => [clamp(x, 0, level.width), clamp(y, 0, levelHeight(level))]
+/** Move one point of a pipe; it never lands on a neighbour, which would leave a length with no direction. */
+export function movePipePoint(level: JumpLevel, index: number, point: number, x: number, y: number): JumpLevel {
+  const pipe = level.pipes?.[index]
+  if (!pipe?.points[point]) return level
+  const at = inLevel(level, x, y)
+  if ([pipe.points[point - 1], pipe.points[point + 1]].some(n => n && n[0] === at[0] && n[1] === at[1])) return level
+  const next = copyLevel(level); next.pipes![index].points[point] = at
+  return next
+}
+/** Add a bend at (x, y) on the length after `edge`. */
+export function insertPipePoint(level: JumpLevel, index: number, edge: number, x: number, y: number): JumpLevel {
+  const pipe = level.pipes?.[index]
+  if (!pipe || edge < 0 || edge >= pipe.points.length - 1) return level
+  if (pipe.points.length >= MAX_PIPE_POINTS) throw new Error(`A pipe has at most ${MAX_PIPE_POINTS} points.`)
+  const at = inLevel(level, x, y)
+  if ([pipe.points[edge], pipe.points[edge + 1]].some(n => n[0] === at[0] && n[1] === at[1])) return level
+  const next = copyLevel(level); next.pipes![index].points.splice(edge + 1, 0, at)
+  return next
+}
+/** Remove a point; a pipe keeps its two ends. */
+export function deletePipePoint(level: JumpLevel, index: number, point: number): JumpLevel {
+  const pipe = level.pipes?.[index]
+  if (!pipe?.points[point]) return level
+  if (pipe.points.length <= 2) throw new Error('A pipe needs both of its ends. Delete the pipe instead.')
+  const next = copyLevel(level), points = next.pipes![index].points
+  points.splice(point, 1)
+  // Removing a bend can bring two equal points together; keep one.
+  for (let i = points.length - 1; i > 0; i--) if (points[i][0] === points[i - 1][0] && points[i][1] === points[i - 1][1] && points.length > 2) points.splice(i, 1)
+  return next
+}
+/** Which way a wall band's stripes slant. */
+export function setWallStripes(level: JumpLevel, index: number, patch: Partial<Pick<WallStripes, 'lean'>>): JumpLevel {
+  if (!level.stripes?.[index]) return level
+  const next = copyLevel(level), band = next.stripes![index]
+  if ('lean' in patch) { if (patch.lean === 'left') band.lean = 'left'; else delete band.lean }
   return next
 }
 /** A level door names a level by ID; a bulkhead names a facility area by its level ID. */
@@ -298,7 +351,8 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
     ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
-    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? [])]) point.y += dy
+    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? []), ...(next.stripes ?? [])]) point.y += dy
+  for (const pipe of next.pipes ?? []) for (const point of pipe.points) point[1] += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     for (const point of ropeEnds(rope)) point.y += dy
@@ -328,6 +382,9 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'goal') return level.goal ? { ...level.goal, w: 0, h: 0 } : null
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
+  if (selection.kind === 'wall-stripes') return level.stripes?.[i] ?? null
+  // A pipe moves by its points; its drawn reach is its outline.
+  if (selection.kind === 'pipe') { const pipe = level.pipes?.[i]; return pipe ? pointBounds(pipe.points) : null }
   if (selection.kind === 'pickup') { const p = level.pickups?.[i]; return p ? pickupBounds(p) : null }
   if (selection.kind === 'evaluation-board') return level.evaluationBoards?.[i] ?? null
   const p = selection.kind === 'entrance' ? level.entrance : isHubDoor(selection) ? hubDoorAt(level, selection)
@@ -339,6 +396,7 @@ export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
   if (isHubDoor(selection)) { const door = hubDoorAt(level, selection); return door ? hubDoorOutline(door) : null }
   if (selection.kind === 'wall-door') { const door = level.wallDoors?.[selection.index]; return door ? wallDoorBounds(door) : null }
+  if (selection.kind === 'pipe') { const pipe = level.pipes?.[selection.index]; return pipe ? wallPipeBounds(pipe) : null }
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
   if (robot) {
@@ -654,6 +712,11 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
     const t = level.timers![i]
     if (x >= t.x - tolerance && x <= t.x + WALL_TIMER_WIDTH + tolerance && y >= t.y - tolerance && y <= t.y + WALL_TIMER_HEIGHT + tolerance) yield { kind: 'timer', index: i }
   }
+  for (let i = (level.pipes?.length ?? 0) - 1; i >= 0; i--) if (hitsWallPipe(level.pipes![i], x, y, tolerance)) yield { kind: 'pipe', index: i }
+  for (let i = (level.stripes?.length ?? 0) - 1; i >= 0; i--) {
+    const b = level.stripes![i]
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'wall-stripes', index: i }
+  }
   for (let i = (level.wallDoors?.length ?? 0) - 1; i >= 0; i--) {
     const b = wallDoorBounds(level.wallDoors![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'wall-door', index: i }
@@ -769,6 +832,8 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (isHubDoor(selection) || selection.kind === 'wall-door') Object.assign(isHubDoor(selection) ? hubDoorAt(next, selection)! : next.wallDoors![selection.index],
     { x: clamp(x, GOAL_DOOR_WIDTH / 2, level.width - GOAL_DOOR_WIDTH / 2), y: clamp(y, GOAL_DOOR_HEIGHT, levelHeight(level)) })
   if (selection.kind === 'evaluation-board') Object.assign(next.evaluationBoards![selection.index], { x, y })
+  if (selection.kind === 'wall-stripes') Object.assign(next.stripes![selection.index], { x, y })
+  if (selection.kind === 'pipe') for (const point of next.pipes![selection.index].points) { point[0] += x - b.x; point[1] += y - b.y }
   if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
@@ -832,6 +897,13 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
     board.h = clamp(h, 60, Math.min(600, top ? before.y + before.h : levelHeight(next) - before.y))
     if (left) board.x = before.x + before.w - board.w
     if (top) board.y = before.y + before.h - board.h
+  }
+  if (selection.kind === 'wall-stripes') {
+    const band = next.stripes![selection.index], before = { ...band }
+    band.w = clamp(w, WALL_STRIPES_MIN.w, left ? before.x + before.w : next.width - before.x)
+    band.h = clamp(h, WALL_STRIPES_MIN.h, top ? before.y + before.h : levelHeight(next) - before.y)
+    if (left) band.x = before.x + before.w - band.w
+    if (top) band.y = before.y + before.h - band.h
   }
   if (selection.kind === 'gravity-plate') {
     const p = next.gravityPlates![selection.index], before = { ...p }
@@ -964,6 +1036,8 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'grade-gate') next.gradeGates!.splice(i, 1)
   else if (selection.kind === 'evaluation-board') next.evaluationBoards!.splice(i, 1)
   else if (selection.kind === 'wall-door') next.wallDoors!.splice(i, 1)
+  else if (selection.kind === 'pipe') next.pipes!.splice(i, 1)
+  else if (selection.kind === 'wall-stripes') next.stripes!.splice(i, 1)
   else if (selection.kind === 'logic-relay') {
     const [relay] = next.logicRelays!.splice(i, 1)
     removeSwitchTarget(next, relay.id)
@@ -983,6 +1057,29 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'pipe') {
+    const pipes = next.pipes ??= []
+    if (pipes.length >= MAX_WALL_PIPES) throw new Error(`This level already has ${MAX_WALL_PIPES} pipes.`)
+    const h = levelHeight(next), at = (px: number, py: number): [number, number] => [clamp(px, 0, next.width), clamp(py, 0, h)]
+    const dx = end.x - start.x, dy = end.y - start.y, a = at(start.x, start.y)
+    // A click lays a short level run. A drag lays a straight run along it, or, drawn on the slant, one that turns
+    // a corner: along the drag's longer way first, then the shorter.
+    const points: [number, number][] = Math.hypot(dx, dy) < 12 ? [a, at(start.x + 240, start.y)]
+      : Math.min(Math.abs(dx), Math.abs(dy)) < 20 ? [a, Math.abs(dx) >= Math.abs(dy) ? at(end.x, start.y) : at(start.x, end.y)]
+      : [a, Math.abs(dx) >= Math.abs(dy) ? at(end.x, start.y) : at(start.x, end.y), at(end.x, end.y)]
+    if (points[1][0] === points[0][0] && points[1][1] === points[0][1]) points[1] = at(start.x - 240, start.y)
+    pipes.push({ points })
+    return { level: next, selection: { kind: 'pipe', index: pipes.length - 1 } }
+  }
+  if (tool === 'wall-stripes') {
+    const stripes = next.stripes ??= []
+    if (stripes.length >= MAX_WALL_STRIPES) throw new Error(`This level already has ${MAX_WALL_STRIPES} striped bands.`)
+    const dragged = Math.abs(end.x - start.x) >= WALL_STRIPES_MIN.w && Math.abs(end.y - start.y) >= WALL_STRIPES_MIN.h
+    const w = Math.min(dragged ? Math.abs(end.x - start.x) : 160, next.width), h = Math.min(dragged ? Math.abs(end.y - start.y) : 24, levelHeight(next))
+    const bx = clamp(dragged ? Math.min(start.x, end.x) : start.x - w / 2, 0, next.width - w), by = clamp(dragged ? Math.min(start.y, end.y) : start.y - h / 2, 0, levelHeight(next) - h)
+    stripes.push({ x: bx, y: by, w, h })
+    return { level: next, selection: { kind: 'wall-stripes', index: stripes.length - 1 } }
+  }
   if (tool === 'wall-door') {
     const doors = next.wallDoors ??= []
     if (doors.length >= MAX_WALL_DOORS) throw new Error(`This level already has ${MAX_WALL_DOORS} wall doors.`)
@@ -1263,6 +1360,8 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'course-door') { if (next.courseDoors!.length >= MAX_COURSE_DOORS) return null; index = next.courseDoors!.push({ ...structuredClone(next.courseDoors![i]), id: newLevelId() }) - 1 }
   else if (selection.kind === 'bulkhead') { if (next.bulkheads!.length >= MAX_BULKHEADS) return null; index = next.bulkheads!.push({ ...next.bulkheads![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'evaluation-board') { if (next.evaluationBoards!.length >= MAX_EVALUATION_BOARDS) return null; index = next.evaluationBoards!.push({ ...next.evaluationBoards![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'pipe') { if (next.pipes!.length >= MAX_WALL_PIPES) return null; index = next.pipes!.push(structuredClone(next.pipes![i])) - 1 }
+  else if (selection.kind === 'wall-stripes') { if (next.stripes!.length >= MAX_WALL_STRIPES) return null; index = next.stripes!.push({ ...next.stripes![i] }) - 1 }
   else if (selection.kind === 'wall-door') { if (next.wallDoors!.length >= MAX_WALL_DOORS) return null; index = next.wallDoors!.push({ ...next.wallDoors![i] }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
@@ -1275,6 +1374,8 @@ export function allSelections(level: JumpLevel): Selection[] {
     ...(level.bulkheads ?? []).map((_, index) => ({ kind: 'bulkhead' as const, index })),
     ...(level.evaluationBoards ?? []).map((_, index) => ({ kind: 'evaluation-board' as const, index })),
     ...(level.wallDoors ?? []).map((_, index) => ({ kind: 'wall-door' as const, index })),
+    ...(level.pipes ?? []).map((_, index) => ({ kind: 'pipe' as const, index })),
+    ...(level.stripes ?? []).map((_, index) => ({ kind: 'wall-stripes' as const, index })),
     ...(level.environment?.walls ?? []).map((_, index) => ({ kind: 'back-wall' as const, index })),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),

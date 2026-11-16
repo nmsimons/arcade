@@ -1,4 +1,5 @@
 import { ArtPath } from './webgl/artPath.ts'
+import { panelStains } from './surfaceDepth.ts'
 
 /**
  * A level's back-wall finish: wing identity in the course wall's own language
@@ -88,7 +89,7 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
   const opacity = (value: number) => Math.round(value * 1000) / 1000
   if (system.wash) { ctx.fillStyle = `rgba(${system.wash[0]},${opacity(system.wash[1] * colour)})`; ctx.fillRect(area.x, area.y, area.w, area.h) }
   // Joints are four paths at most: the shade and its light lip, along the wall and up it.
-  const across = { shade: new ArtPath(), lip: new ArtPath() }, down = { shade: new ArtPath(), lip: new ArtPath() }
+  const across = { shade: new ArtPath(), lip: new ArtPath() }, down = { shade: new ArtPath(), lip: new ArtPath() }, stains = new ArtPath()
   // A double panel was cast as one piece with its left neighbour: no joint between them, and one tint and wear.
   const double = (col: number, row: number) => !system.upright && !!system.merged
     && chance(col, row, 1) < system.merged && chance(col - 1, row, 1) >= system.merged
@@ -103,9 +104,12 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
       down.shade.moveTo(p.x, p.y + h); down.shade.lineTo(p.x, p.y)
       down.lip.moveTo(p.x + 1.4, p.y + h); down.lip.lineTo(p.x + 1.4, p.y + 1.4)
     }
+    if (!joined && !replaced) panelStains(stains, p.x, p.y, w, h, col, p.row)
     across.shade.moveTo(p.x, p.y); across.shade.lineTo(p.x + w, p.y)
     across.lip.moveTo(p.x + (joined ? 0 : 1.4), p.y + 1.4); across.lip.lineTo(p.x + w, p.y + 1.4)
   }
+  // Grit: faint stains run down from the joints, in the finish's own ink.
+  ctx.fillStyle = `rgba(${system.ink},${opacity(.08 * colour)})`; ctx.fill(stains)
   for (const [paths, weight] of [[across, system.across], [down, system.down]] as const) {
     ctx.strokeStyle = `rgba(${system.ink},${opacity(weight * joint)})`; ctx.lineWidth = 1.1; ctx.stroke(paths.shade)
     // The course wall's lip is 4.4 times its shade's opacity.

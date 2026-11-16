@@ -3,6 +3,8 @@ import type { Selection, TerrainTransform } from './editor.ts'
 import { copyLevel, isHubLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
 import { MAX_BULKHEADS, MAX_COURSE_DOORS, MAX_EVALUATION_BOARDS, MAX_GRADE_GATES } from './hub.ts'
 import { MAX_WALL_DOORS } from './wallDoor.ts'
+import { MAX_WALL_PIPES } from './wallPipes.ts'
+import { MAX_WALL_STRIPES } from './hazardStripes.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
 import { lineBlocked, polygonIntersects, polygonPoints } from './geometry.ts'
@@ -84,7 +86,7 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'entrance' || kind === 'goal') throw new Error('Entrance and exit doors are unique.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
     timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields',
-    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards', 'wall-door': 'wallDoors', 'grade-gate': 'gradeGates' } as const
+    'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards', 'wall-door': 'wallDoors', 'grade-gate': 'gradeGates', pipe: 'pipes', 'wall-stripes': 'stripes' } as const
   const record = level as unknown as Record<string, unknown>
   return (record[fields[kind]] ??= []) as Item[]
 }
@@ -149,6 +151,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
       const ladder = next.climbables.ladders[s.index]; ladder.x += dx; ladder.top += dy; ladder.bottom += dy; ladder.platform = -1
       continue
     }
+    if (s.kind === 'pipe') { for (const point of next.pipes![s.index].points) { point[0] += dx; point[1] += dy } continue }
     const item = itemDefinition(next, s) as unknown as { x: number; y: number }
     item.x += dx; item.y += dy
     if (s.kind === 'rope') {
@@ -209,7 +212,7 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
   robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40,
-  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS, 'wall-door': MAX_WALL_DOORS, 'grade-gate': MAX_GRADE_GATES }
+  'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS, 'wall-door': MAX_WALL_DOORS, 'grade-gate': MAX_GRADE_GATES, pipe: MAX_WALL_PIPES, 'wall-stripes': MAX_WALL_STRIPES }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
   const source = clipboard.level, originals = validSelections(source, clipboard.selections).filter(copyableSelection)

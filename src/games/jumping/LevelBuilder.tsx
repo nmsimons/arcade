@@ -12,6 +12,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
+import { setPipe, setWallStripes } from './editor'
 import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setExitDestination, setDoorReturn, setDoorDispatch, setBulkheadArrival, setLevelType, setWallDoor, hubDoorAt, editGradeGate } from './editor'
 import { GRADE_LETTERS, drawGradeGate } from './hub'
 import type { GradeLetter } from './hub'
@@ -63,6 +64,10 @@ import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
 import { GROUND_COVERS, terrainGroundCover } from './terrainGroundCover'
+import { TERRAIN_TRIMS } from './hazardStripes'
+import type { TerrainTrim } from './hazardStripes'
+import { PIPE_SIZES } from './wallPipes'
+import type { PipeSize } from './wallPipes'
 import type { GroundCover } from './terrainGroundCover'
 import { switchedItems, switchSources, switchTargets, switchItemLabel, wallWiringItems } from './switchPower'
 import { waterControlId } from './waterLevel'
@@ -113,7 +118,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     : trigger?.mode === 'coins' && trigger.display === 'digital' ? []
     : trigger ? trigger.mode === 'coins' && trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
     : selection.kind === 'gravity-plate' ? ['top-left', 'top', 'top-right', 'left', 'right', 'bottom-left', 'bottom', 'bottom-right']
-    : ['prop', 'text', 'evaluation-board'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
+    : ['prop', 'text', 'evaluation-board', 'wall-stripes'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
   const handles = corners.map(corner => ({ corner,
     x: bounds.x + (corner.endsWith('left') ? -8 / zoom : corner.endsWith('right') ? bounds.w + 8 / zoom : bounds.w / 2),
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
@@ -160,6 +165,8 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Choose Official or red Graffiti, and edit the text, size, alignment, and rotation in the inspector. Text never blocks movement.' },
   { id: 'message-screen', group: 'Back wall', label: 'Message screen', help: 'Click or drag to mount a small terminal. Edit its message, size, alignment and rotation. Green phosphor lettering stays readable in the dark.' },
   { id: 'wall-door', group: 'Back wall', label: 'Blocked door', help: 'Click to paint a door that never opens onto the back wall, on a flat sill like a real door: sealed, jammed, boarded up or caved in, in a door or bulkhead frame. Choose its look in the inspector. Wall art only, with no collision.' },
+  { id: 'pipe', group: 'Back wall', label: 'Pipe', help: 'Drag along the back wall to run a pipe; drag on the slant for one that turns a corner. Drag its round points to reroute it, or use Node to add a bend. Choose Small, Medium or Large in the inspector. Wall art only, with no collision.' },
+  { id: 'wall-stripes', group: 'Back wall', label: 'Hazard stripes', help: 'Click or drag to paint a band of worn yellow and black stripes onto the back wall. Corner handles resize it; choose which way the stripes lean in the inspector. Wall art only, with no collision.' },
   { id: 'lab-stamp', group: 'Back wall', label: 'L.A.B. wall stamp', help: 'Click or drag to stamp the L.A.B. Experiments mark onto the back wall. Resize or rotate it in the inspector. It stays behind terrain and never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
@@ -338,6 +345,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
   const hubDoor = selection ? hubDoorAt(level, selection) : undefined
   const wallDoor = selection?.kind === 'wall-door' ? level.wallDoors?.[selection.index] : null
+  const pipe = selection?.kind === 'pipe' ? level.pipes?.[selection.index] : null
+  const wallBand = selection?.kind === 'wall-stripes' ? level.stripes?.[selection.index] : null
   // A level door may lead to any course or playground; a bulkhead to any other facility area.
   const doorDestination = hubDoor ? 'course' in hubDoor ? hubDoor.course : hubDoor.to : ''
   const destinationOptions = !hubDoor ? [] : 'course' in hubDoor
@@ -696,6 +705,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         }
       }
       if (editingWall) drawBackWallOutline(ctx, editingWall, selectedNode, view.zoom)
+      if (pipe) {
+        ctx.strokeStyle = '#c65231'; ctx.lineWidth = 1.5 / view.zoom
+        for (const [i, [wx, wy]] of pipe.points.entries()) {
+          ctx.beginPath(); ctx.arc(wx, wy, (i === selectedNode ? 6 : 4.5) / view.zoom, 0, Math.PI * 2)
+          ctx.fillStyle = i === selectedNode ? '#c65231' : '#fffdf5'; ctx.fill(); ctx.stroke()
+        }
+      }
       for (const point of selectedTerminals) {
         ctx.beginPath(); ctx.arc(point.x, point.y, 7 / view.zoom, 0, Math.PI * 2)
         ctx.strokeStyle = '#c65231'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
@@ -718,7 +734,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, curveHandles, mechanism, robot, terrainDrag, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, environmentGrid, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer, editingWall])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, pipe, curveHandles, mechanism, robot, terrainDrag, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, environmentGrid, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer, editingWall])
   useEffect(() => {
     if (!active || size.width <= 0 || size.height <= 0) return
     // Cursor movement must not restart lighting or redraw the authored world.
@@ -839,7 +855,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       setSelectedNode(null)
       setDrag({ mode: 'resize', start: p, screen, base, view, selection, corner: handle.corner }); return
     }
-    if (selection && (chosen || editingWall)) {
+    if (selection && (chosen || editingWall || pipe)) {
       const point = shapePoints(level, selection)!.findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
       if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); setDrag({ mode: 'point', start: p, screen, base, view, selection, point }); return }
     }
@@ -1095,12 +1111,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     }
     else if (event.target === canvasRef.current && selection) {
       if (event.key === 'End') { event.preventDefault(); commit(placeOnSurface(history.present, selection)) }
-      else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && (chosen || editingWall)) removeNode(); else remove() }
+      else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && (chosen || editingWall || pipe)) removeNode(); else remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault(); const grid = gridSize, step = event.shiftKey ? 1 : grid
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
-        const node = (chosen || editingWall) && selectedNode !== null ? shapePoints(level, selection)?.[selectedNode] : null
+        const node = (chosen || editingWall || pipe) && selectedNode !== null ? shapePoints(level, selection)?.[selectedNode] : null
         const origin = node ? { x: node[0], y: node[1] } : light ?? wallLight ?? logicRelay ?? gradeGate ?? bounds
         const shiftX = snap && !event.shiftKey && origin && dx ? quantize(origin.x + dx, grid) - origin.x : dx
         const shiftY = snap && !event.shiftKey && origin && dy ? quantizeY(origin.y + dy, grid) - origin.y : dy
@@ -1457,8 +1473,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
                 : support.delta > 0 ? `${Math.round(support.delta)} above surface` : 'Overlaps surface'
               : facingPlate?.ceiling ? 'No clear ceiling above' : 'No clear surface below'}</span>
           </div>}
-          {(chosen || editingWall) && <div className="builder-action-row"><button title="Activate Node to add or move outline points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected node; at least three must remain" disabled={selectedNode === null || shapePoints(level, selection)!.length <= 3} onClick={removeNode}>Delete node</button></div>}
-          {(chosen || editingWall) && selectedNode !== null && shapePoints(level, selection)?.[selectedNode] && <fieldset>
+          {(chosen || editingWall || pipe) && <div className="builder-action-row"><button title="Activate Node to add or move outline points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected node; at least three must remain" disabled={selectedNode === null || shapePoints(level, selection)!.length <= 3} onClick={removeNode}>Delete node</button></div>}
+          {(chosen || editingWall || pipe) && selectedNode !== null && shapePoints(level, selection)?.[selectedNode] && <fieldset>
             <legend>Node {selectedNode + 1} of {shapePoints(level, selection)!.length}</legend>
             <div className="builder-dimensions">{(['x', 'y'] as const).map(axis => {
               const p = shapePoints(level, selection)![selectedNode]
@@ -1479,7 +1495,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               }} />
           </>}
         </BuilderInspectorSection>
-        {Boolean(editingWall || chosen || light || wallText || wallDoor) && <BuilderInspectorSection title="Appearance">
+        {Boolean(editingWall || chosen || light || wallText || wallDoor || pipe || wallBand) && <BuilderInspectorSection title="Appearance">
+          {pipe && <>
+            <BuilderSelect label="Size" accessibleLabel="Pipe size" value={pipe.size ?? 'medium'} options={PIPE_SIZES.map(size => ({ value: size.id, label: size.label }))}
+              onChange={value => commit(setPipe(history.present, selection.index, { size: value as PipeSize }))} />
+            <p className="builder-hint">Drag a round point to reroute the pipe; Node adds a bend. Run pipes where the room would plumb something. Wall art only, with no collision.</p>
+          </>}
+          {wallBand && <>
+            <BuilderSelect label="Lean" accessibleLabel="Hazard stripe lean" value={wallBand.lean ?? 'right'} options={[{ value: 'right', label: 'Right' }, { value: 'left', label: 'Left' }]}
+              onChange={value => commit(setWallStripes(history.present, selection.index, { lean: value === 'left' ? 'left' : undefined }))} />
+            <p className="builder-hint">Paint warns of something: an edge, a drop, a machine. Wall art only, with no collision.</p>
+          </>}
           {wallDoor && <>
             <div className="builder-dimensions">
               <BuilderSelect label="Condition" accessibleLabel="Blocked door condition" value={wallDoor.condition} options={WALL_DOOR_CONDITIONS.map(value => ({ value, label: WALL_DOOR_LABELS[value] }))}
@@ -1502,6 +1528,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <BuilderSelect label="Ground cover" value={terrainGroundCover(level, selection.index)} options={GROUND_COVERS.map(cover => ({ value: cover.id, label: cover.label }))}
               onChange={groundCover => { const next = copyLevel(history.present); next.platforms[selection.index].groundCover = groundCover as GroundCover; commit(next) }} />
             <p className="builder-hint">Follows exposed top edges. Decorative only.</p>
+            <BuilderSelect label="Edge marking" value={chosen.trim ?? 'none'} options={TERRAIN_TRIMS.map(trim => ({ value: trim.id, label: trim.label }))}
+              onChange={trim => { const next = copyLevel(history.present), piece = next.platforms[selection.index]; if (trim === 'none') delete piece.trim; else piece.trim = trim as TerrainTrim; commit(next) }} />
+            <p className="builder-hint">A worn band just under its exposed tops, for a dock edge or a drop. Decorative only.</p>
           </>}
           {chosen && <fieldset className="builder-terrain-order">
             <legend>Draw order ({terrainPosition + 1} of {level.platforms.length})</legend>

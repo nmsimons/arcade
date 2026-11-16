@@ -927,6 +927,38 @@ no collision, gives no cover and never responds to Up. In the studio, **Back
 wall → Blocked door** places one on a flat sill, and **Object → Appearance**
 chooses its condition and frame.
 
+### Pipes
+
+`pipes: [{ name?, points, size? }]` runs pipework along the back wall, in any
+level: up to 40 pipes of 2 to 16 points each. `points` is the run in order, its
+two ends and every bend between them, as `[x, y]` pairs inside the room; no two
+neighbouring points may be equal. `size` is `"small"` (8 units across),
+`"medium"` (14, the default, saved by leaving it out) or `"large"` (22). Each
+bend turns on a radius in proportion to the pipe. Flanges sit at the ends of
+every length and along long ones, wall straps with a bolt either side hold each
+length, and rust weeps from the joints of level runs onto the wall below. The
+artwork is flat: a body with one lit and one shaded band.
+
+A pipe is wall art: no collision, grip, cover or light, and it receives the
+room's lighting like the wall it is fixed to. It draws over wall paint and
+under everything in the room. In the studio, **Back wall → Pipe** lays one: drag
+along the wall for a straight run, or on the slant for one that turns a corner,
+along the drag's longer way first; a click lays a short level run. Drag a round
+point to reroute it, use **Add node** (or Node) and click a length to add a
+bend, and select a point and press Delete to remove it. A pipe keeps both of its
+ends. **Object → Appearance → Size** changes its size.
+
+### Hazard stripes
+
+`stripes: [{ name?, x, y, w, h, lean? }]` paints bands of worn yellow and black
+stripes on the back wall, in any level: up to 40, each at least 16 by 6. The
+stripes run at 45 degrees and lean right; `"lean": "left"` slants them the other
+way. They are anchored to the world, so bands side by side continue each other,
+and the paint is worn through to the wall here and there. Wall art only, like a
+pipe. In the studio, **Back wall → Hazard stripes** paints one: click for a
+160 by 24 band, or drag its size. Corner handles resize it and **Object →
+Appearance → Lean** turns its stripes.
+
 ### Optional back-wall wiring
 
 Select a pressure plate, coin switch, float switch, or relay source and enable
@@ -1046,6 +1078,12 @@ to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a
 terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.
 Materials are saved in the JSON and appear in the game, editor and thumbnails.
+
+Terrain also accepts `trim: "hazard"` (or `"none"`, the default). It paints an
+8-unit band of worn yellow and black stripes just under the piece's exposed,
+walkable tops, below the lit edge, like the marked lip of a dock or a drop:
+covered tops and steep sides carry none. Choose **Object → Appearance → Edge
+marking**. It is decoration only, like ground cover.
 
 Terrain also accepts `groundCover: "none"`, `"grass"`, `"scrub"`, or `"moss"`.
 Choose **Object → Appearance → Ground cover** to add fine grass blades, sparse

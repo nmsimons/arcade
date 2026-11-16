@@ -84,6 +84,16 @@ function dayActorPatch(run: LightingWorld, view: LightingView) {
 /** Shared lighting/composition entry point. GPU light fields are opt-in for the
  * live game; Canvas remains available for previews and compatibility fallback.
  * Neither backend reads pixels or allocates a framebuffer per object. */
+/** A number per level object. Cached artwork keyed by it is redrawn after any edit (the studio replaces the level
+ * on every change: pipes, stripes, doors and trim included), and kept for the whole of a run. */
+const levelSerials = new WeakMap<object, number>()
+let nextLevelSerial = 1
+function levelSerial(level: object) {
+  let serial = levelSerials.get(level)
+  if (serial === undefined) { serial = nextLevelSerial++; levelSerials.set(level, serial) }
+  return serial
+}
+
 export class LightingRenderer {
   private environmentLighting = new EnvironmentLighting()
   readonly state = new LightingState()
@@ -568,6 +578,7 @@ export class LightingRenderer {
       const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${run.level.width}:${levelHeight(run.level)}:`
         + terrain.map(b => `${b.x},${b.y},${b.w},${b.h},${b.material},${b.groundCover},${b.zIndex}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
         + run.level.platforms.map(p => p.groundCover).join(',') + run.level.environment?.kind + JSON.stringify(run.level.environment?.groundCover ?? [])
+        + `:${levelSerial(run.level)}`
       if (this.terrainRaster?.key !== key || this.terrainRaster.buffer !== haze) {
         clear(haze, width, height); transform(haze.ctx, view)
         drawTerrain(haze.ctx, terrain, run.level.platforms, run.level)
@@ -589,7 +600,8 @@ export class LightingRenderer {
         for (const material of new Set(run.terrain.map(shape => shape.material ?? 'stone'))) terrainFill(correction.ctx, material)
       }
     }
-    const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}:${run.level.platforms.map(p => p.groundCover).join(',')}`
+    // The level's serial stands for all of its artwork: an edit in the studio makes a new level, while play keeps one.
+    const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}:${run.level.platforms.map(p => p.groundCover).join(',')}:${levelSerial(run.level)}`
     // Hub doors, placards and lettering belong to the cached background; it redraws when a door opens or shuts.
     const hubKey = 'hub' in run && run.hub ? `:${[...run.hub.open].join()}:${[...run.hub.placards].map(([id, lines]) => id + lines.join('/')).join()}:${[...run.hub.signs].join()}` : ''
     const backgroundKey = `${dayKey}:${document.fonts.status}${hubKey}`

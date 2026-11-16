@@ -122,6 +122,23 @@ without adding implied machinery. Keep terrain silhouettes crisp, without
 decorative drop-shadow halos. Keep decorative hardware clear of hints
 and distinguish it from usable ropes, ladders, and powered mechanisms.
 
+Pipes and hazard stripes follow the same rule. Run a pipe where the room would
+plumb something: from a pump, a tank, a flooded basin or a machine, along a
+ceiling or down a wall, rather than across a blank wall for texture. Use striping
+to warn: mark the lip of a drop, a loading edge, a lift shaft or a crusher's
+reach with terrain **Edge marking**, and paint a wall band beside a hazard or a
+door that matters. A room striped everywhere warns of nothing. Keep pipes clear
+of ropes and ladders, whose silhouettes a player reads as climbable; a long
+vertical pipe beside a ladder invites a wrong jump. Freight's identity is hazard
+striping and Water's is pipework (see the facility spec), so those wings use them
+most.
+
+The game's look is flat 2D, now with some grit: grime runs down from terrain
+tops, chips break their edges, water stains streak the wall panels, and rust
+weeps from pipe joints. All of it is drawn by rule, sparse and deterministic, so
+a room looks the same on every visit. Do not add more wear by hand with wall text
+or extra art; dirt that tells the player nothing only adds noise.
+
 When a level promises a building, group its running surfaces into usable rooms
 and connected rooflines. Let door openings, service passages and ladder hatches
 explain how the storeys connect. A few substantial halls and open loading yards

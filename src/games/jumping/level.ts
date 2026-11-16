@@ -25,6 +25,10 @@ import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
 import { MAX_WALL_DOORS, WALL_DOOR_CONDITIONS, wallDoorBounds } from './wallDoor.ts'
 import type { WallDoor, WallDoorCondition } from './wallDoor.ts'
+import { MAX_PIPE_POINTS, MAX_WALL_PIPES, isPipeSize } from './wallPipes.ts'
+import type { WallPipe } from './wallPipes.ts'
+import { MAX_WALL_STRIPES, WALL_STRIPES_MIN, isTerrainTrim } from './hazardStripes.ts'
+import type { WallStripes } from './hazardStripes.ts'
 import { wallTextBounds } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
@@ -97,6 +101,10 @@ export interface JumpLevel {
   texts?: WallText[]
   /** Blocked and broken doors painted into the back wall. */
   wallDoors?: WallDoor[]
+  /** Pipework run along the back wall (wallPipes.ts). */
+  pipes?: WallPipe[]
+  /** Hazard stripes painted on the back wall (hazardStripes.ts). */
+  stripes?: WallStripes[]
   /**
    * Charging pods that stand empty, drawn where they are: a facility area's own pod once the robot arrives
    * by a door, and the pods of robots that have left them (see `arrivalLevel`). Set as the robot arrives,
@@ -203,6 +211,12 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, door] of (level.wallDoors ?? []).entries()) {
     const b = wallDoorBounds(door)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || door.y > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-door', i)} inside the level rectangle.`)
+  }
+  for (const [i, pipe] of (level.pipes ?? []).entries()) {
+    if (pipe.points.some(([x, y]) => x < 0 || y < 0 || x > level.width || y > levelHeight(level))) issues.push(`Keep ${objectReference(level, 'pipe', i)} inside the level rectangle.`)
+  }
+  for (const [i, band] of (level.stripes ?? []).entries()) {
+    if (band.x < 0 || band.y < 0 || band.x + band.w > level.width || band.y + band.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-stripes', i)} inside the level rectangle.`)
   }
   for (const [i, light] of (level.wallLights ?? []).entries()) {
     const b = wallLightBounds(light)
@@ -343,6 +357,10 @@ export function parseLevel(value: unknown): JumpLevel {
     if (b.groundCover !== undefined) {
       if (!isGroundCover(b.groundCover)) return fail()
       platform.groundCover = b.groundCover
+    }
+    if (b.trim !== undefined) {
+      if (!isTerrainTrim(b.trim)) return fail()
+      platform.trim = b.trim
     }
     if (b.profile !== undefined) {
       const profile = list(b.profile, 100).map(item => {
@@ -685,6 +703,25 @@ export function parseLevel(value: unknown): JumpLevel {
     if (d.flipX !== undefined && typeof d.flipX !== 'boolean') fail()
     return { ...objectName(d), x: num(d.x, 0, width), y: num(d.y, 0, 6000), condition: d.condition as WallDoorCondition,
       ...(d.frame === undefined ? {} : { frame: 'bulkhead' as const }), ...(d.flipX === undefined ? {} : { flipX: d.flipX as boolean }) }
+  })
+  if (v.pipes !== undefined) level.pipes = list(v.pipes, MAX_WALL_PIPES).map(item => {
+    const p = object(item)
+    if (p.size !== undefined && !isPipeSize(p.size)) fail()
+    const points = list(p.points, MAX_PIPE_POINTS).map(value => {
+      const point = list(value, 2)
+      return [num(point[0], 0, width), num(point[1], 0, 6000)] as [number, number]
+    })
+    // A pipe has two ends, and no length of it is empty.
+    if (points.length < 2 || points.some((q, i) => i && q[0] === points[i - 1][0] && q[1] === points[i - 1][1])) fail()
+    return { ...objectName(p), points, ...(p.size === undefined ? {} : { size: p.size as WallPipe['size'] }) }
+  })
+  if (v.stripes !== undefined) level.stripes = list(v.stripes, MAX_WALL_STRIPES).map(item => {
+    const b = object(item)
+    if (b.lean !== undefined && b.lean !== 'left') fail()
+    const band: WallStripes = { ...objectName(b), x: num(b.x, 0, width), y: num(b.y, 0, 6000), w: num(b.w, WALL_STRIPES_MIN.w, width), h: num(b.h, WALL_STRIPES_MIN.h, 6000),
+      ...(b.lean === undefined ? {} : { lean: 'left' as const }) }
+    if (band.x + band.w > width + .001) fail()
+    return band
   })
   if (v.gravityPlates !== undefined) level.gravityPlates = list(v.gravityPlates, MAX_GRAVITY_PLATES).map(item => {
     const p = object(item)

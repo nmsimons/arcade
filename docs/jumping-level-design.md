@@ -137,7 +137,9 @@ The game's look is flat 2D, now with some grit: grime runs down from terrain
 tops, chips break their edges, water stains streak the wall panels, and rust
 weeps from pipe joints. All of it is drawn by rule, sparse and deterministic, so
 a room looks the same on every visit. Do not add more wear by hand with wall text
-or extra art; dirt that tells the player nothing only adds noise.
+or extra art; dirt that tells the player nothing only adds noise. Missing panels
+that expose the services behind the wall, and a per-level stain intensity, are
+proposed in [Missing panels and stain intensity](jumping-wall-wear.md).
 
 When a level promises a building, group its running surfaces into usable rooms
 and connected rooflines. Let door openings, service passages and ladder hatches

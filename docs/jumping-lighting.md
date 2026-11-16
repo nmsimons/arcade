@@ -414,9 +414,11 @@ display's phosphor green (`#a9ef82`, November 15, 2026), which no other body or
 pickup uses. The signal colour is paint: a cell on the back, seen only from
 behind, lit and shadowed with the shell. A green chest mark and a band on the
 upper arm were tried and dropped as too much. The eyes are
-lights. `drawAthlete` draws them with the body, and the game draws them again
-over it at exposure 1 (`drawAthleteLights`), as Rbot's visor is, so they glow
-in the dark at their full colour. That second pass is skipped where the near
+lights. `drawAthlete` draws them with the body, and at night the game draws
+them again over it at exposure 1 (`drawAthleteLights`, with bounds), as Rbot's
+visor is, so they glow in the dark at their full colour. Daylight already shows
+them at full colour and gets no second pass: an unbounded self-lit paint there
+took the renderer off its small-patch ambient correction on every frame. That second pass is skipped where the near
 arm, which the body draws over its head, crosses an eye, and for a head turned
 away. Rbot and the diagnostic masks carry neither colour. The eyes are flat
 fills: no halo or blur.

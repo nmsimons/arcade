@@ -523,13 +523,14 @@ test('crouch walking passes through a two-tile opening after bracing against it'
   await setup(page, 0, [level]); await enter(page)
   await page.keyboard.down('d'); await page.clock.runFor(700)
   expect((await position(page)).x).toBeCloseTo(274.5)
-  await page.keyboard.down('s'); await page.clock.runFor(800)
+  // Crouch walking is 60 units per second: a second and a half to get well under the beam.
+  await page.keyboard.down('s'); await page.clock.runFor(1500)
   expect((await position(page)).x).toBeGreaterThan(350)
   expect((await position(page)).x).toBeLessThan(390)
   await page.screenshot({ path: info.outputPath('two-tile-crouch-walk.png') })
   await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(300)
   await expect(page.locator('.jumping-state')).toHaveText('Crouching')
-  await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(1200)
+  await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(2600)
   await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(300)
   expect((await position(page)).x).toBeGreaterThan(480)
   await expect(page.locator('.jumping-state')).toHaveText('Ready')
@@ -547,7 +548,9 @@ for (const pointed of [false, true]) test(`crouch-walking lowers from a ${pointe
   flattenFixtureEntrance(level, 0, 'uphill')
   expect(levelProblems(level)).toEqual([])
   await setup(page, 0, [level]); await enter(page)
-  await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(5500)
+  // The crawl to the lip is about 310 units at crouch speed, slower still up the flat lip's ramp: the hang
+  // comes at about 6.4 seconds on the pointed lip and 8.6 on the flat one.
+  await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(9500)
   await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(80)
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   expect((await position(page)).x).toBeCloseTo(674); expect((await position(page)).y).toBeCloseTo(454)
@@ -577,7 +580,7 @@ test('clutter below a low ledge keeps a stable grip and allows a crouched pull-u
   await setup(page, 0, [level]); await enter(page)
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt) { await restartFromPause(page); await page.clock.runFor(64) }
-    await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(4000)
+    await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(6000)
     await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(80)
     await expect(page.locator('.jumping-state')).toHaveText('Hanging')
     expect((await position(page)).x).toBeCloseTo(714); expect((await position(page)).y).toBeCloseTo(594)

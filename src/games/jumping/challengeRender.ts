@@ -38,7 +38,7 @@ import { drawGadgets, drawLooseGadget } from './gadgetRender.ts'
 import { drawRepulsorBot } from './repulsorBotRender.ts'
 import { EMP_PALETTE, ROBOT_PALETTE } from './equipmentPalette.ts'
 import { awakeningPose, presentedAthletePose } from './athletePose.ts'
-import { drawAthleteLights } from './athleteDraw.ts'
+import { athleteLightBounds, drawAthleteLights } from './athleteDraw.ts'
 import type { AthletePose } from './athleteRig.ts'
 import type { Player } from './characterTypes.ts'
 import { glancePose, idleGlance, robotsStir } from './idleGlance.ts'
@@ -291,9 +291,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawChargingBayCover(ctx, r.definition, r.awakening?.elapsed ?? 0, paint, nightModeEnabled(level.lighting), ROBOT_BAY_WIDTH_SCALE)
   if (!editor && !layerSkipped('effects')) drawImpactEffects(ctx, run, paint)
   // The body takes the level's light; its eyes are lights of their own, drawn over it where none reaches.
+  // Daylight already shows them at full colour, and an extra self-lit paint there would cost the renderer
+  // its small-patch ambient correction, so the second pass is for the dark only.
   const drawPlayer = (actor: Player, pose?: AthletePose) => {
     paint(ctx, playerExposure, () => drawAthlete(ctx, actor, playerInk, pose))
-    paint(ctx, 1, () => drawAthleteLights(ctx, actor, playerInk, pose))
+    if (playerExposure) paint(ctx, 1, () => drawAthleteLights(ctx, actor, playerInk, pose), true, athleteLightBounds(actor))
   }
   if (!run.started && run.entrance && !editor) {
     const entrance = run.entrance, waking = entrance.kind === 'charging-bay'

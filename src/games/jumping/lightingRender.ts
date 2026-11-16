@@ -24,7 +24,7 @@ import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { ambientExposure, angularFalloff, betweenLightAndView, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
 import { LIGHTING_BUFFER_BUDGET as BUFFER_BUDGET, gpuLightingBufferBytes } from './lightingBudget.ts'
-import { NIGHT_PLAYER_COLOR, drawAthleteLights } from './athleteDraw.ts'
+import { NIGHT_PLAYER_COLOR, athleteLightBounds, drawAthleteLights } from './athleteDraw.ts'
 import { awakeningPose, withAthletePose } from './athletePose.ts'
 import { powerOut } from './power.ts'
 import { layerSkipped } from './measureLayers.ts'
@@ -259,11 +259,12 @@ export class LightingRenderer {
           ctx.save(); ctx.globalAlpha *= waking ? .45 + .55 * chargingBayOpening(entrance.elapsed) : entranceVisibility(entrance.elapsed)
           const pose = waking ? awakeningPose(entrance.player, awakeningProgress(entrance.elapsed)) : undefined
           paint(ctx, playerExposure, () => drawAthlete(ctx, entrance.player, ink, pose))
-          paint(ctx, 1, () => drawAthleteLights(ctx, entrance.player, ink, pose)); ctx.restore()
+          if (playerExposure) paint(ctx, 1, () => drawAthleteLights(ctx, entrance.player, ink, pose), true, athleteLightBounds(entrance.player))
+          ctx.restore()
         } else {
           drawMovementEffects(ctx, run.player, paint)
           paint(ctx, playerExposure, () => drawAthlete(ctx, run.player, ink))
-          paint(ctx, 1, () => drawAthleteLights(ctx, run.player, ink))
+          if (playerExposure) paint(ctx, 1, () => drawAthleteLights(ctx, run.player, ink), true, athleteLightBounds(run.player))
         }
         if (run.level.entrance.kind === 'charging-bay')
           drawChargingBayCover(ctx, run.level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightMode)

@@ -17,7 +17,8 @@ for (const direction of [-1, 1]) for (const pace of ['walk', 'run', 'crouch']) t
   await page.keyboard.down(key)
   for (const gap of [100, 65, 45]) {
     let frame
-    for (let i = 0; i < 120; i++) {
+    // A crouch covers the 60 units to the first stage in a second; the faster paces need far less.
+    for (let i = 0; i < (pace === 'crouch' ? 240 : 120); i++) {
       await page.clock.runFor(8)
       frame = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
       if ((face - frame.x) * direction <= gap) break

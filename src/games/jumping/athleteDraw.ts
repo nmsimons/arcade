@@ -12,6 +12,7 @@ import { footPoint } from './footwork.ts'
 import type { Limb, Point } from './limbPose.ts'
 import { drawSleeve } from './sleeveArtwork.ts'
 import type { Player } from './characterTypes.ts'
+import type { PaintBounds } from './worldPaint.ts'
 
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
 const SHOULDER_SOCKET_RADIUS = 1.2
@@ -241,6 +242,11 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
 function segmentDistance(point: Point, a: Point, b: Point) {
   const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)))
   return Math.hypot(point[0] - a[0] - dx * t, point[1] - a[1] - dy * t)
+}
+/** World bounds that hold a body's lights in either gravity frame, for the paint that draws them. */
+export function athleteLightBounds(p: Player): PaintBounds {
+  const size = bodySize(p)
+  return { x: p.x - 30 * size, y: p.y - 80 * size, w: 60 * size, h: 160 * size }
 }
 /** The body's own lights, drawn over it again where light and shadow do not reach (worldPaint exposure 1), so
  * its eyes glow in the dark. Nothing is drawn where the near arm, which the body draws over its head, crosses an eye. */

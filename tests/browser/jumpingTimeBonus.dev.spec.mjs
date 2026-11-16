@@ -125,7 +125,8 @@ test('Down visibly crouches, walks through a low tunnel and stands only when cle
   const standing = (await state(page)).player
   await page.keyboard.down('d'); await page.clock.runFor(400)
   const blocked = (await state(page)).player
-  await page.keyboard.down('s'); await page.clock.runFor(650)
+  // Crouch walking is 60 units per second, and the tunnel is 280 long.
+  await page.keyboard.down('s'); await page.clock.runFor(1300)
   const crouched = (await state(page)).player
   expect(crouched.x).toBeGreaterThan(blocked.x + 50)
   expect(crouched.x).toBeLessThan(blocked.x + 100)
@@ -133,7 +134,7 @@ test('Down visibly crouches, walks through a low tunnel and stands only when cle
   await page.screenshot({ path: info.outputPath('crouch-walk.png') })
   await page.keyboard.up('s'); await page.clock.runFor(500)
   expect((await state(page)).player.head).toBeGreaterThan(standing.head + 15)
-  await page.clock.runFor(1800); await page.keyboard.up('d')
+  await page.clock.runFor(3600); await page.keyboard.up('d')
   // Let braking and both recovery steps settle before comparing the idle poses.
   await page.clock.runFor(600)
   const clear = (await state(page)).player

@@ -61,7 +61,11 @@ test('contact turns the bot toward its rider, who can stand, crouch and jump fro
   const standing = await state()
   expect(standing.player.x - standing.bot.x).toBeLessThan(0)
   expect(standing.player.x - standing.bot.x).toBeGreaterThan(-24)
-  expect(standing.player.y).toBeCloseTo(554, 1)
+  // The bot keeps reacting under its rider: its roof is at 554, or 7 lower while it winds up. Which one this
+  // instant catches depends on how far the crouched shuffle carried the rider, so hold the rider to the roof
+  // the bot is drawn with.
+  expect([554, 561]).toContain(Math.round(standing.player.y))
+  expect(standing.player.y).toBeCloseTo(standing.roof, 1)
   expect(standing.facing).toBe(-1)
   expect(standing.eye).toBe('#94433f')
   await page.screenshot({ path: info.outputPath('standing-on-bot.png') })

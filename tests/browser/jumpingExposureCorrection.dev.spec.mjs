@@ -44,14 +44,21 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: reusing exposure corr
   if (backend === 'canvas') expect(result.cachedFrames).toBeGreaterThan(0)
 })
 
-test('a reused daylight terrain mask restores moving artwork, recovery indicators and material edges exactly', async ({ page }, info) => {
+// Stains are wall artwork under the daylight caches; heavier rooms draw more of them, so check those too. The
+// default room takes blankTrial's fresh ID, and so new stains, on every run. The heavier rooms keep one ID: in
+// a few layouts in twenty, a heavy room's stain beside a moving actor or under the floor's edge still comes
+// out one level off in the redrawn patch (wallWear.ts, stainLayer), which a fresh layout per run would make flaky.
+const WALLS = [{}, { stains: 'heavy', wallFinish: 'plank', id: 'stained-room' }, { stains: 'soaked', id: 'stained-room' }]
+const wallName = wall => wall.stains ? ` (${wall.stains} stains${wall.wallFinish ? ', ' + wall.wallFinish : ''})` : ''
+
+for (const wall of WALLS) test(`a reused daylight terrain mask restores moving artwork, recovery indicators and material edges exactly${wallName(wall)}`, async ({ page }, info) => {
   await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async wall => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, entrance: { x: 780, y: 500 }, goal: { x: 100, y: 500 },
+    const level = { ...blankTrial(), ...wall, width: 1200, height: 600, floor: 500, entrance: { x: 780, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 400, y: 200, w: 200, h: 300, material: 'steel',
         polygon: [[0, 0], [120, 0], [120, 50], [200, 50], [200, 300], [0, 300]] },
       { x: 650, y: 420, w: 80, h: 30 }],
@@ -84,7 +91,7 @@ test('a reused daylight terrain mask restores moving artwork, recovery indicator
     }
     renderers.forEach(renderer => renderer.dispose())
     return { worst, cachedFrames, cachedBackgrounds, bytes }
-  })
+  }, wall)
   await info.attach('moving-mask-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
   expect(result.worst).toBe(0)
   expect(result.cachedFrames).toBe(15)
@@ -174,14 +181,14 @@ test('automatic lighting chooses a software drawing context for a CPU driver and
   expect(result.worst).toBe(0)
 })
 
-test('a settled daylight background preserves wall art, changing actors and cache invalidation', async ({ page }, info) => {
+for (const wall of WALLS) test(`a settled daylight background preserves wall art, changing actors and cache invalidation${wallName(wall)}`, async ({ page }, info) => {
   await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async wall => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, entrance: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
+    const level = { ...blankTrial(), ...wall, width: 1200, height: 600, floor: 500, entrance: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 400, y: 200, w: 200, h: 300 }],
       texts: [{ x: 320, y: 160, w: 400, h: 50, text: 'Push, release, then jump.', fontSize: 24, align: 'left', rotation: -4 }],
       props: [{ kind: 'box', x: 615, y: 500, size: 30 }], robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }
@@ -229,7 +236,7 @@ test('a settled daylight background preserves wall art, changing actors and cach
     }
     renderers.forEach(renderer => renderer.dispose())
     return { worst, cached, frames, inheritedAlphaCache }
-  })
+  }, wall)
   await info.attach('settled-background-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
   expect(result.frames).toBe(30)
   expect(result.cached).toBeGreaterThanOrEqual(8)

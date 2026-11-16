@@ -1,6 +1,8 @@
 import { copyLevel, levelHeight } from './level'
 import { WALL_FINISHES } from './wallFinish'
 import type { WallFinish } from './wallFinish'
+import { STAIN_LEVELS } from './wallWear'
+import type { StainSetting } from './wallWear'
 import type { JumpLevel } from './level'
 import { usesRegionLighting } from './environment'
 import { setBackground, setLightingLayout } from './environmentEditor'
@@ -23,6 +25,15 @@ export function EnvironmentFields({ level, onChange, selectedWall, onSelectWall,
         const next = copyLevel(level)
         if (finish === 'course') delete next.wallFinish
         else next.wallFinish = finish as Exclude<WallFinish, 'course'>
+        onChange(next)
+      }} />
+    {/* How much water has stained the room: the wall panels and the rust from pipe joints. */}
+    <BuilderSelect label="Stains" value={level.stains ?? 'normal'} options={STAIN_LEVELS.map(stains => ({ value: stains.id, label: stains.label }))}
+      onChange={stains => {
+        // Normal is saved by leaving the field out.
+        const next = copyLevel(level)
+        if (stains === 'normal') delete next.stains
+        else next.stains = stains as StainSetting
         onChange(next)
       }} />
     <BuilderSelect label="Lighting layout" value={regional ? 'regions' : 'uniform'} options={[{ value: 'uniform', label: 'Whole level' }, { value: 'regions', label: 'Day and night regions' }]}

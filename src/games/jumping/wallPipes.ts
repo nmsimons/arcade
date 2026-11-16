@@ -1,4 +1,5 @@
 import type { NamedObject } from './objectNames.ts'
+import { pipeRust, wallWear, type WallWear } from './wallWear.ts'
 import { ArtPath } from './webgl/artPath.ts'
 
 /**
@@ -55,8 +56,8 @@ function centreLine(points: readonly Point[], d: number) {
   return { path, runs }
 }
 
-function plan(pipe: WallPipe): Plan {
-  const d = pipeDiameter(pipe.size), key = `${pipe.size ?? ''}:${pipe.points.flat().join(',')}`
+function plan(pipe: WallPipe, wear: WallWear): Plan {
+  const d = pipeDiameter(pipe.size), key = `${pipe.size ?? ''}:${pipe.points.flat().join(',')}:${wear.stains}:${wear.salt}`
   const saved = plans.get(pipe)
   if (saved?.key === key) return saved
   const { path, runs } = centreLine(pipe.points, d)
@@ -76,9 +77,10 @@ function plan(pipe: WallPipe): Plan {
     // A light edge on the flange's upper or left face.
     const side = nx + ny < 0 ? 1 : -1, x = cx + nx * d * .62 * side, y = cy + ny * d * .62 * side
     flangeLit.moveTo(x - run.ux * d * .18, y - run.uy * d * .18); flangeLit.lineTo(x + run.ux * d * .18, y + run.uy * d * .18)
-    // Rust weeps from a joint on a level run down the wall below it.
-    if (Math.abs(run.uy) < .3 && noise(cx, cy) > .25) {
-      const length = d * (1.2 + noise(cy, cx) * 3.4), width = d * (.22 + noise(cx * .3, cy) * .2), top = cy + d * .45
+    // Rust weeps from a joint on a level run down the wall below it, as much as the room is stained.
+    const [sx, sy] = wear.salt, rust_ = pipeRust(wear, noise(cx + sx, cy + sy))
+    if (Math.abs(run.uy) < .3 && rust_.weeps) {
+      const length = d * (1.2 + noise(cy + sy, cx + sx) * 3.4) * rust_.length, width = d * (.22 + noise(cx * .3 + sx, cy + sy) * .2), top = cy + d * .45
       rust.moveTo(cx - width / 2, top); rust.lineTo(cx + width / 2, top); rust.lineTo(cx + width * .2, top + length); rust.lineTo(cx - width * .3, top + length * .85); rust.closePath()
     }
   }
@@ -105,13 +107,13 @@ function plan(pipe: WallPipe): Plan {
 }
 
 /** Pipes on the back wall, behind terrain and everything in the room. */
-export function drawWallPipes(ctx: CanvasRenderingContext2D, pipes: readonly WallPipe[]) {
+export function drawWallPipes(ctx: CanvasRenderingContext2D, pipes: readonly WallPipe[], wear: WallWear = wallWear()) {
   if (!pipes.length) return
   ctx.save()
   ctx.lineCap = 'butt'; ctx.lineJoin = 'round'
   for (const pipe of pipes) {
     if (pipe.points.length < 2) continue
-    const p = plan(pipe), d = p.d
+    const p = plan(pipe, wear), d = p.d
     ctx.fillStyle = COLORS.rust; ctx.fill(p.rust)
     ctx.strokeStyle = COLORS.body; ctx.lineWidth = d; ctx.stroke(p.body)
     ctx.strokeStyle = COLORS.shade; ctx.lineWidth = d * .22; ctx.stroke(p.shade)

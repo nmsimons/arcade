@@ -16,6 +16,7 @@ import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallFinish } from './wallFinish.ts'
+import { wallWear } from './wallWear.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallDoors } from './wallDoor.ts'
@@ -82,7 +83,7 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   for (const pod of level.vacantPods ?? []) drawChargingBay(ctx, pod, pod.robot ? ROBOT_BAY_WIDTH_SCALE : 1)
   // Blocked doors are painted on the wall, like the pods' housings.
   drawWallDoors(ctx, level.wallDoors ?? [])
-  drawWallPipes(ctx, level.pipes ?? [])
+  drawWallPipes(ctx, level.pipes ?? [], wallWear(level))
   ctx.restore()
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }
@@ -100,8 +101,8 @@ function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: {
     h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) }
   // A wing's finish is the course wall's own panelling with another module, bond, tint and wear, drawn
   // stronger in a dark level so that it survives the darkening.
-  if (level.wallFinish) drawWallFinish(ctx, level.wallFinish, area, nightModeEnabled(level.lighting))
-  else drawWallPanels(ctx, area)
+  if (level.wallFinish) drawWallFinish(ctx, level.wallFinish, area, nightModeEnabled(level.lighting), wallWear(level))
+  else drawWallPanels(ctx, area, wallWear(level))
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
   if (level && !layerSkipped('ground-cover')) drawTerrainGroundCover(ctx, level)

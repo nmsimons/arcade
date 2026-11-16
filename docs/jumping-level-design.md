@@ -141,8 +141,14 @@ would read as a leak in every room. Choose a material partly for the wear it
 brings, steel for a neglected machine room or earth for a dug-out space. All of it is drawn by rule, sparse and deterministic, so
 a room looks the same on every visit. Do not add more wear by hand with wall text
 or extra art; dirt that tells the player nothing only adds noise. Missing panels
-that expose the services behind the wall, and a per-level stain intensity, are
-proposed in [Missing panels and stain intensity](jumping-wall-wear.md).
+that expose the services behind the wall are proposed in
+[Missing panels and stain intensity](jumping-wall-wear.md).
+
+Choose a room's **Stains** for the place, not the level's difficulty. A new,
+clean wing can be Light or None. Freight, Water and anywhere flooded can be
+Heavy; Soaked is for rooms where water is the story, a burst main or a flooded
+basement. Heavier stains add texture to every panel, so keep wall hints where
+they stay readable against them.
 
 When a level promises a building, group its running surfaces into usable rooms
 and connected rooflines. Let door openings, service passages and ladder hatches

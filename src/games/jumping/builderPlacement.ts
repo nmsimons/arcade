@@ -25,6 +25,7 @@ import { backWallPath } from './environment.ts'
 import { drawGradeGate, drawHubDoors } from './hub.ts'
 import { drawWallDoor } from './wallDoor.ts'
 import { drawWallPipes } from './wallPipes.ts'
+import { wallWear } from './wallWear.ts'
 import { drawWallStripes } from './hazardStripes.ts'
 import { paintNormally } from './worldPaint.ts'
 
@@ -89,7 +90,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'course-door': drawHubDoors(ctx, { courseDoors: [level.courseDoors![i]] }, undefined, true, paintNormally); break
     case 'bulkhead': drawHubDoors(ctx, { bulkheads: [level.bulkheads![i]] }, undefined, true, paintNormally); break
     case 'wall-door': drawWallDoor(ctx, level.wallDoors![i]); break
-    case 'pipe': drawWallPipes(ctx, [level.pipes![i]]); break
+    case 'pipe': drawWallPipes(ctx, [level.pipes![i]], wallWear(level)); break
     case 'wall-stripes': drawWallStripes(ctx, [level.stripes![i]]); break
     case 'evaluation-board': drawHubDoors(ctx, { evaluationBoards: [level.evaluationBoards![i]] }, undefined, true, paintNormally); break
   }

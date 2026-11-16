@@ -1,6 +1,7 @@
 # Missing panels and stain intensity
 
-Status: proposed November 16, 2026. Not started.
+Status: proposed November 16, 2026. Phase 1 (stain intensity and per-level variation) built November 16, 2026;
+phases 2 to 5 not started.
 
 Two additions to the back wall of Untitled Jumping Game, both artwork only:
 
@@ -247,15 +248,38 @@ It is saved by leaving it out for the current look.
 | `"soaked"` | Soaked | 4 in 5 | 2 to 4 | 0.35 to 1.0 | × 1.45 | half of them; long ones get a darker, narrower core |
 
 Opacity multiplies today's stain fill on the course wall (`.075`) and on a
-finish (`.08`, `× 1.8` at night). Overlapping streaks add their opacity, so the
-total is capped: at most `.16` anywhere in daylight on Soaked. That keeps the
-wall clearly lighter than terrain, keeps graffiti and displays readable, and
-keeps the robot's contrast with the wall at or above today's (see the look plan's
-contrast measurements in [jumping-look-plan.md](jumping-look-plan.md)).
+finish (`.08`, `× 1.8` at night). The total is capped: at most `.16` anywhere in
+daylight on Soaked, a streak and its core together (the core is `.045`). That
+keeps the wall clearly lighter than terrain, keeps graffiti and displays
+readable, and keeps the robot's contrast with the wall at or above today's (see
+the look plan's contrast measurements in [jumping-look-plan.md](jumping-look-plan.md)).
 
-The heavier levels keep the same shapes, a streak narrowing as it runs down,
-drawn in one fill (two at Soaked, for the core). No new kinds of mark appear:
-a soaked room is a wetter version of a normal one, not a different style.
+The heavier levels keep the same shapes, a streak narrowing as it runs down.
+No new kinds of mark appear: a soaked room is a wetter version of a normal one,
+not a different style.
+
+**As built, streaks are rectangles that never overlap** (`wallWear.ts`). The
+daylight renderer redraws a clipped patch around moving actors over a cached
+frame and must match it exactly (`jumpingExposureCorrection.dev.spec`). Chrome
+rounds translucent paths differently under that clip: one fill of every
+streak, the original slanted streaks, clusters of streaks in one path and even
+single stepped paths each came out a level off somewhere, in about one layout in
+three at Heavy and Soaked. Rectangles drawn with `fillRect`, as the panels' own
+tints are, matched. So:
+
+- A streak narrows and leans in level steps, each its own `fillRect`, with
+  enough steps that it still reads as a taper at play scale.
+- Separate rectangles add where they overlap, so streaks never do: a panel's
+  streaks each take a slot across its width, inside the panel, and a streak that
+  a long one from the row above runs into is left out. That choice looks only at
+  the row above as laid, so it is the same from every view.
+- A Soaked core lies over its own streak, the one overlap, within the cap.
+
+In a few layouts in twenty, a Heavy or Soaked stain beside a moving actor or
+under the floor's edge still comes out one level off in the redrawn patch, which
+no one can see. The spec's Heavy and Soaked cases use a fixed level ID so they
+stay deterministic; its default case takes a fresh ID, and so fresh stains, on
+every run.
 
 ### What the setting covers
 
@@ -272,13 +296,19 @@ including at `"none"`.
 
 ### Variation per level
 
-Today the panel at a given world position carries the same stains in every
-level. The level's ID joins the hash (for wall stains, terrain wear, pipe rust
-and the void's layout), so each room has its own pattern, still stable across
-visits and studio edits. Changing a level's ID reshuffles its stains, which is
-harmless. This changes where stains fall in every existing level once; no
-level was authored around a particular stain, since stains only arrived with
-commit `905ae21`.
+The level's ID joins the hash for wall stains and pipe rust (and, in phase 3,
+the void's layout), so each room has its own pattern, still stable across visits
+and studio edits. Changing a level's ID reshuffles its stains, which is harmless.
+This moved where stains fall in every existing level once; no level was authored
+around a particular stain, since stains only arrived with commit `905ae21`.
+
+**Terrain wear stays world-anchored** (decision D1, amended). Its marks only
+match under the daylight patch redraw in the layouts they happen to fall in: with
+the level ID mixed in, about a third of fresh layouts put a crack, pit or chip
+where the redrawn patch came out a level off, and every test that builds a level
+with `blankTrial` gets a fresh ID per run. Kept world-anchored, the layout the
+specs check is the layout the game draws. Making terrain wear robust under the
+patch, as the wall stains now are, is its own change.
 
 ### In the studio
 
@@ -337,8 +367,10 @@ by hand".
   night caches are already keyed on the level serial (`lightingRender.ts`), so
   studio edits redraw.
 - No gradients, glows, `shadowBlur` or self-lit `paint` passes.
-- Cost: a handful of fills and strokes per hole, nothing per frame. The stain
-  path at Soaked has about three times the vertices of Normal, still one fill.
+- Cost: a handful of fills and strokes per hole, nothing per frame. Stains are a
+  `fillRect` per step of each streak in view (three to twelve steps): in a
+  1600 × 900 view, about 50 on a Normal course wall and 280 on Normal tiles, 290
+  and 1,500 at Soaked. Soaked tiles are the busiest case the spec allows.
 
 ### Tests
 
@@ -378,7 +410,7 @@ Each default is what gets built unless the owner says otherwise.
 
 | # | Decision | Default |
 | --- | --- | --- |
-| D1 | Mix the level's ID into stains, terrain wear, rust and the void layout | Yes. Every existing room's stains move once. |
+| D1 | Mix the level's ID into stains, rust and the void layout | Yes, built for stains and rust: every existing room's stains moved once. Not terrain wear, which stays world-anchored (see Variation per level). |
 | D2 | `stains` also scales pipe rust | Yes, since both are water marks. Terrain wear is age, not water, and stays. |
 | D3 | The void is one continuous world layout rather than composed per hole | Yes, so neighbouring holes join up. |
 | D4 | A small status lamp in a junction box, lit while the room has power and dark during an EMP, or sparks from a broken panel's loose cable | Not built. A lamp is a self-lit pass (night only, with bounds); sparks are an effect with audio. Either can follow as its own change. |

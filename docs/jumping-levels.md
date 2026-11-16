@@ -1080,6 +1080,24 @@ what reads in the dark, and lamp pools show the colour. Leave the field out for 
 studio's **Wall finish**, directly under **Background** (Level tab, World),
 saves `"course"` that way. Files saved with the first finish names still load:
 `"panels"` as Cladding and `"bulkhead"` as Steel plate.
+
+The optional `stains` chooses how much water has stained the room: the streaks
+running down the wall panels from their joints, and the rust weeping from pipe
+joints. Leave it out for Normal.
+
+| `stains` | Studio name | Wall panels |
+| --- | --- | --- |
+| `"none"` | None | No stains, and no pipe rust |
+| `"light"` | Light | About one panel in six, one short streak each, fainter |
+| left out | Normal | About one in three, one or two streaks each |
+| `"heavy"` | Heavy | Three in five, up to three streaks, some running on past the joint into the panel below |
+| `"soaked"` | Soaked | Four in five, two to four streaks, half the long ones running on, with a darker core |
+
+Stains are artwork only. Each room's pattern comes from its level ID, so it is
+the same on every visit and differs from room to room; changing the ID
+reshuffles it. Terrain wear (cracks, rust, pebbles) is age and material rather
+than water, and does not change with this setting. In the studio, **Stains** is
+directly under **Wall finish**.
 Finishes are artwork only: they add no collision, cover or lighting, keep the
 wall's base colour and fine grid, and apply wherever the course wall is drawn, including
 facility back walls in environments. The level's optional `floorMaterial` applies the same palette

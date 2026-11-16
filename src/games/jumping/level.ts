@@ -41,6 +41,7 @@ import { isGroundCover } from './terrainGroundCover.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { wallFinish } from './wallFinish.ts'
 import type { WallFinish } from './wallFinish.ts'
+import { stainSetting, type StainSetting } from './wallWear.ts'
 import { lightingProblems, MAX_LIGHTS, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
@@ -90,6 +91,8 @@ export interface JumpLevel {
   floorMaterial?: TerrainMaterial
   /** The course wall's finish (wallFinish.ts); omitted for the ordinary course wall. Artwork only. */
   wallFinish?: Exclude<WallFinish, 'course'>
+  /** How much water has stained the room (wallWear.ts); omitted for Normal. Artwork only. */
+  stains?: StainSetting
   times?: TimeTargets
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
   timers?: WallTimer[]
@@ -489,6 +492,12 @@ export function parseLevel(value: unknown): JumpLevel {
     if (!finish) return fail()
     // The ordinary course wall is the default, saved by leaving the field out.
     if (finish !== 'course') level.wallFinish = finish
+  }
+  if (v.stains !== undefined) {
+    const stains = stainSetting(v.stains)
+    if (!stains) return fail()
+    // Normal is the default, saved by leaving the field out.
+    if (stains !== 'normal') level.stains = stains
   }
   // Existing local files use "flag". Preserve their assembly origin and export "goal".
   const goal = v.goal === undefined ? v.flag : v.goal

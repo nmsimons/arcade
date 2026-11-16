@@ -1,5 +1,5 @@
 import { ArtPath } from './webgl/artPath.ts'
-import { panelStains } from './surfaceDepth.ts'
+import { STAIN_CORE_OPACITY, panelStains, stainLayer, stainOpacity, wallWear, type WallWear } from './wallWear.ts'
 
 /**
  * A level's back-wall finish: wing identity in the course wall's own language
@@ -79,8 +79,8 @@ function panels(system: PanelSystem, area: Area) {
  */
 const NIGHT_COLOUR = 1.8, NIGHT_JOINT = 2.1
 
-/** Draws a finish over the wall's base fill and fine grid, within `area` (the visible part of the level). */
-export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<WallFinish, 'course'>, area: Area, night = false) {
+/** Draws a finish over the wall's base fill and fine grid, within `area` (the visible part of the level), stained as `wear` says. */
+export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<WallFinish, 'course'>, area: Area, night = false, wear: WallWear = wallWear()) {
   if (area.w <= 0 || area.h <= 0) return
   const system: PanelSystem = SYSTEMS[finish], { w, h } = system, pieces = panels(system, area)
   ctx.save(); ctx.beginPath(); ctx.rect(area.x, area.y, area.w, area.h); ctx.clip()
@@ -89,14 +89,17 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
   const opacity = (value: number) => Math.round(value * 1000) / 1000
   if (system.wash) { ctx.fillStyle = `rgba(${system.wash[0]},${opacity(system.wash[1] * colour)})`; ctx.fillRect(area.x, area.y, area.w, area.h) }
   // Joints are four paths at most: the shade and its light lip, along the wall and up it.
-  const across = { shade: new ArtPath(), lip: new ArtPath() }, down = { shade: new ArtPath(), lip: new ArtPath() }, stains = new ArtPath()
+  const across = { shade: new ArtPath(), lip: new ArtPath() }, down = { shade: new ArtPath(), lip: new ArtPath() }, stains = stainLayer()
   // A double panel was cast as one piece with its left neighbour: no joint between them, and one tint and wear.
   const double = (col: number, row: number) => !system.upright && !!system.merged
     && chance(col, row, 1) < system.merged && chance(col - 1, row, 1) >= system.merged
+  /** A panel's wear: a replaced panel is cleaner than its neighbours; an aged one has darkened. */
+  const condition = (col: number, row: number) => {
+    const value = chance(col, row, 2), replaced = value < (system.replaced ?? 0)
+    return { replaced, aged: !replaced && value > 1 - (system.aged ?? 0) }
+  }
   for (const p of pieces) {
-    const joined = double(p.col, p.row), col = joined ? p.col - 1 : p.col, wear = chance(col, p.row, 2)
-    // A replaced panel is cleaner than its neighbours; an aged one has darkened.
-    const replaced = wear < (system.replaced ?? 0), aged = !replaced && wear > 1 - (system.aged ?? 0)
+    const joined = double(p.col, p.row), col = joined ? p.col - 1 : p.col, { replaced, aged } = condition(col, p.row)
     ctx.fillStyle = replaced ? `rgba(255,255,255,${night ? .24 : .16})` : `rgba(${system.tint},${opacity((system.base + noise(col, p.row) * system.range + (aged ? .03 : 0)) * colour)})`
     // Fills never overlap, so no tint accumulates: a double's second half starts where the first half ended.
     ctx.fillRect(p.x + (joined ? -1 : 1), p.y + 1, w - (joined ? 0 : 2), h - 2)
@@ -104,12 +107,17 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
       down.shade.moveTo(p.x, p.y + h); down.shade.lineTo(p.x, p.y)
       down.lip.moveTo(p.x + 1.4, p.y + h); down.lip.lineTo(p.x + 1.4, p.y + 1.4)
     }
-    if (!joined && !replaced) panelStains(stains, p.x, p.y, w, h, col, p.row)
     across.shade.moveTo(p.x, p.y); across.shade.lineTo(p.x + w, p.y)
     across.lip.moveTo(p.x + (joined ? 0 : 1.4), p.y + 1.4); across.lip.lineTo(p.x + w, p.y + 1.4)
   }
-  // Grit: faint stains run down from the joints, in the finish's own ink.
-  ctx.fillStyle = `rgba(${system.ink},${opacity(.08 * colour)})`; ctx.fill(stains)
+  // Grit: faint stains run down from the joints, in the finish's own ink. They are laid from two panels above
+  // the area, since a heavy room's long streaks run on past the joint below, and whether a streak gives way to
+  // one from the row above looks at that row too. A replaced panel is clean.
+  for (const p of panels(system, { ...area, y: area.y - h * (system.upright ? 3 : 2), h: area.h + h * (system.upright ? 3 : 2) })) {
+    const joined = double(p.col, p.row), col = joined ? p.col - 1 : p.col
+    if (!joined && !condition(col, p.row).replaced) panelStains(stains.streaks, p.x, p.y, w, h, col, p.row, wear)
+  }
+  stains.fill(ctx, wear, `rgba(${system.ink},${opacity(stainOpacity(wear, .08) * colour)})`, `rgba(${system.ink},${opacity(STAIN_CORE_OPACITY * colour)})`, { x0: area.x, y0: area.y, x1: area.x + area.w, y1: area.y + area.h })
   for (const [paths, weight] of [[across, system.across], [down, system.down]] as const) {
     ctx.strokeStyle = `rgba(${system.ink},${opacity(weight * joint)})`; ctx.lineWidth = 1.1; ctx.stroke(paths.shade)
     // The course wall's lip is 4.4 times its shade's opacity.

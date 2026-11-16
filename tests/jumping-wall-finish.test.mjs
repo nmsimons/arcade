@@ -60,12 +60,14 @@ test('a finish is the course wall\'s construction: light panel tints that never 
     assert.equal(strokes.length, 4, `${finish}: a shade and a light lip, along the wall and up it, each a single path`)
     assert.deepEqual(strokes.map(s => s[2]), [1.1, .8, 1.1, .8], `${finish}: the course wall's joint widths`)
     for (const shade of [strokes[0], strokes[2]]) assert.ok(alpha(shade[1]) <= .22, `${finish}: a soft joint shade, ${shade[1]}`)
-    // Grit is wear, not hardware: one translucent path of water stains running down from the joints, in the
-    // finish's own ink, and nothing else filled.
-    const marks = calls.filter(c => c[0] === 'fill')
-    assert.equal(marks.length, 1, `${finish}: one path of stains and no hardware or other marks`)
-    assert.ok(alpha(marks[0][1]) <= .1, `${finish}: faint stains, ${marks[0][1]}`)
-    const fills = calls.filter(c => c[0] === 'fillRect'), whole = fills.filter(f => f[3] === area.w && f[4] === area.h)
+    // Grit is wear, not hardware: translucent water stains running down from the joints, as rectangles in the
+    // finish's own ink (wallWear.ts), and nothing else filled.
+    assert.equal(calls.filter(c => c[0] === 'fill').length, 0, `${finish}: no hardware or other marks`)
+    const ink = /^rgba\((\d+,\d+,\d+)/.exec(strokes[0][1])[1], inked = c => c.at(-1).startsWith(`rgba(${ink},`)
+    const stains = calls.filter(c => c[0] === 'fillRect' && inked(c))
+    assert.ok(stains.length > 0 && new Set(stains.map(c => c.at(-1))).size === 1, `${finish}: stains in one faint ink`)
+    assert.ok(alpha(stains[0].at(-1)) <= .1, `${finish}: faint stains, ${stains[0].at(-1)}`)
+    const fills = calls.filter(c => c[0] === 'fillRect' && !inked(c)), whole = fills.filter(f => f[3] === area.w && f[4] === area.h)
     assert.ok(whole.length <= 1 && whole.every(f => alpha(f.at(-1)) <= .1), `${finish}: at most one light wash`)
     const panels = fills.filter(f => !whole.includes(f))
     assert.ok(panels.length > 4, `${finish}: panels`)
@@ -103,7 +105,8 @@ test('a dark level draws its finish stronger, the joints most of all, on the sam
     const fills = calls => calls.filter(c => c[0] === 'fillRect').map(c => alpha(c.at(-1)))
     strokes(day.calls).forEach((a, i) => assert.ok(strokes(night.calls)[i] > a && strokes(night.calls)[i] <= .9, `${finish}: joint ${i}, ${a} by day and ${strokes(night.calls)[i]} by night`))
     fills(day.calls).forEach((a, i) => assert.ok(fills(night.calls)[i] > a && fills(night.calls)[i] <= .25, `${finish}: fill ${i}, ${a} by day and ${fills(night.calls)[i]} by night`))
-    const stains = calls => alpha(calls.find(c => c[0] === 'fill')[1])
+    // The stains are the last rectangles drawn, after every panel.
+    const stains = calls => alpha(calls.filter(c => c[0] === 'fillRect').at(-1).at(-1))
     assert.ok(stains(night.calls) > stains(day.calls), `${finish}: the stains strengthen with the rest of the finish`)
   }
   // The level decides: night mode strengthens the finish, daylight leaves it as it was.

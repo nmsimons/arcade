@@ -9,34 +9,29 @@ import { ARGUMENTS, MOVE, LINE } from '../src/games/jumping/webgl/artPath.ts'
 const FINISHES = ['course', 'chamber', 'plank', 'upright', 'tile', 'plate']
 const area = { x: 0, y: 0, w: 3200, h: 2000 }
 
-/** The joint lines a wall draws: the shade strokes along and up the wall, as level and upright segments. */
+/** The joint lines a wall draws: the shade's bands along and up the wall (1.1 thick), as level and upright segments. */
 function joints(finish) {
-  const strokes = []
+  const bands = []
   const ctx = { canvas: { width: 2400, height: 1600 }, fillStyle: '', strokeStyle: '', lineWidth: 1,
-    save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, fillRect() {}, fill() {},
-    stroke(path) { strokes.push([this.strokeStyle, this.lineWidth, path]) } }
+    save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, fill() {}, stroke() {},
+    fillRect(x, y, w, h) { bands.push([this.fillStyle, x, y, w, h]) } }
   if (finish === 'course') drawWallPanels(ctx, area); else drawWallFinish(ctx, finish, area)
   const level = [], upright = []
-  // The shade is the 1.1-wide stroke; the light lip, at .8, sits just inside it.
-  for (const [, width, path] of strokes.filter(s => s[1] === 1.1)) {
-    let at = null
-    for (let i = 0, c = path.commands; i < c.length; i += 1 + ARGUMENTS[c[i]]) {
-      const point = [c[i + 1], c[i + 2]]
-      if (c[i] === LINE && at) {
-        if (Math.abs(at[1] - point[1]) < 1e-9) level.push({ at: at[1], from: Math.min(at[0], point[0]), to: Math.max(at[0], point[0]) })
-        else if (Math.abs(at[0] - point[0]) < 1e-9) upright.push({ at: at[0], from: Math.min(at[1], point[1]), to: Math.max(at[1], point[1]) })
-      }
-      if (c[i] === MOVE || c[i] === LINE) at = point
-    }
+  // The shade is the 1.1-wide band; the light lip, .8 wide and white, sits just inside it.
+  for (const [colour, x, y, w, h] of bands) {
+    if (colour.startsWith('rgba(255,255,255') || colour === '#ffffff91') continue
+    if (Math.abs(h - 1.1) < 1e-9) level.push({ at: y + .55, from: x, to: x + w })
+    else if (Math.abs(w - 1.1) < 1e-9) upright.push({ at: x + .55, from: y, to: y + h })
   }
   return { level, upright }
 }
 /** Whether the segments along one line cover `from` to `to` without a gap. */
 function covered(segments, at, from, to) {
   const on = segments.filter(s => Math.abs(s.at - at) < 1e-6 && s.to > from && s.from < to).sort((a, b) => a.from - b.from)
+  // The course wall's upright bands stop just short of the level ones, where those cover the corner.
   let reach = from
-  for (const s of on) { if (s.from > reach + 1e-6) return false; reach = Math.max(reach, s.to) }
-  return reach >= to - 1e-6
+  for (const s of on) { if (s.from > reach + .6) return false; reach = Math.max(reach, s.to) }
+  return reach >= to - .6
 }
 
 test('the panel under a point is the one whose joints the wall draws around it, doubles whole', () => {

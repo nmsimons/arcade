@@ -44,10 +44,12 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: reusing exposure corr
   if (backend === 'canvas') expect(result.cachedFrames).toBeGreaterThan(0)
 })
 
-// Stains are wall artwork under the daylight caches: the default room (Heavy, on the course wall) takes
-// blankTrial's fresh ID, and so new stains, on every run; a Light room on Cladding keeps one ID. (The Tiled
-// finish's own joint lines come out a level off where the patch passes, stains or not, so it is not used here.)
-const WALLS = [{}, { stains: 'light', wallFinish: 'plank', id: 'stained-room' },
+// Stains and finishes are wall artwork under the daylight caches: the default room (Heavy, on the course wall)
+// takes blankTrial's fresh ID, and so new stains, on every run; Light on Cladding and Heavy on the other
+// finishes keep one ID.
+// Regression: the Tiled finish's upright joints, drawn as stroked paths, came out a level off where the patch
+// passed; joints are rectangles now (wallFinish.ts, JointLines).
+const WALLS = [{}, { stains: 'light', wallFinish: 'plank', id: 'stained-room' }, ...['tile', 'chamber', 'upright', 'plate'].map(wallFinish => ({ wallFinish, id: 'stained-room' })),
   // Loose panels beside the moving actors, tilted over the services behind them: one leaking down the wall.
   { id: 'loose-room', loosePanels: [{ x: 700, y: 380, hang: 'right', leak: true }, { x: 1000, y: 200 }, { x: 300, y: 380, contents: 'electrical' }] }]
 const wallName = wall => wall.loosePanels ? ' (loose panels)' : wall.id ? ` (${wall.stains ?? 'heavy'} stains, ${wall.wallFinish})` : ''

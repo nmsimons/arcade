@@ -31,10 +31,13 @@ const alpha = colour => Number(/,([\d.]+)\)$/.exec(colour)[1])
 const rgb = colour => /^rgba\((\d+,\d+,\d+)/.exec(colour)?.[1]
 const area = { x: 0, y: 0, w: 2400, h: 1600 }
 
-/** A wall's stains, from its recorded calls: rectangles in the wall's ink (the course wall's, or the finish's, which its joints are stroked in). */
+/** A joint band: a rectangle exactly 1.1 (the shade) or .8 (the light lip) thick (wallFinish.ts, JointLines). */
+const band = (r, width) => Math.abs(r.w - width) < 1e-9 || Math.abs(r.h - width) < 1e-9
+/** A wall's stains, from its recorded calls: rectangles in the wall's ink (the course wall's, or the finish's, its joints' shade's), other than the joints. */
 function stainsOf(calls) {
-  const ink = rgb(calls.find(c => c[0] === 'stroke')?.[1] ?? '') ?? '74,78,62'
-  const inked = calls.filter(c => c[0] === 'fillRect' && rgb(c[1]) === ink)
+  const shade = calls.find(c => c[0] === 'fillRect' && band(c[2], 1.1) && /^rgba/.test(c[1]) && !c[1].startsWith('rgba(255,255,255'))
+  const ink = rgb(shade?.[1] ?? '') ?? '74,78,62'
+  const inked = calls.filter(c => c[0] === 'fillRect' && rgb(c[1]) === ink && !band(c[2], 1.1) && !band(c[2], .8))
   const styles = [...new Set(inked.map(c => c[1]))]
   const streaks = inked.map(c => c[2])
   // A streak starts where no step of another ends just above it.
@@ -76,14 +79,8 @@ test('every stain runs from the bottom of a tile, the joint at the top of its pa
   for (const finish of ['course', ...FINISHES]) {
     const r = recorder(), joints = new Set()
     if (finish === 'course') drawWallPanels(r.ctx, area, wear('heavy')); else drawWallFinish(r.ctx, finish, area, false, wear('heavy'))
-    // The level joints the wall draws, as their heights.
-    for (const [, , path] of r.calls.filter(c => c[0] === 'stroke')) {
-      let at = null
-      for (let i = 0, c = path.commands; i < c.length; i += 1 + ARGUMENTS[c[i]]) {
-        if (c[i] === LINE && at && Math.abs(at[1] - c[i + 2]) < 1e-9) joints.add(Math.round(at[1] * 1000) / 1000)
-        if (c[i] === MOVE || c[i] === LINE) at = [c[i + 1], c[i + 2]]
-      }
-    }
+    // The level joints the wall draws, as their heights: the middles of the shade's level bands.
+    for (const [, colour, band] of r.calls.filter(c => c[0] === 'fillRect')) if (Math.abs(band.h - 1.1) < 1e-9 && !colour.startsWith('rgba(255,255,255')) joints.add(Math.round((band.y + .55) * 1000) / 1000)
     const { streaks, heads } = stainsOf(r.calls)
     assert.ok(heads.length > 5)
     for (const head of heads) {

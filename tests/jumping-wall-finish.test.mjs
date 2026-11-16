@@ -38,6 +38,9 @@ function recorder() {
 }
 const view = { x: 0, y: 0, w: 1600, h: 900 }, area = { x: 0, y: 0, w: 1600, h: 900 }
 const alpha = colour => colour.startsWith('rgba') ? Number(/,([\d.]+)\)$/.exec(colour)[1]) : parseInt(colour.slice(7, 9) || 'ff', 16) / 255
+/** A joint band: a rectangle exactly 1.1 (the shade) or .8 (the light lip) thick (wallFinish.ts, JointLines). */
+const band = (c, width) => c[0] === 'fillRect' && (Math.abs(c[3] - width) < 1e-9 || Math.abs(c[4] - width) < 1e-9)
+const joint = c => band(c, 1.1) || band(c, .8)
 
 test('every finish keeps the wall under it: the base fill that locates the camera, then the fine grid, then its panels', () => {
   const plain = recorder()
@@ -56,18 +59,21 @@ test('a finish is the course wall\'s construction: light panel tints that never 
   for (const finish of FINISHES) {
     const { ctx, calls } = recorder()
     drawWallFinish(ctx, finish, area)
-    const strokes = calls.filter(c => c[0] === 'stroke')
-    assert.equal(strokes.length, 4, `${finish}: a shade and a light lip, along the wall and up it, each a single path`)
-    assert.deepEqual(strokes.map(s => s[2]), [1.1, .8, 1.1, .8], `${finish}: the course wall's joint widths`)
-    for (const shade of [strokes[0], strokes[2]]) assert.ok(alpha(shade[1]) <= .22, `${finish}: a soft joint shade, ${shade[1]}`)
+    // Joints are bands of the course wall's widths: a soft shade 1.1 wide, and a light lip .8 wide inside it,
+    // drawn as rectangles; no paths are stroked.
+    assert.equal(calls.filter(c => c[0] === 'stroke').length, 0, `${finish}: no stroked paths`)
+    const shades = calls.filter(c => band(c, 1.1)), lips = calls.filter(c => band(c, .8))
+    assert.ok(shades.length > 4 && lips.length > 4, `${finish}: joints`)
+    for (const shade of shades) assert.ok(alpha(shade.at(-1)) <= .22, `${finish}: a soft joint shade, ${shade.at(-1)}`)
+    assert.ok(lips.every(l => l.at(-1).startsWith('rgba(255,255,255')), `${finish}: a light lip`)
     // Grit is wear, not hardware: translucent water stains running down from the joints, as rectangles in the
     // finish's own ink (wallWear.ts), and nothing else filled.
     assert.equal(calls.filter(c => c[0] === 'fill').length, 0, `${finish}: no hardware or other marks`)
-    const ink = /^rgba\((\d+,\d+,\d+)/.exec(strokes[0][1])[1], inked = c => c.at(-1).startsWith(`rgba(${ink},`)
-    const stains = calls.filter(c => c[0] === 'fillRect' && inked(c))
+    const ink = /^rgba\((\d+,\d+,\d+)/.exec(shades[0].at(-1))[1], inked = c => c.at(-1).startsWith(`rgba(${ink},`)
+    const stains = calls.filter(c => c[0] === 'fillRect' && inked(c) && !joint(c))
     assert.ok(stains.length > 0 && new Set(stains.map(c => c.at(-1))).size === 1, `${finish}: stains in one faint ink`)
     assert.ok(alpha(stains[0].at(-1)) <= .1, `${finish}: faint stains, ${stains[0].at(-1)}`)
-    const fills = calls.filter(c => c[0] === 'fillRect' && !inked(c)), whole = fills.filter(f => f[3] === area.w && f[4] === area.h)
+    const fills = calls.filter(c => c[0] === 'fillRect' && !inked(c) && !joint(c)), whole = fills.filter(f => f[3] === area.w && f[4] === area.h)
     assert.ok(whole.length <= 1 && whole.every(f => alpha(f.at(-1)) <= .1), `${finish}: at most one light wash`)
     const panels = fills.filter(f => !whole.includes(f))
     assert.ok(panels.length > 4, `${finish}: panels`)
@@ -85,8 +91,8 @@ test('a finish is anchored to the world, so panning the view never moves a panel
     const a = recorder(), b = recorder()
     drawWallFinish(a.ctx, finish, { x: 0, y: 0, w: 1600, h: 900 })
     drawWallFinish(b.ctx, finish, { x: 500, y: 300, w: 1600, h: 900 })
-    const key = f => f.join(), shared = new Set(a.calls.filter(c => c[0] === 'fillRect' && c[3] !== 1600).map(key))
-    const again = b.calls.filter(c => c[0] === 'fillRect' && c[3] !== 1600 && c[1] < 1600 && c[2] < 900 && c[1] + c[3] > 500 && c[2] + c[4] > 300)
+    const key = f => f.join(), shared = new Set(a.calls.filter(c => c[0] === 'fillRect' && c[3] !== 1600 && !joint(c)).map(key))
+    const again = b.calls.filter(c => c[0] === 'fillRect' && !joint(c) && c[3] !== 1600 && c[1] < 1600 && c[2] < 900 && c[1] + c[3] > 500 && c[2] + c[4] > 300)
     assert.ok(again.length > 0)
     for (const panel of again) assert.ok(shared.has(key(panel)), `${finish}: panel ${panel.slice(1, 5)} is the same from both views`)
   }
@@ -101,12 +107,12 @@ test('a dark level draws its finish stronger, the joints most of all, on the sam
     drawWallFinish(night.ctx, finish, area, true)
     const shape = calls => calls.map(c => c[0] === 'fillRect' ? c.slice(0, 5) : c[0] === 'stroke' ? [c[0], c[2]] : c[0] === 'fill' ? [c[0]] : c)
     assert.deepEqual(shape(night.calls), shape(day.calls), `${finish}: the same panels and joints by night`)
-    const strokes = calls => calls.filter(c => c[0] === 'stroke').map(c => alpha(c[1]))
-    const fills = calls => calls.filter(c => c[0] === 'fillRect').map(c => alpha(c.at(-1)))
+    const strokes = calls => calls.filter(joint).map(c => alpha(c.at(-1)))
+    const fills = calls => calls.filter(c => c[0] === 'fillRect' && !joint(c)).map(c => alpha(c.at(-1)))
     strokes(day.calls).forEach((a, i) => assert.ok(strokes(night.calls)[i] > a && strokes(night.calls)[i] <= .9, `${finish}: joint ${i}, ${a} by day and ${strokes(night.calls)[i]} by night`))
     fills(day.calls).forEach((a, i) => assert.ok(fills(night.calls)[i] > a && fills(night.calls)[i] <= .25, `${finish}: fill ${i}, ${a} by day and ${fills(night.calls)[i]} by night`))
-    // The stains are the last rectangles drawn, after every panel.
-    const stains = calls => alpha(calls.filter(c => c[0] === 'fillRect').at(-1).at(-1))
+    // The stains are the last rectangles drawn before the joints, after every panel.
+    const stains = calls => alpha(calls.filter(c => c[0] === 'fillRect' && !joint(c)).at(-1).at(-1))
     assert.ok(stains(night.calls) > stains(day.calls), `${finish}: the stains strengthen with the rest of the finish`)
   }
   // The level decides: night mode strengthens the finish, daylight leaves it as it was.

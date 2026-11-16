@@ -295,6 +295,11 @@ clip passes, which shaped both features:
   with the course wall's own spacing and hairline.
 - When a level has loose panels, pipe rust is drawn before them (and the pipes
   after), so the panels cover it.
+- **Joints are rectangles too.** The course wall's and every finish's joint lines
+  (the shade and its light lip) are level and upright bands drawn with `fillRect`,
+  each line's segments merged (`JointLines` in `wallFinish.ts`). Drawn as long
+  translucent stroked paths, the Tiled finish's upright joints came out a level
+  off where the patch passed, with or without stains.
 - Cost: a few dozen fills per panel, rasterized once per camera position.
   Stains are a `fillRect` per step of each streak in view (three to twelve
   steps): in a 1600 × 900 view, about 50 on a Heavy course wall and 280 on
@@ -310,10 +315,8 @@ clip passes, which shaped both features:
 - **Browser:** `jumpingLoosePanels.dev.spec` loosens a panel, sets its bolt,
   contents and leak, drags it across a joint, nudges it, changes the finish,
   sets Stains and saves; `jumpingExposureCorrection.dev.spec` runs its daylight
-  scenes with Heavy stains on the course wall (a fresh layout each run), Light
-  on Cladding, and with loose panels beside the actors. The Tiled finish is left
-  out: its own joint lines come out a level off where the patch passes, with or
-  without stains, which is a finish problem of its own.
+  scenes with Heavy stains on the course wall (a fresh layout each run) and on
+  every finish, Light on Cladding, and with loose panels beside the actors.
 
 ### Review sheets
 

@@ -1,4 +1,3 @@
-import { ArtPath } from './webgl/artPath.ts'
 import { panelStains, stainLayer, stainOpacity, wallWear, type WallWear } from './wallWear.ts'
 
 /**
@@ -122,6 +121,39 @@ export function panelAt(finish: WallFinish, x: number, y: number): WallPanel {
 }
 
 /**
+ * A wall's joint lines as rectangles drawn with `fillRect`: level and upright bands, each line's segments merged
+ * where they continue one another. The daylight renderer redraws a clipped patch over a cached frame and must
+ * match it exactly (jumpingExposureCorrection.dev.spec); long translucent stroked paths, as the joints were, came
+ * out a level off where the patch passes (the Tiled finish's upright joints did), while rectangles match.
+ */
+export class JointLines {
+  private readonly level = new Map<number, [number, number, number][]>()
+  private readonly upright = new Map<number, [number, number, number][]>()
+  private static add(lines: Map<number, [number, number, number][]>, at: number, from: number, to: number) {
+    if (!(to > from)) return
+    const key = Math.round(at * 1000) / 1000, list = lines.get(key)
+    if (list) list.push([at, from, to]); else lines.set(key, [[at, from, to]])
+  }
+  /** A band `width` wide centred on height `y`, from `x0` to `x1`. */
+  along(y: number, x0: number, x1: number) { JointLines.add(this.level, y, x0, x1) }
+  /** A band `width` wide centred on `x`, from `y0` down to `y1`. */
+  down(x: number, y0: number, y1: number) { JointLines.add(this.upright, x, y0, y1) }
+  fill(ctx: CanvasRenderingContext2D, style: string, width: number) {
+    ctx.fillStyle = style
+    for (const [lines, levelLine] of [[this.level, true], [this.upright, false]] as const) for (const list of lines.values()) {
+      list.sort((a, b) => a[1] - b[1])
+      let [at, from, to] = list[0]
+      const draw = () => { if (levelLine) ctx.fillRect(from, at - width / 2, to - from, width); else ctx.fillRect(at - width / 2, from, width, to - from) }
+      for (const [, a, b] of list.slice(1)) {
+        if (a <= to + 1e-6) to = Math.max(to, b)
+        else { draw(); from = a; to = b }
+      }
+      draw()
+    }
+  }
+}
+
+/**
  * Night darkens the whole wall to about a third, which shrinks every difference between finishes with it. A
  * dark level therefore draws its finish stronger: the colour by NIGHT_COLOUR, and the joints by NIGHT_JOINT,
  * since structure is what reads in the dark. Lamp pools show the stronger finish at nearer its drawn strength.
@@ -137,8 +169,8 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
   // Opacities are rounded so a style string never carries floating-point noise.
   const opacity = (value: number) => Math.round(value * 1000) / 1000
   if (system.wash) { ctx.fillStyle = `rgba(${system.wash[0]},${opacity(system.wash[1] * colour)})`; ctx.fillRect(area.x, area.y, area.w, area.h) }
-  // Joints are four paths at most: the shade and its light lip, along the wall and up it.
-  const across = { shade: new ArtPath(), lip: new ArtPath() }, down = { shade: new ArtPath(), lip: new ArtPath() }, stains = stainLayer()
+  // Joints are four sets of bands: the shade and its light lip, along the wall and up it.
+  const across = { shade: new JointLines(), lip: new JointLines() }, down = { shade: new JointLines(), lip: new JointLines() }, stains = stainLayer()
   // A double panel was cast as one piece with its left neighbour: no joint between them, and one tint and wear.
   const double = (col: number, row: number) => isDouble(system, col, row)
   /** A panel's wear: a replaced panel is cleaner than its neighbours; an aged one has darkened. */
@@ -151,12 +183,9 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
     ctx.fillStyle = replaced ? `rgba(255,255,255,${night ? .24 : .16})` : `rgba(${system.tint},${opacity((system.base + noise(col, p.row) * system.range + (aged ? .03 : 0)) * colour)})`
     // Fills never overlap, so no tint accumulates: a double's second half starts where the first half ended.
     ctx.fillRect(p.x + (joined ? -1 : 1), p.y + 1, w - (joined ? 0 : 2), h - 2)
-    if (!joined) {
-      down.shade.moveTo(p.x, p.y + h); down.shade.lineTo(p.x, p.y)
-      down.lip.moveTo(p.x + 1.4, p.y + h); down.lip.lineTo(p.x + 1.4, p.y + 1.4)
-    }
-    across.shade.moveTo(p.x, p.y); across.shade.lineTo(p.x + w, p.y)
-    across.lip.moveTo(p.x + (joined ? 0 : 1.4), p.y + 1.4); across.lip.lineTo(p.x + w, p.y + 1.4)
+    if (!joined) { down.shade.down(p.x, p.y, p.y + h); down.lip.down(p.x + 1.4, p.y + 1.4, p.y + h) }
+    across.shade.along(p.y, p.x, p.x + w)
+    across.lip.along(p.y + 1.4, p.x + (joined ? 0 : 1.4), p.x + w)
   }
   // Grit: faint stains run down from the joints, in the finish's own ink. A replaced panel is clean.
   for (const p of pieces) {
@@ -165,9 +194,9 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
   }
   stains.fill(ctx, wear, `rgba(${system.ink},${opacity(stainOpacity(wear, .08) * colour)})`, { x0: area.x, y0: area.y, x1: area.x + area.w, y1: area.y + area.h })
   for (const [paths, weight] of [[across, system.across], [down, system.down]] as const) {
-    ctx.strokeStyle = `rgba(${system.ink},${opacity(weight * joint)})`; ctx.lineWidth = 1.1; ctx.stroke(paths.shade)
+    paths.shade.fill(ctx, `rgba(${system.ink},${opacity(weight * joint)})`, 1.1)
     // The course wall's lip is 4.4 times its shade's opacity.
-    ctx.strokeStyle = `rgba(255,255,255,${opacity(Math.min(night ? .9 : .7, weight * joint * 4.4))})`; ctx.lineWidth = .8; ctx.stroke(paths.lip)
+    paths.lip.fill(ctx, `rgba(255,255,255,${opacity(Math.min(night ? .9 : .7, weight * joint * 4.4))})`, .8)
   }
   ctx.restore()
 }

@@ -1,4 +1,4 @@
-import type { JumpLevel } from './level.ts'
+import { levelHeight, type JumpLevel } from './level.ts'
 import type { Platform } from './model.ts'
 import { polygonPoints } from './geometry.ts'
 import { bezierKey } from './terrainCurves.ts'
@@ -82,7 +82,7 @@ export function insideConvex(subject: readonly Point[], convex: readonly Point[]
   return output
 }
 
-interface Relief { key: string; light: Path2D; dark: Path2D; grime: Path2D; chips: Path2D }
+interface Relief { key: string; light: Path2D; dark: Path2D; grime: Path2D[]; chips: Path2D }
 const reliefs = new WeakMap<object, Relief>()
 function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
   // Editor geometry can be edited in place. Appearance caches never own or
@@ -90,7 +90,7 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
   const key = platforms.map(b => `${b.x},${b.y},${b.w},${b.h}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
   const cached = reliefs.get(level)
   if (cached?.key === key) return cached
-  const light = new ArtPath(), dark = new ArtPath(), grime = new ArtPath(), chips = new ArtPath()
+  const light = new ArtPath(), dark = new ArtPath(), grime: ArtPath[] = [], chips = new ArtPath()
   const shapes = platforms.map(shape => polygonPoints(shape) as Point[]), boxes = shapes.map(boxOf)
   /** Add `piece` to `path`, trimmed to the terrain under it. */
   const inTerrain = (path: ArtPath, piece: Point[]) => {
@@ -121,17 +121,27 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
       piece.forEach(([x, y], k) => k ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath()
     })
     // Grit along an exposed top: grime run down the face from it, and chips knocked out of its edge.
-    // Only the part of an edge inside the level: the enclosing floor runs far past both sides of it.
+    // Only the part of an edge inside the level: the enclosing floor runs far past both sides of it, and
+    // the enclosing ceiling's top lies far above it.
+    // Daylight redraws only a clipped patch around moving actors over a cached frame, and the patch must
+    // match the frame exactly (jumpingExposureCorrection.dev.spec). A clip changes how Chrome rounds a
+    // translucent path's coverage: along a slanted edge it cuts, and across a long path of many marks.
+    // So the marks have upright and level edges only, and each grime run is its own path. The chips,
+    // tiny notches, match only as one path; check that spec after changing how either is split.
     const from = dx ? Math.max(0, (-a[0]) / dx * length) : 0, to = dx ? Math.min(length, (level.width - a[0]) / dx * length) : length
-    if (ny < -.6 && to - from > 6) for (let at = from + 4 + noise(a[0], a[1]) * 10; at < to - 3; at += 16 + noise(at, a[0]) * 22) {
+    const bottom = levelHeight(level), inside = Math.max(a[1], b[1]) >= 0 && Math.min(a[1], b[1]) <= bottom
+    if (ny < -.6 && inside && to - from > 6) for (let at = from + 4 + noise(a[0], a[1]) * 10; at < to - 3; at += 16 + noise(at, a[0]) * 22) {
       const x = a[0] + dx / length * at, y = a[1] + dy / length * at, seed = noise(x * .37, y * .53)
       if (seed < .5) {
-        // Most runs are short; one in five runs well down the face.
-        const width = 2 + seed * 7, run = 7 + noise(y, x) * 18 + (seed < .1 ? 26 + noise(x, x) * 30 : 0)
-        inTerrain(grime, [[x - width / 2, y + 2], [x + width / 2, y + 2], [x + width * .18, y + 2 + run], [x - width * .22, y + 2 + run * .85]])
+        // Most runs are short; one in five runs well down the face. A run narrows in steps as it goes.
+        const width = 2 + seed * 7, run = 7 + noise(y, x) * 18 + (seed < .1 ? 26 + noise(x, x) * 30 : 0), top = y + 2
+        const one = new ArtPath(); grime.push(one)
+        for (const [start, end, left, right] of [[0, .45, -.5, .5], [.45, .75, -.36, .3], [.75, 1, -.22, .16]])
+          inTerrain(one, [[x + width * left, top + run * start], [x + width * right, top + run * start], [x + width * right, top + run * end], [x + width * left, top + run * end]])
       } else if (seed > .86) {
-        const wide = 1.5 + noise(x, y * 2) * 3.5, deep = .8 + noise(y, x * 2) * 1.4
-        inTerrain(chips, [[x, y], [x + wide, y + dy / length * wide], [x + wide * .7, y + deep], [x + wide * .2, y + deep * .8]])
+        // A small notch knocked out under the edge.
+        const wide = 1.5 + noise(x, y * 2) * 3.5, deep = .8 + noise(y, x * 2) * 1.4, under = Math.min(y, y + dy / length * wide)
+        inTerrain(chips, [[x, under], [x + wide, under], [x + wide, under + deep], [x, under + deep]])
       }
     }
   }
@@ -142,7 +152,7 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
 export function drawTerrainEdges(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], level: JumpLevel) {
   const r = relief(platforms, level)
   ctx.save()
-  ctx.fillStyle = 'rgba(46,48,38,.17)'; ctx.fill(r.grime)
+  ctx.fillStyle = 'rgba(46,48,38,.17)'; for (const mark of r.grime) ctx.fill(mark)
   ctx.fillStyle = '#ffffff35'; ctx.fill(r.light)
   ctx.fillStyle = '#26382d25'; ctx.fill(r.dark)
   ctx.fillStyle = 'rgba(40,44,38,.3)'; ctx.fill(r.chips)

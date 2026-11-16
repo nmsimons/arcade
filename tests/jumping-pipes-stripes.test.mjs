@@ -11,7 +11,7 @@ import { HAZARD_YELLOW, drawTerrainTrim, drawWallStripes } from '../src/games/ju
 import { drawTerrainEdges } from '../src/games/jumping/surfaceDepth.ts'
 import { levelTerrain } from '../src/games/jumping/level.ts'
 import { GlRecorder } from '../src/games/jumping/webgl/recorder.ts'
-import { ARGUMENTS, ELLIPSE, MOVE, CLOSE } from '../src/games/jumping/webgl/artPath.ts'
+import { ARGUMENTS, ELLIPSE, MOVE, LINE, CLOSE } from '../src/games/jumping/webgl/artPath.ts'
 
 const room = extra => ({ ...blankTrial(), id: 'plumbing', name: 'Plumbing', width: 1200, height: 1000, floor: 1000,
   entrance: { x: 160, y: 1000 }, goal: { x: 1040, y: 1000 }, ...extra })
@@ -159,13 +159,29 @@ test('terrain grit is deterministic, stays inside the level, and is quick to pre
   const draw = () => { const { ctx, calls } = recorder(); drawTerrainEdges(ctx, terrain, level); return calls }
   const started = performance.now(), first = draw()
   assert.ok(performance.now() - started < 500, 'the enclosing floor runs far past the level; grit is only laid along the level')
-  const grime = first.find(c => c[0] === 'fill' && String(c[1]).startsWith('rgba(46,48,38'))[2]
+  const marks = calls => calls.filter(c => c[0] === 'fill' && /^rgba\((46,48,38|40,44,38)/.test(String(c[1]))).map(c => c[2].commands)
+  const grime = first.filter(c => c[0] === 'fill' && String(c[1]).startsWith('rgba(46,48,38')).map(c => c[2])
   const xs = []
-  for (let i = 0, c = grime.commands; i < c.length; i += 1 + ARGUMENTS[c[i]]) if (c[i] === MOVE) xs.push(c[i + 1])
-  assert.ok(xs.length > 20 && xs.every(x => x >= -10 && x <= level.width + 10), `grime runs along the level's floor and top (${xs.length})`)
+  for (const run of grime) for (let i = 0, c = run.commands; i < c.length; i += 1 + ARGUMENTS[c[i]]) if (c[i] === MOVE) xs.push(c[i + 1])
+  assert.ok(grime.length > 8 && xs.every(x => x >= -10 && x <= level.width + 10), `grime runs along the level's floor and top (${grime.length})`)
+  // Regression: the daylight cache redraws a clipped patch over a cached frame, and Chrome rounds a clipped
+  // translucent path differently along a slanted edge or across a long path of many marks. Grit on level
+  // tops has only upright and level edges, and each grime run is its own fill (surfaceDepth.ts).
+  for (const [commands, grit] of marks(first).map((c, i, all) => [c, i === all.length - 1 ? 'chips' : 'grime'])) {
+    const shapes = []
+    for (let i = 0; i < commands.length; i += 1 + ARGUMENTS[commands[i]]) {
+      if (commands[i] === MOVE) shapes.push([])
+      if (commands[i] === MOVE || commands[i] === LINE) shapes.at(-1).push([commands[i + 1], commands[i + 2]])
+    }
+    if (grit === 'grime') assert.ok(shapes.length <= 3, 'one grime run per fill')
+    for (const points of shapes) for (let i = 0; i < points.length; i++) {
+      const [a, b] = [points[i], points[(i + 1) % points.length]]
+      assert.ok(Math.abs(a[0] - b[0]) < 1e-9 || Math.abs(a[1] - b[1]) < 1e-9, `grit edges are upright or level (${a} to ${b})`)
+    }
+  }
   const again = parseLevel(room({ platforms: [{ x: 0, y: 700, w: 1200, h: 300 }] }))
   const { ctx, calls } = recorder(); drawTerrainEdges(ctx, levelTerrain(again), again)
-  assert.deepEqual(calls.find(c => c[0] === 'fill' && String(c[1]).startsWith('rgba(46,48,38'))[2].commands, grime.commands, 'the same on every visit')
+  assert.deepEqual(marks(calls), marks(first), 'the same on every visit')
   // Wall stripes over a wall: two colours of paint, then the wear.
   const wall = recorder(); drawWallStripes(wall.ctx, [band])
   assert.deepEqual(wall.calls.filter(c => c[0] === 'fill').map(c => c[1]), ['#2f312e', HAZARD_YELLOW, '#e4e4de'])

@@ -288,6 +288,20 @@ by the same steps:
 
 - **Rust weeping from pipe joints:** the chance per joint (today 3 in 4) and the
   streak's length.
+- **L.A.B. wall stamps** (`stampWear.ts`): their ink wears with the room. Chips,
+  specks and a few scuffs of paint are gone, and from Normal up some patches
+  have thinned to under half strength; Light chips a stamp lightly, Soaked wears
+  it hard, and None leaves it crisp. Wear is random per stamp, hashed from the
+  level's ID and the stamp's place and size, so it is the same on every visit
+  but reshuffles when the stamp is moved or resized. Marks are clip cut-outs
+  laid clear of one another, so no ink is drawn twice.
+  On Canvas, a stamp is rasterized whole on its own canvas and copied in at a
+  whole-pixel offset (`drawStamp` in `wallText.ts`). Chrome rasterizes small
+  paths differently when a clip cuts them, by up to a fifth of their ink and deep
+  inside the clip, not just at its edge, so the daylight patch redraw came out
+  visibly different on a rotated stamp, worn or not. A copied raster is the same
+  under any clip. Other small wall-art paths that must survive the patch redraw
+  need the same: `fillRect`, as the stains use, or a whole raster.
 
 Terrain wear (cracks, chips, rust on steel, pebbles and soil in earth) is age and
 material, not water, and stays as it is. Leaks on

@@ -82,7 +82,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'logic-relay': drawLogicRelay(ctx, level.logicRelays![i], false); break
     case 'grade-gate': drawGradeGate(ctx, level.gradeGates![i], false); break
     case 'timer': drawWallTimer(ctx, level.timers![i], 0); break
-    case 'text': drawWallTexts(ctx, [level.texts![i]]); break
+    case 'text': drawWallTexts(ctx, [level.texts![i]], false, paintNormally, wallWear(level)); break
     case 'pickup': drawPickup(ctx, { definition: level.pickups![i], collectedAge: null }); break
     case 'goal': drawGoalDoor(ctx, level.goal!, 1, true); drawGoal(ctx, level.goal!, true); break
     case 'entrance': if (level.entrance.kind === 'charging-bay') { drawChargingBay(ctx, level.entrance); drawChargingBayCover(ctx, level.entrance) } else drawDoorway(ctx, entranceDoor(level.entrance), 1); break

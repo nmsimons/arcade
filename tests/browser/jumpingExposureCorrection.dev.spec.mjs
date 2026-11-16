@@ -62,6 +62,9 @@ for (const wall of WALLS) test(`a reused daylight terrain mask restores moving a
       platforms: [{ x: 400, y: 200, w: 200, h: 300, material: 'steel',
         polygon: [[0, 0], [120, 0], [120, 50], [200, 50], [200, 300], [0, 300]] },
       { x: 650, y: 420, w: 80, h: 30 }],
+      // A rotated L.A.B. stamp behind the moving actors. Chrome rasterizes its small paths differently when the
+      // patch's clip cuts them, so the stamp is copied in from its own raster (wallText.ts, drawStamp).
+      texts: [{ x: 640, y: 390, w: 240, h: 110, text: 'L.A.B.\nexperiments', fontSize: 28, align: 'center', style: 'lab-stamp', rotation: -5 }],
       props: [{ kind: 'box', x: 640, y: 500, size: 30 }, { kind: 'ball', x: 790, y: 500, size: 30 }],
       robots: [{ x: 690, y: 500, left: 300, right: 1000 }] }
     const run = createPreviewRun(level)
@@ -190,7 +193,8 @@ for (const wall of WALLS) test(`a settled daylight background preserves wall art
     ])
     const level = { ...blankTrial(), ...wall, width: 1200, height: 600, floor: 500, entrance: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 400, y: 200, w: 200, h: 300 }],
-      texts: [{ x: 320, y: 160, w: 400, h: 50, text: 'Push, release, then jump.', fontSize: 24, align: 'left', rotation: -4 }],
+      texts: [{ x: 320, y: 160, w: 400, h: 50, text: 'Push, release, then jump.', fontSize: 24, align: 'left', rotation: -4 },
+        { x: 560, y: 380, w: 240, h: 110, text: 'L.A.B.\nexperiments', fontSize: 28, align: 'center', style: 'lab-stamp', rotation: -5 }],
       props: [{ kind: 'box', x: 615, y: 500, size: 30 }], robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }
     const run = createPreviewRun(level)
     const renderers = [new LightingRenderer(), new LightingRenderer({ reuseExposureCorrection: false, cacheDayAmbient: false })]

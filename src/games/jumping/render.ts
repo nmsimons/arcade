@@ -85,7 +85,7 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   drawWallDoors(ctx, level.wallDoors ?? [])
   drawWallPipes(ctx, level.pipes ?? [], wallWear(level))
   ctx.restore()
-  if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
+  if (includeWallArt) drawWallTexts(ctx, level.texts ?? [], false, paintNormally, wallWear(level))
 }
 function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom: number) {
   ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level)); reportWall(ctx.canvas, () => ctx.getTransform())

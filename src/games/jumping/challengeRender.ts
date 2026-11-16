@@ -4,6 +4,7 @@ import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion, 
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallTexts } from './wallText.ts'
+import { wallWear } from './wallWear.ts'
 import { drawHubDoors, hubDoorBounds } from './hub.ts'
 import { exitChevrons } from './exitGate.ts'
 import { drawAthlete, drawCheckpointMarkers, drawLadders, drawRopes, drawTerrain } from './render.ts'
@@ -337,7 +338,7 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom, false)
   drawWaterBackdrop(ctx, run)
   drawWallWiring(ctx, level, run)
-  drawWallTexts(ctx, level.texts ?? [])
+  drawWallTexts(ctx, level.texts ?? [], false, paintNormally, wallWear(level))
   drawPuzzleWorld(ctx, run)
   ctx.restore()
 }

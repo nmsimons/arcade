@@ -40,14 +40,31 @@ export function drawLabLogo(ctx: CanvasRenderingContext2D, x: number, y: number,
   ctx.restore()
 }
 
-/** A transparent wall marking, fitted without stretching the logo. */
-export function drawLabStamp(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, ink: string) {
+/**
+ * Worn ink on a stamp, in the stamp's own coordinates (top-left at the origin): `gone` is an even-odd clip of
+ * the stamp's rectangle with the missing paint cut out; `unfaded` (even-odd) and `faded` split it between full
+ * and thinned ink, or are both null when nothing has faded.
+ */
+export interface LabStampWear { gone: Path2D; faded: Path2D | null; unfaded: Path2D | null }
+/** Thinned ink keeps this share of the stamp's opacity. */
+export const LAB_STAMP_FADED = .45
+
+/** A transparent wall marking, fitted without stretching the logo, its ink optionally worn. */
+export function drawLabStamp(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, ink: string, wear?: LabStampWear | null) {
   const edge = Math.min(w, h) * .035
   const width = Math.min(w * .82, h * .72 * LAB_LOGO_WIDTH / LAB_LOGO_HEIGHT)
   const height = width * LAB_LOGO_HEIGHT / LAB_LOGO_WIDTH
-  ctx.save(); ctx.globalAlpha *= .9; ctx.strokeStyle = ink; ctx.lineWidth = edge
+  const mark = () => {
+    ctx.strokeRect(edge / 2, edge / 2, w - edge, h - edge)
+    drawLabLogo(ctx, (w - width) / 2, (h - height) / 2, width, ink)
+  }
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha *= .9; ctx.strokeStyle = ink; ctx.lineWidth = edge
   ctx.setLineDash([w * .17, edge * .45, w * .08, edge * .25])
-  ctx.strokeRect(x + edge / 2, y + edge / 2, w - edge, h - edge)
-  drawLabLogo(ctx, x + (w - width) / 2, y + (h - height) / 2, width, ink)
+  if (wear) ctx.clip(wear.gone, 'evenodd')
+  if (wear?.faded && wear.unfaded) {
+    // Two clips that share only their edges, so no ink is laid twice.
+    ctx.save(); ctx.clip(wear.unfaded, 'evenodd'); mark(); ctx.restore()
+    ctx.save(); ctx.clip(wear.faded); ctx.globalAlpha *= LAB_STAMP_FADED; mark(); ctx.restore()
+  } else mark()
   ctx.restore()
 }

@@ -15,6 +15,7 @@ import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
 import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
+import { wallWear } from './wallWear.ts'
 import { drawHubDoors } from './hub.ts'
 import { drawLandscape, hasRegionLighting } from './environment.ts'
 import { EnvironmentLighting, environmentBufferBytes } from './environmentLighting.ts'
@@ -241,8 +242,8 @@ export class LightingRenderer {
     // when one is present, so overlapping signs still cover phosphor correctly.
     if (layer !== 'objects' && (backdrop || layer === 'wall' || wiring || run.level.texts?.some(text => text.style === 'terminal'))) {
       if (nightMode && hasRegionLighting(run.level.environment)) for (const text of run.level.texts ?? [])
-        drawWallTexts(ctx, [text], this.environmentLighting.exposureAt(run, text.x + text.w / 2, text.y + text.h / 2) < .7, paint)
-      else drawWallTexts(ctx, run.level.texts ?? [], nightMode, paint)
+        drawWallTexts(ctx, [text], this.environmentLighting.exposureAt(run, text.x + text.w / 2, text.y + text.h / 2) < .7, paint, wallWear(run.level))
+      else drawWallTexts(ctx, run.level.texts ?? [], nightMode, paint, wallWear(run.level))
     }
     // The thin figure needs readable hands and feet in shadow at phone scale.
     // Reuse the existing artwork exposure pass; surrounding light is unchanged.
@@ -785,7 +786,7 @@ export class LightingRenderer {
           // no surface. A moving view uses the ordinary path until it settles.
           clear(correction, width, height); transform(correction.ctx, view)
           this.paintBackdrop(correction.ctx, run, view, true)
-          drawWallTexts(correction.ctx, run.level.texts ?? [], false)
+          drawWallTexts(correction.ctx, run.level.texts ?? [], false, paintNormally, wallWear(run.level))
           drawHubDoors(correction.ctx, run.level, run.hub, false, paintNormally)
           this.paintTerrain(correction.ctx, run, view)
           correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'multiply'; drawField(correction.ctx)

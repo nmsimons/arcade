@@ -1,7 +1,9 @@
 import type { NamedObject } from './objectNames.ts'
-import { drawLabStamp } from '../../branding/lab.ts'
+import { drawLabStamp, type LabStampWear } from '../../branding/lab.ts'
 import { DIGITAL_GREEN, drawDigitalHousing } from './digitalDisplay.ts'
 import { paintNormally } from './worldPaint.ts'
+import { labStampWear } from './stampWear.ts'
+import { wallWear, type WallWear } from './wallWear.ts'
 import type { WorldPaint } from './worldPaint.ts'
 /** A non-solid text area, positioned by its top-left corner in world coordinates. */
 export interface WallText extends NamedObject {
@@ -123,22 +125,72 @@ function drawMessageScreen(ctx: CanvasRenderingContext2D, text: WallText, paint:
   ctx.restore()
 }
 
-/** Readable phosphor is confined to the screen; ordinary lettering still follows room light. */
-export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, paint: WorldPaint = paintNormally) {
+/**
+ * Readable phosphor is confined to the screen; ordinary lettering still follows room light. L.A.B. stamps wear
+ * with the room's stains (`wear`, from `wallWear(level)`).
+ */
+export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, paint: WorldPaint = paintNormally, wear: WallWear = wallWear()) {
   for (const text of texts) {
     if (text.style === 'terminal') drawMessageScreen(ctx, text, paint)
-    else paint(ctx, 0, () => drawPrintedWallTexts(ctx, [text], nightMode))
+    else paint(ctx, 0, () => drawPrintedWallTexts(ctx, [text], nightMode, undefined, false, wear))
   }
 }
-function drawPrintedWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, ink?: string, screen = false) {
+/** A stamp's raster, kept while it is drawn with the same transform, ink and wear (a still camera). */
+const stampRasters = new WeakMap<WallText, { key: string; worn: LabStampWear | null; cpu: boolean; canvas: HTMLCanvasElement }>()
+/** Larger stamps on screen (in device pixels) are drawn directly. */
+const MOST_STAMP_PIXELS = 4_000_000
+
+/**
+ * An L.A.B. stamp, with the transform already at its area's top-left corner. On an HTML canvas it is rasterized
+ * on its own canvas, holding the whole stamp, then copied in at a whole-pixel offset. Chrome rasterizes small
+ * paths (its lettering and dashed border) differently when a clip cuts them, by up to a fifth of their ink
+ * deep inside the clip, and the daylight cache redraws a clipped patch around moving actors over a frame drawn
+ * whole (jumpingExposureCorrection.dev.spec). A copied raster is the same under any clip. Text glyphs and
+ * `fillRect` do not need this; a WebGL recording and the unit tests' contexts take the paths directly.
+ */
+function drawStamp(ctx: CanvasRenderingContext2D, text: WallText, ink: string, wear?: WallWear) {
+  const worn = labStampWear(text, wear)
+  const paint = (target: CanvasRenderingContext2D) => {
+    target.beginPath(); target.rect(0, 0, text.w, text.h); target.clip()
+    drawLabStamp(target, 0, 0, text.w, text.h, ink, worn)
+  }
+  if (typeof HTMLCanvasElement === 'undefined' || !(ctx.canvas instanceof HTMLCanvasElement)) { paint(ctx); return }
+  const m = ctx.getTransform()
+  const xs = [m.e, m.a * text.w + m.e, m.c * text.h + m.e, m.a * text.w + m.c * text.h + m.e]
+  const ys = [m.f, m.b * text.w + m.f, m.d * text.h + m.f, m.b * text.w + m.d * text.h + m.f]
+  // A pixel of margin keeps every edge's antialiasing inside the raster.
+  const left = Math.floor(Math.min(...xs)) - 1, top = Math.floor(Math.min(...ys)) - 1
+  const w = Math.ceil(Math.max(...xs)) + 1 - left, h = Math.ceil(Math.max(...ys)) + 1 - top
+  if (!(w > 0 && h > 0) || w * h > MOST_STAMP_PIXELS) { paint(ctx); return }
+  // A context read back on the CPU gets a CPU raster, so the copy never crosses between CPU and GPU memory.
+  const cpu = !!ctx.getContextAttributes?.().willReadFrequently
+  const key = `${m.a}:${m.b}:${m.c}:${m.d}:${m.e - left}:${m.f - top}:${w}:${h}:${ink}:${text.w}:${text.h}`
+  let raster = stampRasters.get(text)
+  if (raster?.key !== key || raster.worn !== worn || raster.cpu !== cpu) {
+    // A context keeps the attributes it was first made with, so a mode change needs a new canvas. A moving
+    // camera redraws the raster every frame: keep its size when it fits, rather than reallocating it.
+    const canvas = raster?.cpu === cpu ? raster.canvas : ctx.canvas.ownerDocument.createElement('canvas')
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h }
+    const target = canvas.getContext('2d', { willReadFrequently: cpu })!
+    target.save(); target.resetTransform(); target.clearRect(0, 0, w, h)
+    target.setTransform(m.a, m.b, m.c, m.d, m.e - left, m.f - top)
+    paint(target)
+    target.restore()
+    raster = { key, worn, cpu, canvas }
+    stampRasters.set(text, raster)
+  }
+  ctx.save(); ctx.resetTransform(); ctx.drawImage(raster.canvas, 0, 0, w, h, left, top, w, h); ctx.restore()
+}
+
+function drawPrintedWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, ink?: string, screen = false, wear?: WallWear) {
   for (const text of texts) {
     ctx.save(); ctx.translate(text.x + text.w / 2, text.y + text.h / 2); ctx.rotate((text.rotation ?? 0) * Math.PI / 180)
     ctx.translate(-text.w / 2, -text.h / 2)
-    ctx.beginPath(); ctx.rect(0, 0, text.w, text.h); ctx.clip()
     if (text.style === 'lab-stamp') {
-      drawLabStamp(ctx, 0, 0, text.w, text.h, nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR)
+      drawStamp(ctx, text, nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR, wear)
       ctx.restore(); continue
     }
+    ctx.beginPath(); ctx.rect(0, 0, text.w, text.h); ctx.clip()
     const graffiti = text.style === 'graffiti'
     const transform = ctx.getTransform(), scale = Math.hypot(transform.c, transform.d) || 1
     const font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive`

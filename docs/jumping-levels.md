@@ -680,7 +680,9 @@ area with `style: "lab-stamp"`; its mark is fixed, while position, width, height
 rotation, duplication, and undo/redo work like other wall text. The logo fits the
 area without stretching. It uses muted red ink by day and warm yellow at night,
 renders behind terrain and actors in gameplay, editor previews and thumbnails,
-and has no collision. Stamps count toward the same 80-area wall-text limit.
+and has no collision. Its ink is worn by the level's **Stains** setting: crisp at
+None, chipped and scuffed more heavily from Light to Soaked, differently for each
+stamp. Stamps count toward the same 80-area wall-text limit.
 
 ```json
 "texts": [{ "x": 100, "y": 200, "w": 240, "h": 110,

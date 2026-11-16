@@ -93,7 +93,7 @@ export interface JumpLevel {
   floorMaterial?: TerrainMaterial
   /** The course wall's finish (wallFinish.ts); omitted for the ordinary course wall. Artwork only. */
   wallFinish?: Exclude<WallFinish, 'course'>
-  /** How much water has stained the room (wallWear.ts); omitted for Normal. Artwork only. */
+  /** How much water has stained the room (wallWear.ts); omitted for Heavy. Artwork only. */
   stains?: StainSetting
   times?: TimeTargets
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
@@ -524,8 +524,8 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.stains !== undefined) {
     const stains = stainSetting(v.stains)
     if (!stains) return fail()
-    // Normal is the default, saved by leaving the field out.
-    if (stains !== 'normal') level.stains = stains
+    // Heavy is the default, saved by leaving the field out.
+    if (stains !== 'heavy') level.stains = stains
   }
   // Existing local files use "flag". Preserve their assembly origin and export "goal".
   const goal = v.goal === undefined ? v.flag : v.goal

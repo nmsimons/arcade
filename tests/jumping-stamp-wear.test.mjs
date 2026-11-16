@@ -8,8 +8,8 @@ import { ARGUMENTS, CLOSE, LINE, MOVE, RECT } from '../src/games/jumping/webgl/a
 
 // L.A.B. wall stamps wear with the room's stain level (docs/jumping-wall-wear.md): chips, specks and scuffs of
 // ink gone, and faded patches from Normal up, random per stamp and the same on every visit.
-const LEVELS = ['none', 'light', 'normal', 'heavy', 'soaked']
-const wear = (stains, id = 'stamp-room') => wallWear({ id, ...(stains === 'normal' ? {} : { stains }) })
+const LEVELS = ['none', 'light', 'heavy']
+const wear = (stains, id = 'stamp-room') => wallWear({ id, ...(stains === 'heavy' ? {} : { stains }) })
 const stamp = (extra = {}) => ({ x: 100, y: 200, w: 240, h: 110, text: 'L.A.B.\nexperiments', fontSize: 28, align: 'center', style: 'lab-stamp', ...extra })
 
 /** Each closed outline in a path, as its points. */
@@ -34,7 +34,7 @@ test('a stamp wears more as the room gets wetter, and not at all in a spotless r
   assert.ok(marks[0] >= 4, `even a lightly stained room chips the stamp: ${marks}`)
   // Ink fades only from Normal up.
   assert.equal(labStampWear(stamp(), wear('light')).faded, null)
-  for (const level of ['normal', 'heavy', 'soaked']) assert.ok(outlines(labStampWear(stamp(), wear(level)).faded).length >= 1, level)
+  for (const level of ['heavy']) assert.ok(outlines(labStampWear(stamp(), wear(level)).faded).length >= 1, level)
 })
 
 test('worn marks never overlap, so the even-odd clips remove each exactly once', () => {
@@ -75,8 +75,8 @@ test('a stamp is drawn through its wear, with faded ink thinner and never laid t
   assert.deepEqual(clean.calls.filter(c => c[0] === 'clip').length, 1, 'only the text area clip')
   assert.deepEqual(clean.calls.filter(c => c[0] === 'strokeRect').map(c => c[1]), [.9])
 
-  const soaked = recorder(), worn = labStampWear(stamp(), wear('soaked'))
-  drawWallTexts(soaked.ctx, [stamp()], false, undefined, wear('soaked'))
+  const soaked = recorder(), worn = labStampWear(stamp(), wear('heavy'))
+  drawWallTexts(soaked.ctx, [stamp()], false, undefined, wear('heavy'))
   const clips = soaked.calls.filter(c => c[0] === 'clip')
   assert.deepEqual(clips.slice(1).map(c => [c[1], c[2]]), [[worn.gone, 'evenodd'], [worn.unfaded, 'evenodd'], [worn.faded, undefined]])
   // Full ink, then the faded patches: each the border and the logo's two fills, once.

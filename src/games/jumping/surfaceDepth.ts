@@ -5,7 +5,7 @@ import { bezierKey } from './terrainCurves.ts'
 import { terrainBoundary } from './lightingBoundary.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { ArtPath } from './webgl/artPath.ts'
-import { STAIN_CORE_OPACITY, panelStains, stainLayer, stainOpacity, wallWear, type WallWear } from './wallWear.ts'
+import { panelStains, stainLayer, stainOpacity, wallWear, type WallWear } from './wallWear.ts'
 import { panelGrid, wallPanels } from './wallFinish.ts'
 
 interface WallView { x: number; y: number; w: number; h: number }
@@ -29,18 +29,14 @@ export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView, we
   // two strokes, one per colour, instead of two per panel. Fills never cover a
   // line, so only the few pixels where neighbouring panels' lines meet can differ.
   const shade = new ArtPath(), sheen = new ArtPath(), stains = stainLayer()
-  // Stains start two rows above the view: a heavy room's long streaks run on past the joint into the next
-  // row, and whether a streak gives way to one from the row above looks at that row too.
-  for (const { x, y, col, row } of wallPanels(grid, { ...view, y: view.y - h * 2, h: view.h + h * 2 })) {
-    if (y + h > view.y) {
-      ctx.fillStyle = `rgba(91,111,94,${.012 + noise(col, row) * .022})`
-      ctx.fillRect(x + 1, y + 1, w - 2, h - 2)
-      shade.moveTo(x, y + h); shade.lineTo(x, y); shade.lineTo(x + w, y)
-      sheen.moveTo(x + 1.4, y + h); sheen.lineTo(x + 1.4, y + 1.4); sheen.lineTo(x + w, y + 1.4)
-    }
+  for (const { x, y, col, row } of wallPanels(grid, view)) {
+    ctx.fillStyle = `rgba(91,111,94,${.012 + noise(col, row) * .022})`
+    ctx.fillRect(x + 1, y + 1, w - 2, h - 2)
+    shade.moveTo(x, y + h); shade.lineTo(x, y); shade.lineTo(x + w, y)
+    sheen.moveTo(x + 1.4, y + h); sheen.lineTo(x + 1.4, y + 1.4); sheen.lineTo(x + w, y + 1.4)
     panelStains(stains.streaks, x, y, w, h, col, row, wear)
   }
-  stains.fill(ctx, wear, `rgba(74,78,62,${stainOpacity(wear, .075)})`, `rgba(74,78,62,${STAIN_CORE_OPACITY})`, { x0: view.x, y0: view.y, x1: view.x + view.w, y1: view.y + view.h })
+  stains.fill(ctx, wear, `rgba(74,78,62,${stainOpacity(wear, .075)})`, { x0: view.x, y0: view.y, x1: view.x + view.w, y1: view.y + view.h })
   ctx.strokeStyle = '#52635421'; ctx.lineWidth = 1.1; ctx.stroke(shade)
   ctx.strokeStyle = '#ffffff91'; ctx.lineWidth = .8; ctx.stroke(sheen)
   ctx.restore()

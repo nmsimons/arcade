@@ -1,5 +1,5 @@
 import { ArtPath } from './webgl/artPath.ts'
-import { STAIN_CORE_OPACITY, panelStains, stainLayer, stainOpacity, wallWear, type WallWear } from './wallWear.ts'
+import { panelStains, stainLayer, stainOpacity, wallWear, type WallWear } from './wallWear.ts'
 
 /**
  * A level's back-wall finish: wing identity in the course wall's own language
@@ -158,14 +158,12 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
     across.shade.moveTo(p.x, p.y); across.shade.lineTo(p.x + w, p.y)
     across.lip.moveTo(p.x + (joined ? 0 : 1.4), p.y + 1.4); across.lip.lineTo(p.x + w, p.y + 1.4)
   }
-  // Grit: faint stains run down from the joints, in the finish's own ink. They are laid from two panels above
-  // the area, since a heavy room's long streaks run on past the joint below, and whether a streak gives way to
-  // one from the row above looks at that row too. A replaced panel is clean.
-  for (const p of wallPanels(system, { ...area, y: area.y - h * (system.upright ? 3 : 2), h: area.h + h * (system.upright ? 3 : 2) })) {
+  // Grit: faint stains run down from the joints, in the finish's own ink. A replaced panel is clean.
+  for (const p of pieces) {
     const joined = double(p.col, p.row), col = joined ? p.col - 1 : p.col
     if (!joined && !condition(col, p.row).replaced) panelStains(stains.streaks, p.x, p.y, w, h, col, p.row, wear)
   }
-  stains.fill(ctx, wear, `rgba(${system.ink},${opacity(stainOpacity(wear, .08) * colour)})`, `rgba(${system.ink},${opacity(STAIN_CORE_OPACITY * colour)})`, { x0: area.x, y0: area.y, x1: area.x + area.w, y1: area.y + area.h })
+  stains.fill(ctx, wear, `rgba(${system.ink},${opacity(stainOpacity(wear, .08) * colour)})`, { x0: area.x, y0: area.y, x1: area.x + area.w, y1: area.y + area.h })
   for (const [paths, weight] of [[across, system.across], [down, system.down]] as const) {
     ctx.strokeStyle = `rgba(${system.ink},${opacity(weight * joint)})`; ctx.lineWidth = 1.1; ctx.stroke(paths.shade)
     // The course wall's lip is 4.4 times its shade's opacity.

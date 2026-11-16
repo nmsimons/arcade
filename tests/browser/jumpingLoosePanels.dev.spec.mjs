@@ -57,11 +57,11 @@ test('a loose panel is placed, restyled, moved panel by panel and saved with the
   // A change of finish keeps it on the panel under its point; the room's stains sit around it.
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
   await selectBuilderOption(page, 'Wall finish', 'tile')
-  await selectBuilderOption(page, 'Stains', 'heavy')
+  await selectBuilderOption(page, 'Stains', 'light')
   await canvas.screenshot({ path: info.outputPath('loose-panel-tiled.png') })
   saved = await saveTestLevel(page)
   expect(saved.level.loosePanels).toEqual([{ x: 720, y: 360, hang: 'right', contents: 'electrical', leak: true }])
   expect(saved.level.wallFinish).toBe('tile')
-  expect(saved.level.stains).toBe('heavy')
+  expect(saved.level.stains).toBe('light')
   expect(levelProblems(saved.level)).toEqual([])
 })

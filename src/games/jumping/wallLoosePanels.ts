@@ -1,6 +1,6 @@
 import type { NamedObject } from './objectNames.ts'
 import { panelAt, panelFace, stainInk, type WallFinish, type WallPanel } from './wallFinish.ts'
-import { levelSalt, steps, wallWear, type StainSetting, type WallWear } from './wallWear.ts'
+import { dryLength, levelSalt, steps, wallWear, type StainSetting, type WallWear } from './wallWear.ts'
 import { pointInside } from './geometry.ts'
 import { LEVEL_GRID_SIZE } from './level.ts'
 import type { LevelEnvironment } from './environment.ts'
@@ -183,18 +183,20 @@ export function loosePanelArt(wall: WallOf, loose: LoosePanel, wear: WallWear, n
   // Stains: water from the void runs out under the panel, every time, a long one where it leaks. They are on the
   // wall, so the hanging panel and its shadow are drawn over them.
   const { ink, base } = stainInk(wall.finish, night), strength = wear.stains === 'none' ? 1 : wear.style.opacity
-  const stain = `rgba(${ink},${Math.round(base * strength * 1000) / 1000})`, top = panel.y + panel.h + 7
+  const stain = `rgba(${ink},${Math.round(base * strength * 1000) / 1000})`, top = panel.y + panel.h + 1.5
   const at = panel.x + panel.w * (.25 + n(panel.row, 1.7) * .5), rects: number[] = []
   if (loose.leak) {
     const width = 16 + n(panel.col, 2) * 16
-    steps(rects, at, top, Math.min(panel.h, wall.height - top), width, .45, (n(3, 4) - .5) * width * .4)
+    const reach = dryLength(wear, at - width, at + width, top, Math.min(panel.h, wall.height - top))
+    if (reach > 4) steps(rects, at, top, reach, width, .45, (n(3, 4) - .5) * width * .4 * reach / panel.h)
     for (let i = 0; i < rects.length; i += 4) out.push([stain, rects[i], rects[i + 1], rects[i + 2], rects[i + 3]])
     const core: number[] = []
-    steps(core, at, top, Math.min(panel.h, wall.height - top) * .9, width / 3, .4, 0)
+    if (reach > 4) steps(core, at, top, reach * .9, width / 3, .4, 0)
     for (let i = 0; i < core.length; i += 4) out.push([`rgba(${ink},0.045)`, core[i], core[i + 1], core[i + 2], core[i + 3]])
   } else if (top < wall.height) {
     const width = 8 + n(panel.col * 2.1, 5) * 10
-    steps(rects, at, top, Math.min(panel.h * (.3 + n(6, 7) * .3), wall.height - top), width, .55, (n(8, 9) - .5) * width * .5)
+    const reach = dryLength(wear, at - width, at + width, top, Math.min(panel.h * (.3 + n(6, 7) * .3), wall.height - top))
+    if (reach > 4) steps(rects, at, top, reach, width, .55, (n(8, 9) - .5) * width * .5)
     for (let i = 0; i < rects.length; i += 4) out.push([stain, rects[i], rects[i + 1], rects[i + 2], rects[i + 3]])
   }
 
@@ -220,7 +222,7 @@ export function loosePanelArt(wall: WallOf, loose: LoosePanel, wear: WallWear, n
   return out
 }
 
-interface Level { id: string; width: number; wallFinish?: Exclude<WallFinish, 'course'>; stains?: StainSetting; loosePanels?: LoosePanel[]; environment?: LevelEnvironment }
+interface Level { id: string; width: number; wallFinish?: Exclude<WallFinish, 'course'>; stains?: StainSetting; loosePanels?: LoosePanel[]; environment?: LevelEnvironment; gravityPlates?: readonly (Rect & { effect?: string })[] }
 
 /**
  * Whether a point lies on a panelled back wall: anywhere indoors, and against the sky only on a facility wall
@@ -235,7 +237,7 @@ export function panelledAt(level: Pick<Level, 'environment'>, x: number, y: numb
 const arts = new Map<string, Piece[]>()
 /** Each loose panel's artwork, built once for its point, hang, contents, leak, and the level's finish, stains, ID and night. */
 function artFor(wall: WallOf, loose: LoosePanel, wear: WallWear, night: boolean) {
-  const key = `${wall.id}:${wall.width}x${wall.height}:${wall.finish}:${wear.stains}:${night}:${loose.x},${loose.y}:${loose.hang ?? ''}:${loose.contents ?? ''}:${loose.leak ?? ''}`
+  const key = `${wall.id}:${wall.width}x${wall.height}:${wall.finish}:${wear.stains}:${wear.wet.map(r => `${r.x},${r.y},${r.w},${r.h}`).join(';')}:${night}:${loose.x},${loose.y}:${loose.hang ?? ''}:${loose.contents ?? ''}:${loose.leak ?? ''}`
   let art = arts.get(key)
   if (!art) { if (arts.size > 512) arts.clear(); art = loosePanelArt(wall, loose, wear, night); arts.set(key, art) }
   return art

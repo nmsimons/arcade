@@ -28,11 +28,11 @@ export function EnvironmentFields({ level, onChange, selectedWall, onSelectWall,
         onChange(next)
       }} />
     {/* How much water has stained the room: the wall panels and the rust from pipe joints. */}
-    <BuilderSelect label="Stains" value={level.stains ?? 'normal'} options={STAIN_LEVELS.map(stains => ({ value: stains.id, label: stains.label }))}
+    <BuilderSelect label="Stains" value={level.stains ?? 'heavy'} options={STAIN_LEVELS.map(stains => ({ value: stains.id, label: stains.label }))}
       onChange={stains => {
-        // Normal is saved by leaving the field out.
+        // Heavy is saved by leaving the field out.
         const next = copyLevel(level)
-        if (stains === 'normal') delete next.stains
+        if (stains === 'heavy') delete next.stains
         else next.stains = stains as StainSetting
         onChange(next)
       }} />

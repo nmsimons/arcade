@@ -11,9 +11,7 @@ interface StampWearStyle { chips: number; specks: number; scuffs: number; fades:
 const STYLES: Record<StainLevel, StampWearStyle | null> = {
   none: null,
   light: { chips: 4, specks: 10, scuffs: 1, fades: 0, size: .8 },
-  normal: { chips: 8, specks: 22, scuffs: 2, fades: 1, size: 1 },
-  heavy: { chips: 14, specks: 36, scuffs: 3, fades: 2, size: 1.2 },
-  soaked: { chips: 22, specks: 54, scuffs: 4, fades: 3, size: 1.4 },
+  heavy: { chips: 8, specks: 22, scuffs: 2, fades: 1, size: 1 },
 }
 /** A default 240 × 110 stamp, in logo units (a hundredth of the logo's width). */
 const REFERENCE_AREA = 6800

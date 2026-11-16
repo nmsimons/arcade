@@ -8,8 +8,8 @@ Two additions to the back wall of Untitled Jumping Game, both artwork only:
 - **Loose panels.** An author can work one panel of the back wall loose: it hangs
   from its last bolt, tilted, and a wedge of the room's services shows in its
   frame behind it: pipes, cable trays, conduit and junction boxes.
-- **Stain intensity.** Each level chooses how stained it is, from spotless to
-  soaked, instead of every room carrying the same light grit.
+- **Stain intensity.** Each level chooses how stained it is, None, Light or
+  Heavy, instead of every room carrying the same grit.
 
 Both keep the flat 2D look: solid fills, a lit and a shaded band where depth
 needs one, no gradients, glows or blur. The [concept art](branding/lab-concept-rbot.webp)
@@ -151,53 +151,50 @@ void at `#3a403c`) and then reviewed in the game:
 ### The setting
 
 ```json
-"stains": "heavy"
+"stains": "light"
 ```
 
-One setting per level, `stains`, chooses how much water has stained the room.
-It is saved by leaving it out for the current look.
+One setting per level, `stains`, chooses how much water has stained the room:
+None, Light or Heavy, the default, saved by leaving it out.
 
-| `stains` | Studio name | Panels stained | Stains per panel | Length (of the panel's height) | Opacity | Crosses the joint below |
-| --- | --- | --- | --- | --- | --- | --- |
-| `"none"` | None | none | 0 | | | no |
-| `"light"` | Light | 1 in 6 | 1 | 0.15 to 0.4 | × 0.75 | no |
-| left out | Normal | 1 in 3 (today's look) | 1 or 2 | 0.18 to 0.68 | × 1 | no |
-| `"heavy"` | Heavy | 3 in 5 | 1 to 3 | 0.25 to 0.95 | × 1.25 | 1 in 3 long stains continue 0.2 to 0.5 of the next panel down |
-| `"soaked"` | Soaked | 4 in 5 | 2 to 4 | 0.35 to 1.0 | × 1.45 | half of them; long ones get a darker, narrower core |
+| `stains` | Studio name | Panels stained | Stains per panel | Length (of the panel's height) | Opacity |
+| --- | --- | --- | --- | --- | --- |
+| `"none"` | None | none | 0 | | |
+| `"light"` | Light | 1 in 6 | 1 | 0.15 to 0.4 | × 0.75 |
+| left out | Heavy | 1 in 3 | 1 or 2 | 0.18 to 0.68 | × 1 |
 
-Opacity multiplies today's stain fill on the course wall (`.075`) and on a
-finish (`.08`, `× 1.8` at night). The total is capped: at most `.16` anywhere in
-daylight on Soaked, a streak and its core together (the core is `.045`). That
-keeps the wall clearly lighter than terrain, keeps graffiti and displays
-readable, and keeps the robot's contrast with the wall at or above today's (see
-the look plan's contrast measurements in [jumping-look-plan.md](jumping-look-plan.md)).
+Opacity multiplies the stain fill on the course wall (`.075`) and on a finish
+(`.08`, `× 1.8` at night). Heavy is the look every room had before the setting.
 
-The heavier levels keep the same shapes, a streak narrowing as it runs down.
-No new kinds of mark appear: a soaked room is a wetter version of a normal one,
-not a different style.
+As first built there were five levels: None, Light, Normal, Heavy and Soaked,
+with the heavier two running streaks past the joint below and, at Soaked, giving
+long ones a darker core. They were too much. Normal became Heavy, the two above
+it went, and files that still say `"normal"`, `"heavy"` or `"soaked"` read as
+Heavy.
+
+**Where a stain runs.** Water runs out of a joint, so a streak always starts at
+the bottom of a tile: the joint at the top of the panel it runs down, 1.5 units
+under it. A panel at the top of the room has no tile above it and no stain. A
+streak stays within its panel. Water washes the wall it covers, so a stain
+stops where it would run into one of the level's water zones (at its fullest:
+a wall that water reaches stays washed when it drains), and none starts inside
+one. The same goes for pipe rust and the stain under a loose panel.
 
 **As built, streaks are rectangles that never overlap** (`wallWear.ts`). The
 daylight renderer redraws a clipped patch around moving actors over a cached
 frame and must match it exactly (`jumpingExposureCorrection.dev.spec`). Chrome
 rounds translucent paths differently under that clip: one fill of every
 streak, the original slanted streaks, clusters of streaks in one path and even
-single stepped paths each came out a level off somewhere, in about one layout in
-three at Heavy and Soaked. Rectangles drawn with `fillRect`, as the panels' own
-tints are, matched. So:
+single stepped paths each came out a level off somewhere. Rectangles drawn with
+`fillRect`, as the panels' own tints are, matched. So:
 
 - A streak narrows and leans in level steps, each its own `fillRect`, with
   enough steps that it still reads as a taper at play scale.
 - Separate rectangles add where they overlap, so streaks never do: a panel's
-  streaks each take a slot across its width, inside the panel, and a streak that
-  a long one from the row above runs into is left out. That choice looks only at
-  the row above as laid, so it is the same from every view.
-- A Soaked core lies over its own streak, the one overlap, within the cap.
+  streaks each take a slot across its width, inside the panel.
 
-In a few layouts in twenty, a Heavy or Soaked stain beside a moving actor or
-under the floor's edge still comes out one level off in the redrawn patch, which
-no one can see. The spec's Heavy and Soaked cases use a fixed level ID so they
-stay deterministic; its default case takes a fresh ID, and so fresh stains, on
-every run.
+The spec's finished rooms use a fixed level ID so they stay deterministic; its
+default case takes a fresh ID, and so fresh stains, on every run.
 
 ### What the setting covers
 
@@ -207,9 +204,9 @@ by the same steps:
 - **Rust weeping from pipe joints:** the chance per joint (today 3 in 4) and the
   streak's length.
 - **L.A.B. wall stamps** (`stampWear.ts`): their ink wears with the room. Chips,
-  specks and a few scuffs of paint are gone, and from Normal up some patches
-  have thinned to under half strength; Light chips a stamp lightly, Soaked wears
-  it hard, and None leaves it crisp. Wear is random per stamp, hashed from the
+  specks and a few scuffs of paint are gone, and at Heavy some patches have
+  thinned to under half strength; Light chips a stamp lightly, and None leaves
+  it crisp. Wear is random per stamp, hashed from the
   level's ID and the stamp's place and size, so it is the same on every visit
   but reshuffles when the stamp is moved or resized. Marks are clip cut-outs
   laid clear of one another, so no ink is drawn twice.
@@ -244,8 +241,8 @@ patch, as the wall stains now are, is its own change.
 
 ### In the studio
 
-**Level → World → Stains** (None, Light, Normal, Heavy, Soaked), directly under
-**Wall finish**. Normal deletes the field.
+**Level → World → Stains** (None, Light, Heavy), directly under **Wall finish**.
+Heavy deletes the field.
 
 ## Design guidance
 
@@ -262,10 +259,9 @@ by hand".
   may not sit on one, and wall text is drawn over it as if the panel were still
   in place, so keep graffiti and hints on whole panels.
 - **Choose stains for the place, not the level's difficulty.** A new, clean wing
-  can be Light or None. Freight, Water and anywhere flooded can be Heavy;
-  Soaked is for rooms where water is the story (a burst main, a flooded
-  basement). Use Leak to put one strong mark where it means something, under a
-  failed pipe or a dripping service void.
+  can be Light or None; an older, wetter one keeps Heavy. Use Leak on a loose
+  panel to put one strong mark where it means something, under a failed pipe or
+  a dripping service void.
 
 ## Implementation
 
@@ -301,8 +297,8 @@ clip passes, which shaped both features:
   after), so the panels cover it.
 - Cost: a few dozen fills per panel, rasterized once per camera position.
   Stains are a `fillRect` per step of each streak in view (three to twelve
-  steps): in a 1600 × 900 view, about 50 on a Normal course wall and 280 on
-  Normal tiles, 290 and 1,500 at Soaked. Soaked tiles are the busiest case.
+  steps): in a 1600 × 900 view, about 50 on a Heavy course wall and 280 on
+  Heavy tiles.
 
 ### Tests
 
@@ -314,7 +310,10 @@ clip passes, which shaped both features:
 - **Browser:** `jumpingLoosePanels.dev.spec` loosens a panel, sets its bolt,
   contents and leak, drags it across a joint, nudges it, changes the finish,
   sets Stains and saves; `jumpingExposureCorrection.dev.spec` runs its daylight
-  scenes with Heavy and Soaked stains and with loose panels beside the actors.
+  scenes with Heavy stains on the course wall (a fresh layout each run), Light
+  on Cladding, and with loose panels beside the actors. The Tiled finish is left
+  out: its own joint lines come out a level off where the patch passes, with or
+  without stains, which is a finish problem of its own.
 
 ### Review sheets
 
@@ -334,7 +333,7 @@ Each default is what gets built unless the owner says otherwise.
 | D3 | The void is one continuous world layout rather than composed per panel | Yes, so neighbouring loose panels show the same services. |
 | D4 | A small status lamp in a junction box, lit while the room has power and dark during an EMP, or a loose panel that swings when the robot lands nearby | Not built. A lamp is a self-lit pass (night only, with bounds); a swing is an effect tied to physics. Either can follow as its own change. |
 | D5 | Wall text painted on a loose panel turning with it | Not built. Text is drawn over the panel as if it were still in place. |
-| D6 | Per-area wetness (a wet corner on an otherwise Normal wall) | Not built. Leak covers the common case. |
+| D6 | Per-area wetness (a wet corner on an otherwise Light wall) | Not built. Leak covers the common case. |
 
 ## Out of scope
 

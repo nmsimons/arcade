@@ -2,18 +2,19 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { drawLevelBackdrop } from '../src/games/jumping/render.ts'
-import { drawWallFinish } from '../src/games/jumping/wallFinish.ts'
+import { drawWallFinish, panelAt } from '../src/games/jumping/wallFinish.ts'
 import { drawWallPanels } from '../src/games/jumping/surfaceDepth.ts'
 import { drawWallPipes } from '../src/games/jumping/wallPipes.ts'
 import { STAIN_LEVELS, wallWear } from '../src/games/jumping/wallWear.ts'
-import { ARGUMENTS, MOVE } from '../src/games/jumping/webgl/artPath.ts'
+import { ARGUMENTS, MOVE, LINE } from '../src/games/jumping/webgl/artPath.ts'
 
-// Stain intensity (docs/jumping-wall-wear.md): one setting per level chooses how much water has stained the
-// room, from spotless to soaked, and the level's ID gives each room its own pattern.
+// Stain intensity (docs/jumping-wall-wear.md): one setting per level, None, Light or Heavy (the default), chooses
+// how much water has stained the room, and the level's ID gives each room its own pattern. Stains run from the
+// bottom of a tile, and water washes the wall it covers.
 const FINISHES = ['chamber', 'plank', 'upright', 'tile', 'plate']
-const LEVELS = ['none', 'light', 'normal', 'heavy', 'soaked']
+const LEVELS = ['none', 'light', 'heavy']
 const level = (extra = {}) => ({ ...blankTrial(), id: 'stain-room', width: 2400, height: 1600, floor: 1600, ...extra })
-const wear = (stains, id = 'stain-room') => wallWear({ id, ...(stains === 'normal' ? {} : { stains }) })
+const wear = (stains, id = 'stain-room', extra = {}) => wallWear({ id, ...(stains === 'heavy' ? {} : { stains }), ...extra })
 
 function recorder() {
   const calls = []
@@ -28,118 +29,120 @@ function recorder() {
 }
 const alpha = colour => Number(/,([\d.]+)\)$/.exec(colour)[1])
 const rgb = colour => /^rgba\((\d+,\d+,\d+)/.exec(colour)?.[1]
-const starts = path => { let n = 0; for (let i = 0, c = path?.commands ?? []; i < c.length; i += 1 + ARGUMENTS[c[i]]) if (c[i] === MOVE) n++; return n }
 const area = { x: 0, y: 0, w: 2400, h: 1600 }
 
-/**
- * A wall's stains, from its recorded calls: rectangles in the wall's ink (the course wall's, or a finish's,
- * which its joints are stroked in), split into streaks and, at Soaked, their cores.
- */
+/** A wall's stains, from its recorded calls: rectangles in the wall's ink (the course wall's, or the finish's, which its joints are stroked in). */
 function stainsOf(calls) {
   const ink = rgb(calls.find(c => c[0] === 'stroke')?.[1] ?? '') ?? '74,78,62'
   const inked = calls.filter(c => c[0] === 'fillRect' && rgb(c[1]) === ink)
-  const styles = [...new Set(inked.map(c => c[1]))].sort((a, b) => alpha(b) - alpha(a))
-  const streaks = inked.filter(c => c[1] === styles[0]).map(c => c[2]), cores = inked.filter(c => c[1] === styles[1]).map(c => c[2])
+  const styles = [...new Set(inked.map(c => c[1]))]
+  const streaks = inked.map(c => c[2])
   // A streak starts where no step of another ends just above it.
   const heads = streaks.filter(r => !streaks.some(o => o !== r && Math.abs(o.y + o.h - r.y) < 1e-9 && o.x < r.x + r.w && r.x < o.x + o.w))
-  return { styles, streaks, cores, heads }
+  return { styles, streaks, heads }
 }
-const course = stains => { const r = recorder(); drawWallPanels(r.ctx, area, wear(stains)); return stainsOf(r.calls) }
+const course = (stains, extra) => { const r = recorder(); drawWallPanels(r.ctx, area, wear(stains, undefined, extra)); return stainsOf(r.calls) }
 const finished = (finish, stains, night = false) => { const r = recorder(); drawWallFinish(r.ctx, finish, area, night, wear(stains)); return stainsOf(r.calls) }
 const overlap = (a, b) => a.x < b.x + b.w - 1e-9 && b.x < a.x + a.w - 1e-9 && a.y < b.y + b.h - 1e-9 && b.y < a.y + a.h - 1e-9
 const walls = [['course', course], ...FINISHES.map(finish => [finish, stains => finished(finish, stains)])]
 
-test('a level saves its stains only when they are not Normal, and rejects unknown levels', () => {
+test('a level saves its stains only when they are not Heavy, reads the old levels as Heavy, and rejects unknown ones', () => {
   assert.equal(parseLevel(level()).stains, undefined)
-  assert.equal(parseLevel(level({ stains: 'normal' })).stains, undefined, 'Normal is saved by leaving the field out')
-  for (const stains of ['none', 'light', 'heavy', 'soaked']) {
+  assert.equal(parseLevel(level({ stains: 'heavy' })).stains, undefined, 'Heavy is saved by leaving the field out')
+  for (const stains of ['none', 'light']) {
     const parsed = parseLevel(level({ stains }))
     assert.equal(parsed.stains, stains)
     assert.equal(parseLevel(JSON.parse(JSON.stringify(parsed))).stains, stains, 'round trip')
   }
+  // Files saved when there were five levels.
+  for (const old of ['normal', 'soaked']) assert.equal(parseLevel(level({ stains: old })).stains, undefined, `${old} reads as Heavy`)
   assert.throws(() => parseLevel(level({ stains: 'damp' })))
   assert.deepEqual(STAIN_LEVELS.map(s => s.id), LEVELS)
 })
 
-test('each stain level stains more of the wall than the one before, more darkly, and None stains nothing', () => {
+test('Light stains less of the wall than Heavy, more faintly, and None stains nothing', () => {
   for (const [name, draw] of walls) {
     assert.equal(draw('none').streaks.length, 0, `${name}: None draws no stains`)
-    const heads = LEVELS.slice(1).map(stains => draw(stains).heads.length)
-    const opacity = LEVELS.slice(1).map(stains => alpha(draw(stains).styles[0]))
-    for (let i = 1; i < heads.length; i++) {
-      assert.ok(heads[i] > heads[i - 1], `${name}: more streaks at ${LEVELS[i + 1]}: ${heads}`)
-      assert.ok(opacity[i] > opacity[i - 1], `${name}: darker at ${LEVELS[i + 1]}: ${opacity}`)
-    }
-    // Streaks in one ink, and a second ink only at Soaked for the cores of its long streaks.
-    assert.deepEqual(LEVELS.slice(1).map(stains => draw(stains).styles.length), [1, 1, 1, 2], name)
+    const light = draw('light'), heavy = draw('heavy')
+    assert.ok(heavy.heads.length > light.heads.length && light.heads.length > 0, `${name}: more streaks when Heavy (${light.heads.length}, ${heavy.heads.length})`)
+    assert.ok(alpha(heavy.styles[0]) > alpha(light.styles[0]), `${name}: darker when Heavy`)
+    assert.equal(heavy.styles.length, 1, `${name}: one ink`)
   }
-  // Normal is today's look: the course wall's .075.
-  assert.equal(course('normal').styles[0], 'rgba(74,78,62,0.075)')
+  // Heavy is the look every room had before: the course wall's .075.
+  assert.equal(course('heavy').styles[0], 'rgba(74,78,62,0.075)')
+})
+
+test('every stain runs from the bottom of a tile, the joint at the top of its panel, and stays within that panel', () => {
+  for (const finish of ['course', ...FINISHES]) {
+    const r = recorder(), joints = new Set()
+    if (finish === 'course') drawWallPanels(r.ctx, area, wear('heavy')); else drawWallFinish(r.ctx, finish, area, false, wear('heavy'))
+    // The level joints the wall draws, as their heights.
+    for (const [, , path] of r.calls.filter(c => c[0] === 'stroke')) {
+      let at = null
+      for (let i = 0, c = path.commands; i < c.length; i += 1 + ARGUMENTS[c[i]]) {
+        if (c[i] === LINE && at && Math.abs(at[1] - c[i + 2]) < 1e-9) joints.add(Math.round(at[1] * 1000) / 1000)
+        if (c[i] === MOVE || c[i] === LINE) at = [c[i + 1], c[i + 2]]
+      }
+    }
+    const { streaks, heads } = stainsOf(r.calls)
+    assert.ok(heads.length > 5)
+    for (const head of heads) {
+      assert.ok(joints.has(Math.round((head.y - 1.5) * 1000) / 1000), `${finish}: a streak at ${head.y} starts just under a joint`)
+      assert.ok(head.y - 1.5 > 0, `${finish}: none from the top of the room, where no tile is above`)
+    }
+    for (const step of streaks) { const p = panelAt(finish, step.x + step.w / 2, step.y + .01); assert.ok(step.y + step.h <= p.y + p.h + 1e-6, `${finish}: within its panel`) }
+  }
 })
 
 test('stains are rectangles that never overlap one another, so none darkens another', () => {
   // Regression: the daylight patch redraw must match the cached frame exactly, and Chrome rounds translucent
   // paths differently under its clip; rectangles drawn with fillRect match (wallWear.ts, stainLayer).
-  for (const [name, draw] of walls) for (const stains of ['heavy', 'soaked']) {
-    const { streaks, cores } = draw(stains)
-    assert.ok(streaks.length > 20, `${name} ${stains}: stained`)
-    for (const [i, a] of streaks.entries()) for (const b of streaks.slice(i + 1)) assert.ok(!overlap(a, b), `${name} ${stains}: steps ${JSON.stringify(a)} and ${JSON.stringify(b)} overlap`)
-    // A core lies within its own streak's steps.
-    for (const core of cores) assert.ok(streaks.some(s => core.x >= s.x - 1e-9 && core.x + core.w <= s.x + s.w + 1e-9 && overlap(core, s)), `${name}: a core inside its streak`)
+  for (const [name, draw] of walls) {
+    const { streaks } = draw('heavy')
+    assert.ok(streaks.length > 20, `${name}: stained`)
+    for (const [i, a] of streaks.entries()) for (const b of streaks.slice(i + 1)) assert.ok(!overlap(a, b), `${name}: steps ${JSON.stringify(a)} and ${JSON.stringify(b)} overlap`)
   }
 })
 
-test('soaked stains stay faint enough in daylight: a streak and its core together reach at most .16', () => {
-  // A streak and its core are the only stains that overlap.
-  const together = styles => 1 - styles.reduce((clear, style) => clear * (1 - alpha(style)), 1)
-  assert.ok(together(course('soaked').styles) <= .16 + 1e-9, `course wall: ${together(course('soaked').styles)}`)
-  for (const finish of FINISHES) assert.ok(together(finished(finish, 'soaked').styles) <= .16 + 1e-9, `${finish}: ${together(finished(finish, 'soaked').styles)}`)
-  // A dark level strengthens its finish's stains with the rest of it.
-  for (const finish of FINISHES) assert.ok(alpha(finished(finish, 'soaked', true).styles[0]) > alpha(finished(finish, 'soaked').styles[0]))
+test('water washes the wall: a stain stops where it would run into a water zone, and none starts in one', () => {
+  const water = { x: 0, y: 900, w: 2400, h: 700, effect: 'water' }
+  const dry = course('heavy'), wet = course('heavy', { gravityPlates: [water] })
+  assert.ok(dry.streaks.some(r => r.y + r.h > water.y), 'without water, stains run below its surface')
+  assert.ok(wet.streaks.length > 0 && wet.streaks.every(r => r.y + r.h <= water.y + 1e-6), 'with water, every stain stops at its surface')
+  assert.ok(wet.streaks.filter(r => r.y < water.y).length > 0)
+  // A part of the wall beside the water is stained as before.
+  const narrow = course('heavy', { gravityPlates: [{ ...water, w: 600 }] })
+  assert.deepEqual(narrow.streaks.filter(r => r.x > 700), dry.streaks.filter(r => r.x > 700))
+  // Pipe rust stops at the water too.
+  const pipe = { points: [[100, 890], [2300, 890]] }
+  const rust = extra => { const r = recorder(); drawWallPipes(r.ctx, [{ ...pipe, points: pipe.points.map(p => [...p]) }], wear('heavy', undefined, extra)); return r.calls.find(c => c[0] === 'fill' && String(c[1]).startsWith('rgba(104,66,36'))[2].commands }
+  const ys = commands => { const out = []; for (let i = 0; i < commands.length; i += 1 + ARGUMENTS[commands[i]]) if (ARGUMENTS[commands[i]] === 2) out.push(commands[i + 2]); return out }
+  assert.ok(ys(rust()).some(y => y > water.y + 1) && ys(rust({ gravityPlates: [water] })).every(y => y <= water.y + 1e-6), 'rust runs into the water only without it')
 })
 
 test('each room has its own stains, the same on every visit, and the same from every view', () => {
   const pattern = (id, view = area, finish) => {
     const r = recorder()
-    if (finish) drawWallFinish(r.ctx, finish, view, false, wear('soaked', id)); else drawWallPanels(r.ctx, view, wear('soaked', id))
+    if (finish) drawWallFinish(r.ctx, finish, view, false, wear('heavy', id)); else drawWallPanels(r.ctx, view, wear('heavy', id))
     return stainsOf(r.calls).streaks
   }
   assert.deepEqual(pattern('stain-room'), pattern('stain-room'), 'the same room draws the same stains')
   assert.notDeepEqual(pattern('stain-room'), pattern('another-room'), 'another room is stained differently')
-  // A part of the wall draws the same streaks there as the whole: which streak gives way to one from the row
-  // above never depends on how much of the wall is drawn.
   const key = r => `${r.x},${r.y},${r.w},${r.h}`
   for (const finish of [undefined, ...FINISHES]) {
-    const all = new Set(pattern('stain-room', area, finish).map(key)), view = { x: 500, y: 700, w: 900, h: 500 }
+    const all = new Set(pattern('stain-room', area, finish).map(key)), view = { x: 300, y: 400, w: 1500, h: 900 }
     const part = pattern('stain-room', view, finish).filter(r => r.x >= view.x && r.x + r.w <= view.x + view.w && r.y >= view.y && r.y + r.h <= view.y + view.h)
-    assert.ok(part.length > 5 && part.every(r => all.has(key(r))), `${finish ?? 'course'}: a part of the wall draws the streaks the whole does`)
+    assert.ok(part.length > 1 && part.every(r => all.has(key(r))), `${finish ?? 'course'}: a part of the wall draws the streaks the whole does`)
   }
-  // Through the level itself: its ID and setting reach the wall.
   const draw = file => { const r = recorder(); drawLevelBackdrop(r.ctx, parseLevel(file), area, 1, false); return stainsOf(r.calls).streaks }
-  assert.notDeepEqual(draw(level({ stains: 'heavy' })), draw(level()))
+  assert.notDeepEqual(draw(level({ stains: 'light' })), draw(level()))
   assert.notDeepEqual(draw(level({ id: 'other' })), draw(level()))
 })
 
-test('a heavy room\'s long streaks run past the joint below, and a view starting below a joint still shows them', () => {
-  // Panels are 240 high on the course wall. A view starting just under a joint that a streak crosses misses the
-  // panel the streak starts in, but still draws the streak.
-  for (const stains of ['heavy', 'soaked']) {
-    const crossing = course(stains).streaks.find(r => Math.floor(r.y / 240) !== Math.floor((r.y + r.h - 1e-6) / 240))
-    assert.ok(crossing, `${stains}: a streak runs on past the joint below`)
-    const joint = Math.ceil(crossing.y / 240) * 240
-    const below = recorder(); drawWallPanels(below.ctx, { x: 0, y: joint + 10, w: 2400, h: 1600 - joint - 10 }, wear(stains))
-    assert.ok(stainsOf(below.calls).streaks.some(r => r.x === crossing.x && r.y === crossing.y), `${stains}: the view below the joint draws it`)
-  }
-  // Normal streaks stay within their panel.
-  const { streaks } = course('normal')
-  assert.ok(streaks.every(r => Math.floor(r.y / 240) === Math.floor((r.y + r.h - 1e-6) / 240)), 'a normal streak ends within its panel')
-})
-
-test('pipe rust follows the room\'s stains: none at None, more and longer as the room gets wetter', () => {
+test('pipe rust follows the room\'s stains: none at None, more when Heavy', () => {
   const pipe = { points: [[100, 400], [2300, 400]] }
   const rust = stains => { const r = recorder(); drawWallPipes(r.ctx, [{ ...pipe, points: pipe.points.map(p => [...p]) }], wear(stains)); return r.calls.find(c => c[0] === 'fill' && String(c[1]).startsWith('rgba(104,66,36'))[2] }
+  const starts = path => { let n = 0; for (let i = 0, c = path.commands; i < c.length; i += 1 + ARGUMENTS[c[i]]) if (c[i] === MOVE) n++; return n }
   assert.equal(starts(rust('none')), 0)
-  const counts = LEVELS.slice(1).map(stains => starts(rust(stains)))
-  for (let i = 1; i < counts.length; i++) assert.ok(counts[i] >= counts[i - 1], `rust at each level: ${counts}`)
-  assert.ok(counts.at(-1) > counts[0], `soaked rusts more than light: ${counts}`)
+  assert.ok(starts(rust('heavy')) > starts(rust('light')))
 })

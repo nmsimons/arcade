@@ -1,5 +1,5 @@
 import type { NamedObject } from './objectNames.ts'
-import { pipeRust, wallWear, type WallWear } from './wallWear.ts'
+import { dryLength, pipeRust, wallWear, type WallWear } from './wallWear.ts'
 import { ArtPath } from './webgl/artPath.ts'
 
 /**
@@ -57,7 +57,7 @@ function centreLine(points: readonly Point[], d: number) {
 }
 
 function plan(pipe: WallPipe, wear: WallWear): Plan {
-  const d = pipeDiameter(pipe.size), key = `${pipe.size ?? ''}:${pipe.points.flat().join(',')}:${wear.stains}:${wear.salt}`
+  const d = pipeDiameter(pipe.size), key = `${pipe.size ?? ''}:${pipe.points.flat().join(',')}:${wear.stains}:${wear.salt}:${wear.wet.map(r => `${r.x},${r.y},${r.w},${r.h}`).join(';')}`
   const saved = plans.get(pipe)
   if (saved?.key === key) return saved
   const { path, runs } = centreLine(pipe.points, d)
@@ -80,7 +80,9 @@ function plan(pipe: WallPipe, wear: WallWear): Plan {
     // Rust weeps from a joint on a level run down the wall below it, as much as the room is stained.
     const [sx, sy] = wear.salt, rust_ = pipeRust(wear, noise(cx + sx, cy + sy))
     if (Math.abs(run.uy) < .3 && rust_.weeps) {
-      const length = d * (1.2 + noise(cy + sy, cx + sx) * 3.4) * rust_.length, width = d * (.22 + noise(cx * .3 + sx, cy + sy) * .2), top = cy + d * .45
+      const width = d * (.22 + noise(cx * .3 + sx, cy + sy) * .2), top = cy + d * .45
+      // Water washes the wall: rust stops where it would run into it.
+      const length = dryLength(wear, cx - width / 2, cx + width / 2, top, d * (1.2 + noise(cy + sy, cx + sx) * 3.4) * rust_.length)
       rust.moveTo(cx - width / 2, top); rust.lineTo(cx + width / 2, top); rust.lineTo(cx + width * .2, top + length); rust.lineTo(cx - width * .3, top + length * .85); rust.closePath()
     }
   }

@@ -148,10 +148,9 @@ powered door, and keep it to two or three in a room. Keep clocks, coin switches,
 wall lights and wall text off them.
 
 Choose a room's **Stains** for the place, not the level's difficulty. A new,
-clean wing can be Light or None. Freight, Water and anywhere flooded can be
-Heavy; Soaked is for rooms where water is the story, a burst main or a flooded
-basement. Heavier stains add texture to every panel, so keep wall hints where
-they stay readable against them.
+clean wing can be Light or None; an older or wetter one keeps Heavy, the
+default. Stains add texture to the panels, so keep wall hints where they stay
+readable against them.
 
 When a level promises a building, group its running surfaces into usable rooms
 and connected rooflines. Let door openings, service passages and ladder hatches

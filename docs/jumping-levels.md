@@ -681,7 +681,7 @@ rotation, duplication, and undo/redo work like other wall text. The logo fits th
 area without stretching. It uses muted red ink by day and warm yellow at night,
 renders behind terrain and actors in gameplay, editor previews and thumbnails,
 and has no collision. Its ink is worn by the level's **Stains** setting: crisp at
-None, chipped and scuffed more heavily from Light to Soaked, differently for each
+None, chipped and scuffed more heavily at Heavy than at Light, differently for each
 stamp. Stamps count toward the same 80-area wall-text limit.
 
 ```json
@@ -1116,15 +1116,19 @@ saves `"course"` that way. Files saved with the first finish names still load:
 
 The optional `stains` chooses how much water has stained the room: the streaks
 running down the wall panels from their joints, and the rust weeping from pipe
-joints. Leave it out for Normal.
+joints. Leave it out for Heavy.
 
 | `stains` | Studio name | Wall panels |
 | --- | --- | --- |
 | `"none"` | None | No stains, and no pipe rust |
 | `"light"` | Light | About one panel in six, one short streak each, fainter |
-| left out | Normal | About one in three, one or two streaks each |
-| `"heavy"` | Heavy | Three in five, up to three streaks, some running on past the joint into the panel below |
-| `"soaked"` | Soaked | Four in five, two to four streaks, half the long ones running on, with a darker core |
+| left out | Heavy | About one in three, one or two streaks each |
+
+Every streak starts at the bottom of a tile (the joint at the top of the panel it
+runs down; the top row of the room has none) and stays within its panel. Water
+washes the wall: stains and pipe rust stop where they would run into a water
+zone. Files saved with the earlier `"normal"`, `"heavy"` or `"soaked"` read as
+Heavy.
 
 Stains are artwork only. Each room's pattern comes from its level ID, so it is
 the same on every visit and differs from room to room; changing the ID

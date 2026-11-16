@@ -174,21 +174,29 @@ test('real-renderer covers stay still, resize sharply, and never start audio or 
     await covers.evaluateAll(images => Promise.all(images.map(image => image.decode())))
     const sources = await covers.evaluateAll(images => images.map(image => image.src))
     const checkPlayerContrast = async () => {
-      const contrast = await page.locator('.game-art-jumping').evaluate(image => {
+      const { figure, eyes, eyeContrast } = await page.locator('.game-art-jumping').evaluate(image => {
         const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight
         const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0)
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data, light = []
-        // The central artwork contains the athlete and surrounding scenery,
-        // excluding the bright lamp in the upper corner.
-        for (let y = Math.floor(canvas.height * .25); y < canvas.height * .65; y++) for (let x = Math.floor(canvas.width * .3); x < canvas.width * .7; x++) {
-          const i = (y * canvas.width + x) * 4
-          const rgb = [...pixels.slice(i, i + 3)].map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
-          light.push(rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722)
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data, luma = [], light = [], eyeLight = []
+        const linear = c => (c /= 255) <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4
+        // The robot stands out of the lamp's beam in the middle of the card: its body is drawn at the
+        // game's night readability floor and its eyes, lights of their own, in full green.
+        for (let y = Math.floor(canvas.height * .25); y < canvas.height * .7; y++) for (let x = Math.floor(canvas.width * .45); x < canvas.width * .75; x++) {
+          const i = (y * canvas.width + x) * 4, [r, g, b] = pixels.slice(i, i + 3)
+          const relative = linear(r) * .2126 + linear(g) * .7152 + linear(b) * .0722
+          if (g > 170 && g > r + 40 && g > b + 70) eyeLight.push(relative)
+          else { luma.push(.2126 * r + .7152 * g + .0722 * b); light.push(relative) }
         }
-        light.sort((a, b) => a - b)
-        return (light[Math.floor(light.length * .99)] + .05) / (light[Math.floor(light.length / 2)] + .05)
+        luma.sort((a, b) => a - b); light.sort((a, b) => a - b)
+        const background = light[Math.floor(light.length / 2)]
+        return { figure: luma[Math.floor(luma.length * .99)] - luma[Math.floor(luma.length / 2)], eyes: eyeLight.length,
+          // An eye's soft rim blends into the face; its median pixel is the lamp itself.
+          eyeContrast: (eyeLight.sort((a, b) => a - b)[Math.floor(eyeLight.length / 2)] + .05) / (background + .05) }
       })
-      expect(contrast).toBeGreaterThan(4.5)
+      // The game's own night check: a body at least 40 of 255 levels clear of the wall behind it.
+      expect(figure).toBeGreaterThan(40)
+      expect(eyes).toBeGreaterThan(20)
+      expect(eyeContrast).toBeGreaterThan(4.5)
     }
     await checkPlayerContrast()
     for (let i = 0; i < 6; i++) await page.keyboard.press('Tab')

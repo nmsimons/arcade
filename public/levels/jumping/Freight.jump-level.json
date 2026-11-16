@@ -10,14 +10,16 @@
       "y": 820,
       "w": 1000,
       "h": 40,
-      "material": "steel"
+      "material": "steel",
+      "trim": "hazard"
     },
     {
       "x": 0,
       "y": 260,
       "w": 410,
       "h": 40,
-      "material": "steel"
+      "material": "steel",
+      "trim": "hazard"
     }
   ],
   "entrance": {
@@ -50,7 +52,7 @@
         "length": 190,
         "segments": 24,
         "rest": {
-          "key": "7:076a6b8f4d1845ed",
+          "key": "7:75b58bc5c07b961d",
           "points": [
             [
               320,
@@ -626,7 +628,7 @@
           "y": 510
         },
         "rest": {
-          "key": "7:e7d8d9186dafff96",
+          "key": "7:504b2ff486d9ef56",
           "points": [
             [
               0,
@@ -1261,7 +1263,7 @@
           "y": 930
         },
         "rest": {
-          "key": "7:5b3785e10753dec5",
+          "key": "7:82be11dd7c7e9b85",
           "points": [
             [
               450,
@@ -1875,7 +1877,7 @@
         "length": 300,
         "segments": 38,
         "rest": {
-          "key": "7:96591be7d248f2a7",
+          "key": "7:b3d7046da0164397",
           "points": [
             [
               660,

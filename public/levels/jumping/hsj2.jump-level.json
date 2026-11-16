@@ -51,7 +51,8 @@
       "y": 650,
       "w": 1400,
       "h": 25,
-      "material": "steel"
+      "material": "steel",
+      "trim": "hazard"
     }
   ],
   "entrance": {

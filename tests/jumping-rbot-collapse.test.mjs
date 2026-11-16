@@ -91,6 +91,32 @@ test('a level power cut slumps Rbot as well, and it lets go of a rope rather tha
   assert.equal(bot.collapse, 0, 'it got up when the power came back')
 })
 
+test('an EMP at the top of a rope drops Rbot in one fall: it does not catch the rope again on the way down', () => {
+  const { run, bot } = run$(file => {
+    file.platforms = [{ x: 700, y: 300, w: 400, h: 25 }]
+    file.climbables.ropes = [{ x: 900, y: 325, length: 560, segments: 70 }]
+  })
+  // Regression: letting go set a 0.35 s grab cooldown, and the slumped body, no longer holding, stopped
+  // asking to let go. Falling past the rope after the cooldown, it took hold again, let go the next step,
+  // and so fell in spurts.
+  for (let i = 0; i < 60 && !bot.actor.climbing; i++) {
+    Object.assign(bot.actor, { x: 900, y: 470, vx: 0, vy: 0, grounded: false, grabCooldown: 0 }); stepRun(run, NEUTRAL_INPUT)
+  }
+  assert.ok(bot.actor.climbing?.rope && bot.y < 500, `it holds the rope near its top, at ${bot.y}`)
+  run.gadgets.disabled.set(bot, EMP_DISABLE_SECONDS)
+  let released = false, regrabs = 0, landed = null
+  for (let i = 0; i < 2 / STEP && landed === null; i++) {
+    stepRun(run, NEUTRAL_INPUT)
+    if (!bot.actor.climbing) released = true
+    else if (released) regrabs++
+    if (bot.actor.grounded) landed = i * STEP
+  }
+  assert.equal(regrabs, 0, 'once it lets go it never takes hold again')
+  assert.ok(landed !== null && Math.abs(bot.y - 920) < .1, `it fell to the floor, at ${bot.y}`)
+  // A free fall of about 450 units takes well under a second; a fall in spurts takes longer.
+  assert.ok(landed < 1, `it landed after ${landed.toFixed(2)} s`)
+})
+
 test('when the EMP ends, Rbot gets up where it was left and hunts again', () => {
   const { run, bot } = run$()
   run.gadgets.disabled.set(bot, 2)

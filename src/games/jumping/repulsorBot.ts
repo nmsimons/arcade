@@ -251,7 +251,9 @@ function collapse(run: Run, robot: RobotState, dt: number, world: ContactWorld) 
   // Slid along, it faces the way it goes for the step, so the motor shuffles it rather than starting a turn; the
   // slump keeps the facing it fell with.
   if (pushed) actor.facing = push.direction
-  moveRepulsorActor(run, robot, dt, world, { ...NEUTRAL_INPUT, crouch: !holding, drop: holding, detach: holding, descend: holding,
+  // It keeps letting go after it has let go: a limp body falling past a rope, ladder or ledge must not take hold
+  // again when the grab cooldown runs out, or it falls in spurts, catching and dropping each time.
+  moveRepulsorActor(run, robot, dt, world, { ...NEUTRAL_INPUT, crouch: !holding, drop: holding, detach: true, descend: holding,
     move: pushed ? push.direction * push.effort * COLLAPSED_PUSH_SPEED / TUNING.crouchSpeed : 0 })
   actor.facing = facing; robot.facing = facing
 }

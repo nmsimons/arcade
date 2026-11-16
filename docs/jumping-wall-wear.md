@@ -1,7 +1,8 @@
 # Missing panels and stain intensity
 
 Status: proposed November 16, 2026. Built November 16, 2026: phase 1 (stain intensity and per-level
-variation) and phase 2 (panel geometry, `panelAt`). Phases 3 to 5 not started.
+variation), phase 2 (panel geometry, `panelAt`) and phase 3 (missing panel artwork, format and checks; see
+[As built](#as-built-missing-panels)). Phases 4 (studio) and 5 not started.
 
 Two additions to the back wall of Untitled Jumping Game, both artwork only:
 
@@ -369,6 +370,31 @@ by hand".
 5. **Docs and a review sheet** (below), then the owner chooses levels to use
    them on. No built-in level changes in phases 1 to 4 except through the
    per-level stain variation.
+
+### As built: missing panels
+
+Phase 3 follows the sections above, with these differences, all from one
+constraint. The daylight renderer redraws a clipped patch around moving actors
+over a cached frame and must match it exactly (`jumpingExposureCorrection.dev.spec`),
+and Chrome rounds slanted edges, small paths and thin marks a level differently
+where that clip passes.
+
+- **Everything is rectangles.** The void, its services, the cut edge, bolt
+  holes, shard cracks and the stains below are `fillRect`s, cut to the hole by
+  arithmetic rather than a clip. Services run level or upright; a cable's sag is
+  a short dip between rungs.
+- **A broken edge is a staircase.** The gone part is a stack of level strips 5
+  units tall, each reaching a unit into the next so no seam shows. The shards
+  are bulges along the panel's sides plus, sometimes, a band along its top or
+  bottom, scaled to keep about a third. Edge slivers under 3 units are left out.
+- **Each hole is drawn from its own raster.** On an HTML canvas a hole's
+  rectangles are drawn on a canvas of its own, with the frame's transform shifted
+  by whole pixels, and copied in, as the L.A.B. stamps are (`wallText.ts`).
+  Drawn directly, a hole's thin cables and rail edges still came out a level off
+  where the patch passed through them. A WebGL recording takes the rectangles.
+- **Wall text** is clipped out of holes with an even-odd clip, which glyphs
+  survive exactly.
+- **Displays checked:** wall timers, wall lights and coin switches.
 
 ### Rendering
 

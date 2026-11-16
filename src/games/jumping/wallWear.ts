@@ -84,7 +84,7 @@ export interface Streak { box: Box; stains: number[]; cores: number[] }
  * A streak narrows and leans as it runs down, in level steps: enough that its width and lean change by no more
  * than two units a step, so it reads as a taper rather than stacked blocks, and at least three. Each step is a rectangle `[x, y, w, h]` appended to `out`, drawn with `fillRect` (see `stainLayer`).
  */
-function steps(out: number[], at: number, top: number, length: number, width: number, taper: number, lean: number) {
+export function steps(out: number[], at: number, top: number, length: number, width: number, taper: number, lean: number) {
   const count = Math.max(3, Math.min(12, Math.max(Math.ceil(width * taper / 2), Math.ceil(Math.abs(lean) / 2))))
   for (let s = 0; s < count; s++) {
     const from = top + length * s / count, to = top + length * (s + 1) / count, along = (s + .5) / count

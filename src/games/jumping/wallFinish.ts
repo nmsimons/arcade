@@ -84,6 +84,11 @@ export function wallPanels(system: PanelGrid, area: Area) {
   return out
 }
 
+/** The ink a wall's stains are drawn in, and their opacity at Normal: the course wall's, or a finish's own. */
+export function stainInk(finish: WallFinish, night = false): { ink: string; base: number } {
+  return finish === 'course' ? { ink: '74,78,62', base: .075 } : { ink: SYSTEMS[finish].ink, base: .08 * (night ? NIGHT_COLOUR : 1) }
+}
+
 /** One panel of the back wall, a double as a whole: where it is, and its column and row (a double's left half's). */
 export interface WallPanel { x: number; y: number; w: number; h: number; col: number; row: number }
 /**

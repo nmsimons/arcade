@@ -42,6 +42,8 @@ import type { TerrainMaterial } from './terrainMaterials.ts'
 import { wallFinish } from './wallFinish.ts'
 import type { WallFinish } from './wallFinish.ts'
 import { stainSetting, type StainSetting } from './wallWear.ts'
+import { MAX_MISSING_PANELS, isPanelContents, isPanelDamage, missingPanelRect, panelledAt } from './wallMissingPanels.ts'
+import type { MissingPanel } from './wallMissingPanels.ts'
 import { lightingProblems, MAX_LIGHTS, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
 import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
@@ -108,6 +110,8 @@ export interface JumpLevel {
   pipes?: WallPipe[]
   /** Hazard stripes painted on the back wall (hazardStripes.ts). */
   stripes?: WallStripes[]
+  /** Panels taken out of the back wall, showing the services behind it (wallMissingPanels.ts). */
+  missingPanels?: MissingPanel[]
   /**
    * Charging pods that stand empty, drawn where they are: a facility area's own pod once the robot arrives
    * by a door, and the pods of robots that have left them (see `arrivalLevel`). Set as the robot arrives,
@@ -201,6 +205,30 @@ export function spawnProblem(level: JumpLevel): string | null {
     return `Place ${objectReference(level, 'entrance')} on a continuous flat surface, with a clear doorway inside the level.`
   return null
 }
+/** A missing panel by its name, or "Missing panel 2", as other objects are referred to. */
+const missingPanelReference = (level: JumpLevel, i: number) => `“${level.missingPanels?.[i]?.name?.trim() || `Missing panel ${i + 1}`}”`
+/**
+ * A missing panel must lie on a panelled wall inside the level, on a panel of its own, and leave the wall's
+ * displays something to hang on: a clock, coin switch or wall light over a hole is moved off it.
+ */
+function missingPanelProblems(level: JumpLevel): string[] {
+  const issues: string[] = [], seen = new Map<string, number>(), height = levelHeight(level)
+  for (const [i, m] of (level.missingPanels ?? []).entries()) {
+    if (m.x < 0 || m.y < 0 || m.x > level.width || m.y > height) { issues.push(`Keep ${missingPanelReference(level, i)} inside the level rectangle.`); continue }
+    if (!panelledAt(level, m.x, m.y)) { issues.push(`Put ${missingPanelReference(level, i)} on a panelled back wall.`); continue }
+    const hole = missingPanelRect(level.wallFinish, m), key = `${hole.x},${hole.y}`, first = seen.get(key)
+    if (first !== undefined) { issues.push(`${missingPanelReference(level, i)} is the same panel as ${missingPanelReference(level, first)}.`); continue }
+    seen.set(key, i)
+    const over = (b: { x: number; y: number; w: number; h: number }) => b.x < hole.x + hole.w && hole.x < b.x + b.w && b.y < hole.y + hole.h && hole.y < b.y + b.h
+    for (const [k, timer] of (level.timers ?? []).entries()) if (over({ x: timer.x, y: timer.y, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT }))
+      issues.push(`Move ${objectReference(level, 'timer', k)} off ${missingPanelReference(level, i)}.`)
+    for (const [k, light] of (level.wallLights ?? []).entries()) if (over(wallLightBounds(light)))
+      issues.push(`Move ${objectReference(level, 'wall-light', k)} off ${missingPanelReference(level, i)}.`)
+    for (const [k, trigger] of (level.triggers ?? []).entries()) if (trigger.mode === 'coins' && over(coinSwitchBounds(trigger)))
+      issues.push(`Move ${objectReference(level, 'trigger', k)} off ${missingPanelReference(level, i)}.`)
+  }
+  return issues
+}
 export function levelProblems(level: JumpLevel): string[] {
   const issues: string[] = [], spawn = spawnProblem(level)
   if (level.environment) try { parseEnvironment(level.environment, level.width, levelHeight(level)) } catch (error) { issues.push((error as Error).message) }
@@ -221,6 +249,7 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, band] of (level.stripes ?? []).entries()) {
     if (band.x < 0 || band.y < 0 || band.x + band.w > level.width || band.y + band.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-stripes', i)} inside the level rectangle.`)
   }
+  issues.push(...missingPanelProblems(level))
   for (const [i, light] of (level.wallLights ?? []).entries()) {
     const b = wallLightBounds(light)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-light', i)} inside the level rectangle.`)
@@ -723,6 +752,16 @@ export function parseLevel(value: unknown): JumpLevel {
     // A pipe has two ends, and no length of it is empty.
     if (points.length < 2 || points.some((q, i) => i && q[0] === points[i - 1][0] && q[1] === points[i - 1][1])) fail()
     return { ...objectName(p), points, ...(p.size === undefined ? {} : { size: p.size as WallPipe['size'] }) }
+  })
+  if (v.missingPanels !== undefined) level.missingPanels = list(v.missingPanels, MAX_MISSING_PANELS).map(item => {
+    const m = object(item)
+    if (m.damage !== undefined && !isPanelDamage(m.damage)) fail()
+    if (m.contents !== undefined && !isPanelContents(m.contents)) fail()
+    if (m.leak !== undefined && typeof m.leak !== 'boolean') fail()
+    // Removed, services and no leak are the defaults, saved by leaving the field out.
+    return { ...objectName(m), x: num(m.x, 0, width), y: num(m.y, 0, 6000),
+      ...(m.damage === 'broken' ? { damage: 'broken' as const } : {}), ...(m.contents !== undefined && m.contents !== 'services' ? { contents: m.contents as NonNullable<MissingPanel['contents']> } : {}),
+      ...(m.leak ? { leak: true as const } : {}) }
   })
   if (v.stripes !== undefined) level.stripes = list(v.stripes, MAX_WALL_STRIPES).map(item => {
     const b = object(item)

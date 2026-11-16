@@ -1446,6 +1446,8 @@
   },
   "timing": "untimed",
   "floorMaterial": "earth",
+  "wallFinish": "plank",
+  "stains": "light",
   "floor": 1100,
   "kind": "hub",
   "props": [
@@ -1817,6 +1819,30 @@
       "x": 105,
       "y": 710,
       "condition": "jammed"
+    }
+  ],
+  "pipes": [
+    {
+      "points": [
+        [
+          8285,
+          375
+        ],
+        [
+          8285,
+          410
+        ],
+        [
+          8700,
+          410
+        ]
+      ]
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 6900,
+      "y": 300
     }
   ],
   "gravityPlates": [

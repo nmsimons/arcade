@@ -321,6 +321,8 @@
     ]
   },
   "timing": "untimed",
+  "wallFinish": "chamber",
+  "stains": "light",
   "floor": 1000,
   "kind": "hub",
   "props": [],
@@ -339,7 +341,7 @@
     },
     {
       "id": "door-a-bigger-swing",
-      "x": 975,
+      "x": 970,
       "y": 1000,
       "course": "d810f5f5-1a01-431f-804b-575b1b731a3d",
       "power": "switched",
@@ -389,7 +391,7 @@
     },
     {
       "id": "4edfaa9e-9e83-451d-b77a-fa37b05d66d7",
-      "x": 290,
+      "x": 295,
       "y": 600,
       "course": "70595ea8-5dec-420a-83bf-cdf1065aab1f",
       "power": "switched",
@@ -399,7 +401,7 @@
     },
     {
       "id": "490f28e4-44cd-4c65-99ac-2da3b34e5ec9",
-      "x": 965,
+      "x": 970,
       "y": 600,
       "course": "9369b0ce-0963-4681-bbcd-50dc5059d9df",
       "power": "switched",

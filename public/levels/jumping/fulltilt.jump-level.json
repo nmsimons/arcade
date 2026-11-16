@@ -2692,6 +2692,7 @@
     ]
   },
   "floorMaterial": "earth",
+  "wallFinish": "plank",
   "floor": 2100,
   "goal": {
     "x": 6450,

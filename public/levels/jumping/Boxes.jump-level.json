@@ -80,6 +80,7 @@
     "ladders": [],
     "ropes": []
   },
+  "stains": "light",
   "floor": 920,
   "goal": {
     "x": 1800,

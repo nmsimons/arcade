@@ -10,7 +10,7 @@
       "y": 480,
       "w": 20,
       "h": 580,
-      "material": "chalk",
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -247,6 +247,13 @@
           100
         ]
       ]
+    },
+    {
+      "x": 880,
+      "y": 1140,
+      "w": 20,
+      "h": 30,
+      "material": "steel"
     }
   ],
   "entrance": {
@@ -724,6 +731,14 @@
       "fontSize": 28,
       "align": "center",
       "style": "lab-stamp"
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 420,
+      "y": 360,
+      "hang": "right",
+      "leak": true
     }
   ]
 }

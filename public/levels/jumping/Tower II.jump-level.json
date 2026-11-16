@@ -1712,6 +1712,12 @@
       "rotation": -10
     }
   ],
+  "loosePanels": [
+    {
+      "x": 180,
+      "y": 1080
+    }
+  ],
   "lighting": {
     "nightMode": true,
     "ambient": 0,

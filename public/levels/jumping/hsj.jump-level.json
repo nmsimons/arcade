@@ -133,6 +133,7 @@
     "ropes": []
   },
   "floorMaterial": "steel",
+  "stains": "light",
   "floor": 1000,
   "goal": {
     "name": "Coin exit",
@@ -168,5 +169,39 @@
   ],
   "pickups": [],
   "texts": [],
+  "pipes": [
+    {
+      "points": [
+        [
+          160,
+          875
+        ],
+        [
+          160,
+          890
+        ],
+        [
+          1995,
+          890
+        ],
+        [
+          1995,
+          875
+        ]
+      ]
+    },
+    {
+      "points": [
+        [
+          1050,
+          895
+        ],
+        [
+          1050,
+          1000
+        ]
+      ]
+    }
+  ],
   "gravityPlates": []
 }

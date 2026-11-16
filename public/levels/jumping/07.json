@@ -21,13 +21,45 @@
       "x": 0,
       "y": 420,
       "w": 540,
-      "h": 20
+      "h": 145,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          540,
+          0
+        ],
+        [
+          540,
+          20
+        ],
+        [
+          265,
+          20
+        ],
+        [
+          115,
+          45
+        ],
+        [
+          25,
+          88.04347826086956
+        ],
+        [
+          0,
+          145
+        ]
+      ]
     },
     {
       "x": 740,
       "y": 220,
       "w": 340,
-      "h": 20
+      "h": 20,
+      "material": "steel",
+      "trim": "hazard"
     }
   ],
   "entrance": {
@@ -52,7 +84,7 @@
         "length": 620,
         "segments": 78,
         "rest": {
-          "key": "7:a641591aa03b3ae8",
+          "key": "7:033d50425dad294c",
           "points": [
             [
               740,
@@ -543,7 +575,7 @@
         "length": 620,
         "segments": 78,
         "rest": {
-          "key": "7:65f709e32578529d",
+          "key": "7:06abef1bf744a8f9",
           "points": [
             [
               1080,
@@ -1108,6 +1140,14 @@
       "fontSize": 28,
       "align": "center",
       "style": "lab-stamp"
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 720,
+      "y": 840,
+      "hang": "left",
+      "leak": true
     }
   ],
   "gravityPlates": [

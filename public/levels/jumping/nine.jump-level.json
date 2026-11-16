@@ -10,6 +10,7 @@
       "y": 320,
       "w": 300,
       "h": 20,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -39,6 +40,7 @@
     "ladders": [],
     "ropes": []
   },
+  "wallFinish": "chamber",
   "floor": 400,
   "goal": {
     "x": 755,

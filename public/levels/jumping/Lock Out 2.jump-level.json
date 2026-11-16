@@ -215,6 +215,13 @@
       "style": "official"
     }
   ],
+  "loosePanels": [
+    {
+      "x": 800,
+      "y": 80,
+      "leak": true
+    }
+  ],
   "gravityPlates": [
     {
       "name": "Transfer reservoir",

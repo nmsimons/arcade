@@ -3129,6 +3129,12 @@
     }
   ],
   "texts": [],
+  "loosePanels": [
+    {
+      "x": 780,
+      "y": 1620
+    }
+  ],
   "gravityPlates": [
     {
       "id": "23d99e82-b2c2-4879-a7c3-39ecf3a1ff20",

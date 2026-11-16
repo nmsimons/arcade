@@ -73,6 +73,7 @@
       "w": 800,
       "h": 600,
       "material": "steel",
+      "trim": "hazard",
       "polygon": [
         [
           0,
@@ -3275,6 +3276,7 @@
       }
     ]
   },
+  "wallFinish": "plank",
   "floor": 2000,
   "goal": {
     "x": 10000,
@@ -3809,6 +3811,20 @@
     }
   ],
   "texts": [],
+  "loosePanels": [
+    {
+      "x": 5220,
+      "y": 780
+    },
+    {
+      "x": 300,
+      "y": 180
+    },
+    {
+      "x": 9540,
+      "y": 780
+    }
+  ],
   "gravityPlates": [
     {
       "id": "fe0a6a8a-7faf-494d-af08-ec7ff157de67",

@@ -145,6 +145,12 @@
       "style": "lab-stamp"
     }
   ],
+  "loosePanels": [
+    {
+      "x": 360,
+      "y": 360
+    }
+  ],
   "lighting": {
     "nightMode": false,
     "ambient": 0,

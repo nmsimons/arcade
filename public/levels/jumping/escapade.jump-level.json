@@ -2955,6 +2955,16 @@
       "style": "lab-stamp"
     }
   ],
+  "loosePanels": [
+    {
+      "x": 3240,
+      "y": 1320
+    },
+    {
+      "x": 360,
+      "y": 360
+    }
+  ],
   "gravityPlates": [
     {
       "switchLogic": "and",

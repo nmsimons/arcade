@@ -392,7 +392,8 @@
       "y": 1300,
       "w": 340,
       "h": 20,
-      "material": "steel"
+      "material": "steel",
+      "trim": "hazard"
     },
     {
       "x": 1180,
@@ -447,9 +448,9 @@
   "climbables": {
     "ladders": [
       {
-        "x": 715,
-        "top": 1300,
-        "bottom": 1555,
+        "x": 565,
+        "top": 1285,
+        "bottom": 1565,
         "platform": -1,
         "side": 1
       }

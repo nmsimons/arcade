@@ -105,9 +105,9 @@
       ]
     },
     {
-      "x": 300,
+      "x": 280,
       "y": 245,
-      "w": 620,
+      "w": 680,
       "h": 40,
       "zIndex": 4,
       "polygon": [
@@ -116,11 +116,11 @@
           0
         ],
         [
-          620,
+          680,
           0
         ],
         [
-          620,
+          680,
           40
         ],
         [
@@ -876,15 +876,15 @@
   "climbables": {
     "ladders": [
       {
-        "x": 280,
-        "top": 245,
+        "x": 300,
+        "top": 230,
         "bottom": 465,
         "platform": -1,
         "side": 1
       },
       {
         "x": 940,
-        "top": 245,
+        "top": 230,
         "bottom": 465,
         "platform": -1,
         "side": 1
@@ -892,6 +892,7 @@
     ],
     "ropes": []
   },
+  "wallFinish": "tile",
   "floor": 900,
   "goal": {
     "switchLogic": "and",

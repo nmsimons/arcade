@@ -66,7 +66,8 @@
       "w": 200,
       "h": 25,
       "zIndex": 6,
-      "material": "earth"
+      "material": "steel",
+      "trim": "hazard"
     }
   ],
   "entrance": {
@@ -106,7 +107,7 @@
         "length": 475,
         "segments": 60,
         "rest": {
-          "key": "7:8e0af4ee17c84fd2",
+          "key": "7:0e8c3d90f1aead22",
           "points": [
             [
               700,
@@ -576,6 +577,13 @@
     }
   ],
   "texts": [],
+  "loosePanels": [
+    {
+      "x": 1260,
+      "y": 900,
+      "hang": "left"
+    }
+  ],
   "gravityPlates": [
     {
       "id": "32dd6a7b-15dc-440c-a2d8-678fa7ab8bb9",

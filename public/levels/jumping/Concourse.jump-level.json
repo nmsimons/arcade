@@ -1007,6 +1007,7 @@
   "timing": "untimed",
   "floorMaterial": "stone",
   "wallFinish": "upright",
+  "stains": "light",
   "floor": 1900,
   "kind": "hub",
   "props": [
@@ -1178,17 +1179,17 @@
       "name": "Evaluation board",
       "id": "evaluation",
       "x": 770,
-      "y": 1060,
+      "y": 950,
       "w": 460,
       "h": 250
     }
   ],
   "texts": [
     {
-      "x": 672.5,
-      "y": 120,
-      "w": 655,
-      "h": 315,
+      "x": 790,
+      "y": 840,
+      "w": 420,
+      "h": 70,
       "text": "L.A.B.\nexperiments",
       "fontSize": 28,
       "align": "center",
@@ -1272,13 +1273,37 @@
       "points": [
         [
           0,
-          635
+          690
         ],
         [
           130,
-          635
+          690
         ]
-      ]
+      ],
+      "size": "large"
+    },
+    {
+      "points": [
+        [
+          40,
+          700
+        ],
+        [
+          40,
+          850
+        ],
+        [
+          0,
+          850
+        ]
+      ],
+      "size": "large"
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 1140,
+      "y": 360
     }
   ],
   "gravityPlates": [

@@ -878,6 +878,7 @@
       }
     ]
   },
+  "wallFinish": "upright",
   "floor": 2000,
   "goal": {
     "switchLogic": "and",
@@ -996,6 +997,13 @@
     }
   ],
   "texts": [],
+  "loosePanels": [
+    {
+      "x": 1500,
+      "y": 540,
+      "hang": "left"
+    }
+  ],
   "gravityPlates": [
     {
       "switchLogic": "xor",

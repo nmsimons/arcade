@@ -1971,6 +1971,7 @@
       }
     ]
   },
+  "wallFinish": "tile",
   "floor": 1400,
   "goal": {
     "switchLogic": "and",

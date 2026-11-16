@@ -49,13 +49,16 @@
       "x": 600,
       "y": 860,
       "w": 520,
-      "h": 40
+      "h": 40,
+      "material": "steel",
+      "trim": "hazard"
     },
     {
       "x": 1140,
       "y": 640,
       "w": 220,
       "h": 60,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -133,7 +136,8 @@
       "x": 700,
       "y": 520,
       "w": 160,
-      "h": 40
+      "h": 40,
+      "material": "steel"
     },
     {
       "x": 1060,
@@ -182,8 +186,8 @@
   "climbables": {
     "ladders": [
       {
-        "x": 580,
-        "top": 860,
+        "x": 660,
+        "top": 845,
         "bottom": 1300,
         "platform": -1,
         "side": 1
@@ -196,7 +200,7 @@
         "length": 620,
         "segments": 78,
         "rest": {
-          "key": "7:68a0498d3485201f",
+          "key": "7:f48e38cfd2572faf",
           "points": [
             [
               480,
@@ -938,7 +942,7 @@
         "length": 260,
         "segments": 33,
         "rest": {
-          "key": "7:01c824563ef0ebb0",
+          "key": "7:2896855ceb74e540",
           "points": [
             [
               1360,
@@ -1155,6 +1159,7 @@
       }
     ]
   },
+  "wallFinish": "tile",
   "floor": 1300,
   "goal": {
     "x": 1780,
@@ -1208,7 +1213,7 @@
       "seconds": 9
     },
     {
-      "x": 784,
+      "x": 779,
       "y": 472,
       "kind": "stopwatch"
     },

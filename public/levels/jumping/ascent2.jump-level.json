@@ -288,6 +288,12 @@
   "timers": [],
   "pickups": [],
   "texts": [],
+  "loosePanels": [
+    {
+      "x": 1020,
+      "y": 540
+    }
+  ],
   "gravityPlates": [
     {
       "id": "e9d9be61-f37e-4924-8b7e-12e91aabb395",

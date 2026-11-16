@@ -95,21 +95,24 @@
       "y": 1015,
       "w": 420,
       "h": 70,
-      "material": "chalk"
+      "material": "chalk",
+      "trim": "hazard"
     },
     {
       "x": 790,
       "y": 1015,
       "w": 420,
       "h": 70,
-      "material": "chalk"
+      "material": "chalk",
+      "trim": "hazard"
     },
     {
       "x": 1460,
       "y": 1015,
       "w": 420,
       "h": 70,
-      "material": "chalk"
+      "material": "chalk",
+      "trim": "hazard"
     },
     {
       "x": 500,
@@ -1446,7 +1449,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:691c8fa7eb6387fb",
+          "key": "7:c3bf60478d4155bb",
           "points": [
             [
               725,
@@ -1868,7 +1871,7 @@
       "startsOn": true
     }
   ],
-  "wallFinish": "plank",
+  "wallFinish": "tile",
   "floor": 1400,
   "goal": {
     "x": 1295.9607843137255,
@@ -2071,6 +2074,12 @@
       "fontSize": 28,
       "align": "center",
       "rotation": 90
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 1500,
+      "y": 780
     }
   ],
   "gravityPlates": [

@@ -165,6 +165,7 @@
       "h": 2220,
       "zIndex": 147,
       "material": "stone",
+      "trim": "hazard",
       "polygon": [
         [
           0,
@@ -203,6 +204,8 @@
     "ropes": []
   },
   "floorMaterial": "earth",
+  "wallFinish": "tile",
+  "stains": "light",
   "floor": 2800,
   "goal": {
     "x": 0,

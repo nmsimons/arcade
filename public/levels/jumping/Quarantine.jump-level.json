@@ -773,7 +773,7 @@
     ]
   },
   "floorMaterial": "steel",
-  "wallFinish": "plank",
+  "wallFinish": "tile",
   "floor": 3000,
   "goal": {
     "name": "Coin exit",
@@ -854,6 +854,22 @@
       "fontSize": 28,
       "align": "center",
       "rotation": 90
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 540,
+      "y": 1260
+    },
+    {
+      "x": 180,
+      "y": 2100,
+      "hang": "right",
+      "leak": true
+    },
+    {
+      "x": 1500,
+      "y": 1980
     }
   ],
   "gravityPlates": [],

@@ -6,6 +6,7 @@ import { terrainBoundary } from './lightingBoundary.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { ArtPath } from './webgl/artPath.ts'
 import { STAIN_CORE_OPACITY, panelStains, stainLayer, stainOpacity, wallWear, type WallWear } from './wallWear.ts'
+import { panelGrid, wallPanels } from './wallFinish.ts'
 
 interface WallView { x: number; y: number; w: number; h: number }
 const noise = (x: number, y: number) => {
@@ -13,10 +14,13 @@ const noise = (x: number, y: number) => {
   return n - Math.floor(n)
 }
 
-/** World-anchored precast panels, stained as the room's `wear` says. Decorative hardware belongs to authored art. */
+/**
+ * World-anchored precast panels, stained as the room's `wear` says. Decorative hardware belongs to authored art.
+ * The panels are the course wall's grid (wallFinish.ts), which `panelAt` reads too.
+ */
 export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView, wear: WallWear = wallWear()) {
   if (view.w <= 0 || view.h <= 0) return
-  const w = 360, h = 240
+  const grid = panelGrid('course'), { w, h } = grid
   ctx.save()
   // A cropped replay can use a larger scratch canvas. Translucent panels
   // must never accumulate beyond the part of the wall being repainted.
@@ -27,18 +31,14 @@ export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView, we
   const shade = new ArtPath(), sheen = new ArtPath(), stains = stainLayer()
   // Stains start two rows above the view: a heavy room's long streaks run on past the joint into the next
   // row, and whether a streak gives way to one from the row above looks at that row too.
-  for (let row = Math.floor(view.y / h) - 2; row <= Math.floor((view.y + view.h) / h); row++) {
-    const stagger = ((row % 2) + 2) % 2 * w / 2, first = Math.floor((view.x - stagger) / w), last = Math.floor((view.x + view.w - stagger) / w)
-    for (let col = first; col <= last; col++) {
-      const x = col * w + stagger, y = row * h, seed = noise(col, row)
-      if (row >= Math.floor(view.y / h) && col >= first && col <= last) {
-        ctx.fillStyle = `rgba(91,111,94,${.012 + seed * .022})`
-        ctx.fillRect(x + 1, y + 1, w - 2, h - 2)
-        shade.moveTo(x, y + h); shade.lineTo(x, y); shade.lineTo(x + w, y)
-        sheen.moveTo(x + 1.4, y + h); sheen.lineTo(x + 1.4, y + 1.4); sheen.lineTo(x + w, y + 1.4)
-      }
-      panelStains(stains.streaks, x, y, w, h, col, row, wear)
+  for (const { x, y, col, row } of wallPanels(grid, { ...view, y: view.y - h * 2, h: view.h + h * 2 })) {
+    if (y + h > view.y) {
+      ctx.fillStyle = `rgba(91,111,94,${.012 + noise(col, row) * .022})`
+      ctx.fillRect(x + 1, y + 1, w - 2, h - 2)
+      shade.moveTo(x, y + h); shade.lineTo(x, y); shade.lineTo(x + w, y)
+      sheen.moveTo(x + 1.4, y + h); sheen.lineTo(x + 1.4, y + 1.4); sheen.lineTo(x + w, y + 1.4)
     }
+    panelStains(stains.streaks, x, y, w, h, col, row, wear)
   }
   stains.fill(ctx, wear, `rgba(74,78,62,${stainOpacity(wear, .075)})`, `rgba(74,78,62,${STAIN_CORE_OPACITY})`, { x0: view.x, y0: view.y, x1: view.x + view.w, y1: view.y + view.h })
   ctx.strokeStyle = '#52635421'; ctx.lineWidth = 1.1; ctx.stroke(shade)

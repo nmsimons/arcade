@@ -57,8 +57,20 @@ const noise = (x: number, y: number) => { const n = Math.sin(x * 127.1 + y * 311
 const chance = (col: number, row: number, salt: number) => noise(col * 1.37 + salt * 17.3, row * 1.91 - salt * 9.1)
 const fraction = (n: number) => n - Math.floor(n)
 
+/**
+ * A wall's panel module: its size, how far each row (or column, when upright) shifts from the last, and how often a
+ * panel is cast as a double with its left neighbour. The course wall's is 360 × 240, each row shifted half a panel.
+ */
+export interface PanelGrid { w: number; h: number; stagger: number; upright?: boolean; merged?: number }
+const COURSE_GRID: PanelGrid = { w: 360, h: 240, stagger: .5 }
+export const panelGrid = (finish: WallFinish = 'course'): PanelGrid => finish === 'course' ? COURSE_GRID : SYSTEMS[finish]
+
+/** Whether the panel at `col`, `row` was cast as one piece with its left neighbour, the double's right half. */
+export const isDouble = (grid: PanelGrid, col: number, row: number) => !grid.upright && !!grid.merged
+  && chance(col, row, 1) < grid.merged && chance(col - 1, row, 1) >= grid.merged
+
 /** The panels that touch the area: rows of panels, each shifted from the last, or columns of them when upright. */
-function panels(system: PanelSystem, area: Area) {
+export function wallPanels(system: PanelGrid, area: Area) {
   const { w, h, stagger, upright } = system, out: { x: number; y: number; col: number; row: number }[] = []
   if (upright) {
     for (let col = Math.floor(area.x / w); col * w < area.x + area.w; col++) {
@@ -72,6 +84,27 @@ function panels(system: PanelSystem, area: Area) {
   return out
 }
 
+/** One panel of the back wall, a double as a whole: where it is, and its column and row (a double's left half's). */
+export interface WallPanel { x: number; y: number; w: number; h: number; col: number; row: number }
+/**
+ * The panel of a finish under a point, exactly as the wall draws it, joints and doubles included: what a missing
+ * panel removes (docs/jumping-wall-wear.md). A point on either half of a double gives the whole double.
+ */
+export function panelAt(finish: WallFinish, x: number, y: number): WallPanel {
+  const grid = panelGrid(finish), { w, h } = grid
+  let col: number, row: number, left: number, top: number
+  if (grid.upright) {
+    col = Math.floor(x / w); const offset = fraction(col * grid.stagger) * h
+    row = Math.floor((y - offset) / h); left = col * w; top = row * h + offset
+  } else {
+    row = Math.floor(y / h); const offset = fraction(row * grid.stagger) * w
+    col = Math.floor((x - offset) / w); left = col * w + offset; top = row * h
+  }
+  if (isDouble(grid, col, row)) return { x: left - w, y: top, w: w * 2, h, col: col - 1, row }
+  if (isDouble(grid, col + 1, row)) return { x: left, y: top, w: w * 2, h, col, row }
+  return { x: left, y: top, w, h, col, row }
+}
+
 /**
  * Night darkens the whole wall to about a third, which shrinks every difference between finishes with it. A
  * dark level therefore draws its finish stronger: the colour by NIGHT_COLOUR, and the joints by NIGHT_JOINT,
@@ -82,7 +115,7 @@ const NIGHT_COLOUR = 1.8, NIGHT_JOINT = 2.1
 /** Draws a finish over the wall's base fill and fine grid, within `area` (the visible part of the level), stained as `wear` says. */
 export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<WallFinish, 'course'>, area: Area, night = false, wear: WallWear = wallWear()) {
   if (area.w <= 0 || area.h <= 0) return
-  const system: PanelSystem = SYSTEMS[finish], { w, h } = system, pieces = panels(system, area)
+  const system: PanelSystem = SYSTEMS[finish], { w, h } = system, pieces = wallPanels(system, area)
   ctx.save(); ctx.beginPath(); ctx.rect(area.x, area.y, area.w, area.h); ctx.clip()
   const colour = night ? NIGHT_COLOUR : 1, joint = night ? NIGHT_JOINT : 1
   // Opacities are rounded so a style string never carries floating-point noise.
@@ -91,8 +124,7 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
   // Joints are four paths at most: the shade and its light lip, along the wall and up it.
   const across = { shade: new ArtPath(), lip: new ArtPath() }, down = { shade: new ArtPath(), lip: new ArtPath() }, stains = stainLayer()
   // A double panel was cast as one piece with its left neighbour: no joint between them, and one tint and wear.
-  const double = (col: number, row: number) => !system.upright && !!system.merged
-    && chance(col, row, 1) < system.merged && chance(col - 1, row, 1) >= system.merged
+  const double = (col: number, row: number) => isDouble(system, col, row)
   /** A panel's wear: a replaced panel is cleaner than its neighbours; an aged one has darkened. */
   const condition = (col: number, row: number) => {
     const value = chance(col, row, 2), replaced = value < (system.replaced ?? 0)
@@ -113,7 +145,7 @@ export function drawWallFinish(ctx: CanvasRenderingContext2D, finish: Exclude<Wa
   // Grit: faint stains run down from the joints, in the finish's own ink. They are laid from two panels above
   // the area, since a heavy room's long streaks run on past the joint below, and whether a streak gives way to
   // one from the row above looks at that row too. A replaced panel is clean.
-  for (const p of panels(system, { ...area, y: area.y - h * (system.upright ? 3 : 2), h: area.h + h * (system.upright ? 3 : 2) })) {
+  for (const p of wallPanels(system, { ...area, y: area.y - h * (system.upright ? 3 : 2), h: area.h + h * (system.upright ? 3 : 2) })) {
     const joined = double(p.col, p.row), col = joined ? p.col - 1 : p.col
     if (!joined && !condition(col, p.row).replaced) panelStains(stains.streaks, p.x, p.y, w, h, col, p.row, wear)
   }

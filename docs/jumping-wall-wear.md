@@ -1,7 +1,7 @@
 # Missing panels and stain intensity
 
-Status: proposed November 16, 2026. Phase 1 (stain intensity and per-level variation) built November 16, 2026;
-phases 2 to 5 not started.
+Status: proposed November 16, 2026. Built November 16, 2026: phase 1 (stain intensity and per-level
+variation) and phase 2 (panel geometry, `panelAt`). Phases 3 to 5 not started.
 
 Two additions to the back wall of Untitled Jumping Game, both artwork only:
 

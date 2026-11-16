@@ -961,33 +961,36 @@ pipe. In the studio, **Back wall → Hazard stripes** paints one: click for a
 160 by 24 band, or drag its size. Corner handles resize it and **Object →
 Appearance → Lean** turns its stripes.
 
-### Missing panels
+### Loose panels
 
-`missingPanels: [{ name?, x, y, damage?, contents?, leak? }]` takes panels out
-of the back wall, in any level: up to 24. Each names a point on the wall; its
-hole is the panel under that point in the level's current finish, joints and
-doubles included (a point on either half of a double removes both), so it moves
-with the panels if **Wall finish** changes. Through it is the dark service void
-behind the panelling: struts, and the room's pipes, cable trays, conduit and
-junction boxes, laid out once behind the whole wall, so neighbouring holes show
-the same pipe running through.
+`loosePanels: [{ name?, x, y, hang?, contents?, leak? }]` works panels of the
+back wall loose, in any level: up to 24. Each names a point on the wall; the
+loose panel is the panel under it in the level's current finish (a double hangs
+as one piece), so it moves with the panels if **Wall finish** changes. It hangs
+from one top bolt, tilted 4 to 8 degrees, and a wedge of the service void shows
+in its frame behind it: struts and the room's pipes, cable trays, conduit and
+junction boxes, laid out once behind the whole wall, so neighbouring loose
+panels show the same pipe running behind both.
 
 | Field | Values |
 | --- | --- |
-| `damage` | Leave it out for **Removed** (the whole panel off, bolt holes in the joints at its corners); `"broken"` smashes it through, keeping about a third as shards along its sides, with a jagged edge, cracks into the shards and a loose cable end |
-| `contents` | Leave it out for **Pipes and wiring**; `"pipes"`, `"electrical"` (wiring) or `"empty"` (a strut alone) |
-| `leak` | `true` runs a long stain from the hole's bottom joint down the panel below, with a damp band along the void's bottom edge |
+| `hang` | `"left"` or `"right"`, the top corner whose bolt it hangs from; leave it out and the panel chooses |
+| `contents` | Leave it out for **Pipes and wiring**; `"pipes"`, `"electrical"` (wiring) or `"empty"` (struts alone) |
+| `leak` | `true` runs a long stain with a darker core from under the panel down the wall below |
 
-Every hole except an empty one shows at least one service, and water runs a
-short stain from every hole's bottom joint. Hazard stripes and wall text are
-paint, so a hole takes them with it; pipes, wiring, doors and charging bays
-are fixed to the wall and are drawn over it. A missing panel is artwork only:
-no collision, grip, cover or light, and never entered.
+The face keeps the wall's colours and fine grid, turned with the panel, and casts
+a soft shadow. Every loose panel except an empty one shows at least one service,
+and water runs a short stain from under each. Stains and pipe rust are on the
+wall, so the panel covers them; pipes, wiring, doors and charging bays are fixed
+to the wall and drawn in front of it. Wall text is drawn over it. A loose panel
+is artwork only: no collision, grip, cover or light.
 
-The level reports a missing panel outside the level, one not on a panelled
-wall (a landscape's sky and cave walls have none), two on the same panel, and a
-wall timer, wall light or coin switch over a hole, which would have nothing to
-hang on.
+The level reports a loose panel outside the level, one not on a panelled wall
+(a landscape's sky and cave walls have none), two on the same panel, and a wall
+timer, wall light or coin switch on one, which would have nothing to hang on.
+In the studio, **Back wall → Loose panel** loosens the panel under a click;
+drag it or use the arrow keys to move it a panel at a time, and choose **Hangs
+from**, **Behind it** and **Leak** under **Object → Appearance**.
 
 ### Optional back-wall wiring
 

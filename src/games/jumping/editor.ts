@@ -8,6 +8,8 @@ import { MAX_PIPE_POINTS, MAX_WALL_PIPES, hitsWallPipe, isPipeSize, wallPipeBoun
 import type { WallPipe } from './wallPipes.ts'
 import { MAX_WALL_STRIPES, WALL_STRIPES_MIN } from './hazardStripes.ts'
 import type { WallStripes } from './hazardStripes.ts'
+import { MAX_LOOSE_PANELS, loosePanelRect } from './wallLoosePanels.ts'
+import type { LoosePanel } from './wallLoosePanels.ts'
 import type { WallDoor } from './wallDoor.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
@@ -53,12 +55,12 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'pipe' | 'wall-stripes' | 'grade-gate'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'pipe' | 'wall-stripes' | 'loose-panel' | 'grade-gate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate' | 'pipe' | 'wall-stripes'; index: number }
+export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate' | 'pipe' | 'wall-stripes' | 'loose-panel'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 const pointBounds = (points: readonly (readonly [number, number])[]) => {
   const xs = points.map(p => p[0]), ys = points.map(p => p[1]), x = Math.min(...xs), y = Math.min(...ys)
@@ -158,6 +160,15 @@ export function setWallStripes(level: JumpLevel, index: number, patch: Partial<P
   if (!level.stripes?.[index]) return level
   const next = copyLevel(level), band = next.stripes![index]
   if ('lean' in patch) { if (patch.lean === 'left') band.lean = 'left'; else delete band.lean }
+  return next
+}
+/** A loose panel's hang, contents and leak; each default is saved by leaving its field out. */
+export function setLoosePanel(level: JumpLevel, index: number, patch: Partial<Pick<LoosePanel, 'hang' | 'contents' | 'leak'>>): JumpLevel {
+  if (!level.loosePanels?.[index]) return level
+  const next = copyLevel(level), panel = next.loosePanels![index]
+  if ('hang' in patch) { if (patch.hang) panel.hang = patch.hang; else delete panel.hang }
+  if ('contents' in patch) { if (patch.contents) panel.contents = patch.contents; else delete panel.contents }
+  if ('leak' in patch) { if (patch.leak) panel.leak = true; else delete panel.leak }
   return next
 }
 /** A level door names a level by ID; a bulkhead names a facility area by its level ID. */
@@ -351,7 +362,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
     ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
-    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? []), ...(next.stripes ?? [])]) point.y += dy
+    ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? []), ...(next.stripes ?? []), ...(next.loosePanels ?? [])]) point.y += dy
   for (const pipe of next.pipes ?? []) for (const point of pipe.points) point[1] += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
@@ -383,6 +394,8 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
   if (selection.kind === 'wall-stripes') return level.stripes?.[i] ?? null
+  // A loose panel's outline is its panel's frame: it has no handles, and moves by its point.
+  if (selection.kind === 'loose-panel') { const m = level.loosePanels?.[i]; if (!m) return null; const { x, y, w, h } = loosePanelRect(level.wallFinish, m); return { x, y, w, h } }
   // A pipe moves by its points; its drawn reach is its outline.
   if (selection.kind === 'pipe') { const pipe = level.pipes?.[i]; return pipe ? pointBounds(pipe.points) : null }
   if (selection.kind === 'pickup') { const p = level.pickups?.[i]; return p ? pickupBounds(p) : null }
@@ -713,6 +726,11 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
     if (x >= t.x - tolerance && x <= t.x + WALL_TIMER_WIDTH + tolerance && y >= t.y - tolerance && y <= t.y + WALL_TIMER_HEIGHT + tolerance) yield { kind: 'timer', index: i }
   }
   for (let i = (level.pipes?.length ?? 0) - 1; i >= 0; i--) if (hitsWallPipe(level.pipes![i], x, y, tolerance)) yield { kind: 'pipe', index: i }
+  // A loose panel is under the wall's hardware, and over its paint.
+  for (let i = (level.loosePanels?.length ?? 0) - 1; i >= 0; i--) {
+    const b = loosePanelRect(level.wallFinish, level.loosePanels![i])
+    if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) yield { kind: 'loose-panel', index: i }
+  }
   for (let i = (level.stripes?.length ?? 0) - 1; i >= 0; i--) {
     const b = level.stripes![i]
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'wall-stripes', index: i }
@@ -813,6 +831,12 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     const next = copyLevel(level), moved = next.climbables.ropes[selection.index]
     for (const point of ropeEnds(moved)) { point.x += mx; point.y += my; delete point.anchor }
     delete moved.rest
+    return next
+  }
+  if (selection.kind === 'loose-panel') {
+    // Its point moves, and the loose panel jumps from panel to panel as the point crosses their joints.
+    const next = copyLevel(level), m = next.loosePanels![selection.index]
+    m.x = clamp(m.x + dx, 0, level.width); m.y = clamp(m.y + dy, 0, levelHeight(level))
     return next
   }
   const attached = selection.kind === 'platform' ? level.climbables.ladders.filter(l => l.platform === selection.index) : []
@@ -1038,6 +1062,7 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'wall-door') next.wallDoors!.splice(i, 1)
   else if (selection.kind === 'pipe') next.pipes!.splice(i, 1)
   else if (selection.kind === 'wall-stripes') next.stripes!.splice(i, 1)
+  else if (selection.kind === 'loose-panel') next.loosePanels!.splice(i, 1)
   else if (selection.kind === 'logic-relay') {
     const [relay] = next.logicRelays!.splice(i, 1)
     removeSwitchTarget(next, relay.id)
@@ -1070,6 +1095,14 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     if (points[1][0] === points[0][0] && points[1][1] === points[0][1]) points[1] = at(start.x - 240, start.y)
     pipes.push({ points })
     return { level: next, selection: { kind: 'pipe', index: pipes.length - 1 } }
+  }
+  if (tool === 'loose-panel') {
+    const panels = next.loosePanels ??= []
+    if (panels.length >= MAX_LOOSE_PANELS) throw new Error(`This level already has ${MAX_LOOSE_PANELS} loose panels.`)
+    // The panel under the click comes loose. Its centre is saved, so a change of finish lands on the nearest panel.
+    const h = levelHeight(next), p = loosePanelRect(next.wallFinish, { x: clamp(start.x, 0, next.width), y: clamp(start.y, 0, h) })
+    panels.push({ x: clamp(p.x + p.w / 2, 0, next.width), y: clamp(p.y + p.h / 2, 0, h) })
+    return { level: next, selection: { kind: 'loose-panel', index: panels.length - 1 } }
   }
   if (tool === 'wall-stripes') {
     const stripes = next.stripes ??= []
@@ -1362,6 +1395,13 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'evaluation-board') { if (next.evaluationBoards!.length >= MAX_EVALUATION_BOARDS) return null; index = next.evaluationBoards!.push({ ...next.evaluationBoards![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'pipe') { if (next.pipes!.length >= MAX_WALL_PIPES) return null; index = next.pipes!.push(structuredClone(next.pipes![i])) - 1 }
   else if (selection.kind === 'wall-stripes') { if (next.stripes!.length >= MAX_WALL_STRIPES) return null; index = next.stripes!.push({ ...next.stripes![i] }) - 1 }
+  else if (selection.kind === 'loose-panel') {
+    // A copy goes on the next panel to the right.
+    if (next.loosePanels!.length >= MAX_LOOSE_PANELS) return null
+    const m = next.loosePanels![i], p = loosePanelRect(next.wallFinish, m)
+    index = next.loosePanels!.push({ ...m, x: Math.min(next.width, p.x + p.w * 1.5) }) - 1
+    return { level: next, selection: { kind: 'loose-panel', index } }
+  }
   else if (selection.kind === 'wall-door') { if (next.wallDoors!.length >= MAX_WALL_DOORS) return null; index = next.wallDoors!.push({ ...next.wallDoors![i] }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
@@ -1376,6 +1416,7 @@ export function allSelections(level: JumpLevel): Selection[] {
     ...(level.wallDoors ?? []).map((_, index) => ({ kind: 'wall-door' as const, index })),
     ...(level.pipes ?? []).map((_, index) => ({ kind: 'pipe' as const, index })),
     ...(level.stripes ?? []).map((_, index) => ({ kind: 'wall-stripes' as const, index })),
+    ...(level.loosePanels ?? []).map((_, index) => ({ kind: 'loose-panel' as const, index })),
     ...(level.environment?.walls ?? []).map((_, index) => ({ kind: 'back-wall' as const, index })),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),

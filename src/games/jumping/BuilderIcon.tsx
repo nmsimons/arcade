@@ -43,6 +43,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'wall-door': 'M5 21V3h14v18M2 21h20M5 9l14 4M5 15l14-3',
   pipe: 'M2 6h11a4 4 0 0 1 4 4v12M2 10h9a2 2 0 0 1 2 2v10M7 4v8M13 16h6',
   'wall-stripes': 'M2 8h20v8H2zM6 8l-4 8M11 8l-4 8M16 8l-4 8M21 8l-4 8',
+  'loose-panel': 'M2 3h20v18H2zM7 6l11 2-2 11-11-2zM7 6h0M8 8h1',
   'grade-gate': 'M3 21h18M6 21v-6M11 21V9M16 21v-8M2 12h20',
 }
 export function BuilderIcon({ kind }: { kind: Tool | TerrainTransform }) {

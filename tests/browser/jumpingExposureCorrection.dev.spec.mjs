@@ -49,9 +49,9 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: reusing exposure corr
 // a few layouts in twenty, a heavy room's stain beside a moving actor or under the floor's edge still comes
 // out one level off in the redrawn patch (wallWear.ts, stainLayer), which a fresh layout per run would make flaky.
 const WALLS = [{}, { stains: 'heavy', wallFinish: 'plank', id: 'stained-room' }, { stains: 'soaked', id: 'stained-room' },
-  // Missing panels beside the moving actors: a broken one leaking down the wall, and one removed.
-  { id: 'holed-room', missingPanels: [{ x: 700, y: 380, damage: 'broken', leak: true }, { x: 1000, y: 200 }, { x: 300, y: 380, contents: 'electrical' }] }]
-const wallName = wall => wall.missingPanels ? ' (missing panels)' : wall.stains ? ` (${wall.stains} stains${wall.wallFinish ? ', ' + wall.wallFinish : ''})` : ''
+  // Loose panels beside the moving actors, tilted over the services behind them: one leaking down the wall.
+  { id: 'loose-room', loosePanels: [{ x: 700, y: 380, hang: 'right', leak: true }, { x: 1000, y: 200 }, { x: 300, y: 380, contents: 'electrical' }] }]
+const wallName = wall => wall.loosePanels ? ' (loose panels)' : wall.stains ? ` (${wall.stains} stains${wall.wallFinish ? ', ' + wall.wallFinish : ''})` : ''
 
 for (const wall of WALLS) test(`a reused daylight terrain mask restores moving artwork, recovery indicators and material edges exactly${wallName(wall)}`, async ({ page }, info) => {
   await page.goto('/lab/lighting-lab')

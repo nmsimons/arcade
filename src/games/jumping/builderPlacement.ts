@@ -3,6 +3,7 @@ import { drawGravityPlate, drawGravityRegion, drawWaterRegion } from './gravityR
 import { addItem, itemOutline } from './editor.ts'
 import type { Selection, Tool } from './editor.ts'
 import { levelHeight, levelTerrain } from './level.ts'
+import { nightModeEnabled } from './ambientLight.ts'
 import { BUILDER_GRID_SIZE } from './builderSnap.ts'
 import type { JumpLevel } from './level.ts'
 import { placeOnSurface } from './editorPlacement.ts'
@@ -25,6 +26,7 @@ import { backWallPath } from './environment.ts'
 import { drawGradeGate, drawHubDoors } from './hub.ts'
 import { drawWallDoor } from './wallDoor.ts'
 import { drawWallPipes } from './wallPipes.ts'
+import { drawLoosePanels, loosePanelRect } from './wallLoosePanels.ts'
 import { wallWear } from './wallWear.ts'
 import { drawWallStripes } from './hazardStripes.ts'
 import { paintNormally } from './worldPaint.ts'
@@ -91,6 +93,12 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'bulkhead': drawHubDoors(ctx, { bulkheads: [level.bulkheads![i]] }, undefined, true, paintNormally); break
     case 'wall-door': drawWallDoor(ctx, level.wallDoors![i]); break
     case 'pipe': drawWallPipes(ctx, [level.pipes![i]], wallWear(level)); break
+    case 'loose-panel': {
+      // The panel a click would loosen, and its frame outlined.
+      drawLoosePanels(ctx, { ...level, loosePanels: [level.loosePanels![i]] }, levelHeight(level), nightModeEnabled(level.lighting), zoom)
+      const p = loosePanelRect(level.wallFinish, level.loosePanels![i])
+      ctx.globalAlpha = 1; ctx.strokeStyle = '#287c9b'; ctx.lineWidth = 2 / zoom; ctx.strokeRect(p.x, p.y, p.w, p.h); break
+    }
     case 'wall-stripes': drawWallStripes(ctx, [level.stripes![i]]); break
     case 'evaluation-board': drawHubDoors(ctx, { evaluationBoards: [level.evaluationBoards![i]] }, undefined, true, paintNormally); break
   }

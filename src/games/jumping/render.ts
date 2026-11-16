@@ -17,12 +17,12 @@ import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallFinish } from './wallFinish.ts'
 import { wallWear } from './wallWear.ts'
-import { drawMissingPanels, missingPanelHoles } from './wallMissingPanels.ts'
+import { drawLoosePanels } from './wallLoosePanels.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallDoors } from './wallDoor.ts'
 import { drawTerrainTrim, drawWallStripes } from './hazardStripes.ts'
-import { drawWallPipes } from './wallPipes.ts'
+import { drawWallPipeRust, drawWallPipes } from './wallPipes.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
@@ -78,25 +78,20 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   } else drawCourseWall(ctx, level, view, zoom)
   // Hazard stripes are painted on the wall; pipes are fixed to it, over its paint.
   drawWallStripes(ctx, level.stripes ?? [])
-  // Missing panels open the wall over its paint; the hardware fixed to it crosses them.
-  drawMissingPanels(ctx, level, levelHeight(level), nightModeEnabled(level.lighting))
+  // Loose panels hang over the wall's paint and stains, pipe rust among them; the hardware fixed to the wall
+  // crosses them.
+  const loose = !!level.loosePanels?.length
+  if (loose) drawWallPipeRust(ctx, level.pipes ?? [], wallWear(level))
+  drawLoosePanels(ctx, level, levelHeight(level), nightModeEnabled(level.lighting), zoom)
   if (includeWallArt) drawWallWiring(ctx, level)
   if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
   for (const robot of level.robots ?? []) if (robot.kind === 'repulsor' && robot.chargingBay) drawChargingBay(ctx, robot, ROBOT_BAY_WIDTH_SCALE)
   for (const pod of level.vacantPods ?? []) drawChargingBay(ctx, pod, pod.robot ? ROBOT_BAY_WIDTH_SCALE : 1)
   // Blocked doors are painted on the wall, like the pods' housings.
   drawWallDoors(ctx, level.wallDoors ?? [])
-  drawWallPipes(ctx, level.pipes ?? [], wallWear(level))
+  drawWallPipes(ctx, level.pipes ?? [], wallWear(level), !loose)
   ctx.restore()
-  // Wall text is paint on the panels: where a panel is missing, so is its paint.
-  const holes = includeWallArt && level.texts?.length ? missingPanelHoles(level, levelHeight(level)) : []
-  if (holes.length) {
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level))
-    for (const hole of holes) ctx.rect(hole.x, hole.y, hole.w, hole.h)
-    ctx.clip('evenodd')
-  }
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [], false, paintNormally, wallWear(level))
-  if (holes.length) ctx.restore()
 }
 function drawCourseWall(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom: number) {
   ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level)); reportWall(ctx.canvas, () => ctx.getTransform())

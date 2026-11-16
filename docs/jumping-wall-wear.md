@@ -1,14 +1,13 @@
-# Missing panels and stain intensity
+# Loose panels and stain intensity
 
-Status: proposed November 16, 2026. Built November 16, 2026: phase 1 (stain intensity and per-level
-variation), phase 2 (panel geometry, `panelAt`) and phase 3 (missing panel artwork, format and checks; see
-[As built](#as-built-missing-panels)). Phases 4 (studio) and 5 not started.
+Status: proposed November 16, 2026 as missing panels and stain intensity; built November 16, 2026, with
+missing panels replaced by loose panels (see [How the design changed](#how-the-design-changed)).
 
 Two additions to the back wall of Untitled Jumping Game, both artwork only:
 
-- **Missing panels.** An author can take one panel out of the back wall, so the
-  room's services show through the hole: pipes, cable trays, conduit and
-  junction boxes in the dark void behind the panelling.
+- **Loose panels.** An author can work one panel of the back wall loose: it hangs
+  from its last bolt, tilted, and a wedge of the room's services shows in its
+  frame behind it: pipes, cable trays, conduit and junction boxes.
 - **Stain intensity.** Each level chooses how stained it is, from spotless to
   soaked, instead of every room carrying the same light grit.
 
@@ -48,186 +47,104 @@ rust on steel, pebbles and soil in earth) and rust weeping from pipe joints
 The panels are anchored to the world, with rows counted from the top of the
 level (y = 0) and columns from x = 0.
 
-## Missing panels
+## Loose panels
 
 ### What the player sees
 
-One panel of the back wall is gone. The panels around it are untouched, so the
-hole has the exact outline of a panel and its joints: it reads as a panel taken
-off, not as a hole in the room. Through it is the service void:
+One panel of the back wall has come off all but one of its top bolts and hangs
+from it, tilted 4 to 8 degrees, so its other top corner has dropped.
 
-- **The cut edge.** The wall has thickness. Inside the top and left edges a
-  shaded band (the panel above and to the left casting into the void, from the
-  game's upper left light) about 5 units deep; inside the bottom and right
-  edges a thin lit lip about 1.5 units, the face of the panel's edge catching
-  the light. This is the joints' own language (shade top and left, light lip),
-  turned inside out.
-- **The back of the void.** A flat dark fill, darker than the wall but not
-  black: `#3a403c` in daylight, so it never reads as an open doorway (doorways
-  are darker and have a frame). A horizontal strut of steel channel crosses it
-  where the layout puts one, with bolt slots marked by a short dark dash.
-- **Services.** Running across the void, in front of its back and behind the
-  cut edge:
-  - **Pipes.** One to three runs, the same construction as wall pipes (body, one
-    lit and one shaded band, flanges, a strap) but one step darker throughout,
-    because they sit deeper and in shadow. Small and medium only.
-  - **Cable trays.** A ladder tray (two rails and rungs every 12 units) with a
-    bundle of three to five cables lying in it, each a 1.5 to 2.5 unit line in
-    muted greys and one in a dull colour (oxide red, blue or the wiring's
-    gray-green), sagging slightly between the rungs.
-  - **Conduit.** A thin grey tube with a coupling every 60 units, sometimes
-    turning down into a **junction box**: a small box (16 to 24 units) with a
-    lid line and two screws.
-  - **Loose cable.** In a broken panel only, one cable end hangs down out of a
-    tray, with a short bare tip.
+- **The panel** is the whole panel under the author's point, in the level's
+  finish (a double hangs as one piece). Its face is painted in the wall's own
+  layers (base, the finish's wash, a middling panel tint), carries the wall's
+  fine measurement grid turned with it, keeps its joints' light lip and shade,
+  and shows its thickness as a darker edge along the side that dropped. The bolt
+  it hangs from is drawn at its pivot.
+- **Behind it,** in the panel's frame, is the service void: a pale grey-green
+  (`#c6ccc7`), lighter than any terrain and darker than the wall, so it reads as
+  the wall's own recess and never as rock or a doorway. The frame's depth shows
+  as a shade inside its top and left, and the three bolt holes it pulled away
+  from show at their corners. Services run across it (below).
+- **Its shadow** falls down and to the right onto the void and the wall below.
+- **Stains** are on the wall, under the panel: the room's own stains, pipe rust,
+  and the stain that water from the void runs out under it, every time (a long
+  one with a darker core where it leaks). The hanging panel covers all of them.
 
-Everything inside is static. Nothing sparks, glows or moves (see decision D4).
+### What is behind it
 
-### Two kinds of damage
-
-| `damage` | Studio name | Looks like |
+| `contents` | Studio name | Behind it |
 | --- | --- | --- |
-| `"removed"` (default) | Removed | The whole panel taken off for maintenance: clean edges, and a dark bolt hole in each corner of the neighbouring joints where it was fixed. |
-| `"broken"` | Broken | The panel smashed through: about two thirds of it gone, the rest still in place as two or three shards with a jagged edge (a deterministic outline per panel), short cracks running from the edge into the remaining shards, and the loose cable end. The shards keep their panel's tint, wear and stains. |
+| left out | Pipes and wiring | Both pipes and electrical, as the layout gives them |
+| `"pipes"` | Pipes | Pipe runs only, plus struts |
+| `"electrical"` | Wiring | Cable trays, conduit and junction boxes only, plus struts |
+| `"empty"` | Empty | Struts alone |
 
-### Contents
+The services belong to one void behind the whole wall, laid out on a world grid
+from the level's ID: horizontal service lines every 60 units of height, each 480
+units of them a pipe, cable tray, conduit or nothing (about half empty); risers
+in one 480-unit column in three; struts every 240 units; junction boxes on a
+third of conduit lengths and where conduit risers cross level conduit. So two
+loose panels side by side show the same pipe running behind both. A panel whose
+frame the layout leaves empty (other than for `"empty"`) gets a line of its own
+across its middle.
 
-| `contents` | Studio name | What is in the void |
-| --- | --- | --- |
-| `"services"` (default) | Pipes and wiring | Both pipes and electrical, as the layout gives them |
-| `"pipes"` | Pipes | Pipe runs only, plus the strut |
-| `"electrical"` | Wiring | Trays, conduit and junction boxes only, plus the strut |
-| `"empty"` | Empty | The strut alone: a void with nothing in it |
+### Placement and checks
 
-### Layout of the void
-
-The services are not arranged per hole. They belong to one continuous void
-behind the whole wall, laid out on a world grid, and each missing panel is a
-window onto it. So two neighbouring missing panels show the same pipe running
-straight through from one into the next, and a missing panel in a 120-unit tile
-shows the same services as the corner of a 360-unit course panel at that spot.
-
-- **Horizontal service lines** at every 60 units of height, counted from the top
-  of the level. Each line, for each 480-unit length of the wall, is one of: a
-  pipe (small or medium), a cable tray, a conduit, or nothing. The choice is a
-  hash of the line, the length and the level's ID (see
-  [Stain variation per level](#variation-per-level)), weighted so that a void
-  is about half empty: crowded voids look like texture.
-- **Risers.** For each 480-unit column of the wall, one in three has a vertical
-  run (a pipe or a conduit) at a hashed x.
-- **Struts** at every 240 units of height.
-- **Junction boxes** where a conduit meets a riser, or for one hashed conduit
-  length in three.
-- `contents` filters this layout: `"pipes"` keeps only pipe lines and risers,
-  `"electrical"` only trays, conduit and boxes.
-
-**At least one service per hole.** If the layout leaves a hole with nothing
-(other than for `"empty"`), the line nearest its middle is promoted to the
-first allowed kind. This promotion is that panel's own: its neighbours see the
-line only where they are also promoted, so it can stop at a joint. That is
-acceptable, since services do end.
-
-The layout is deterministic, so a room looks the same on every visit, in the
-studio, the game and thumbnails, on both renderers.
-
-### Wall art around a hole
-
-- **Paint does not cross the hole.** Hazard stripes and wall text are paint on
-  the panel; where the panel is gone, so is the paint. Both are clipped out of
-  missing panels (an even-odd clip of the level rectangle and the holes, which
-  `ArtPath` already records).
-- **Hardware does.** Wall pipes, wall wiring, blocked doors and charging bays
-  are fixed to the wall and drawn over the hole, as if fixed to the panels
-  either side. A wall pipe crossing a hole is a deliberate, good look.
-- **Stains.** A removed panel's stains go with it. A panel whose top joint is a
-  hole's bottom joint gets a stain from that joint, every time, because water
-  leaks out of the void (`leak: true` makes it a long one, see below).
-- **Displays may not overlap a hole.** A clock, coin meter or wall light
-  mounted over a hole would have nothing to hang on. `levelProblems` reports
-  "Move Clock 1 off Missing panel 2." for any wall-mounted display whose
-  bounds overlap a hole. Exits, doors and charging bays may overlap.
-
-### Leaks
-
-`leak: true` adds a long stain running from the hole's bottom joint down the
-wall below it: the full height of the panel below (or until terrain covers it),
-twice a normal stain's width, in the stain colour at its level's opacity, with
-a darker, narrower core. The void's bottom edge gets a damp band. A leak is the
-one place an author asks for a stain at a chosen spot. Use it below pipes
-(`"services"` or `"pipes"`); validation does not require that, but the design
-guidance does.
-
-### Lighting and night
-
-The hole is wall artwork and is lit as the wall is: it takes the room's ambient,
-spotlight pools and terrain shadows like any wall art (see
-[Flat lighting](jumping-lighting.md), section 4). It emits nothing. In a
-night-mode level, its lit lips and the highlights of its contents are drawn
-stronger by the finish's joint factor (2.1) so its structure survives the
-darkening, as panel joints do.
-
-### Where a hole goes
-
-A missing panel names a point on the wall, not a rectangle. Its hole is the
-panel under that point, in the level's current finish:
-
-- Changing the level's **Wall finish** keeps every hole at the panel under its
-  point, so a hole always matches the joints around it.
-- A point on one half of a double panel removes the whole double: it was cast as
-  one piece.
-- A hole that crosses the level's edge is clipped to it.
-- In a landscape environment, the point must lie on a back wall drawn with the
-  course wall. Cave walls and sky have no panels, and `levelProblems` reports
-  "Put Missing panel 1 on a panelled back wall."
-- Two missing panels that resolve to the same panel are a problem:
-  "Missing panel 2 is the same panel as Missing panel 1."
-
-`wallFinish.ts` gains `panelAt(finish, x, y)`, returning the panel's rectangle,
-column and row with merged doubles resolved, and `drawWallPanels`'s geometry
-moves into the same function for the course wall, so the hole and the drawn
-joints can never disagree.
+A loose panel names a point on the wall; it is the panel under that point, so it
+moves with the panels when **Wall finish** changes. The level reports one
+outside the level; one not on a panelled wall (a landscape's sky and cave walls
+have none); two on the same panel; and a wall timer, wall light or coin switch
+on one, which would have nothing to hang on. Hardware fixed to the wall (pipes,
+wiring, doors, charging bays) is drawn in front of it. Wall text is still drawn
+over it.
 
 ### File format
 
 ```json
-"missingPanels": [
+"loosePanels": [
   { "x": 1260, "y": 300 },
-  { "name": "Pump access", "x": 1620, "y": 300, "damage": "broken", "contents": "pipes", "leak": true }
+  { "name": "Pump access", "x": 1620, "y": 300, "hang": "right", "contents": "pipes", "leak": true }
 ]
 ```
 
 | Field | Values | Default |
 | --- | --- | --- |
-| `name` | Optional object name, as for other objects | none |
-| `x`, `y` | A point inside the level, in world units, y down, as other wall art | required |
-| `damage` | `"removed"` or `"broken"` | `"removed"`, saved by leaving it out |
-| `contents` | `"services"`, `"pipes"`, `"electrical"` or `"empty"` | `"services"`, saved by leaving it out |
+| `name` | Optional object name | none |
+| `x`, `y` | A point inside the level, in world units, y down | required |
+| `hang` | `"left"` or `"right"`: the top corner whose bolt it hangs from | left out: the panel chooses, from the level's ID |
+| `contents` | `"pipes"`, `"electrical"` or `"empty"` | left out: pipes and wiring |
 | `leak` | `true` | left out |
 
-Up to 24 per level (`MAX_MISSING_PANELS`). Like pipes and stripes, in any level,
-version 1 or 2. Missing panels add no collision, grip, cover or light, and are
-never entered.
+Up to 24 per level (`MAX_LOOSE_PANELS`), in any level.
 
 ### In the studio
 
-- **Back wall → Missing panel.** Hovering the wall outlines the panel that a
-  click would remove; a click removes it. The saved point is the panel's
-  centre, so a later change of finish lands on the nearest panel to it.
-- **Moving** a missing panel drags its point. The hole jumps from panel to
-  panel as the point crosses joints, with the outline showing where it will
-  land, and never sits between panels. Arrow keys move it one panel.
-- **Duplicate** places the copy one panel to the right.
-- **Object → Appearance:** **Damage** (Removed, Broken), **Contents** (Pipes and
-  wiring, Pipes, Wiring, Empty) and **Leak** (a checkbox).
-- **Level → World → Stains**, directly under Wall finish: see below.
-- A missing panel's outline is the panel's rectangle; it has no resize handles.
-- Selection, group moves, copy and paste, undo, labels ("Missing panel 2") and
-  the builder icon follow the existing wall-art kinds (`editor.ts`,
-  `editorSelection.ts`, `objectLabels.ts`, `BuilderIcon.tsx`,
-  `builderPlacement.ts`, `LevelBuilder.tsx`).
-- Changing the room's height keeps each point's height above the floor, as for
-  other wall art. Because panel rows count from the top of the level, the hole
-  may then move to the panel above or below; it stays on whole panels.
+**Back wall → Loose panel.** Hovering shows the panel a click would loosen, its
+frame outlined; a click loosens it and saves the panel's centre. Dragging moves
+its point, and the panel jumps from panel to panel across the joints; the arrow
+keys move it a panel at a time; **Duplicate** puts the copy on the next panel to
+the right. **Object → Appearance:** **Hangs from** (Either corner, Left bolt,
+Right bolt), **Behind it**, and **Leak**. Its outline is its frame; it has no
+handles. Selection, copy and paste, undo and labels ("Loose panel 2") work as
+for other wall art.
+
+### How the design changed
+
+The spec first proposed *missing panels*: a panel taken out, or smashed through,
+showing the void. It was built that way (a removed or broken panel, with the
+void at `#3a403c`) and then reviewed in the game:
+
+1. **Too large and too dark.** A whole course panel (360 by 240, five times the
+   robot's height) dominated the room, and the dark void read like a doorway.
+   Holes became openings of about 80 units squared to their panel, with a mid
+   grey-green void.
+2. **Not working as a hole at all.** Owner's call: a hole in a flat 2D wall did
+   not read well at any size. A loose panel, hanging askew over a wedge of the
+   void, keeps the wall whole and only hints at what is behind it. The
+   whole-panel size came back, since the panel stays on the wall.
+3. **Details.** The face carries the wall's grid; stains and pipe rust sit under
+   the hanging panel; the void was lightened again (`#8d958f` to `#c6ccc7`)
+   because it still read as terrain.
 
 ## Stain intensity
 
@@ -305,14 +222,14 @@ by the same steps:
   need the same: `fillRect`, as the stains use, or a whole raster.
 
 Terrain wear (cracks, chips, rust on steel, pebbles and soil in earth) is age and
-material, not water, and stays as it is. Leaks on
-missing panels are drawn at the level's stain opacity, but always appear,
+material, not water, and stays as it is. The stain under a
+loose panel is drawn at the level's stain opacity, but always appears,
 including at `"none"`.
 
 ### Variation per level
 
-The level's ID joins the hash for wall stains and pipe rust (and, in phase 3,
-the void's layout), so each room has its own pattern, still stable across visits
+The level's ID joins the hash for wall stains and pipe rust and the void's layout behind loose
+panels, so each room has its own pattern, still stable across visits
 and studio edits. Changing a level's ID reshuffles its stains, which is harmless.
 This moved where stains fall in every existing level once; no level was authored
 around a particular stain, since stains only arrived with commit `905ae21`.
@@ -336,17 +253,14 @@ These go into [Making a fun jumping level](jumping-level-design.md), section 1,
 beside the pipes and stripes guidance, replacing its line "Do not add more wear
 by hand".
 
-- **A missing panel is a placed object with a reason.** Open the wall where
-  someone would need to reach the services: beside a pump, a tank, a powered
-  door, the junction a wall wire runs into, or where a wall pipe enters the
-  wall. A broken panel says something hit it: a fallen crate, a crusher, a
-  collapse. Two or three in a room is plenty; a wall of holes is texture.
-- **Never let a hole look like a way through.** Keep missing panels away from
-  the floor where their outline could be taken for a doorway, and do not use
-  them to suggest a route the robot cannot take. The void's tone and visible
-  services exist for that reason; do not choose `"empty"` low on the wall.
-- **Keep hints and displays on whole panels.** Graffiti is clipped by a hole,
-  and clocks, coin meters and wall lights may not overlap one.
+- **A loose panel is a placed object with a reason.** Loosen one where someone
+  would have reached the services, or where something gave way: beside a pump,
+  a tank, a powered door, the junction a wall wire runs into, or under a
+  dripping pipe (with Leak). Two or three in a room is plenty; a wall of them is
+  texture.
+- **Keep hints and displays off them.** Clocks, coin switches and wall lights
+  may not sit on one, and wall text is drawn over it as if the panel were still
+  in place, so keep graffiti and hints on whole panels.
 - **Choose stains for the place, not the level's difficulty.** A new, clean wing
   can be Light or None. Freight, Water and anywhere flooded can be Heavy;
   Soaked is for rooms where water is the story (a burst main, a flooded
@@ -357,92 +271,57 @@ by hand".
 
 ### Phases
 
-1. **Stain intensity and per-level variation.** `stains` in the format, parse,
-   docs and studio; `panelStains` takes the intensity and level ID; pipe rust
-   follows, and terrain wear takes the level ID. Small and self-contained.
-2. **Panel geometry.** `panelAt` for the course wall and every finish, with the
-   course wall's drawing moved onto it. No visible change.
-3. **Missing panel artwork.** `wallMissingPanels.ts`: the void layout, the cut
-   edge, both damage kinds, all four contents, leaks, the paint clip, and the
-   display overlap check. Drawn in `drawLevelBackdrop` after hazard stripes and
-   before wall wiring.
-4. **Studio.** The Missing panel tool, inspector and Stains setting.
-5. **Docs and a review sheet** (below), then the owner chooses levels to use
-   them on. No built-in level changes in phases 1 to 4 except through the
-   per-level stain variation.
-
-### As built: missing panels
-
-Phase 3 follows the sections above, with these differences, all from one
-constraint. The daylight renderer redraws a clipped patch around moving actors
-over a cached frame and must match it exactly (`jumpingExposureCorrection.dev.spec`),
-and Chrome rounds slanted edges, small paths and thin marks a level differently
-where that clip passes.
-
-- **Everything is rectangles.** The void, its services, the cut edge, bolt
-  holes, shard cracks and the stains below are `fillRect`s, cut to the hole by
-  arithmetic rather than a clip. Services run level or upright; a cable's sag is
-  a short dip between rungs.
-- **A broken edge is a staircase.** The gone part is a stack of level strips 5
-  units tall, each reaching a unit into the next so no seam shows. The shards
-  are bulges along the panel's sides plus, sometimes, a band along its top or
-  bottom, scaled to keep about a third. Edge slivers under 3 units are left out.
-- **Each hole is drawn from its own raster.** On an HTML canvas a hole's
-  rectangles are drawn on a canvas of its own, with the frame's transform shifted
-  by whole pixels, and copied in, as the L.A.B. stamps are (`wallText.ts`).
-  Drawn directly, a hole's thin cables and rail edges still came out a level off
-  where the patch passed through them. A WebGL recording takes the rectangles.
-- **Wall text** is clipped out of holes with an even-odd clip, which glyphs
-  survive exactly.
-- **Displays checked:** wall timers, wall lights and coin switches.
+1. **Stain intensity and per-level variation**: built.
+2. **Panel geometry** (`panelAt` for the course wall and every finish): built.
+3. **Missing panel artwork**: built, then replaced by loose panels
+   (`wallLoosePanels.ts`); see [How the design changed](#how-the-design-changed).
+4. **Studio**: the Loose panel tool and inspector, and the Stains setting.
+5. **Docs and review sheets**, then the owner chooses levels to use them on. No
+   built-in level uses either yet, apart from the per-level stain variation.
 
 ### Rendering
 
-- Each missing panel's artwork is built once into `ArtPath`s and cached per
-  object, keyed on its point, damage, contents, leak, the level's finish, stains
-  and ID, as `wallPipes.ts` does. Every `ellipse` and `arc` gets its own
-  `moveTo` and `closePath`.
-- Missing panels belong to the retained backdrop layer like other wall art, so
-  WebGL records them once per level object. The Canvas renderer's daylight and
-  night caches are already keyed on the level serial (`lightingRender.ts`), so
-  studio edits redraw.
-- No gradients, glows, `shadowBlur` or self-lit `paint` passes.
-- Cost: a handful of fills and strokes per hole, nothing per frame. Stains are a
-  `fillRect` per step of each streak in view (three to twelve steps): in a
-  1600 × 900 view, about 50 on a Normal course wall and 280 on Normal tiles, 290
-  and 1,500 at Soaked. Soaked tiles are the busiest case the spec allows.
+The daylight renderer redraws a clipped patch around moving actors over a cached
+frame and must match it exactly (`jumpingExposureCorrection.dev.spec`). Chrome
+rounds slanted edges, small paths and thin marks a level differently where that
+clip passes, which shaped both features:
+
+- **Stains** are level steps drawn with `fillRect` that never overlap (see
+  Stain intensity above).
+- **Each loose panel is drawn from its own raster.** On an HTML canvas its
+  pieces (the void's rectangles, the tilted face and shadow, the grid) are drawn
+  on a canvas of its own with the frame's transform shifted by whole pixels, and
+  copied in, as the L.A.B. stamps are (`wallText.ts`). A copied raster is the
+  same under any clip. A WebGL recording takes the pieces directly.
+- The artwork is built once per panel, keyed on its point, hang, contents and
+  leak and the level's finish, stains, ID and night, and the raster is kept while
+  the transform holds. The face's grid is drawn at paint time, at the view's zoom,
+  with the course wall's own spacing and hairline.
+- When a level has loose panels, pipe rust is drawn before them (and the pipes
+  after), so the panels cover it.
+- Cost: a few dozen fills per panel, rasterized once per camera position.
+  Stains are a `fillRect` per step of each streak in view (three to twelve
+  steps): in a 1600 × 900 view, about 50 on a Normal course wall and 280 on
+  Normal tiles, 290 and 1,500 at Soaked. Soaked tiles are the busiest case.
 
 ### Tests
 
-- **Unit:** parsing and validation of both fields (limits, duplicates, cave and
-  sky placement, display overlap); `panelAt` for the course wall and every
-  finish, including staggered rows, upright columns and merged doubles; a hole
-  matching the joints drawn around it; the void layout continuing across two
-  neighbouring holes; promotion leaving no hole empty except `"empty"`;
-  stripes and wall text clipped out of holes; stain counts and opacity within
-  each level's range and under the cap; `"none"` drawing no stain fill;
-  determinism across calls and a change with the level ID; the WebGL recorder
-  replaying all of it.
-- **Wall finish tests** (`tests/jumping-wall-finish.test.mjs`): update to the
-  stain intensity's fills (one fill, two at Soaked) and keep everything else
-  they assert.
-- **Browser:** a studio spec that removes a panel, changes its damage, contents
-  and leak, drags it across a joint, changes the wall finish, sets Stains, saves,
-  and checks the JSON and `levelProblems`.
+- **Unit** (`jumping-wall-stains`, `jumping-wall-panels`, `jumping-loose-panels`):
+  both fields' parsing and validation; `panelAt` against the joints the wall
+  draws, doubles included; the hang (pivot and tilt); the void layout running
+  behind neighbouring panels; every panel showing a service but an empty one;
+  contents filtering; drawing over paint and under hardware; the studio edits.
+- **Browser:** `jumpingLoosePanels.dev.spec` loosens a panel, sets its bolt,
+  contents and leak, drags it across a joint, nudges it, changes the finish,
+  sets Stains and saves; `jumpingExposureCorrection.dev.spec` runs its daylight
+  scenes with Heavy and Soaked stains and with loose panels beside the actors.
 
-### Review sheet
+### Review sheets
 
-Before phase 5, a sheet like `.local/look/grit/sheet.html` showing:
-
-- every finish, with a removed and a broken panel of each contents, in
-  daylight, at night and under a spotlight;
-- two neighbouring holes, to check continuity;
-- a wall pipe crossing a hole, and graffiti and stripes clipped by one;
-- the five stain levels side by side on the course wall and on two finishes;
-- a hole beside a doorway, to check the two are never confused.
-
-Readability and taste are the owner's call from the sheet; automated tests do
-not cover them.
+`.local/look/holes-sheet.mjs` (loose panels of every contents on any finish, day
+and night, with a play-scale inset) and `.local/look/wall-sheet.mjs` (a fifth
+argument sets the stain level). Readability and taste are the owner's call;
+automated tests do not cover them.
 
 ## Decisions for the owner
 
@@ -450,17 +329,17 @@ Each default is what gets built unless the owner says otherwise.
 
 | # | Decision | Default |
 | --- | --- | --- |
-| D1 | Mix the level's ID into stains, rust and the void layout | Yes, built for stains and rust: every existing room's stains moved once. Not terrain wear, which stays world-anchored (see Variation per level). |
+| D1 | Mix the level's ID into stains, rust and the void layout | Yes, built for stains, rust and the void: every existing room's stains moved once. Not terrain wear, which stays world-anchored (see Variation per level). |
 | D2 | `stains` also scales pipe rust | Yes, since both are water marks. Terrain wear is age, not water, and stays. |
-| D3 | The void is one continuous world layout rather than composed per hole | Yes, so neighbouring holes join up. |
-| D4 | A small status lamp in a junction box, lit while the room has power and dark during an EMP, or sparks from a broken panel's loose cable | Not built. A lamp is a self-lit pass (night only, with bounds); sparks are an effect with audio. Either can follow as its own change. |
-| D5 | A wall pipe that dives into a hole (ends inside the void) | Not built. Today a wall pipe crossing a hole is drawn over it. |
+| D3 | The void is one continuous world layout rather than composed per panel | Yes, so neighbouring loose panels show the same services. |
+| D4 | A small status lamp in a junction box, lit while the room has power and dark during an EMP, or a loose panel that swings when the robot lands nearby | Not built. A lamp is a self-lit pass (night only, with bounds); a swing is an effect tied to physics. Either can follow as its own change. |
+| D5 | Wall text painted on a loose panel turning with it | Not built. Text is drawn over the panel as if it were still in place. |
 | D6 | Per-area wetness (a wet corner on an otherwise Normal wall) | Not built. Leak covers the common case. |
 
 ## Out of scope
 
-- Missing panels on cave walls, terrain or the sky.
-- Anything the robot can interact with through a hole: reaching in, climbing
-  the services, hiding.
+- Loose panels on cave walls, terrain or the sky.
+- Anything the robot can interact with: pulling a panel off, climbing the
+  services, hiding behind one.
 - New stain shapes or colours, or stains on terrain faces.
 - Changing which levels use any of this.

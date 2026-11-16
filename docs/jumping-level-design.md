@@ -140,9 +140,12 @@ Terrain wear is age, not water: it never runs down a face like a drip, which
 would read as a leak in every room. Choose a material partly for the wear it
 brings, steel for a neglected machine room or earth for a dug-out space. All of it is drawn by rule, sparse and deterministic, so
 a room looks the same on every visit. Do not add more wear by hand with wall text
-or extra art; dirt that tells the player nothing only adds noise. Missing panels
-that expose the services behind the wall are proposed in
-[Missing panels and stain intensity](jumping-wall-wear.md).
+or extra art; dirt that tells the player nothing only adds noise. Loose panels
+hanging off the wall over the services behind them are described in
+[Loose panels and stain intensity](jumping-wall-wear.md). Loosen one where
+someone reached the services or something gave way, beside a pump, a tank or a
+powered door, and keep it to two or three in a room. Keep clocks, coin switches,
+wall lights and wall text off them.
 
 Choose a room's **Stains** for the place, not the level's difficulty. A new,
 clean wing can be Light or None. Freight, Water and anywhere flooded can be

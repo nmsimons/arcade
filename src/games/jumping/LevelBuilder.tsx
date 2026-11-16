@@ -12,7 +12,9 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { setPipe, setWallStripes } from './editor'
+import { setLoosePanel, setPipe, setWallStripes } from './editor'
+import { PANEL_CONTENTS, PANEL_HANGS, loosePanelRect } from './wallLoosePanels'
+import type { PanelContents, PanelHang } from './wallLoosePanels'
 import { moveTerrainHandle, setTerrainNodeMode, setFinish, setHubDoorDestination, setExitDestination, setDoorReturn, setDoorDispatch, setBulkheadArrival, setLevelType, setWallDoor, hubDoorAt, editGradeGate } from './editor'
 import { GRADE_LETTERS, drawGradeGate } from './hub'
 import type { GradeLetter } from './hub'
@@ -167,6 +169,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'wall-door', group: 'Back wall', label: 'Blocked door', help: 'Click to paint a door that never opens onto the back wall, on a flat sill like a real door: sealed, jammed, boarded up or caved in, in a door or bulkhead frame. Choose its look in the inspector. Wall art only, with no collision.' },
   { id: 'pipe', group: 'Back wall', label: 'Pipe', help: 'Drag along the back wall to run a pipe; drag on the slant for one that turns a corner. Drag its round points to reroute it, or use Node to add a bend. Choose Small, Medium or Large in the inspector. Wall art only, with no collision.' },
   { id: 'wall-stripes', group: 'Back wall', label: 'Hazard stripes', help: 'Click or drag to paint a band of worn yellow and black stripes onto the back wall. Corner handles resize it; choose which way the stripes lean in the inspector. Wall art only, with no collision.' },
+  { id: 'loose-panel', group: 'Back wall', label: 'Loose panel', help: 'Click a panel of the back wall to work it loose: it hangs from one bolt, showing the pipes and wiring behind it. Drag it, or use the arrow keys, to move it a panel at a time. Choose the bolt it hangs from, what is behind it, and a leak in the inspector. Wall art only, with no collision.' },
   { id: 'lab-stamp', group: 'Back wall', label: 'L.A.B. wall stamp', help: 'Click or drag to stamp the L.A.B. Experiments mark onto the back wall. Resize or rotate it in the inspector. It stays behind terrain and never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
@@ -347,6 +350,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const wallDoor = selection?.kind === 'wall-door' ? level.wallDoors?.[selection.index] : null
   const pipe = selection?.kind === 'pipe' ? level.pipes?.[selection.index] : null
   const wallBand = selection?.kind === 'wall-stripes' ? level.stripes?.[selection.index] : null
+  const loose = selection?.kind === 'loose-panel' ? level.loosePanels?.[selection.index] : null
   // A level door may lead to any course or playground; a bulkhead to any other facility area.
   const doorDestination = hubDoor ? 'course' in hubDoor ? hubDoor.course : hubDoor.to : ''
   const destinationOptions = !hubDoor ? [] : 'course' in hubDoor
@@ -1114,6 +1118,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && (chosen || editingWall || pipe)) removeNode(); else remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault(); const grid = gridSize, step = event.shiftKey ? 1 : grid
+        // A loose panel moves a whole panel at a time.
+        if (loose) {
+          const p = loosePanelRect(level.wallFinish, loose)
+          commit(moveItem(history.present, selection, event.key === 'ArrowLeft' ? -p.w : event.key === 'ArrowRight' ? p.w : 0, event.key === 'ArrowUp' ? -p.h : event.key === 'ArrowDown' ? p.h : 0))
+          return
+        }
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
         const node = (chosen || editingWall || pipe) && selectedNode !== null ? shapePoints(level, selection)?.[selectedNode] : null
@@ -1495,11 +1505,22 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               }} />
           </>}
         </BuilderInspectorSection>
-        {Boolean(editingWall || chosen || light || wallText || wallDoor || pipe || wallBand) && <BuilderInspectorSection title="Appearance">
+        {Boolean(editingWall || chosen || light || wallText || wallDoor || pipe || wallBand || loose) && <BuilderInspectorSection title="Appearance">
           {pipe && <>
             <BuilderSelect label="Size" accessibleLabel="Pipe size" value={pipe.size ?? 'medium'} options={PIPE_SIZES.map(size => ({ value: size.id, label: size.label }))}
               onChange={value => commit(setPipe(history.present, selection.index, { size: value as PipeSize }))} />
             <p className="builder-hint">Drag a round point to reroute the pipe; Node adds a bend. Run pipes where the room would plumb something. Wall art only, with no collision.</p>
+          </>}
+          {loose && <>
+            <div className="builder-dimensions">
+              <BuilderSelect label="Hangs from" accessibleLabel="Loose panel bolt" value={loose.hang ?? 'either'} options={PANEL_HANGS.map(h => ({ value: h.id, label: h.label }))}
+                onChange={value => commit(setLoosePanel(history.present, selection.index, { hang: value === 'either' ? undefined : value as PanelHang }))} />
+              <BuilderSelect label="Behind it" accessibleLabel="Loose panel contents" value={loose.contents ?? 'services'} options={PANEL_CONTENTS.map(c => ({ value: c.id, label: c.label }))}
+                onChange={value => commit(setLoosePanel(history.present, selection.index, { contents: value === 'services' ? undefined : value as Exclude<PanelContents, 'services'> }))} />
+            </div>
+            <label><input type="checkbox" checked={!!loose.leak}
+              onChange={event => commit(setLoosePanel(history.present, selection.index, { leak: event.target.checked || undefined }))} />Leak</label>
+            <p className="builder-hint">Loosen a panel where something gave way or someone reached the services: beside a pump, a tank or a powered door. Two or three in a room is plenty. Wall art only, with no collision.</p>
           </>}
           {wallBand && <>
             <BuilderSelect label="Lean" accessibleLabel="Hazard stripe lean" value={wallBand.lean ?? 'right'} options={[{ value: 'right', label: 'Right' }, { value: 'left', label: 'Left' }]}

@@ -89,6 +89,17 @@ export function stainInk(finish: WallFinish, night = false): { ink: string; base
   return finish === 'course' ? { ink: '74,78,62', base: .075 } : { ink: SYSTEMS[finish].ink, base: .08 * (night ? NIGHT_COLOUR : 1) }
 }
 
+/**
+ * The layers a panel's face is painted in, back to front, so a panel drawn on its own (a loose one, hanging off
+ * the wall) matches the panels around it: the wall's base, the finish's wash, and a middling panel tint.
+ */
+export function panelFace(finish: WallFinish, night = false): string[] {
+  if (finish === 'course') return ['#f1f1ed', 'rgba(91,111,94,0.023)']
+  const system: PanelSystem = SYSTEMS[finish], colour = night ? NIGHT_COLOUR : 1
+  const round = (v: number) => Math.round(v * 1000) / 1000
+  return ['#f1f1ed', ...(system.wash ? [`rgba(${system.wash[0]},${round(system.wash[1] * colour)})`] : []), `rgba(${system.tint},${round((system.base + system.range / 2) * colour)})`]
+}
+
 /** One panel of the back wall, a double as a whole: where it is, and its column and row (a double's left half's). */
 export interface WallPanel { x: number; y: number; w: number; h: number; col: number; row: number }
 /**

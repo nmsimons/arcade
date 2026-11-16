@@ -107,14 +107,14 @@ function plan(pipe: WallPipe, wear: WallWear): Plan {
 }
 
 /** Pipes on the back wall, behind terrain and everything in the room. */
-export function drawWallPipes(ctx: CanvasRenderingContext2D, pipes: readonly WallPipe[], wear: WallWear = wallWear()) {
+export function drawWallPipes(ctx: CanvasRenderingContext2D, pipes: readonly WallPipe[], wear: WallWear = wallWear(), rust = true) {
   if (!pipes.length) return
   ctx.save()
   ctx.lineCap = 'butt'; ctx.lineJoin = 'round'
   for (const pipe of pipes) {
     if (pipe.points.length < 2) continue
     const p = plan(pipe, wear), d = p.d
-    ctx.fillStyle = COLORS.rust; ctx.fill(p.rust)
+    if (rust) { ctx.fillStyle = COLORS.rust; ctx.fill(p.rust) }
     ctx.strokeStyle = COLORS.body; ctx.lineWidth = d; ctx.stroke(p.body)
     ctx.strokeStyle = COLORS.shade; ctx.lineWidth = d * .22; ctx.stroke(p.shade)
     ctx.strokeStyle = COLORS.lit; ctx.lineWidth = d * .16; ctx.stroke(p.lit)
@@ -123,6 +123,16 @@ export function drawWallPipes(ctx: CanvasRenderingContext2D, pipes: readonly Wal
     ctx.fillStyle = COLORS.flange; ctx.fill(p.flanges)
     ctx.strokeStyle = COLORS.flangeLit; ctx.lineWidth = Math.max(.8, d * .08); ctx.stroke(p.flangeLit)
   }
+  ctx.restore()
+}
+
+/**
+ * The rust weeping from pipes' joints alone, for a wall that draws it earlier than the pipes: it is on the wall,
+ * so a loose panel hanging in front of the wall covers it, while the pipes fixed over the panel do not.
+ */
+export function drawWallPipeRust(ctx: CanvasRenderingContext2D, pipes: readonly WallPipe[], wear: WallWear = wallWear()) {
+  ctx.save(); ctx.fillStyle = COLORS.rust
+  for (const pipe of pipes) if (pipe.points.length >= 2) ctx.fill(plan(pipe, wear).rust)
   ctx.restore()
 }
 

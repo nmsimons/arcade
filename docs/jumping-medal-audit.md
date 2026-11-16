@@ -15,9 +15,9 @@ inputs, not new manual routes.
 | Level | Clock | Active | A / B / C | Status |
 | --- | ---: | ---: | --- | --- |
 | Boxes | 27.52 | 28.38 | 30 / 50 / 90 | A, recording kept |
-| Tower II | 107.93 | 108.78 | 110 / 150 / 210 | A, recording kept |
-| Balls | 32.04 | 32.90 | 35 / 40 / 60 | A raised from 28, recording kept |
-| Spire I | 46.54 | 47.40 | 50 / 60 / 90 | A raised from 40, recording kept |
+| Tower II | | | 110 / 150 / 210 | Route superseded by the ball pace below; audit pending |
+| Balls | | | 35 / 40 / 60 | A raised from 28. Route superseded by the ball pace below; audit pending |
+| Spire I | 45.72 | 46.57 | 50 / 60 / 90 | A raised from 40, recording kept and trimmed |
 | Tower I | | | 100 / 140 / 210 | Route superseded; audit pending |
 
 Balls and Spire I spend long stretches crawling, so their A targets were raised
@@ -29,6 +29,22 @@ ball short of the slope to the lobby plate, so its old route no longer finishes
 and is kept as superseded evidence. The archived Freight Run lower-storey routes
 now finish at **38.63** (low ladder) and **29.18** (low lift) clock seconds, and
 the first-gap ladder recovery introduction at **14.65**, still a C.
+
+November 15 crouched ball pace: at the new crouch speed a crouched pusher could
+not keep up with the ball it pushed, which hands drove at 90, so the push broke
+into shoves and the arms and pelvis popped. Crouched hands now roll a ball at
+the crouch pace (see [contacts](jumping-physics.md)). Three of the routes above
+crouch behind a ball. Spire I still finishes, 0.83 seconds sooner at **45.72**,
+and its recording is trimmed to end there. The Balls and Tower II recordings
+were timed to the old shove-and-catch travel: on Balls the ball ends about 38
+units short and the jump onto it misses, and Tower II no longer completes.
+Both are kept as superseded evidence with a pending audit, as Tower I is. An
+automatic re-timing of Balls against the old positions did not converge; each
+needs a fresh completed route. Their targets are unchanged.
+
+The same day Untitled level joined the collection ahead of the finale, with no
+door in the facility. Its 10 / 20 / 40 targets are the authored defaults and
+its audit is pending.
 
 October 23 catalog upkeep: the revised curved pinball file replaces Untitled
 level 2 and retains an explicit pending medal audit. Waterline's pump rates now

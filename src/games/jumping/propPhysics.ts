@@ -10,7 +10,7 @@ import { bodyPolygon, convexParts, lineBlocked, moveBody, polygonIntersects, pol
 import { BOX_RESTING_ANGLE_TOLERANCE, ballHull, ballShape, boxShape, propHeight, propWidth, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
-import { playerContactBody, rotateFeet, translatePlayer } from './playerContacts.ts'
+import { ballPushPace, playerContactBody, rotateFeet, translatePlayer } from './playerContacts.ts'
 import { advanceWaterBob, waterBobAcceleration } from './waterBob.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import type { ForceFieldState } from './forceField.ts'
@@ -342,7 +342,8 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (push?.collider.prop === b && (!push.swimming || lowSwimPush) && !push.passive) {
       // Small floor props retain a useful hand push through the stand/swim
       // transition. Water lowers the pace; weight still limits acceleration.
-      const target = push.direction * push.effort * (lowSwimPush ? 54 : 90)
+      const pace = lowSwimPush ? 54 : b.kind === 'ball' ? ballPushPace(run.player) : 90
+      const target = push.direction * push.effort * pace
       const maximum = b.kind === 'ball' ? 3800 : 1900
       // Keep a ball's push force when a load resists it, despite its lower
       // walking-speed target. A loaded chain must not stall below that target.
@@ -355,6 +356,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const point = lowSwimPush && b.kind === 'ball' && contact ? { x: contact.point[0], y: contact.point[1] } : body.position
       const reach = lowSwimPush ? (push.reach ?? 1) * Math.min(1, (run.player.pushRig?.amount ?? 0) + dt / .14) : 1
       Body.applyForce(body, point, { x: body.mass * acceleration * reach / propWeightScale(b) / 1e6, y: 0 })
+      // A crouched pusher's ball can still be rolling at the standing pace. It carries no load from the hands
+      // then, so it settles as an unloaded ball does: dropping into a crouch keeps the palms on the ball
+      // while it slows to the crouch pace, rather than watching it coast out of reach. The standing pace is
+      // left alone: a ball rolling past it is passive and already settles (playerContacts.ts).
+      if (b.kind === 'ball' && pace < 90 && !lowSwimPush && gravity !== 0 && b.grounded && (b.vx - target) * push.direction > 0)
+        b.vx = approach(b.vx, target, 65 * dt)
     } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load
       // or braced shove cancels the player's force on large balls every step,

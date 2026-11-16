@@ -438,7 +438,12 @@ crouched cap follows the crouch shuffle's own stride (a 14-unit step in .24 s,
 about four steps a second); matching walking speed only sped that short step
 into a patter. Crouch speed therefore stays separate from the walking speed,
 and anything that moves a crouched body by input scale, such as the collapsed
-repulsor bot's slide, divides by it. The temporary in-game tuning sliders have been
+repulsor bot's slide, divides by it. Hands push props at 90, but crouched hands
+roll a ball at the crouch pace (`ballPushPace`): driven at 90, a ball left a
+crouched pusher's palms and was caught again several times a second. A ball
+still rolling at 90 when its pusher drops into a crouch settles to 60 under the
+palms, as an unloaded ball settles. Boxes keep the 90 target at either height;
+their own drag holds them below both paces. The temporary in-game tuning sliders have been
 removed; saved experimental browser settings no longer override these values.
 The [medal audit](jumping-medal-audit.md) records the earlier directional-jump
 controls. A full medal-time audit with variable-height jumping remains unverified.

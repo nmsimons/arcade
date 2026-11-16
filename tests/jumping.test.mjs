@@ -126,11 +126,12 @@ test('landing strength uses contact speed and never locks movement or another ju
 test('Down ducks under a low ceiling and waits for clearance before standing', () => {
   const p = createPlayer(), world = [...floor, { x: 260, y: 540, w: 120, h: 35 }]
   advance(p, .4, { move: 1 }, world); assert.equal(p.x, 248)
-  advance(p, .6, { move: 1, descend: true }, world)
-  assert.ok(p.x > 300); assert.equal(p.y, 620); assert.equal(p.crouch, 1)
+  // Crouch walking is 60 units per second: a second to get well under the beam, two more to crawl clear of it.
+  advance(p, 1, { move: 1, descend: true }, world)
+  assert.ok(p.x > 300); assert.equal(p.y, 620); assert.equal(p.crouch, 1); assert.equal(p.vx, TUNING.crouchSpeed)
   advance(p, .2, { reach: true }, world)
   assert.equal(p.crouching, true); assert.equal(p.reach, 0)
-  advance(p, 1, { move: 1 }, world); advance(p, .2, {}, world)
+  advance(p, 2, { move: 1 }, world); advance(p, .2, {}, world)
   assert.ok(p.x > 392); assert.equal(p.crouching, false); assert.equal(p.crouch, 0); assert.equal(p.y, 620)
 })
 test('Down replaces looking down with a slow grounded crouch; Up still looks up', () => {
@@ -138,7 +139,7 @@ test('Down replaces looking down with a slow grounded crouch; Up still looks up'
   advance(p, .3, { descend: true })
   assert.equal(p.crouching, true); assert.equal(p.crouch, 1); assert.equal(p.anim.look, 0)
   advance(p, .4, { move: 1, descend: true })
-  assert.equal(p.vx, TUNING.walkSpeed)
+  assert.equal(p.vx, TUNING.crouchSpeed); assert.ok(TUNING.crouchSpeed < TUNING.walkSpeed)
   advance(p, .4, { move: 1 })
   assert.equal(p.crouching, false); assert.equal(p.vx, TUNING.runSpeed)
   advance(p, .8, { climb: true }); assert.equal(p.anim.look, 1)

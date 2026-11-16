@@ -39,6 +39,7 @@
     "scaffold5.jump-level.json",
     "fulltilt.jump-level.json",
     "Orientation.jump-level.json",
+    "Untitled level.jump-level.json",
     "Ascent.jump-level.json",
     "ascent2.jump-level.json",
     "spelunk.jump-level.json",
@@ -50,7 +51,6 @@
     "Security.jump-level.json",
     "Gravity.jump-level.json",
     "Puzzles.jump-level.json",
-    "Boot Camp wing.jump-level.json",
-    "Untitled level.jump-level.json"
+    "Boot Camp wing.jump-level.json"
   ]
 }

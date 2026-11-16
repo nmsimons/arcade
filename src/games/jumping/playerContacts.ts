@@ -19,6 +19,11 @@ import { retainInterruptedStepPose } from './athleteAnimation.ts'
 import { swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './poses/waterPose.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
+/** The pace hands roll a ball at. A crouched body shuffles slower than the standing pace and rolls a ball no
+ * faster than it can follow: driven at the standing pace, the ball leaves a crouched pusher's reach and has to
+ * be caught again, several times a second. A box's own drag already holds it under either pace. */
+export const ballPushPace = (p: Pick<Player, 'crouching'>) => p.crouching ? Math.min(90, TUNING.crouchSpeed) : 90
+
 export interface PlayerCollider {
   id: string
   platform: Platform

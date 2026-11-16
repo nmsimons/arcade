@@ -10,7 +10,8 @@ import { spawnSync } from 'node:child_process'
 //   npm run test:fast -- --test-name-pattern Tower
 const SLOW = /^jumping-(stress-|.*-acceptance\.)/
 const files = readdirSync(new URL('../tests/', import.meta.url))
-  .filter(name => /^jumping-.*\.test\.mjs$/.test(name) && !SLOW.test(name)).sort()
+  // jumping.test.mjs holds the main controller cases: a hyphen-only pattern left it out of this tier.
+  .filter(name => /^jumping(-.*)?\.test\.mjs$/.test(name) && !SLOW.test(name)).sort()
   .map(name => `tests/${name}`)
 const result = spawnSync(process.execPath, ['--test', ...process.argv.slice(2), ...files], { stdio: 'inherit' })
 process.exit(result.status ?? 1)

@@ -112,7 +112,9 @@ test('crouch entry, loaded work and release retain the complete skin, palms and 
       assert.ok(loaded > 0 && loaded < 350, config.name + ': the actual downhill shove releases')
       assert.equal(p.pushing, null, config.name + ': the ball leaves no residual reach after release and rest')
       assert.ok((run.props[0].x - p.x) * facing - config.size / 2 > 60, config.name + ': the ball rolls out of hand reach')
-    } else assert.ok(loaded > 350, config.name + ': sustained physical force is exercised')
+    // Under the beam the 120-unit crawl to the cargo takes two seconds at crouch speed; the push then holds
+    // for the rest of the encounter.
+    } else assert.ok(loaded > (config.ceiling ? 240 : 350), config.name + ': sustained physical force is exercised')
     if (!config.ceiling) {
       stepRun(run, { ...NEUTRAL_INPUT, jump: true })
       assert.ok(!p.grounded && p.vy * (inverted ? -1 : 1) < 0, config.name + ': fresh jump escape stays immediate')

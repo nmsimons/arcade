@@ -99,7 +99,8 @@ const DULL = ['#7a4b3f', '#4d6378', '#5f6f62']
 
 type Piece = [colour: string, x: number, y: number, w: number, h: number]
 export type Service = { kind: 'pipe'; size: number; x0: number; x1: number; y: number; upright?: boolean }
-  | { kind: 'tray' | 'conduit'; x0: number; x1: number; y: number; upright?: boolean; seed: number }
+  | { kind: 'tray'; x0: number; x1: number; y: number; upright?: boolean; seed: number }
+  | { kind: 'conduit'; x0: number; x1: number; y: number; upright?: boolean; seed: number }
   | { kind: 'strut'; x0: number; x1: number; y: number }
   | { kind: 'box'; x: number; y: number; size: number }
 
@@ -125,7 +126,7 @@ export function voidLayout(area: Rect, contents: PanelContents, salt: readonly [
       if (!kind || !allowed(contents, kind)) continue
       const x0 = s * LENGTH, x1 = x0 + LENGTH
       if (kind === 'pipe') out.push({ kind, size: n(s, line) < .5 ? 8 : 14, x0, x1, y })
-      else out.push({ kind, x0, x1, y, seed: n(line, s * 1.3) })
+      else out.push(kind === 'tray' ? { kind, x0, x1, y, seed: n(line, s * 1.3) } : { kind, x0, x1, y, seed: n(line, s * 1.3) })
       // One conduit length in three carries a junction box.
       if (kind === 'conduit' && n(s * .7, line * 1.1) < 1 / 3) out.push({ kind: 'box', x: x0 + 60 + n(line, s) * 360, y, size: 16 + n(s, line * 2) * 8 })
     }

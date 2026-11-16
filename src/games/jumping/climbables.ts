@@ -854,13 +854,15 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
       if ((target - n.x) * wall.side < 0) n.x += (target - n.x) * .45
     }
     if (load?.body && nearby.length) {
-      // A larger rider holds the rope with its own body, in its frame (sizeFrame.ts).
+      // A larger rider holds the rope with its own body, in its frame (sizeFrame.ts). Only the rope it holds
+      // enters the frame with it: this runs on every pass, and scaling every rope in the level each time cost
+      // about 13 ms a step on Scaffold I's eight ropes. The others are restored exactly, so nothing else changes.
       const rider = load.body.rider, size = rider ? bodySize(rider) : 1
       if (size === 1 || !rider?.climbing) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, bodyTerrain, nearby)
       else {
-        const frame = enterSizeFrame(rider, size, true); rider.size = 1
+        const frame = enterSizeFrame(rider, size); rider.size = 1
         try { constrainRopeBody(rider.climbing, [rider.x, rider.y], rider.facing, bodyTerrain.map(b => scaledPlatform(b, size)), nearby.map(b => scaledPlatform(b, size))) }
-        finally { rider.size = size; leaveSizeFrame(rider, frame, true) }
+        finally { rider.size = size; leaveSizeFrame(rider, frame) }
       }
     }
   }

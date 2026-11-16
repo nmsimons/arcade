@@ -1,5 +1,40 @@
 # LAB performance notes
 
+## November 15, 2026: Rbot on a rope
+
+Playing Scaffold and Orientation, the game hitched whenever Rbot climbed a rope,
+on the Mac and on Windows. A Rbot-on-rope physics step cost 13 ms on Scaffold I
+against under 1 ms otherwise, so a 60 Hz frame of two steps took 26 to 39 ms.
+It came with the larger Rbot (`438c57d`, November 14). A body larger than the
+player holds a rope in its own scaled frame (`sizeFrame.ts`), and the rope
+solver entered that frame on each of its 32 or more passes a step with
+`allRopes`, so every particle of every rope in the level was scaled in and back
+through per-value records, 178 writes to each value a step.
+
+Now only the rope Rbot holds enters the frame on those passes, and a rope's
+particles enter and leave through flat arrays under the same rule as every
+other value: one the step left alone returns bit for bit, and one it changed is
+multiplied back. Physics is bit-identical: seeded runs on Scaffold I, Scaffold
+IV and Orientation hash every step the same before and after, and the golden
+traces are unchanged. `tests/jumping-size-frame.test.mjs` guards the pass count
+and the exactness.
+
+Median step with Rbot on a rope, same seeded 60-second runs in Chromium (Apple
+Silicon), dev server:
+
+| Level | Before | After |
+| --- | ---: | ---: |
+| Scaffold I (8 ropes) | 13.1 ms | 1.7 ms |
+| Scaffold IV (6 ropes) | 12.4 ms | 2.2 ms |
+| Orientation (3 ropes, Node) | 6.8 ms | 2.3 ms |
+
+What remains on those steps is mostly the rope solver itself, as when the
+player holds a rope. Two smaller costs were found on the way and left alone:
+Rbot's navigation graph takes 25 to 30 ms to build the first time it plans, and
+again when water levels change, and is built twice because tactics ask for it
+at the player's size (`botTactics.ts`) and movement at Rbot's; and long runs
+show occasional major garbage collections of 10 to 50 ms in Node.
+
 ## November 12, 2026: WebGL draws every frame of play
 
 Phase 3 of the WebGL renderer ([plan](jumping-webgl-renderer.md#phase-3-lighting))

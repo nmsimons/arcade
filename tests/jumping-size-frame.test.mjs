@@ -4,7 +4,9 @@ import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jump
 import { staticContactWorld, playerContactBody } from '../src/games/jumping/playerContacts.ts'
 import { presentedAthletePose } from '../src/games/jumping/athletePose.ts'
 import { createRope } from '../src/games/jumping/climbables.ts'
-import { enterSizeFrame, leaveSizeFrame } from '../src/games/jumping/sizeFrame.ts'
+import { enterSizeFrame, inSizeFrame, leaveSizeFrame } from '../src/games/jumping/sizeFrame.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
+import { blankTrial } from '../src/games/jumping/level.ts'
 
 // A body of size s in a world is the player in that world shrunk by s (src/games/jumping/sizeFrame.ts): stepped
 // side by side with the same input, the large body stays exactly s times the small one, and poses alike.
@@ -125,4 +127,58 @@ test('a value two parts of a sized body share is scaled into its frame once, and
   p.climbing.wall = undefined
   leaveSizeFrame(p, third, true)
   assert.ok(Math.abs(p.climbing.wallPose.x - 520) < 1e-9, `the pose's wall returns to ${p.climbing.wallPose.x}`)
+})
+
+test('rope particles enter a sized body\'s frame and leave it exactly, or with what the step made of them', () => {
+  const held = createRope({ x: 500, y: 300, length: 400, segments: 50 }), other = createRope({ x: 900, y: 300, length: 400, segments: 50 })
+  const p = createPlayer({ x: 500, y: 700 }); p.size = SIZE; p.ropes = [held, other]
+  p.climbing = { kind: 'rope', index: 0, rope: held, distance: 200, time: 1, caught: { x: 500, y: 700, vx: 0, vy: 0, anim: {} } }
+  const snapshot = rope => rope.nodes.map(n => [n.x, n.y, n.oldX, n.oldY])
+  const heldBefore = snapshot(held), otherBefore = snapshot(other)
+  // Left alone, every particle returns bit for bit, with or without the other ropes in the frame.
+  for (const allRopes of [false, true]) {
+    const frame = enterSizeFrame(p, SIZE, allRopes)
+    assert.ok(Math.abs(held.nodes[10].y - heldBefore[10][1] / SIZE) < 1e-9, 'the held rope is in the frame')
+    assert.equal(other.nodes[10].y === otherBefore[10][1] / SIZE, allRopes, 'the others only when asked')
+    leaveSizeFrame(p, frame, allRopes)
+    assert.deepEqual(snapshot(held), heldBefore); assert.deepEqual(snapshot(other), otherBefore)
+  }
+  // What the step moves comes back in world units, matched to its particle even if the list was rearranged.
+  const frame = enterSizeFrame(p, SIZE)
+  held.nodes[20].x += 2; held.nodes.reverse()
+  leaveSizeFrame(p, frame)
+  held.nodes.reverse()
+  assert.ok(Math.abs(held.nodes[20].x - (heldBefore[20][0] + 2 * SIZE)) < 1e-9, `a moved particle returns at ${held.nodes[20].x}`)
+  assert.deepEqual(snapshot(held).filter((_, i) => i !== 20), heldBefore.filter((_, i) => i !== 20), 'the rest return exactly')
+  // A query leaves every particle as it found it, whatever it did to them.
+  inSizeFrame(p, () => { held.nodes[5].y = 0 }, true)
+  assert.equal(held.nodes[5].y, heldBefore[5][1])
+})
+
+test('Rbot holding one rope leaves a level\'s other ropes out of the rope solver\'s passes', () => {
+  // The rope solver runs at least 32 passes a step. Each pass once carried every rope in the level into the
+  // held rope's frame and back, about 13 ms a step on Scaffold I's eight ropes (docs/jumping-performance.md).
+  // The ropes reach near the floor: the solver only constrains the body against terrain near the rope.
+  const ropes = Array.from({ length: 6 }, (_, i) => ({ x: 300 + i * 200, y: 200, length: 640, segments: 80 }))
+  const level = { ...blankTrial(), width: 1600, height: 900, floor: 900, entrance: { x: 120, y: 900 }, goal: { x: 1500, y: 900 },
+    climbables: { ladders: [], ropes }, robots: [{ x: 700, y: 900, left: 650, right: 750, kind: 'repulsor' }] }
+  const run = createRun(level), robot = run.robots[0]
+  for (let i = 0; i < 4; i++) stepRun(run, NEUTRAL_INPUT)
+  const actor = robot.actor, held = run.player.ropes[2]
+  // Put Rbot on the third rope, gripped part way down: the rope solver then carries it every step.
+  actor.x = held.nodes[30].x; actor.y = held.nodes[30].y + 56 * SIZE; actor.vx = actor.vy = 0; actor.grounded = false
+  actor.climbing = { kind: 'rope', index: 2, rope: held, distance: 240, time: 1, direction: 0, swing: 0, lean: 0, hangBlend: 1, swingVelocity: 0,
+    ladder: null, caught: { x: actor.x, y: actor.y, vx: 0, vy: 0, anim: {} } }
+  // Count every write to another rope's particles over a few steps.
+  let writes = 0
+  for (const [index, rope] of run.player.ropes.entries()) if (index !== 2) for (const node of rope.nodes) for (const key of ['x', 'y', 'oldX', 'oldY']) {
+    let value = node[key]
+    Object.defineProperty(node, key, { get: () => value, set: next => { writes++; value = next }, enumerable: true, configurable: true })
+  }
+  let held_ = 0
+  for (let i = 0; i < 6; i++) { stepRun(run, NEUTRAL_INPUT); if (actor.climbing?.rope === held) held_++ }
+  assert.ok(held_ >= 4, `Rbot keeps its grip for the measurement (${held_} of 6 steps)`)
+  const perValue = writes / (5 * 81 * 4 * 6)
+  // Rbot's own step carries every rope into its frame and back once: two writes a value. Never once a pass.
+  assert.ok(perValue <= 4, `${perValue.toFixed(1)} writes to each other rope value a step`)
 })

@@ -113,6 +113,8 @@ export function scaledWater(water: WaterLevels, size: number): WaterLevels {
 type Visit = {
   length: (target: object, key: string) => void
   reference: (target: object, key: string, map: (value: never) => unknown) => void
+  /** A rope's particles: their x, y, oldX and oldY are lengths, handled together (see NodeRecord). */
+  nodes: (nodes: RopeState['nodes']) => void
 }
 function walk(p: Player, visit: Visit, allRopes: boolean, mapContacts: boolean, maps: { platform: (b: Platform) => Platform; ladder: (l: Ladder) => Ladder; rope: (r: Rope) => Rope; collider?: (c: PlayerCollider) => PlayerCollider }) {
   const seen = new Set<object>(), measured = new Map<object, Set<string>>()
@@ -130,7 +132,7 @@ function walk(p: Player, visit: Visit, allRopes: boolean, mapContacts: boolean, 
   const rope = (value: RopeState | null | undefined) => {
     if (!value || !once(value)) return
     visit.reference(value, 'definition', maps.rope as (value: never) => unknown)
-    for (const node of value.nodes) lengths(node, 'x', 'y', 'oldX', 'oldY')
+    visit.nodes(value.nodes)
     points(value.bends)
   }
   const hands = (value: PushHands | Player['pushing'] | undefined) => {
@@ -227,12 +229,20 @@ function walk(p: Player, visit: Visit, allRopes: boolean, mapContacts: boolean, 
   if (p.terrain) visit.reference(p, 'terrain', ((list: readonly Platform[]) => list.map(maps.platform)) as (value: never) => unknown)
 }
 
+/**
+ * A rope's particles as they entered: the particle objects, then each one's x, y, oldX and oldY before and after
+ * scaling, four to a particle. A held rope enters the frame on every pass of the rope solver, so its particles
+ * are kept in flat arrays rather than one record per value; the rule for leaving is the same.
+ */
+interface NodeRecord { nodes: RopeState['nodes'][number][]; original: Float64Array; entered: Float64Array }
+const NODE_KEYS = ['x', 'y', 'oldX', 'oldY'] as const
+
 /** What entering changed, so leaving restores every value the frame did not change exactly. */
-export interface SizeFrame { size: number; entered: Map<object, Map<string, { original: unknown; entered: unknown }>> }
+export interface SizeFrame { size: number; entered: Map<object, Map<string, { original: unknown; entered: unknown }>>; nodes: Map<RopeState['nodes'], NodeRecord> }
 
 /** Scale a body's state into its frame: divided by its size, its references swapped for the frame's copies. */
 export function enterSizeFrame(p: Player, size: number, allRopes = false, world?: ContactWorld): SizeFrame {
-  const frame: SizeFrame = { size, entered: new Map() }
+  const frame: SizeFrame = { size, entered: new Map(), nodes: new Map() }
   const record = (target: object, key: string, value: unknown) => {
     const values = frame.entered.get(target) ?? new Map()
     frame.entered.set(target, values)
@@ -243,6 +253,14 @@ export function enterSizeFrame(p: Player, size: number, allRopes = false, world?
   walk(p, {
     length: (target, key) => record(target, key, (target as Record<string, number>)[key] / size),
     reference: (target, key, map) => { const value = (target as Record<string, unknown>)[key]; if (value) record(target, key, map(value as never)) },
+    nodes: list => {
+      const original = new Float64Array(list.length * 4), entered = new Float64Array(list.length * 4)
+      for (let i = 0; i < list.length; i++) {
+        const node = list[i] as unknown as Record<string, number>
+        for (let k = 0; k < 4; k++) { const key = NODE_KEYS[k], value = node[key]; original[i * 4 + k] = value; entered[i * 4 + k] = node[key] = value / size }
+      }
+      frame.nodes.set(list, { nodes: list.slice(), original, entered })
+    },
   }, allRopes, !!world, { platform: b => scaledPlatform(b, size), ladder: l => scaledLadder(l, size), rope: r => scaledRope(r, size),
     collider: c => byId?.get(c.id) ?? c })
   if (p.anim.pending) throw new Error('A sized body animates every step; its deferred animation would hold world references.')
@@ -252,6 +270,10 @@ export function enterSizeFrame(p: Player, size: number, allRopes = false, world?
 /** Undo a query's frame: every value and reference returns exactly as it was. */
 export function restoreSizeFrame(frame: SizeFrame) {
   for (const [target, values] of frame.entered) for (const [key, { original }] of values) (target as Record<string, unknown>)[key] = original
+  for (const { nodes, original } of frame.nodes.values()) for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i] as unknown as Record<string, number>
+    for (let k = 0; k < 4; k++) node[NODE_KEYS[k]] = original[i * 4 + k]
+  }
 }
 
 /**
@@ -268,6 +290,21 @@ export function leaveSizeFrame(p: Player, frame: SizeFrame, allRopes = false, wo
   walk(p, {
     length: (target, key) => restore(target, key, value => (value as number) * size),
     reference: (target, key, map) => restore(target, key, value => value && map(value as never)),
+    nodes: list => {
+      // A particle that entered and still holds its entered value returns exactly; any other value is the step's.
+      // Particles are matched by identity, as every other value is, in case a step rearranged the list.
+      const entered = frame.nodes.get(list)
+      let moved: Map<object, number> | undefined
+      for (let i = 0; i < list.length; i++) {
+        const node = list[i] as unknown as Record<string, number>
+        let at = entered?.nodes[i] === list[i] ? i : -1
+        if (at < 0 && entered) at = (moved ??= new Map(entered.nodes.map((n, j) => [n, j]))).get(list[i]) ?? -1
+        for (let k = 0; k < 4; k++) {
+          const key = NODE_KEYS[k], value = node[key]
+          node[key] = at >= 0 && entered!.entered[at * 4 + k] === value ? entered!.original[at * 4 + k] : value * size
+        }
+      }
+    },
   }, allRopes, !!world, { platform: worldPlatform, ladder: worldLadder, rope: worldRope, collider: c => byId?.get(c.id) ?? c })
 }
 

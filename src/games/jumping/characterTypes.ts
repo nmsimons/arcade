@@ -35,6 +35,12 @@ export interface CharacterAnimation {
   /** The presented swimmer's clearance offset. The swimming hull uses its own `waterMotion.bodyOffset`. */
   waterClearance: { offset: [number, number]; facing: number } | null
   /**
+   * The crouch walk's forward step driving its body dip and arm counter-swing: the swinging
+   * foot, its progress (0 to 1), the share of time spent stepping, the shift toward the
+   * support foot, and a fade that eases the body out when the feet leave the ground.
+   */
+  crouchStep?: { foot: number; phase: number; cadence: number; shift: number; amount: number } | null
+  /**
    * The drawn swim: the stroke's own cycle (`stroke`), the treading cycle (`tread`), how hard a held
    * direction drives the stroke (`drive`, 0 to 1) and the physics stroke cycle last seen (`from`).
    * The physics rig keeps `waterMotion.phase`, so none of this changes motion.

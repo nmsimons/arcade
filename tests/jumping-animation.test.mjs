@@ -71,6 +71,50 @@ test('crouch walking uses a full pushing stride with low feet and grounded knees
   }
 })
 
+test('crouch walking moves the head and upper body with each step without rising above the still crouch', () => {
+  for (const direction of [-1, 1]) {
+    const floor = { x: 0, y: 620, w: 5000, h: 40 }
+    const p = createPlayer(); p.x = 2500; p.y = 620
+    for (let i = 0; i < 120; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, [floor])
+    const still = athletePose(p)
+    const range = { head: [Infinity, -Infinity], shoulder: [Infinity, -Infinity], arm: [Infinity, -Infinity] }
+    const track = (key, v) => { range[key][0] = Math.min(range[key][0], v); range[key][1] = Math.max(range[key][1], v) }
+    let previous
+    for (let frame = 0; frame < 480; frame++) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, move: direction, descend: true }, STEP, [floor])
+      const pose = athletePose(p)
+      if (previous) for (const key of ['hip', 'shoulder', 'head']) assert.ok(distance(pose[key], previous[key]) < .8, `${key} moves smoothly`)
+      previous = pose
+      if (frame < 60) continue
+      assert.ok(pose.head[1] >= still.head[1] - 1e-6, 'the duck walk never raises the head into a two-tile ceiling')
+      track('head', pose.head[1]); track('shoulder', pose.shoulder[1]); track('arm', pose.frontArm.end[0] - pose.shoulder[0])
+    }
+    assert.ok(range.head[1] - range.head[0] > 2, `the head bobs with each step (${range.head})`)
+    assert.ok(range.shoulder[1] - range.shoulder[0] > 1.5, `the chest settles with each step (${range.shoulder})`)
+    assert.ok(range.arm[1] - range.arm[0] > 2, `the tucked arms counter each step (${range.arm})`)
+  }
+})
+
+test('a slow crouch walk bobs gently instead of dipping hard between pauses', () => {
+  // Each crouch swing lasts the same quarter second at any speed, so a slow
+  // creep pauses between steps. A full-speed dip on every step read as a jerk.
+  const peak = move => {
+    const floor = { x: 0, y: 620, w: 5000, h: 40 }
+    const p = createPlayer(); p.x = 2500; p.y = 620
+    for (let i = 0; i < 120; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, [floor])
+    let previous, fastest = 0
+    for (let frame = 0; frame < 480; frame++) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, move, descend: true }, STEP, [floor])
+      const head = athletePose(p).head
+      if (previous && frame > 60) fastest = Math.max(fastest, Math.abs(head[1] - previous[1]) / STEP)
+      previous = head
+    }
+    return fastest
+  }
+  const slow = peak(.25), full = peak(1)
+  assert.ok(slow < full * .4, `a quarter-speed creep moves the head far less sharply (${slow.toFixed(1)} vs ${full.toFixed(1)})`)
+})
+
 test('full input while crouched is a slow duck walk, not walking speed with a frantic shuffle', () => {
   assert.ok(TUNING.crouchSpeed < TUNING.walkSpeed / 2 + 1)
   for (const direction of [-1, 1]) for (const entry of ['standing', 'running']) {

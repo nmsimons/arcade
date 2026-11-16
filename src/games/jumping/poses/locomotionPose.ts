@@ -45,8 +45,18 @@ export function locomotionPose(p: Player): AthletePose {
   const bodyWave = (lag: number) => lerp(
     lerp(Math.cos(cycle * 2 - lag) * 1.7, Math.cos(cycle * 2 - .9 - lag) * 3.4, run),
     Math.sin(cycle * 2 - lag) * 1.8, walk) * gait
-  const hipBob = bodyWave(0), chestBob = bodyWave(lerp(.32, .08, walk)) * lerp(.92, 1, walk)
-  const headBob = bodyWave(lerp(.55, .12, walk)) * lerp(.72, 1, walk)
+  // A crouch walk takes the same short, resolved steps as a push, so the
+  // stride clock does not advance. Follow each forward swing instead: sink
+  // onto the supporting leg with the chest and head settling after the hips.
+  // A blocked crouch has no step and stays still. The still crouch already
+  // meets the top of a two-tile opening, so this motion only lowers the body.
+  const step = p.anim.crouchStep
+  const duck = step ? squat * (1 - air) * (1 - bodyPush) * step.cadence * step.amount : 0
+  const duckWave = (lag: number) => step ? Math.sin(Math.PI * clamp((step.phase - lag) / (1 - lag))) ** 2 * duck : 0
+  const duckShift = step?.shift ?? 0
+  const hipBob = bodyWave(0) + duckWave(0) * 1.6
+  const chestBob = bodyWave(lerp(.32, .08, walk)) * lerp(.92, 1, walk) + duckWave(.1) * 2.1
+  const headBob = bodyWave(lerp(.55, .12, walk)) * lerp(.72, 1, walk) + duckWave(.18) * 2.5
   // Contact sets motor vy to zero. Keep the descending balance while its air
   // amount fades; interpreting that zero as a new apex would curl on impact.
   const flightVy = p.grounded && p.landing > 0 ? Math.max(250, 150 + p.landingImpact * 850) : p.vy
@@ -69,8 +79,8 @@ export function locomotionPose(p: Player): AthletePose {
   // running pitch while giving the slower gait a small, sustained forward lean.
   const pelvicPitch = (lerp(.065, .225, run) + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014
   const chestPitch = (lerp(.16, .435, run) + Math.sin(cycle * 2 - .55) * lerp(.035, .1, run)
-    + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + air * (.12 + speed * .18 + tuck * .18 - descent * .06 + preparation * .12 + steering * .025) + landingDepth * .035 + slopeLean
-  const hip: Point = [-squat * 3 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4), hipHeight + dip + hipBob]
+    + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + duckWave(.1) * .1 + air * (.12 + speed * .18 + tuck * .18 - descent * .06 + preparation * .12 + steering * .025) + landingDepth * .035 + slopeLean
+  const hip: Point = [-squat * 3 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4) + duckWave(0) * duckShift, hipHeight + dip + hipBob]
   const waist: Point = [hip[0] + Math.sin(pelvicPitch) * 6.5, hip[1] - Math.cos(pelvicPitch) * 6.5]
   const shoulder: Point = [waist[0] + Math.sin(chestPitch) * 10.1, waist[1] - Math.cos(chestPitch) * 10.1 + chestBob - hipBob]
   // The head leads the run while its vertical motion lags behind the shoulders.
@@ -134,7 +144,10 @@ export function locomotionPose(p: Player): AthletePose {
   const swing = Math.cos(armCycle - run * .12) * moving * lerp(.52, 1.18, run)
   const relaxed = (1 - moving) * (1 - air) * (1 - squat)
   const armCarry = lerp(.03, .07, moving) + run * .13
-  let frontAngle = lerp(-swing - armCarry + relaxed * .24, -.65, squat), backAngle = lerp(swing - armCarry - relaxed * .24, -.75, squat)
+  // The tucked crouch arms still counter each duck-walk step, more gently.
+  const duckSwing = (step?.foot === 0 ? 1 : -1) * duckWave(.05) * (1 - pushing) * .3
+  let frontAngle = lerp(-swing - armCarry + relaxed * .24, -.65, squat) - duckSwing
+  let backAngle = lerp(swing - armCarry - relaxed * .24, -.75, squat) + duckSwing
   // The backward arm opens; the forward arm folds up toward the chest.
   let frontFlex = lerp(.1 + relaxed * .16 * (1 - pushing) + moving * lerp(.12 + (1 - Math.cos(armCycle)) * .14 * walk, 1.2 - Math.cos(armCycle - .12) * .5, run), 2.1, squat)
   // Keep both forearms gently raised in a crouch. A small difference in bend

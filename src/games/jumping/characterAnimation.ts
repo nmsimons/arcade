@@ -10,7 +10,7 @@ import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceRet
   advanceSwimAnimation, dryTurnDirection, settleFallClearance, settlePresentedWaterClearance } from './athleteAnimation.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athleteAnimation.ts'
 import type { CharacterAnimation, JumpInput, Player } from './characterTypes.ts'
-import { advanceFootwork } from './footwork.ts'
+import { advanceCrouchStep, advanceFootwork } from './footwork.ts'
 import { withTerrainQueries } from './geometry.ts'
 import { gaitPose } from './gait.ts'
 import { bodySize } from './sizeFrame.ts'
@@ -110,6 +110,7 @@ function animateStepIn(p: Player, { input, dt, world, from, contacts, verticalUs
     advanceFootwork(feetPlayer, dt, from[0], world.platforms)
     p.anim.footwork = feetPlayer.anim.footwork; p.anim.stride = feetPlayer.anim.stride
   }
+  advanceCrouchStep(p, dt)
   // Residual flight drift or a contact correction is not a requested step.
   // Only active steering starts the faster get-up after a prone impact.
   advanceMovingRecovery(p, dt, Math.abs(input.move) > .01 && Math.abs(contacts.motion.x) > .05, turnFrame)

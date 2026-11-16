@@ -178,6 +178,9 @@ function pushBalance(p: Player, previous: Footwork, feet: Footwork['feet'], dt: 
   }) as [Point, Point, Point]
 }
 
+/** The body travel that triggers each compact crouch or push step. */
+export const SHORT_STEP = 14
+
 function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[], travel = 0): Footwork {
   // Bring the stance under the body, keeping both targets on the current platform.
   const surface = p.contacts?.support?.platform ?? groundAt(platforms, p.x, p.y, .15)?.platform
@@ -197,7 +200,7 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   // tiny shuffle. A heavy, creeping load keeps its compact braced stance;
   // quicker boxes and balls gain enough reach for a deliberate weight transfer.
   const openStep = p.pushing?.effort ? smooth((shortStepSpeed - 10) / 80) * (1 - smooth(p.crouch)) : 0
-  const stepDistance = 14 + openStep * 8
+  const stepDistance = SHORT_STEP + openStep * 8
   const shortStepTravel = shortSteps && Math.abs(travel) > .0001
     ? Math.max(-.5, (previous.facing === p.facing ? previous.shortStepTravel ?? 0 : 0) + travel) : 0
   const steppingForward = shortSteps && shortStepSpeed > .5
@@ -278,6 +281,27 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   return { feet, moving: false, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt), armOffset: advanceArmOffset(previous, dt),
     heldArmPhase: shortSteps || !!p.pushing?.amount && !!previous.heldArmPhase, shortStepSpeed,
     shortStepTravel: feet.some((foot, i) => foot.planted && !previous.feet[i].planted) ? 0 : shortStepTravel }
+}
+
+/** Follow the crouch walk's forward swing. A crouch has no stride clock, so its
+ * body motion follows the resolved short steps. Takeoff discards the footwork at
+ * once; the last step then fades out rather than snapping the chest and head. */
+export function advanceCrouchStep(p: Player, dt: number) {
+  const feet = p.grounded && !p.hang && !p.mantle ? p.anim.footwork?.feet : undefined
+  const foot = feet?.findIndex(contact => contact.settle?.forward) ?? -1
+  if (feet && foot >= 0) {
+    const settle = feet[foot].settle!
+    // Each swing lasts the same quarter second at any speed, so a slow creep
+    // pauses between steps. A full dip and hold on each one read as a jerk.
+    p.anim.crouchStep = { foot, phase: settle.time / settle.duration,
+      cadence: clamp(Math.abs(p.anim.footwork!.shortStepSpeed ?? 0) * settle.duration / SHORT_STEP),
+      shift: Math.max(-1.3, Math.min(1.3, (feet[1 - foot].x - p.x) * p.facing * .08)), amount: 1 }
+    return
+  }
+  const step = p.anim.crouchStep
+  if (!step) return
+  const amount = step.amount * Math.exp(-dt / .08)
+  p.anim.crouchStep = amount < .001 ? null : { ...step, amount }
 }
 
 /** Persistent world-space contacts survive changes in speed and body pose. */

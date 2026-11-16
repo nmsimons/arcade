@@ -39,8 +39,9 @@ filled once at `rgba(74,78,62,.075)` on the course wall and in the finish's own
 ink at `.08` (`× 1.8` at night) on a finish. The choice is a hash of the
 panel's world column and row only. So a room looks the same on every visit, but
 the panel at a given world position has the same stain in every level. Terrain
-grime runs and chips (`surfaceDepth.ts`, the relief cache) and rust weeping
-from pipe joints (`wallPipes.ts`) are fixed in the same way.
+wear (`surfaceDepth.ts`, the relief cache: cracks and chips in stone and chalk,
+rust on steel, pebbles and soil in earth) and rust weeping from pipe joints
+(`wallPipes.ts`) are fixed in the same way.
 
 The panels are anchored to the world, with rows counted from the top of the
 level (y = 0) and columns from x = 0.
@@ -258,22 +259,21 @@ a soaked room is a wetter version of a normal one, not a different style.
 
 ### What the setting covers
 
-Stains are what water leaves, so the setting also scales the other water marks
+Stains are what water leaves, so the setting also scales the other water mark
 by the same steps:
 
-- **Terrain grime runs** under exposed tops: the share of tops with a run, and
-  their length, follow the table's first and fourth columns.
 - **Rust weeping from pipe joints:** the chance per joint (today 3 in 4) and the
   streak's length.
 
-Chips in terrain edges are damage, not water, and stay as they are. Leaks on
+Terrain wear (cracks, chips, rust on steel, pebbles and soil in earth) is age and
+material, not water, and stays as it is. Leaks on
 missing panels are drawn at the level's stain opacity, but always appear,
 including at `"none"`.
 
 ### Variation per level
 
 Today the panel at a given world position carries the same stains in every
-level. The level's ID joins the hash (for wall stains, terrain grime, pipe rust
+level. The level's ID joins the hash (for wall stains, terrain wear, pipe rust
 and the void's layout), so each room has its own pattern, still stable across
 visits and studio edits. Changing a level's ID reshuffles its stains, which is
 harmless. This changes where stains fall in every existing level once; no
@@ -313,8 +313,8 @@ by hand".
 ### Phases
 
 1. **Stain intensity and per-level variation.** `stains` in the format, parse,
-   docs and studio; `panelStains` takes the intensity and level ID; terrain
-   grime and pipe rust follow. Small and self-contained.
+   docs and studio; `panelStains` takes the intensity and level ID; pipe rust
+   follows, and terrain wear takes the level ID. Small and self-contained.
 2. **Panel geometry.** `panelAt` for the course wall and every finish, with the
    course wall's drawing moved onto it. No visible change.
 3. **Missing panel artwork.** `wallMissingPanels.ts`: the void layout, the cut
@@ -378,8 +378,8 @@ Each default is what gets built unless the owner says otherwise.
 
 | # | Decision | Default |
 | --- | --- | --- |
-| D1 | Mix the level's ID into stains, grime, rust and the void layout | Yes. Every existing room's stains move once. |
-| D2 | `stains` also scales terrain grime runs and pipe rust | Yes, since they are all water marks. Chips stay. |
+| D1 | Mix the level's ID into stains, terrain wear, rust and the void layout | Yes. Every existing room's stains move once. |
+| D2 | `stains` also scales pipe rust | Yes, since both are water marks. Terrain wear is age, not water, and stays. |
 | D3 | The void is one continuous world layout rather than composed per hole | Yes, so neighbouring holes join up. |
 | D4 | A small status lamp in a junction box, lit while the room has power and dark during an EMP, or sparks from a broken panel's loose cable | Not built. A lamp is a self-lit pass (night only, with bounds); sparks are an effect with audio. Either can follow as its own change. |
 | D5 | A wall pipe that dives into a hole (ends inside the void) | Not built. Today a wall pipe crossing a hole is drawn over it. |

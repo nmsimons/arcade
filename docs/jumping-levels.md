@@ -1048,6 +1048,15 @@ smooth, pale sage; Steel is a blue-gray with fine, horizontal brush marks.
 The marks repeat on a 240-by-160-unit tile, scattered so they never line up in
 rows or columns across a large mass.
 
+Each material also wears as it would with age, drawn by rule along exposed tops
+and sparsely across faces: stone takes hairline cracks, pitting and chipped
+edges; chalk, softer, is crazed with finer cracks and crumbles more; steel
+rusts in blooms along its tops and in spots across it; earth shows pebbles,
+darker and paler patches of soil, and a crumbling edge. None of it is a water
+mark, so nothing runs down a face. The wear is deterministic, anchored to the
+world, and follows whichever piece is in front, so a stone boulder set into
+earth wears as stone.
+
 The optional `wallFinish` gives the course wall a wing's finish. The course
 wall is a test chamber's precast panelling, a little worn: a fine measurement
 grid, panels that each carry a slightly different faint tint, and soft recessed

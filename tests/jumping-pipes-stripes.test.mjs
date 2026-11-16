@@ -94,6 +94,16 @@ test('a pipe is rerouted by its points, which never land on a neighbour, and kee
 })
 
 /** A Canvas 2D stand-in that keeps the paths it is asked to fill or stroke. */
+/** Every terrain wear style (surfaceDepth.ts WEAR) and the chips. */
+const WEAR_STYLE = /^rgba\((46,48,38|78,84,72|40,44,38|150,84,44|104,54,30|96,76,54|255,246,226|126,126,120),/
+const gritShapes = commands => {
+  const shapes = []
+  for (let i = 0; i < commands.length; i += 1 + ARGUMENTS[commands[i]]) {
+    if (commands[i] === MOVE) shapes.push([])
+    if (commands[i] === MOVE || commands[i] === LINE) shapes.at(-1).push([commands[i + 1], commands[i + 2]])
+  }
+  return shapes
+}
 function recorder() {
   const calls = []
   const ctx = { canvas: { width: 1600, height: 900 }, globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', filter: 'none',
@@ -159,21 +169,23 @@ test('terrain grit is deterministic, stays inside the level, and is quick to pre
   const draw = () => { const { ctx, calls } = recorder(); drawTerrainEdges(ctx, terrain, level); return calls }
   const started = performance.now(), first = draw()
   assert.ok(performance.now() - started < 500, 'the enclosing floor runs far past the level; grit is only laid along the level')
-  const marks = calls => calls.filter(c => c[0] === 'fill' && /^rgba\((46,48,38|40,44,38)/.test(String(c[1]))).map(c => c[2].commands)
-  const grime = first.filter(c => c[0] === 'fill' && String(c[1]).startsWith('rgba(46,48,38')).map(c => c[2])
-  const xs = []
-  for (const run of grime) for (let i = 0, c = run.commands; i < c.length; i += 1 + ARGUMENTS[c[i]]) if (c[i] === MOVE) xs.push(c[i + 1])
-  assert.ok(grime.length > 8 && xs.every(x => x >= -10 && x <= level.width + 10), `grime runs along the level's floor and top (${grime.length})`)
+  // Wear, not water: hairline cracks and pits on stone, each its own fill, then the chips as one path.
+  const marks = calls => calls.filter(c => c[0] === 'fill' && WEAR_STYLE.test(String(c[1]))).map(c => [String(c[1]), c[2].commands])
+  const kinds = marks(first).map(([style]) => style), cracks = kinds.filter(k => k.startsWith('rgba(46,48,38')).length
+  assert.ok(cracks > 2, `cracks along the level's floor and top (${cracks})`)
+  assert.ok(!kinds.some(k => /^rgba\((150,84,44|96,76,54|126,126,120)/.test(k)), 'stone neither rusts nor shows soil')
+  const xs = marks(first).flatMap(([, c]) => c.flatMap((op, i) => op === MOVE ? [c[i + 1]] : []))
+  assert.ok(xs.every(x => x >= -10 && x <= level.width + 10), 'wear stays along the level')
   // Regression: the daylight cache redraws a clipped patch over a cached frame, and Chrome rounds a clipped
-  // translucent path differently along a slanted edge or across a long path of many marks. Grit on level
-  // tops has only upright and level edges, and each grime run is its own fill (surfaceDepth.ts).
-  for (const [commands, grit] of marks(first).map((c, i, all) => [c, i === all.length - 1 ? 'chips' : 'grime'])) {
-    const shapes = []
-    for (let i = 0; i < commands.length; i += 1 + ARGUMENTS[commands[i]]) {
-      if (commands[i] === MOVE) shapes.push([])
-      if (commands[i] === MOVE || commands[i] === LINE) shapes.at(-1).push([commands[i + 1], commands[i + 2]])
+  // translucent path differently along a slanted edge or across a long path of many marks (pits added to the
+  // chips' path broke it). Grit has only upright and level edges, and each mark is its own fill (surfaceDepth.ts).
+  for (const [index, [style, commands]] of marks(first).entries()) {
+    const shapes = gritShapes(commands)
+    if (index < kinds.length - 1) {
+      // A mark fills a small area; several marks in one fill would spread along the top or across the face.
+      const xs = shapes.flat().map(p => p[0]), ys = shapes.flat().map(p => p[1])
+      assert.ok(Math.max(...xs) - Math.min(...xs) < 80 && Math.max(...ys) - Math.min(...ys) < 70, `one mark per fill (${style})`)
     }
-    if (grit === 'grime') assert.ok(shapes.length <= 3, 'one grime run per fill')
     for (const points of shapes) for (let i = 0; i < points.length; i++) {
       const [a, b] = [points[i], points[(i + 1) % points.length]]
       assert.ok(Math.abs(a[0] - b[0]) < 1e-9 || Math.abs(a[1] - b[1]) < 1e-9, `grit edges are upright or level (${a} to ${b})`)
@@ -185,4 +197,28 @@ test('terrain grit is deterministic, stays inside the level, and is quick to pre
   // Wall stripes over a wall: two colours of paint, then the wear.
   const wall = recorder(); drawWallStripes(wall.ctx, [band])
   assert.deepEqual(wall.calls.filter(c => c[0] === 'fill').map(c => c[1]), ['#2f312e', HAZARD_YELLOW, '#e4e4de'])
+})
+
+test('terrain wears by material: stone and chalk crack, steel rusts, earth varies, and a frame draws only the wear it can see', () => {
+  const styles = (platforms, ctx = recorder()) => {
+    const level = parseLevel(room({ platforms })); drawTerrainEdges(ctx.ctx, levelTerrain(level), level)
+    return ctx.calls.filter(c => c[0] === 'fill' && WEAR_STYLE.test(String(c[1]))).map(c => String(c[1]))
+  }
+  const count = (list, prefix) => list.filter(s => s.startsWith(prefix)).length
+  const piece = material => [{ x: 0, y: 400, w: 1200, h: 600, material }]
+  const steel = styles(piece('steel')), earth = styles(piece('earth')), chalk = styles(piece('chalk')), stone = styles(piece('stone'))
+  assert.ok(count(steel, 'rgba(150,84,44') > 3 && count(steel, 'rgba(104,54,30') > 3 && !count(steel, 'rgba(46,48,38'), 'steel rusts and does not crack')
+  assert.ok(count(earth, 'rgba(126,126,120') > 3 && count(earth, 'rgba(96,76,54') + count(earth, 'rgba(255,246,226') > 3
+    && !count(earth, 'rgba(46,48,38') && !count(earth, 'rgba(78,84,72'), 'earth shows pebbles and patches of soil, and does not crack')
+  assert.ok(count(chalk, 'rgba(78,84,72') > count(stone, 'rgba(46,48,38'), 'chalk cracks more than stone')
+  // A stone boulder in front of earth wears as stone: no soil is laid across it.
+  const level = parseLevel(room({ platforms: [{ x: 0, y: 400, w: 1200, h: 600, material: 'earth' }, { x: 300, y: 300, w: 400, h: 400 }] }))
+  const { ctx, calls } = recorder(); drawTerrainEdges(ctx, levelTerrain(level), level)
+  for (const call of calls.filter(c => c[0] === 'fill' && /^rgba\((96,76,54|255,246,226|126,126,120)/.test(String(c[1]))))
+    for (const [x, y] of gritShapes(call[2].commands).flat()) assert.ok(!(x > 302 && x < 698 && y > 302 && y < 698), `soil at ${x},${y} lies on the boulder`)
+  // A frame leaves out wear outside its canvas; a retained layer, recorded without one, keeps it all.
+  const all = recorder(); all.ctx.canvas = null
+  const left = recorder(); left.ctx.canvas = { width: 300, height: 1000 }
+  const whole = styles(piece('earth'), all).length, seen = styles(piece('earth'), left).length
+  assert.ok(seen > 0 && seen < whole * .5, `a 300-unit canvas draws a fraction of the wear (${seen} of ${whole})`)
 })

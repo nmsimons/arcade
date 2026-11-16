@@ -133,9 +133,12 @@ vertical pipe beside a ladder invites a wrong jump. Freight's identity is hazard
 striping and Water's is pipework (see the facility spec), so those wings use them
 most.
 
-The game's look is flat 2D, now with some grit: grime runs down from terrain
-tops, chips break their edges, water stains streak the wall panels, and rust
-weeps from pipe joints. All of it is drawn by rule, sparse and deterministic, so
+The game's look is flat 2D, now with some grit: terrain wears by its material
+(stone and chalk crack and chip, steel rusts, earth shows pebbles and patches of
+soil), water stains streak the wall panels, and rust weeps from pipe joints.
+Terrain wear is age, not water: it never runs down a face like a drip, which
+would read as a leak in every room. Choose a material partly for the wear it
+brings, steel for a neglected machine room or earth for a dug-out space. All of it is drawn by rule, sparse and deterministic, so
 a room looks the same on every visit. Do not add more wear by hand with wall text
 or extra art; dirt that tells the player nothing only adds noise. Missing panels
 that expose the services behind the wall, and a per-level stain intensity, are

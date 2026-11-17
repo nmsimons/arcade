@@ -133,6 +133,7 @@ test('arrows navigate fields until Enter starts editing, then apply or cancel re
   await page.keyboard.press('ArrowUp'); await expect(button(page, 'Draw back wall')).toBeFocused()
   await page.keyboard.press('ArrowUp'); await expect(page.getByRole('combobox', { name: 'Lighting layout', exact: true })).toBeFocused()
   // Combobox arrows choose options; Tab traverses these new World controls.
+  await page.keyboard.press('Shift+Tab'); await expect(page.getByRole('combobox', { name: 'Stains', exact: true })).toBeFocused()
   await page.keyboard.press('Shift+Tab'); await expect(page.getByRole('combobox', { name: 'Wall finish', exact: true })).toBeFocused()
   await page.keyboard.press('Shift+Tab'); await expect(page.getByRole('combobox', { name: 'Background', exact: true })).toBeFocused()
   await page.keyboard.press('Shift+Tab'); await expect(page.locator('summary[aria-label="World"]')).toBeFocused()

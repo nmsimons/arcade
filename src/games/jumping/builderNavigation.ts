@@ -31,6 +31,20 @@ export function focusBuilderControl(element: HTMLElement | undefined) {
   element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
 }
 
+const vertical = (direction: ControllerNavigation) => direction === 'up' || direction === 'down'
+/** The nearest ancestor that scrolls vertically, if any. */
+function scrollPanel(element: HTMLElement) {
+  for (let parent = element.parentElement; parent; parent = parent.parentElement)
+    if (['auto', 'scroll'].includes(getComputedStyle(parent).overflowY)) return parent
+  return null
+}
+/** Whether an element sits in a sticky header or footer of its panel, which does not scroll with the rows. */
+function stuck(element: HTMLElement, panel: HTMLElement) {
+  for (let parent: HTMLElement | null = element; parent && parent !== panel; parent = parent.parentElement)
+    if (getComputedStyle(parent).position === 'sticky') return true
+  return false
+}
+
 function reachable(element: HTMLElement, current: HTMLElement) {
   const rect = element.getBoundingClientRect()
   for (let parent = element.parentElement; parent; parent = parent.parentElement) {
@@ -60,8 +74,15 @@ export function navigateBuilder(root: HTMLElement, direction: ControllerNavigati
     if (next !== current) next.click()
     return
   }
-  const next = directionalNeighbor(current.getBoundingClientRect(), items.filter(item => item !== current && reachable(item, current))
-    .map(item => ({ item, rect: item.getBoundingClientRect(), preferred: item.getAttribute('aria-selected') === 'true' })), direction)
+  const candidates = items.filter(item => item !== current && reachable(item, current))
+    .map(item => ({ item, rect: item.getBoundingClientRect(), preferred: item.getAttribute('aria-selected') === 'true' }))
+  // Up and down reveal the next row in the current scroll panel before leaving it: a row scrolled out of view
+  // is further away on screen than a sticky header or the controls beyond the panel's edge, but it is the next
+  // one in the panel.
+  const panel = vertical(direction) ? scrollPanel(current) : null
+  const rows = panel ? candidates.filter(({ item }) => panel.contains(item) && !stuck(item, panel)) : []
+  const next = (rows.length ? directionalNeighbor(current.getBoundingClientRect(), rows, direction) : undefined)
+    || directionalNeighbor(current.getBoundingClientRect(), candidates, direction)
   if (!next) return
   focusBuilderControl(next)
   if (next.getAttribute('role') === 'tab') next.click()

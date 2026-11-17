@@ -47,16 +47,6 @@
       "x": 1340,
       "y": 720,
       "course": "19f66cc5-2de3-4a7f-9a4d-7df4092a7354",
-      "power": "switched",
-      "targets": [
-        "843ca4fd-1054-47d1-982f-cd6b385b5d2c"
-      ]
-    },
-    {
-      "id": "843ca4fd-1054-47d1-982f-cd6b385b5d2c",
-      "x": 1685,
-      "y": 720,
-      "course": "ab914f1b-985f-4992-9e03-44506d00cb33",
       "power": "switched"
     }
   ],

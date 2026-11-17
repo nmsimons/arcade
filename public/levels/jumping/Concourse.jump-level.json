@@ -26,7 +26,8 @@
       "w": 480,
       "h": 40,
       "zIndex": 2,
-      "material": "steel"
+      "material": "steel",
+      "trim": "hazard"
     },
     {
       "x": 100,
@@ -1064,7 +1065,14 @@
       "mode": "touch"
     }
   ],
-  "robots": [],
+  "robots": [
+    {
+      "x": 1160,
+      "y": 1400,
+      "left": 790,
+      "right": 1210
+    }
+  ],
   "courseDoors": [
     {
       "id": "dispatch-door",
@@ -1178,22 +1186,23 @@
     {
       "name": "Evaluation board",
       "id": "evaluation",
-      "x": 770,
+      "x": 820,
       "y": 950,
-      "w": 460,
-      "h": 250
+      "w": 360,
+      "h": 280
     }
   ],
   "texts": [
     {
-      "x": 790,
-      "y": 840,
-      "w": 420,
-      "h": 70,
+      "x": 1101.0152826994004,
+      "y": 187.7726246545999,
+      "w": 105,
+      "h": 350,
       "text": "L.A.B.\nexperiments",
       "fontSize": 28,
       "align": "center",
-      "style": "lab-stamp"
+      "style": "lab-stamp",
+      "rotation": -5
     },
     {
       "x": 130,
@@ -1302,8 +1311,8 @@
   ],
   "loosePanels": [
     {
-      "x": 1140,
-      "y": 360
+      "x": 1095,
+      "y": 345
     }
   ],
   "gravityPlates": [

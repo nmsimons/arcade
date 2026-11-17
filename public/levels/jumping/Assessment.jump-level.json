@@ -2,13 +2,13 @@
   "version": 1,
   "id": "facility-assessment",
   "name": "Assessment",
-  "width": 800,
-  "height": 400,
+  "width": 1100,
+  "height": 700,
   "platforms": [],
   "entrance": {
     "name": "Assessment entrance",
     "x": 75,
-    "y": 400
+    "y": 700
   },
   "checkpoints": [],
   "climbables": {
@@ -16,7 +16,8 @@
     "ropes": []
   },
   "timing": "untimed",
-  "floor": 400,
+  "wallFinish": "tile",
+  "floor": 700,
   "kind": "hub",
   "props": [],
   "mechanisms": [],
@@ -26,26 +27,63 @@
     {
       "id": "door-world-i",
       "x": 220,
-      "y": 400,
+      "y": 700,
       "course": "9c86c84f-5cd0-4cfa-9c78-b257fe402ab1"
+    },
+    {
+      "id": "6972ec19-815b-4a4c-af22-d7ff641ab4fb",
+      "x": 440,
+      "y": 700,
+      "course": "ab914f1b-985f-4992-9e03-44506d00cb33"
+    },
+    {
+      "id": "37e960c2-10fb-4dc5-83d1-4f725e2922d4",
+      "x": 660,
+      "y": 700,
+      "course": "c1b4d9a2-5e7f-4a63-9b1d-7f2e8c0a4d16"
+    },
+    {
+      "id": "6d8b4937-8eb9-489f-9990-569cd1f9e59f",
+      "x": 880,
+      "y": 700,
+      "course": "b582a759-5ff2-4d06-874e-2adff6d09a70"
     }
   ],
   "bulkheads": [
     {
       "id": "assessment-to-concourse",
       "x": 75,
-      "y": 400,
+      "y": 700,
       "to": "facility-concourse"
     }
   ],
   "evaluationBoards": [
     {
       "id": "e912e726-3130-4a3f-92c4-37534cef1d84",
-      "x": 170,
-      "y": 15,
-      "w": 460,
-      "h": 250
+      "x": 346.25,
+      "y": 210,
+      "w": 407.5,
+      "h": 280
     }
   ],
-  "texts": []
+  "texts": [
+    {
+      "x": 85,
+      "y": 455,
+      "w": 135,
+      "h": 50,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp",
+      "rotation": 0
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 915,
+      "y": 430,
+      "hang": "right"
+    }
+  ]
 }

@@ -264,7 +264,7 @@ export function drawTerrainEdges(ctx: CanvasRenderingContext2D, platforms: reado
   const r = relief(platforms, level)
   // A frame leaves out marks wholly outside its canvas: a large earth level has thousands. A retained
   // layer, recorded without a canvas, keeps them all.
-  let seen = (_: Box) => true
+  let seen: (box: Box) => boolean = () => true
   if (ctx.canvas && ctx.getTransform) {
     const t = ctx.getTransform(), x0 = -t.e / t.a, x1 = (ctx.canvas.width - t.e) / t.a, y0 = -t.f / t.d, y1 = (ctx.canvas.height - t.f) / t.d
     const view = { x0: Math.min(x0, x1) - 2, x1: Math.max(x0, x1) + 2, y0: Math.min(y0, y1) - 2, y1: Math.max(y0, y1) + 2 }

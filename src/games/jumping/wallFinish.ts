@@ -142,7 +142,8 @@ export class JointLines {
     ctx.fillStyle = style
     for (const [lines, levelLine] of [[this.level, true], [this.upright, false]] as const) for (const list of lines.values()) {
       list.sort((a, b) => a[1] - b[1])
-      let [at, from, to] = list[0]
+      const at = list[0][0]
+      let [, from, to] = list[0]
       const draw = () => { if (levelLine) ctx.fillRect(from, at - width / 2, to - from, width); else ctx.fillRect(at - width / 2, from, width, to - from) }
       for (const [, a, b] of list.slice(1)) {
         if (a <= to + 1e-6) to = Math.max(to, b)

@@ -24,7 +24,7 @@ export const MAX_PIPE_POINTS = 16
 
 type Point = readonly [number, number]
 const noise = (x: number, y: number) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n) }
-const COLORS = { body: '#5b655f', lit: '#7f8b84', shade: '#424a45', flange: '#4b544e', flangeLit: '#8a958e', strap: '#373e3a', bolt: '#9aa49d', rust: 'rgba(104,66,36,.3)' }
+const COLORS = { body: '#89908c', lit: '#a3aba6', shade: '#777d79', flange: '#7d8480', flangeLit: '#abb3ae', strap: '#6f7471', bolt: '#b6bdb8', rust: 'rgba(104,66,36,.3)' }
 
 /** A straight length between elbows: where it starts and ends, its direction and length. */
 interface Run { from: Point; to: Point; ux: number; uy: number; length: number }

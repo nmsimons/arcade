@@ -127,7 +127,7 @@ test('every bolt is its own circle: none is joined to the last by a filled wedge
   // filled long wedges across the pipe (reported on the first review sheet).
   const { ctx, calls } = recorder()
   drawWallPipes(ctx, [pipe])
-  const bolts = calls.find(c => c[0] === 'fill' && c[1] === '#9aa49d')[2], ops = subpaths(bolts)
+  const bolts = calls.find(c => c[0] === 'fill' && c[1] === '#b6bdb8')[2], ops = subpaths(bolts)
   assert.ok(ops.filter(op => op === ELLIPSE).length >= 4)
   ops.forEach((op, i) => { if (op === ELLIPSE) assert.equal(ops[i - 1], MOVE, `bolt ${i} starts its own subpath`) })
   ops.forEach((op, i) => { if (op === ELLIPSE) assert.equal(ops[i + 1], CLOSE, `bolt ${i} is closed`) })

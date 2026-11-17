@@ -71,8 +71,8 @@ test('Light stains less of the wall than Heavy, more faintly, and None stains no
     assert.ok(alpha(heavy.styles[0]) > alpha(light.styles[0]), `${name}: darker when Heavy`)
     assert.equal(heavy.styles.length, 1, `${name}: one ink`)
   }
-  // Heavy is the look every room had before: the course wall's .075.
-  assert.equal(course('heavy').styles[0], 'rgba(74,78,62,0.075)')
+  // Heavy is lighter than the look every room had before the setting (the course wall's .075): .85 of it.
+  assert.equal(course('heavy').styles[0], 'rgba(74,78,62,0.064)')
 })
 
 test('every stain runs from the bottom of a tile, the joint at the top of its panel, and stays within that panel', () => {

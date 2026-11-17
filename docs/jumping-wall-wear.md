@@ -161,10 +161,13 @@ None, Light or Heavy, the default, saved by leaving it out.
 | --- | --- | --- | --- | --- | --- |
 | `"none"` | None | none | 0 | | |
 | `"light"` | Light | 1 in 6 | 1 | 0.15 to 0.4 | × 0.75 |
-| left out | Heavy | 1 in 3 | 1 or 2 | 0.18 to 0.68 | × 1 |
+| left out | Heavy | 1 in 4 | 1 or 2 | 0.16 to 0.55 | × 0.85 |
 
 Opacity multiplies the stain fill on the course wall (`.075`) and on a finish
-(`.08`, `× 1.8` at night). Heavy is the look every room had before the setting.
+(`.08`, `× 1.8` at night). Heavy began as the look every room had before the
+setting (1 in 3 panels, 0.18 to 0.68, × 1, pipe rust at three joints in four);
+that was still too heavy, and it now sits about midway between that and Light,
+with pipe rust at 0.6 of joints and 0.85 of the length.
 
 As first built there were five levels: None, Light, Normal, Heavy and Soaked,
 with the heavier two running streaks past the joint below and, at Soaked, giving
@@ -201,7 +204,7 @@ default case takes a fresh ID, and so fresh stains, on every run.
 Stains are what water leaves, so the setting also scales the other water mark
 by the same steps:
 
-- **Rust weeping from pipe joints:** the chance per joint (today 3 in 4) and the
+- **Rust weeping from pipe joints:** the chance per joint (at Heavy, 0.6) and the
   streak's length.
 - **L.A.B. wall stamps** (`stampWear.ts`): their ink wears with the room. Chips,
   specks and a few scuffs of paint are gone, and at Heavy some patches have

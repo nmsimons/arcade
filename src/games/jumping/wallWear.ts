@@ -27,7 +27,7 @@ interface StainStyle {
 const STYLES: Record<StainLevel, StainStyle> = {
   none: { share: 0, least: 0, most: 0, shortest: 0, longest: 0, opacity: 0, rust: 0, rustLength: 0 },
   light: { share: 1 / 6, least: 1, most: 1, shortest: .15, longest: .4, opacity: .75, rust: .35, rustLength: .65 },
-  heavy: { share: 1 / 3, least: 1, most: 2, shortest: .18, longest: .68, opacity: 1, rust: .75, rustLength: 1 },
+  heavy: { share: 1 / 4, least: 1, most: 2, shortest: .16, longest: .55, opacity: .85, rust: .6, rustLength: .85 },
 }
 
 interface Rect { x: number; y: number; w: number; h: number }

@@ -1,0 +1,870 @@
+{
+  "version": 1,
+  "id": "ef2f843c-b9ee-44e2-befe-3ff609608009",
+  "name": "Proficiency",
+  "width": 7239,
+  "height": 1300,
+  "floor": 1300,
+  "wallFinish": "tile",
+  "platforms": [
+    {
+      "x": 0,
+      "y": 1010,
+      "w": 460,
+      "h": 290,
+      "material": "stone"
+    },
+    {
+      "x": 725,
+      "y": 400,
+      "w": 120,
+      "h": 210,
+      "material": "stone"
+    },
+    {
+      "x": 1380,
+      "y": 1010,
+      "w": 270,
+      "h": 290,
+      "material": "stone"
+    },
+    {
+      "x": 2130,
+      "y": 730,
+      "w": 140,
+      "h": 240,
+      "material": "steel"
+    },
+    {
+      "x": 1650,
+      "y": 1050,
+      "w": 1340,
+      "h": 250,
+      "material": "stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "w": 2830,
+      "h": 400,
+      "material": "stone"
+    },
+    {
+      "x": 2770,
+      "y": 400,
+      "w": 60,
+      "h": 320,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "x": 2990,
+      "y": 600,
+      "w": 4249,
+      "h": 700,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          450,
+          0
+        ],
+        [
+          450,
+          400
+        ],
+        [
+          1090,
+          400
+        ],
+        [
+          1090,
+          0
+        ],
+        [
+          4249,
+          0
+        ],
+        [
+          4249,
+          700
+        ],
+        [
+          0,
+          700
+        ]
+      ]
+    },
+    {
+      "x": 3280,
+      "y": 0,
+      "w": 900,
+      "h": 260,
+      "material": "stone"
+    },
+    {
+      "x": 3280,
+      "y": 260,
+      "w": 900,
+      "h": 40,
+      "material": "steel"
+    },
+    {
+      "x": 3930,
+      "y": 300,
+      "w": 40,
+      "h": 70,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ],
+        [
+          40,
+          70
+        ],
+        [
+          24,
+          70
+        ],
+        [
+          0,
+          46
+        ]
+      ]
+    },
+    {
+      "x": 4380,
+      "y": 140,
+      "w": 810,
+      "h": 130,
+      "material": "steel"
+    },
+    {
+      "x": 4925,
+      "y": 340,
+      "w": 60,
+      "h": 140,
+      "material": "steel"
+    },
+    {
+      "x": 4925,
+      "y": 480,
+      "w": 485,
+      "h": 120,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          285,
+          0
+        ],
+        [
+          485,
+          120
+        ],
+        [
+          0,
+          120
+        ]
+      ]
+    },
+    {
+      "x": 5145,
+      "y": 270,
+      "w": 45,
+      "h": 158,
+      "material": "steel"
+    },
+    {
+      "x": 6409,
+      "y": 0,
+      "w": 60,
+      "h": 520,
+      "material": "steel"
+    }
+  ],
+  "entrance": {
+    "x": 120,
+    "y": 1010
+  },
+  "goal": {
+    "x": 7239,
+    "y": 600,
+    "flipX": true,
+    "id": "exit",
+    "power": "switched"
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [
+      {
+        "x": 480,
+        "top": 1010,
+        "bottom": 1300,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 1360,
+        "top": 1010,
+        "bottom": 1300,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 2970,
+        "top": 600,
+        "bottom": 1050,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 3460,
+        "top": 600,
+        "bottom": 1000,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 5127,
+        "top": 140,
+        "bottom": 370,
+        "platform": -1,
+        "side": 1
+      }
+    ],
+    "ropes": [
+      {
+        "name": "Pit rope",
+        "x": 785,
+        "y": 610,
+        "length": 300,
+        "segments": 37
+      }
+    ]
+  },
+  "times": {
+    "a": 21,
+    "b": 30,
+    "c": 48,
+    "d": 85
+  },
+  "props": [
+    {
+      "name": "Freight crate",
+      "kind": "box",
+      "x": 1920,
+      "y": 1050,
+      "size": 140,
+      "branded": true
+    }
+  ],
+  "mechanisms": [
+    {
+      "id": "freight-gate",
+      "name": "Freight gate",
+      "kind": "gate",
+      "x": 2190,
+      "y": 970,
+      "w": 20,
+      "h": 80,
+      "travel": 80
+    },
+    {
+      "id": "puzzle-door",
+      "name": "Puzzle door",
+      "kind": "gate",
+      "x": 6429,
+      "y": 520,
+      "w": 20,
+      "h": 80,
+      "travel": 80,
+      "switchLogic": "and"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Freight plate",
+      "x": 1670,
+      "y": 1050,
+      "w": 100,
+      "mode": "weight",
+      "behavior": "pressure",
+      "targets": [
+        "freight-gate"
+      ],
+      "showWires": true,
+      "wireHeight": 620
+    },
+    {
+      "name": "Bit 8",
+      "x": 5589,
+      "y": 600,
+      "w": 110,
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false,
+      "targets": [
+        "lamp-8",
+        "not-8"
+      ]
+    },
+    {
+      "name": "Bit 4",
+      "x": 5769,
+      "y": 600,
+      "w": 110,
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": true,
+      "targets": [
+        "lamp-4",
+        "puzzle-door"
+      ]
+    },
+    {
+      "name": "Bit 2",
+      "x": 5949,
+      "y": 600,
+      "w": 110,
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false,
+      "targets": [
+        "lamp-2",
+        "puzzle-door"
+      ]
+    },
+    {
+      "name": "Bit 1",
+      "x": 6129,
+      "y": 600,
+      "w": 110,
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": true,
+      "targets": [
+        "lamp-1",
+        "not-1"
+      ]
+    },
+    {
+      "name": "Bonus coin meter",
+      "mode": "coins",
+      "display": "digital",
+      "x": 6619,
+      "y": 318,
+      "w": 120,
+      "threshold": 17,
+      "targets": [
+        "bonus-top",
+        "bonus-bottom",
+        "bonus-left",
+        "bonus-right"
+      ]
+    },
+    {
+      "name": "Exit coin meter",
+      "mode": "coins",
+      "display": "digital",
+      "x": 7079,
+      "y": 410,
+      "w": 120,
+      "threshold": 6,
+      "targets": [
+        "exit"
+      ]
+    },
+    {
+      "name": "Exit coin meter at the start",
+      "mode": "coins",
+      "display": "digital",
+      "x": 310,
+      "y": 660,
+      "w": 120,
+      "threshold": 6,
+      "targets": [
+        "exit"
+      ]
+    }
+  ],
+  "robots": [
+    {
+      "x": 4845,
+      "y": 600,
+      "left": 4820,
+      "right": 4870
+    }
+  ],
+  "timers": [
+    {
+      "x": 7079,
+      "y": 250
+    },
+    {
+      "x": 170,
+      "y": 660
+    }
+  ],
+  "pickups": [
+    {
+      "kind": "coin",
+      "x": 600,
+      "y": 800
+    },
+    {
+      "kind": "coin",
+      "x": 880,
+      "y": 790
+    },
+    {
+      "kind": "coin",
+      "x": 1125,
+      "y": 535
+    },
+    {
+      "kind": "coin",
+      "x": 1300,
+      "y": 665
+    },
+    {
+      "kind": "coin",
+      "x": 1360,
+      "y": 1155
+    },
+    {
+      "kind": "coin",
+      "x": 1925,
+      "y": 865
+    },
+    {
+      "kind": "coin",
+      "x": 2060,
+      "y": 715
+    },
+    {
+      "kind": "coin",
+      "x": 2200,
+      "y": 690
+    },
+    {
+      "kind": "coin",
+      "x": 2370,
+      "y": 745
+    },
+    {
+      "kind": "coin",
+      "x": 2240,
+      "y": 1010
+    },
+    {
+      "kind": "coin",
+      "x": 2895,
+      "y": 865
+    },
+    {
+      "kind": "coin",
+      "x": 2900,
+      "y": 725
+    },
+    {
+      "kind": "coin",
+      "x": 2915,
+      "y": 610
+    },
+    {
+      "kind": "coin",
+      "x": 2990,
+      "y": 369
+    },
+    {
+      "kind": "coin",
+      "x": 2970,
+      "y": 1010
+    },
+    {
+      "kind": "coin",
+      "x": 3600,
+      "y": 334
+    },
+    {
+      "kind": "coin",
+      "x": 3680,
+      "y": 334
+    },
+    {
+      "kind": "coin",
+      "x": 3845,
+      "y": 450
+    },
+    {
+      "kind": "coin",
+      "x": 3950,
+      "y": 475
+    },
+    {
+      "kind": "coin",
+      "x": 4050,
+      "y": 800
+    },
+    {
+      "kind": "emp",
+      "x": 4520,
+      "y": 500
+    },
+    {
+      "kind": "coin",
+      "x": 4470,
+      "y": 500
+    },
+    {
+      "kind": "coin",
+      "x": 4570,
+      "y": 500
+    },
+    {
+      "kind": "coin",
+      "x": 5193,
+      "y": 454
+    },
+    {
+      "kind": "coin",
+      "x": 5220,
+      "y": 454
+    },
+    {
+      "kind": "coin",
+      "x": 5127,
+      "y": 290
+    },
+    {
+      "kind": "coin",
+      "x": 6499,
+      "y": 560
+    },
+    {
+      "kind": "time-bonus",
+      "seconds": 3,
+      "x": 6679,
+      "y": 439
+    }
+  ],
+  "texts": [
+    {
+      "x": 440,
+      "y": 500,
+      "w": 260,
+      "h": 56,
+      "text": "BOOT CAMP",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 1630,
+      "y": 520,
+      "w": 300,
+      "h": 56,
+      "text": "FREIGHT",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 2370,
+      "y": 520,
+      "w": 380,
+      "h": 56,
+      "text": "CONSTRUCTION",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 3010,
+      "y": 400,
+      "w": 240,
+      "h": 56,
+      "text": "GRAVITY",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 4140,
+      "y": 400,
+      "w": 220,
+      "h": 56,
+      "text": "SECURITY",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 4995,
+      "y": 302,
+      "w": 120,
+      "h": 40,
+      "text": "LOWER RUNGS\nREMOVED",
+      "fontSize": 13,
+      "align": "center"
+    },
+    {
+      "x": 5614,
+      "y": 350,
+      "w": 60,
+      "h": 50,
+      "text": "8",
+      "fontSize": 36,
+      "align": "center"
+    },
+    {
+      "x": 5794,
+      "y": 350,
+      "w": 60,
+      "h": 50,
+      "text": "4",
+      "fontSize": 36,
+      "align": "center"
+    },
+    {
+      "x": 5974,
+      "y": 350,
+      "w": 60,
+      "h": 50,
+      "text": "2",
+      "fontSize": 36,
+      "align": "center"
+    },
+    {
+      "x": 6154,
+      "y": 350,
+      "w": 60,
+      "h": 50,
+      "text": "1",
+      "fontSize": 36,
+      "align": "center"
+    },
+    {
+      "x": 6259,
+      "y": 338,
+      "w": 120,
+      "h": 67,
+      "text": "= 6",
+      "fontSize": 48,
+      "align": "center"
+    },
+    {
+      "x": 5259,
+      "y": 300,
+      "w": 220,
+      "h": 56,
+      "text": "PUZZLES",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 310,
+      "y": 624,
+      "w": 120,
+      "h": 30,
+      "text": "EXIT",
+      "fontSize": 22,
+      "align": "center"
+    },
+    {
+      "x": 3020,
+      "y": 470,
+      "w": 230,
+      "h": 40,
+      "text": "jump. it lifts.",
+      "fontSize": 26,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": -6
+    },
+    {
+      "x": 5339,
+      "y": 404,
+      "w": 220,
+      "h": 40,
+      "text": "lit ones add up",
+      "fontSize": 26,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": -5
+    },
+    {
+      "x": 40,
+      "y": 548,
+      "w": 250,
+      "h": 66,
+      "text": "GRADUATION LANE\nEXAMINER: NO RESPONSE",
+      "fontSize": 16,
+      "align": "left",
+      "style": "terminal"
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "ceiling-field",
+      "name": "Ceiling field",
+      "x": 3280,
+      "y": 300,
+      "w": 700,
+      "h": 180,
+      "gravity": -1,
+      "power": "always",
+      "ceiling": true
+    },
+    {
+      "id": "ceiling-field-deep",
+      "name": "Ceiling field over the chasm",
+      "x": 3600,
+      "y": 300,
+      "w": 380,
+      "h": 300,
+      "gravity": -1,
+      "power": "always",
+      "ceiling": true
+    },
+    {
+      "id": "chasm-lift",
+      "name": "Chasm lift",
+      "x": 3980,
+      "y": 530,
+      "w": 100,
+      "h": 470,
+      "gravity": -1.0,
+      "power": "always"
+    }
+  ],
+  "forceFields": [
+    {
+      "id": "security-field",
+      "name": "Security field",
+      "x": 5159,
+      "y": 428,
+      "w": 12,
+      "h": 52,
+      "orientation": "vertical",
+      "power": "always"
+    },
+    {
+      "id": "bonus-top",
+      "name": "Bonus cage top",
+      "x": 6634,
+      "y": 388,
+      "w": 90,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "id": "bonus-bottom",
+      "name": "Bonus cage bottom",
+      "x": 6634,
+      "y": 471,
+      "w": 90,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "id": "bonus-left",
+      "name": "Bonus cage left",
+      "x": 6634,
+      "y": 388,
+      "w": 12,
+      "h": 95,
+      "orientation": "vertical",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "id": "bonus-right",
+      "name": "Bonus cage right",
+      "x": 6712,
+      "y": 388,
+      "w": 12,
+      "h": 95,
+      "orientation": "vertical",
+      "power": "switched",
+      "switchReversed": true
+    }
+  ],
+  "wallLights": [
+    {
+      "id": "lamp-8",
+      "name": "Lamp 8",
+      "x": 5644,
+      "y": 430
+    },
+    {
+      "id": "lamp-4",
+      "name": "Lamp 4",
+      "x": 5824,
+      "y": 430
+    },
+    {
+      "id": "lamp-2",
+      "name": "Lamp 2",
+      "x": 6004,
+      "y": 430
+    },
+    {
+      "id": "lamp-1",
+      "name": "Lamp 1",
+      "x": 6184,
+      "y": 430
+    }
+  ],
+  "logicRelays": [
+    {
+      "id": "not-8",
+      "name": "Not 8",
+      "x": 5644,
+      "y": 120,
+      "switchReversed": true,
+      "targets": [
+        "puzzle-door"
+      ]
+    },
+    {
+      "id": "not-1",
+      "name": "Not 1",
+      "x": 6184,
+      "y": 120,
+      "switchReversed": true,
+      "targets": [
+        "puzzle-door"
+      ]
+    }
+  ],
+  "loosePanels": [
+    {
+      "name": "Checkpoint service panel",
+      "x": 4725,
+      "y": 540,
+      "contents": "electrical"
+    }
+  ],
+  "stripes": [
+    {
+      "name": "Jump zone",
+      "x": 3690,
+      "y": 300,
+      "w": 80,
+      "h": 28
+    }
+  ]
+}

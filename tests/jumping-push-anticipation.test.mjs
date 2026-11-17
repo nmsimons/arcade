@@ -102,12 +102,15 @@ test('a close falling approach prepares unloaded hands without acquiring support
 })
 
 test('an unloaded falling reach transfers its whole outgoing rig into a brief ball slide',()=>{
- const level={...blankTrial(),name:'Ball descent',width:1000,height:620,floor:620,
+ const level=ballX=>({...blankTrial(),name:'Ball descent',width:1000,height:620,floor:620,
   entrance:{x:740,y:420},goal:{x:150,y:620},
   platforms:[{x:600,y:420,w:160,h:120,polygon:[[0,80],[120,80],[120,0],[160,0],[160,120],[0,120]]}],
-  props:[{kind:'ball',x:666,y:500,size:100}]}
+  props:[{kind:'ball',x:ballX,y:500,size:100}]})
  for(const walking of [false,true]){
-  const run=createRun(level)
+  // A walker drops straight down the wall under the lip, as beside a rectangle, instead of
+  // being pushed out over the ball. Its ball rests against that wall so the reach still
+  // becomes one sustained slide; 4 units out, the walker only grazes the ball as it rolls off.
+  const run=createRun(level(walking?670:666))
   let previous,transitions=0,reachTransfers=0
   for(let tick=0;tick<210;tick++){
    const move=tick<8?0:tick<8+(walking?120:42)?-(walking?TUNING.walkSpeed/TUNING.runSpeed:1):0

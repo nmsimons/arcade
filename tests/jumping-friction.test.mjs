@@ -134,21 +134,24 @@ test('a slide continues across a gentler surface until friction restores a stabl
   }
 })
 
-test('sliding momentum can defeat static footing, then settle without a mode flicker', () => {
+test('sliding momentum defeats static footing only where friction cannot stop it, and settles without a mode flicker', () => {
   for (const direction of [-1, 1]) for (const degrees of [20, 40]) for (const polygon of [false, true]) {
     const shape = ramp(direction * degrees, polygon), p = on(shape), angle = direction * degrees * Math.PI / 180
     Object.assign(p, { grounded: false, vx: direction * 200 * Math.cos(angle), vy: direction * 200 * Math.sin(angle),
       sliding: { angle, amount: 1, time: 1, active: true, x: p.x, y: p.y } })
-    let stopped = false
+    let landed = false
     for (let i = 0; i < 120; i++) {
       tick(p, shape)
       if (degrees === 40) assert.ok(p.sliding?.active && !p.grounded, 'existing sliding momentum prevents instant grip')
-      else if (p.grounded || stopped) {
-        stopped = true
-        assert.ok(p.grounded && !p.sliding?.active && Math.abs(p.vx) < .01)
+      else {
+        // Sliding friction outweighs the pull of a 20 degree face, so the slip would come to
+        // rest there: the feet take hold on the first tick and the body brakes as a runner does.
+        assert.ok(p.grounded && !p.sliding?.active, `footing is taken at once and never lost again (tick ${i})`)
+        if (!landed) assert.ok(p.vx * direction > 150, `the landing keeps the speed the slip brought (${p.vx.toFixed(0)})`)
+        landed = true
       }
     }
-    if (degrees === 20) assert.ok(stopped)
+    if (degrees === 20) assert.ok(landed && Math.abs(p.vx) < .01, `the body comes to rest (${p.vx.toFixed(2)})`)
     else assert.ok(p.vx * direction > 300)
   }
 })

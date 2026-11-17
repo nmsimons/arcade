@@ -1,0 +1,452 @@
+{
+  "version": 1,
+  "id": "809e8f88-ba3a-4de9-8333-b5789852bdfd",
+  "name": "Four Lamps",
+  "width": 1800,
+  "height": 800,
+  "platforms": [
+    {
+      "name": "Entry balcony",
+      "x": 0,
+      "y": 600,
+      "w": 360,
+      "h": 20,
+      "material": "stone"
+    },
+    {
+      "name": "Pier C",
+      "x": 880,
+      "y": 600,
+      "w": 180,
+      "h": 20,
+      "material": "steel"
+    },
+    {
+      "name": "Balcony D",
+      "x": 1580,
+      "y": 600,
+      "w": 220,
+      "h": 20,
+      "material": "stone"
+    },
+    {
+      "name": "Ledge B lip",
+      "x": 28,
+      "y": 280,
+      "w": 117,
+      "h": 20,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "name": "Ledge B",
+      "x": 68,
+      "y": 280,
+      "w": 332,
+      "h": 20,
+      "material": "steel"
+    },
+    {
+      "name": "Exit ledge",
+      "x": 1472,
+      "y": 280,
+      "w": 328,
+      "h": 20,
+      "material": "steel"
+    },
+    {
+      "name": "Ladder casing, left",
+      "x": 255,
+      "y": 300,
+      "w": 30,
+      "h": 220,
+      "material": "steel"
+    },
+    {
+      "name": "Ladder casing, right",
+      "x": 1590,
+      "y": 300,
+      "w": 30,
+      "h": 220,
+      "material": "steel"
+    },
+    {
+      "name": "Ledge B lip",
+      "x": 0,
+      "y": 600,
+      "w": 117,
+      "h": 20,
+      "material": "stone",
+      "trim": "hazard"
+    },
+    {
+      "name": "Ledge B lip",
+      "x": 880,
+      "y": 600,
+      "w": 155,
+      "h": 20,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "name": "Ledge B lip",
+      "x": 1690,
+      "y": 600,
+      "w": 110,
+      "h": 20,
+      "material": "stone",
+      "trim": "hazard"
+    }
+  ],
+  "entrance": {
+    "x": 200,
+    "y": 600
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [
+      {
+        "x": 300,
+        "top": 265,
+        "bottom": 800,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 1045,
+        "top": 585,
+        "bottom": 800,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "x": 1635,
+        "top": 265,
+        "bottom": 800,
+        "platform": -1,
+        "side": 1
+      }
+    ],
+    "ropes": []
+  },
+  "wallFinish": "tile",
+  "floor": 800,
+  "goal": {
+    "x": 1800,
+    "y": 280,
+    "flipX": true,
+    "id": "exit",
+    "power": "switched"
+  },
+  "times": {
+    "a": 12,
+    "b": 17,
+    "c": 45,
+    "d": 95
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "name": "A",
+      "wireHeight": 590,
+      "wireTerminal": {
+        "x": 18,
+        "y": 574
+      },
+      "x": 10,
+      "y": 600,
+      "w": 100,
+      "targets": [
+        "l1",
+        "t"
+      ],
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": true
+    },
+    {
+      "name": "B",
+      "wireHeight": 455,
+      "wireTerminal": {
+        "x": 88,
+        "y": 318
+      },
+      "x": 38,
+      "y": 280,
+      "w": 100,
+      "targets": [
+        "l1",
+        "l2"
+      ],
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "C",
+      "wireHeight": 568,
+      "wireTerminal": {
+        "x": 970,
+        "y": 574
+      },
+      "x": 890,
+      "y": 600,
+      "w": 135,
+      "targets": [
+        "l2",
+        "l3",
+        "t"
+      ],
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "D",
+      "wireHeight": 455,
+      "x": 1695,
+      "y": 600,
+      "w": 100,
+      "targets": [
+        "l3",
+        "l4"
+      ],
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "x": 1600,
+      "y": 30
+    }
+  ],
+  "pickups": [],
+  "texts": [
+    {
+      "x": 728,
+      "y": 271,
+      "w": 40,
+      "h": 30,
+      "text": "1",
+      "fontSize": 22,
+      "align": "right"
+    },
+    {
+      "x": 848,
+      "y": 271,
+      "w": 40,
+      "h": 30,
+      "text": "2",
+      "fontSize": 22,
+      "align": "right"
+    },
+    {
+      "x": 1052,
+      "y": 271,
+      "w": 40,
+      "h": 30,
+      "text": "3",
+      "fontSize": 22,
+      "align": "left"
+    },
+    {
+      "x": 1172,
+      "y": 271,
+      "w": 40,
+      "h": 30,
+      "text": "4",
+      "fontSize": 22,
+      "align": "left"
+    },
+    {
+      "x": 374,
+      "y": 622,
+      "w": 48,
+      "h": 48,
+      "text": "1",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 1074,
+      "y": 622,
+      "w": 48,
+      "h": 48,
+      "text": "2",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 1293,
+      "y": 482,
+      "w": 48,
+      "h": 48,
+      "text": "3",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 514,
+      "y": 482,
+      "w": 48,
+      "h": 48,
+      "text": "4",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "x": 825,
+      "y": 215,
+      "w": 300,
+      "h": 34,
+      "text": "DOOR INTERLOCK",
+      "fontSize": 26,
+      "align": "center"
+    },
+    {
+      "x": 25,
+      "y": 20,
+      "w": 165,
+      "h": 65,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 660,
+      "y": 180,
+      "hang": "left"
+    }
+  ],
+  "forceFields": [
+    {
+      "name": "Bridge 1",
+      "id": "f1",
+      "x": 360,
+      "y": 600,
+      "w": 520,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched"
+    },
+    {
+      "name": "Bridge 2",
+      "id": "f2",
+      "x": 1060,
+      "y": 600,
+      "w": 520,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched"
+    },
+    {
+      "name": "Rung 3",
+      "id": "f3",
+      "x": 1065,
+      "y": 460,
+      "w": 290,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched"
+    },
+    {
+      "name": "Rung 4",
+      "id": "f4",
+      "x": 500,
+      "y": 460,
+      "w": 350,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched"
+    }
+  ],
+  "wallLights": [
+    {
+      "name": "Lamp 1",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "ready",
+        "f1"
+      ],
+      "id": "l1",
+      "x": 790,
+      "y": 285
+    },
+    {
+      "name": "Lamp 2",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "ready",
+        "f2"
+      ],
+      "id": "l2",
+      "x": 910,
+      "y": 285
+    },
+    {
+      "name": "Lamp 3",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "ready",
+        "f3"
+      ],
+      "id": "l3",
+      "x": 1030,
+      "y": 285
+    },
+    {
+      "name": "Lamp 4",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "ready",
+        "f4"
+      ],
+      "id": "l4",
+      "x": 1150,
+      "y": 285
+    }
+  ],
+  "logicRelays": [
+    {
+      "name": "T: A xor C",
+      "wireHeight": 568,
+      "wireTerminal": {
+        "x": 1150,
+        "y": 232
+      },
+      "switchLogic": "xor",
+      "targets": [
+        "l4"
+      ],
+      "id": "t",
+      "x": 1150,
+      "y": 150
+    },
+    {
+      "name": "Ready: all four lit",
+      "wireHeight": 635,
+      "wireTerminal": {
+        "x": 1240,
+        "y": 285
+      },
+      "switchLogic": "and",
+      "targets": [
+        "exit"
+      ],
+      "id": "ready",
+      "x": 1240,
+      "y": 150
+    }
+  ]
+}

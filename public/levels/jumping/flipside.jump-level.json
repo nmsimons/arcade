@@ -1,0 +1,507 @@
+{
+  "version": 1,
+  "id": "2c20a618-5a7a-47dc-9618-101980626f5a",
+  "name": "Flip Side",
+  "width": 3140,
+  "height": 580,
+  "floor": 580,
+  "floorMaterial": "steel",
+  "stains": "light",
+  "platforms": [
+    {
+      "x": 620,
+      "y": 240,
+      "w": 40,
+      "h": 340,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          340
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          40,
+          340
+        ]
+      ]
+    },
+    {
+      "x": 1130,
+      "y": 0,
+      "w": 40,
+      "h": 340,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ],
+        [
+          40,
+          300
+        ],
+        [
+          20,
+          340
+        ],
+        [
+          0,
+          300
+        ]
+      ]
+    },
+    {
+      "x": 1740,
+      "y": 0,
+      "w": 40,
+      "h": 340,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ],
+        [
+          40,
+          300
+        ],
+        [
+          20,
+          340
+        ],
+        [
+          0,
+          300
+        ]
+      ]
+    },
+    {
+      "x": 1920,
+      "y": 240,
+      "w": 40,
+      "h": 340,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          340
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          40,
+          340
+        ]
+      ]
+    },
+    {
+      "x": 2640,
+      "y": 240,
+      "w": 40,
+      "h": 340,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          340
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          40,
+          340
+        ]
+      ]
+    },
+    {
+      "x": 2910,
+      "y": 240,
+      "w": 40,
+      "h": 340,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          340
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          40,
+          340
+        ]
+      ]
+    }
+  ],
+  "entrance": {
+    "x": 70,
+    "y": 580
+  },
+  "goal": {
+    "x": 2750,
+    "y": 580
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "times": {
+    "a": 9,
+    "b": 13,
+    "c": 19,
+    "d": 40
+  },
+  "props": [],
+  "mechanisms": [],
+  "robots": [],
+  "toggleGroups": [
+    {
+      "id": "hall",
+      "name": "Hall field",
+      "startsOn": false
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Teach up",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 230,
+      "y": 580,
+      "w": 100,
+      "targets": [
+        "lamp-a"
+      ],
+      "showWires": true,
+      "wireHeight": 26
+    },
+    {
+      "name": "Teach down",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 745,
+      "y": 0,
+      "w": 100,
+      "targets": [
+        "lamp-a"
+      ],
+      "showWires": true,
+      "wireHeight": 554,
+      "ceiling": true
+    },
+    {
+      "name": "Too soon",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 1190,
+      "y": 580,
+      "w": 100,
+      "targets": [
+        "lamp-a"
+      ]
+    },
+    {
+      "name": "Pocket plate",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 1404,
+      "y": 0,
+      "w": 100,
+      "targets": [
+        "lamp-a"
+      ],
+      "ceiling": true
+    },
+    {
+      "name": "Run this one",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 1540,
+      "y": 580,
+      "w": 100,
+      "targets": [
+        "lamp-b"
+      ]
+    },
+    {
+      "name": "Long plate 1",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 2035,
+      "y": 0,
+      "w": 180,
+      "targets": [
+        "lamp-b"
+      ],
+      "ceiling": true
+    },
+    {
+      "name": "Long plate 2",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 2215,
+      "y": 0,
+      "w": 180,
+      "targets": [
+        "lamp-b"
+      ],
+      "ceiling": true
+    },
+    {
+      "name": "Wall foot",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 2450,
+      "y": 580,
+      "w": 90,
+      "targets": [
+        "lamp-b"
+      ]
+    },
+    {
+      "name": "Over the door",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 2720,
+      "y": 0,
+      "w": 100,
+      "targets": [
+        "lamp-b"
+      ],
+      "ceiling": true
+    },
+    {
+      "name": "End pocket",
+      "mode": "weight",
+      "behavior": "toggle",
+      "toggleGroup": "hall",
+      "x": 2960,
+      "y": 580,
+      "w": 80,
+      "targets": [
+        "lamp-b"
+      ]
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "field",
+      "name": "Hall field",
+      "x": 0,
+      "y": 0,
+      "w": 3140,
+      "h": 580,
+      "gravity": -1,
+      "power": "switched",
+      "wireTerminal": {
+        "x": 180,
+        "y": 568
+      }
+    }
+  ],
+  "wallLights": [
+    {
+      "id": "lamp-a",
+      "name": "Hall field lamp",
+      "x": 180,
+      "y": 270,
+      "relay": true,
+      "targets": [
+        "field"
+      ],
+      "showWires": true,
+      "wireHeight": 26
+    },
+    {
+      "id": "lamp-b",
+      "name": "Hall field lamp 2",
+      "x": 2165,
+      "y": 400
+    }
+  ],
+  "timers": [
+    {
+      "x": 2195,
+      "y": 325
+    }
+  ],
+  "pickups": [],
+  "texts": [
+    {
+      "x": 205,
+      "y": 256,
+      "w": 200,
+      "h": 28,
+      "text": "HALL FIELD",
+      "fontSize": 22,
+      "align": "left"
+    },
+    {
+      "x": 2190,
+      "y": 386,
+      "w": 160,
+      "h": 28,
+      "text": "HALL FIELD",
+      "fontSize": 22,
+      "align": "left"
+    },
+    {
+      "x": 300,
+      "y": 80,
+      "w": 300,
+      "h": 50,
+      "text": "FLIP DECK",
+      "fontSize": 40,
+      "align": "left"
+    },
+    {
+      "x": 205,
+      "y": 320,
+      "w": 250,
+      "h": 70,
+      "text": "every plate\nflips the room",
+      "fontSize": 26,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -4
+    },
+    {
+      "x": 1014,
+      "y": 385,
+      "w": 250,
+      "h": 70,
+      "text": "too soon\nhits the wall",
+      "fontSize": 26,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": 3
+    },
+    {
+      "x": 1410,
+      "y": 400,
+      "w": 230,
+      "h": 40,
+      "text": "slow falls short",
+      "fontSize": 26,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -3
+    },
+    {
+      "x": 2530,
+      "y": 100,
+      "w": 230,
+      "h": 40,
+      "text": "fast flies past",
+      "fontSize": 26,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -3
+    }
+  ],
+  "stripes": [
+    {
+      "x": 1120,
+      "y": 346,
+      "w": 60,
+      "h": 14
+    },
+    {
+      "x": 1730,
+      "y": 346,
+      "w": 60,
+      "h": 14
+    },
+    {
+      "x": 610,
+      "y": 220,
+      "w": 60,
+      "h": 14
+    },
+    {
+      "x": 1910,
+      "y": 220,
+      "w": 60,
+      "h": 14
+    },
+    {
+      "x": 2630,
+      "y": 220,
+      "w": 60,
+      "h": 14
+    },
+    {
+      "x": 2900,
+      "y": 220,
+      "w": 60,
+      "h": 14
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 2335,
+      "y": 150,
+      "contents": "electrical"
+    }
+  ]
+}

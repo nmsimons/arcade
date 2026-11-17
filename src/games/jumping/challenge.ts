@@ -231,9 +231,14 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const passengers = run.props.filter(b => propLoadsPlate(b, m.x, m.y, def.w)
       || propLoadsPlate(b, m.x, m.y + def.h, def.w, true) && propGravity(run.gravityField, b) < 0)
     const onProp = support?.prop && passengers.includes(support.prop)
-    const rider = onProp || support?.id === `mechanism:${index}`
-      || p.hang?.platform === platformIndex || !!p.mantle && !p.mantle.step && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
-    const obstacles = [...run.platforms.filter((b, i) => i !== platformIndex && b !== support?.platform), ...forceFieldPlatforms(run.forceFields)]
+    // Hands on this mechanism's lip, hanging or part way through the climb.
+    const gripping = p.hang?.platform === platformIndex || !!p.mantle && !p.mantle.step && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
+    const rider = onProp || support?.id === `mechanism:${index}` || gripping
+    // Mechanisms stepped earlier in this loop have already moved. Meet them where they are
+    // now: a stale shape let one leaf carry its rider into another that had just arrived.
+    const obstacles = [...run.platforms.flatMap((b, i) => i === platformIndex || b === support?.platform ? []
+      : [i >= run.terrain.length && i < run.terrain.length + run.mechanisms.length ? mechanismShape(run.mechanisms[i - run.terrain.length]) : b]),
+      ...forceFieldPlatforms(run.forceFields)]
     const solids = [...run.terrain, ...run.mechanisms.filter(other => other !== m).map(mechanismShape), ...objectFields]
     const passengerBlocked = (dx: number, dy: number) => passengers.some(b => solids.some(s => propBlocksMechanism(b, s, { ...s, x: s.x - dx, y: s.y - dy })))
     if (m.safetyHold != null && m.x === open.x && m.y === open.y) {
@@ -273,7 +278,10 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
       motion = planMechanismMotion(run, index, { ...nextShape, x: m.x + dx / part, y: m.y + dy / part }, passengers, !!rider, support?.prop, dt, boarding)
       if (motion) { dx /= part; dy /= part; x = m.x + dx; y = m.y + dy; break }
     }
-    const blocked = terrainBlocked || playerBlocked || (carryBlocked || propsBlocked) && !motion
+    // A standing passenger can be left behind, but hands hold the lip itself. A grip whose
+    // body cannot make the whole step is an obstruction, as it is for any squeeze.
+    const gripClipped = gripping && !!motion && Math.hypot(motion.player.x - p.x - dx, motion.player.y - p.y - dy) > .01
+    const blocked = terrainBlocked || playerBlocked || (carryBlocked || propsBlocked) && !motion || gripClipped
     if (blocked) {
       if (def.kind === 'gate' && !opening) m.safetyHold = 0
       // An obstruction is this trip's endpoint, not a permanent shortened path.
@@ -282,7 +290,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
       continue
     }
     m.x = x; m.y = y
-    if (motion) translatePlayer(p, motion.player.x - p.x, motion.player.y - p.y)
+    if (motion && !gripping) translatePlayer(p, motion.player.x - p.x, motion.player.y - p.y)
     else if (rider) translatePlayer(p, dx, dy)
     else if (boarding) translatePlayer(p, dx, Math.min(0, y - p.y))
     for (const b of passengers) { b.x += dx; b.y += dy }

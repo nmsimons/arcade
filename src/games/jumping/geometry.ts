@@ -3,6 +3,8 @@ import { bezierKey, terrainCurveOutline, terrainNodes } from './terrainCurves.ts
 
 export type Vec = readonly [number, number]
 const EPS = 1e-7
+/** Entries closer together than this, each along its own axis, happen at one corner. */
+const TIE = 1e-6
 const cross = (a: Vec, b: Vec, c: Vec) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
 export const polygonArea = (points: readonly Vec[]) => points.reduce((area, a, i) => {
   const b = points[(i + 1) % points.length]; return area + a[0] * b[1] - a[1] * b[0]
@@ -18,7 +20,7 @@ function outlinePoints(b: Platform): Vec[] {
 interface BoundaryEdge extends Bounds { a: Vec; dx: number; dy: number; squared: number; nx: number; ny: number }
 interface Bounds { left: number; right: number; top: number; bottom: number }
 interface CollisionHull { points: readonly Vec[]; bounds: Bounds; axes?: Vec[] }
-interface CollisionPiece extends CollisionHull { axes: Vec[]; projections: number[][] }
+interface CollisionPiece extends CollisionHull { axes: Vec[]; projections: number[][]; cut?: boolean[] }
 interface BoundaryGeometry {
   x: number; y: number; w: number; h: number
   polygon: number[]; profile: number[]; bezier: string; points: Vec[]; edges?: BoundaryEdge[]; nearest?: number
@@ -170,6 +172,8 @@ export function pointInside(b: Platform, x: number, y: number) {
   }
   return inside
 }
+/** Which edges of a convex piece are cuts through the solid, not part of its surface. */
+const cutEdges = new WeakMap<readonly Vec[], boolean[]>()
 /** Convex pieces keep collision faithful to concave outlines and undercuts. */
 function parts(b: Platform): Vec[][] {
   const geometry = boundaryGeometry(b)
@@ -178,6 +182,8 @@ function parts(b: Platform): Vec[][] {
   if (points.every((p, i) => cross(points[(i + points.length - 1) % points.length], p, points[(i + 1) % points.length]) >= -EPS)) result.push(points)
   else {
     const remaining = [...points]
+    // inner[i]: the edge from remaining[i] to the next point is a cut made by an earlier ear.
+    const inner = points.map(() => false), tag = (piece: Vec[], flags: boolean[]) => { cutEdges.set(piece, flags); result.push(piece) }
     while (remaining.length > 3) {
       const ear = remaining.findIndex((p, i) => {
         const a = remaining[(i + remaining.length - 1) % remaining.length], c = remaining[(i + 1) % remaining.length]
@@ -185,10 +191,12 @@ function parts(b: Platform): Vec[][] {
           && cross(a, p, q) >= -EPS && cross(p, c, q) >= -EPS && cross(c, a, q) >= -EPS)
       })
       if (ear < 0) break
-      result.push([remaining[(ear + remaining.length - 1) % remaining.length], remaining[ear], remaining[(ear + 1) % remaining.length]])
-      remaining.splice(ear, 1)
+      const before = (ear + remaining.length - 1) % remaining.length
+      tag([remaining[before], remaining[ear], remaining[(ear + 1) % remaining.length]], [inner[before], inner[ear], true])
+      inner[before] = true
+      remaining.splice(ear, 1); inner.splice(ear, 1)
     }
-    if (remaining.length === 3) result.push(remaining)
+    if (remaining.length === 3) tag(remaining, inner)
   }
   geometry.parts = result; return result
 }
@@ -239,7 +247,7 @@ function collisionParts(b: Platform) {
   const geometry = boundaryGeometry(b)
   return geometry.collision ??= parts(b).map(points => {
     const normals = axes(points)
-    return { points, bounds: bounds(points), axes: normals, projections: normals.map(axis => interval(points, axis)) }
+    return { points, bounds: bounds(points), axes: normals, projections: normals.map(axis => interval(points, axis)), cut: cutEdges.get(points) }
   })
 }
 function separated(a: Bounds, b: Bounds, dx = 0, dy = 0) {
@@ -276,6 +284,8 @@ function penetration(a: CollisionHull, b: CollisionPiece) {
     const [amin, amax] = interval(a.points, axis), [bmin, bmax] = i < normals.length ? interval(b.points, axis) : b.projections[i - normals.length]
     if (amax <= bmin + EPS || amin >= bmax - EPS) return null
     const low = amax - bmin, high = bmax - amin
+    // A cut separates nothing from the solid behind it: it never supplies the way out.
+    if (i >= normals.length && b.cut?.[i - normals.length]) continue
     if (Math.min(low, high) < depth) { depth = Math.min(low, high); normal = low < high ? [-axis[0], -axis[1]] : axis }
   }
   return { depth, normal }
@@ -297,23 +307,49 @@ export function bodyIntersects(x: number, y: number, b: Platform, height = 62, o
   const points = bodyPolygon(x, y, height), hull = { points, bounds: bounds(points) }
   return collisionParts(b).some(piece => penetration(hull, piece) !== null)
 }
-function sweep(a: CollisionHull, b: CollisionPiece, delta: Vec) {
+const entered: number[] = [], speeds: number[] = []
+type SweepHit = { time: number; normal: Vec; rank: number; square: number }
+/** Pieces of one solid reach a shared corner together: the same order of answers applies between them. */
+const sooner = (hit: SweepHit, first: SweepHit | null, travel: number) => !first || hit.time < first.time - TIE / travel
+  || hit.time <= first.time + TIE / travel && (hit.rank > first.rank || hit.rank === first.rank && hit.square > first.square + EPS)
+function sweep(a: CollisionHull, b: CollisionPiece, delta: Vec): SweepHit | null {
   if (separated(a.bounds, b.bounds, delta[0], delta[1])) return null
   const normals = a.axes ??= a.points.length > 1 ? axes(a.points) : []
-  let enter = -Infinity, exit = Infinity, normal: Vec = [0, -1], enterSpeed = 1
-  for (let i = 0; i < normals.length + b.axes.length; i++) {
+  let enter = -Infinity, exit = Infinity, normal: Vec = [0, -1], enterSpeed = 1, latest = -1
+  const count = normals.length + b.axes.length
+  for (let i = 0; i < count; i++) {
     const axis = i < normals.length ? normals[i] : b.axes[i - normals.length]
     const [amin, amax] = interval(a.points, axis), [bmin, bmax] = i < normals.length ? interval(b.points, axis) : b.projections[i - normals.length], speed = dot(delta, axis)
+    entered[i] = NaN
     if (Math.abs(speed) < EPS) { if (amax <= bmin + EPS || amin >= bmax - EPS) return null; continue }
     const t0 = (bmin - amax) / speed, t1 = (bmax - amin) / speed, first = Math.min(t0, t1)
-    if (first > enter) { enter = first; normal = speed > 0 ? [-axis[0], -axis[1]] : axis; enterSpeed = Math.abs(speed) }
+    entered[i] = first; speeds[i] = speed
+    if (first > enter) { enter = first; normal = speed > 0 ? [-axis[0], -axis[1]] : axis; enterSpeed = Math.abs(speed); latest = i }
     exit = Math.min(exit, Math.max(t0, t1))
     if (enter > exit + EPS) return null
+  }
+  // A corner that only brushes past another, in and out at once, has met nothing: feet that
+  // run off the end of a face pass through its corner point without being stopped by it.
+  if (exit - enter < 1e-3 && (exit - enter) * Math.hypot(delta[0], delta[1]) <= TIE) return null
+  // Where two corners meet, several axes are entered at once and roundoff would pick among
+  // them. A real face of the terrain answers before an edge of the body, a cut through the
+  // solid answers last, and of two alike the one met more squarely. A real face entered last
+  // already is the answer, which is nearly every sweep.
+  let rank = latest < 0 ? 2 : latest < normals.length ? 1 : b.cut?.[latest - normals.length] ? 0 : 2
+  if (rank < 2) for (let i = 0; i < count; i++) {
+    const first = entered[i], square = Math.abs(speeds[i])
+    if (i === latest || !(first === first) || (enter - first) * square > TIE) continue
+    const other = i < normals.length ? 1 : b.cut?.[i - normals.length] ? 0 : 2
+    if (other < rank || other === rank && square <= -dot(delta, normal) + EPS) continue
+    const axis = i < normals.length ? normals[i] : b.axes[i - normals.length], sign = speeds[i] > 0 ? -1 : 1
+    rank = other
+    // A face met flat-on pushes the way the body's own edge already does: keep that answer as it is.
+    if (Math.abs(axis[0] * sign - normal[0]) > 1e-12 || Math.abs(axis[1] * sign - normal[1]) > 1e-12) normal = sign < 0 ? [-axis[0], -axis[1]] : axis
   }
   // An overlap within EPS is touching, as penetration() counts it, however slowly the body moves into it.
   // Deeper overlaps are resolved before sweeping.
   if (enter * enterSpeed < -EPS || enter > 1 || exit <= EPS || dot(delta, normal) >= -EPS) return null
-  return { time: Math.max(0, enter), normal }
+  return { time: Math.max(0, enter), normal, rank, square: -dot(delta, normal) }
 }
 export interface TerrainContact { normal: Vec; platform: Platform }
 /** Sweep a particle correction too: resolving a body must not teleport its
@@ -323,11 +359,11 @@ export function movePoint(from: Vec, to: Vec, terrain: readonly Platform[], clea
   const nearby = terrain.filter(b => Math.max(x, to[0]) + clearance >= b.x && Math.min(x, to[0]) - clearance <= b.x + b.w
     && Math.max(y, to[1]) + clearance >= b.y && Math.min(y, to[1]) - clearance <= b.y + b.h)
   for (let pass = 0; pass < 4 && Math.hypot(dx, dy) > EPS; pass++) {
-    let first: { time: number; normal: Vec } | null = null
-    const hull = { points: [[x, y]] as Vec[], bounds: { left: x, right: x, top: y, bottom: y } }
+    let first: SweepHit | null = null
+    const hull = { points: [[x, y]] as Vec[], bounds: { left: x, right: x, top: y, bottom: y } }, travel = Math.hypot(dx, dy)
     for (const b of nearby) for (const piece of collisionParts(b)) {
       const hit = sweep(hull, piece, [dx, dy])
-      if (hit && (!first || hit.time < first.time)) first = hit
+      if (hit && sooner(hit, first, travel)) first = hit
     }
     if (!first) { x += dx; y += dy; break }
     x += dx * first.time + first.normal[0] * clearance
@@ -374,10 +410,11 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
   }
   for (let pass = 0; pass < 8 && Math.hypot(dx, dy) > EPS; pass++) {
     const hullFor = hullsAt(x, y)
-    let first: { time: number; normal: Vec; platform: Platform } | null = null
+    let first: { time: number; normal: Vec; platform: Platform } | null = null, best: SweepHit | null = null
+    const travel = Math.hypot(dx, dy)
     for (const b of nearby) for (const piece of collisionParts(b)) {
       const hit = sweep(hullFor(b), piece, [dx, dy])
-      if (hit && (!first || hit.time < first.time)) first = { ...hit, platform: b }
+      if (hit && sooner(hit, best, travel)) { best = hit; first = { time: hit.time, normal: hit.normal, platform: b } }
     }
     if (!first) { x += dx; y += dy; break }
     x += dx * first.time; y += dy * first.time
@@ -461,6 +498,43 @@ export function bodyContact(b: Platform, x: number, y: number, normal: Vec, heig
   const touching = hull.filter(p => dot(p, normal) <= depth + EPS)
   return nearestBoundary(b, touching.reduce((sum, p) => sum + p[0], 0) / touching.length,
     touching.reduce((sum, p) => sum + p[1], 0) / touching.length, normal)
+}
+/** The way a vertical face pushes when its top corner met the toe bevel of an upright body
+ * whose feet are below and outside it, or 0. A rectangle answers this contact with its
+ * wall; every other outline finds the same wall here. The bevel is 12 across and 18 deep.
+ * The body slides along it for the rest of the step, so the corner stays on the bevel's
+ * line and can end past its upper end by no more than the step's travel. */
+export function toeCornerWall(b: Platform, from: Vec, x: number, y: number, normal: Vec) {
+  // Only the bevel itself pushes along this diagonal: a face of the terrain has its own.
+  if (normal[1] >= 0 || Math.abs(Math.abs(normal[0]) * 12 + normal[1] * 18) > 1e-6) return 0
+  const side = Math.sign(normal[0]), travel = Math.hypot(x - from[0], y - from[1])
+  for (const { a, nx, top } of boundaryEdges(boundaryGeometry(b))) {
+    if (nx * side < 1 - EPS) continue
+    const rise = y - top
+    if (rise > 0 && rise <= 18 + travel + 1e-3 && Math.abs((x - a[0]) * side * 18 - rise * 12) < .02) return side
+  }
+  return 0
+}
+/** A lip the feet came down across in this step, on any outline that is not a plain rectangle.
+ * A rectangle settles that crossing before the body sweep, and this finds the same corner:
+ * the wall under the lip, the way it faces, and the top that meets it there. `over` means the
+ * feet ended above that top, which is a landing; otherwise the body's width overlaps the wall
+ * from outside, which is a missed corner. */
+export function lipCrossing(b: Platform, fromX: number, fromY: number, x: number, y: number) {
+  const edges = boundaryEdges(boundaryGeometry(b))
+  for (let i = 0; i < edges.length; i++) {
+    const { a, nx, top } = edges[i]
+    if (Math.abs(nx) < 1 - EPS || fromY > top + .1) continue
+    const side = Math.sign(nx), out = (x - a[0]) * side
+    // The face that meets the wall at its upper end must be the top of the solid.
+    const lid = edges[(i + (side < 0 ? 1 : edges.length - 1)) % edges.length]
+    if (lid.dx <= EPS || out >= 12) continue
+    const slope = lid.dy / lid.dx, angle = Math.atan(slope)
+    if (out > 0) { if (y >= top) return { x: a[0], y: top, side, angle, over: false }; continue }
+    const height = top + (x - a[0]) * slope
+    if ((fromX - a[0]) * side > 0 && x >= lid.left && x <= lid.right && y >= height) return { x: a[0], y: height, side, angle, over: true }
+  }
+  return null
 }
 export function lineBlocked(a: Vec, b: Vec, terrain: Iterable<Platform>) {
   const rx = b[0] - a[0], ry = b[1] - a[1]

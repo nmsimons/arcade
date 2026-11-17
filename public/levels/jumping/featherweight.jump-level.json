@@ -1,0 +1,640 @@
+{
+  "version": 1,
+  "id": "8efe52fa-4d7a-4d50-b400-cefb9b3df1eb",
+  "name": "Featherweight",
+  "width": 4090,
+  "height": 1240,
+  "floor": 1240,
+  "stains": "light",
+  "platforms": [
+    {
+      "name": "Start floor",
+      "x": 0,
+      "y": 940,
+      "w": 240,
+      "h": 300,
+      "material": "stone"
+    },
+    {
+      "name": "Bay 1 takeoff plate",
+      "x": 240,
+      "y": 940,
+      "w": 200,
+      "h": 300,
+      "material": "steel"
+    },
+    {
+      "name": "Bay 1 landing plate",
+      "x": 1060,
+      "y": 940,
+      "w": 480,
+      "h": 300,
+      "material": "steel"
+    },
+    {
+      "name": "Bay 2 plate",
+      "x": 1540,
+      "y": 940,
+      "w": 480,
+      "h": 300,
+      "material": "steel"
+    },
+    {
+      "name": "Floor between bays 2 and 3",
+      "x": 2020,
+      "y": 940,
+      "w": 80,
+      "h": 300,
+      "material": "stone"
+    },
+    {
+      "name": "Bay 3 plate",
+      "x": 2100,
+      "y": 940,
+      "w": 240,
+      "h": 300,
+      "material": "steel"
+    },
+    {
+      "name": "Floor before the wall",
+      "x": 2340,
+      "y": 940,
+      "w": 100,
+      "h": 300,
+      "material": "stone"
+    },
+    {
+      "name": "Wall",
+      "x": 2440,
+      "y": 640,
+      "w": 200,
+      "h": 600,
+      "material": "stone"
+    },
+    {
+      "name": "Bay 4 plate",
+      "x": 2640,
+      "y": 940,
+      "w": 260,
+      "h": 300,
+      "material": "steel"
+    },
+    {
+      "name": "Bay 5 plate",
+      "x": 2900,
+      "y": 940,
+      "w": 330,
+      "h": 300,
+      "material": "steel"
+    },
+    {
+      "name": "Floor below the exit ledge",
+      "x": 3230,
+      "y": 940,
+      "w": 240,
+      "h": 300,
+      "material": "stone"
+    },
+    {
+      "name": "Exit ledge",
+      "x": 3470,
+      "y": 700,
+      "w": 620,
+      "h": 540,
+      "material": "stone"
+    },
+    {
+      "name": "Anvil",
+      "x": 3090,
+      "y": 700,
+      "w": 140,
+      "h": 40,
+      "material": "steel"
+    },
+    {
+      "name": "Gantry stem",
+      "x": 3300,
+      "y": 0,
+      "w": 30,
+      "h": 160,
+      "material": "steel"
+    },
+    {
+      "name": "Gantry arm",
+      "x": 3150,
+      "y": 160,
+      "w": 180,
+      "h": 40,
+      "material": "steel"
+    },
+    {
+      "name": "Low hall ceiling",
+      "x": 0,
+      "y": 0,
+      "w": 2440,
+      "h": 400,
+      "material": "stone"
+    },
+    {
+      "name": "Weight block",
+      "x": 1630,
+      "y": 800,
+      "w": 170,
+      "h": 140,
+      "material": "chalk"
+    },
+    {
+      "name": "Weight left in the pit",
+      "x": 440,
+      "y": 1100,
+      "w": 170,
+      "h": 140,
+      "material": "chalk"
+    }
+  ],
+  "entrance": {
+    "x": 110,
+    "y": 940
+  },
+  "goal": {
+    "x": 4090,
+    "y": 700,
+    "flipX": true
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "times": {
+    "a": 8,
+    "b": 15,
+    "c": 24,
+    "d": 40
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "name": "Bonus 1 coin meter",
+      "mode": "coins",
+      "display": "digital",
+      "x": 3615,
+      "y": 510,
+      "w": 120,
+      "threshold": 14,
+      "targets": [
+        "bonus-1-top",
+        "bonus-1-left",
+        "bonus-1-right"
+      ]
+    },
+    {
+      "name": "Bonus 2 coin meter",
+      "mode": "coins",
+      "display": "digital",
+      "x": 3745,
+      "y": 510,
+      "w": 120,
+      "threshold": 22,
+      "targets": [
+        "bonus-2-top",
+        "bonus-2-left",
+        "bonus-2-right"
+      ]
+    },
+    {
+      "name": "Bonus 1 count at the start",
+      "mode": "coins",
+      "display": "digital",
+      "x": 200,
+      "y": 690,
+      "w": 120,
+      "threshold": 14,
+      "targets": []
+    },
+    {
+      "name": "Bonus 2 count at the start",
+      "mode": "coins",
+      "display": "digital",
+      "x": 335,
+      "y": 690,
+      "w": 120,
+      "threshold": 22,
+      "targets": []
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "name": "Hall clock",
+      "x": 50,
+      "y": 690
+    }
+  ],
+  "pickups": [
+    {
+      "kind": "coin",
+      "x": 530,
+      "y": 726
+    },
+    {
+      "kind": "coin",
+      "x": 640,
+      "y": 596
+    },
+    {
+      "kind": "coin",
+      "x": 750,
+      "y": 520
+    },
+    {
+      "kind": "coin",
+      "x": 850,
+      "y": 500
+    },
+    {
+      "kind": "coin",
+      "x": 950,
+      "y": 526
+    },
+    {
+      "kind": "coin",
+      "x": 1060,
+      "y": 607
+    },
+    {
+      "kind": "coin",
+      "x": 1160,
+      "y": 731
+    },
+    {
+      "kind": "coin",
+      "x": 1400,
+      "y": 804
+    },
+    {
+      "kind": "coin",
+      "x": 1490,
+      "y": 671
+    },
+    {
+      "kind": "coin",
+      "x": 1590,
+      "y": 587
+    },
+    {
+      "kind": "coin",
+      "x": 1680,
+      "y": 652
+    },
+    {
+      "kind": "coin",
+      "x": 1930,
+      "y": 671
+    },
+    {
+      "kind": "coin",
+      "x": 2180,
+      "y": 808
+    },
+    {
+      "kind": "coin",
+      "x": 2265,
+      "y": 682
+    },
+    {
+      "kind": "coin",
+      "x": 2345,
+      "y": 593
+    },
+    {
+      "kind": "coin",
+      "x": 2430,
+      "y": 551
+    },
+    {
+      "kind": "coin",
+      "x": 2695,
+      "y": 525
+    },
+    {
+      "kind": "coin",
+      "x": 2775,
+      "y": 403
+    },
+    {
+      "kind": "coin",
+      "x": 2858,
+      "y": 311
+    },
+    {
+      "kind": "coin",
+      "x": 2940,
+      "y": 261
+    },
+    {
+      "kind": "coin",
+      "x": 3022,
+      "y": 322
+    },
+    {
+      "kind": "coin",
+      "x": 3085,
+      "y": 452
+    },
+    {
+      "kind": "coin",
+      "x": 3310,
+      "y": 544
+    },
+    {
+      "kind": "coin",
+      "x": 3390,
+      "y": 519
+    },
+    {
+      "kind": "time-bonus",
+      "seconds": 1,
+      "x": 3695,
+      "y": 655
+    },
+    {
+      "kind": "time-bonus",
+      "seconds": 2,
+      "x": 3785,
+      "y": 655
+    }
+  ],
+  "texts": [
+    {
+      "name": "Hall name",
+      "x": 30,
+      "y": 630,
+      "w": 240,
+      "h": 40,
+      "text": "CALIBRATION HALL",
+      "fontSize": 24,
+      "align": "center"
+    },
+    {
+      "name": "Bay 1 label",
+      "x": 640,
+      "y": 670,
+      "w": 400,
+      "h": 100,
+      "text": "0.5 g",
+      "fontSize": 80,
+      "align": "center"
+    },
+    {
+      "name": "Bay 2 label",
+      "x": 1680,
+      "y": 500,
+      "w": 300,
+      "h": 100,
+      "text": "2 g",
+      "fontSize": 80,
+      "align": "center"
+    },
+    {
+      "name": "Bay 3 label",
+      "x": 2100,
+      "y": 430,
+      "w": 240,
+      "h": 100,
+      "text": "0.5 g",
+      "fontSize": 80,
+      "align": "center"
+    },
+    {
+      "name": "Bay 4 label",
+      "x": 2650,
+      "y": 700,
+      "w": 240,
+      "h": 100,
+      "text": "0.5 g",
+      "fontSize": 80,
+      "align": "center"
+    },
+    {
+      "name": "Bay 5 label",
+      "x": 2910,
+      "y": 790,
+      "w": 170,
+      "h": 100,
+      "text": "2 g",
+      "fontSize": 80,
+      "align": "center"
+    },
+    {
+      "name": "Wall note",
+      "x": 2235,
+      "y": 742,
+      "w": 200,
+      "h": 64,
+      "text": "you weigh less\nback there",
+      "fontSize": 24,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": -4
+    },
+    {
+      "name": "Pit note",
+      "x": 450,
+      "y": 1030,
+      "w": 220,
+      "h": 34,
+      "text": "borrowed from bay 2",
+      "fontSize": 20,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": 3
+    },
+    {
+      "name": "Bonus 1 start label",
+      "x": 200,
+      "y": 736,
+      "w": 120,
+      "h": 26,
+      "text": "1 s OFF",
+      "fontSize": 18,
+      "align": "center"
+    },
+    {
+      "name": "Bonus 2 start label",
+      "x": 335,
+      "y": 736,
+      "w": 120,
+      "h": 26,
+      "text": "2 s OFF",
+      "fontSize": 18,
+      "align": "center"
+    }
+  ],
+  "stripes": [
+    {
+      "name": "Bay 2 hazard band",
+      "x": 1540,
+      "y": 460,
+      "w": 480,
+      "h": 24
+    },
+    {
+      "name": "Bay 5 hazard band",
+      "x": 2900,
+      "y": 752,
+      "w": 330,
+      "h": 24
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "light-1",
+      "name": "Bay 1 field",
+      "x": 240,
+      "y": 400,
+      "w": 1300,
+      "h": 540,
+      "gravity": 0.5,
+      "power": "always",
+      "ceiling": true
+    },
+    {
+      "id": "heavy-2",
+      "name": "Bay 2 field",
+      "x": 1540,
+      "y": 400,
+      "w": 480,
+      "h": 540,
+      "gravity": 2,
+      "power": "always"
+    },
+    {
+      "id": "light-3",
+      "name": "Bay 3 field",
+      "x": 2100,
+      "y": 400,
+      "w": 240,
+      "h": 540,
+      "gravity": 0.5,
+      "power": "always"
+    },
+    {
+      "id": "light-4",
+      "name": "Bay 4 field",
+      "x": 2640,
+      "y": 0,
+      "w": 260,
+      "h": 940,
+      "gravity": 0.5,
+      "power": "always"
+    },
+    {
+      "id": "heavy-5",
+      "name": "Bay 5 field",
+      "x": 2900,
+      "y": 0,
+      "w": 330,
+      "h": 940,
+      "gravity": 2,
+      "power": "always"
+    }
+  ],
+  "forceFields": [
+    {
+      "name": "Bonus 1 cage top",
+      "id": "bonus-1-top",
+      "x": 3650,
+      "y": 605,
+      "w": 90,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "name": "Bonus 1 cage left",
+      "id": "bonus-1-left",
+      "x": 3650,
+      "y": 605,
+      "w": 12,
+      "h": 95,
+      "orientation": "vertical",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "name": "Bonus 1 cage right",
+      "id": "bonus-1-right",
+      "x": 3728,
+      "y": 605,
+      "w": 12,
+      "h": 95,
+      "orientation": "vertical",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "name": "Bonus 2 cage top",
+      "id": "bonus-2-top",
+      "x": 3740,
+      "y": 605,
+      "w": 90,
+      "h": 12,
+      "orientation": "horizontal",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "name": "Bonus 2 cage left",
+      "id": "bonus-2-left",
+      "x": 3740,
+      "y": 605,
+      "w": 12,
+      "h": 95,
+      "orientation": "vertical",
+      "power": "switched",
+      "switchReversed": true
+    },
+    {
+      "name": "Bonus 2 cage right",
+      "id": "bonus-2-right",
+      "x": 3818,
+      "y": 605,
+      "w": 12,
+      "h": 95,
+      "orientation": "vertical",
+      "power": "switched",
+      "switchReversed": true
+    }
+  ],
+  "pipes": [
+    {
+      "name": "Anvil hanger, left",
+      "points": [
+        [
+          3165,
+          200
+        ],
+        [
+          3165,
+          700
+        ]
+      ]
+    },
+    {
+      "name": "Anvil hanger, right",
+      "points": [
+        [
+          3215,
+          200
+        ],
+        [
+          3215,
+          700
+        ]
+      ]
+    }
+  ]
+}

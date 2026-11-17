@@ -128,6 +128,17 @@ mechanisms can leave cargo on a receiving ledge. A player riding a carried crate
 can also be left behind while the crate continues. Clipping a carry does not add
 an artificial backward velocity.
 
+A grip is the exception. Hands on a mechanism's lip, hanging or part way through
+a pull-up, hold the lip itself, so they are carried the whole step or not at all.
+If an obstacle stops the body short, the mechanism is blocked as it is by any
+squeeze: a closing gate reverses onto its safety hold and a lift ends its trip.
+A clipped carry used to leave the grip a fraction of a unit behind the lip, where
+the pull-up then collided with the leaf it was holding. Each mechanism also
+checks its rider against the other mechanisms where they stand now, not where
+they were before this step. Two leaves closing on a hanging player otherwise
+carried them into the leaf that had just arrived, and the contact solver let go
+of the lip. `tests/jumping-gate-grip.test.mjs` covers both orders.
+
 Elevators first try to displace a contacted ball using the prop solver's collision
 hulls. Floor, platform and wall normals are solved together, so a ball can roll
 along a surface or push neighboring balls out of the way. Carried boxes use that
@@ -689,6 +700,97 @@ make steep tops walkable or change a shallow crest into a ledge.
 Running off a lip retains the departing surface velocity. A trailing foot may
 briefly touch an outward-sloping bank, but a contact the player is moving away
 from cannot redirect that momentum into a downhill slide.
+
+A leap that falls just short meets the lip with the 18-unit bevel under the
+toes before the hands reach it. A lip answers the same way however the terrain
+is drawn. A rectangle and a polygon with the same outline give the same motion
+on every frame, whatever the player holds, because three rules apply to both:
+
+- Feet that come down across the lip's height in the step that carries them
+  over it land on top.
+- Feet that cross that height just outside the lip, with the body's width
+  overlapping the wall, are stood off the wall and lose their run. A missed
+  corner is a side contact, not support under empty space. A corner buried in
+  a neighbouring piece is a seam in the ground, not a wall: a hop that lands
+  just short of a flush seam keeps its run. It used to stop dead on about one
+  such landing in twenty when the level listed the far piece first.
+- A corner that meets the toe bevel pushes as the wall beneath it does: it
+  stops movement into the wall and leaves the fall alone.
+
+Rectangles settle the first two before the body sweep. Polygons find the same
+lip from their outline: a vertical face whose upper end meets a top the player
+can stand on. For the third, a polygon corner pushes the bevel diagonally,
+which once turned a fast fall into a throw back out of the pit (410
+units/second in, 250 back) from a 22-unit band of takeoffs. Cancelling that
+throw only while the player held toward the lip left it in place for a player
+holding nothing, holding away or holding Down, and without the first two rules
+the polygon still stopped the body a frame later and up to 10 units further in
+than the rectangle. Keeping the fall speed matters too: without it the toes
+creep down the corner instead of dropping to the catch. Only fixed terrain and
+the upright hull take part; loose props and a turned body keep the swept
+contact. `tests/jumping-polygon-lip-leap.test.mjs` sweeps leaps, hops and
+step-offs against both encodings.
+
+Two things a polygon lip used to do went with the diagonal push, and routes
+must not count on them. A running leap that met the lip a few units low was
+slowed and crept up the bevel before dropping to the catch; it now stops at the
+wall and drops at once, as it always did at a rectangle. No leap lost its
+landing: the rectangle's lip is the more generous one, and a polygon lip now
+gives a clean landing from about 3 more units of takeoff. Walking off a lip
+pushed the body outward by about 50 units/second and slowed its fall; it now
+drops straight, so a walk-off lands nearer the wall (84 units nearer after
+Spire I's 640-unit drop).
+
+Collision cuts a drawn outline into triangles, and the lines between them are
+not surfaces. Where two corners meet at a point, the body's and the terrain's,
+several directions separate them equally well, and roundoff used to choose
+among them, including those cuts. Three rules now settle such a meeting the
+same way however the outline is cut, leftward and rightward alike:
+
+- A real face of the terrain answers before an edge of the body, a cut answers
+  only when nothing else can, and of two alike the one met more squarely
+  answers. This holds between the pieces of one solid as well as within one.
+- A cut never supplies the way out of an overlap.
+- A corner that only brushes past another, in and out at once, has met
+  nothing. Feet that run off the end of a face pass through its corner point
+  and keep the surface velocity they left with.
+
+The place this matters most is the foot of a ramp, where feet that come down
+the ramp arrive exactly at the point its pieces share. In a sweep of landings
+on and around a ramp, about one in seventy used to take a push from a cut or
+from the body's own bevel: most of those threw the player upward (a 934
+units/second fall onto
+a 45 degree ramp left at 467 forward and 123 up, or stopped at 40, depending
+only on how the bank was drawn) and some stopped a run dead. It now does what
+a landing anywhere else on that ramp does: the ramp turns the fall along
+itself and the floor keeps the forward part. Running off a sloped lip used to
+be bounced the same way (384 forward became 196 forward and 134 up at Round
+Trip's first lip); it now leaves with the slope's own velocity.
+
+A slide ends on ground where sliding friction alone would bring the slip to
+rest, which is ground shallower than about 33 degrees. There the feet take
+hold at once and the body lands with the speed it brought, under ordinary
+ground control, as a fall onto that ground would. A face between that and the
+46 degree grip limit holds a standing body but not a slipping one, so a slide
+carries on across it. Slides used to end only by the corner fault above: the
+two- or three-frame hop at the bottom of a slide was a push from a cut, and
+what it left depended on the drawing (a 55 degree slide kept 446 units/second
+rightward and 581 leftward, a 46.5 degree one 321 and none). A slide now keeps
+the forward part of its speed, the same in both directions: 675 at 46.5
+degrees, 759 at 55, 634 at 60, 400 at 70.
+
+A steep face cannot take back the speed of a body that is leaving it with its
+feet on such ground, however much of the hull still touches the face. Two
+things depended on this. Past the toe bevel's 56 degrees the bevel's upper
+corner rides the ramp instead of the feet, and the ramp used to brake the body
+almost to a stop as the feet reached the flat (a 70 degree slide kept none of
+its 400 forward). And ground built from pieces could stall a runner: where one
+piece ends in a leaning face buried in the next, stepping from one top to the
+other was taken for landing on that buried face, and a 410 units/second run
+dropped to 55 or stopped (Spelunk's lower outcrop did this). Neither happens
+now. Standing at the foot of a steep face and pressing into it is unchanged.
+`tests/jumping-ramp-foot.test.mjs` drops, hops and slides the player onto ramp
+feet drawn three ways in both directions, and runs across such seams.
 
 Box grips allow the same 0.001-radian resting tilt that the prop solver corrects
 once a box stops moving. Ordinary player contact must not remove a supported

@@ -7,9 +7,9 @@ import { exposedSide, exposedWallFaces, followGround, groundAt, platformSurface 
 import type { GroundSurface } from './terrain.ts'
 import { canGrabLedge, ledgeExposed, ledgeObstacles, platformLedges, sameLedge } from './terrainLedges.ts'
 import type { TerrainLedge } from './terrainLedges.ts'
-import { bodyContact, bodyIntersects, bodyPolygon, moveBody, nearestBoundary, pointInside } from './geometry.ts'
+import { bodyContact, bodyIntersects, bodyPolygon, lipCrossing, moveBody, nearestBoundary, pointInside, toeCornerWall } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
-import { canGrip, FRICTIONLESS, groundVelocity, slidingVelocity, surfaceFriction, TERRAIN_FRICTION } from './friction.ts'
+import { canGrip, FRICTIONLESS, groundVelocity, slidingVelocity, slipRests, surfaceFriction, TERRAIN_FRICTION } from './friction.ts'
 import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushRig } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
@@ -646,31 +646,23 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     for (const { normal, platform: b } of result.contacts) {
       // A glancing foot/corner contact must not turn downward speed into a
       // sideways launch. The vertical face arrests lateral movement only.
-      const n = !collisionOutline?.(b) && !b.polygon && !b.profile && p.y > b.y && p.y - TUNING.height < b.y + b.h && (p.x < b.x || p.x > b.x + b.w)
-        ? [p.x < b.x ? -1 : 1, 0] : normal
-      // Apply the same lip correction to every terrain encoding. Test the
-      // swept toe-bevel window so a longer step cannot skip its 18-unit depth.
-      // Ordinary glancing deflections and existing wall response stay intact.
-      const face = !collisionOutline?.(b) && !b.looseProp && p.vy > 0 && normal[1] < 0
-        && !p.grounded && !p.climbing && !mantle && !p.hang && !p.waterMotion && !p.sliding?.active
-        && p.grabCooldown === 0 && !p.crouching && !input.drop
-        ? bodyContact(b, p.x, p.y, normal, afterBody.height) : null
-      const incomingVx = p.vx
+      // Every terrain encoding answers alike: a polygon's corner pushes the toe
+      // bevel diagonally, so its wall is found from the corner on that bevel.
+      const wall = collisionOutline?.(b) ? 0
+        : !b.polygon && !b.profile ? p.y > b.y && p.y - TUNING.height < b.y + b.h ? p.x < b.x ? -1 : p.x > b.x + b.w ? 1 : 0 : 0
+        : !b.looseProp ? toeCornerWall(b, from, p.x, p.y, normal) : 0
+      const n = wall ? [wall, 0] : normal
       const into = p.vx * n[0] + p.vy * n[1]
       // A gliding body keeps pace with a prop moving away from it, rather than stopping as at a wall.
       const prop = b.looseProp && slickFooting(p) ? world.colliders.find(c => c.platform === b)?.prop : undefined
       const away = prop ? Math.min(0, prop.vx * n[0] + prop.vy * n[1]) : 0
       if (into < away) { p.vx -= (into - away) * n[0]; p.vy -= (into - away) * n[1] }
-      if (face && Math.abs(face.nx) > 1 - 1e-7 && p.y > face.y && (p.x - face.x) * face.nx > 0
-        && input.move * face.nx < 0 && incomingVx * face.nx <= 0 && p.vx * face.nx > Math.abs(incomingVx)
-        && platformLedges(b).some(edge => edge.side === -face.nx && Math.abs(edge.edgeX - face.x) < .01
-          && p.y >= edge.edgeY && p.y - edge.edgeY <= TUNING.hangReach && Math.min(from[1], p.y) - edge.edgeY <= 18
-          && ledgeExposed(platforms, edge))) p.vx = 0
     }
   }
   if (!p.climbing && !p.hang && !p.mantle && !p.releaseTurn) {
     const supportAcceleration = (p.gravity ?? TUNING.gravity) + (p.swimAcceleration ?? 0)
     let ground = supportAcceleration >= 0 ? groundAt(platforms, p.x, p.y, .2) : null
+    const footing = !!ground && slipRests(ground.angle, surfaceFriction(ground.platform))
     let slope = result.contacts.map(c => ({ ...c, face: bodyContact(c.platform, p.x, p.y, c.normal,
       p.crouching ? TUNING.crouchHeight : TUNING.height, collisionOutline?.(c.platform)) })).find(c => {
       // A nearly vertical face is a wall contact. Solver-sized box tilts can
@@ -685,7 +677,13 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
           && (edge.edgeX - p.x) * edge.side >= 0 && (edge.edgeX - p.x) * edge.side <= TUNING.width
           && p.y >= edge.edgeY && p.y < edge.edgeY + TUNING.height)) return false
       const angle = Math.atan2(c.face.nx, -c.face.ny), speed = p.vx * Math.cos(angle) + p.vy * Math.sin(angle)
-      return !canGrip(angle, surfaceFriction(c.platform)) || p.sliding?.active && Math.abs(speed) > 1e-5
+      // Ground where a slip would come to rest ends it at once: the feet take hold and the
+      // body lands with the speed it brought, as a fall onto that ground would. A steep face
+      // the body is leaving cannot take that speed back, however much of the hull still
+      // touches it. A face that would hold a standing body but cannot stop a moving one
+      // carries the slip on.
+      if (!canGrip(angle, surfaceFriction(c.platform))) return !(footing && p.vx * c.face.nx + p.vy * c.face.ny > .1)
+      return !!p.sliding?.active && Math.abs(speed) > 1e-5 && !footing
     })
     const base = slope && !canGrip(Math.atan2(slope.face.nx, -slope.face.ny), surfaceFriction(slope.platform))
       ? groundAt(platforms, p.x, p.y, .3, s => canGrip(s.angle, surfaceFriction(s.platform))) ?? (!leavingGround ? previousGround : null) : null
@@ -1571,20 +1569,36 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   p.vy -= Math.sign(p.vy) * excessTravel * (1 - Math.exp(-passiveDrag * powered * dt))
   p.y += p.vy * dt; p.grounded = false
   if (support) { p.y = support.y; p.vy = 0; p.grounded = true }
+  // A corner buried in a neighbouring piece is a seam in the ground, not a wall to miss.
+  const bareCorner = (b: Platform, x: number, y: number, side: number) =>
+    !platforms.some(other => other !== b && pointInside(other, x + side * .5, y + .5))
+  const land = (surface: GroundSurface) => {
+    if (!wasGrounded) {
+      absorbLanding(p, p.vy)
+      const cos = Math.cos(surface.angle), sin = Math.sin(surface.angle)
+      p.vx = (p.vx * cos + p.vy * sin) * cos
+    }
+    p.y = surface.y; p.vy = 0; p.grounded = true; support = surface
+  }
   for (const b of platforms) {
     if (p.x + 12 <= b.x || p.x - 12 >= b.x + b.w) continue
-    if (b.polygon || collisionOutline?.(b)) continue // These faces use the continuous body sweep.
+    if (collisionOutline?.(b)) continue
+    if (b.polygon) {
+      // These faces use the continuous body sweep. Only a lip crossed within this step is
+      // settled here, exactly as a rectangle's is: feet carried over it land, and a missed
+      // corner is a side contact.
+      const lip = !b.looseProp && p.vy >= 0 && !p.sliding?.active ? lipCrossing(b, oldX, oldY, p.x, p.y) : null
+      if (!lip || !canGrip(lip.angle, surfaceFriction(b))) continue
+      if (lip.over) land({ platform: b, y: lip.y, angle: lip.angle })
+      else if (!support && p.vx * lip.side < 0 && bareCorner(b, lip.x, lip.y, lip.side)) { p.x = lip.x + 12 * lip.side; p.vx = 0 }
+      continue
+    }
     const surface = platformSurface(b, p.x), before = platformSurface(b, oldX)
     if (!canGrip(surface.angle, surfaceFriction(b)) || p.sliding?.active) continue
     if ((p.vy >= 0 || b.profile && p.y - surface.y >= oldY - before.y) && oldY <= before.y + .1 && p.y >= surface.y) {
-      if (p.x >= b.x && p.x <= b.x + b.w) {
-        if (!wasGrounded) {
-          absorbLanding(p, p.vy)
-          const cos = Math.cos(surface.angle), sin = Math.sin(surface.angle)
-          p.vx = (p.vx * cos + p.vy * sin) * cos
-        }
-        p.y = surface.y; p.vy = 0; p.grounded = true; support = surface
-      } else if (!support && !b.profile && ((p.x < b.x && p.vx > 0) || (p.x > b.x + b.w && p.vx < 0))) {
+      if (p.x >= b.x && p.x <= b.x + b.w) land(surface)
+      else if (!support && !b.profile && ((p.x < b.x && p.vx > 0) || (p.x > b.x + b.w && p.vx < 0))
+        && bareCorner(b, p.x < b.x ? b.x : b.x + b.w, b.y, p.x < b.x ? -1 : 1)) {
         // A missed corner is a side contact, not support under empty space.
         p.x = p.x < b.x ? b.x - 12 : b.x + b.w + 12; p.vx = 0
       }

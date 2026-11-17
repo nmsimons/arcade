@@ -1,0 +1,368 @@
+{
+  "version": 1,
+  "id": "0de3d603-e5b2-4a55-bac0-374a94bdcc66",
+  "name": "Handoff",
+  "width": 1634,
+  "height": 834,
+  "floor": 834,
+  "wallFinish": "tile",
+  "platforms": [
+    {
+      "x": 0,
+      "y": 590,
+      "w": 420,
+      "h": 244,
+      "material": "stone"
+    },
+    {
+      "x": 800,
+      "y": 590,
+      "w": 184,
+      "h": 244,
+      "material": "stone"
+    },
+    {
+      "x": 984,
+      "y": 608,
+      "w": 650,
+      "h": 226,
+      "material": "stone"
+    },
+    {
+      "x": 1334,
+      "y": 258,
+      "w": 300,
+      "h": 350,
+      "material": "stone"
+    },
+    {
+      "x": 1274,
+      "y": 584,
+      "w": 60,
+      "h": 24,
+      "material": "stone"
+    },
+    {
+      "x": 0,
+      "y": 132.25,
+      "w": 960,
+      "h": 177.75,
+      "polygon": [
+        [
+          0,
+          0.0
+        ],
+        [
+          850,
+          97.75
+        ],
+        [
+          850,
+          157.75
+        ],
+        [
+          960,
+          157.75
+        ],
+        [
+          960,
+          177.75
+        ],
+        [
+          790,
+          177.75
+        ],
+        [
+          790,
+          120.85
+        ],
+        [
+          0,
+          30.0
+        ]
+      ],
+      "material": "steel"
+    },
+    {
+      "x": 960,
+      "y": 0,
+      "w": 20,
+      "h": 310,
+      "material": "steel"
+    },
+    {
+      "x": 290,
+      "y": 0,
+      "w": 20,
+      "h": 86,
+      "material": "steel"
+    },
+    {
+      "x": 800,
+      "y": 0,
+      "w": 40,
+      "h": 150,
+      "material": "steel"
+    },
+    {
+      "x": 240,
+      "y": 188,
+      "w": 20,
+      "h": 322,
+      "material": "stone"
+    }
+  ],
+  "entrance": {
+    "x": 890,
+    "y": 590
+  },
+  "goal": {
+    "x": 1634,
+    "y": 258,
+    "flipX": true,
+    "id": "exit",
+    "power": "switched"
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "times": {
+    "a": 14,
+    "b": 23,
+    "c": 40,
+    "d": 60
+  },
+  "props": [
+    {
+      "kind": "box",
+      "x": 1214.0,
+      "y": 608,
+      "size": 120,
+      "branded": true
+    },
+    {
+      "kind": "ball",
+      "x": 255,
+      "y": 161.57,
+      "size": 70
+    }
+  ],
+  "mechanisms": [
+    {
+      "id": "release",
+      "name": "Retaining gate",
+      "kind": "gate",
+      "x": 290,
+      "y": 86,
+      "w": 20,
+      "h": 80,
+      "travel": 80,
+      "switchLogic": "and",
+      "wireTerminal": {
+        "x": 268,
+        "y": 223
+      }
+    },
+    {
+      "id": "bollard",
+      "name": "Delivery bollard (sinks on DeliveryOpen)",
+      "kind": "gate",
+      "x": 810,
+      "y": 228,
+      "w": 20,
+      "h": 44,
+      "travel": 44,
+      "switchLogic": "or",
+      "switchReversed": true,
+      "wireTerminal": {
+        "x": 820,
+        "y": 332
+      }
+    },
+    {
+      "id": "door",
+      "name": "Closet door",
+      "kind": "gate",
+      "x": 240,
+      "y": 510,
+      "w": 20,
+      "h": 80,
+      "travel": 80,
+      "switchLogic": "or",
+      "wireTerminal": {
+        "x": 286,
+        "y": 482
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "A",
+      "mode": "weight",
+      "behavior": "pressure",
+      "x": 1034,
+      "y": 608,
+      "w": 76,
+      "targets": [
+        "delivery",
+        "release",
+        "handoff",
+        "not-a"
+      ],
+      "showWires": true,
+      "wireHeight": 434
+    },
+    {
+      "name": "B",
+      "mode": "weight",
+      "behavior": "pressure",
+      "x": 855,
+      "y": 290,
+      "w": 100,
+      "targets": [
+        "delivery",
+        "handoff",
+        "clear"
+      ],
+      "wireTerminal": {
+        "x": 905,
+        "y": 332
+      },
+      "showWires": true,
+      "wireHeight": 484
+    },
+    {
+      "name": "R",
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false,
+      "x": 20,
+      "y": 590,
+      "w": 110,
+      "targets": [
+        "release"
+      ],
+      "showWires": true,
+      "wireHeight": 544
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "x": 1354,
+      "y": 78
+    }
+  ],
+  "pickups": [],
+  "texts": [
+    {
+      "x": 1118,
+      "y": 136,
+      "w": 210,
+      "h": 30,
+      "text": "HANDOFF",
+      "fontSize": 22,
+      "align": "left"
+    },
+    {
+      "x": 1118,
+      "y": 186,
+      "w": 210,
+      "h": 30,
+      "text": "CLEAR TO LEAVE",
+      "fontSize": 22,
+      "align": "left"
+    },
+    {
+      "x": 1088,
+      "y": 418,
+      "w": 235,
+      "h": 36,
+      "text": "leave something heavy",
+      "fontSize": 24,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -3
+    }
+  ],
+  "wallLights": [
+    {
+      "id": "handoff",
+      "name": "Handoff (TransferReady)",
+      "x": 1096,
+      "y": 150,
+      "switchLogic": "and",
+      "wireTerminal": {
+        "x": 1072,
+        "y": 150
+      }
+    },
+    {
+      "id": "clear",
+      "name": "Clear to leave (DepartureReady)",
+      "x": 1096,
+      "y": 200,
+      "switchLogic": "and",
+      "relay": true,
+      "targets": [
+        "exit"
+      ],
+      "wireTerminal": {
+        "x": 1072,
+        "y": 200
+      }
+    }
+  ],
+  "logicRelays": [
+    {
+      "id": "delivery",
+      "name": "DeliveryOpen",
+      "x": 1022,
+      "y": 330,
+      "switchLogic": "or",
+      "targets": [
+        "bollard",
+        "door"
+      ],
+      "wireTerminal": {
+        "x": 1072,
+        "y": 330
+      },
+      "showWires": true,
+      "wireHeight": 464
+    },
+    {
+      "id": "not-a",
+      "name": "NOT A",
+      "x": 1022,
+      "y": 200,
+      "switchLogic": "or",
+      "switchReversed": true,
+      "targets": [
+        "clear"
+      ],
+      "wireTerminal": {
+        "x": 1072,
+        "y": 200
+      }
+    }
+  ],
+  "pipes": [
+    {
+      "name": "Basin drain",
+      "size": "large",
+      "points": [
+        [
+          424,
+          764
+        ],
+        [
+          796,
+          764
+        ]
+      ]
+    }
+  ]
+}

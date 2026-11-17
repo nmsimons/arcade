@@ -1,6 +1,6 @@
 # Making a fun jumping level
 
-**Updated October 20, 2026.** This is the design brief for creating and
+**Updated November 17, 2026.** This is the design brief for creating and
 reviewing levels in L.A.B. Experiments (Leaps and Bounds). It draws on the built-in maps, the
 authored Tower maps, and the local Night Shift collection. Existing levels are
 references, not evidence that every placement in them is ideal.
@@ -451,6 +451,41 @@ When a layout exposes a movement bug, reproduce and fix the shared rule with a
 regression test. When a layout simply demands an unreliable maneuver, change
 the layout. Do not add object-specific exceptions to make one puzzle work.
 
+### Edges measured while building
+
+These came out of playtesting the Gravity, Puzzles and Assessment courses added
+in November 2026. Each is a measurement of the current build, to check again
+before leaning on it.
+
+- **Slides.** A slide ends where it meets ground shallower than about 33
+  degrees. The player lands there at once, in control, with the forward part
+  of the slide's speed: about 675 units per second off a 46.5 degree slide,
+  760 off 55 and 400 off 70, well above a run's 410 on the shallower ones.
+  Leave run-out room at the foot or end the slide in a lip. Until November
+  17, 2026 the same slide stopped the player or kept some speed depending on
+  the frame and on which way it faced; routes timed around that need checking.
+- **Uphill.** Running uphill slows sharply above 35 degrees: about 312 units
+  per second at 34 degrees and 122 at 45.
+- **Force fields underfoot.** A blue field gives no automatic step-up and no
+  lip to catch. Meet a walkable field with level footing at both ends, and do
+  not rely on it to catch a short jump.
+- **Lift columns.** A full-speed run passes straight through a column 160
+  wide: board at a walk, stop inside, or widen it. A column whose top is level
+  with a rim wall can hold a body bobbing against that wall; top the column
+  out above the rim and keep it clear of any other field.
+- **Weightless fields.** A body has no vertical control in zero gravity. Give
+  every weightless field a sideways way out, and keep ceilings clear of it: a
+  long hop that rises to a ceiling inside the field stays pressed there until
+  the player steers back.
+- **Crates and ramps.** A crate shoved hard into the foot of a ramp can ride
+  up it and rest tilted, off the plate it was on. Stop a crate with a vertical
+  face.
+- **Speed carries.** Running speed is kept through jumps, field boundaries
+  and gravity flips, so a course of well-tuned contacts can finish under one
+  held direction. Hold the direction of travel from the start and see where
+  the run stops; if it finishes, the course has not yet asked for a decision
+  (see [Scoring a jumping level](jumping-level-rubric.md)).
+
 ## 5. Put guidance and displays on the wall thoughtfully
 
 ### Graffiti is the voice of a hint
@@ -650,6 +685,10 @@ Activating a switched exit opens it; scoring locks when the player enters
 the doorway. An object can activate a connected plate, but it cannot complete that final
 journey for the player.
 
+Grade times are whole seconds: the studio's fields reject decimals. When two
+lines sit less than a second apart, separate them in the layout rather than
+with a fractional deadline.
+
 - **A:** an attainable, demonstrated run with a good plan and confident
   execution. Do not require unexplained physics tricks or perfect luck.
 - **B:** a sound route with some hesitation, extra travel, or a modest
@@ -763,6 +802,9 @@ still deserve review when reusing a pattern.
 - For the opening and finale, have their story beats, input, scoring boundaries,
   and presentation been reviewed against the campaign and outdoor briefs?
 - What can be removed without weakening the idea?
+- Does a run that only holds the direction of travel stop somewhere? Has
+  someone who did not build the level scored it against
+  [the rubric](jumping-level-rubric.md)?
 
 File validation and automated route checks are valuable, but do not establish
 fun or legibility. Play at normal speed as well. Add regression coverage for

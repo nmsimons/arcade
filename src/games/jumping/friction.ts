@@ -12,6 +12,10 @@ const approach = (value: number, target: number, delta: number) => value + Math.
 /** Gravity and normal load share a factor of g, so this balance is unitless. */
 export const canGrip = (angle: number, friction = TERRAIN_FRICTION) => Math.cos(angle) > 0
   && friction.grip * Math.cos(angle) >= Math.abs(Math.sin(angle))
+/** Sliding friction alone outweighs the pull along this face, so a slip that reaches it would
+ * come to rest here. Steeper faces that hold a standing body still keep a slip going. */
+export const slipRests = (angle: number, friction = TERRAIN_FRICTION) => Math.cos(angle) > 0
+  && friction.sliding * Math.cos(angle) > Math.abs(Math.sin(angle))
 
 /** Ground locomotion in surface space; flat ground retains the original response. */
 export function groundVelocity(vx: number, target: number, angle: number, acceleration: number, dt: number, friction = TERRAIN_FRICTION) {

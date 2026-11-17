@@ -54,13 +54,17 @@ in development builds only. What exists:
   inputs. Wake, the four tutorial levels and Company stay in the collection but
   leave the campaign; their direct links stay open. Orientation's golden traces await recording on Apple
   Silicon, like the other facility areas.
-- Seven wings: Boot Camp (7 courses), Freight (5), Construction (7), Gravity
-  (3), Security (6), Puzzles (3) and Assessment (2), for 33 required courses.
+- Seven wings: Boot Camp (8 courses), Freight (5), Construction (7), Gravity
+  (8), Security (6), Puzzles (5) and Assessment (6), for 45 required courses.
+  Gravity's doors run in rising difficulty: Drain, Overhead, Ramping Up,
+  Featherweight, Drift, Pinball, Flip Side and Updraft. Puzzles adds Four
+  Lamps, One or the Other and Handoff after the two Waterlines, and Assessment
+  adds Proficiency and Round Trip (November 17, 2026).
   The concourse's wiring opens them as wings are completed: Freight and
   Construction once Boot Camp is complete; Gravity once Freight or Construction
   is; Security once Freight, Construction and Gravity are; Puzzles once Gravity
-  and Security are; and Assessment once all six others are. Slow is Smooth,
-  Buoyancy and Full Tilt stay in the collection with no door; their direct links stay open.
+  and Security are; and Assessment once all six others are. Slow is Smooth
+  and Buoyancy stay in the collection with no door; their direct links stay open.
   Most wings are still flat corridors that make the campaign playable end to
   end, not designed wings.
 - Direct links ([Routes](#engineering-notes)): `/lab/levels/built-in/<file>` plays a
@@ -318,7 +322,7 @@ campaign file:
   bulkheads, gates, lifts, lights or logic relays, and mix with plates and
   float switches. Most built-in wings are wired in sequence: each door after
   the first is Switched, and the door before it switches it on. Assessment's
-  two doors are both always open.
+  doors are all always open.
 - A passed course's door stays open, whatever its wiring says: a pass never
   relocks, so a pass carried over from the level grid keeps its door open.
 

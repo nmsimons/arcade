@@ -342,6 +342,19 @@ or feed it an equivalent reversed CrossingReady relay.
 | 0 | 1 | On | Extended | Closed |
 | 1 | 1 | Off | Retracted | Open |
 
+A switched blue force field can stand in for the retracting gate, powered by
+CrossingReady directly (on is extended). It has no travel, no safety hold and
+nothing extended at the start, so the access gate below is not needed, and the
+bridge appears and goes the moment a button lands. It also loses bridge travel
+as a timing layer. Two rules follow from how fields behave: put both buttons
+on fixed footing well clear of the beam, so it never switches under or through
+the player; and give each end of the beam level footing, because a field
+offers no step-up and no lip to catch. One or the Other is built this way.
+Two gate leaves meeting mid-gap were tried first and dropped, because a player
+hanging from one leaf's tip while the other closed could not pull up. That was
+a fault in the game and is fixed (`tests/jumping-gate-grip.test.mjs`), so the
+two-leaf bridge is open to use again.
+
 ### Layout and recovery
 
 The intended route turns A on, waits for a usable bridge, crosses to the fixed

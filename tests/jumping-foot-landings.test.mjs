@@ -14,7 +14,9 @@ test('leaving a real moving ball steps down to the lower floor without instantly
     run.props[0].vx = side*480
     let previous, sawBall = false, sawLanding = false, sawFloor = false
     for (let tick = 0; tick < 180; tick++) {
-      stepRun(run, { ...NEUTRAL_INPUT, move: tick < 38 ? side : tick < 150 ? -side : 0 })
+      // The turn back is timed so that a stride is mid-swing as the body walks off the ball's curve:
+      // the witness below needs an unloaded shoe on its way down to the floor.
+      stepRun(run, { ...NEUTRAL_INPUT, move: tick < 39 ? side : tick < 150 ? -side : 0 })
       const p = run.player, pose = athletePose(p)
       const core = [pose.hip,pose.waist,pose.shoulder,pose.head].map(point => [p.x+point[0]*p.facing,p.y+point[1]])
       // The earlier climb interruption has its own open acceptance. This

@@ -1,0 +1,394 @@
+{
+  "version": 1,
+  "id": "aac71758-36c3-43ab-9d28-bb4f2eed7325",
+  "name": "Updraft",
+  "width": 1720,
+  "height": 2980,
+  "platforms": [
+    {
+      "name": "Foundation",
+      "x": 560,
+      "y": 2700,
+      "w": 1160,
+      "h": 280,
+      "material": "stone"
+    },
+    {
+      "name": "First landing",
+      "x": 560,
+      "y": 2660,
+      "w": 1160,
+      "h": 40,
+      "material": "steel"
+    },
+    {
+      "name": "Lift 1 deck",
+      "x": 380,
+      "y": 2960,
+      "w": 180,
+      "h": 20,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "name": "Thrower curb",
+      "x": 1260,
+      "y": 2580,
+      "w": 20,
+      "h": 80,
+      "material": "steel"
+    },
+    {
+      "name": "Lift 3 deck",
+      "x": 1600,
+      "y": 1900,
+      "w": 120,
+      "h": 20,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "name": "Lift 4 deck",
+      "x": 1485,
+      "y": 1600,
+      "w": 115,
+      "h": 20,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "name": "Transfer slab, hatch side",
+      "x": 240,
+      "y": 920,
+      "w": 160,
+      "h": 120,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          160,
+          0
+        ],
+        [
+          160,
+          120
+        ],
+        [
+          140,
+          120
+        ],
+        [
+          140,
+          40
+        ],
+        [
+          100,
+          40
+        ],
+        [
+          0,
+          40
+        ]
+      ]
+    },
+    {
+      "name": "Transfer slab",
+      "x": 520,
+      "y": 920,
+      "w": 1200,
+      "h": 40,
+      "material": "steel"
+    },
+    {
+      "name": "Lift 5 deck",
+      "x": 0,
+      "y": 1300,
+      "w": 525,
+      "h": 20,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "name": "Top deck body, hatch side",
+      "x": 240,
+      "y": 640,
+      "w": 160,
+      "h": 280,
+      "material": "stone"
+    },
+    {
+      "name": "Top deck body",
+      "x": 400,
+      "y": 640,
+      "w": 1020,
+      "h": 80,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          1020,
+          5
+        ],
+        [
+          1020,
+          80
+        ],
+        [
+          0,
+          80
+        ]
+      ]
+    },
+    {
+      "name": "Null gap pit floor",
+      "x": 520,
+      "y": 815,
+      "w": 1200,
+      "h": 105,
+      "material": "stone"
+    },
+    {
+      "name": "Exit ledge body",
+      "x": 1540,
+      "y": 440,
+      "w": 180,
+      "h": 375,
+      "material": "stone",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          180,
+          0
+        ],
+        [
+          180,
+          375
+        ],
+        [
+          0,
+          375
+        ]
+      ]
+    },
+    {
+      "name": "Exit ledge",
+      "x": 1540,
+      "y": 400,
+      "w": 180,
+      "h": 40,
+      "material": "steel"
+    }
+  ],
+  "entrance": {
+    "x": 120,
+    "y": 2980
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "stains": "light",
+  "floor": 2980,
+  "goal": {
+    "x": 1717.8142857142857,
+    "y": 400,
+    "flipX": true
+  },
+  "times": {
+    "a": 14,
+    "b": 22,
+    "c": 32,
+    "d": 64
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [
+    {
+      "name": "Start clock",
+      "x": 40,
+      "y": 2760
+    }
+  ],
+  "pickups": [],
+  "texts": [
+    {
+      "name": "Course title",
+      "x": 40,
+      "y": 2650,
+      "w": 300,
+      "h": 44,
+      "text": "UPDRAFT",
+      "fontSize": 34,
+      "align": "left"
+    },
+    {
+      "name": "Exit direction",
+      "x": 40,
+      "y": 2694,
+      "w": 300,
+      "h": 28,
+      "text": "LIFT STACK. EXIT: TOP LEDGE",
+      "fontSize": 18,
+      "align": "left"
+    },
+    {
+      "name": "Light bay label",
+      "x": 250,
+      "y": 490,
+      "w": 220,
+      "h": 30,
+      "text": "LIGHT BAY 0.5 G",
+      "fontSize": 22,
+      "align": "left"
+    },
+    {
+      "name": "Null gap label",
+      "x": 1020,
+      "y": 490,
+      "w": 240,
+      "h": 30,
+      "text": "ZERO G",
+      "fontSize": 22,
+      "align": "center"
+    }
+  ],
+  "stripes": [],
+  "gravityPlates": [
+    {
+      "name": "Lift 1",
+      "id": "lift-1",
+      "x": 380,
+      "y": 2580,
+      "w": 180,
+      "h": 380,
+      "gravity": -1,
+      "power": "always"
+    },
+    {
+      "name": "Lift 2 thrower",
+      "id": "lift-2",
+      "x": 1020,
+      "y": 2140,
+      "w": 240,
+      "h": 520,
+      "gravity": -1,
+      "power": "always"
+    },
+    {
+      "name": "Lift 3",
+      "id": "lift-3",
+      "x": 1600,
+      "y": 1610,
+      "w": 120,
+      "h": 290,
+      "gravity": -1,
+      "power": "always"
+    },
+    {
+      "name": "Lift 4",
+      "id": "lift-4",
+      "x": 1485,
+      "y": 1145,
+      "w": 115,
+      "h": 455,
+      "gravity": -1,
+      "power": "always"
+    },
+    {
+      "name": "Transfer field",
+      "id": "transfer",
+      "x": 535,
+      "y": 960,
+      "w": 1065,
+      "h": 70,
+      "gravity": -1,
+      "ceiling": true,
+      "power": "always"
+    },
+    {
+      "name": "Lift 6 hatch lift",
+      "id": "lift-6",
+      "x": 400,
+      "y": 820,
+      "w": 120,
+      "h": 480,
+      "gravity": -3,
+      "power": "always"
+    },
+    {
+      "name": "Light bay over lift 5",
+      "id": "light-bay-a",
+      "x": 0,
+      "y": 0,
+      "w": 850,
+      "h": 630,
+      "gravity": 0.5,
+      "ceiling": true,
+      "power": "always"
+    },
+    {
+      "name": "Null gap",
+      "id": "null-gap",
+      "x": 880,
+      "y": 0,
+      "w": 515,
+      "h": 635,
+      "gravity": 0,
+      "ceiling": true,
+      "power": "always"
+    },
+    {
+      "id": "79191a88-277e-4341-92d8-564dbf9d974a",
+      "x": 1425,
+      "y": 665,
+      "w": 115,
+      "h": 150,
+      "gravity": -3,
+      "power": "always"
+    },
+    {
+      "id": "88de6c50-16c0-46b5-bde1-136b0715049c",
+      "x": 400,
+      "y": 725,
+      "w": 1015,
+      "h": 85,
+      "gravity": -3,
+      "power": "always",
+      "facing": "right"
+    },
+    {
+      "id": "8e1130e2-07aa-418b-b162-f8d4fd4db446",
+      "x": 0,
+      "y": 640,
+      "w": 390,
+      "h": 655,
+      "gravity": 3,
+      "power": "always",
+      "facing": "right"
+    }
+  ],
+  "forceFields": [
+    {
+      "name": "Hatch guard, near lip",
+      "id": "guard-a",
+      "x": 520,
+      "y": 960,
+      "w": 12,
+      "h": 80,
+      "orientation": "vertical",
+      "power": "always"
+    }
+  ]
+}

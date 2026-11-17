@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "id": "af7c96c7-d0b1-45ba-9f17-6e302e202096",
+  "name": "Drift",
+  "width": 1695,
+  "height": 1030,
+  "floor": 1030,
+  "stains": "light",
+  "platforms": [
+    {
+      "x": 0,
+      "y": 990,
+      "w": 260,
+      "h": 40,
+      "material": "stone",
+      "name": "Start landing"
+    },
+    {
+      "x": 260,
+      "y": 990,
+      "w": 70,
+      "h": 40,
+      "material": "steel",
+      "name": "Chamber 1 floor plate"
+    },
+    {
+      "x": 330,
+      "y": 990,
+      "w": 60,
+      "h": 40,
+      "material": "steel",
+      "trim": "hazard",
+      "name": "Launch line"
+    },
+    {
+      "x": 390,
+      "y": 990,
+      "w": 490,
+      "h": 40,
+      "material": "steel",
+      "name": "Chamber 1 floor plate"
+    },
+    {
+      "x": 880,
+      "y": 990,
+      "w": 80,
+      "h": 40,
+      "material": "stone",
+      "name": "Pylon foot"
+    },
+    {
+      "x": 960,
+      "y": 610,
+      "w": 155,
+      "h": 420,
+      "material": "stone",
+      "name": "Pylon base"
+    },
+    {
+      "x": 1050,
+      "y": 460,
+      "w": 65,
+      "h": 150,
+      "material": "stone",
+      "name": "Alcove back"
+    },
+    {
+      "x": 960,
+      "y": 430,
+      "w": 195,
+      "h": 30,
+      "material": "steel",
+      "trim": "hazard",
+      "name": "Board"
+    },
+    {
+      "x": 260,
+      "y": 0,
+      "w": 620,
+      "h": 40,
+      "material": "steel",
+      "name": "Chamber 1 header"
+    },
+    {
+      "x": 1020,
+      "y": 0,
+      "w": 135,
+      "h": 133,
+      "material": "steel",
+      "name": "Hung block"
+    },
+    {
+      "x": 1115,
+      "y": 970,
+      "w": 580,
+      "h": 60,
+      "material": "stone",
+      "name": "Chamber 2 footing"
+    },
+    {
+      "x": 1115,
+      "y": 940,
+      "w": 40,
+      "h": 30,
+      "material": "stone",
+      "name": "Under the board"
+    },
+    {
+      "x": 1155,
+      "y": 940,
+      "w": 260,
+      "h": 30,
+      "material": "steel",
+      "name": "Chamber 2 floor plate"
+    },
+    {
+      "x": 1415,
+      "y": 940,
+      "w": 280,
+      "h": 30,
+      "material": "stone",
+      "name": "Exit sill"
+    },
+    {
+      "x": 1445,
+      "y": 790,
+      "w": 250,
+      "h": 30,
+      "material": "steel",
+      "name": "Far ledge"
+    }
+  ],
+  "entrance": {
+    "x": 110,
+    "y": 990
+  },
+  "goal": {
+    "x": 1475,
+    "y": 940
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [
+      {
+        "name": "Alcove to board",
+        "x": 1015,
+        "top": 430,
+        "bottom": 610,
+        "platform": -1,
+        "side": 1
+      },
+      {
+        "name": "Far ledge to exit",
+        "x": 1675,
+        "top": 790,
+        "bottom": 940,
+        "platform": -1,
+        "side": 1
+      }
+    ],
+    "ropes": []
+  },
+  "times": {
+    "a": 4,
+    "b": 7,
+    "c": 11,
+    "d": 30
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [
+    {
+      "name": "Clock",
+      "x": 60,
+      "y": 590
+    }
+  ],
+  "pickups": [],
+  "texts": [
+    {
+      "name": "Launch hint",
+      "x": 40,
+      "y": 740,
+      "w": 300,
+      "h": 90,
+      "text": "hold it longer,\ngo higher",
+      "fontSize": 28,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -6
+    },
+    {
+      "name": "Launch line label",
+      "x": 280,
+      "y": 912,
+      "w": 160,
+      "h": 30,
+      "text": "LAUNCH LINE",
+      "fontSize": 20,
+      "align": "center"
+    },
+    {
+      "name": "Chamber 1 label",
+      "x": 350,
+      "y": 560,
+      "w": 440,
+      "h": 56,
+      "text": "NULL CHAMBER 1",
+      "fontSize": 40,
+      "align": "center"
+    },
+    {
+      "name": "Chamber 2 hint",
+      "x": 1195,
+      "y": 230,
+      "w": 300,
+      "h": 70,
+      "text": "let go and it sinks.\nyou keep the fall.",
+      "fontSize": 24,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -3
+    },
+    {
+      "name": "Chamber 2 label",
+      "x": 1175,
+      "y": 451,
+      "w": 230,
+      "h": 36,
+      "text": "NULL CHAMBER 2",
+      "fontSize": 24,
+      "align": "left"
+    }
+  ],
+  "stripes": [
+    {
+      "name": "Chamber 2 field limit",
+      "x": 1155,
+      "y": 430,
+      "w": 260,
+      "h": 10
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "null-1",
+      "name": "Null chamber 1",
+      "x": 260,
+      "y": 40,
+      "w": 620,
+      "h": 950,
+      "gravity": 0,
+      "power": "always"
+    },
+    {
+      "id": "null-2",
+      "name": "Null chamber 2",
+      "x": 1155,
+      "y": 435,
+      "w": 260,
+      "h": 505,
+      "gravity": 0,
+      "power": "always"
+    }
+  ]
+}

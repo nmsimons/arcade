@@ -1572,13 +1572,17 @@
           }
         },
         {
-          "frames": 155,
+          "frames": 9,
+          "input": {}
+        },
+        {
+          "frames": 139,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 477,
+          "frames": 484,
           "input": {
             "climb": true
           }
@@ -1608,13 +1612,17 @@
           }
         },
         {
-          "frames": 1273,
+          "frames": 8,
+          "input": {}
+        },
+        {
+          "frames": 1256,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 1,
+          "frames": 10,
           "input": {
             "climb": true
           }
@@ -1651,7 +1659,11 @@
           }
         },
         {
-          "frames": 112,
+          "frames": 7,
+          "input": {}
+        },
+        {
+          "frames": 105,
           "input": {
             "move": 1
           }
@@ -1719,7 +1731,11 @@
           }
         },
         {
-          "frames": 1273,
+          "frames": 9,
+          "input": {}
+        },
+        {
+          "frames": 1264,
           "input": {
             "move": 1
           }
@@ -1762,13 +1778,17 @@
           }
         },
         {
-          "frames": 155,
+          "frames": 9,
+          "input": {}
+        },
+        {
+          "frames": 139,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 477,
+          "frames": 484,
           "input": {
             "climb": true
           }
@@ -1854,13 +1874,17 @@
           }
         },
         {
-          "frames": 155,
+          "frames": 9,
+          "input": {}
+        },
+        {
+          "frames": 139,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 477,
+          "frames": 484,
           "input": {
             "climb": true
           }
@@ -1930,13 +1954,17 @@
           }
         },
         {
-          "frames": 1273,
+          "frames": 8,
+          "input": {}
+        },
+        {
+          "frames": 1256,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 1,
+          "frames": 10,
           "input": {
             "climb": true
           }
@@ -1973,13 +2001,17 @@
           }
         },
         {
-          "frames": 155,
+          "frames": 9,
+          "input": {}
+        },
+        {
+          "frames": 139,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 477,
+          "frames": 484,
           "input": {
             "climb": true
           }
@@ -2009,13 +2041,17 @@
           }
         },
         {
-          "frames": 3991,
+          "frames": 3,
+          "input": {}
+        },
+        {
+          "frames": 3984,
           "input": {
             "move": 0.3048780487804878
           }
         },
         {
-          "frames": 1,
+          "frames": 5,
           "input": {
             "climb": true
           }
@@ -2064,13 +2100,17 @@
           }
         },
         {
-          "frames": 155,
+          "frames": 9,
+          "input": {}
+        },
+        {
+          "frames": 139,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 477,
+          "frames": 484,
           "input": {
             "climb": true
           }
@@ -2100,13 +2140,17 @@
           }
         },
         {
-          "frames": 1273,
+          "frames": 8,
+          "input": {}
+        },
+        {
+          "frames": 1256,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 1,
+          "frames": 10,
           "input": {
             "climb": true
           }

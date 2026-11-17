@@ -3,20 +3,23 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures, finishJumpingEntrance, openLevelLink } from './helpers/jumpingLevels.mjs'
 
 const lab = JSON.parse(readFileSync(new URL('../../public/levels/jumping/LAB.jump-level.json', import.meta.url), 'utf8'))
+// The pressure plate, read from the level so a studio edit that moves it keeps the test pointed at it. Its top is
+// drawn 7 units above its trigger's point.
+const plate = { x: lab.triggers[0].x, top: lab.triggers[0].y - 7 }
 
 test('the Leaps and Bounds crate powers the plate, releases it when pushed, and presses again after restart', async ({ page }, info) => {
   // The full night-mode route and restart render in software on CI.
   test.setTimeout(180000)
   await page.setViewportSize({ width: 960, height: 600 })
   await useLevelFixtures(page, [lab])
-  await page.addInitScript(() => {
+  await page.addInitScript(plateX => {
     const fillRect = CanvasRenderingContext2D.prototype.fillRect
     CanvasRenderingContext2D.prototype.fillRect = function (...args) {
-      if (args[0] === 2040 && args[2] === 80 && args[3] === 3 && ['#9bb878', '#c4a66b'].includes(this.fillStyle))
+      if (args[0] === plateX && args[2] === 80 && args[3] === 3 && ['#9bb878', '#c4a66b'].includes(this.fillStyle))
         window.labPlate = { color: this.fillStyle, top: args[1] }
       return fillRect.apply(this, args)
     }
-  })
+  }, plate.x)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   // Keep slow browser calls from adding held-key frames between route steps.
   await openLevelLink(page, { query: '?renderControl=1', pauseAt: new Date('2026-01-01T01:00:00Z') })
@@ -31,7 +34,7 @@ test('the Leaps and Bounds crate powers the plate, releases it when pushed, and 
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(750); await page.keyboard.up('ArrowUp')
   await page.keyboard.down('ArrowRight'); await page.clock.runFor(166 * 1000 / 120)
   await page.clock.runFor(1000); await page.keyboard.up('ArrowRight')
-  await expect.poll(() => page.evaluate(() => window.labPlate)).toEqual({ color: '#c4a66b', top: 453 })
+  await expect.poll(() => page.evaluate(() => window.labPlate)).toEqual({ color: '#c4a66b', top: plate.top })
   await page.screenshot({ path: info.outputPath('lab-crate-releases-plate.png') })
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Restart level', exact: true }).click()

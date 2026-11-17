@@ -64,10 +64,13 @@ test('offscreen thumbnails allocate pixels only when scrolled into view', async 
   await unlockJumpingLevels(page, levels)
   await page.goto('/lab/library')
   const thumbnails = page.locator('.jumping-level-browser .jumping-level-card .level-thumbnail'), first = thumbnails.first(), last = thumbnails.last()
-  await expect.poll(() => first.evaluate(canvas => canvas.width)).toBeGreaterThan(1)
+  // Drawing a thumbnail's worn wall takes a while under CI's software rendering; what matters here is which
+  // thumbnails hold pixels, not how soon they are drawn.
+  const drawn = { timeout: 30000 }
+  await expect.poll(() => first.evaluate(canvas => canvas.width), drawn).toBeGreaterThan(1)
   await expect.poll(() => last.evaluate(canvas => canvas.width)).toBe(1)
   await last.scrollIntoViewIfNeeded()
-  await expect.poll(() => last.evaluate(canvas => canvas.width)).toBeGreaterThan(1)
+  await expect.poll(() => last.evaluate(canvas => canvas.width), drawn).toBeGreaterThan(1)
   await expect.poll(() => first.evaluate(canvas => canvas.width)).toBe(1)
 })
 

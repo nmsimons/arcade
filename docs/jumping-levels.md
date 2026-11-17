@@ -1203,7 +1203,17 @@ hangs and swings from its other anchor, and anyone holding it keeps their grip.
   "release": { "id": "drop", "anchor": "start" } }
 ```
 
-All current terrain uses the same friction. Walking and stable starts depend on
+Terrain uses one friction unless a piece sets `frictionless: true` (studio: select
+the piece, **Surface → Frictionless**). Frictionless terrain has no grip at all: feet
+cannot walk, brake, step up or push from it, any slope slides, and boxes and balls
+glide. Exactly level slick ground still holds a body that is standing still, and a
+moving one coasts until something stops it. Jumping and air control, wall braces and
+wall jumps, ledges, ladders and ropes work as usual, so a slick floor is crossed by
+momentum or by leaping. The piece draws a pale glaze along every exposed face. Only
+`true` is valid; omit the field for ordinary grip. See
+[the physics contract](jumping-physics.md#frictionless-terrain).
+
+Ordinary terrain shares one friction. Walking and stable starts depend on
 whether surface grip can resist downhill gravity, with no fixed angle cutoff.
 Uphill traction and climbing speed taper as that grip is consumed. Running speed
 is measured along the surface, and releasing movement lets the player brake and
@@ -1555,6 +1565,17 @@ For example, a member is `{ "mode": "weight", "behavior": "toggle",
 "toggleGroup": "doors", "x": 120, "y": 920, "w": 100,
 "targets": ["exit"] }`.
 
+**Facing** puts a pressure plate on a floor (faces up), a ceiling (faces down) or a
+wall face (faces left or right). A wall plate is pressed by contact rather than weight:
+a body leaning, braced or standing against it, palms pushing it, or a box or ball held
+against it. Clicking the plate tool beside a wall, away from any floor or ceiling,
+places a wall plate; moving one snaps it to the nearest terrain face pointing its way,
+and its length is resized along the face. The file stores optional `facing: "left"`
+or `"right"`, with `x` the face, `y` the plate's top and `w` its length down the face
+(40–240). Wall plates take no `ceiling` or `mount`. For example:
+`{ "mode": "touch", "facing": "left", "x": 900, "y": 820, "w": 90, "targets": ["exit"] }`
+is on the left side of a pillar whose left face is at x 900.
+
 **Flip vertically** mirrors a pressure plate for ceiling placement. Snap catches
 both floors and exposed undersides, choosing the facing automatically. A ceiling
 plate responds to inverted feet or the supported top edge of a prop pressed
@@ -1621,6 +1642,23 @@ Coordinates use the usual JSON top-left origin.
 The rectangle stays inside the room, has a minimum width and height of 40 units,
 and can extend through the full room height. There is no smaller device-specific
 height or width limit. The plate and field add no solid collision geometry.
+
+**Emitter** picks the rectangle edge holding the emitter. On the bottom or top edge
+(`ceiling: true`) the field pulls vertically as described here. On the left or right
+edge (`facing: "right"` or `"left"`, the way the emitter faces) the field pulls
+sideways instead: positive gravity toward the emitter's edge, negative away from it,
+replacing ordinary gravity inside the rectangle. Props and ropes fall sideways, and the
+player turns a quarter in the air and stands on whichever wall the pull carries them
+to, walking along it with Left and Right turned with the body (Right walks up a
+right-hand wall), jumping off it and falling back. Ledges, ladders, ropes and pushing
+are not available from a wall. A sideways field may not overlap water. See
+[wall footing](jumping-physics.md#sideways-fields-and-wall-footing).
+
+```json
+"gravityPlates": [
+  { "id": "east-pull", "x": 600, "y": 100, "w": 400, "h": 820, "gravity": 1, "power": "always", "facing": "left" }
+]
+```
 
 **Flip vertically** sets optional `ceiling: true`, reflecting only the emitter
 to the rectangle's top edge. The rectangle, gravity multiplier and switching

@@ -1,6 +1,6 @@
 import { ArtPath } from './webgl/artPath.ts'
 import type { GravityPlate, GravityField } from './gravity.ts'
-import { gravityAtPoint } from './gravity.ts'
+import { gravityAtPoint, sideGravityAtPoint } from './gravity.ts'
 import { TUNING } from './movementTuning.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { paintNormally } from './worldPaint.ts'
@@ -138,6 +138,24 @@ export function drawGravityDust(ctx: CanvasRenderingContext2D, plates: readonly 
         const width = Math.min(CELL_W, plate.x + plate.w - cellX), height = Math.min(CELL_H, plate.y + plate.h - cellY)
         // Opposite phases leave a visible mote even in a single-cell field.
         const offset = random(base), phase = (random(base + 1) + slot * .5 + time * (48 + offset * 24) / CELL_H) % 1
+        if (plate.facing) {
+          // A wall field's motes stream sideways, toward the emitter when it pulls and away when it pushes.
+          const across = (.12 + slot * .5 + random(hash + 2) * .25) * height + Math.sin(time * .7 + offset * 6.28) * Math.min(4, height * .06)
+          const y = cellY + across
+          const side = sideGravityAtPoint(field, cellX + width / 2, y) / TUNING.gravity
+          if (!side) continue
+          const x = cellX + (side < 0 ? 1 - phase : phase) * width
+          const local = sideGravityAtPoint(field, x, y) / TUNING.gravity
+          if (!local || Math.sign(local) !== Math.sign(side)) continue
+          const edge = Math.min(1, (x - plate.x) / 16, (plate.x + plate.w - x) / 16, (y - plate.y) / 16, (plate.y + plate.h - y) / 16)
+          const fade = Math.min(1, phase / .18, (1 - phase) / .18) * Math.max(0, edge)
+          if (fade <= .02) continue
+          const size = Math.max(2, 2.5 / Math.abs(transform.a)) * (1 + random(hash + 4) * .25)
+          const length = size * (1 + Math.max(.75, Math.min(3, Math.abs(side))))
+          ctx.globalAlpha = alpha * .85 * fade
+          ctx.fillRect(x - length / 2, y - size / 2, length, size)
+          continue
+        }
         const x = cellX + (.12 + slot * .5 + random(hash + 2) * .25) * width + Math.sin(time * .7 + offset * 6.28) * Math.min(4, width * .06)
         const gravity = gravityAtPoint(field, x, cellY + height / 2) / TUNING.gravity
         if (Math.abs(gravity - 1) < 1e-7) continue
@@ -161,6 +179,13 @@ export function drawGravityDust(ctx: CanvasRenderingContext2D, plates: readonly 
 }
 export function drawGravityPlate(ctx: CanvasRenderingContext2D, plate: GravityPlate, active: boolean, paint: WorldPaint = paintNormally) {
   if (plate.effect === 'water') return
+  if (plate.facing) {
+    // The same foot and emitter standing on the rectangle's left or right edge.
+    const right = plate.facing === 'left', x = right ? plate.x + plate.w : plate.x, { y, h } = plate
+    paint(ctx, 0, () => { ctx.fillStyle = '#738575'; ctx.fillRect(right ? x - 3 : x, y, 3, h) })
+    paint(ctx, active ? .65 : 0, () => { ctx.fillStyle = active ? '#bda0e5' : '#958b9f'; ctx.fillRect(right ? x - 7 : x + 4, y + 3, 3, h - 6) })
+    return
+  }
   const { x, w } = plate, y = plate.ceiling ? plate.y : plate.y + plate.h
   // The pressure plate's shallow metal foot and raised insert, kept inside
   // the field footprint. Only the violet emitter receives power exposure.

@@ -2,6 +2,10 @@
 // surface types can supply their own grip without changing movement or collisions.
 export interface SurfaceFriction { grip: number; sliding: number }
 export const TERRAIN_FRICTION: SurfaceFriction = { grip: 1.05, sliding: .65 }
+/** Frictionless terrain: feet get no traction, so only gravity and momentum act along it. */
+export const FRICTIONLESS: SurfaceFriction = { grip: 0, sliding: 0 }
+/** The grip a terrain piece offers. Callers asking only whether a face is floor-like keep the default. */
+export const surfaceFriction = (surface?: { frictionless?: boolean } | null) => surface?.frictionless ? FRICTIONLESS : TERRAIN_FRICTION
 
 const approach = (value: number, target: number, delta: number) => value + Math.max(-delta, Math.min(delta, target - value))
 
@@ -11,6 +15,8 @@ export const canGrip = (angle: number, friction = TERRAIN_FRICTION) => Math.cos(
 
 /** Ground locomotion in surface space; flat ground retains the original response. */
 export function groundVelocity(vx: number, target: number, angle: number, acceleration: number, dt: number, friction = TERRAIN_FRICTION) {
+  // Without grip the feet can neither drive nor brake: the body keeps its speed.
+  if (friction.grip <= 0) return vx
   const normal = Math.cos(angle), downhill = Math.sin(angle)
   const speed = vx / normal
   // Available grip also limits sustained climbing. Keep gentle slopes familiar,

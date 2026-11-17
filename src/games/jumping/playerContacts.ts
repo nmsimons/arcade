@@ -1,4 +1,5 @@
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform } from './gravityFrame.ts'
+import { contactsToWorld, inWallFrame, turnContactWorld } from './wallFrame.ts'
 import { bodySize, inSizeFrame, scaledContactWorld } from './sizeFrame.ts'
 import type { Prop, RobotState } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
@@ -103,6 +104,12 @@ export function playerContactBody(p: Player, swimmingOutline = false): { x: numb
       return { ...local, outline: local.outline ?? bodyPolygon(0, 0, local.height, p.inverted ? -1 : 1, playerTurnAngle(p)) }
     })
     return { x: body.x * size, y: body.y * size, height: body.height * size, outline: body.outline.map(([x, y]) => [x * size, y * size] as Vec) }
+  }
+  if (p.wall) {
+    // A wall offers no grips or water, so the body is its plain hull, turned with the frame and any turn under way.
+    // The explicit outline carries that turn to every caller.
+    const height = p.crouching ? TUNING.crouchHeight : TUNING.height
+    return { x: p.x, y: p.y, height, outline: bodyPolygon(0, 0, height, 1, playerTurnAngle(p)) }
   }
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
@@ -228,6 +235,7 @@ export function narrowMantle(m: NonNullable<Player['mantle']>, world: ContactWor
 export function playerContacts(p: Player, input: JumpInput, world: ContactWorld, dt = STEP): PlayerContacts {
   const size = bodySize(p)
   if (size !== 1) return sizedContacts(p, world, scaled => playerContacts(p, input, scaled, dt)) as PlayerContacts
+  if (p.wall) return inWallFrame(p, wall => contactsToWorld(playerContacts(p, input, turnContactWorld(world, wall), dt), world, wall))
   if (p.inverted) {
     const reflected = mirrorContactWorld(world)
     mirrorPlayerState(p); p.inverted = false
@@ -245,7 +253,10 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
   // Prop forces run before the player sweep. A pressed/buffered jump is
   // already a departure intent and must not receive one last grounded shove.
   const departing = input.jump && !p.jumpHeld || p.buffer > 0
-  if (support && direction && !departing) for (const c of world.colliders) {
+  // Feet on frictionless terrain have nothing to push from: no working contact forms, so the
+  // hands neither drive a prop nor hold it back. The body still blocks like any contact.
+  const drive = Math.min(1, Math.abs(input.move))
+  if (support && !support.platform.frictionless && direction && !departing) for (const c of world.colliders) {
     if (c.prop && c === collider) continue
     // Standing hand reach must not turn a ceiling above the crouched body into a wall.
     if (p.crouching && c.platform.y + c.platform.h <= p.y - TUNING.crouchHeight) continue
@@ -260,12 +271,12 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       // Keep the unilateral travel obstruction while the ball rolls itself.
       // It cannot supply either a pulling motor or a zero-force working pose.
       const passive = b.kind === 'ball' && b.vx * direction > Math.abs(input.move) * 90 + .1
-      candidates.push({ collider: c, direction, effort: passive ? 0 : Math.min(1, Math.abs(input.move)), wallX, hands, ...(passive ? { passive: true } : {}) })
+      candidates.push({ collider: c, direction, effort: passive ? 0 : drive, wallX, hands, ...(passive ? { passive: true } : {}) })
     } else {
       for (const wallX of exposedWallFaces(world.platforms, c.platform, direction, p.y - 44.1, p.y - 43.9)) {
         const gap = (wallX - p.x) * direction
         if (gap < 11.9 || gap > 38) continue
-        candidates.push({ collider: c, direction, effort: Math.min(1, Math.abs(input.move)), wallX, hands: { wallX, slope: 0 } })
+        candidates.push({ collider: c, direction, effort: drive, wallX, hands: { wallX, slope: 0 } })
       }
     }
   }
@@ -329,15 +340,18 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       if (load) body.push({ collider, normal, point: [point.x, point.y], load })
     }
   }
-  if (free && !support && hasProps) {
+  // Feet on frictionless terrain glide like a free body, so a glide into a prop is a collision too.
+  const gliding = support ? !!support.platform.frictionless : !!p.sliding?.active && !!p.sliding.slick
+  if (free && (!support || gliding) && hasProps) {
     // Drift is a physical collision even without steering or gravitational load.
     // Sweep relative to each nearby prop; include the other solids so a wall
     // cannot transmit an impact into an object hidden behind it.
     const hull = propBody()
     for (const collider of world.colliders) {
       const prop = collider.prop
-      if (!prop || prop.grounded && !isWeightless(p.gravity ?? TUNING.gravity)) continue
-      if (Math.abs(p.gravity ?? TUNING.gravity) >= TUNING.gravity - 1e-7
+      if (!prop || prop === support?.collider.prop) continue
+      if (!gliding && prop.grounded && !isWeightless(p.gravity ?? TUNING.gravity)) continue
+      if (!gliding && Math.abs(p.gravity ?? TUNING.gravity) >= TUNING.gravity - 1e-7
         && (prop.gravity ?? TUNING.gravity) >= TUNING.gravity - 1e-7 && !p.swimAcceleration) continue
       const vx = p.vx - prop.vx, vy = p.vy - prop.vy, b = collider.platform
       const extent = hull.outline ? TUNING.height : TUNING.width / 2
@@ -470,6 +484,7 @@ function dryPropPushHands(p: Player, prop: Prop, direction: number, maxGap = 38)
 export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld): PushContact | null {
   const size = bodySize(p)
   if (size !== 1) return sizedContacts(p, world, scaled => ({ support: null, push: anticipatePush(p, input, scaled), body: [], motion: { x: 0, y: 0, speed: 0 } })).push
+  if (p.wall) return null
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try {

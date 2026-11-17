@@ -13,7 +13,9 @@ import { robotHulls, robotSupport } from './robotPhysics.ts'
 import { plateSolids, plateSurface } from './plateSurface.ts'
 
 export function canPlaceOnSurface(selection: Selection, level?: JumpLevel) {
-  if (selection.kind === 'trigger' && level?.triggers?.[selection.index]?.mode === 'coins') return false
+  const trigger = selection.kind === 'trigger' ? level?.triggers?.[selection.index] : undefined
+  // Wall plates snap across to their face as they move instead.
+  if (trigger && (trigger.mode === 'coins' || trigger.facing)) return false
   return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'entrance', 'checkpoint', 'goal', 'ladder', 'gravity-plate', 'course-door', 'bulkhead', 'wall-door'].includes(selection.kind)
 }
 

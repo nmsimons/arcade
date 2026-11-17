@@ -1,4 +1,5 @@
 // Animation state advanced by the movement step: turns, slide entry, recoveries, water presentation and the impact ragdoll.
+import { inWallFrame, vectorToWall } from './wallFrame.ts'
 import { clearAirborneFoot, clearBody, clearLimb, clearSlidingJoint } from './athleteClearance.ts'
 import { articulateAnkles, athletePose } from './athletePose.ts'
 import { physicsView } from './gameplayPose.ts'
@@ -127,6 +128,11 @@ export function startImpactRagdoll(p: Player, velocity: Point, kind: ImpactKind)
     const frame = enterSizeFrame(p, size, true); p.size = 1
     try { startImpactRagdoll(p, [velocity[0] / size, velocity[1] / size], kind) }
     finally { p.size = size; leaveSizeFrame(p, frame, true) }
+    return
+  }
+  if (p.wall) {
+    const wall = p.wall, local = vectorToWall(wall, velocity[0], velocity[1])
+    inWallFrame(p, () => startImpactRagdoll(p, local, kind))
     return
   }
   if (p.inverted) {

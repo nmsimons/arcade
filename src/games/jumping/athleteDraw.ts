@@ -1,4 +1,5 @@
 // Athlete artwork: skin outlines and Canvas drawing of a solved pose.
+import { wallFrameAngle } from './wallFrame.ts'
 import { ArtPath } from './webgl/artPath.ts'
 import { bodySize } from './sizeFrame.ts'
 import { androidEyes, androidMaterials, androidRearArmColor, drawAndroidArm, drawAndroidEyes, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell, withAndroidBuild } from './androidArtwork.ts'
@@ -200,7 +201,7 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body: Andr
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
   // The pose is in the body's own units; a larger body draws its artwork at its size (sizeFrame.ts).
   const size = bodySize(p)
-  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing * size, (p.inverted ? -1 : 1) * size)
+  ctx.save(); ctx.translate(p.x, p.y); if (p.wall) ctx.rotate(wallFrameAngle(p.wall)); ctx.scale(p.facing * size, (p.inverted ? -1 : 1) * size)
   const materials = androidMaterials(body), shell = materials.shell
   const sleeve = (arm: Limb) => {
     const tool = p.heldTool
@@ -264,7 +265,7 @@ export function drawAthleteLights(ctx: CanvasRenderingContext2D, p: Player, body
     }
   }
   const size = bodySize(p)
-  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing * size, (p.inverted ? -1 : 1) * size)
+  ctx.save(); ctx.translate(p.x, p.y); if (p.wall) ctx.rotate(wallFrameAngle(p.wall)); ctx.scale(p.facing * size, (p.inverted ? -1 : 1) * size)
   drawAndroidEyes(ctx, pose.head, tilt, materials, width, scale, backView, pose.faceView)
   ctx.restore()
 }

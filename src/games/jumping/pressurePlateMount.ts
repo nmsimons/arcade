@@ -21,7 +21,7 @@ export function syncPressurePlateMounts(level: JumpLevel) {
 
 /** Placing or sliding a plate onto a lift attaches it; moving away detaches it. */
 export function attachPressurePlateOnSurface(level: JumpLevel, plate: Trigger) {
-  if (plate.mode === 'coins') return
+  if (plate.mode === 'coins' || plate.facing) return
   const host = level.mechanisms?.find(m => m.kind === 'lift' && Math.abs(m.y + (plate.ceiling ? m.h : 0) - plate.y) < .15
     && plate.x >= m.x - .01 && plate.x + plate.w <= m.x + m.w + .01)
   if (host) {

@@ -9,7 +9,7 @@ import { canGrabLedge, ledgeExposed, ledgeObstacles, platformLedges, sameLedge }
 import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, bodyPolygon, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
-import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
+import { canGrip, FRICTIONLESS, groundVelocity, slidingVelocity, surfaceFriction, TERRAIN_FRICTION } from './friction.ts'
 import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushRig } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
@@ -18,8 +18,9 @@ import { carryWithRisingWater } from './waterTransport.ts'
 import type { WaterLevels } from './waterLevel.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorLadder } from './gravityFrame.ts'
+import { contactsToWorld, inWallFrame, turnContactWorld, vectorToWall, wallForGravity, wallFrameAngle } from './wallFrame.ts'
 import { bodySize, enterSizeFrame, leaveSizeFrame, scaledContactWorld, scaledGravityField, scaledLadder, scaledWater, worldPlatform } from './sizeFrame.ts'
-import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSwimStrength, playerSwimDepth, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration, swimmingDirection, underwaterSwimming } from './gravity.ts'
+import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSideGravity, playerSwimStrength, playerSwimDepth, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration, swimmingDirection, underwaterSwimming } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
 import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeClimbable, ropeShimmyDirection, ropeTravelFacing, ropeTurnHasSupport, ropeVerticality, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn, updateRopeShimmy } from './ropeGravity.ts'
 import { stepRopeBodyMotion, stepRopeSetback } from './ropeBodyMotion.ts'
@@ -130,6 +131,7 @@ export function respawn(p: Player) {
   Object.assign(p, createPlayer(), { x: spawnX, y: spawnY, spawnX, spawnY, checkpoint, bestHeight, ropes })
   if (mode) p.anim.cadence = mode
   delete p.releaseTurn
+  delete p.wall
   delete p.waterBob
   delete p.waterCamera
 }
@@ -480,6 +482,13 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   p.swimAcceleration = fieldMotionOverride?.swimAcceleration ?? swimmingAcceleration(p, input, swimStrength, gravityField ? playerFieldCoverage(gravityField, p) : 0, swimDepth)
   setPlayerGravity(p, gravity, gravity + p.swimAcceleration)
   const orientationGravity = fieldMotionOverride?.orientationGravity ?? (gravityField?.hasWater ? playerOrientationGravity(gravityField, p) : gravity)
+  // Sideways fields (wallFrame.ts): a body on a wall steps in that wall's frame; elsewhere the pull acts on a free body.
+  let side = 0
+  if (gravityOverride === undefined && frameDirection === 1 && !p.inverted && (p.wall || gravityField?.sideways)) {
+    side = gravityField ? playerSideGravity(gravityField, p) : 0
+    if (p.wall) { stepOnWall(p, input, dt, climbables, world, gravityField, side, gravity, options); return }
+    if (!p.grounded && !p.hang && !p.mantle && !p.climbing) p.vx += side * dt
+  }
   if (p.inverted) {
     // Reflect live rope state with the controller, solve once, then restore it.
     // Field samples remain in world space and the authored anchor is untouched.
@@ -648,7 +657,10 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
         ? bodyContact(b, p.x, p.y, normal, afterBody.height) : null
       const incomingVx = p.vx
       const into = p.vx * n[0] + p.vy * n[1]
-      if (into < 0) { p.vx -= into * n[0]; p.vy -= into * n[1] }
+      // A gliding body keeps pace with a prop moving away from it, rather than stopping as at a wall.
+      const prop = b.looseProp && slickFooting(p) ? world.colliders.find(c => c.platform === b)?.prop : undefined
+      const away = prop ? Math.min(0, prop.vx * n[0] + prop.vy * n[1]) : 0
+      if (into < away) { p.vx -= (into - away) * n[0]; p.vy -= (into - away) * n[1] }
       if (face && Math.abs(face.nx) > 1 - 1e-7 && p.y > face.y && (p.x - face.x) * face.nx > 0
         && input.move * face.nx < 0 && incomingVx * face.nx <= 0 && p.vx * face.nx > Math.abs(incomingVx)
         && platformLedges(b).some(edge => edge.side === -face.nx && Math.abs(edge.edgeX - face.x) < .01
@@ -664,6 +676,8 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // A nearly vertical face is a wall contact. Solver-sized box tilts can
       // give it a tiny upward normal without making it a place to plant feet.
       if (c.face.ny >= -.01) return false
+      // Gliding on frictionless footing, a prop's tilted face is something met, never a slope to slide on.
+      if (c.platform.looseProp && slickFooting(p)) return false
       // A trailing foot can brush the bank while running off its lip. A
       // separating contact cannot capture the body into a downhill slide.
       if (p.coyote > 0 && !p.sliding?.active && !c.platform.looseProp && p.vx * c.face.nx + p.vy * c.face.ny > .1
@@ -671,10 +685,10 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
           && (edge.edgeX - p.x) * edge.side >= 0 && (edge.edgeX - p.x) * edge.side <= TUNING.width
           && p.y >= edge.edgeY && p.y < edge.edgeY + TUNING.height)) return false
       const angle = Math.atan2(c.face.nx, -c.face.ny), speed = p.vx * Math.cos(angle) + p.vy * Math.sin(angle)
-      return !canGrip(angle) || p.sliding?.active && Math.abs(speed) > 1e-5
+      return !canGrip(angle, surfaceFriction(c.platform)) || p.sliding?.active && Math.abs(speed) > 1e-5
     })
-    const base = slope && !canGrip(Math.atan2(slope.face.nx, -slope.face.ny))
-      ? groundAt(platforms, p.x, p.y, .3, s => canGrip(s.angle)) ?? (!leavingGround ? previousGround : null) : null
+    const base = slope && !canGrip(Math.atan2(slope.face.nx, -slope.face.ny), surfaceFriction(slope.platform))
+      ? groundAt(platforms, p.x, p.y, .3, s => canGrip(s.angle, surfaceFriction(s.platform))) ?? (!leavingGround ? previousGround : null) : null
     if (supportAcceleration >= 0 && slope && base && !leavingGround && (p.vx * slope.face.nx <= 0 || input.move * slope.face.nx < 0)
       && (p.grounded || previousGround || p.vx * Math.sin(base.angle) - p.vy * Math.cos(base.angle) <= .1)
     ) {
@@ -684,14 +698,15 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     if (slope && supportAcceleration >= 0) {
       const angle = Math.atan2(slope.face.nx, -slope.face.ny), tangent = [Math.cos(angle), Math.sin(angle)]
       let speed = p.vx * tangent[0] + p.vy * tangent[1]
-      if (!p.sliding?.active) speed = slidingVelocity(speed - supportAcceleration * tangent[1] * dt, angle, supportAcceleration, dt)
+      if (!p.sliding?.active) speed = slidingVelocity(speed - supportAcceleration * tangent[1] * dt, angle, supportAcceleration, dt, surfaceFriction(slope.platform))
       const contact = nearestBoundary(slope.platform, p.x, p.y)
       p.vx = tangent[0] * speed; p.vy = tangent[1] * speed
       // Presentation follows resolved slip, including abrupt braking at a
       // landing corner. It never feeds the friction or jump motor.
       const previousSpeed = p.sliding?.balanceSpeed ?? speed
       const balanceSpeed = previousSpeed + (speed - previousSpeed) * (1 - Math.exp(-dt / .08))
-      p.sliding = { angle, amount: approach(p.sliding?.amount ?? 0, 1, dt / .12), time: (p.sliding?.time ?? 0) + dt, active: true, x: contact.x, y: contact.y, balanceSpeed }
+      p.sliding = { angle, amount: approach(p.sliding?.amount ?? 0, 1, dt / .12), time: (p.sliding?.time ?? 0) + dt, active: true, x: contact.x, y: contact.y, balanceSpeed,
+        ...(slope.platform.frictionless ? { slick: true } : {}) }
       // A separate wall contact still owns its brace and release blend when a
       // moving slope briefly catches the feet in a narrow gap.
       p.grounded = false; p.coyote = 0; p.anim.footwork = null
@@ -699,7 +714,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       if (p.sliding) { p.sliding.active = false; p.sliding.amount = Math.max(0, p.sliding.amount - dt / .12); if (!p.sliding.amount) p.sliding = null }
       // An uphill landing can have upward world velocity after the collision.
       // Support depends on separating from the surface, not on falling in world Y.
-      if (ground && (!collisionOutline || !platforms.some(b => overlaps(p.x, ground!.y, b))) && canGrip(ground.angle) && (p.grounded || p.vx * Math.sin(ground.angle) - p.vy * Math.cos(ground.angle) <= .1)) {
+      if (ground && (!collisionOutline || !platforms.some(b => overlaps(p.x, ground!.y, b))) && canGrip(ground.angle, surfaceFriction(ground.platform)) && (p.grounded || p.vx * Math.sin(ground.angle) - p.vy * Math.cos(ground.angle) <= .1)) {
         if (!p.grounded && oldVy > 0) absorbLanding(p, oldVy)
         p.grounded = true; p.vy = 0; p.groundAngle = ground.angle
         if (!platforms.some(b => overlaps(p.x, ground.y, b))) p.y = ground.y
@@ -752,7 +767,62 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     settleWaterClearance(p, dt)
     presentWaterOrQueue(p, dt)
   }
-  if (gravityOverride === undefined) { finishGravityTurn(p); turnToGravity(p, orientationGravity) }
+  if (gravityOverride === undefined) { finishGravityTurn(p); turnToGravity(p, orientationGravity); if (side || p.releaseTurn?.toWall !== undefined) turnToWall(p, side, gravity) }
+}
+
+/** One step standing on, walking along or leaping from a wall: the ordinary controller in the wall's frame, with
+ * the pull across the wall as its gravity and the pull along it acting on a free body. Ropes keep swinging in the
+ * world meanwhile; ledges, ladders and ropes are not offered from a wall. */
+function stepOnWall(p: Player, input: JumpInput, dt: number, climbables: ClimbableWorld, world: ContactWorld,
+  gravityField: GravityField | undefined, side: number, gravity: number, options: PlayerStepOptions) {
+  const wall = p.wall!
+  if (climbables.ropes.length && options.advanceRopes !== false) {
+    p.ropes ??= climbables.ropes.map(createRope)
+    for (const rope of p.ropes) if (!options.ropeRiders?.some(r => r.climbing?.kind === 'rope' && r.climbing.rope === rope))
+      stepRope(rope, dt, world.ropePlatforms ?? world.platforms, null, gravityField, 1, 1)
+  }
+  const [lateral, down] = vectorToWall(wall, side, gravity), local = turnContactWorld(world, wall)
+  p.grabCooldown = Math.max(p.grabCooldown, dt * 1.5)
+  inWallFrame(p, () => {
+    if (!p.grounded && !p.releaseTurn) p.vx += lateral * dt
+    stepPlayer(p, input, dt, local.platforms, NO_CLIMBABLES, { checkpoints: [], fallY: Infinity }, local, undefined, down, 1, undefined,
+      { ...options, ropeRiders: undefined, ropeMates: undefined, water: undefined, advanceRopes: false })
+  })
+  if (p.contacts) p.contacts = contactsToWorld(p.contacts, world, wall)
+  finishGravityTurn(p)
+  turnToWall(p, side, gravity)
+}
+
+/** Turn a free body toward the footing a sideways pull calls for: onto a wall, off it, or to the opposite wall.
+ * A body the pull overpowers on the floor lifts off to turn; a hanging or climbing body keeps its grip. */
+function turnToWall(p: Player, side: number, gravity: number) {
+  const turning = p.releaseTurn?.toWall !== undefined ? p.releaseTurn : null
+  const wall = wallForGravity(side, gravity, p.wall, TUNING.gravity * .05)
+  if (turning) {
+    // A turn under way follows the pull, like a turn toward a ceiling: if the pull that started it goes, the body
+    // turns back to its old footing, and resumes if the pull returns. The frame changes only at the far end.
+    if (wall !== null) turning.target = wall === p.wall ? 0 : wall === turning.toWall ? Math.sign(turning.target || turning.angle) * (turning.span ?? 0) : turning.target
+    return
+  }
+  if (p.inverted || p.releaseTurn || p.hang || p.mantle || p.climbing || p.waterMotion) return
+  if (wall === null || wall === p.wall) return
+  let target = wallFrameAngle(wall) - wallFrameAngle(p.wall)
+  if (Math.abs(Math.abs(target) - Math.PI) < 1e-6) target = p.facing * Math.PI
+  p.releaseTurn = { angle: 0, target, pose: animates(p) ? athletePose(p) : undefined, facing: p.facing, time: 0, progress: 0, toWall: wall ?? null, span: Math.abs(target) }
+  p.anim.ragdoll = null
+  p.grounded = false; p.coyote = 0
+  p.anim.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null
+  p.freeFall = null; p.anim.dryTurn = null; p.anim.slideEntry = null
+  p.contacts = null
+}
+
+/** Feet on frictionless terrain, standing or sliding: a collision there is a glide meeting something, not a walk into it. */
+const slickFooting = (p: Player) => p.grounded ? !!p.contacts?.support?.platform.frictionless : !!p.sliding?.active && !!p.sliding.slick
+/** The speed a gliding body keeps when it catches a loose prop sliding the same way: the prop's own. */
+function glidingBehind(p: Player, world: ContactWorld, b: Platform, direction: number) {
+  if (!b.looseProp || !slickFooting(p)) return 0
+  const prop = world.colliders.find(c => c.platform === b)?.prop
+  return prop && prop.vx * direction > 0 ? prop.vx : 0
 }
 
 /** Free bodies prepare gravity-facing feet in the air. The shared released-turn
@@ -1411,7 +1481,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     p.vx = p.wallJump.direction * TUNING.wallJumpPush; p.facing = p.wallJump.direction
   } else if (p.sliding?.active && !p.grounded) {
     const angle = p.sliding.angle, tangent = [Math.cos(angle), Math.sin(angle)]
-    const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, gravity, dt)
+    const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, gravity, dt, p.sliding.slick ? FRICTIONLESS : TERRAIN_FRICTION)
     // The ordinary gravity step below supplies the normal load for the sweep.
     // Subtract its tangent contribution here so gravity is integrated only once.
     const beforeGravity = speed - gravity * tangent[1] * dt
@@ -1426,15 +1496,18 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const beforeSteering = p.vx
     // Velocity stays in world space. Limited shoe traction can follow a slow
     // bot, but cannot instantly match a charge or erase momentum on departure.
-    const steered = ground && canGrip(ground.angle)
+    const steered = ground?.platform.frictionless ? p.vx
+      : ground && canGrip(ground.angle)
       ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? Math.max(0, gravity + (p.swimAcceleration ?? 0)) * .8 : groundSteering, dt) + (carrier?.vx ?? 0)
       : coasting || !p.grounded && isWeightless(gravity) && !move ? p.vx
       : approach(p.vx, target, (p.grounded ? groundSteering : TUNING.airAcceleration + (TUNING.swimHorizontalAcceleration - TUNING.airAcceleration) * waterControl) * dt)
-    const constrained = pushingVelocity(p, contacts.push, world, dt, steered)
+    // The working stance walks the body to its push distance, which needs traction.
+    const constrained = ground?.platform.frictionless ? null : pushingVelocity(p, contacts.push, world, dt, steered)
     p.vx = constrained ?? steered
     if (!p.grounded && constrained === null) p.airBoost.x = (p.vx - beforeSteering) / (TUNING.airAcceleration * dt)
   }
-  if (p.grounded && contacts.support && !p.crouching && !input.jump && !bodyDrop
+  // Stepping up needs a foothold to push from, which frictionless terrain cannot give.
+  if (p.grounded && contacts.support && !contacts.support.platform.frictionless && !p.crouching && !input.jump && !bodyDrop
     && !p.sliding?.active && p.grabCooldown === 0) {
     const step = findStepUp(p, move, dt, world, stepIntent)
     if (step) {
@@ -1453,8 +1526,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   // Swimming contacts belong to the continuous sweep below. Applying the
   // standing axis stops first creates invisible walls inside flooded tunnels.
   for (const b of platforms) if (!collisionOutline?.(b) && overlaps(p.x, p.y, b, height)) {
-    if (p.vx > 0 && oldX + 12 <= b.x + .1 && exposedSide(platforms, b, 1, p.y - height, p.y)) { p.x = b.x - 12; p.vx = 0 }
-    else if (p.vx < 0 && oldX - 12 >= b.x + b.w - .1 && exposedSide(platforms, b, -1, p.y - height, p.y)) { p.x = b.x + b.w + 12; p.vx = 0 }
+    if (p.vx > 0 && oldX + 12 <= b.x + .1 && exposedSide(platforms, b, 1, p.y - height, p.y)) { p.x = b.x - 12; p.vx = glidingBehind(p, world, b, 1) }
+    else if (p.vx < 0 && oldX - 12 >= b.x + b.w - .1 && exposedSide(platforms, b, -1, p.y - height, p.y)) { p.x = b.x + b.w + 12; p.vx = glidingBehind(p, world, b, -1) }
   }
   let support = following ? followGround(platforms, oldX, p.x, oldY) : null
   if (following && !support) {
@@ -1502,7 +1575,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (p.x + 12 <= b.x || p.x - 12 >= b.x + b.w) continue
     if (b.polygon || collisionOutline?.(b)) continue // These faces use the continuous body sweep.
     const surface = platformSurface(b, p.x), before = platformSurface(b, oldX)
-    if (!canGrip(surface.angle) || p.sliding?.active) continue
+    if (!canGrip(surface.angle, surfaceFriction(b)) || p.sliding?.active) continue
     if ((p.vy >= 0 || b.profile && p.y - surface.y >= oldY - before.y) && oldY <= before.y + .1 && p.y >= surface.y) {
       if (p.x >= b.x && p.x <= b.x + b.w) {
         if (!wasGrounded) {

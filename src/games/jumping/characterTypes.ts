@@ -16,7 +16,7 @@ import type { TerrainMaterial } from './terrainMaterials.ts'
 import type { WaterBob, WaterCamera } from './waterBob.ts'
 
 /** Runtime prop hulls allow free swimming limbs to pass through depth. */
-export interface Platform extends NamedObject { looseProp?: boolean; x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; bezier?: readonly (import('./terrainCurves.ts').TerrainBezier | null)[]; material?: TerrainMaterial; groundCover?: GroundCover; /** A painted band under its exposed tops; artwork only. */ trim?: import('./hazardStripes.ts').TerrainTrim; zIndex?: number }
+export interface Platform extends NamedObject { looseProp?: boolean; x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; bezier?: readonly (import('./terrainCurves.ts').TerrainBezier | null)[]; material?: TerrainMaterial; groundCover?: GroundCover; /** A painted band under its exposed tops; artwork only. */ trim?: import('./hazardStripes.ts').TerrainTrim; /** No traction or contact friction (friction.ts). */ frictionless?: boolean; zIndex?: number }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 /** Animation state: visible turns, foot placement, gait and look blends, and the
  * impact ragdoll. The movement step advances it today; it never changes motion
@@ -62,7 +62,7 @@ export interface Player {
   shove?: { time: number; windup: number; direction: number; struck: boolean; contact?: NonNullable<PushHands['palms']> }
   stagger?: number; shoves?: number; shoveDrift?: boolean
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
-  sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number } | null
+  sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number; /** The slide is on frictionless terrain. */ slick?: boolean } | null
   coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
   jumpLift: { elapsed: number; strength: number; entrySpeed: number; extraSpeed: number; fresh: boolean } | null
   grabCooldown: number; ladderJumpGrace: number
@@ -107,5 +107,8 @@ export interface Player {
   terrain?: readonly Platform[]
   gravity?: number
   inverted?: boolean
-  releaseTurn?: { angle: number; target: number; pose?: AthletePose; facing?: number; time?: number; progress?: number }
+  /** Footing on a wall, by the side gravity pulls toward (wallFrame.ts). */
+  wall?: 'left' | 'right'
+  /** `toWall` marks a turn onto or off a wall: the frame it ends in (null for the floor), turning through `span`. */
+  releaseTurn?: { angle: number; target: number; pose?: AthletePose; facing?: number; time?: number; progress?: number; toWall?: 'left' | 'right' | null; span?: number }
 }

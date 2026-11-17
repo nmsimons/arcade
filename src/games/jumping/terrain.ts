@@ -1,6 +1,6 @@
 import type { Platform } from './model.ts'
 import { platformOutline } from './geometry.ts'
-import { canGrip } from './friction.ts'
+import { canGrip, surfaceFriction } from './friction.ts'
 
 export interface GroundSurface { platform: Platform; y: number; angle: number }
 
@@ -137,7 +137,7 @@ export function followGround(platforms: readonly Platform[], oldX: number, x: nu
   const before = groundAt(platforms, oldX, y, .15)
   if (!before) return null
   const after = groundAt(platforms, x, y, Math.abs(x - oldX) + .15)
-  if (!after || !canGrip(after.angle)) return null
+  if (!after || !canGrip(after.angle, surfaceFriction(after.platform))) return null
   const a = before.platform, b = after.platform
   if (a === b) return after
   // Overlapping ramps can meet a flat floor at their zero-height ends.

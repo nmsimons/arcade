@@ -47,7 +47,9 @@ import { ROBOT_HALF_WIDTH, robotHulls } from './robotPhysics.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
-import { plateSolids, plateSurface } from './plateSurface.ts'
+import { plateSolids, plateSurface, wallPlateSurface } from './plateSurface.ts'
+import { plateFacing, pressurePlateBounds, snapWallPlate, WALL_PLATE_THICKNESS } from './wallPlates.ts'
+import type { PlateFacing } from './wallPlates.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { GADGET_SIZE } from './gadgets.ts'
 import { removeEditorGroupMember } from './editorGroups.ts'
@@ -389,7 +391,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'prop') { const b = level.props?.[i]; return b ? { x: b.x - propWidth(b) / 2, y: b.y - propHeight(b), w: propWidth(b), h: propHeight(b) } : null }
   if (selection.kind === 'robot') { const r = level.robots?.[i], h = r?.kind === 'repulsor' ? TUNING.height : 50; return r ? r.chargingBay ? chargingBayBounds(r, ROBOT_BAY_WIDTH_SCALE) : { x: r.x - 26, y: r.y - h, w: 52, h } : null }
   if (selection.kind === 'mechanism') return level.mechanisms?.[i] ?? null
-  if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? t.mode === 'coins' ? coinSwitchBounds(t) : { x: t.x, y: t.y - (t.ceiling ? 0 : 8), w: t.w, h: 8 } : null }
+  if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? t.mode === 'coins' ? coinSwitchBounds(t) : pressurePlateBounds(t) : null }
   if (selection.kind === 'goal') return level.goal ? { ...level.goal, w: 0, h: 0 } : null
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
@@ -490,6 +492,38 @@ export function setPlateCeiling(level: JumpLevel, selection: Selection, ceiling:
   if (ceiling) plate.ceiling = true; else delete plate.ceiling
   if ('mode' in plate) { plate.y = clamp(plate.y, ceiling ? 0 : 8, levelHeight(next) - (ceiling ? 8 : 0)); syncPressurePlateMounts(next) }
   return next
+}
+/** Move a gravity plate's emitter to another edge of its rectangle. A side emitter makes the field pull sideways. */
+export function setGravityPlateFacing(level: JumpLevel, index: number, facing: PlateFacing): JumpLevel {
+  const before = level.gravityPlates?.[index]
+  if (!before || before.effect === 'water') return level
+  const current = before.facing ?? (before.ceiling ? 'down' : 'up')
+  if (current === facing) return level
+  const next = copyLevel(level), plate = next.gravityPlates![index]
+  delete plate.ceiling; delete plate.facing
+  if (facing === 'down') plate.ceiling = true
+  if (facing === 'left' || facing === 'right') plate.facing = facing
+  return next
+}
+/** Turn a pressure plate onto a floor, a ceiling, or a wall face, pivoting on its middle and snapping to a nearby face. */
+export function setPressurePlateFacing(level: JumpLevel, index: number, facing: PlateFacing): JumpLevel {
+  const before = level.triggers?.[index]
+  if (!before || before.mode === 'coins' || plateFacing(before) === facing) return level
+  const next = copyLevel(level), plate = next.triggers![index]
+  if (plate.mode === 'coins') return level
+  const bounds = pressurePlateBounds(plate), cx = bounds.x + bounds.w / 2, cy = bounds.y + bounds.h / 2
+  delete plate.mount; delete plate.ceiling; delete plate.facing
+  if (facing === 'left' || facing === 'right') {
+    const wall = { x: cx, y: cy - plate.w / 2, w: plate.w, facing }
+    const face = wallPlateSurface(levelTerrain(next), wall.x, wall.y, wall.w, facing, plate.w / 2 + 12)
+    Object.assign(plate, snapWallPlate(next, { ...wall, x: face?.x ?? wall.x }))
+  } else {
+    plate.x = clamp(cx - plate.w / 2, 0, next.width - plate.w)
+    plate.y = clamp(cy, facing === 'down' ? 0 : 8, levelHeight(next) - (facing === 'down' ? 8 : 0))
+    if (facing === 'down') plate.ceiling = true
+    attachPressurePlateOnSurface(next, plate)
+  }
+  return carryWallTerminals(level, next)
 }
 export function setPressurePlateMount(level: JumpLevel, index: number, mechanism: string | null): JumpLevel {
   const before = level.triggers?.[index]
@@ -887,7 +921,9 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'logic-relay') Object.assign(next.logicRelays![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'grade-gate') Object.assign(next.gradeGates![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
-    const t = next.triggers![selection.index]; t.x = x; t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
+    const t = next.triggers![selection.index]
+    if (t.mode !== 'coins' && t.facing) Object.assign(t, snapWallPlate(next, { x: t.facing === 'right' ? x : x + WALL_PLATE_THICKNESS, y, w: t.w, facing: t.facing }))
+    else { t.x = x; t.y = t.mode === 'coins' || t.ceiling ? y : y + 8 }
     attachPressurePlateOnSurface(next, t)
   }
   if (selection.kind === 'mechanism') syncPressurePlateMounts(next)
@@ -991,7 +1027,12 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   if (selection.kind === 'trigger') {
     const t = next.triggers![selection.index]
     if (t.mode === 'coins' && t.display === 'digital') return level
-    if (t.mode === 'coins' && t.orientation === 'vertical') {
+    if (t.mode !== 'coins' && t.facing) {
+      // A wall plate's length runs down its face.
+      const bottom = t.y + t.w
+      t.w = clamp(h, 40, Math.min(240, top ? bottom : levelHeight(next) - t.y))
+      if (top) t.y = bottom - t.w
+    } else if (t.mode === 'coins' && t.orientation === 'vertical') {
       const bottom = t.y + t.h
       t.h = clamp(h, COIN_SWITCH_MIN_LENGTH, Math.min(240, top ? bottom : levelHeight(next) - t.y))
       if (top) t.y = bottom - t.h
@@ -1337,7 +1378,14 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
       const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
       const left = clamp(point.x - 50, 0, trial.width - 100)
-      const ceiling = !!plateSurface(plateSolids(trial), left, 100, point.y, 12)?.ceiling
+      const surface = plateSurface(plateSolids(trial), left, 100, point.y, 12), ceiling = !!surface?.ceiling
+      // Beside a wall and clear of any floor or ceiling, the plate goes on the wall's face.
+      const wall = surface ? null : (['right', 'left'] as const).map(facing => ({ facing, face: wallPlateSurface(levelTerrain(trial), point.x, point.y - 50, 100, facing, 12) }))
+        .filter(option => option.face).sort((a, b) => a.face!.delta - b.face!.delta)[0]
+      if (wall) {
+        trial.triggers.push({ ...snapWallPlate(trial, { x: wall.face!.x, y: point.y - 50, w: 100, facing: wall.facing }), targets: nearest ? [nearest.id] : [], mode: 'touch' })
+        return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
+      }
       trial.triggers.push({ x: left, y: clamp(point.y, ceiling ? 0 : 8, levelHeight(trial) - (ceiling ? 8 : 0)), w: 100,
         targets: nearest ? [nearest.id] : [], mode: 'touch', ...(ceiling ? { ceiling: true } : {}) })
       attachPressurePlateOnSurface(trial, trial.triggers.at(-1)!)

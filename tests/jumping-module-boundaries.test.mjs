@@ -103,6 +103,7 @@ const ANIM_FIELDS = {
   'model.ts': ['cadence', 'dryTurn', 'footwork', 'gait', 'pending', 'ragdoll', 'slideEntry', 'stride'],
   'playerContacts.ts': ['dryTurn', 'footwork', 'slideEntry'], 'repulsorBot.ts': ['gait'], 'shove.ts': ['dryTurn'],
   'sizeFrame.ts': ['footwork', 'pending'], 'stepUp.ts': ['dryTurn', 'footwork', 'gait', 'stride'],
+  'wallFrame.ts': ['dryTurn', 'footwork', 'slideEntry'],
 }
 
 test('simulation modules touch only the listed animation fields', () => {

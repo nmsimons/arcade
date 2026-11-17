@@ -6,6 +6,8 @@ import { isHubLevel, isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prep
 import { resolveSwitchStates } from './switchPower.ts'
 import { triggerStartsOn, triggerToggleGroup } from './toggleGroups.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
+import { actorPressesWallPlate, isWallPlate, propPressesWallPlate } from './wallPlates.ts'
+import { wallFrameAngle } from './wallFrame.ts'
 import type { Mechanism, Pusher, PropDefinition, RunLevel } from './level.ts'
 export type { PuzzleLevel, RunLevel } from './level.ts'
 import { createHubState, hubDoorBounds } from './hub.ts'
@@ -207,7 +209,7 @@ function syncPlatforms(run: Run): ContactWorld {
   return { platforms: colliders.map(c => c.platform), colliders, ropePlatforms }
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
-const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b, p.crouching ? TUNING.crouchHeight : TUNING.height, p.inverted ? -1 : 1)
+const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b, p.crouching ? TUNING.crouchHeight : TUNING.height, p.inverted ? -1 : 1, wallFrameAngle(p.wall))
 const contactShift = (correction: number, carry: number) => {
   const travel = correction + carry
   return travel - Math.max(Math.min(0, carry), Math.min(Math.max(0, carry), travel))
@@ -258,7 +260,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
       && polygonIntersects(liftHull, s, .01)) || objectFields.some(s => polygonIntersects(polygonPoints(nextShape), s, .01))
     // A rising top can meet airborne feet between player steps. Board it just
     // like a landing; side/underside contact can still obstruct the mechanism.
-    const boarding = def.kind === 'lift' && !p.inverted && !rider && dy < 0 && p.y <= m.y + .01 && bodyOverlap(p, nextShape)
+    const boarding = def.kind === 'lift' && !p.inverted && !p.wall && !rider && dy < 0 && p.y <= m.y + .01 && bodyOverlap(p, nextShape)
     const cargoBlocked = passengerBlocked(dx, dy)
     const carryBlocked = (rider || boarding) && obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, boarding ? y - p.y : dy)) || cargoBlocked
     const playerBlocked = !rider && !boarding && bodyOverlap(p, nextShape)
@@ -319,8 +321,10 @@ function stepTriggers(run: Run, dt: number, powered = !powerOut(run)) {
       return
     }
     const position = pressurePlatePosition(plate, run.mechanisms)
-    const weighted = run.props.some(b => propLoadsPlate(b, position.x, position.y, plate.w, plate.ceiling))
-    const loads = (actor: Player) => !!actor.inverted === !!plate.ceiling && actor.grounded && Math.abs(actor.y - position.y) < 3 && actor.x >= position.x && actor.x <= position.x + plate.w
+    const wall = isWallPlate(plate) ? plate : null
+    const weighted = run.props.some(b => wall ? propPressesWallPlate(b, wall) : propLoadsPlate(b, position.x, position.y, plate.w, plate.ceiling))
+    const loads = (actor: Player) => wall ? actorPressesWallPlate(actor, wall)
+      : !actor.wall && !!actor.inverted === !!plate.ceiling && actor.grounded && Math.abs(actor.y - position.y) < 3 && actor.x >= position.x && actor.x <= position.x + plate.w
     const touched = loads(run.player) || run.robots.some(robot => robot.actor && loads(robot.actor))
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
@@ -537,7 +541,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   stepProps(run, playerContacts(run.player, input, world, dt), dt, powered)
   run.robots.forEach((r, i) => { r.vx = (r.x - robotStarts[i]) / dt })
   world = syncPlatforms(run)
-  if (rider?.collider.robot && run.player.grounded) {
+  if (rider?.collider.robot && run.player.grounded && !run.player.wall) {
     const next = world.colliders.find(c => c.id === rider.collider.id)!
     const p = run.player, surface = groundAt([p.inverted ? mirrorPlatform(next.platform) : next.platform], p.x, p.inverted ? -p.y : p.y, 20)
     if (surface) {
@@ -575,7 +579,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   }
   const goal = level.goal
   if (goal.kind === 'walk-off') {
-    if (!p.inverted && p.x >= run.level.width + TUNING.width && p.y <= goal.y + .15 && !p.hang && !p.mantle && !p.climbing) {
+    if (!p.inverted && !p.wall && p.x >= run.level.width + TUNING.width && p.y <= goal.y + .15 && !p.hang && !p.mantle && !p.climbing) {
       run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
       cancelJumpInput(p)
     }
@@ -592,7 +596,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     // The bus is boarded by walking into its left side at the stop, where its door is: as the hands meet it,
     // with no Up and no door to wait for. Standing on its roof, or against its far side, never boards it.
     const body = busBody(goal), touching = p.contacts?.push?.collider.id === 'bus' || p.pushing?.colliderId === 'bus'
-    if (!p.inverted && run.goalLit && p.grounded && !p.hang && !p.mantle && !p.climbing && Math.abs(p.y - goal.y) < 2
+    if (!p.inverted && !p.wall && run.goalLit && p.grounded && !p.hang && !p.mantle && !p.climbing && Math.abs(p.y - goal.y) < 2
       && p.x < body.x && (touching || p.x + TUNING.width / 2 >= body.x - 1)) {
       enterDoorway(run, goal.x - 34)
       run.grade = level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, level)
@@ -603,7 +607,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   const door = goalDoor(goal)
   // Like every door, the open exit is entered with Up. Holding Up on the way
   // in enters on arrival, so a held press costs no time.
-  if (input.climb && !p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
+  if (input.climb && !p.inverted && !p.wall && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
     && !exitObstacles.some(b => bodyOverlap(p, b))) {
     // This is a doorway in the back wall. Reaching it permits entry even when
@@ -629,7 +633,7 @@ function enterDoorway(run: Run, toX: number) {
 function stepHubDoors(run: Run, hub: HubState, input: JumpInput) {
   const p = run.player, level = run.level, pressed = input.climb && !hub.climbHeld
   hub.climbHeld = input.climb
-  if (p.inverted || !p.grounded || p.hang || p.mantle || p.climbing) return
+  if (p.inverted || p.wall || !p.grounded || p.hang || p.mantle || p.climbing) return
   if (!pressed || p.sliding) return
   const doors: HubDoor[] = [...(level.courseDoors ?? []).map(door => ({ kind: 'course' as const, door })), ...(level.bulkheads ?? []).map(door => ({ kind: 'bulkhead' as const, door }))]
   const target = doors.find(({ door }) => hub.open.has(door.id) && Math.abs(p.y - door.y) < 2 && Math.abs(p.x - door.x) < hubDoorBounds(door).w / 2)

@@ -18,6 +18,9 @@ export interface GravityPlate extends NamedObject, SwitchSettings {
   id: string; x: number; y: number; w: number; h: number
   power?: PowerMode
   ceiling?: boolean
+  /** The emitter stands on the rectangle's left edge facing right, or its right edge facing left, and the field
+   * pulls sideways: positive gravity toward the emitter's wall, negative away from it. Not with `ceiling` or water. */
+  facing?: 'left' | 'right'
   effect?: 'water'
   waterLevel?: number // Initial waterline height, as a percentage of the reservoir.
   waterMinLevel?: number // Lowest filled height allowed by the drain pump; defaults to zero.
@@ -28,9 +31,12 @@ export interface GravityPlate extends NamedObject, SwitchSettings {
 }
 export const gravityPlateActive = (plate: GravityPlate, states: ReadonlyMap<string, boolean>, powered = true) => plate.effect === 'water' ? plate.h > 0 : powered && (plate.power === 'always' || !!states.get(plate.id))
 
-interface Span { top: number; bottom: number; multiplier: number; dryMultiplier: number; swim: number; coverage: number; propLift: number }
+/** `multiplier` is the downward pull and `side` the rightward pull, both in units of ordinary gravity. */
+interface Span { top: number; bottom: number; multiplier: number; dryMultiplier: number; swim: number; coverage: number; propLift: number; side: number }
 interface Strip { left: number; right: number; spans: Span[] }
-export interface GravityField { strips: Strip[]; mask: number; revision: number; maxMultiplier: number; maxPropLift?: number; hasWater: boolean; geometryRevision?: number }
+export interface GravityField { strips: Strip[]; mask: number; revision: number; maxMultiplier: number; maxPropLift?: number; hasWater: boolean; geometryRevision?: number
+  /** Some active cell pulls sideways. */
+  sideways?: boolean }
 export const createGravityField = (): GravityField => ({ strips: [], mask: -1, revision: 0, maxMultiplier: 1, maxPropLift: 0, hasWater: false })
 
 /** Partition switched rectangles once per power change. Cells never overlap,
@@ -40,7 +46,7 @@ export function updateGravityField(field: GravityField, plates: readonly Gravity
   for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states, powered) && !disabled?.(plates[i])) mask |= 1 << i
   if (mask === field.mask && geometryRevision === (field.geometryRevision ?? 0)) return
   field.geometryRevision = geometryRevision
-  field.mask = mask; field.revision++; field.strips = []; field.maxMultiplier = 1; field.maxPropLift = 0
+  field.mask = mask; field.revision++; field.strips = []; field.maxMultiplier = 1; field.maxPropLift = 0; field.sideways = false
   const active = plates.filter((_, i) => mask & (1 << i))
   field.hasWater = active.some(p => p.effect === 'water')
   const xs = [...new Set(active.flatMap(p => [p.x, p.x + p.w]))].sort((a, b) => a - b)
@@ -51,18 +57,24 @@ export function updateGravityField(field: GravityField, plates: readonly Gravity
     const spans: Span[] = []
     for (let j = 1; j < ys.length; j++) {
       const top = ys[j - 1], bottom = ys[j]
-      let sum = 0, swimSum = 0, liftSum = 0, count = 0
+      let sum = 0, swimSum = 0, liftSum = 0, sideSum = 0, count = 0
       for (const p of crossing) if (p.y < bottom && p.y + p.h > top) {
-        sum += p.effect === 'water' ? -1 : p.gravity; swimSum += p.effect === 'water' ? 1 : 0
-        liftSum += p.effect === 'water' ? -2 : Math.min(0, p.gravity); count++
+        // A wall emitter replaces gravity with a sideways pull; it is not lift, so it does not scale with weight.
+        if (p.facing && p.effect !== 'water') sideSum += p.facing === 'right' ? -p.gravity : p.gravity
+        else {
+          sum += p.effect === 'water' ? -1 : p.gravity; swimSum += p.effect === 'water' ? 1 : 0
+          liftSum += p.effect === 'water' ? -2 : Math.min(0, p.gravity)
+        }
+        count++
       }
       if (!count) continue
-      const multiplier = sum / count, swim = swimSum / count, propLift = liftSum / count
-      field.maxMultiplier = Math.max(field.maxMultiplier, Math.abs(multiplier))
+      const multiplier = sum / count, swim = swimSum / count, propLift = liftSum / count, side = sideSum / count
+      field.maxMultiplier = Math.max(field.maxMultiplier, Math.hypot(multiplier, side))
       field.maxPropLift = Math.max(field.maxPropLift, Math.abs(propLift))
+      if (side) field.sideways = true
       const previous = spans.at(-1)
-      if (previous && previous.bottom === top && previous.multiplier === multiplier && previous.swim === swim && previous.propLift === propLift) previous.bottom = bottom
-      else spans.push({ top, bottom, multiplier, dryMultiplier: multiplier + 2 * swim, swim, coverage: 1, propLift })
+      if (previous && previous.bottom === top && previous.multiplier === multiplier && previous.swim === swim && previous.propLift === propLift && previous.side === side) previous.bottom = bottom
+      else spans.push({ top, bottom, multiplier, dryMultiplier: multiplier + 2 * swim, swim, coverage: 1, propLift, side })
     }
     if (spans.length) field.strips.push({ left, right, spans })
   }
@@ -79,6 +91,20 @@ export function gravityAtPoint(field: GravityField, x: number, y: number, baseli
     }
   }
   return baseline
+}
+
+/** The sideways pull at a point: positive toward the right, zero outside every wall field. */
+export function sideGravityAtPoint(field: GravityField, x: number, y: number, baseline: number = TUNING.gravity) {
+  if (!field.sideways) return 0
+  for (const strip of field.strips) {
+    if (strip.left > x) break
+    if (x >= strip.right) continue
+    for (const span of strip.spans) {
+      if (span.top > y) break
+      if (y < span.bottom) return baseline * span.side
+    }
+  }
+  return 0
 }
 
 /** How much of a point is water, 0 to 1: the listener's head, for the sound of being under water (ambience.ts). */
@@ -140,7 +166,7 @@ export function circleRectangleArea(cx: number, cy: number, radius: number, left
 
 function integrate(field: GravityField, left: number, top: number, right: number, bottom: number, area: number,
   intersection: (left: number, top: number, right: number, bottom: number) => number,
-  property: 'multiplier' | 'dryMultiplier' | 'swim' | 'coverage' = 'multiplier', baseline: number = TUNING.gravity, outside = 1, weightShift = 0) {
+  property: 'multiplier' | 'dryMultiplier' | 'swim' | 'coverage' | 'side' = 'multiplier', baseline: number = TUNING.gravity, outside = 1, weightShift = 0) {
   let multiplier = outside
   for (const strip of field.strips) {
     if (strip.left >= right) break
@@ -157,9 +183,9 @@ function integrate(field: GravityField, left: number, top: number, right: number
   return multiplier * baseline
 }
 
-function playerFieldValue(field: GravityField, player: Player, offsetY = 0, property: 'multiplier' | 'dryMultiplier' | 'swim' | 'coverage' = 'multiplier') {
-  const swim = property === 'swim' || property === 'coverage'
-  if (!field.strips.length) return swim ? 0 : TUNING.gravity
+function playerFieldValue(field: GravityField, player: Player, offsetY = 0, property: 'multiplier' | 'dryMultiplier' | 'swim' | 'coverage' | 'side' = 'multiplier') {
+  const swim = property === 'swim' || property === 'coverage', side = property === 'side'
+  if (!field.strips.length) return swim || side ? 0 : TUNING.gravity
   const body = playerContactBody(player), angle = playerTurnAngle(player)
   body.y += offsetY
   let points: Vec[] | undefined
@@ -170,7 +196,7 @@ function playerFieldValue(field: GravityField, player: Player, offsetY = 0, prop
   return integrate(field, left, top, right, bottom, 24 * (body.height - 9), (l, t, r, b) => {
     points ??= bodyPolygon(body.x, body.y, body.height, player.inverted ? -1 : 1)
     return clippedPolygonArea(points, l, t, r, b)
-  }, property, swim ? 1 : TUNING.gravity, swim ? 0 : 1)
+  }, property, swim ? 1 : TUNING.gravity, swim || side ? 0 : 1)
 }
 // A person displaces their weight with about 78% submerged. Upright, that puts
 // the waterline at the neck. The prone rig lies close to the foot root, so its
@@ -239,6 +265,13 @@ export function playerGravity(field: GravityField, player: Player, offsetY = 0):
   return playerFieldValue(field, player, offsetY, 'dryMultiplier')
     - TUNING.gravity * playerWaterValue(field, player, offsetY) / PLAYER_WATER_DENSITY
 }
+/** The sideways pull across the player's body: positive toward the right. */
+export function playerSideGravity(field: GravityField, player: Player): number {
+  if (!field.sideways) return 0
+  const size = sized(player)
+  if (size !== 1) return inSizeFrame(player, () => playerSideGravity(scaledGravityField(field, size), player))
+  return playerFieldValue(field, player, 0, 'side')
+}
 /** Buoyancy can lift a swimmer without reversing their footing or rope hang. */
 export function playerOrientationGravity(field: GravityField, player: Player): number {
   const size = sized(player)
@@ -300,14 +333,14 @@ export function swimmingAcceleration(player: Player, input: JumpInput, strength:
   const maximum = TUNING.swimAcceleration * strength
   return Math.max(-maximum, Math.min(maximum, requested))
 }
-function propFieldValue(field: GravityField, prop: Prop, offsetY = 0, property: 'multiplier' | 'swim' = 'multiplier') {
-  const water = property === 'swim', baseline = water ? 1 : TUNING.gravity, outside = water ? 0 : 1
-  if (!field.strips.length) return water ? 0 : TUNING.gravity
+function propFieldValue(field: GravityField, prop: Prop, offsetY = 0, property: 'multiplier' | 'swim' | 'side' = 'multiplier') {
+  const water = property === 'swim', side = property === 'side', baseline = water ? 1 : TUNING.gravity, outside = water || side ? 0 : 1
+  if (!field.strips.length) return water || side ? 0 : TUNING.gravity
   const radius = prop.size / 2, cx = prop.x, cy = prop.y - propHeight(prop) / 2 + offsetY
   // Lift is a force: heavy props respond less. Keep ordinary,
   // positive and zero gravity unchanged. Use the existing area pass; resistance
   // still uses immersion, independent of the object's weight.
-  const weightShift = water ? 0 : 1 / propWeightScale(prop) - 1
+  const weightShift = water || side ? 0 : 1 / propWeightScale(prop) - 1
   if (prop.kind === 'ball') return integrate(field, cx - radius, cy - radius, cx + radius, cy + radius, Math.PI * radius * radius,
     (l, t, r, b) => circleRectangleArea(cx, cy, radius, l, t, r, b), property, baseline, outside, weightShift)
   const rx = propWidth(prop) / 2, ry = propHeight(prop) / 2
@@ -320,6 +353,8 @@ function propFieldValue(field: GravityField, prop: Prop, offsetY = 0, property: 
   }, property, baseline, outside, weightShift)
 }
 export const propGravity = (field: GravityField, prop: Prop, offsetY = 0) => propFieldValue(field, prop, offsetY)
+/** The sideways pull across a prop, positive toward the right; zero outside every wall field. */
+export const propSideGravity = (field: GravityField, prop: Prop) => field.sideways ? propFieldValue(field, prop, 0, 'side') : 0
 /** Water resistance uses the same submerged area and overlap composition as buoyancy. */
 export const propWaterStrength = (field: GravityField, prop: Prop) => field.hasWater ? propFieldValue(field, prop, 0, 'swim') : 0
 

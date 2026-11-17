@@ -50,7 +50,14 @@ import { drawSlabBrackets, slabBracketsPreviewed } from './slabBrackets.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
-export function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number, ceiling = false) {
+export function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number, ceiling = false, facing?: 'left' | 'right') {
+  if (facing) {
+    // A wall plate: the same base and pad turned onto the face, the pad sinking toward the wall when pressed.
+    const side = facing === 'right' ? 1 : -1
+    ctx.fillStyle = '#738575'; ctx.fillRect(side > 0 ? x : x - 3, y - 3, 3, width + 6)
+    ctx.fillStyle = active ? '#9bb878' : '#c4a66b'; ctx.fillRect(side > 0 ? x + 4 - depression * 4 : x - 7 + depression * 4, y, 3, width)
+    return
+  }
   ctx.fillStyle = '#738575'; ctx.fillRect(x - 3, ceiling ? y : y - 3, width + 6, 3)
   ctx.fillStyle = active ? '#9bb878' : '#c4a66b'; ctx.fillRect(x, ceiling ? y + 4 - depression * 4 : y - 7 + depression * 4, width, 3)
 }
@@ -272,7 +279,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     for (const [i, plate] of level.triggers.entries()) {
       if (plate.mode === 'coins') continue
       const position = pressurePlatePosition(plate, run.mechanisms)
-      drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression, plate.ceiling)
+      drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression, plate.ceiling, plate.facing)
     }
   })
   if (!layerSkipped('gravity')) for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, !powerOut(run)), paint)

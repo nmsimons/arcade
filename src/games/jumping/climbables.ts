@@ -1,4 +1,4 @@
-import { gravityAtPoint } from './gravity.ts'
+import { gravityAtPoint, sideGravityAtPoint } from './gravity.ts'
 import { bodySize, enterSizeFrame, leaveSizeFrame, scaledPlatform } from './sizeFrame.ts'
 import type { GravityField } from './gravity.ts'
 import type { NamedObject } from './objectNames.ts'
@@ -703,11 +703,13 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
     initRopeSleep(rope)
   }
   const gravity = (x: number, y: number) => frameDirection * gravityScale * (gravityField ? gravityAtPoint(gravityField, x, y * frameDirection, 1400) : 1400)
+  // A wall field pulls particles sideways; a reflected frame leaves x alone.
+  const side = (x: number, y: number) => gravityField?.sideways ? gravityScale * sideGravityAtPoint(gravityField, x, y * frameDirection, 1400) : 0
   // Only geometry near the rope's current sweep can touch it this step. The
   // anchor's full reach pulled most of a tall level into every solver pass.
   let left = definition.x, right = definition.x, top = definition.y, bottom = definition.y
   for (const n of nodes) {
-    const x = n.x + (n.x - n.oldX), y = n.y + (n.y - n.oldY) + gravity(n.x, n.y) * dt * dt
+    const x = n.x + (n.x - n.oldX) + side(n.x, n.y) * dt * dt, y = n.y + (n.y - n.oldY) + gravity(n.x, n.y) * dt * dt
     left = Math.min(left, n.x, x); right = Math.max(right, n.x, x)
     top = Math.min(top, n.y, y); bottom = Math.max(bottom, n.y, y)
   }
@@ -779,7 +781,7 @@ function solveRope(rope: RopeState, dt: number, platforms: readonly Platform[], 
     const pumping = supports[i] * (bodyMass + 1) * weights[i]
     const mass = bodyMass * supports[i], acceleration = load?.gravity === undefined ? gravity(n.x, n.y)
       : (gravity(n.x, n.y) + mass * load.gravity) * weights[i]
-    n.x += dx + pumpX * pumping; n.y += dy + acceleration * dt * dt + pumpY * pumping
+    n.x += dx + side(n.x, n.y) * dt * dt + pumpX * pumping; n.y += dy + acceleration * dt * dt + pumpY * pumping
   }
   // Keep these spans fixed while the hands move; changing a span's endpoint
   // during a regrip would turn accumulated stretch into an artificial impulse.

@@ -11,6 +11,8 @@ import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, reme
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { plateFacing } from './wallPlates'
+import type { PlateFacing } from './wallPlates'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { setLoosePanel, setPipe, setWallStripes } from './editor'
 import { PANEL_CONTENTS, PANEL_HANGS, loosePanelRect } from './wallLoosePanels'
@@ -74,7 +76,7 @@ import type { GroundCover } from './terrainGroundCover'
 import { switchedItems, switchSources, switchTargets, switchItemLabel, wallWiringItems } from './switchPower'
 import { waterControlId } from './waterLevel'
 import { drawLogicRelay } from './logicRelay'
-import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPlateCeiling, setGravityPlateEffect, setWaterControl } from './editor'
+import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPressurePlateFacing, setGravityPlateFacing, setPlateCeiling, setGravityPlateEffect, setWaterControl } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
@@ -1440,12 +1442,20 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             })}
           </div>
           {trigger && trigger.mode !== 'coins' && <>
+            <BuilderSelect label="Facing" accessibleLabel="Pressure plate facing" value={plateFacing(trigger)}
+              options={[{ value: 'up', label: 'Floor (faces up)' }, { value: 'down', label: 'Ceiling (faces down)' }, { value: 'left', label: 'Wall (faces left)' }, { value: 'right', label: 'Wall (faces right)' }]}
+              onChange={value => commit(setPressurePlateFacing(history.present, selection.index, value as PlateFacing))} />
+          </>}
+          {trigger && trigger.mode !== 'coins' && !trigger.facing && <>
             <BuilderSelect label="Mount" accessibleLabel="Pressure plate mount" value={trigger.mount?.mechanism ?? 'none'}
               options={[{ value: 'none', label: 'None' }, ...(level.mechanisms ?? []).flatMap((m, index) => m.kind === 'lift' && m.w >= trigger.w
                 ? [{ value: m.id, label: selectionLabel({ kind: 'mechanism', index }, level, doorName) }] : [])]}
               onChange={value => commit(setPressurePlateMount(history.present, selection.index, value === 'none' ? null : value))} />
           </>}
-          {facingPlate && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
+          {gravityPlate && gravityPlate.effect !== 'water' && <BuilderSelect label="Emitter" accessibleLabel="Gravity plate emitter edge" value={gravityPlate.facing ?? (gravityPlate.ceiling ? 'down' : 'up')}
+            options={[{ value: 'up', label: 'Bottom edge' }, { value: 'down', label: 'Top edge' }, { value: 'right', label: 'Left edge (pulls sideways)' }, { value: 'left', label: 'Right edge (pulls sideways)' }]}
+            onChange={value => commit(setGravityPlateFacing(history.present, selection.index, value as PlateFacing))} />}
+          {facingPlate && !facingPlate.facing && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
             onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</button>}
           {selection.kind === 'goal' && level.goal && !level.goal.kind && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
             const next = copyLevel(history.present)
@@ -1552,6 +1562,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <BuilderSelect label="Edge marking" value={chosen.trim ?? 'none'} options={TERRAIN_TRIMS.map(trim => ({ value: trim.id, label: trim.label }))}
               onChange={trim => { const next = copyLevel(history.present), piece = next.platforms[selection.index]; if (trim === 'none') delete piece.trim; else piece.trim = trim as TerrainTrim; commit(next) }} />
             <p className="builder-hint">A worn band just under its exposed tops, for a dock edge or a drop. Decorative only.</p>
+            <BuilderSelect label="Surface" value={chosen.frictionless ? 'frictionless' : 'normal'} options={[{ value: 'normal', label: 'Normal grip' }, { value: 'frictionless', label: 'Frictionless' }]}
+              onChange={surface => { const next = copyLevel(history.present), piece = next.platforms[selection.index]; if (surface === 'frictionless') piece.frictionless = true; else delete piece.frictionless; commit(next) }} />
+            <p className="builder-hint">Frictionless: feet cannot walk, brake, step up or push on it, any slope slides, and props glide. Jumps, ledges, ropes and ladders still work.</p>
           </>}
           {chosen && <fieldset className="builder-terrain-order">
             <legend>Draw order ({terrainPosition + 1} of {level.platforms.length})</legend>

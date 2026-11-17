@@ -1,4 +1,5 @@
 import type { Climbing, Point } from './climbables.ts'
+import { changeWallFrame, wallFrameAngle } from './wallFrame.ts'
 import { ROPE_TOP_GRIP, climbRoot, ropeGripDistance, ropeGripLimit, ropePoint } from './climbables.ts'
 import type { Platform, Player } from './model.ts'
 import { TUNING } from './movementTuning.ts'
@@ -9,7 +10,8 @@ import { canGrip } from './friction.ts'
 
 const TURN_SPEED = Math.PI / .45, GRAVITY_DEADBAND = TUNING.gravity * .05
 const AIR_TURN_TIME = .35
-export const playerTurnAngle = (p: Player) => p.climbing?.turn?.angle ?? p.releaseTurn?.angle ?? 0
+/** The body's rotation from upright in its frame, plus a wall frame's own quarter turn when standing on a wall. */
+export const playerTurnAngle = (p: Player) => (p.climbing?.turn?.angle ?? p.releaseTurn?.angle ?? 0) + wallFrameAngle(p.wall)
 
 /**
  * Up/Down follow screen height, including ropes floating away from a floor
@@ -152,14 +154,18 @@ export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: nu
   const turn = p.releaseTurn
   if (!turn) return
   if (turn.time !== undefined) turn.time += dt
-  if (Math.abs(gravity) <= GRAVITY_DEADBAND) return
-  if (gravity > GRAVITY_DEADBAND) turn.target = 0
-  else if (gravity < -GRAVITY_DEADBAND) turn.target = Math.sign(turn.target || turn.angle || p.facing) * Math.PI
+  // A turn onto or off a wall owns its target (wallFrame.ts); the pull along the old frame may be nothing at all.
+  const walls = turn.toWall !== undefined
+  if (!walls) {
+    if (Math.abs(gravity) <= GRAVITY_DEADBAND) return
+    if (gravity > GRAVITY_DEADBAND) turn.target = 0
+    else if (gravity < -GRAVITY_DEADBAND) turn.target = Math.sign(turn.target || turn.angle || p.facing) * Math.PI
+  }
   const before = turn.angle
   const progress = turn.progress === undefined ? undefined : Math.max(0, Math.min(1,
     turn.progress + (turn.target ? 1 : -1) * dt / AIR_TURN_TIME))
   const next = progress === undefined ? before + Math.max(-TURN_SPEED * dt, Math.min(TURN_SPEED * dt, turn.target - before))
-    : Math.sign(turn.target || before || p.facing) * Math.PI * progress * progress * (3 - 2 * progress)
+    : Math.sign(turn.target || before || p.facing) * (walls ? turn.span ?? Math.PI : Math.PI) * progress * progress * (3 - 2 * progress)
   const advance = (height: number): Point | null => {
     const center: Point = [p.x + Math.sin(before) * 31, p.y - Math.cos(before) * 31]
     let from: Point = [p.x, p.y]
@@ -218,6 +224,15 @@ export function finishGravityTurn(p: Player) {
   // turn for that blend without reading the captured pose itself.
   if (p.releaseTurn && (p.releaseTurn.time ?? 0) < .18) return
   if (p.climbing?.caught.releaseTurn && p.climbing.time < .16) return
+  if (p.releaseTurn?.toWall !== undefined) {
+    // A completed turn onto or off a wall changes frame; one turned back to where it began only ends.
+    if (turn.target) {
+      changeWallFrame(p, p.releaseTurn.toWall ?? undefined)
+      if (Math.abs(turn.target) > 3) p.facing = -p.facing
+    }
+    delete p.releaseTurn
+    return
+  }
   if (Math.abs(turn.angle) > 3) {
     p.inverted = !p.inverted; p.facing = -p.facing
     const c = p.climbing

@@ -75,7 +75,9 @@ export interface Mechanism extends NamedObject, SwitchSettings { id: string; kin
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
 export type Trigger = NamedObject & WallWiringSettings & { x: number; y: number; w: number } & TriggerConnection
-  & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; toggleGroup?: string; mount?: PressurePlateMount; ceiling?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
+  & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; toggleGroup?: string; mount?: PressurePlateMount; ceiling?: boolean
+    /** A plate on a vertical face, pointing this way (wallPlates.ts): `x` is the face, `y` its top and `w` its length down the face. */
+    facing?: 'left' | 'right' } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
 export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean; kind?: 'repulsor'; mode?: 'emp'; chargingBay?: boolean }
@@ -393,6 +395,10 @@ export function parseLevel(value: unknown): JumpLevel {
       if (!isTerrainTrim(b.trim)) return fail()
       platform.trim = b.trim
     }
+    if (b.frictionless !== undefined) {
+      if (b.frictionless !== true) return fail()
+      platform.frictionless = true
+    }
     if (b.profile !== undefined) {
       const profile = list(b.profile, 100).map(item => {
         if (!Array.isArray(item) || item.length !== 2) return fail()
@@ -594,6 +600,7 @@ export function parseLevel(value: unknown): JumpLevel {
       const wiring = parseWallWiring(t, fail)
       if (t.mode === 'coins' && t.mount !== undefined) fail()
       if (t.ceiling !== undefined && (t.mode === 'coins' || typeof t.ceiling !== 'boolean')) fail()
+      if (t.facing !== undefined && (t.mode === 'coins' || t.facing !== 'left' && t.facing !== 'right' || t.ceiling !== undefined || t.mount !== undefined)) fail()
       if (t.behavior !== undefined && (t.mode === 'coins' || !['pressure', 'switch', 'toggle'].includes(t.behavior as string))) fail()
       if (t.startsOn !== undefined && (t.behavior !== 'switch' && t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       if (t.toggleGroup !== undefined && (t.mode === 'coins' || t.behavior !== 'toggle' || t.startsOn !== undefined
@@ -629,6 +636,12 @@ export function parseLevel(value: unknown): JumpLevel {
         return { ...objectName(t), ...wiring, x, y: num(t.y, 0, level.floor! - h), ...dimensions, ...connection, mode: 'coins', threshold }
       }
       const w = num(t.w, 40, 240)
+      if (t.facing !== undefined) {
+        return { ...objectName(t), ...wiring, x: num(t.x, 0, width), y: num(t.y, -1800, level.floor! - w), w, ...connection, mode: t.mode as 'touch' | 'weight',
+          facing: t.facing as 'left' | 'right',
+          ...(t.behavior === undefined ? {} : { behavior: t.behavior as PlateBehavior }), ...(t.startsOn === undefined ? {} : { startsOn: t.startsOn as boolean }),
+          ...(t.toggleGroup === undefined ? {} : { toggleGroup: t.toggleGroup as string }) }
+      }
       let mount: PressurePlateMount | undefined
       if (t.mount !== undefined) {
         const m = object(t.mount), host = level.mechanisms!.find(host => host.id === m.mechanism && host.kind === 'lift')
@@ -776,6 +789,7 @@ export function parseLevel(value: unknown): JumpLevel {
     if (p.power !== undefined && p.power !== 'always' && p.power !== 'switched') return fail()
     if (p.ceiling !== undefined && typeof p.ceiling !== 'boolean') return fail()
     if (p.effect !== undefined && p.effect !== 'water') return fail()
+    if (p.facing !== undefined && (p.facing !== 'left' && p.facing !== 'right' || p.ceiling !== undefined || p.effect !== undefined)) return fail()
     const w = num(p.w, 40, width), h = num(p.h, 40, 6000)
     const settings = parseSwitchSettings(p, fail), water = p.effect === 'water'
     if (!water && ['waterLevel', 'waterMinLevel', 'waterRate', 'fill', 'drain'].some(key => p[key] !== undefined)) return fail()
@@ -792,8 +806,12 @@ export function parseLevel(value: unknown): JumpLevel {
       ...(p.waterMinLevel === undefined ? {} : { waterMinLevel: minimum }),
       ...(p.waterRate === undefined ? {} : { waterRate: num(p.waterRate, .1, 100) }),
       ...(p.fill === undefined ? {} : { fill: control(p.fill) }), ...(p.drain === undefined ? {} : { drain: control(p.drain) }),
-      ...(water || p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(water || p.power === undefined ? {} : { power: p.power as PowerMode }) }
+      ...(water || p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(water || p.power === undefined ? {} : { power: p.power as PowerMode }),
+      ...(p.facing === undefined ? {} : { facing: p.facing as 'left' | 'right' }) }
   })
+  // Water floats bodies upright; a sideways field may not share its rectangle.
+  const waterRects = level.gravityPlates?.filter(p => p.effect === 'water') ?? []
+  for (const p of level.gravityPlates ?? []) if (p.facing && waterRects.some(w => p.x < w.x + w.w && w.x < p.x + p.w && p.y < w.y + w.h && w.y < p.y + p.h)) fail()
   if (v.forceFields !== undefined) level.forceFields = list(v.forceFields, MAX_FORCE_FIELDS).map(item => {
     const field = object(item)
     if (typeof field.id !== 'string' || !field.id.trim() || field.id.length > 100) return fail()

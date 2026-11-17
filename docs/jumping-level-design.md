@@ -287,6 +287,26 @@ A hint on the wall behind solid terrain, or a sentence clipped halfway through
 its action, does not teach the rule. Keep each hint local and brief rather than
 listing every movement rule in the room.
 
+Three surface rules change what an ordinary-looking space asks of the player, so
+each needs its first appearance to be safe and readable:
+
+- **Frictionless terrain** removes walking and braking, not jumping. A player who
+  stops on it can only leave by leaping, so never let a slick floor become a dead
+  end: give it a wall, a lip or an ordinary patch to push off from, and let the
+  first encounter be a short, flat glide with a visible landing. Slick slopes are
+  slides in both directions; a slick dip with no exit traps the player. Boxes and
+  balls glide too, which makes slick floors good conveyors for chain reactions.
+- **Wall plates** are pressed by contact. A prop resting against one holds it,
+  which is the point: let the player see a box slide or fall into it. Put a plate
+  where the body naturally touches (hand height beside a walkway, or underfoot on
+  a wall the player walks), not where a press needs a pixel-exact lean.
+- **Sideways fields** turn walls into floors. Teach them where falling sideways
+  lands on something safe, with the field's edge visible, before asking for a jump
+  between two walls or a walk off the field's end. Remember that Left and Right
+  turn with the body; a short wall walk with an obvious goal teaches it. Ledges,
+  ladders, ropes and pushing are unavailable from a wall, so do not place a required
+  grip or crate on a wall route.
+
 Equipped forearm gadgets preserve normal traversal. Do not build routine
 drop/climb/retrieve chores around a ladder, ledge, or push. Aim/use pause only
 while the equipped right arm supports the player; red object fields detach the

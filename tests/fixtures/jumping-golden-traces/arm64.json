@@ -5385,6 +5385,117 @@
     "64d31894c8d1122f"
    ]
   },
+  "polishingbay.jump-level.json|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "d479835cedbf3923",
+    "68077ed9ba7fbcef",
+    "b27955c7b7c54dab",
+    "3f0660081f76502e",
+    "7b1354bbdff03d73",
+    "3b55d48ac181b507",
+    "60d8555e051aab1e",
+    "9c6711dc12eac1d8"
+   ],
+   "state": [
+    "43d6618c3de0d2b8",
+    "619c9ebbee6a8734",
+    "25b816d0d7acbe44",
+    "c719f188d631ed6d",
+    "b4ee5b46428290ff",
+    "a2bec9712e1ca329",
+    "09842ebefd449cd8",
+    "75800594e32cee63"
+   ],
+   "pose": [
+    "f9f71097e189ef48",
+    "30e9d534ae8f63b8",
+    "c8a37c72420a2cb2",
+    "d9e06d74807e3fd9",
+    "13097de60052808f",
+    "77cdd95b0c20186a",
+    "6aaff49c63f8910c",
+    "7d2120a3b1d981f6"
+   ]
+  },
+  "polishingbay.jump-level.json|medal-route": {
+   "ticks": 1301,
+   "finished": true,
+   "physics": [
+    "890826240cf1e8f0",
+    "eb5bbc90cbe19ccd",
+    "54d9668e540d540d",
+    "d9229785f77d9e33",
+    "a7adcadd49b03fd8",
+    "d13cacf19c41dee6",
+    "6837ec69dbe008bb",
+    "a91de8402f440944",
+    "91ac6432bede06f4",
+    "abc043ec698f15ff",
+    "71f2686ca2fcf5f7"
+   ],
+   "state": [
+    "76a2d5479d637209",
+    "5a874452ad7af26d",
+    "91c413825feab669",
+    "b8a20025fe69ecbe",
+    "0b77604e6d6181ee",
+    "16a5a706fc0d7573",
+    "b5468776a76d1220",
+    "905bdfae6ab1b6bf",
+    "80c3b9878fa7e71a",
+    "e4c581d4deec367b",
+    "65c63c15ac8490a9"
+   ],
+   "pose": [
+    "2bd50cd97a7d5fcf",
+    "0713b5bdd2adbbf8",
+    "c1e9c4cbd8b3c66b",
+    "eb6bbe5dcaebd5bd",
+    "2efea90912218b54",
+    "b4a1fcfcb5a63611",
+    "b0800bee7fba29e7",
+    "36312004f629071a",
+    "f453ab37445821ed",
+    "ba2586569346e16e",
+    "352db982dfb57aeb"
+   ]
+  },
+  "polishingbay.jump-level.json|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "04851c10478d615e",
+    "0c7e1f236f13d963",
+    "29e4febcd7756e7a",
+    "8a745b32f0f0fa7b",
+    "91f01bb694c1318e",
+    "4b1c11c511673da5",
+    "db9aee4d4b07f2f3",
+    "ba4a8f0ff73bcd68"
+   ],
+   "state": [
+    "3b96572031575fd4",
+    "1573bfce04c6c4fa",
+    "61e490e483b4e039",
+    "4f4be6177b7124fc",
+    "436d3021abb78af6",
+    "bcefbcf41273933a",
+    "d752dd25250e1d01",
+    "607d698d69649652"
+   ],
+   "pose": [
+    "c1e3c306f56b884b",
+    "d2489f3d2b033d9e",
+    "d282e60fc9341116",
+    "e1d98a55bf9410d4",
+    "9095b188349b2b80",
+    "bc659e2d5db37326",
+    "c3708ffdb9793dfb",
+    "a05cf961615998e8"
+   ]
+  },
   "rampingup.jump-level.json|climber": {
    "ticks": 960,
    "finished": false,

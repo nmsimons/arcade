@@ -6,6 +6,7 @@
 //   'off'   no animation at all, for off-screen robots and headless runs.
 // Physics never reads animation (docs/jumping-animation.md), so the cadence
 // cannot change motion; the golden traces check that for all three.
+import { currentWallFrame, inWallFrame } from './wallFrame.ts'
 import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceReturningStepPreparation, advanceSlideEntry,
   advanceSwimAnimation, dryTurnDirection, settleFallClearance, settlePresentedWaterClearance } from './athleteAnimation.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athleteAnimation.ts'
@@ -37,6 +38,8 @@ export interface AnimationStep {
 }
 /** Steps merged since the last drawn frame. */
 export interface PendingAnimation extends AnimationStep {
+  /** Recorded in a wall's frame (wallFrame.ts). */
+  wall?: 'left' | 'right'
   /** Facing before the first merged step, for the fall clearance offset. */
   previousFacing?: number
   /** Time to settle fall clearance and the impact ragdoll, and the presented water clearance. */
@@ -132,9 +135,9 @@ export function animateOrQueue(p: Player, step: AnimationStep, rawFrom: readonly
     return
   }
   if (mode === 'off') return
-  const pending = p.anim.pending
-  if (!pending || pending.frameDirection !== step.frameDirection) {
-    p.anim.pending = { ...step, preparation: undefined, settle: 0, water: 0 }
+  const pending = p.anim.pending, wall = currentWallFrame()
+  if (!pending || pending.frameDirection !== step.frameDirection || pending.wall !== wall) {
+    p.anim.pending = { ...step, preparation: undefined, settle: 0, water: 0, ...(wall ? { wall } : {}) }
     return
   }
   // Keep the first step's start and captured turns; later steps add their time,
@@ -181,7 +184,10 @@ export function advanceCharacterAnimation(p: Player) {
       }
     } finally { p.x = end[0]; p.y = end[1] }
   }
-  if (pending.frameDirection < 0 && p.inverted) {
+  if (pending.wall || p.wall) {
+    // Steps recorded on a wall animate in its frame; a frame changed since then has nothing to replay.
+    if (pending.wall === p.wall) inWallFrame(p, run)
+  } else if (pending.frameDirection < 0 && p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try { run() } finally { mirrorPlayerState(p); p.inverted = true }
   } else run()

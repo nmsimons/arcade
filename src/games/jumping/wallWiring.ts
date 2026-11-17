@@ -14,6 +14,7 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { powerOut } from './power.ts'
+import { pressurePlateBounds } from './wallPlates.ts'
 
 export interface WallWire { source: Selection; target: string; points: Vec[] }
 export const DEFAULT_WIRE_HEIGHT = 160
@@ -31,7 +32,7 @@ function fixtureBounds(level: JumpLevel, item: Selection) {
   if (item.kind === 'goal') return round(goalPoleX(level.goal!), level.goal!.y - GOAL_LIGHT_HEIGHT, WALL_LIGHT_RADIUS)
   if (item.kind === 'trigger') {
     const plate = level.triggers![item.index]
-    return plate.mode === 'coins' ? coinSwitchBounds(plate) : { x: plate.x, y: plate.y - (plate.ceiling ? 0 : 8), w: plate.w, h: 8 }
+    return plate.mode === 'coins' ? coinSwitchBounds(plate) : pressurePlateBounds(plate)
   }
   if (item.kind === 'rope') {
     // A rope's wire runs to the anchor it releases.

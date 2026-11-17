@@ -93,7 +93,7 @@ export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting
   if (obstruction) return select({ kind: 'clear', x: memory.x, y: memory.y, robot: obstruction })
   let best: BotTactic | undefined, bestScore = 0
   for (const [index, plate] of run.level.triggers.entries()) {
-    if (!recent || plate.mode === 'coins' || plate.ceiling || thought.rejected.has(index)) continue
+    if (!recent || plate.mode === 'coins' || plate.ceiling || plate.facing || thought.rejected.has(index)) continue
     const position = pressurePlatePosition(plate, run.mechanisms), x = position.x + plate.w / 2, y = position.y
     if (Math.hypot(x - robot.x, y - robot.y) > 500) continue
     const behavior = plate.behavior ?? 'pressure', current = run.triggers[index]

@@ -22,6 +22,7 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawWallDoors } from './wallDoor.ts'
 import { drawTerrainTrim, drawWallStripes } from './hazardStripes.ts'
+import { drawSlickTerrain } from './slickTerrain.ts'
 import { drawWallPipeRust, drawWallPipes } from './wallPipes.ts'
 import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import { backWallPath, drawLandscape } from './environment.ts'
@@ -150,6 +151,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
   if (started) ctx.fill()
   if (level && !layerSkipped('ground-cover')) drawTerrainGroundCoverSurface(ctx, level)
   if (level && !layerSkipped('terrain-edges')) drawTerrainTrim(ctx, platforms, level)
+  if (level && !layerSkipped('terrain-edges')) drawSlickTerrain(ctx, platforms, level)
   if (level && !layerSkipped('terrain-edges')) drawTerrainEdges(ctx, platforms, level)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {

@@ -1,4 +1,5 @@
 import Matter from 'matter-js'
+import { wallFrameAngle } from './wallFrame.ts'
 import { CollisionQueries } from './collisionQueries.ts'
 import { registerRoundBody, registerRoundProbe, roundQuery } from './roundCollision.ts'
 import { constrainFloatSwitch, floatSwitchConstraint } from './floatSwitchPhysics.ts'
@@ -19,7 +20,7 @@ import { flatBoxSupport } from './boxSupport.ts'
 import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysics.ts'
 import type { Vec } from './geometry.ts'
 
-import { propFloatDrag, propGravity, propWaterStrength } from './gravity.ts'
+import { propFloatDrag, propGravity, propSideGravity, propWaterStrength } from './gravity.ts'
 import { propWeightScale } from './propWeight.ts'
 import { swimmingTerrainOutline } from './poses/waterPose.ts'
 import { powerOut } from './power.ts'
@@ -30,6 +31,11 @@ const worlds = new WeakMap<Run, PropWorld>()
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const material = { friction: .55, frictionStatic: 1.4, frictionAir: 0, restitution: 0, slop: .0001 }
 const PLAYER_MASS = 2.5
+/** Each prop's sideways field pull, kept beside the PropWorld's vertical one; absent means none. */
+const sideGravity = new WeakMap<Matter.Body, number>()
+/** Terrain bodies with no contact friction, and the props they currently support. */
+const slickBodies = new WeakSet<Matter.Body>()
+const slickProps = new WeakSet<Prop>()
 
 function controlledHull(points: readonly Vec[]) {
   const vertices = points.map(([x, y]) => ({ x, y }))
@@ -69,7 +75,11 @@ function terrainBodies(s: Platform, run: Run) {
   }
   return convexParts(s).map(piece => {
     const vertices = piece.map(([x, y]) => ({ x, y })), position = Vertices.centre(vertices)
-    return Body.create({ ...material, isStatic: true, vertices, position })
+    const body = Body.create({ ...material, isStatic: true, vertices, position })
+    // Matter pairs take the lower friction of two bodies, so a slick piece slides anything on it.
+    // Making a body static resets its friction to 1, so this is set after creation.
+    if (s.frictionless) { body.friction = 0; body.frictionStatic = 0; slickBodies.add(body) }
+    return body
   })
 }
 
@@ -123,7 +133,7 @@ function worldFor(run: Run) {
       const seconds = engine.timing.lastDelta * body.timeScale / 1000
       const previous = (body as Matter.Body & { positionPrev: Matter.Vector }).positionPrev
       const water = world.waterStrength.get(body) ?? 0
-      const dx = (body.position.x - previous.x) * (Math.exp(-TUNING.waterPropDrag * water * seconds) - 1)
+      const dx = (body.position.x - previous.x) * (Math.exp(-TUNING.waterPropDrag * water * seconds) - 1) + (sideGravity.get(body) ?? 0) * seconds ** 2
       let dy = ((world.gravity.get(body) ?? TUNING.gravity) - TUNING.gravity) * seconds ** 2
       dy += (body.position.y + dy - previous.y) * (Math.exp(-Math.max(world.floatDrag.get(body) ?? 0, TUNING.waterPropDrag * water) * seconds) - 1)
       if (water) Body.setAngularVelocity(body, Body.getAngularVelocity(body) * Math.exp(-TUNING.waterSpinDrag * water * seconds))
@@ -286,9 +296,10 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const accelerated = Math.abs(velocity.x * 60 - b.vx) + Math.abs(velocity.y * 60 - b.vy) > 1e-5
     if (moved) { Body.setPosition(body, { x: b.x, y: b.y - propHeight(b) / 2 }); Body.setAngle(body, angle) }
     if (moved || accelerated) Sleeping.set(body, false)
-    const gravity = propGravity(run.gravityField, b)
-    if (Math.abs(gravity - (world.gravity.get(body) ?? TUNING.gravity)) > 1e-7) Sleeping.set(body, false)
+    const gravity = propGravity(run.gravityField, b), side = propSideGravity(run.gravityField, b)
+    if (Math.abs(gravity - (world.gravity.get(body) ?? TUNING.gravity)) > 1e-7 || Math.abs(side - (sideGravity.get(body) ?? 0)) > 1e-7) Sleeping.set(body, false)
     world.gravity.set(body, gravity)
+    if (side) sideGravity.set(body, side); else sideGravity.delete(body)
     b.gravity = gravity
     world.floatDrag.set(body, propFloatDrag(run.gravityField, b))
     world.waterStrength.set(body, propWaterStrength(run.gravityField, b))
@@ -362,12 +373,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       // left alone: a ball rolling past it is passive and already settles (playerContacts.ts).
       if (b.kind === 'ball' && pace < 90 && !lowSwimPush && gravity !== 0 && b.grounded && (b.vx - target) * push.direction > 0)
         b.vx = approach(b.vx, target, 65 * dt)
-    } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !driven.has(body)) {
+    } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !slickProps.has(b) && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load
       // or braced shove cancels the player's force on large balls every step,
       // pinning the player beside walls (especially over a pressure plate).
       const onPlate = run.level.triggers.some(t => {
-        if (t.mode === 'coins') return false
+        if (t.mode === 'coins' || t.facing) return false
         const position = pressurePlatePosition(t, run.mechanisms)
         return propLoadsPlate(b, position.x, position.y, t.w, t.ceiling)
       })
@@ -604,7 +615,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     }
     if (supported.size === count) break
   }
-  for (const [b, body] of world.bodies) if (!body.isSleeping || !supported.has(body)) b.grounded = false
+  for (const [b, body] of world.bodies) if (!body.isSleeping || !supported.has(body)) { b.grounded = false; slickProps.delete(b) }
   for (let pass = 0; pass <= run.props.length; pass++) {
     let changed = false
     for (const contact of contacts) {
@@ -613,9 +624,11 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const directionB = (world.gravity.get(contact.bodyB) ?? TUNING.gravity) < 0 ? -1 : 1
       if (a && ny * directionA < -.3 && (contact.bodyB.isStatic || b?.grounded) && !a.grounded) {
         a.grounded = true; changed = true; supports.set(contact.bodyA, contact.normal)
+        if (slickBodies.has(contact.bodyB)) slickProps.add(a); else slickProps.delete(a)
       }
       if (b && ny * directionB > .3 && (contact.bodyA.isStatic || a?.grounded) && !b.grounded) {
         b.grounded = true; changed = true; supports.set(contact.bodyB, { x: -contact.normal.x, y: -ny })
+        if (slickBodies.has(contact.bodyA)) slickProps.add(b); else slickProps.delete(b)
       }
     }
     if (!changed) break
@@ -623,7 +636,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   for (const [b, body] of world.bodies) {
     // Low acceleration can look stationary to Matter's speed-only sleep test.
     // A body under gravity may sleep only while a real support carries it.
-    const gravity = Math.abs(world.gravity.get(body) ?? TUNING.gravity)
+    const gravity = Math.hypot(world.gravity.get(body) ?? TUNING.gravity, sideGravity.get(body) ?? 0)
     const floating = !b.grounded && (world.floatDrag.get(body) ?? 0) > 0 && gravity < .5 && !driven.has(body)
     const falling = !b.grounded && gravity > 1e-7 && !floating
     body.sleepThreshold = b.floatSwitch || b.waterBob ? 0 : falling && gravity < TUNING.gravity * .05 ? 0 : 45
@@ -637,7 +650,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const normal = supports.get(body)
     // Static friction holds a settled face on a moderate slope. Checking face
     // alignment keeps corners free to tip; steep slopes keep their momentum.
-    if (b.kind === 'box' && normal && !driven.has(body) && Math.abs(normal.x) > .02 && Math.abs(normal.x) < .65 * Math.abs(normal.y)
+    if (b.kind === 'box' && normal && !slickProps.has(b) && !driven.has(body) && Math.abs(normal.x) > .02 && Math.abs(normal.x) < .65 * Math.abs(normal.y)
       && Math.abs(Math.sin(2 * (body.angle - Math.atan2(normal.x, -normal.y)))) < .02
       && Body.getSpeed(body) * 60 < 25 && Math.abs(Body.getAngularVelocity(body)) * 60 < .08) Sleeping.set(body, true)
     const oldX = b.x, velocity = Body.getVelocity(body)
@@ -793,7 +806,7 @@ export function planMechanismMotion(run: Run, index: number, next: Platform, pas
   }
   if (Query.collides(playerHull, [...playerFixed, ...[...bodies].filter(([prop]) => !prop.gadget).map(([, body]) => body)]).some(hit => hit.depth > .002)) return null
   const position = playerPosition(), barriers = [...run.terrain, ...shapes, ...forceFieldPlatforms(run.forceFields), ...propShapes()]
-  const safe = moveBody([p.x, p.y], [position.x, position.y], barriers, height, p.inverted ? -1 : 1)
+  const safe = moveBody([p.x, p.y], [position.x, position.y], barriers, height, p.inverted ? -1 : 1, wallFrameAngle(p.wall))
   if (Math.hypot(safe.x - position.x, safe.y - position.y) > .01) return null
   return { player: position, props: movable.map(([prop, body]) => ({ prop, x: body.position.x, y: body.position.y + propHeight(prop) / 2 })) }
 }

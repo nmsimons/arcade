@@ -1,4 +1,5 @@
 // Pose queries: the per-render pose cache, mode dispatch and the final arm, shove and ankle passes.
+import { inWallFrame } from './wallFrame.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { ankleSkin, bodyIntrusion, clearLimb, limbClearance } from './athleteClearance.ts'
 import { FOREARM, HEAD_RADIUS, SHIN, THIGH, UPPER_ARM, add, armPose, clamp, mix, mixAngle, reflectAthletePose, smooth, solve, solveNear, solveRear, transferPose } from './athleteRig.ts'
@@ -254,6 +255,7 @@ export const athletePoseSolves = () => solves
 export function resolveAthletePose(p: Player, deferLooseClearance = false): AthletePose {
   if (bodySize(p) !== 1) return inSizeFrame(p, () => resolveAthletePose(p, deferLooseClearance), true)
   solves++
+  if (p.wall) return inWallFrame(p, () => resolveAthletePose(p, deferLooseClearance))
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try { return resolveAthletePose(p, deferLooseClearance) }

@@ -1190,6 +1190,31 @@ find and fix unstable contacts or interrupted blends at their source. Do not
 hold a physical contact alive, delay controls, move the player root, or smooth
 planted feet away from their surface merely to conceal an oscillation.
 
+## Frictionless terrain
+
+A terrain piece with `frictionless: true` offers no grip (`FRICTIONLESS` in
+`src/games/jumping/friction.ts`). Feet on it can neither drive nor brake: grounded
+steering leaves velocity unchanged, so a standing player stays put, a moving one
+coasts, and only jumping and air control change course. Exactly level ground still
+holds a standing body; any slope fails the same `canGrip` balance used everywhere
+else, so feet slide and gravity alone acts along it, with no sliding friction. A slide
+that reaches level slick ground keeps its speed. Ground following and landings use
+the piece's own grip, so walking or coasting onto a slick ramp hands the body to the
+ordinary slide rather than a walking support. Step-ups and the push stance need a
+foothold, so neither starts from slick footing, and no working push contact forms
+there: a face still blocks the body, but the hands neither drive a prop nor hold it
+back, so a box pushed off a grippy pad keeps gliding when its pusher follows it on. Jumps, wall braces, wall jumps,
+ledges, ladders and ropes do not depend on surface grip and work as usual.
+
+Props see the same surface. Matter pairs take the lower friction of two bodies, and
+making a body static resets its friction to 1, so slick terrain bodies set friction
+and static friction to zero after creation. A box glides down any slope and keeps
+sliding on the level; the static slope hold and the ball's settling drag do not apply
+while a slick piece supports the prop. Shovebots keep their wheel drive. The look is
+part of the contract: a pale glaze along every exposed face, with glints on its tops
+(`src/games/jumping/slickTerrain.ts`). Coverage lives in
+`tests/jumping-frictionless-terrain.test.mjs`.
+
 ## Gravity fields
 
 Gravity plates define fixed rectangles and use standard switched or Always on
@@ -1255,6 +1280,53 @@ Rider loads follow the live carried position during every prop solver substep,
 so a centered rider does not add a false torque as the box drifts. Planted foot
 anchors and foot angles rotate with a tilting support; carrying does not advance
 the walking gait.
+
+### Sideways fields and wall footing
+
+A gravity plate with `facing: "left" | "right"` stands its emitter on the
+rectangle's right or left edge, and its field pulls sideways instead of down:
+positive gravity toward the emitter's edge, negative away from it. The field cell
+stores a horizontal multiplier (`side`) beside the vertical one; a sideways device
+contributes nothing vertical, so it replaces ordinary gravity inside its rectangle.
+Overlapping devices still average per point, and bodies average the vector over their
+area, so a body straddling a floor field and a wall field feels a diagonal pull.
+Sideways pull is not lift: it does not scale with prop weight. Water may not share a
+sideways rectangle.
+
+Props receive the sideways pull in the solver's pre-step correction alongside the
+vertical difference, and count as falling (so they stay awake) whenever the vector is
+non-zero and they are not grounded. Rope particles add the horizontal term to their
+Verlet step. Shovebots keep ordinary gravity.
+
+The player gains a third footing besides the floor and the ceiling: a wall
+(`src/games/jumping/wallFrame.ts`). `p.wall` names the side gravity pulls toward,
+and the ordinary controller runs in a frame turned a quarter so that wall is its
+floor. Unlike the ceiling's reflection, the frame is a rotation, so controls turn with
+the body: Right walks up a right-hand wall and down a left-hand one, and a run carried
+onto a wall keeps its direction. Inside the frame, the pull across the wall is gravity
+and the pull along it acts on a free body as a sideways acceleration; in the ordinary
+frame a sideways pull likewise accelerates a free body. When the pull along an axis
+clearly wins (by a 1.25 margin, with hysteresis toward the current footing), a free
+body starts a released turn of a quarter (onto or off a wall) or a half (wall to wall),
+lifting off the floor if needed. The turn pivots about the feet with the ordinary
+released-turn clearance, and the frame changes only when it completes. Position,
+velocity and facing carry across; footwork, contacts, braces, slides and pushes start
+afresh, because a quarter turn changes what a lone wall x or floor y means.
+
+Player state is stored in world coordinates and turned into the frame for each query,
+as the reflected frame does. Pairs, vectors, angles and slopes turn exactly; lone line
+values change sign by a fixed rule. Pose resolution, impact ragdolls, contacts and
+deferred per-frame animation all enter the same frame; `playerTurnAngle` includes the
+frame's quarter turn, so world hull consumers (field coverage, prop collision, plates,
+camera) see the turned body. Drawing rotates the athlete by the frame angle.
+
+A wall offers free and grounded movement only: walking, running, crouching, slopes
+and jumping. Ledge grips, step-ups, ladders, ropes, swimming and
+pushing props are not offered from a wall; ropes keep swinging in the world meanwhile.
+Hanging or climbing bodies keep their grip in a sideways field and do not turn.
+Exits, lift boarding, robot riding and floor plates require ordinary footing. A ceiling
+(reflected) body does not hand off directly to a wall. Coverage lives in
+`tests/jumping-sideways-gravity.test.mjs`.
 
 ### Buoyant lever switches
 
@@ -1765,6 +1837,16 @@ it is not inferred from merely overlapping a switch. Mounted pressure plates
 follow a platform's top or underside, carrying supported passengers with the
 existing swept motion and obstruction rules. Regression coverage lives in
 `tests/jumping-ceiling-plates.test.mjs`.
+
+Pressure plates can also stand on vertical faces (`facing: "left" | "right"`,
+`src/games/jumping/wallPlates.ts`). Gravity does not load a wall plate, so contact
+presses it: the player's or a humanoid's contact hull touching the face within the
+plate's span, or palms working that face from the push stance, or a box's outline or a
+ball's side against it. A body leaning, braced or standing on it (on a wall, see below)
+therefore presses it, and so does a prop pushed, slid or pulled against it. The usual
+0.15-second debounce, Pressure/Switch/Toggle behaviors, toggle groups and EMP rules
+apply unchanged. Wall plates take no mount and never count for floor-plate prop drag or
+shovebot plate tactics. Coverage lives in `tests/jumping-wall-plates.test.mjs`.
 
 The runtime partitions at most 16 active rectangles into nonoverlapping vertical
 strips, merging adjoining equal-gravity spans. This rebuilds only when device

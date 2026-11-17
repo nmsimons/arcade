@@ -1668,6 +1668,51 @@
           "input": {}
         }
       ]
+    },
+    {
+      "file": "polishingbay.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 9.983333333333407,
+      "activeTime": 10.841666666666692,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 8,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 57,
+          "input": {}
+        },
+        {
+          "frames": 907,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 256,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
     }
   ],
   "jumpModel": "recorded-impulses",

@@ -144,9 +144,11 @@ The boundary test now also lists, per simulation module, the animation fields
 it touches. `model.ts` and `stepUp.ts` touch most of them; the rest are single
 reads or resets in `actorImpulse.ts`, `armSupport.ts`, `botHearing.ts`,
 `challenge.ts`, `climbables.ts`, `gadgets.ts`, `goal.ts`, `gravityFrame.ts`,
-`playerContacts.ts`, `repulsorBot.ts`, `shove.ts` and `sizeFrame.ts` (which, like
+`playerContacts.ts`, `repulsorBot.ts`, `shove.ts`, `sizeFrame.ts` (which, like
 `gravityFrame.ts`, carries footwork into a larger body's frame, and refuses a
-deferred step that would hold world references across it).
+deferred step that would hold world references across it) and `wallFrame.ts`
+(which turns footwork into a wall's frame and clears footwork, the dry turn and
+slide entry when the body changes between floor and wall footing).
 
 ## Phase 4: gameplay reads physics, not animation
 

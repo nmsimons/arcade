@@ -2603,23 +2603,38 @@
       }
     ]
   },
+  "wallFinish": "plate",
   "floor": 4000,
   "goal": {
     "x": 1895,
     "y": 3800
   },
   "times": {
-    "a": 10,
-    "b": 20,
-    "c": 40,
-    "d": 60
+    "a": 48,
+    "b": 60,
+    "c": 75,
+    "d": 90
   },
-  "props": [],
+  "props": [
+    {
+      "kind": "box",
+      "x": 4610,
+      "y": 3818.7719298245615,
+      "size": 200,
+      "branded": true
+    },
+    {
+      "kind": "ball",
+      "x": 4749,
+      "y": 3816.9881441713965,
+      "size": 68
+    }
+  ],
   "mechanisms": [],
   "triggers": [
     {
-      "x": 2060,
-      "y": 3640,
+      "x": 2055,
+      "y": 3565,
       "w": 120,
       "targets": [
         "f098c7f8-7d4e-47e4-aaf8-1d58436cb6ed"
@@ -2627,24 +2642,40 @@
       "mode": "coins",
       "threshold": 3,
       "display": "digital"
+    },
+    {
+      "x": 4220,
+      "y": 1715,
+      "w": 120,
+      "targets": [
+        "8b4da76f-7d83-47da-b81d-4288a872701f"
+      ],
+      "mode": "coins",
+      "threshold": 6,
+      "display": "digital"
     }
   ],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 2055,
+      "y": 3640
+    }
+  ],
   "pickups": [
     {
-      "x": 2380,
-      "y": 3380,
+      "x": 2355,
+      "y": 1875,
       "kind": "coin"
     },
     {
-      "x": 2680,
-      "y": 3375,
+      "x": 2355,
+      "y": 1660,
       "kind": "coin"
     },
     {
-      "x": 2975,
-      "y": 3380,
+      "x": 2370,
+      "y": 1400,
       "kind": "coin"
     },
     {
@@ -2666,9 +2697,87 @@
       "x": 70,
       "y": 485,
       "kind": "coin"
+    },
+    {
+      "x": 4454,
+      "y": 1952,
+      "kind": "time-bonus",
+      "seconds": 3
+    },
+    {
+      "x": 4594,
+      "y": 1952,
+      "kind": "time-bonus",
+      "seconds": 7
+    },
+    {
+      "x": 4739,
+      "y": 1952,
+      "kind": "time-bonus",
+      "seconds": 5
+    },
+    {
+      "x": 4884,
+      "y": 1957,
+      "kind": "time-bonus",
+      "seconds": 9
+    },
+    {
+      "x": 1594,
+      "y": 3012,
+      "kind": "time-bonus",
+      "seconds": 9
+    },
+    {
+      "x": 2034,
+      "y": 3072,
+      "kind": "time-bonus",
+      "seconds": 9
+    },
+    {
+      "x": 1799,
+      "y": 2902,
+      "kind": "time-bonus",
+      "seconds": 9
+    },
+    {
+      "x": 2369,
+      "y": 2962,
+      "kind": "time-bonus",
+      "seconds": 9
+    },
+    {
+      "x": 2615,
+      "y": 2930,
+      "kind": "coin"
+    },
+    {
+      "x": 3145,
+      "y": 2940,
+      "kind": "coin"
+    },
+    {
+      "x": 2850,
+      "y": 3055,
+      "kind": "coin"
+    },
+    {
+      "x": 1409,
+      "y": 2962,
+      "kind": "stopwatch"
     }
   ],
   "texts": [],
+  "loosePanels": [
+    {
+      "x": 3040,
+      "y": 1040
+    },
+    {
+      "x": 4640,
+      "y": 3440
+    }
+  ],
   "gravityPlates": [
     {
       "id": "24b2830b-63da-4627-8b13-356ef60770fe",
@@ -2689,6 +2798,16 @@
       "w": 320,
       "h": 12,
       "orientation": "horizontal",
+      "power": "switched"
+    },
+    {
+      "switchReversed": true,
+      "id": "8b4da76f-7d83-47da-b81d-4288a872701f",
+      "x": 4355,
+      "y": 1695,
+      "w": 12,
+      "h": 320,
+      "orientation": "vertical",
       "power": "switched"
     }
   ],
@@ -2721,8 +2840,8 @@
     "lights": [
       {
         "id": "749ba54e-3e93-4d31-9513-35f1d7f90948",
-        "x": 540,
-        "y": 3630,
+        "x": 550,
+        "y": 3615,
         "intensity": 100,
         "direction": 90,
         "spread": 155,
@@ -2731,7 +2850,7 @@
       {
         "id": "c74ebf3d-c6f5-460c-b845-54de94c23640",
         "x": 715,
-        "y": 3265,
+        "y": 3255,
         "intensity": 100,
         "direction": 90,
         "spread": 150,
@@ -2739,8 +2858,8 @@
       },
       {
         "id": "4af234fa-6665-47b7-8b18-f547c0d8959e",
-        "x": 380,
-        "y": 2395,
+        "x": 385,
+        "y": 2375,
         "intensity": 100,
         "direction": 90,
         "spread": 105,
@@ -2789,6 +2908,25 @@
         "intensity": 100,
         "direction": 90,
         "spread": 70,
+        "power": "always",
+        "flicker": true
+      },
+      {
+        "id": "155287b9-16aa-4a0a-b77d-7f770ee36192",
+        "x": 3930,
+        "y": 1710,
+        "intensity": 100,
+        "direction": 60,
+        "spread": 110,
+        "power": "always"
+      },
+      {
+        "id": "8d6524c6-de97-4453-a389-8aa432a51f60",
+        "x": 3535,
+        "y": 2325,
+        "intensity": 100,
+        "direction": 155,
+        "spread": 35,
         "power": "always"
       }
     ]

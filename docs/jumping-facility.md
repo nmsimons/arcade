@@ -337,18 +337,21 @@ closes behind it, and the course's own entrance plays. Locked doors stay closed
 and ignore Up. Keep ladders and ropes clear of door fronts so Up is never
 ambiguous.
 
-**Placard states.** The placard is a dynamic phosphor display, drawn like the
-wall timers and message screens, with the same lighting rules. It is reserved
-for the course's data; the name is lettered above the door and stays while the
-door is shut:
+**Placard states.** The placard is a dynamic phosphor display, the same
+hardware as the evaluation board in miniature (`facilityScreens.ts`): a small
+steel cabinet with corner bolts, a recessed screen with an older ruled box burnt
+in, and one lamp in its top rail. It ages with the room as the board does. Its
+screen and lit lamp are emissive; the cabinet takes the room's light. It is
+reserved for the course's data; the name is lettered above the door and stays
+while the door is shut:
 
 | State | Placard |
 | --- | --- |
-| Locked | Dark. No grade or time. |
-| Unlocked, not run | NO RECORD and its D deadline. |
-| Unlocked, run but not passed | BEST with the run's time and F, and its D deadline. |
-| Passed | BEST with the best time, and GRADE with the best grade. |
-| Untimed | UNTIMED, or COMPLETE once finished. |
+| Locked | Dark. No grade or time. Lamp unlit. |
+| Unlocked, not run | NO RECORD and its D deadline. Lamp amber. |
+| Unlocked, run but not passed | BEST with the run's time and F, and its D deadline. Lamp amber. |
+| Passed | BEST with the best time, and GRADE with the best grade. Lamp green. |
+| Untimed | UNTIMED (lamp amber), or COMPLETE once finished (lamp green). |
 | Improved just now | The new time and grade roll in; "PERSONAL BEST" on a new best. |
 | Certification door | Source group, completion count and points, e.g. "CERTIFICATION 5 / 6", with the source courses' best grades. |
 
@@ -362,13 +365,36 @@ moments such as the final course.
 
 ### The evaluation board
 
-The concourse's board shows one numbered lamp per required course, grouped by
-wing in each wing's order, with the grade letter in each passed lamp and a total
-such as "EVALUATION 12 / 40". Locked lamps are dark. Smaller boards at wing
-entrances may show just that wing. The board replaces the grid's overview
-without being a menu: nothing on it is selectable. Proposed as a wall object
-`evaluationBoards: [{ x, y, w, h, wing? }]` whose content comes from the
-facility's areas and saved records.
+An evaluation board (`evaluationBoards: [{ id, x, y, w, h }]`, drawn by
+`facilityScreens.ts`) is the facility's scoreboard: a steel cabinet bolted to
+the wall, not a menu. Nothing on it is selectable.
+
+- **Structure.** A top rail carries a riveted L.A.B. plate. Ears either side
+  bolt it to the wall, and a conduit rises from its top to a junction box. The
+  screen is recessed behind a dark bezel.
+- **Readout.** The screen shows the heading, "EVALUATION" with the total ("14 /
+  33", or COMPLETE), over a rule, then a row per wing in campaign order: its
+  name and its passes ("5/6"), or SEALED, dimmed. The release notice sits under
+  the heading. Rows shrink to fit a smaller board. The board reads the lines the
+  facility writes (`evaluationLines`), so their wording stays in one place.
+- **Lamps.** Beside each wing's row is a lamp in the frame: dark while the wing
+  is sealed, amber while it is open, green once every course in it is passed.
+  The screen and lit lamps are emissive; the cabinet takes the room's light.
+- **Patina.** The board ages with its room's stains (see
+  [wall wear](jumping-wall-wear.md)): paint chipped to bare steel, primer and
+  rust, scuffs and grime on the bottom rail, a corroded bottom edge, rusted
+  bolts that weep down the frame and onto the wall below, and an older ruled
+  layout burnt into the phosphor. A spotless room's board is chipped and
+  scuffed but never rusts. Wear is hashed from the board and the room, so it is
+  the same on every visit, and rust and run-off stop at water.
+
+Not built from the first proposal: a numbered lamp per required course with the
+grade letter in each passed lamp, and smaller boards at wing entrances showing
+just that wing.
+
+Known gap: in daylight, facility-door artwork (bulkheads, level doors and
+boards alike) is not redrawn exactly on the first frames before the background
+cache settles, so `jumpingExposureCorrection.dev.spec` has no facility room yet.
 
 ### The release and the escape route
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { facilityProgress, parseCampaign } from '../src/games/jumping/campaign.ts'
 import { areaComplete } from '../src/games/jumping/hub.ts'
+import { boardRows } from '../src/games/jumping/facilityScreens.ts'
 import { objectLabel } from '../src/games/jumping/objectLabels.ts'
 import { arrivalLevel, campaignWiring, resolveCampaign, facilityDoorName, studioPresentation, evaluationLines, facilityStart, FACILITY_KEY, GAME_KEYS, hubPresentation, linkOpen, linkedPlace, nextPlace, progressRecords, readFacilitySave, savedGameExists, saveFacilityPlace, savedPlace } from '../src/games/jumping/facility.ts'
 
@@ -254,6 +255,10 @@ test('the evaluation board shows the total and each wing, then the release', () 
   assert.deepEqual(evaluationLines(campaign, progress(everything), levels), ['EVALUATION COMPLETE', 'UNIT RELEASED FOR DISPATCH', 'MOVEMENT WING 2/2', 'FREIGHT WING 2/2', 'WATER WING 1/1'])
   assert.deepEqual(hubPresentation(campaign, progress([]), levels.get('hall'), levels, () => null).placards.get('board'),
     ['EVALUATION 0 / 5', 'MOVEMENT WING 0/2', 'FREIGHT WING 0/2', 'WATER WING SEALED'])
+  // The board lays these out as rows (facilityScreens.ts): a heading, then a wing with a lamp for each wing.
+  assert.deepEqual(boardRows(evaluationLines(campaign, progress(['m1', 'm2', 'f1']), levels)).map(row => row.kind === 'wing' ? row.lamp : row.kind),
+    ['heading', 'complete', 'open', 'sealed'])
+  assert.deepEqual(boardRows(evaluationLines(campaign, progress(everything), levels)).map(row => row.kind), ['heading', 'note', 'wing', 'wing', 'wing'])
 })
 
 test('a wing goes by its level’s name', () => {

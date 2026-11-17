@@ -22,7 +22,7 @@ const overlaps = (a: Box, list: readonly Box[], gap: number) =>
   list.some(b => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap)
 
 /** A small seeded generator (mulberry32), so a stamp wears the same on every visit. */
-function generator(seed: number) {
+export function generator(seed: number) {
   let s = seed >>> 0
   return () => {
     s = (s + 0x6d2b79f5) >>> 0
@@ -31,7 +31,7 @@ function generator(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
-function hash(text: string) {
+export function hash(text: string) {
   let h = 2166136261
   for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619) }
   return h >>> 0

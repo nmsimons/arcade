@@ -100,7 +100,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
       ctx.globalAlpha = 1; ctx.strokeStyle = '#287c9b'; ctx.lineWidth = 2 / zoom; ctx.strokeRect(p.x, p.y, p.w, p.h); break
     }
     case 'wall-stripes': drawWallStripes(ctx, [level.stripes![i]]); break
-    case 'evaluation-board': drawHubDoors(ctx, { evaluationBoards: [level.evaluationBoards![i]] }, undefined, true, paintNormally); break
+    case 'evaluation-board': drawHubDoors(ctx, { id: level.id, stains: level.stains, evaluationBoards: [level.evaluationBoards![i]] }, undefined, true, paintNormally); break
   }
   const outline = itemOutline(level, selection)
   if (outline) {

@@ -3,6 +3,8 @@ import { drawExitGate, exitSign, exitSignBounds } from './exitGate.ts'
 import type { NamedObject } from './objectNames.ts'
 import type { Platform } from './model.ts'
 import { drawWallTexts } from './wallText.ts'
+import { drawEvaluationBoard, drawPlacard } from './facilityScreens.ts'
+import { wallWear } from './wallWear.ts'
 import type { WallText } from './wallText.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import type { SwitchSettings } from './switchPower.ts'
@@ -102,10 +104,6 @@ export const bulkheadSignBounds = (door: Pick<Bulkhead, 'x' | 'y'>) => ({ x: doo
 /** A level door's level is lettered above its lighter frame the same way, and the Exit's larger. */
 export const courseDoorSignBounds = (door: Pick<CourseDoor, 'x' | 'y' | 'dispatch'>) => door.dispatch ? exitSignBounds(door) : ({ x: door.x - 150, y: door.y - 109, w: 300, h: 22 })
 
-/** Placards are small message screens, dark while their door is locked. */
-export function hubPlacard(door: Pick<CourseDoor, 'x' | 'y'>, lines: readonly string[]): WallText {
-  return { ...placardBounds(door), text: lines.join('\n'), fontSize: 12, align: 'left', style: 'terminal' }
-}
 /** Door and bulkhead lettering is painted on the wall, so it follows the room's light and stays when the door is shut. */
 export function bulkheadSign(door: Pick<Bulkhead, 'x' | 'y'>, text: string): WallText {
   return { ...bulkheadSignBounds(door), text, fontSize: 18, align: 'center', style: 'official' }
@@ -113,6 +111,8 @@ export function bulkheadSign(door: Pick<Bulkhead, 'x' | 'y'>, text: string): Wal
 export function courseDoorSign(door: Pick<CourseDoor, 'x' | 'y' | 'dispatch'>, text: string): WallText {
   return door.dispatch ? exitSign(door, text) : { ...courseDoorSignBounds(door), text, fontSize: 16, align: 'center', style: 'official' }
 }
+/** A facility area's doors and boards, and what ages them: its ID, stains and water. */
+export type HubArt = { courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[] } & NonNullable<Parameters<typeof wallWear>[0]>
 /**
  * Doors sit in the back wall with no collision. An open door is a dark doorway;
  * a locked one stays shut. Every door has where it leads lettered above it, and
@@ -122,9 +122,10 @@ export function courseDoorSign(door: Pick<CourseDoor, 'x' | 'y' | 'dispatch'>, t
  * Its placards and lettering come from the hub state when the studio supplies
  * them, or else name the destination.
  */
-export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[] }, hub: HubState | undefined, editor: boolean, paint: WorldPaint) {
-  drawWallTexts(ctx, (level.evaluationBoards ?? []).map(({ x, y, w, h, id, name }): WallText => ({ x, y, w, h, fontSize: 14, align: 'left', style: 'terminal',
-    text: (hub?.placards.get(id) ?? (editor ? [name ?? 'EVALUATION'] : [])).join('\n') })), false, paint)
+export function drawHubDoors(ctx: CanvasRenderingContext2D, level: HubArt, hub: HubState | undefined, editor: boolean, paint: WorldPaint) {
+  // Evaluation boards age with the room (facilityScreens.ts).
+  const wear = wallWear(level)
+  for (const board of level.evaluationBoards ?? []) drawEvaluationBoard(ctx, board, hub?.placards.get(board.id) ?? (editor ? [board.name ?? 'EVALUATION'] : []), wear, paint)
   const doors = [...level.courseDoors ?? [], ...level.bulkheads ?? []]
   for (const door of doors) {
     const b = hubDoorBounds(door), open = editor || !!hub?.open.has(door.id), bulkhead = 'to' in door, frame = bulkhead ? 7 : 3
@@ -144,7 +145,9 @@ export function drawHubDoors(ctx: CanvasRenderingContext2D, level: { courseDoors
   // A switched level door's placard goes dark while the door is shut, like a locked door's.
   const screen = (door: CourseDoor) => !editor && hub?.switched.has(door.id) && !hub.open.has(door.id) ? [] : hub?.placards.get(door.id) ?? []
   const sign = (door: CourseDoor | Bulkhead) => hub?.signs.get(door.id) ?? (editor ? 'course' in door ? door.course || 'NO LEVEL' : door.to || 'NOWHERE' : '')
-  drawWallTexts(ctx, (level.courseDoors ?? []).filter(door => !door.dispatch).map(door => hubPlacard(door, screen(door))), false, paint)
+  // Each placard is a small cabinet with a lamp: green once its course is passed (facilityScreens.ts).
+  for (const door of level.courseDoors ?? []) if (!door.dispatch)
+    drawPlacard(ctx, { id: door.id, ...placardBounds(door) }, screen(door), coursePassed(hub?.grades.get(door.course) ?? null), wear, paint)
   // A door with nowhere to lead has no lettering.
   drawWallTexts(ctx, [...(level.courseDoors ?? []).map(door => courseDoorSign(door, sign(door))), ...(level.bulkheads ?? []).map(door => bulkheadSign(door, sign(door)))].filter(text => text.text), false, paint)
 }

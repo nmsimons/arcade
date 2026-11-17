@@ -2,7 +2,9 @@ import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer } from '../../games/jumpi
 import type { RobotState } from '../../games/jumping/challenge'
 import { drawRepulsorBot } from '../../games/jumping/repulsorBotRender'
 import { REPULSOR_BOT_SIZE } from '../../games/jumping/repulsorBotRig'
-import { drawAthlete, drawTerrain } from '../../games/jumping/render'
+import { drawAthlete, drawLevelBackdrop, drawTerrain } from '../../games/jumping/render'
+import { blankTrial } from '../../games/jumping/level'
+import type { Platform } from '../../games/jumping/model'
 import { NIGHT_PLAYER_COLOR } from '../../games/jumping/athlete'
 import { drawAthleteLights } from '../../games/jumping/athleteDraw'
 import { ambientExposure } from '../../games/jumping/ambientLight'
@@ -11,6 +13,18 @@ import { drawProp } from '../../games/jumping/challengeRender'
 import { presentedAthletePose } from '../../games/jumping/athletePose'
 import { glancePose } from '../../games/jumping/idleGlance'
 
+/** The ledges: the lower one, hazard-trimmed, under Rbot; the robot's, steel, with the crate on it. */
+const LEDGES: Platform[] = [{ x: 0, y: 185, w: 120, h: 45, trim: 'hazard' }, { x: 175, y: 135, w: 185, h: 95, material: 'steel' }]
+/**
+ * The cover's room, lived in as the facility is (docs/jumping-wall-wear.md): a tiled wall, heavily stained, two
+ * pipe runs along the top and down beside the crate weeping rust, and worn terrain. A fixed ID keeps its stains
+ * the same on every draw.
+ */
+const ROOM = { ...blankTrial(), id: 'lab-cover', name: 'Cover', width: 360, height: 230, floor: 230, lighting: { nightMode: true, ambient: 0, lights: [] },
+  wallFinish: 'tile' as const, platforms: LEDGES,
+  pipes: [{ points: [[150, 18], [334, 18], [334, 135]] as [number, number][], size: 'small' as const },
+    { points: [[196, 30], [320, 30], [320, 135]] as [number, number][], size: 'small' as const }] }
+
 export function drawPreview(ctx: CanvasRenderingContext2D, width: number, height: number) {
   // A still night scene: the pale figure stays legible at card size against the dark wall. Scale
   // uniformly and crop the surroundings instead of stretching the athlete.
@@ -18,11 +32,10 @@ export function drawPreview(ctx: CanvasRenderingContext2D, width: number, height
   // Framed on the robot: the lamp and crate stay in a 316 by 202 view of the 360 by 230 scene.
   const scale = Math.max(width / 316, height / 202)
   ctx.save(); ctx.translate(width / 2, height / 2); ctx.scale(scale, scale); ctx.translate(-196, -112)
-  ctx.strokeStyle = '#303c3620'; ctx.lineWidth = 1
-  ctx.beginPath()
-  for (let x = 0; x <= 360; x += 20) { ctx.moveTo(x, 0); ctx.lineTo(x, 230) }
-  for (let y = 10; y <= 230; y += 20) { ctx.moveTo(0, y); ctx.lineTo(360, y) }
-  ctx.stroke()
+  // The wall at night: the room's backdrop at the game's ambient exposure.
+  ctx.save(); ctx.filter = `brightness(${ambientExposure(0)})`
+  drawLevelBackdrop(ctx, ROOM, { x: 0, y: 0, w: ROOM.width, h: ROOM.height }, scale)
+  ctx.restore()
   // The lamp's upper edge crosses the robot at the waist: it lights the ledge, the robot's legs and the crate's
   // lower corner, and leaves the robot's face in the dark. Standing in the whole beam washed the robot out.
   const lamp = { id: 'cover', x: 86, y: 32, direction: 39, spread: 30, intensity: 100, power: 'always' as const, fade: 1 }
@@ -35,7 +48,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, width: number, height
   ctx.save(); cone(ctx); ctx.fillStyle = '#f4f2e9'; ctx.globalAlpha = beamHazeStrength(0); ctx.fill(); ctx.restore()
   drawLightHaze(ctx, lamp, 0); drawLightFixtures(ctx, [lamp])
   ctx.save(); ctx.filter = `brightness(${ambientExposure(0)})`
-  drawTerrain(ctx, [{ x: 0, y: 185, w: 120, h: 45 }, { x: 175, y: 135, w: 185, h: 95 }])
+  drawTerrain(ctx, LEDGES, LEDGES, ROOM)
   const crate = { kind: 'box' as const, x: 286, y: 135, size: 40, branded: true, angle: 0, angularVelocity: 0, vx: 0, vy: 0, grounded: true }
   drawProp(ctx, crate)
   ctx.restore()

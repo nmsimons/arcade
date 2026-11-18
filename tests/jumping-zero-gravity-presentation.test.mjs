@@ -192,3 +192,32 @@ test('a hard landing without weight bends the knees from the touch, deep and smo
   assert.ok(time > .12 && time < .22, `pushed off ${time.toFixed(3)} s after the touch`)
   assert.ok(launch < 1.5, `worst joint lurch leaving ${launch.toFixed(2)}`)
 })
+
+test('walking onto a weightless plate keeps the legs under the body instead of buckling them', () => {
+  // A walking stride's feet have no footing: each one's anchor is where it last left the floor, up to a stride behind.
+  // The glide used to plant both feet back at those anchors on the first weightless step, folding the knees and dropping
+  // the hips to the floor in one frame. Cover holding the walk across the edge and letting go just before it.
+  for (const [direction, releaseBefore] of [[1, -Infinity], [1, 5], [-1, 5], [1, 20]]) {
+    const edge = direction > 0 ? 700 : 300
+    const plate = direction > 0 ? { x: 700, w: 1100 } : { x: 0, w: 300 }
+    const run = createRun(parseLevel({ ...blankTrial(), entrance: { x: direction > 0 ? 300 : 700, y: 920 },
+      gravityPlates: [{ id: 'z', ...plate, y: 0, h: 920, gravity: 0, power: 'always' }] }))
+    run.started = true
+    const p = run.player, label = `walking ${direction > 0 ? 'right' : 'left'}, letting go ${releaseBefore} before the edge`
+    for (let i = 0; i < 30; i++) stepRun(run, NEUTRAL_INPUT)
+    let lowest = Infinity, worstDrop = 0, before = null, weightless = false
+    for (let i = 0; i < 2 / STEP; i++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: (edge - p.x) * direction > releaseBefore ? direction : 0 })
+      const hip = -athletePose(p).hip[1]
+      weightless ||= (p.weightless ?? 0) > 0
+      if ((edge - p.x) * direction < 40) {
+        lowest = Math.min(lowest, hip)
+        if (before !== null) worstDrop = Math.max(worstDrop, before - hip)
+      }
+      before = hip
+    }
+    assert.ok(weightless, `${label}: reached the plate`)
+    assert.ok(lowest > 22, `${label}: hips stay up (lowest ${lowest.toFixed(1)})`)
+    assert.ok(worstDrop < 3, `${label}: no sudden sag (worst drop ${worstDrop.toFixed(1)} in one frame)`)
+  }
+})

@@ -456,8 +456,11 @@ step reads it except the two captures below.
 - A body moving along a surface without weight glides on planted feet: the gait
   sees no speed, and the footwork carries the planted feet with the body across
   the surface (`advanceFootwork`), so a skate or a frictionless glide never
-  steps. Skating (a direction held along the surface) stands tall; Down alone
-  crouches.
+  steps. A foot still mid-stride when weight goes (walking onto a weightless
+  plate) has no footing yet: it is carried from where it is drawn and set down
+  under the body with an ordinary settling step, never snapped back to where it
+  last left the floor, which buckled the knees and dropped the hips. Skating (a
+  direction held along the surface) stands tall; Down alone crouches.
 - Palms braced on a wall keep their brace pose; the float yields to it.
 - Floating, the boot plumes leave the soles and vector toward the exhaust by at
   most 72 degrees (`airBoosters.ts`); they share the athlete's wall rotation,

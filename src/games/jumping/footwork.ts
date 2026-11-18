@@ -322,6 +322,11 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
   if (traveling && (p.weightless ?? 0) > 0) {
     const shift = p.x - oldX
     const feet = previous.feet.map(foot => {
+      // A foot still in a stride or step (walking onto a weightless plate) has no footing yet; its anchor is where it
+      // last left the ground, far behind. Carry it from where it is drawn and let settleFeet set it down under the body,
+      // rather than snapping it back to that anchor, which buckled the knees and dropped the hips to the floor.
+      if (!foot.planted) return { ...foot, x: foot.x + shift, anchorX: foot.anchorX + shift, release: null,
+        settle: foot.settle && { ...foot.settle, x: foot.settle.x + shift } }
       const anchorX = foot.anchorX + shift, ground = groundAt(platforms, anchorX, p.y)
       const moved: FootContact = { ...foot, anchorX, anchorY: ground?.y ?? foot.anchorY, groundY: ground?.y ?? foot.groundY,
         groundAngle: ground?.angle ?? foot.groundAngle, angle: ground ? ground.angle * foot.facing : foot.angle, settle: null, release: null }

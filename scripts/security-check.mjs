@@ -9,6 +9,8 @@ export const ALLOWED_ADVISORIES = [
     reason: 'Published 2026-10-30 with no released fix (minimatch 11.0.1 is not yet on npm). Only ESLint and Electron packaging tooling depend on it; no shipped code does.' },
   { id: 'GHSA-3g3m-2fjr-6pw4', package: 'glob', until: '2026-11-30',
     reason: 'Published 2026-10-30 with no released fix (glob 14.0.2 is not yet on npm). Only @electron/packager depends on it, at build time; the desktop app does not ship it.' },
+  { id: 'GHSA-fc5q-39xc-vjpf', package: 'picomatch', until: '2026-11-30',
+    reason: 'Blocking from 2026-11-18 with no released fix (every version up to 4.0.7, the latest on npm, is affected). Only Vite and its file helpers (fdir, tinyglobby) depend on it, at build and dev-server time; no shipped code does.' },
 ]
 const BLOCKING = new Set(['moderate', 'high', 'critical'])
 

@@ -4,161 +4,122 @@
   "name": "Drift",
   "width": 1695,
   "height": 1030,
-  "floor": 1030,
-  "stains": "light",
   "platforms": [
     {
+      "name": "Start landing",
       "x": 0,
       "y": 990,
       "w": 260,
       "h": 40,
-      "material": "stone",
-      "name": "Start landing"
+      "material": "stone"
     },
     {
+      "name": "Chamber 1 floor plate",
       "x": 260,
       "y": 990,
-      "w": 70,
+      "w": 620,
       "h": 40,
       "material": "steel",
-      "name": "Chamber 1 floor plate"
+      "trim": "hazard"
     },
     {
-      "x": 330,
-      "y": 990,
-      "w": 60,
-      "h": 40,
-      "material": "steel",
-      "trim": "hazard",
-      "name": "Launch line"
-    },
-    {
-      "x": 390,
-      "y": 990,
-      "w": 490,
-      "h": 40,
-      "material": "steel",
-      "name": "Chamber 1 floor plate"
-    },
-    {
+      "name": "Pylon foot",
       "x": 880,
       "y": 990,
       "w": 80,
       "h": 40,
-      "material": "stone",
-      "name": "Pylon foot"
+      "material": "stone"
     },
     {
+      "name": "Pylon base",
       "x": 960,
       "y": 610,
-      "w": 155,
+      "w": 125,
       "h": 420,
       "material": "stone",
-      "name": "Pylon base"
+      "trim": "hazard"
     },
     {
-      "x": 1050,
-      "y": 460,
-      "w": 65,
-      "h": 150,
-      "material": "stone",
-      "name": "Alcove back"
+      "name": "Chamber 2 footing",
+      "x": 1085,
+      "y": 795,
+      "w": 610,
+      "h": 235,
+      "material": "stone"
     },
     {
-      "x": 960,
-      "y": 430,
-      "w": 195,
+      "name": "Under the board",
+      "x": 1085,
+      "y": 765,
+      "w": 70,
       "h": 30,
-      "material": "steel",
-      "trim": "hazard",
-      "name": "Board"
+      "material": "stone"
     },
     {
-      "x": 260,
-      "y": 0,
-      "w": 620,
-      "h": 40,
-      "material": "steel",
-      "name": "Chamber 1 header"
-    },
-    {
-      "x": 1020,
-      "y": 0,
-      "w": 135,
-      "h": 133,
-      "material": "steel",
-      "name": "Hung block"
-    },
-    {
-      "x": 1115,
-      "y": 970,
-      "w": 580,
-      "h": 60,
-      "material": "stone",
-      "name": "Chamber 2 footing"
-    },
-    {
-      "x": 1115,
-      "y": 940,
-      "w": 40,
-      "h": 30,
-      "material": "stone",
-      "name": "Under the board"
-    },
-    {
+      "name": "Chamber 2 floor plate",
       "x": 1155,
-      "y": 940,
+      "y": 765,
       "w": 260,
       "h": 30,
       "material": "steel",
-      "name": "Chamber 2 floor plate"
+      "trim": "hazard"
     },
     {
+      "name": "Exit sill",
       "x": 1415,
-      "y": 940,
+      "y": 765,
       "w": 280,
       "h": 30,
-      "material": "stone",
-      "name": "Exit sill"
+      "material": "stone"
     },
     {
+      "name": "Far ledge",
       "x": 1445,
-      "y": 790,
+      "y": 615,
       "w": 250,
       "h": 30,
-      "material": "steel",
-      "name": "Far ledge"
+      "material": "steel"
+    },
+    {
+      "name": "Pylon base",
+      "x": 960,
+      "y": 0,
+      "w": 125,
+      "h": 420,
+      "material": "stone",
+      "trim": "hazard-bottom"
+    },
+    {
+      "x": 1085,
+      "y": 0,
+      "w": 610,
+      "h": 275
     }
   ],
   "entrance": {
     "x": 110,
     "y": 990
   },
-  "goal": {
-    "x": 1475,
-    "y": 940
-  },
   "checkpoints": [],
   "climbables": {
     "ladders": [
       {
-        "name": "Alcove to board",
-        "x": 1015,
-        "top": 430,
-        "bottom": 610,
-        "platform": -1,
-        "side": 1
-      },
-      {
         "name": "Far ledge to exit",
         "x": 1675,
-        "top": 790,
-        "bottom": 940,
+        "top": 600,
+        "bottom": 765,
         "platform": -1,
         "side": 1
       }
     ],
     "ropes": []
+  },
+  "stains": "light",
+  "floor": 1030,
+  "goal": {
+    "x": 1665,
+    "y": 765,
+    "flipX": true
   },
   "times": {
     "a": 4,
@@ -173,94 +134,31 @@
   "timers": [
     {
       "name": "Clock",
-      "x": 60,
-      "y": 590
+      "x": 1560,
+      "y": 465
     }
   ],
   "pickups": [],
-  "texts": [
-    {
-      "name": "Launch hint",
-      "x": 40,
-      "y": 740,
-      "w": 300,
-      "h": 90,
-      "text": "hold it longer,\ngo higher",
-      "fontSize": 28,
-      "align": "left",
-      "style": "graffiti",
-      "rotation": -6
-    },
-    {
-      "name": "Launch line label",
-      "x": 280,
-      "y": 912,
-      "w": 160,
-      "h": 30,
-      "text": "LAUNCH LINE",
-      "fontSize": 20,
-      "align": "center"
-    },
-    {
-      "name": "Chamber 1 label",
-      "x": 350,
-      "y": 560,
-      "w": 440,
-      "h": 56,
-      "text": "NULL CHAMBER 1",
-      "fontSize": 40,
-      "align": "center"
-    },
-    {
-      "name": "Chamber 2 hint",
-      "x": 1195,
-      "y": 230,
-      "w": 300,
-      "h": 70,
-      "text": "let go and it sinks.\nyou keep the fall.",
-      "fontSize": 24,
-      "align": "left",
-      "style": "graffiti",
-      "rotation": -3
-    },
-    {
-      "name": "Chamber 2 label",
-      "x": 1175,
-      "y": 451,
-      "w": 230,
-      "h": 36,
-      "text": "NULL CHAMBER 2",
-      "fontSize": 24,
-      "align": "left"
-    }
-  ],
-  "stripes": [
-    {
-      "name": "Chamber 2 field limit",
-      "x": 1155,
-      "y": 430,
-      "w": 260,
-      "h": 10
-    }
-  ],
+  "texts": [],
+  "stripes": [],
   "gravityPlates": [
     {
-      "id": "null-1",
       "name": "Null chamber 1",
+      "id": "null-1",
       "x": 260,
-      "y": 40,
+      "y": 0,
       "w": 620,
-      "h": 950,
+      "h": 990,
       "gravity": 0,
       "power": "always"
     },
     {
-      "id": "null-2",
       "name": "Null chamber 2",
+      "id": "null-2",
       "x": 1155,
-      "y": 435,
+      "y": 280,
       "w": 260,
-      "h": 505,
+      "h": 485,
       "gravity": 0,
       "power": "always"
     }

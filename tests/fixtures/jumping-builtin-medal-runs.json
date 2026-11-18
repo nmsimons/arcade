@@ -973,122 +973,11 @@
     },
     {
       "file": "Drain.json",
-      "elapsed": 31.04166666666562,
-      "activeTime": 41.899999999998265,
-      "coins": 45,
+      "jumpModel": "tap-hold",
+      "elapsed": 29.649999999999032,
+      "activeTime": 40.50833333333168,
+      "coins": 60,
       "trace": [
-        {
-          "frames": 204,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 448,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 419,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 419,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 423,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 487,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 123,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 104,
-          "input": {}
-        },
-        {
-          "frames": 150,
-          "input": {
-            "move": -0.3048780487804878
-          }
-        },
-        {
-          "frames": 70,
-          "input": {}
-        },
-        {
-          "frames": 99,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 4,
-          "input": {}
-        },
-        {
-          "frames": 91,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 50,
-          "input": {}
-        },
-        {
-          "frames": 43,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 50,
-          "input": {}
-        },
         {
           "frames": 34,
           "input": {
@@ -1096,67 +985,155 @@
           }
         },
         {
-          "frames": 1,
+          "frames": 12,
           "input": {
             "move": 1,
             "jump": true,
-            "jumpStrength": 1
+            "climb": true
           }
         },
         {
-          "frames": 84,
+          "frames": 34,
           "input": {
             "move": 1,
             "climb": true
           }
         },
         {
-          "frames": 116,
+          "frames": 200,
           "input": {
             "climb": true
           }
         },
         {
-          "frames": 410,
+          "frames": 120,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 97,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 60,
+          "frames": 84,
           "input": {}
         },
         {
-          "frames": 17,
+          "frames": 422,
           "input": {
             "move": -1
           }
         },
         {
-          "frames": 65,
+          "frames": 371,
+          "input": {}
+        },
+        {
+          "frames": 69,
           "input": {
             "move": -1
           }
         },
         {
-          "frames": 1,
+          "frames": 438,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 448,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 442,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 548,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 167,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 53,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 76,
+          "input": {}
+        },
+        {
+          "frames": 20,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 146,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 318,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 25,
           "input": {
             "move": -1,
             "jump": true,
-            "jumpStrength": 1
+            "climb": true
           }
         },
         {
-          "frames": 451,
+          "frames": 184,
           "input": {
             "move": -1,
             "climb": true
           }
         },
         {
-          "frames": 205,
+          "frames": 349,
           "input": {
-            "move": -1,
+            "move": -1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
             "climb": true
           }
         }
@@ -1822,12 +1799,12 @@
     {
       "file": "drift.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 4.733333333333358,
-      "activeTime": 5.591666666666734,
+      "elapsed": 3.6999999999999895,
+      "activeTime": 4.55833333333335,
       "coins": 0,
       "trace": [
         {
-          "frames": 68,
+          "frames": 62,
           "input": {
             "move": 1
           }
@@ -1836,48 +1813,22 @@
           "frames": 6,
           "input": {
             "move": 1,
-            "climb": true,
             "jump": true
           }
         },
         {
-          "frames": 154,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 128,
+          "frames": 372,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 133,
+          "frames": 107,
           "input": {
-            "drop": true,
-            "descend": true,
-            "crouch": true,
-            "move": -1
-          }
-        },
-        {
-          "frames": 29,
-          "input": {
-            "drop": true,
-            "descend": true,
-            "crouch": true
-          }
-        },
-        {
-          "frames": 153,
-          "input": {
-            "move": 1,
             "climb": true
           }
         }
-      ],
-      "grade": "B"
+      ]
     },
     {
       "file": "flipside.jump-level.json",

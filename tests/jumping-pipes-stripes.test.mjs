@@ -164,6 +164,30 @@ test('hazard trim paints a band under a piece\'s exposed tops only, and only on 
   assert.ok(post <= 4, `a post's 600-unit sides carry none, only its 30-unit top (${post})`)
 })
 
+test('hazard trim can mark a piece\'s exposed undersides, alone or with its tops', () => {
+  // A floating slab, open above and below. Its yellow bands sit within 2.5-10.5 units of whichever face they mark.
+  const slab = { x: 0, y: 400, w: 400, h: 100 }
+  const bands = (platforms) => {
+    const level = parseLevel(room({ platforms })), { ctx, calls } = recorder()
+    drawTerrainTrim(ctx, levelTerrain(level), level)
+    const fill = calls.find(c => c[0] === 'fill' && c[1] === HAZARD_YELLOW)
+    const ys = [], c = fill?.[2].commands ?? []
+    for (let i = 0; i < c.length; i += 1 + ARGUMENTS[c[i]]) if (c[i] === MOVE || c[i] === LINE) ys.push(c[i + 2])
+    return { top: ys.some(y => y < 450), bottom: ys.some(y => y > 450), count: fill ? subpaths(fill[2]).filter(op => op === MOVE).length : 0,
+      outside: ys.some(y => y < slab.y + 2 || y > slab.y + slab.h - 2 || (y > slab.y + 11 && y < slab.y + slab.h - 11)) }
+  }
+  const top = bands([{ ...slab, trim: 'hazard' }]), bottom = bands([{ ...slab, trim: 'hazard-bottom' }]), both = bands([{ ...slab, trim: 'hazard-both' }])
+  assert.deepEqual([top.top, top.bottom], [true, false], 'the original trim still marks only the top')
+  assert.deepEqual([bottom.top, bottom.bottom], [false, true], 'the underside alone')
+  assert.deepEqual([both.top, both.bottom], [true, true], 'tops and undersides')
+  assert.ok(!top.outside && !bottom.outside && !both.outside, 'every band hugs the face it marks')
+  assert.ok(Math.abs(both.count - top.count - bottom.count) <= 2, `both is the two bands together (${both.count} vs ${top.count} + ${bottom.count})`)
+  // An underside resting on another piece is covered, like a covered top.
+  const resting = bands([{ ...slab, trim: 'hazard-bottom' }, { x: 0, y: 500, w: 400, h: 100 }])
+  assert.equal(resting.count, 0, 'a covered underside carries none')
+  assert.deepEqual(parseLevel(room({ platforms: [{ ...slab, trim: 'hazard-both' }] })).platforms[0].trim, 'hazard-both', 'the new values load')
+})
+
 test('terrain grit is deterministic, stays inside the level, and is quick to prepare against the enclosing floor', () => {
   const level = parseLevel(room({ platforms: [{ x: 0, y: 700, w: 1200, h: 300 }] })), terrain = levelTerrain(level)
   const draw = () => { const { ctx, calls } = recorder(); drawTerrainEdges(ctx, terrain, level); return calls }

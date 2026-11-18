@@ -17,12 +17,18 @@ export const HAZARD_YELLOW = '#d6a93a'
 export const HAZARD_BLACK = '#2f312e'
 /** One yellow and one black band, measured along the wall. */
 const PERIOD = 16
-/** A terrain band starts this far below the top surface, under the edge's lit lip, and runs this deep. */
+/** A terrain band starts this far inside the face it marks (under a top's lit lip), and runs this deep. */
 const TRIM_FROM = 2.5, TRIM_DEPTH = 8
 
-export const TERRAIN_TRIMS = [{ id: 'none', label: 'None' }, { id: 'hazard', label: 'Hazard stripes' }] as const
+/** `hazard` marks a piece's exposed tops (its original meaning, kept for saved levels); the others add its undersides. */
+export const TERRAIN_TRIMS = [{ id: 'none', label: 'None' }, { id: 'hazard', label: 'Hazard stripes on top' },
+  { id: 'hazard-bottom', label: 'Hazard stripes underneath' }, { id: 'hazard-both', label: 'Hazard stripes top and underneath' }] as const
 export type TerrainTrim = typeof TERRAIN_TRIMS[number]['id']
 export const isTerrainTrim = (value: unknown): value is TerrainTrim => TERRAIN_TRIMS.some(trim => trim.id === value)
+/** Which of a piece's faces its trim marks. */
+export const trimFaces = (trim: TerrainTrim | undefined) => ({
+  top: trim === 'hazard' || trim === 'hazard-both', bottom: trim === 'hazard-bottom' || trim === 'hazard-both' })
+const isTrimmed = (piece: Platform) => !!piece.trim && piece.trim !== 'none'
 
 /** A band of stripes painted on the back wall. `lean` is the way the stripes slant; they lean right by default. */
 export interface WallStripes extends NamedObject { x: number; y: number; w: number; h: number; lean?: 'left' }
@@ -69,24 +75,29 @@ function stripe(area: readonly Point[], lean: 1 | -1, paint: Paint) {
 interface TrimPlan { key: string; paint: Paint }
 const plans = new WeakMap<JumpLevel, TrimPlan>()
 
-/** The striped band under each exposed top of a piece with `trim: 'hazard'`, cut to that piece's own outline. */
+/** The striped band just inside each exposed top, and each exposed underside where asked, of a trimmed piece, cut to
+ * that piece's own outline. */
 function trimPlan(platforms: readonly Platform[], level: JumpLevel): TrimPlan | null {
-  if (!level.platforms.some(p => p.trim === 'hazard')) return null
+  if (!level.platforms.some(isTrimmed)) return null
   const key = platforms.map(b => `${b.x},${b.y},${b.w},${b.h},${b.trim ?? ''},${b.material ?? ''}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}:${bezierKey(b)}`).join(';')
   const saved = plans.get(level)
   if (saved?.key === key) return saved
   const paint: Paint = { yellow: new ArtPath(), black: new ArtPath(), worn: new ArtPath() }
-  const trimmed = new Set(level.platforms.filter(p => p.trim === 'hazard'))
+  const trimmed = new Set(level.platforms.filter(isTrimmed))
   const shapes = new Map(platforms.filter(p => trimmed.has(p)).map(p => [p, polygonPoints(p) as Point[]]))
   for (const [a, b] of terrainBoundary(platforms)) {
     const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy)
     if (!length) continue
-    // The boundary's outward normal; a top faces up, and a slope counts while it is walkable.
+    // The boundary's outward normal; a top faces up, and a slope counts while it is walkable. An underside faces
+    // down as steeply: an overhang's soffit or the ceiling of a slab, not a wall.
     const nx = dy / length, ny = -dx / length
-    if (ny > -.6) continue
+    const top = ny <= -.6, bottom = ny >= .6
+    if (!top && !bottom) continue
     const mid: Point = [(a[0] + b[0]) / 2 - nx, (a[1] + b[1]) / 2 - ny]
     const owner = [...shapes.keys()].reverse().find(p => pointInside(p, mid[0], mid[1]))
     if (!owner) continue
+    const faces = trimFaces(owner.trim)
+    if (top ? !faces.top : !faces.bottom) continue
     const inner = (p: Point, depth: number): Point => [p[0] - nx * depth, p[1] - ny * depth]
     const strip: Point[] = [inner(a, TRIM_FROM), inner(b, TRIM_FROM), inner(b, TRIM_FROM + TRIM_DEPTH), inner(a, TRIM_FROM + TRIM_DEPTH)]
     const band = insideConvex(shapes.get(owner)!, strip)

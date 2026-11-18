@@ -1146,8 +1146,11 @@ Materials are saved in the JSON and appear in the game, editor and thumbnails.
 Terrain also accepts `trim: "hazard"` (or `"none"`, the default). It paints an
 8-unit band of worn yellow and black stripes just under the piece's exposed,
 walkable tops, below the lit edge, like the marked lip of a dock or a drop:
-covered tops and steep sides carry none. Choose **Object → Appearance → Edge
-marking**. It is decoration only, like ground cover.
+covered tops and steep sides carry none. `trim: "hazard-bottom"` paints the same
+band just inside the piece's exposed undersides instead (an overhang's soffit or
+a low slab's ceiling, faces turned down as steeply as a walkable top is turned
+up), and `trim: "hazard-both"` paints tops and undersides. Choose **Object →
+Appearance → Edge marking**. It is decoration only, like ground cover.
 
 Terrain also accepts `groundCover: "none"`, `"grass"`, `"scrub"`, or `"moss"`.
 Choose **Object → Appearance → Ground cover** to add fine grass blades, sparse

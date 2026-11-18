@@ -31,6 +31,7 @@ export { gaitPose } from './gait.ts'
 export type { GaitPose } from './gait.ts'
 import { gaitPose } from './gait.ts'
 import { advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, captureDryTurn, captureFloatEntry, captureFloatTurn, captureRopeTurnRelease, captureSlideEntry, settleWaterClearance, startImpactRagdoll } from './athleteAnimation.ts'
+import { weightlessPlaces } from './weightlessPlaces.ts'
 import { athletePose, dryLedgeReach, dryLedgeReachPose } from './athletePose.ts'
 import { gameplayPose } from './gameplayPose.ts'
 import { swimmingLedgeReach } from './poses/waterPose.ts'
@@ -288,6 +289,12 @@ function absorbLanding(p: Player, downwardSpeed: number) {
     p.freeFall.impact = { vx: p.vx, vy: downwardSpeed, gait: p.anim.gait }
   }
 }
+/** At this speed or more along its facing, and more across gravity than along it, a weightless body is flying flat out:
+ * the float leans it fully toward its travel (athleteAnimation.ts advanceFloatAnimation), stretched head-first. */
+const FLAT_OUT_SPEED = 260
+/** Seconds of flying flat out (Player.flatOut) before the float has the body leaning most of the way over. */
+const FLAT_OUT_TIME = .25
+const flyingFlat = (p: Player) => p.vx * p.facing >= FLAT_OUT_SPEED && Math.abs(p.vy) < Math.abs(p.vx)
 /** Count sustained unsupported travel with gravity or weightless floating.
  * An ordinary jump rises against gravity and keeps its existing pose. */
 function advanceFreeFall(p: Player, dt: number, floating = false, swimming = false, swimStroke = false) {
@@ -311,14 +318,21 @@ function advanceFreeFall(p: Player, dt: number, floating = false, swimming = fal
       p.freeFall.amount = Math.max(0, p.freeFall.amount - dt / TUNING.swimBlendTime)
       if (!p.freeFall.amount) p.freeFall = null
     }
-  } else if (!p.grounded && !swimming && !settledWeightless(p) && (isWeightless(gravity) || p.vy * Math.sign(gravity) > 80)) {
+  } else if (!p.grounded && !swimming && settledWeightless(p) && !isWeightless(gravity) && (p.flatOut ?? 0) >= FLAT_OUT_TIME && flyingFlat(p)) {
+    // Weight coming back to a body that has been flying flat out without it: the float has it stretched head-first
+    // along its travel, so it falls as it was going, already prone, and lands sprawled to get up, rather than righting
+    // itself in the air. It stays a fall until it lands, however slowly it starts to drop.
+    p.freeFall = { time: TUNING.freeFallTime + TUNING.freeFallBlendTime, amount: 1, recovery: null, flung: true }
+  } else if (!p.grounded && !swimming && !settledWeightless(p) && (isWeightless(gravity) || p.vy * Math.sign(gravity) > 80 || p.freeFall?.flung)) {
     // Settled weightlessness floats (athleteAnimation.ts) rather than falls; a passing moment of it still counts.
-    // A support disappearing during recovery starts a fresh fall.
-    if (p.freeFall && p.freeFall.recovery !== null) p.freeFall = null
+    // A support disappearing during recovery starts a fresh fall, from the sprawl it was in.
+    if (p.freeFall && p.freeFall.recovery !== null) p.freeFall = { time: 0, amount: p.freeFall.amount, recovery: null }
     p.freeFall ??= { time: 0, amount: 0, recovery: null }
     p.freeFall.time += dt
     p.freeFall.amount = Math.max(p.freeFall.amount, ease((p.freeFall.time - TUNING.freeFallTime) / TUNING.freeFallBlendTime))
-  } else if (!p.grounded && p.freeFall && p.freeFall.recovery === null && p.freeFall.amount > 0) {
+  } else if (!p.grounded && p.freeFall && p.freeFall.amount > 0) {
+    // Off its support but not falling (yet), a sprawl fades back toward the airborne pose rather than snapping to it.
+    if (p.freeFall.recovery !== null) p.freeFall = { time: 0, amount: p.freeFall.amount, recovery: null }
     p.freeFall.time = 0
     p.freeFall.amount = Math.max(0, p.freeFall.amount - dt / TUNING.freeFallBlendTime)
     if (!p.freeFall.amount) p.freeFall = null
@@ -512,11 +526,13 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     finishGravityTurn(p)
     turnToGravity(p, orientationGravity)
     if (side || p.releaseTurn?.toWall !== undefined) turnToWall(p, side, gravity)
-    if (settledWeightless(p)) orientInFlight(p, world, input)
+    if (settledWeightless(p)) orientInFlight(p, world, input, dt, gravityField)
     return
   }
   p.terrain = platforms
   terrainBodies.set(p, new Set([...movingBodies(world)].map(worldPlatform)))
+  if (gravityField && frameDirection === 1) weightlessPlaces.set(p, { terrain: platforms, at: (x, y) => weightlessAt(p, gravityField, x, y) })
+  else weightlessPlaces.delete(p)
   // The ready unsupported pose already uses an airborne gait. Preserve that
   // starting frame instead of first easing back from an imaginary ground gait.
   p.anim.gait ??= gaitPose(p.vx, !p.grounded && !p.hang && !p.mantle && !p.climbing)
@@ -784,7 +800,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   }
   if (gravityOverride === undefined) {
     finishGravityTurn(p); turnToGravity(p, orientationGravity); if (side || p.releaseTurn?.toWall !== undefined) turnToWall(p, side, gravity)
-    if (settledWeightless(p)) orientInFlight(p, world, input)
+    if (settledWeightless(p)) orientInFlight(p, world, input, dt, gravityField)
   }
 }
 
@@ -809,7 +825,7 @@ function stepOnWall(p: Player, input: JumpInput, dt: number, climbables: Climbab
   if (p.contacts) p.contacts = contactsToWorld(p.contacts, world, wall)
   finishGravityTurn(p)
   turnToWall(p, side, gravity)
-  if (settledWeightless(p)) orientInFlight(p, world, input)
+  if (settledWeightless(p)) orientInFlight(p, world, input, dt, gravityField)
 }
 
 /** Turn a free body toward the footing a sideways pull calls for: onto a wall from the floor or a ceiling, off a wall
@@ -895,7 +911,9 @@ function absorbWeightlessArrival(p: Player, vx: number, vy: number, angle: numbe
 }
 /** Weightless long enough for zero-g handling (TUNING.zeroGravitySettle), as of this step's motion. */
 const settledWeightless = (p: Player) => (p.weightless ?? 0) >= TUNING.zeroGravitySettle - 1e-9
-function orientInFlight(p: Player, world: ContactWorld, input: JumpInput) {
+function orientInFlight(p: Player, world: ContactWorld, input: JumpInput, dt: number, field?: GravityField) {
+  const before = p.flatOut ?? 0
+  p.flatOut = 0
   if (p.grounded || p.hang || p.mantle || p.climbing || p.waterMotion) return
   const roll = p.releaseTurn
   if (roll && roll.float === undefined) return
@@ -904,8 +922,10 @@ function orientInFlight(p: Player, world: ContactWorld, input: JumpInput) {
   // Held boots push the body along its travel (or brake it), so it arrives sooner (or later) than a coast would.
   const [tx, ty] = floatDirection(input, 1), along = (tx * p.vx + ty * p.vy) / speed
   const push = TUNING.zeroGravityThrust * along * (along < 0 ? TUNING.zeroGravityBrake : 1)
-  const wanted = surfaceAhead(p, world, speed)
+  const wanted = surfaceAhead(p, world, speed, field)
   const arrival = wanted && weightlessArrivalTime(wanted.travel, speed, push)
+  // Flying flat out with no weightless landing ahead, the float leans the body head-first along its travel.
+  if (!roll && flyingFlat(p) && !(arrival !== null && arrival <= TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead)) p.flatOut = before + dt
   if (roll) {
     // A roll toward a surface the body no longer reaches (steered away, or slowed by the air) turns back; one that
     // has met it carries on, pivoting onto the feet against it.
@@ -932,8 +952,10 @@ function orientInFlight(p: Player, world: ContactWorld, input: JumpInput) {
 /** A late roll still finishes this long before contact, and none is quicker than FLOAT_ROLL_FASTEST seconds. */
 const FLOAT_ROLL_MARGIN = .06, FLOAT_ROLL_FASTEST = .18
 /** The surface a coasting weightless body is heading for, the footing it gives, and how far the body travels until
- * it would meet it feet-first: its body axis across the surface, half its height from its middle. */
-function surfaceAhead(p: Player, world: ContactWorld, speed: number): { footing: Footing; travel: number; normal: [number, number] } | null {
+ * it would meet it feet-first: its body axis across the surface, half its height from its middle. None if weight would
+ * return on the way (the body leaves the weightless field first): it will fall rather than land weightless, and a roll
+ * begun for it would leave the body on its side or its head when the weight comes back. */
+function surfaceAhead(p: Player, world: ContactWorld, speed: number, field?: GravityField): { footing: Footing; travel: number; normal: [number, number] } | null {
   const horizon = TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead
   const reach = speed * horizon + TUNING.height + 40, ux = p.vx / speed, uy = p.vy / speed
   const body = playerContactBody(p), orientation = p.inverted ? -1 : 1, angle = playerTurnAngle(p)
@@ -951,9 +973,25 @@ function surfaceAhead(p: Player, world: ContactWorld, speed: number): { footing:
   const hull = bodyPolygon(body.x, body.y, body.height, orientation, angle, body.outline)
   const middle = hull.reduce((sum, [x, y]) => [sum[0] + x / hull.length, sum[1] + y / hull.length], [0, 0])
   const extent = Math.max(...hull.map(([x, y]) => -((x - middle[0]) * nx + (y - middle[1]) * ny)))
-  return { footing: Math.abs(ny) >= Math.abs(nx) ? ny < 0 ? 'floor' : 'ceiling' : nx > 0 ? 'left' : 'right',
-    travel: Math.max(0, gap + extent - TUNING.height / 2) / square, normal: [nx, ny] }
+  const travel = Math.max(0, gap + extent - TUNING.height / 2) / square
+  if (field && !weightlessAlong(p, field, ux, uy, travel)) return null
+  return { footing: Math.abs(ny) >= Math.abs(nx) ? ny < 0 ? 'floor' : 'ceiling' : nx > 0 ? 'left' : 'right', travel, normal: [nx, ny] }
 }
+/** Whether the body stays weightless moving `distance` along (ux, uy) from where it is, sampled every WEIGHTLESS_SAMPLE. */
+function weightlessAlong(p: Player, field: GravityField, ux: number, uy: number, distance: number) {
+  for (let i = 1, steps = Math.ceil(distance / WEIGHTLESS_SAMPLE); i <= steps; i++) {
+    const d = Math.min(distance, i * WEIGHTLESS_SAMPLE)
+    if (!weightlessAt(p, field, p.x + ux * d, p.y + uy * d)) return false
+  }
+  return true
+}
+/** Whether the body, as it is, would be weightless with its feet at (x, y). */
+function weightlessAt(p: Player, field: GravityField, x: number, y: number) {
+  const fromX = p.x, fromY = p.y
+  p.x = x; p.y = y
+  try { return isWeightless(playerGravity(field, p)) } finally { p.x = fromX; p.y = fromY }
+}
+const WEIGHTLESS_SAMPLE = 12
 /** Whether the body, as it is turned now, is against a surface facing `normal`. */
 function touching(p: Player, world: ContactWorld, normal: readonly [number, number] | undefined) {
   if (!normal) return false
@@ -1126,6 +1164,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const gravity = p.gravity ?? TUNING.gravity
   const weightFree = isWeightless(Math.hypot(gravity, options.lateralGravity ?? 0)) && !swimStrength
   p.weightless = weightFree ? (p.weightless ?? 0) + dt : 0
+  if (!weightFree) p.flatOut = 0
   // Device directions remain screen-relative; posture and ledge motions run
   // in this controller's gravity frame. Ropes and swimming retain screen input.
   const screenDown = !!(input.descend ?? (input.drop && !input.detach))

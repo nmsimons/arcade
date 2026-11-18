@@ -114,7 +114,7 @@ export interface Player {
     ladder?: { climb: Climbing; x: number; y: number; entry: number };
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
-  freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; impact?: { vx: number; vy: number; gait: GaitPose | null }; /** Seconds since steering began during a grounded recovery; a steered get-up ends the fall early. */ getUp?: number } | null
+  freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; /** Flung prone by weight returning to a body flying flat out without it; falls until it lands. */ flung?: boolean; impact?: { vx: number; vy: number; gait: GaitPose | null }; /** Seconds since steering began during a grounded recovery; a steered get-up ends the fall early. */ getUp?: number } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
   /** Weightless, the crouch is a spring in the legs: its rate of folding (crouch per second). */
@@ -142,6 +142,8 @@ export interface Player {
     /** Seconds the legs have been pushing off, once the fold has bottomed out. */ push?: number }
   /** Seconds the body has been weightless without a break (model.ts settledWeightless). */
   weightless?: number
+  /** Seconds a weightless body has flown flat out along its facing with no weightless landing ahead (model.ts orientInFlight). */
+  flatOut?: number
   /** Footing on a wall, by the side gravity pulls toward (wallFrame.ts). */
   wall?: 'left' | 'right'
   /** `toWall` marks a turn onto or off a wall: the footing it ends on (null for the floor), turning through `span`. */

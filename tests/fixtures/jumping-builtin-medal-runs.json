@@ -1799,8 +1799,8 @@
     {
       "file": "drift.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 3.6999999999999895,
-      "activeTime": 4.55833333333335,
+      "elapsed": 3.466666666666657,
+      "activeTime": 4.325000000000005,
       "coins": 0,
       "trace": [
         {
@@ -1817,13 +1817,13 @@
           }
         },
         {
-          "frames": 372,
+          "frames": 345,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 107,
+          "frames": 106,
           "input": {
             "climb": true
           }

@@ -22,6 +22,7 @@ import { waterBodyPose, waterLandingPose, waterPose } from './poses/waterPose.ts
 import { propPushHands, smallSubmergedProp } from './propGeometry.ts'
 import { groundAt } from './terrain.ts'
 import { gaitPose } from './gait.ts'
+import { weightlessPlaces } from './weightlessPlaces.ts'
 import type { JumpInput, Player } from './characterTypes.ts'
 
 export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; ledgeDrop?: boolean; slide?: boolean; pushing?: boolean; step?: NonNullable<Player['mantle']> }
@@ -788,7 +789,8 @@ const handedness = (p: Player, frameDirection = 1) => p.facing * (p.inverted ? -
 export const FLOAT_FLIP_TIME = .28
 
 /** Whether a floating body moving along (ux, uy) at `speed`, pushed along it by `push`, will reach a surface within the
- * weightless look-ahead; `underfoot`, only one beneath its feet. */
+ * weightless look-ahead; `underfoot`, only one beneath its feet. Not one it only reaches after weight has come back
+ * (leaving the weightless field first): it will fall, not land as it floats. */
 function floatLanding(p: Player, ux: number, uy: number, speed: number, push = 0, underfoot = false) {
   const horizon = TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead
   const reach = speed * horizon + push * horizon ** 2 / 2 + 40
@@ -796,9 +798,17 @@ function floatLanding(p: Player, ux: number, uy: number, speed: number, push = 0
   const meeting = probe.contacts.find(contact => !contact.platform.looseProp && contact.normal[0] * ux + contact.normal[1] * uy < -.3)
   if (!meeting || underfoot && meeting.normal[1] > -.7) return false
   // The sweep slides on along the surface; the travel to it is the gap across it over how squarely it is met.
-  const [nx, ny] = meeting.normal
-  return weightlessArrivalTime(((p.x - probe.x) * nx + (p.y - probe.y) * ny) / -(ux * nx + uy * ny), speed, push) <= horizon
+  const [nx, ny] = meeting.normal, travel = ((p.x - probe.x) * nx + (p.y - probe.y) * ny) / -(ux * nx + uy * ny)
+  if (weightlessArrivalTime(travel, speed, push) > horizon) return false
+  const places = weightlessPlaces.get(p)
+  if (!places || places.terrain !== p.terrain) return true
+  for (let d = WEIGHTLESS_SAMPLE; d < travel + WEIGHTLESS_SAMPLE; d += WEIGHTLESS_SAMPLE) {
+    const along = Math.min(d, travel)
+    if (!places.at(p.x + ux * along, p.y + uy * along)) return false
+  }
+  return true
 }
+const WEIGHTLESS_SAMPLE = 12
 
 /** The presented swimmer clears its own animated rig, starting from the last
  * presented offset, independently of the hull's physics clearance. */

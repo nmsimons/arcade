@@ -395,7 +395,11 @@ step reads it except the two captures below.
   the body shows what is asked before the drift turns. The spring chases an aim
   eased over 0.12 seconds, so no change of target kicks it. A body about to land
   eases back upright: one its drift will carry onto a surface, or one the boots
-  are pushing back onto the surface under its feet, as after a rebound.
+  are pushing back onto the surface under its feet, as after a rebound. Only a
+  landing made without weight counts: a surface past the edge of the weightless
+  field (`weightlessPlaces.ts`, published by the step in the world's frame) is met
+  falling, so the body stays stretched out toward it and falls prone when the
+  weight comes back (jumping-physics.md, zero g).
 - The float is never still. Whatever the speed, the arms and legs drift about
   their joints out of step (hands and feet move 5 to 8 units) and the waist
   breathes, on a slow cycle that runs on through blends. Each change in the

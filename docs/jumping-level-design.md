@@ -476,7 +476,10 @@ before leaning on it.
 - **Weightless fields.** A body has no vertical control in zero gravity. Give
   every weightless field a sideways way out, and keep ceilings clear of it: a
   long hop that rises to a ceiling inside the field stays pressed there until
-  the player steers back.
+  the player steers back. A body flying flat out of a field falls flat and
+  lands sprawled before it gets up, so a run straight across a floor-level
+  plate ends in a belly-flop past its far edge; leave room there, or end the
+  plate at a wall the body lands on weightless if the crossing should look clean.
 - **Crates and ramps.** A crate shoved hard into the foot of a ramp can ride
   up it and rest tilted, off the plate it was on. Stop a crate with a vertical
   face.

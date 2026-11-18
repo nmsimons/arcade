@@ -221,3 +221,76 @@ test('walking onto a weightless plate keeps the legs under the body instead of b
     assert.ok(worstDrop < 3, `${label}: no sudden sag (worst drop ${worstDrop.toFixed(1)} in one frame)`)
   }
 })
+
+/** A floor-level weightless plate (x `from` to `to`) with a block standing just past the end the run leaves by, and the
+ * entrance outside the other end. Run `direction` (1 right, -1 left) across it. */
+function plateRun(direction) {
+  const [from, to] = direction > 0 ? [300, 1100] : [700, 1500]
+  const block = direction > 0 ? { x: to + 150, y: 600, w: 150, h: 320 } : { x: from - 300, y: 600, w: 150, h: 320 }
+  const run = createRun(parseLevel({ ...blankTrial(), entrance: { x: direction > 0 ? 150 : 1650, y: 920 }, platforms: [block],
+    gravityPlates: [{ id: 'z', x: from, y: 0, w: to - from, h: 920, gravity: 0, power: 'always' }] }))
+  run.started = true
+  for (let i = 0; i < 30; i++) stepRun(run, NEUTRAL_INPUT)
+  return run
+}
+
+test('flying flat out off the end of a weightless plate, the body falls flat, lands sprawled and gets up, never on its head', () => {
+  // Running across a plate the boots carry the body off the floor and the float stretches it head-first along its travel.
+  // It used to start a feet-first roll for the wall beyond the plate, which it only reaches once weight is back: the
+  // weight came back mid-roll, so it landed on its head and was dragged along the floor upside down. Running left
+  // rolled it over through a whole turn.
+  for (const direction of [1, -1]) {
+    const run = plateRun(direction), p = run.player, label = direction > 0 ? 'running right' : 'running left'
+    let rolled = false, wasWeightless = false, weightBack = null, landed = null, lowestHead = -Infinity, upright = null
+    for (let i = 0; i < 4 / STEP && upright === null; i++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: direction })
+      if ((p.weightless ?? 0) > .2) { wasWeightless = true; rolled ||= !!p.releaseTurn }
+      if (wasWeightless && weightBack === null && !p.weightless) weightBack = i
+      if (weightBack === null) continue
+      const [head, , hip] = joints(p)
+      lowestHead = Math.max(lowestHead, head[1] - hip[1])
+      if (landed === null && p.grounded) landed = { prone: p.freeFall?.recovery === 0 && p.freeFall.amount > .9 }
+      if (landed && !p.freeFall && Math.abs(bodyAngle(p) + Math.PI / 2) < .5) upright = i
+    }
+    assert.ok(wasWeightless && weightBack !== null, `${label}: crossed the plate`)
+    assert.ok(!rolled, `${label}: no roll for a wall it only reaches with weight`)
+    assert.ok(landed?.prone, `${label}: landed sprawled`)
+    assert.ok(lowestHead < 12, `${label}: the head never drops below the hips (${lowestHead.toFixed(1)} below)`)
+    assert.ok(upright !== null && (upright - weightBack) * STEP < 1.5, `${label}: back on its feet`)
+  }
+})
+
+test('a body only just off a weightless floor at the plate\'s edge lands on its feet', () => {
+  // Floating close over the floor the float keeps the body upright; it has not been flying flat out long enough to
+  // lean over, so weight coming back sets it down on its feet rather than flinging it prone.
+  const run = plateRun(1), p = run.player
+  Object.assign(p, { x: 1060, vx: 300 })
+  let fell = false, landed = false
+  for (let i = 0; i < 1 / STEP && !landed; i++) {
+    stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
+    fell ||= (p.freeFall?.amount ?? 0) > 0
+    landed = p.grounded && !p.weightless && p.x > 1110
+  }
+  assert.ok(landed, 'ran off the plate onto the floor')
+  assert.ok(!fell, 'stayed on its feet')
+})
+
+test('a sprawl that slides off its support eases out of it instead of snapping upright', () => {
+  // A body landing sprawled on the lip of a ledge and sliding off used to drop its fall state at once, the drawn body
+  // jumping from flat to upright in one frame.
+  const run = createRun(parseLevel({ ...blankTrial(), entrance: { x: 300, y: 600 }, platforms: [{ x: 200, y: 600, w: 200, h: 320 }] }))
+  run.started = true
+  const p = run.player
+  for (let i = 0; i < 30; i++) stepRun(run, NEUTRAL_INPUT)
+  Object.assign(p, { x: 396, vx: 410, freeFall: { time: 1.2, amount: 1, recovery: .01 } })
+  let previous = null, worst = 0, left = false
+  for (let i = 0; i < .5 / STEP; i++) {
+    stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
+    const now = joints(p)
+    left ||= !p.grounded
+    if (previous && left) worst = Math.max(worst, ...now.map(([x, y], k) => Math.hypot(x - previous[k][0], y - previous[k][1])))
+    previous = now
+  }
+  assert.ok(left, 'slid off the ledge')
+  assert.ok(worst < 10, `worst joint jump ${worst.toFixed(1)} in one frame`)
+})

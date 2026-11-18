@@ -1092,7 +1092,9 @@ jump buffering and jumping retain their ordinary rules. Ground contact starts a
 and knees, bring the feet under the body, then stand. Prone knees and elbows
 face the contact plane, trailing toes point down, and the neck follows the
 horizontal torso so the silhouette reads as belly-down. Jumping or catching a
-grip interrupts the pose.
+grip interrupts the pose. A sprawled body that loses its support before it has
+got up (sliding off a lip) falls on from the sprawl, easing out of it if it is
+not falling fast, rather than snapping upright.
 Active steering during recovery can spring into the supported walking gait.
 Sideways drift after releasing movement retains the flat impact and full
 hands-and-knees recovery; collision corrections and support transport do not
@@ -1376,7 +1378,18 @@ for that step or two. Then:
   always turns the short way; a body drawn head-first for the surface flips
   forward in the drawing only (jumping-animation.md), so physics never depends
   on animation. During the roll the standing body's rectangle checks are
-  skipped: the turned hull's sweep meets surfaces.
+  skipped: the turned hull's sweep meets surfaces. Only a surface the body
+  reaches while still weightless counts: one past the edge of the weightless
+  field (a wall just beyond a plate's end) is met with weight, so the body
+  does not roll for it. A roll begun for it left the body on its side or its
+  head as weight came back mid-roll, and it landed that way.
+- Weight coming back to a body that has flown flat out for at least 0.25
+  seconds (`flatOut`: along its facing at 260 or more, more across gravity than
+  along it, with no weightless landing ahead) flings it prone: the float draws
+  such a body stretched head-first along its travel, so it falls that way at
+  once, lands sprawled and gets up as from a long fall (Motion continuity
+  above), however short the drop. A body that has only just left a surface, or
+  is coasting onto one, is still drawn upright and lands on its feet.
 - Arriving at up to 170, measured across the surface (which may slope), the body
   lands and stays; feet left a hair off a surface by a roll settle onto it.
   Faster, however the last step meets the surface, the legs absorb it. Weightless

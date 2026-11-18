@@ -23,7 +23,7 @@
     {
       "x": 797.5,
       "y": 1575,
-      "w": 500,
+      "w": 502.5,
       "h": 25,
       "zIndex": 2,
       "material": "earth"
@@ -65,8 +65,80 @@
       "y": 1010,
       "w": 200,
       "h": 25,
-      "zIndex": 6,
+      "zIndex": 7,
       "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "x": 100,
+      "y": 1775,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
+      "trim": "hazard"
+    },
+    {
+      "x": 105,
+      "y": 1575,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
+      "trim": "hazard"
+    },
+    {
+      "x": 100,
+      "y": 1375,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
+      "trim": "hazard"
+    },
+    {
+      "x": 100,
+      "y": 1175,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
+      "trim": "hazard"
+    },
+    {
+      "x": 1180,
+      "y": 1775,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
+      "trim": "hazard"
+    },
+    {
+      "x": 1180,
+      "y": 1575,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
+      "trim": "hazard"
+    },
+    {
+      "x": 1180,
+      "y": 1375,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
+      "trim": "hazard"
+    },
+    {
+      "x": 1180,
+      "y": 1175,
+      "w": 120,
+      "h": 20,
+      "zIndex": 8,
+      "material": "earth",
       "trim": "hazard"
     }
   ],
@@ -107,7 +179,7 @@
         "length": 475,
         "segments": 60,
         "rest": {
-          "key": "7:0e8c3d90f1aead22",
+          "key": "7:35c916c58ce90083",
           "points": [
             [
               700,
@@ -513,7 +585,7 @@
     },
     {
       "id": "door-spire-ii",
-      "x": 995,
+      "x": 995.9875,
       "y": 1575,
       "course": "11234f12-817c-4966-a141-54e70573fae0",
       "power": "switched",
@@ -584,6 +656,7 @@
       "hang": "left"
     }
   ],
+  "stripes": [],
   "gravityPlates": [
     {
       "id": "32dd6a7b-15dc-440c-a2d8-678fa7ab8bb9",

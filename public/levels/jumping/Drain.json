@@ -10,7 +10,7 @@
       "y": 1180,
       "w": 1280,
       "h": 540,
-      "zIndex": 60,
+      "zIndex": 4,
       "material": "stone",
       "polygon": [
         [
@@ -36,7 +36,7 @@
       "y": 1620,
       "w": 1280,
       "h": 540,
-      "zIndex": 90,
+      "zIndex": 6,
       "material": "stone",
       "polygon": [
         [
@@ -107,7 +107,7 @@
       "y": 2060,
       "w": 1280,
       "h": 540,
-      "zIndex": 61,
+      "zIndex": 5,
       "material": "stone",
       "polygon": [
         [
@@ -137,7 +137,7 @@
       "y": 740,
       "w": 1280,
       "h": 540,
-      "zIndex": 119,
+      "zIndex": 7,
       "material": "stone",
       "polygon": [
         [
@@ -163,7 +163,7 @@
       "y": 580,
       "w": 1280,
       "h": 2220,
-      "zIndex": 147,
+      "zIndex": 8,
       "material": "stone",
       "trim": "hazard",
       "polygon": [
@@ -192,6 +192,23 @@
           2220
         ]
       ]
+    },
+    {
+      "x": 1740,
+      "y": 0,
+      "w": 60,
+      "h": 780,
+      "zIndex": 9,
+      "material": "stone"
+    },
+    {
+      "x": 1340,
+      "y": 260,
+      "w": 320,
+      "h": 40,
+      "zIndex": 10,
+      "material": "steel",
+      "trim": "hazard"
     }
   ],
   "entrance": {
@@ -203,7 +220,7 @@
     "ladders": [],
     "ropes": []
   },
-  "floorMaterial": "earth",
+  "floorMaterial": "stone",
   "wallFinish": "tile",
   "stains": "light",
   "floor": 2800,
@@ -242,8 +259,7 @@
       "kind": "ball",
       "x": 53.5,
       "y": 2573.8038997803155,
-      "size": 59,
-      "weight": "heavy"
+      "size": 59
     },
     {
       "kind": "ball",
@@ -261,8 +277,7 @@
       "kind": "ball",
       "x": 58,
       "y": 1505,
-      "size": 68,
-      "weight": "heavy"
+      "size": 68
     },
     {
       "kind": "ball",
@@ -305,7 +320,7 @@
         "4a08ef30-1525-4566-a684-7d62ed8252b3"
       ],
       "mode": "coins",
-      "threshold": 30,
+      "threshold": 60,
       "display": "digital"
     },
     {
@@ -318,6 +333,17 @@
       "mode": "coins",
       "threshold": 45,
       "display": "digital"
+    },
+    {
+      "x": 1450,
+      "y": 260,
+      "w": 100,
+      "targets": [
+        "da04495a-965f-446b-b9a5-15931607b535"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": true
     }
   ],
   "robots": [],
@@ -519,28 +545,28 @@
       "kind": "coin"
     },
     {
-      "x": 1355,
-      "y": 790,
+      "x": 1300,
+      "y": 780,
       "kind": "coin"
     },
     {
-      "x": 1440,
-      "y": 775,
+      "x": 1420,
+      "y": 760,
       "kind": "coin"
     },
     {
-      "x": 1545,
-      "y": 745,
+      "x": 1520,
+      "y": 740,
       "kind": "coin"
     },
     {
-      "x": 1660,
-      "y": 730,
+      "x": 1680,
+      "y": 700,
       "kind": "coin"
     },
     {
-      "x": 1745,
-      "y": 715,
+      "x": 1600,
+      "y": 740,
       "kind": "coin"
     },
     {
@@ -557,12 +583,87 @@
       "x": 1354,
       "y": 2552,
       "kind": "stopwatch"
+    },
+    {
+      "x": 60,
+      "y": 2740,
+      "kind": "coin"
+    },
+    {
+      "x": 160,
+      "y": 2720,
+      "kind": "coin"
+    },
+    {
+      "x": 160,
+      "y": 2600,
+      "kind": "coin"
+    },
+    {
+      "x": 80,
+      "y": 2460,
+      "kind": "coin"
+    },
+    {
+      "x": 140,
+      "y": 2340,
+      "kind": "coin"
+    },
+    {
+      "x": 60,
+      "y": 2220,
+      "kind": "coin"
+    },
+    {
+      "x": 400,
+      "y": 2720,
+      "kind": "coin"
+    },
+    {
+      "x": 520,
+      "y": 2720,
+      "kind": "coin"
+    },
+    {
+      "x": 720,
+      "y": 2640,
+      "kind": "coin"
+    },
+    {
+      "x": 80,
+      "y": 2340,
+      "kind": "coin"
+    },
+    {
+      "x": 140,
+      "y": 2160,
+      "kind": "coin"
+    },
+    {
+      "x": 140,
+      "y": 2020,
+      "kind": "coin"
+    },
+    {
+      "x": 40,
+      "y": 1860,
+      "kind": "coin"
+    },
+    {
+      "x": 160,
+      "y": 1700,
+      "kind": "coin"
+    },
+    {
+      "x": 80,
+      "y": 1240,
+      "kind": "coin"
     }
   ],
   "texts": [
     {
-      "x": 1540,
-      "y": 20,
+      "x": 1420,
+      "y": 480,
       "w": 240,
       "h": 110,
       "text": "L.A.B.\nexperiments",
@@ -571,15 +672,22 @@
       "style": "lab-stamp"
     }
   ],
+  "loosePanels": [
+    {
+      "x": 660,
+      "y": 180
+    }
+  ],
   "gravityPlates": [
     {
+      "switchReversed": true,
       "id": "da04495a-965f-446b-b9a5-15931607b535",
       "x": 25,
       "y": 775,
       "w": 170,
       "h": 2025,
       "gravity": -1,
-      "power": "always"
+      "power": "switched"
     }
   ],
   "forceFields": [
@@ -595,7 +703,7 @@
     }
   ],
   "lighting": {
-    "nightMode": false,
+    "nightMode": true,
     "ambient": 0,
     "lights": [
       {
@@ -603,17 +711,17 @@
         "x": 380,
         "y": 1710,
         "intensity": 100,
-        "direction": 75,
-        "spread": 70,
+        "direction": 45,
+        "spread": 105,
         "power": "always"
       },
       {
         "id": "e49ccb88-9723-4dd2-98bb-a99f70f1590d",
-        "x": 1620,
-        "y": 2155,
+        "x": 1720,
+        "y": 2180,
         "intensity": 100,
         "direction": 110,
-        "spread": 60,
+        "spread": 140,
         "power": "always"
       },
       {
@@ -623,6 +731,24 @@
         "intensity": 100,
         "direction": 110,
         "spread": 50,
+        "power": "always"
+      },
+      {
+        "id": "432e858a-606e-4693-aebe-98c4ff3c8e64",
+        "x": 1700,
+        "y": 440,
+        "intensity": 100,
+        "direction": 135,
+        "spread": 85,
+        "power": "always"
+      },
+      {
+        "id": "1f44350c-4797-4bd1-8218-8a87b2627849",
+        "x": 240,
+        "y": 880,
+        "intensity": 100,
+        "direction": 60,
+        "spread": 90,
         "power": "always"
       }
     ]

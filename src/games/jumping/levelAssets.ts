@@ -11,7 +11,13 @@ export interface LevelCatalog {
   files: LevelFile[]; errors: string[]
 }
 export const compareFileNames = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
-export const isLevelFileName = (name: string) => !!name && !/[\\/]/.test(name) && ![...name].some(c => c.charCodeAt(0) < 32) && name.toLowerCase().endsWith('.json') && name.toLowerCase() !== 'index.json'
+const levelNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+/** Library order by display name; a missing file falls back to its filename, and ties keep filename order. */
+export function sortLevelEntriesByName<T extends { fileName: string; level?: { name: string } }>(entries: readonly T[]) {
+  const name = (entry: T) => entry.level?.name.trim() || entry.fileName
+  return [...entries].sort((a, b) => levelNameCollator.compare(name(a), name(b)) || compareFileNames(a.fileName, b.fileName))
+}
+export const isLevelFileName =(name: string) => !!name && !/[\\/]/.test(name) && ![...name].some(c => c.charCodeAt(0) < 32) && name.toLowerCase().endsWith('.json') && name.toLowerCase() !== 'index.json'
 export function decodeLevelFile(text: string): JumpLevel {
   if (textBytes(text) > MAX_LEVEL_BYTES) throw new Error('Level files must be smaller than 1 MB.')
   return parseLevel(JSON.parse(text))

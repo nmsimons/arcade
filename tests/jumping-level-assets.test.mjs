@@ -4,7 +4,7 @@ import { readFile, readdir, mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { loadLevelCatalog, loadLocalLevelFiles, decodeLevelFile, playableLevelFile } from '../src/games/jumping/levelAssets.ts'
+import { loadLevelCatalog, loadLocalLevelFiles, decodeLevelFile, playableLevelFile, sortLevelEntriesByName } from '../src/games/jumping/levelAssets.ts'
 import { readLocalLevelDirectory, writeLocalLevel, writeLevelOrder, deleteLocalLevel, readDeletedLevels, restoreDeletedLevel, emptyDeletedLevels } from '../src/games/jumping/levelFiles.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
@@ -553,4 +553,16 @@ test('recycle-bin loads, deletes and restores enforce budgets without losing eit
   await assert.rejects(deleteLocalLevel(f.directory, { fileName: 'another.json', level: FIRST_LEVEL, sourceText }), /recycle bin.*25 MB/)
   assert.equal(f.contents.get('another.json'), sourceText)
   assert.equal(archive.contents.get('level.json'), sourceText)
+})
+
+test('library name sort orders by level name, numerically and case-insensitively, with missing files by filename', () => {
+  const entries = [
+    { fileName: 'a.json', level: { name: 'Level 10' } },
+    { fileName: 'gone.json', missing: true },
+    { fileName: 'b.json', level: { name: 'level 2' } },
+    { fileName: 'c.json', level: { name: 'Atrium' } },
+    { fileName: 'd.json', level: { name: 'Atrium' } },
+  ]
+  assert.deepEqual(sortLevelEntriesByName(entries).map(entry => entry.fileName), ['c.json', 'd.json', 'gone.json', 'b.json', 'a.json'])
+  assert.deepEqual(entries.map(entry => entry.fileName), ['a.json', 'gone.json', 'b.json', 'c.json', 'd.json'])
 })

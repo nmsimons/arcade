@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { JumpLevel } from './level'
 import type { LevelFile, LocalLevelEntry } from './levelAssets'
-import { compareFileNames } from './levelAssets'
+import { sortLevelEntriesByName } from './levelAssets'
 import type { BuiltInLevels } from './builtInLevels'
 import { LevelThumbnail } from './LevelThumbnail'
 import { DeleteLevelButton, MissingLevelNotice } from './LevelFileActions'
@@ -51,13 +51,15 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, onSave, 
     catch (error) { setOrderError((error as Error).message) }
     finally { deleting.current = false }
   }
-  async function saveOrder(files: LocalLevelEntry[], order: 'filename' | 'listed', moved?: string) {
+  const byName = sortLevelEntriesByName(levels.entries)
+  const sortedByName = byName.every((file, i) => file.fileName === levels.entries[i].fileName)
+  async function saveOrder(files: LocalLevelEntry[], order: 'filename' | 'listed', moved?: string, done?: string) {
     if (writingOrder.current || !levels.canWrite || levels.busy) return
     writingOrder.current = true; setOrderSaving(true); setOrderError(''); setOrderMessage('Saving order…')
     const focus = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
     try {
       await levels.reorder(files, order)
-      setOrderMessage(order === 'filename' ? 'Filename order restored.' : `${moved ? `${moved} moved. ` : ''}Order saved.`)
+      setOrderMessage(done ?? `${moved ? `${moved} moved. ` : ''}Order saved.`)
     } catch (error) { setOrderError((error as Error).message); setOrderMessage('') }
     finally {
       writingOrder.current = false; orderFocus.current = focus; setOrderSaving(false)
@@ -122,7 +124,7 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, onSave, 
       <p className="jumping-visually-hidden" role="status" aria-label="Level order">{orderMessage}</p>
       <div className="builder-library-content">
         <div className="builder-local-heading"><h3>Built-in levels</h3>
-          {levels.entries.length > 0 && <button disabled={!levels.canWrite || levels.busy || orderSaving || levels.manifest?.order !== 'listed'} onClick={() => void saveOrder([...levels.entries].sort((a, b) => compareFileNames(a.fileName, b.fileName)), 'filename')}>Sort by filename</button>}
+          {levels.entries.length > 0 && <button disabled={!levels.canWrite || levels.busy || orderSaving || sortedByName} onClick={() => void saveOrder(byName, 'listed', undefined, 'Sorted by level name.')}>Sort by level name</button>}
         </div>
         <p className="jumping-visually-hidden" id="library-order-help">Open a level to edit it, or use it as a template.{levels.entries.length > 1 && (levels.canWrite ? ' Drag to reorder, or focus a level and use Alt + Arrow keys. Order saves automatically.' : ' Enable saving to reorder levels.')}</p>
         {levels.entries.length ? <div ref={grid} className="builder-local-files" role="group" aria-label="Built-in level files" aria-describedby="library-order-help"

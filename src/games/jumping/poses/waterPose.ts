@@ -102,6 +102,113 @@ function treadingPose(tread: number, scull: number): AthletePose {
  * them instead of timing work. */
 export const waterPoseWork = () => ({ bodySolves, limbFits })
 
+/** A free body with no weight on it: drawn floating with the swimming rig, as in water, not as a falling body. Palms
+ * braced on a wall keep their brace. */
+export const floatingFree = (p: Player) => !p.grounded && !p.hang && !p.mantle && !p.climbing && !p.waterMotion && !p.releaseTurn
+  && !p.anim.ragdoll && !p.wallBrace?.active && Math.abs(p.gravity ?? TUNING.gravity) < TUNING.gravity * .05
+
+/** Weightless floating, drawn like a swimmer but not swimming: the relaxed float posture, hands sculling a little for
+ * balance, the whole body turned by the animation's lean about its waist. The boots push it, so the limbs never
+ * stroke. Presentation only: the float state is the animation's own (athleteAnimation.ts). */
+export function floatPose(p: Player): AthletePose {
+  const f = p.anim.float!
+  // The relaxed float keeps some of its idle sway at speed, so a coasting body never sets rigid.
+  const [vx, vy] = f.sway ?? floatSway(p.vx, p.vy)
+  // No terrain clearance: it would fit the unleaned rig, not the drawn one, and it lifts the feet off a surface the
+  // body is about to land on.
+  const relaxed = waterPose({ ...p, vx, vy, freeFall: null, terrain: undefined,
+    waterMotion: { amount: 0, dive: 0, phase: f.phase, effort: 0, steering: 0 }, anim: { ...p.anim, swim: undefined, waterClearance: null } })
+  // The head leads: the face turns toward where the body is going (athleteAnimation.ts), from a resting neck lifted out
+  // of the swimming rig's forward carriage.
+  const pose = sinkOntoFeet(leadWithHead(bendAtWaist(floatLife(relaxed, f.phase, f.kick ?? 0), floatBend(f.spin) + FLOAT_BREATH * Math.sin(f.phase)), (f.neck ?? 0) - FLOAT_NECK_REST),
+    p.crouchRate === undefined ? 0 : p.crouch, p.crouchRate === undefined ? 0 : f.sinkHold ?? p.crouch)
+  return f.lean ? { ...rotatePose(pose, f.lean, 1, FLOAT_CENTER), waterOffset: relaxed.waterOffset } : pose
+}
+/** A floating body is never still: whatever its speed, the arms and legs drift slowly about their joints, out of step
+ * with each other, and the waist breathes. The boots kicking in or letting go (`kick`) flex the knees and draw the
+ * thighs up, then the legs spring out again. `phase` is the float's own slow cycle. */
+/** Swing a limb about its root by `angle` and bend it at the middle joint by `bend` more (rad). */
+function swing<T extends Limb>(limb: T, angle: number, bend = 0): T {
+  const turn = (point: Point, pivot: Point, a: number): Point => {
+    const c = Math.cos(a), s = Math.sin(a), x = point[0] - pivot[0], y = point[1] - pivot[1]
+    return [pivot[0] + x * c - y * s, pivot[1] + x * s + y * c]
+  }
+  const joint = turn(limb.joint, limb.root, angle), end = turn(turn(limb.end, limb.root, angle), joint, bend)
+  const leg = limb as T & Partial<Leg>
+  return { ...limb, joint, end, ...(limb.hand ? { hand: turn(turn(limb.hand, limb.root, angle), joint, bend) } : {}),
+    ...(limb.handAngle !== undefined ? { handAngle: limb.handAngle + angle + bend } : {}),
+    ...(leg.footAngle !== undefined ? { footAngle: leg.footAngle + (angle + bend) / (leg.footFacing ?? 1) } : {}) }
+}
+function floatLife(pose: AthletePose, phase: number, kick: number): AthletePose {
+  // Knees bend forward, toward the facing: a positive turn of the shin about the knee, a negative one of the thigh.
+  const knee = (base: number) => Math.max(0, base + FLOAT_KICK_BEND * kick)
+  return { ...pose,
+    frontArm: swing(pose.frontArm, .2 * Math.sin(phase + .6), .1 * Math.sin(2 * phase + 1)),
+    backArm: swing(pose.backArm, .17 * Math.sin(phase + 2.5), .1 * Math.sin(2 * phase + 2.2)),
+    frontLeg: swing(pose.frontLeg, .1 * Math.sin(phase + 1.6) - FLOAT_KICK_SWEEP * kick, knee(.12 + .12 * Math.sin(phase + 1.6))),
+    backLeg: swing(pose.backLeg, .12 * Math.sin(phase + 3.9) - FLOAT_KICK_SWEEP * kick * .8, knee(.12 + .12 * Math.sin(phase + 3.9))) }
+}
+/** The weightless legs' spring folding (model.ts springCrouch): the body sinks toward its feet, which stay where they
+ * are, and the knees bend to take it. So a hit is absorbed from the moment the feet touch, while the float hands over
+ * to the standing crouch, and the legs are seen to straighten as they push off. */
+function sinkOntoFeet(pose: AthletePose, squat: number, sink = squat): AthletePose {
+  if (squat < 1e-3 && sink < 1e-3) return pose
+  // The knees bend in step with the crouch, the thighs swinging back half as far so each foot stays under its hip and
+  // flat; the body then sinks by however much that draws the feet up. Bent by angle rather than solved to a reach, the
+  // knee never hesitates over which way to fold a nearly straight leg. Off a surface the body sinks by `sink` instead,
+  // which lags the crouch: the straightening legs reach back past where the feet were rather than push the body on.
+  const fold = (leg: Leg, amount: number): Leg => { const bend = amount * FLOAT_SINK_BEND; return { ...swing(leg, -bend / 2, bend), footAngle: leg.footAngle } }
+  const front = fold(pose.frontLeg, squat), back = fold(pose.backLeg, squat)
+  const sunk = sink === squat ? [front, back] : [fold(pose.frontLeg, sink), fold(pose.backLeg, sink)]
+  const dx = (sunk[0].end[0] - pose.frontLeg.end[0] + sunk[1].end[0] - pose.backLeg.end[0]) / 2
+  const dy = (sunk[0].end[1] - pose.frontLeg.end[1] + sunk[1].end[1] - pose.backLeg.end[1]) / 2
+  const move = ([x, y]: Point): Point => [x - dx, y - dy]
+  const limb = <T extends Limb>(l: T): T => ({ ...l, root: move(l.root), joint: move(l.joint), end: move(l.end), ...(l.hand ? { hand: move(l.hand) } : {}) })
+  return { ...pose, hip: move(pose.hip), waist: move(pose.waist), shoulder: move(pose.shoulder), head: move(pose.head),
+    frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: limb(front), backLeg: limb(back) }
+}
+/** The knee bend (rad) of a full crouch, which sinks straight legs about as far as the standing crouch's dip. */
+const FLOAT_SINK_BEND = 2
+/** Turn the head about the base of the neck (the shoulder) by `angle`, toward the facing when positive. */
+function leadWithHead(pose: AthletePose, angle: number): AthletePose {
+  if (Math.abs(angle) < 1e-4) return pose
+  const c = Math.cos(angle), s = Math.sin(angle), x = pose.head[0] - pose.shoulder[0], y = pose.head[1] - pose.shoulder[1]
+  return { ...pose, head: [pose.shoulder[0] + x * c - y * s, pose.shoulder[1] + x * s + y * c], headTilt: (pose.headTilt ?? 0) + angle }
+}
+/** How much the float lifts the swimming rig's forward head at rest (rad). */
+const FLOAT_NECK_REST = .17
+/** The waist's breathing (rad), and the kick's knee bend and leg sweep (rad at a full kick). */
+const FLOAT_BREATH = .06, FLOAT_KICK_BEND = .55, FLOAT_KICK_SWEEP = .2
+
+/** The lean a feet-first roll still shows, local at the turn's facing (`same` false mirrors it): the lean it started
+ * from, unwinding as it rolls, plus the turn the lean spring was already making, carried on and dying away so the
+ * body's turning speed runs on through the roll's start rather than stopping and starting again. */
+export function floatRollLean(turn: NonNullable<Player['releaseTurn']>, same: boolean) {
+  const done = smooth(turn.progress ?? 1), left = (same ? 1 : -1) * (1 - done), time = turn.time ?? 0
+  // A forward flip's whole extra turn is drawn as the roll goes, so it is one turn with the hull's.
+  return left * ((turn.float ?? 0) + (turn.spin ?? 0) * FLOAT_ROLL_CARRY * (1 - Math.exp(-time / FLOAT_ROLL_CARRY)))
+    + (same ? 1 : -1) * (turn.over ?? 0) * done
+}
+/** Seconds over which a roll takes up the lean spring's turning speed. */
+const FLOAT_ROLL_CARRY = .12
+/** Turning, the floating body bends at the waist: the chest leads the turn and the legs trail it. */
+export const floatBend = (spin: number) => Math.max(-FLOAT_BEND_LIMIT, Math.min(FLOAT_BEND_LIMIT, spin * FLOAT_BEND))
+export function bendAtWaist(pose: AthletePose, bend: number): AthletePose {
+  if (Math.abs(bend) < 1e-4) return pose
+  const upper = rotatePose(pose, bend / 2, 1, pose.waist), lower = rotatePose(pose, -bend / 2, 1, pose.waist)
+  return { ...pose, head: upper.head, shoulder: upper.shoulder, frontArm: upper.frontArm, backArm: upper.backArm, headTilt: upper.headTilt,
+    hip: lower.hip, frontLeg: lower.frontLeg, backLeg: lower.backLeg }
+}
+/** The drift the relaxed float's idle sway answers to: the velocity, no faster than FLOAT_SWAY_SPEED. */
+export function floatSway(vx: number, vy: number): [number, number] {
+  const speed = Math.hypot(vx, vy), keep = speed > FLOAT_SWAY_SPEED ? FLOAT_SWAY_SPEED / speed : 1
+  return [vx * keep, vy * keep]
+}
+/** Speed (px/s) whose share of the idle sway is kept at any speed (about 40%), and the waist bend per rad/s of turn. */
+const FLOAT_SWAY_SPEED = 14, FLOAT_BEND_LIMIT = .5
+export const FLOAT_BEND = .14
+export const FLOAT_CENTER: Point = [.5, -31]
+
 export function waterPose(p: Player): AthletePose {
   if (p.waterMotion!.landing) return waterLandingPose(p)
   return fitWaterLimbs(p, waterBodyPose(p))

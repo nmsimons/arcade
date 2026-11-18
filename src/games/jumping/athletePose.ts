@@ -17,7 +17,8 @@ import { ledgePose, prepareReturningStepPose } from './poses/ledgePose.ts'
 import { locomotionPose } from './poses/locomotionPose.ts'
 import { impactRagdollPose } from './poses/ragdollPose.ts'
 import { releaseTurnPose } from './poses/releaseTurnPose.ts'
-import { waterPose } from './poses/waterPose.ts'
+import { floatPose, waterPose } from './poses/waterPose.ts'
+import { FLOAT_FLIP_TIME } from './athleteAnimation.ts'
 import { SHOVE_RECOVERY } from './shove.ts'
 import { withinRigLimits } from './athleteLimits.ts'
 import type { Player } from './characterTypes.ts'
@@ -267,6 +268,16 @@ export function resolveAthletePose(p: Player, deferLooseClearance = false): Athl
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
   if (p.waterMotion && !p.jumpLift && !p.waterJump) return waterPose(p)
+  const float = p.anim.float
+  if (float?.blend && !p.anim.ragdoll && !p.releaseTurn && !p.hang && !p.mantle && !p.climbing && !p.waterMotion) {
+    // Floating blends with whatever the body was doing as it leaves or reaches a surface.
+    const flip = float.flip
+    const live = floatPose(p), from = flip?.base ? carryPose(flip.pose, flip.base, live) : flip?.pose
+    const floating = flip ? transferPose(from!, live, [0, 0], smooth(Math.min(1, flip.time / FLOAT_FLIP_TIME)), [0, 0], 0, true) : live
+    if (float.blend >= 1) return floating
+    const other = resolveAthletePose({ ...p, anim: { ...p.anim, float: null } }, deferLooseClearance)
+    return transferPose(other, floating, [0, 0], smooth(float.blend), [0, 0], 0, true)
+  }
   if (p.anim.dryTurn) return capturedPose(p.anim.dryTurn, p.facing)
   if (p.anim.slideEntry) return capturedPose(p.anim.slideEntry, p.facing)
   if (p.anim.recovery) return p.anim.recovery.pose
@@ -274,6 +285,19 @@ export function resolveAthletePose(p: Player, deferLooseClearance = false): Athl
   return locomotionPose(p)
 }
 
+/** `pose` moved on as `live` has moved since `base`: each joint and angle by the change from one to the other. */
+function carryPose(pose: AthletePose, base: AthletePose, live: AthletePose): AthletePose {
+  const point = (a: Point, b: Point, c: Point): Point => [a[0] + c[0] - b[0], a[1] + c[1] - b[1]]
+  const limb = <T extends Limb>(a: T, b: T, c: T): T => ({ ...a, root: point(a.root, b.root, c.root), joint: point(a.joint, b.joint, c.joint),
+    end: point(a.end, b.end, c.end), ...(a.hand && b.hand && c.hand ? { hand: point(a.hand, b.hand, c.hand) } : {}),
+    ...(a.handAngle !== undefined ? { handAngle: a.handAngle + (c.handAngle ?? 0) - (b.handAngle ?? 0) } : {}) })
+  const leg = (a: Leg, b: Leg, c: Leg): Leg => ({ ...limb(a, b, c), footAngle: a.footAngle + c.footAngle - b.footAngle })
+  return { ...pose, hip: point(pose.hip, base.hip, live.hip), waist: point(pose.waist, base.waist, live.waist),
+    shoulder: point(pose.shoulder, base.shoulder, live.shoulder), head: point(pose.head, base.head, live.head),
+    frontArm: limb(pose.frontArm, base.frontArm, live.frontArm), backArm: limb(pose.backArm, base.backArm, live.backArm),
+    frontLeg: leg(pose.frontLeg, base.frontLeg, live.frontLeg), backLeg: leg(pose.backLeg, base.backLeg, live.backLeg),
+    headTilt: (pose.headTilt ?? 0) + (live.headTilt ?? 0) - (base.headTilt ?? 0) }
+}
 /** A captured turn or slide-entry pose, reflected when the body faces the other way. */
 function capturedPose(frame: { pose: AthletePose; facing: number }, facing: number): AthletePose {
   return frame.facing === facing ? frame.pose : reflectAthletePose(frame.pose)

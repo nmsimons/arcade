@@ -91,9 +91,10 @@ test('crossing a field edge changes acceleration continuously without resetting 
       previous = g
     }
   }
-  const p = createPlayer({ x: 300, y: 500 }); p.grounded = false; p.vy = -200
+  // A body already settled into weightlessness (TUNING.zeroGravitySettle) feels only the air.
+  const p = createPlayer({ x: 300, y: 500 }); p.grounded = false; p.vy = -200; p.weightless = 1
   stepPlayer(p, NEUTRAL_INPUT, STEP, [], undefined, undefined, undefined, field)
-  close(p.vy, -200 * Math.exp(-TUNING.zeroGravityDrag * STEP))
+  close(p.vy, -200 * Math.exp(-(TUNING.zeroGravityDrag + TUNING.zeroGravityAirDrag * 200) * STEP))
 })
 
 test('overlap averages local gravity, counts covered mass once and is independent of plate order', () => {

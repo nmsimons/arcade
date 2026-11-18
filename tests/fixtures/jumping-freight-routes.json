@@ -634,8 +634,8 @@
       "route": "low-lift",
       "file": "Freight Run.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 29.183333333332317,
-      "activeTime": 30.041666666665602,
+      "elapsed": 29.27499999999898,
+      "activeTime": 30.133333333332263,
       "coins": 6,
       "trace": [
         {
@@ -720,7 +720,7 @@
           }
         },
         {
-          "frames": 105,
+          "frames": 116,
           "input": {
             "move": 1,
             "climb": true

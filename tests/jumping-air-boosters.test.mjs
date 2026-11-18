@@ -4,6 +4,8 @@ import { airBoostStrength, cancelJumpInput, createPlayer, NEUTRAL_INPUT, respawn
 import { drawFootBoosters, footBoosters } from '../src/games/jumping/airBoosters.ts'
 import { JumpingAudioState } from '../src/games/jumping/audioState.ts'
 import { loopTone } from '../src/games/jumping/sound.ts'
+import { presentedAthletePose } from '../src/games/jumping/athletePose.ts'
+import { wallFrameAngle } from '../src/games/jumping/wallFrame.ts'
 
 const airborne = patch => Object.assign(createPlayer({ x: 300, y: 300 }), { grounded: false }, patch)
 const step = (p, move = 0, gravity = TUNING.gravity) => stepPlayer(p, { ...NEUTRAL_INPUT, move }, STEP, [], undefined, undefined, undefined, undefined, gravity)
@@ -81,6 +83,32 @@ test('two small translucent plumes preserve canvas state and remain repeatable',
   assert.ok(fills.every(fill => fill.alpha > 0 && fill.alpha <= .48))
   assert.equal(ctx.globalAlpha, .8); assert.equal(ctx.fillStyle, '#fff')
   assert.deepEqual(p, before)
+})
+
+test('floating, the plumes leave the soles of the drawn boots in every frame: floor, ceiling, wall and a larger body', () => {
+  // A canvas that only tracks its transform, recording where each plume starts.
+  const tracking = () => {
+    let m = [1, 0, 0, 1, 0, 0]; const stack = [], starts = []
+    const mul = ([a, b, c, d, e, f]) => { m = [m[0] * a + m[2] * b, m[1] * a + m[3] * b, m[0] * c + m[2] * d, m[1] * c + m[3] * d, m[0] * e + m[2] * f + m[4], m[1] * e + m[3] * f + m[5]] }
+    const ctx = { globalAlpha: 1, fillStyle: '', save: () => stack.push([...m]), restore: () => { m = stack.pop() },
+      translate: (x, y) => mul([1, 0, 0, 1, x, y]), scale: (x, y) => mul([x, 0, 0, y, 0, 0]),
+      rotate: a => mul([Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0]),
+      beginPath: () => starts.push([m[4], m[5]]), moveTo() {}, quadraticCurveTo() {}, closePath() {}, fill() {} }
+    return { ctx, starts }
+  }
+  for (const frame of [{}, { inverted: true }, { wall: 'left' }, { wall: 'right' }, { size: 1.35 }]) {
+    const p = airborne({ gravity: 0, ...frame, airBoost: { x: 1, lift: .4, time: 1 } })
+    p.anim.float = { lean: .6, spin: 0, facing: p.facing * (p.inverted ? -1 : 1), phase: 0, blend: 1 }
+    const pose = presentedAthletePose(p), angle = wallFrameAngle(p.wall), size = p.size ?? 1
+    const world = ([x, y]) => { const lx = x * p.facing * size, ly = y * (p.inverted ? -1 : 1) * size
+      return [p.x + lx * Math.cos(angle) - ly * Math.sin(angle), p.y + lx * Math.sin(angle) + ly * Math.cos(angle)] }
+    const { ctx, starts } = tracking()
+    drawFootBoosters(ctx, p)
+    const feet = [pose.backLeg.end, pose.backLeg.end, pose.frontLeg.end, pose.frontLeg.end].map(world)
+    assert.equal(starts.length, 4)
+    starts.forEach((start, i) => assert.ok(Math.hypot(start[0] - feet[i][0], start[1] - feet[i][1]) < 5 * size,
+      `${JSON.stringify(frame)}: plume ${i} starts ${Math.hypot(start[0] - feet[i][0], start[1] - feet[i][1]).toFixed(1)} from its boot`))
+  }
 })
 
 test('one quiet unpitched hiss follows the same thrust and disappears when it stops', () => {

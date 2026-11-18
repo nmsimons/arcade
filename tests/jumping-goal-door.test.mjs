@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
-import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
+import { blankTrial, levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { DOOR_CHEVRON_DELAY, DOOR_CHEVRON_PERIOD, drawDoorChevrons, goalBounds, goalDoor, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
 import { doorChevrons, drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
 import { hubDoorBounds } from '../src/games/jumping/hub.ts'
@@ -68,6 +68,30 @@ test('the open exit is entered with Up, held or pressed, and walking past never 
   assert.equal(standing.exit, null)
   stepRun(standing, { ...NEUTRAL_INPUT, climb: true })
   assert.ok(standing.exit)
+})
+
+test('in zero g, Up in an open doorway enters it rather than lifting the robot off the floor', () => {
+  const weightless = { id: 'z', x: 0, y: 0, w: 1800, h: 920, gravity: 0, power: 'always' }
+  /** Stand the robot at x on the floor, let weightlessness settle, then press Up once. */
+  const pressUp = (run, x) => {
+    run.started = true; Object.assign(run.player, { x, y: 920, vx: 0, vy: 0 })
+    for (let i = 0; i < 30; i++) stepRun(run, NEUTRAL_INPUT)
+    assert.equal(run.player.grounded, true, 'a weightless robot stands still on the floor')
+    stepRun(run, NEUTRAL_INPUT); stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+    return run
+  }
+  const level = blankTrial(); level.goal.x = 500; level.gravityPlates = [weightless]
+  const door = goalDoor(level.goal), exit = pressUp(createRun(level), door.x + door.w / 2)
+  assert.ok(exit.exit, 'the exit is entered'); assert.equal(exit.player.grounded, true)
+  // Away from a door, Up still lifts the robot off on its boots.
+  const away = pressUp(createRun(level), 200)
+  assert.equal(away.exit, null); assert.equal(away.player.grounded, false)
+  // A facility area's open level door works the same way.
+  const area = parseLevel({ ...blankTrial(), kind: 'hub', timing: 'untimed', goal: undefined, times: undefined, gravityPlates: [weightless],
+    courseDoors: [{ id: 'one', x: 700, y: 920, course: 'c1' }], bulkheads: [], evaluationBoards: [] })
+  const hub = createRun(area); hub.hub.open = new Set(['one']); hub.hub.climbHeld = false
+  pressUp(hub, 700)
+  assert.equal(hub.hub.departure?.door.id, 'one'); assert.ok(hub.exit)
 })
 
 test('the short exit preserves the walking rig and foot contacts instead of switching to a separate pose', () => {

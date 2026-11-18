@@ -157,13 +157,15 @@ export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: nu
   // A turn onto or off a wall owns its target (wallFrame.ts); the pull along the old frame may be nothing at all.
   const walls = turn.toWall !== undefined
   if (!walls) {
-    if (Math.abs(gravity) <= GRAVITY_DEADBAND) return
+    // A pull passing through zero holds the turn where it is; lasting weightlessness lets it finish toward the frame
+    // it was heading for, so the body is free to float (a frozen half-turn would never be).
+    if (Math.abs(gravity) <= GRAVITY_DEADBAND && (p.weightless ?? 0) < TUNING.zeroGravitySettle - 1e-9) return
     if (gravity > GRAVITY_DEADBAND) turn.target = 0
     else if (gravity < -GRAVITY_DEADBAND) turn.target = Math.sign(turn.target || turn.angle || p.facing) * Math.PI
   }
   const before = turn.angle
   const progress = turn.progress === undefined ? undefined : Math.max(0, Math.min(1,
-    turn.progress + (turn.target ? 1 : -1) * dt / AIR_TURN_TIME))
+    turn.progress + (turn.target ? 1 : -1) * dt / (turn.duration ?? AIR_TURN_TIME)))
   const next = progress === undefined ? before + Math.max(-TURN_SPEED * dt, Math.min(TURN_SPEED * dt, turn.target - before))
     : Math.sign(turn.target || before || p.facing) * (walls ? turn.span ?? Math.PI : Math.PI) * progress * progress * (3 - 2 * progress)
   const advance = (height: number): Point | null => {
@@ -227,8 +229,15 @@ export function finishGravityTurn(p: Player) {
   if (p.releaseTurn?.toWall !== undefined) {
     // A completed turn onto or off a wall changes frame; one turned back to where it began only ends.
     if (turn.target) {
-      changeWallFrame(p, p.releaseTurn.toWall ?? undefined)
-      if (Math.abs(turn.target) > 3) p.facing = -p.facing
+      const to = p.releaseTurn.toWall
+      // A quarter turn between a wall and a ceiling also crosses between the turned and the reflected frame,
+      // which reverses the facing, as the reflected frame's own half-turn does.
+      if (to === 'ceiling') { changeWallFrame(p, undefined); p.inverted = true; p.facing = -p.facing }
+      else if (p.inverted) { p.inverted = false; changeWallFrame(p, to ?? undefined); p.facing = -p.facing }
+      else {
+        changeWallFrame(p, to ?? undefined)
+        if (Math.abs(turn.target) > 3) p.facing = -p.facing
+      }
     }
     delete p.releaseTurn
     return

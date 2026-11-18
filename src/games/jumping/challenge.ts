@@ -565,7 +565,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   const ropeMates = run.robots.filter(r => r.actor && passesThrough(run.player, r.actor))
   const playerWorld = ropeMates.length ? withoutColliders(world, c => !!c.robot && ropeMates.includes(c.robot)) : world
   stepPlayer(run.player, input, dt, playerWorld.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, playerWorld, run.gravityField,
-    undefined, 1, undefined, { ropeRiders: run.robots.flatMap(r => r.actor ? [r.actor] : []), water: run.water })
+    undefined, 1, undefined, { ropeRiders: run.robots.flatMap(r => r.actor ? [r.actor] : []), water: run.water, doorway: standsInDoorway(run) })
   if (powered && run.robots.length) faceContactedRobots(run.player, run.player.contacts, run.robots)
   applyContactEmp(run)
   finishGadgetMotion(run, toolBefore)
@@ -594,7 +594,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     return
   }
   if (goal.kind === 'overlook') {
-    if (input.climb && p.grounded && !p.hang && !p.climbing && Math.abs(p.x - goal.x) < 45 && Math.abs(p.y - goal.y) < 2) {
+    if (input.climb && inGoalDoorway(run)) {
       run.finished = true; run.grade = null; p.vx = 0; p.vy = 0
       cancelJumpInput(p)
     }
@@ -611,20 +611,43 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     }
     return
   }
-  const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
-  const door = goalDoor(goal)
   // Like every door, the open exit is entered with Up. Holding Up on the way
   // in enters on arrival, so a held press costs no time.
-  if (input.climb && !p.inverted && !p.wall && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
-    && Math.abs(p.y - goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
-    && !exitObstacles.some(b => bodyOverlap(p, b))) {
+  if (input.climb && inGoalDoorway(run)) {
     // This is a doorway in the back wall. Reaching it permits entry even when
     // a loose prop blocks a sideways step toward its center.
-    const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
+    const door = goalDoor(goal), intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles(run))
     enterDoorway(run, intoDoor.x)
     run.grade = level.timing === 'untimed' ? null : run.failed ? 'F' : gradeFor(run.elapsed, level)
   }
 }
+
+const exitObstacles = (run: Run) => run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
+/** Standing upright on its feet, as entering any door needs. */
+const upright = (p: Run['player']) => p.grounded && !p.inverted && !p.wall && !p.hang && !p.mantle && !p.climbing
+/** Whether the robot stands where Up would take it through the level's exit: an open exit door or the overlook. */
+function inGoalDoorway(run: Run) {
+  const p = run.player, goal = run.level.goal
+  if (!goal || !isPuzzleLevel(run.level) || !upright(p) || Math.abs(p.y - goal.y) >= 2) return false
+  if (goal.kind === 'overlook') return Math.abs(p.x - goal.x) < 45
+  if (goal.kind === 'walk-off' || goal.kind === 'bus') return false
+  const door = goalDoor(goal)
+  return run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS
+    && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
+    && !exitObstacles(run).some(b => bodyOverlap(p, b))
+}
+/** The open facility door or bulkhead the robot stands in, if any. */
+function openHubDoorAt(run: Run, hub: HubState) {
+  const p = run.player, level = run.level
+  if (!upright(p) || p.sliding) return undefined
+  const doors: HubDoor[] = [...(level.courseDoors ?? []).map(door => ({ kind: 'course' as const, door })), ...(level.bulkheads ?? []).map(door => ({ kind: 'bulkhead' as const, door }))]
+  return doors.find(({ door }) => hub.open.has(door.id) && Math.abs(p.y - door.y) < 2 && Math.abs(p.x - door.x) < hubDoorBounds(door).w / 2)
+}
+/**
+ * Whether the robot stands in a doorway Up would enter. There Up belongs to the door: a weightless robot's boots do
+ * not lift it off the floor (model.ts), or it could never stand still to go through.
+ */
+const standsInDoorway = (run: Run) => !run.finished && !run.exit && (run.hub ? !!openHubDoorAt(run, run.hub) : inGoalDoorway(run))
 
 /** The robot steps through a doorway in the back wall, leaving its held tool. */
 function enterDoorway(run: Run, toX: number) {
@@ -639,12 +662,9 @@ function enterDoorway(run: Run, toX: number) {
  * does.
  */
 function stepHubDoors(run: Run, hub: HubState, input: JumpInput) {
-  const p = run.player, level = run.level, pressed = input.climb && !hub.climbHeld
+  const p = run.player, pressed = input.climb && !hub.climbHeld
   hub.climbHeld = input.climb
-  if (p.inverted || p.wall || !p.grounded || p.hang || p.mantle || p.climbing) return
-  if (!pressed || p.sliding) return
-  const doors: HubDoor[] = [...(level.courseDoors ?? []).map(door => ({ kind: 'course' as const, door })), ...(level.bulkheads ?? []).map(door => ({ kind: 'bulkhead' as const, door }))]
-  const target = doors.find(({ door }) => hub.open.has(door.id) && Math.abs(p.y - door.y) < 2 && Math.abs(p.x - door.x) < hubDoorBounds(door).w / 2)
+  const target = pressed ? openHubDoorAt(run, hub) : undefined
   if (!target) return
   hub.departure = target
   enterDoorway(run, moveBody([p.x, p.y], [target.door.x, p.y], run.platforms).x)

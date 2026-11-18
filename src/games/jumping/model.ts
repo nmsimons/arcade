@@ -13,12 +13,12 @@ import { canGrip, FRICTIONLESS, groundVelocity, slidingVelocity, slipRests, surf
 import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushRig } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
-import { TUNING } from './movementTuning.ts'
+import { TUNING, weightlessArrivalTime } from './movementTuning.ts'
 import { carryWithRisingWater } from './waterTransport.ts'
 import type { WaterLevels } from './waterLevel.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorLadder } from './gravityFrame.ts'
-import { contactsToWorld, inWallFrame, turnContactWorld, vectorToWall, wallForGravity, wallFrameAngle } from './wallFrame.ts'
+import { contactsToWorld, inWallFrame, turnContactWorld, vectorToWall, wallForGravity, wallFrameAngle, wallInput } from './wallFrame.ts'
 import { bodySize, enterSizeFrame, leaveSizeFrame, scaledContactWorld, scaledGravityField, scaledLadder, scaledWater, worldPlatform } from './sizeFrame.ts'
 import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSideGravity, playerSwimStrength, playerSwimDepth, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration, swimmingDirection, underwaterSwimming } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
@@ -30,7 +30,7 @@ import type { JumpInput, Platform, Player } from './characterTypes.ts'
 export { gaitPose } from './gait.ts'
 export type { GaitPose } from './gait.ts'
 import { gaitPose } from './gait.ts'
-import { advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, settleWaterClearance, startImpactRagdoll } from './athleteAnimation.ts'
+import { advanceWaterCeiling, advanceWaterLanding, advanceWaterPropReach, captureDryTurn, captureFloatEntry, captureFloatTurn, captureRopeTurnRelease, captureSlideEntry, settleWaterClearance, startImpactRagdoll } from './athleteAnimation.ts'
 import { athletePose, dryLedgeReach, dryLedgeReachPose } from './athletePose.ts'
 import { gameplayPose } from './gameplayPose.ts'
 import { swimmingLedgeReach } from './poses/waterPose.ts'
@@ -55,7 +55,12 @@ function faceAlongRope(p: Player, c: Climbing, facing: number) {
 }
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; ropeMates?: readonly RopeMate[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels }
+interface PlayerStepOptions {
+  /** The body stands in a doorway it could enter: Up there belongs to the door, so weightless boots do not lift it off. */
+  doorway?: boolean
+  advanceRopes?: boolean; ropeRiders?: readonly Player[]; ropeMates?: readonly RopeMate[]; airSpeedScale?: number; airFacing?: 'travel'; water?: WaterLevels
+  /** A sideways field's pull across the controller's own gravity: a body is weightless only when both are slight. */
+  lateralGravity?: number }
 /** Another body holding a rope: its grip, and the stretch of rope below the grip its body hangs along. */
 interface RopeMate { index: number; distance: number; span: number }
 /** How far below its grip a body's stretch of rope runs, in body units: to its feet, where the next body's hands can hold. */
@@ -132,6 +137,7 @@ export function respawn(p: Player) {
   if (mode) p.anim.cadence = mode
   delete p.releaseTurn
   delete p.wall
+  delete p.rebound; delete p.weightless
   delete p.waterBob
   delete p.waterCamera
 }
@@ -305,7 +311,8 @@ function advanceFreeFall(p: Player, dt: number, floating = false, swimming = fal
       p.freeFall.amount = Math.max(0, p.freeFall.amount - dt / TUNING.swimBlendTime)
       if (!p.freeFall.amount) p.freeFall = null
     }
-  } else if (!p.grounded && !swimming && (isWeightless(gravity) || p.vy * Math.sign(gravity) > 80)) {
+  } else if (!p.grounded && !swimming && !settledWeightless(p) && (isWeightless(gravity) || p.vy * Math.sign(gravity) > 80)) {
+    // Settled weightlessness floats (athleteAnimation.ts) rather than falls; a passing moment of it still counts.
     // A support disappearing during recovery starts a fresh fall.
     if (p.freeFall && p.freeFall.recovery !== null) p.freeFall = null
     p.freeFall ??= { time: 0, amount: 0, recovery: null }
@@ -484,10 +491,11 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const orientationGravity = fieldMotionOverride?.orientationGravity ?? (gravityField?.hasWater ? playerOrientationGravity(gravityField, p) : gravity)
   // Sideways fields (wallFrame.ts): a body on a wall steps in that wall's frame; elsewhere the pull acts on a free body.
   let side = 0
-  if (gravityOverride === undefined && frameDirection === 1 && !p.inverted && (p.wall || gravityField?.sideways)) {
+  if (gravityOverride === undefined && frameDirection === 1 && (p.wall || gravityField?.sideways)) {
     side = gravityField ? playerSideGravity(gravityField, p) : 0
     if (p.wall) { stepOnWall(p, input, dt, climbables, world, gravityField, side, gravity, options); return }
     if (!p.grounded && !p.hang && !p.mantle && !p.climbing) p.vx += side * dt
+    if (side) options = { ...options, lateralGravity: side }
   }
   if (p.inverted) {
     // Reflect live rope state with the controller, solve once, then restore it.
@@ -503,6 +511,8 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     if (p.contacts) p.contacts = mirrorContacts(p.contacts, world)
     finishGravityTurn(p)
     turnToGravity(p, orientationGravity)
+    if (side || p.releaseTurn?.toWall !== undefined) turnToWall(p, side, gravity)
+    if (settledWeightless(p)) orientInFlight(p, world, input)
     return
   }
   p.terrain = platforms
@@ -511,7 +521,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   // starting frame instead of first easing back from an imaginary ground gait.
   p.anim.gait ??= gaitPose(p.vx, !p.grounded && !p.hang && !p.mantle && !p.climbing)
   const inWater = swimStrength > 0 && !p.jumpLift && !p.waterJump
-  const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle, oldLadder = p.climbing?.ladder
+  const from: [number, number] = [p.x, p.y], oldVx = p.vx, oldVy = p.vy, oldMantle = p.mantle, oldLadder = p.climbing?.ladder
   const beforeBody = playerContactBody(p)
   const previousFacing = p.facing
   const flightFacing = options.airFacing === 'travel' && !p.releaseTurn ? previousFacing : undefined
@@ -520,6 +530,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const animating = animates(p)
   const turnFrame = animating && !p.anim.pending?.turnFrame ? captureDryTurn(p, input, frameDirection) : null
   const slideEntryFrame = animating && !p.anim.pending?.slideEntryFrame ? captureSlideEntry(p) : null
+  if (animating) captureFloatEntry(p, frameDirection)
   const previousWaterCenter = inWater ? playerWaterCenterOffset(p) : 0
   const previousWaterMotion = p.waterMotion ? { ...p.waterMotion } : undefined
   const swimDirection = swimmingDirection(input)
@@ -638,6 +649,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   if (p.grounded && Math.hypot(result.x - p.x, result.y - p.y) < Math.abs(p.x - from[0]) + .1 && !obstacles.some(b => overlaps(p.x, p.y, b))) {
     result.x = p.x; result.y = p.y
   }
+  const floating = settledWeightless(p)
   const corrected = Math.hypot(result.x - p.x, result.y - p.y) > (collisionOutline ? 1e-7 : .01)
   p.x = result.x; p.y = result.y
   if (corrected) {
@@ -656,7 +668,10 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // A gliding body keeps pace with a prop moving away from it, rather than stopping as at a wall.
       const prop = b.looseProp && slickFooting(p) ? world.colliders.find(c => c.platform === b)?.prop : undefined
       const away = prop ? Math.min(0, prop.vx * n[0] + prop.vy * n[1]) : 0
-      if (into < away) { p.vx -= (into - away) * n[0]; p.vy -= (into - away) * n[1] }
+      // Without weight a body that meets a surface too fast rebounds, slower than it came; a slow one stays against it.
+      // Ground under the feet is a landing instead, which absorbs the hit in a crouch before the rebound (land()).
+      const rebound = floating && away - into > TUNING.zeroGravityStick && n[1] > -.5 ? TUNING.zeroGravityRebound : 0
+      if (into < away) { p.vx -= (into - away) * (1 + rebound) * n[0]; p.vy -= (into - away) * (1 + rebound) * n[1] }
     }
   }
   if (!p.climbing && !p.hang && !p.mantle && !p.releaseTurn) {
@@ -714,6 +729,8 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // Support depends on separating from the surface, not on falling in world Y.
       if (ground && (!collisionOutline || !platforms.some(b => overlaps(p.x, ground!.y, b))) && canGrip(ground.angle, surfaceFriction(ground.platform)) && (p.grounded || p.vx * Math.sin(ground.angle) - p.vy * Math.cos(ground.angle) <= .1)) {
         if (!p.grounded && oldVy > 0) absorbLanding(p, oldVy)
+        // Settling the last fraction onto a surface is still an arrival: a fast one without weight rebounds.
+        if (!p.grounded && floating) absorbWeightlessArrival(p, oldVx, oldVy, ground.angle)
         p.grounded = true; p.vy = 0; p.groundAngle = ground.angle
         if (!platforms.some(b => overlaps(p.x, ground.y, b))) p.y = ground.y
       }
@@ -765,7 +782,10 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     settleWaterClearance(p, dt)
     presentWaterOrQueue(p, dt)
   }
-  if (gravityOverride === undefined) { finishGravityTurn(p); turnToGravity(p, orientationGravity); if (side || p.releaseTurn?.toWall !== undefined) turnToWall(p, side, gravity) }
+  if (gravityOverride === undefined) {
+    finishGravityTurn(p); turnToGravity(p, orientationGravity); if (side || p.releaseTurn?.toWall !== undefined) turnToWall(p, side, gravity)
+    if (settledWeightless(p)) orientInFlight(p, world, input)
+  }
 }
 
 /** One step standing on, walking along or leaping from a wall: the ordinary controller in the wall's frame, with
@@ -782,38 +802,209 @@ function stepOnWall(p: Player, input: JumpInput, dt: number, climbables: Climbab
   const [lateral, down] = vectorToWall(wall, side, gravity), local = turnContactWorld(world, wall)
   p.grabCooldown = Math.max(p.grabCooldown, dt * 1.5)
   inWallFrame(p, () => {
-    if (!p.grounded && !p.releaseTurn) p.vx += lateral * dt
-    stepPlayer(p, input, dt, local.platforms, NO_CLIMBABLES, { checkpoints: [], fallY: Infinity }, local, undefined, down, 1, undefined,
-      { ...options, ropeRiders: undefined, ropeMates: undefined, water: undefined, advanceRopes: false })
+    if (!p.grounded) p.vx += lateral * dt
+    stepPlayer(p, wallInput(input, wall), dt, local.platforms, NO_CLIMBABLES, { checkpoints: [], fallY: Infinity }, local, undefined, down, 1, undefined,
+      { ...options, ropeRiders: undefined, ropeMates: undefined, water: undefined, advanceRopes: false, lateralGravity: lateral })
   })
   if (p.contacts) p.contacts = contactsToWorld(p.contacts, world, wall)
   finishGravityTurn(p)
   turnToWall(p, side, gravity)
+  if (settledWeightless(p)) orientInFlight(p, world, input)
 }
 
-/** Turn a free body toward the footing a sideways pull calls for: onto a wall, off it, or to the opposite wall.
- * A body the pull overpowers on the floor lifts off to turn; a hanging or climbing body keeps its grip. */
+/** Turn a free body toward the footing a sideways pull calls for: onto a wall from the floor or a ceiling, off a wall
+ * onto either, or to the opposite wall. A body the pull overpowers on its footing lifts off to turn; a hanging or
+ * climbing body keeps its grip. Floor and ceiling hand over to each other through the ordinary turn (turnToGravity).
+ * Turn angles are kept in the frame the turn starts in: a ceiling's reflected frame stores them negated. */
 function turnToWall(p: Player, side: number, gravity: number) {
-  const turning = p.releaseTurn?.toWall !== undefined ? p.releaseTurn : null
-  const wall = wallForGravity(side, gravity, p.wall, TUNING.gravity * .05)
-  if (turning) {
-    // A turn under way follows the pull, like a turn toward a ceiling: if the pull that started it goes, the body
-    // turns back to its old footing, and resumes if the pull returns. The frame changes only at the far end.
-    if (wall !== null) turning.target = wall === p.wall ? 0 : wall === turning.toWall ? Math.sign(turning.target || turning.angle) * (turning.span ?? 0) : turning.target
+  const pull = wallForGravity(side, gravity, p.wall, TUNING.gravity * .05)
+  if (pull === null) return
+  const current: Footing = p.wall ?? (p.inverted ? 'ceiling' : 'floor')
+  const wanted: Footing = pull ?? (gravity < 0 ? 'ceiling' : 'floor')
+  const turn = p.releaseTurn
+  if (turn?.toWall !== undefined) {
+    // A turn under way follows the pull: if the pull that started it goes, the body turns back to its old footing,
+    // and resumes if the pull returns. The frame changes only at the far end.
+    const to: Footing = turn.toWall ?? 'floor'
+    if (wanted === current) turn.target = 0
+    else if (wanted === to) turn.target = footingTurn(current, to, p.facing)
     return
   }
-  if (p.inverted || p.releaseTurn || p.hang || p.mantle || p.climbing || p.waterMotion) return
-  if (wall === null || wall === p.wall) return
-  let target = wallFrameAngle(wall) - wallFrameAngle(p.wall)
-  if (Math.abs(Math.abs(target) - Math.PI) < 1e-6) target = p.facing * Math.PI
-  p.releaseTurn = { angle: 0, target, pose: animates(p) ? athletePose(p) : undefined, facing: p.facing, time: 0, progress: 0, toWall: wall ?? null, span: Math.abs(target) }
+  if (p.hang || p.mantle || p.climbing || p.waterMotion || wanted === current || current !== 'left' && current !== 'right' && wanted !== 'left' && wanted !== 'right') return
+  const target = footingTurn(current, wanted, p.facing)
+  if (turn) {
+    // An ordinary half-turn caught by a sideways pull, which may leave no vertical pull to finish it: it becomes a turn
+    // onto the wall from where it stands, at the solver's steady turning rate.
+    Object.assign(turn, { target, toWall: wanted, span: Math.abs(target) }); delete turn.progress
+    return
+  }
+  p.releaseTurn = { angle: 0, target, pose: animates(p) ? athletePose(p) : undefined, facing: p.facing, time: 0, progress: 0, toWall: wanted === 'floor' ? null : wanted, span: Math.abs(target) }
   p.anim.ragdoll = null
   p.grounded = false; p.coyote = 0
   p.anim.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null
   p.freeFall = null; p.anim.dryTurn = null; p.anim.slideEntry = null
   p.contacts = null
 }
+/** Without weight, a body drifting toward a surface it will reach soon swings feet-first to meet it: onto that floor,
+ * wall or ceiling as its footing, by the same released turn a pull would start, pivoting about the body's middle. */
+/** A slow weightless drift with no thrust settles to rest instead of creeping on for seconds. */
+function restDrag(p: Player, input: JumpInput, frameDirection: number) {
+  if (!settledWeightless(p)) return 0
+  const [dx, dy] = floatDirection(input, frameDirection)
+  return dx || dy ? 0 : TUNING.zeroGravityRestDrag * Math.max(0, 1 - Math.hypot(p.vx, p.vy) / TUNING.zeroGravityRestSpeed)
+}
+/** Weightless legs are a critically damped spring: this stiff (rad/s) for a crouch asked for or let go, folding most
+ * of the way in 0.2 s; an absorbing hit uses 1/zeroGravityAbsorbTime, so the fold bottoms out at that time. */
+const WEIGHTLESS_CROUCH_SPRING = 20
+/** How far a full crouch lowers the hip toward the feet (locomotionPose.ts), and the seconds the legs push for. */
+const CROUCH_DIP = 13.4, REBOUND_PUSH_TIME = .05
+/** A weightless hit at this speed (px/s) into a surface folds the legs to ABSORB_DEEPEST of a full crouch. */
+const ABSORB_FULL_SPEED = 240, ABSORB_DEEPEST = .97
+function springCrouch(p: Player, dt: number) {
+  const absorbing = !!p.rebound && p.grounded, spring = absorbing ? 1 / TUNING.zeroGravityAbsorbTime : WEIGHTLESS_CROUCH_SPRING
+  const target = absorbing ? 0 : Number(p.crouching)
+  let rate = p.crouchRate ?? 0
+  // Pushing off, the legs straighten against the surface, driving the hip away ever faster until it leaves at the
+  // rebound's speed (stepPlayer).
+  if (absorbing && p.rebound!.push !== undefined) rate = -p.rebound!.speed / CROUCH_DIP * Math.min(1, (p.rebound!.push + dt) / REBOUND_PUSH_TIME)
+  else rate += (spring * spring * (target - p.crouch) - 2 * spring * rate) * dt
+  p.crouch += rate * dt
+  if (p.crouch >= 1 && rate > 0 || p.crouch <= 0 && rate < 0) { p.crouch = Math.max(0, Math.min(1, p.crouch)); rate = 0 }
+  p.crouchRate = rate
+}
+/** How strongly the boots are drawn puffing while they trim a slow drift, against 1 for full thrust. */
+const TRIM_PUFF = .35
+/** Feet within this reach of a surface, and not leaving it, drift onto it at this speed. */
+const FEET_SETTLE_REACH = 3, FEET_SETTLE_SPEED = 25
+/** Too fast to stay without weight: the legs flex into a crouch to absorb the arrival, then push back off, slower. */
+/** `late`: the seconds of this step the legs' spring has already been stepped for (a landing found after it), which
+ * the fold makes up at once. */
+function absorbWeightlessArrival(p: Player, vx: number, vy: number, angle: number, late = 0) {
+  // Measured across the surface, which may slope; the push back off leaves straight out from it.
+  const into = vy * Math.cos(angle) - vx * Math.sin(angle)
+  if (into > TUNING.zeroGravityStick) {
+    // The knees give at once, carrying the arrival on into the fold rather than locking as the feet touch.
+    p.rebound = { speed: into * TUNING.zeroGravityRebound, time: 0, angle }; p.crouching = true
+    // The fold's depth grows with the hit, to nearly a full crouch from ABSORB_FULL_SPEED; the spring, struck at the
+    // rate that reaches it, gets there in zeroGravityAbsorbTime whatever the depth.
+    const depth = Math.min(ABSORB_DEEPEST, into / ABSORB_FULL_SPEED)
+    p.crouchRate = Math.max(p.crouchRate ?? 0, depth * Math.E / TUNING.zeroGravityAbsorbTime)
+    // The fold starts in the step the feet touch, so the body never stops dead for a frame before it sinks.
+    p.crouch = Math.min(1, p.crouch + p.crouchRate * late)
+  }
+}
+/** Weightless long enough for zero-g handling (TUNING.zeroGravitySettle), as of this step's motion. */
+const settledWeightless = (p: Player) => (p.weightless ?? 0) >= TUNING.zeroGravitySettle - 1e-9
+function orientInFlight(p: Player, world: ContactWorld, input: JumpInput) {
+  if (p.grounded || p.hang || p.mantle || p.climbing || p.waterMotion) return
+  const roll = p.releaseTurn
+  if (roll && roll.float === undefined) return
+  const speed = Math.hypot(p.vx, p.vy)
+  if (speed < 20) return
+  // Held boots push the body along its travel (or brake it), so it arrives sooner (or later) than a coast would.
+  const [tx, ty] = floatDirection(input, 1), along = (tx * p.vx + ty * p.vy) / speed
+  const push = TUNING.zeroGravityThrust * along * (along < 0 ? TUNING.zeroGravityBrake : 1)
+  const wanted = surfaceAhead(p, world, speed)
+  const arrival = wanted && weightlessArrivalTime(wanted.travel, speed, push)
+  if (roll) {
+    // A roll toward a surface the body no longer reaches (steered away, or slowed by the air) turns back; one that
+    // has met it carries on, pivoting onto the feet against it.
+    if (roll.target && (!wanted || arrival === Infinity)) { if (!touching(p, world, roll.toward)) roll.target = 0; return }
+    // One the body will reach sooner than planned hurries to finish first, rather than meeting it mid-roll.
+    const left = 1 - (roll.progress ?? 1), time = (arrival ?? Infinity) - FLOAT_ROLL_MARGIN
+    if (roll.target && left > 0 && roll.duration && left * roll.duration > time) roll.duration = Math.max(FLOAT_ROLL_FASTEST, time / left)
+    return
+  }
+  const current: Footing = p.wall ?? (p.inverted ? 'ceiling' : 'floor')
+  if (!wanted || arrival === null || wanted.footing === current) return
+  // Time the roll to finish with a little travel left to land on.
+  const duration = arrival - TUNING.zeroGravityRollLead
+  if (duration > TUNING.zeroGravityRollMax) return
+  const target = footingTurn(current, wanted.footing, p.facing)
+  // The roll starts from the drawn lean and keeps the float posture: one smooth turn, not a turn plus a straightening.
+  // The body's hull turns the short way; a body drawn head-first for the surface flips forward instead (`over`).
+  const { pose, lean, bend, spin, over } = captureFloatTurn(p, target)
+  p.releaseTurn = { angle: 0, target, pose, facing: p.facing, time: 0, progress: 0,
+    duration: Math.max(Math.min(TUNING.zeroGravityRollMin, arrival - FLOAT_ROLL_MARGIN), FLOAT_ROLL_FASTEST, duration),
+    toWall: wanted.footing === 'floor' ? null : wanted.footing, span: Math.abs(target), float: lean, bend, spin, over, toward: wanted.normal }
+  p.anim.ragdoll = null; p.wallBrace = null; p.anim.dryTurn = null; p.anim.slideEntry = null; p.contacts = null
+}
+/** A late roll still finishes this long before contact, and none is quicker than FLOAT_ROLL_FASTEST seconds. */
+const FLOAT_ROLL_MARGIN = .06, FLOAT_ROLL_FASTEST = .18
+/** The surface a coasting weightless body is heading for, the footing it gives, and how far the body travels until
+ * it would meet it feet-first: its body axis across the surface, half its height from its middle. */
+function surfaceAhead(p: Player, world: ContactWorld, speed: number): { footing: Footing; travel: number; normal: [number, number] } | null {
+  const horizon = TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead
+  const reach = speed * horizon + TUNING.height + 40, ux = p.vx / speed, uy = p.vy / speed
+  const body = playerContactBody(p), orientation = p.inverted ? -1 : 1, angle = playerTurnAngle(p)
+  const probe = moveBody([body.x, body.y], [body.x + ux * reach, body.y + uy * reach], world.platforms, body.height,
+    orientation, angle, body.outline)
+  let ahead: readonly [number, number] | null = null
+  for (const contact of probe.contacts) if (contact.normal[0] * ux + contact.normal[1] * uy < -.3 && !contact.platform.looseProp
+    && (!ahead || contact.normal[0] * ux + contact.normal[1] * uy < ahead[0] * ux + ahead[1] * uy)) ahead = contact.normal as [number, number]
+  if (!ahead) return null
+  const [nx, ny] = ahead, square = -(ux * nx + uy * ny)
+  // The sweep slides on along the surface after meeting it; the gap across the surface is exact.
+  const gap = (body.x - probe.x) * nx + (body.y - probe.y) * ny
+  // The hull as it is now reaches `extent` toward the surface from the body's middle; feet-first it reaches half its
+  // height, so the feet-first meeting comes that much sooner or later than this hull's.
+  const hull = bodyPolygon(body.x, body.y, body.height, orientation, angle, body.outline)
+  const middle = hull.reduce((sum, [x, y]) => [sum[0] + x / hull.length, sum[1] + y / hull.length], [0, 0])
+  const extent = Math.max(...hull.map(([x, y]) => -((x - middle[0]) * nx + (y - middle[1]) * ny)))
+  return { footing: Math.abs(ny) >= Math.abs(nx) ? ny < 0 ? 'floor' : 'ceiling' : nx > 0 ? 'left' : 'right',
+    travel: Math.max(0, gap + extent - TUNING.height / 2) / square, normal: [nx, ny] }
+}
+/** Whether the body, as it is turned now, is against a surface facing `normal`. */
+function touching(p: Player, world: ContactWorld, normal: readonly [number, number] | undefined) {
+  if (!normal) return false
+  const body = playerContactBody(p)
+  const probe = moveBody([body.x, body.y], [body.x - normal[0] * 4, body.y - normal[1] * 4], world.platforms, body.height,
+    p.inverted ? -1 : 1, playerTurnAngle(p), body.outline)
+  return probe.contacts.some(contact => contact.normal[0] * normal[0] + contact.normal[1] * normal[1] > .7)
+}
+type Footing = 'floor' | 'ceiling' | 'left' | 'right'
+/** The released-turn target from one footing to another, in the starting frame's stored convention. */
+function footingTurn(from: Footing, to: Footing, facing: number) {
+  const wallAngle = (w: Footing) => wallFrameAngle(w === 'left' || w === 'right' ? w : undefined)
+  if (from === 'floor' && to === 'ceiling' || from === 'ceiling' && to === 'floor') return facing * Math.PI
+  if (from === 'floor') return wallAngle(to)
+  if (from === 'ceiling') return -wallAngle(to)
+  if (to === 'floor') return -wallAngle(from)
+  if (to === 'ceiling') return wallAngle(from)
+  return facing * Math.PI
+}
 
+/** The screen direction held while weightless, as a unit vector in the controller's frame (zero when none). */
+function floatDirection(input: JumpInput, frameDirection: number) {
+  const down = !!(input.descend ?? (input.drop && !input.detach))
+  const x = Math.max(-1, Math.min(1, input.move)), y = ((down ? 1 : 0) - (input.climb ? 1 : 0)) * frameDirection
+  const length = Math.hypot(x, y)
+  return length > .01 ? [x / Math.max(1, length), y / Math.max(1, length)] as const : [0, 0] as const
+}
+/** Without weight, jumping pushes off every surface the body touches: floor, wall, ceiling or a corner between them.
+ * The push leaves along their combined normal, leaning toward a held direction that does not point into them, and keeps
+ * the drift along the surface. Returns whether there was anything to push from. */
+function pushOff(p: Player, input: JumpInput, platforms: readonly Platform[], height: number, frameDirection: number, speed: number = TUNING.zeroGravityPushOff) {
+  let nx = 0, ny = 0
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    const probe = moveBody([p.x, p.y], [p.x + dx * 1.5, p.y + dy * 1.5], platforms, height, 1, playerTurnAngle(p))
+    for (const contact of probe.contacts) if (contact.normal[0] * dx + contact.normal[1] * dy < -.5) { nx += contact.normal[0]; ny += contact.normal[1] }
+  }
+  const length = Math.hypot(nx, ny)
+  if (length < .5) return false
+  nx /= length; ny /= length
+  const [hx, hy] = floatDirection(input, frameDirection)
+  if ((hx || hy) && hx * nx + hy * ny > -.01) { const bx = nx + hx, by = ny + hy, b = Math.hypot(bx, by); nx = bx / b; ny = by / b }
+  const along = p.vx * -ny + p.vy * nx
+  p.vx = nx * speed - ny * along; p.vy = ny * speed + nx * along
+  p.grounded = false; p.coyote = 0; p.buffer = 0; p.wallJumpBuffer = 0; p.jumpStrength = undefined; p.jumpLift = null
+  p.wallJump = null; p.wallBrace = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null; p.anim.footwork = null
+  if (p.sliding) p.sliding.active = false
+  delete p.rebound; p.crouching = false
+  p.freeFall = null; p.anim.ragdoll = null; p.grabCooldown = Math.max(p.grabCooldown, .2)
+  p.jumpStart = p.y; p.jumpHeight = 0
+  return true
+}
 /** Feet on frictionless terrain, standing or sliding: a collision there is a glide meeting something, not a walk into it. */
 const slickFooting = (p: Player) => p.grounded ? !!p.contacts?.support?.platform.frictionless : !!p.sliding?.active && !!p.sliding.slick
 /** The speed a gliding body keeps when it catches a loose prop sliding the same way: the prop's own. */
@@ -933,6 +1124,8 @@ function leaveLadder(p: Player, ground: GroundSurface | null, crouching = false)
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
   world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1, floatDrag = 0, swimStrength = 0, swimDepth = 0, orientationGravity = p.gravity ?? TUNING.gravity, options: PlayerStepOptions = {}) {
   const gravity = p.gravity ?? TUNING.gravity
+  const weightFree = isWeightless(Math.hypot(gravity, options.lateralGravity ?? 0)) && !swimStrength
+  p.weightless = weightFree ? (p.weightless ?? 0) + dt : 0
   // Device directions remain screen-relative; posture and ledge motions run
   // in this controller's gravity frame. Ropes and swimming retain screen input.
   const screenDown = !!(input.descend ?? (input.drop && !input.detach))
@@ -942,7 +1135,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const bodyCrouch = wantsCrouch(input, frameDirection < 0)
   p.ladderJumpGrace = p.grounded || p.hang || p.mantle || p.climbing || input.detach
     ? 0 : Math.max(0, p.ladderJumpGrace - dt)
-  p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt
+  p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt; p.airBoost.trim = false
   const stepIntent = p.stepIntent; p.stepIntent = null
   const pressed = input.jump && !p.jumpHeld
   if (pressed) p.jumpStrength = input.jumpStrength === undefined ? undefined : Math.max(0, Math.min(1, input.jumpStrength))
@@ -1445,12 +1638,40 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     return
   }
   // Feet stay planted when ducking. Do not stand up through a low ceiling.
-  p.crouching = (bodyCrouch && p.grounded) || (p.crouching && (!!p.releaseTurn || platforms.some(b => overlaps(p.x, p.y, b))))
-  p.crouch = approach(p.crouch, Number(p.crouching), dt * 10)
+  // A weightless hit absorbed by the legs holds its crouch until they push off (`p.rebound`).
+  // Skating along a surface without weight (a direction held with the press into it) stands tall on the boots; Down
+  // alone still crouches.
+  const skating = settledWeightless(p) && p.grounded && floatDirection(input, frameDirection)[0] !== 0
+  p.crouching = (bodyCrouch && p.grounded && !skating) || !!p.rebound && p.grounded || (p.crouching && (!!p.releaseTurn || platforms.some(b => overlaps(p.x, p.y, b))))
+  // Weightless legs are a spring that a hit drives and that eases into and out of a crouch (springCrouch).
+  if (settledWeightless(p)) springCrouch(p, dt)
+  else { p.crouch = approach(p.crouch, Number(p.crouching), dt * 10); delete p.crouchRate }
   p.reach = approach(p.reach, Number(input.reach && !p.crouching), dt * 10)
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const wasGrounded = p.grounded
   if (p.ladderJumpGrace > 0 && p.buffer > 0) launchFromClimb(p, input.move, orientationGravity)
+  // Without weight a jump pushes off whatever the body touches, instead of an ordinary jump or wall jump.
+  const weightless = settledWeightless(p)
+  if (weightless && p.buffer > 0) pushOff(p, input, platforms, height, frameDirection)
+  // Feet carry no weight, so nothing walks: the boots lift a standing body off its surface when a direction is held
+  // that does not press into it, and then fly it as they do any floating body. In a doorway Up enters the door instead.
+  else if (weightless && p.grounded && !p.releaseTurn && !(options.doorway && input.climb) && floatDirection(input, frameDirection)[1] < .5
+    && (floatDirection(input, frameDirection)[0] || floatDirection(input, frameDirection)[1])) {
+    // The boots ease the feet clear of the surface first, so they fly rather than drag along it.
+    p.grounded = false; p.coyote = 0; p.anim.footwork = null; p.vy = Math.min(p.vy, -15); delete p.rebound
+  } else if (p.rebound && (!weightless || !p.grounded)) delete p.rebound
+  else if (p.rebound) {
+    // The legs start to push off as their fold bottoms out (or, held short of it, once the fold has had its time).
+    // The feet leave when the push has the body moving at the rebound's speed; the legs finish straightening in the air.
+    const r = p.rebound
+    r.time += dt
+    if (r.push === undefined && (r.time >= TUNING.zeroGravityAbsorbTime * 2 || r.time > dt * 1.5 && (p.crouchRate ?? 0) <= 0)) r.push = 0
+    else if (r.push !== undefined && (r.push += dt) >= REBOUND_PUSH_TIME - 1e-9) {
+      const angle = r.angle ?? 0
+      p.vx = Math.sin(angle) * r.speed; p.vy = -Math.cos(angle) * r.speed
+      p.grounded = false; p.coyote = 0; p.crouching = false; p.anim.footwork = null; delete p.rebound
+    }
+  }
   tryWallJump(p, platforms)
   p.coyote = wasGrounded ? TUNING.coyoteTime : Math.max(0, p.coyote - dt)
   if (p.coyote > 0 && p.buffer > 0) {
@@ -1473,10 +1694,25 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (waterControl && (coasting || move * p.vx < 0 || Math.abs(p.vx) > Math.abs(target))) {
     p.vx *= Math.exp(-(coasting ? TUNING.swimCoastResponse : TUNING.waterMomentumDrag) * waterControl * dt)
   }
-  const groundSteering = (move ? TUNING.acceleration : TUNING.braking) * (1 - waterControl) + TUNING.swimHorizontalAcceleration * waterControl
+  // Feet grip by the body's weight: lighter gravity gives walking and crawling less to push and brake with.
+  const traction = Math.min(1, Math.abs(gravity) / TUNING.gravity)
+  const groundSteering = (move ? TUNING.acceleration : TUNING.braking) * traction * (1 - waterControl) + TUNING.swimHorizontalAcceleration * waterControl
   if (p.wallJump && p.wallJump.time < TUNING.wallJumpControlTime) {
     // A short outward push survives holding toward the wall; ordinary steering follows.
     p.vx = p.wallJump.direction * TUNING.wallJumpPush; p.facing = p.wallJump.direction
+  } else if (weightless && !p.grounded) {
+    // Booster boots: a steady thrust toward the held screen direction. Air resistance alone limits the speed it
+    // reaches; holding the opposite way slows a drift. Without input the drift carries on, slowly losing speed.
+    if (Math.abs(move) > .01 && !p.releaseTurn) p.facing = Math.sign(move)
+    const [dx, dy] = floatDirection(input, frameDirection), thrust = TUNING.zeroGravityThrust * dt
+    // Thrust against the drift brakes harder, never past a stop, so a player can stop where they mean to.
+    const speed = Math.hypot(p.vx, p.vy), against = speed > 1e-6 ? -(dx * p.vx + dy * p.vy) / speed : 0
+    const brake = against > 0 ? Math.min(speed, (TUNING.zeroGravityBrake - 1) * against * thrust) / speed : 0
+    p.vx += dx * thrust - p.vx * brake; p.vy += dy * thrust - p.vy * brake
+    p.airBoost.x = dx; p.airBoost.lift = -dy
+    // With nothing held, the boots puff against a slow drift as they trim it (restDrag), hardest where it slows most.
+    const trim = restDrag(p, input, frameDirection) * speed / (TUNING.zeroGravityRestDrag * TUNING.zeroGravityRestSpeed / 4)
+    if (!dx && !dy && trim > .01) { p.airBoost.x = -p.vx / speed * TRIM_PUFF * trim; p.airBoost.lift = p.vy / speed * TRIM_PUFF * trim; p.airBoost.trim = true }
   } else if (p.sliding?.active && !p.grounded) {
     const angle = p.sliding.angle, tangent = [Math.cos(angle), Math.sin(angle)]
     const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, gravity, dt, p.sliding.slick ? FRICTIONLESS : TERRAIN_FRICTION)
@@ -1504,6 +1740,19 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     p.vx = constrained ?? steered
     if (!p.grounded && constrained === null) p.airBoost.x = (p.vx - beforeSteering) / (TUNING.airAcceleration * dt)
   }
+  // Feet a hair from a surface, after a roll pivoted onto them against it, settle onto it rather than hover there.
+  if (weightless && !p.grounded && !p.releaseTurn && p.vy > -5 && p.vy < FEET_SETTLE_SPEED && groundAt(platforms, p.x, p.y, FEET_SETTLE_REACH))
+    p.vy = FEET_SETTLE_SPEED
+  if (weightless && p.grounded && !p.releaseTurn) {
+    // Feet carry no weight, so nothing walks. A direction held into the surface skates the body along it on the
+    // boots, against the air; otherwise the feet take hold and the drift a landing brought dies away, unless the
+    // surface is frictionless.
+    const [dx] = floatDirection(input, frameDirection)
+    if (dx) {
+      p.vx += dx * TUNING.zeroGravityThrust * dt
+      p.vx *= Math.exp(-(TUNING.zeroGravityDrag + TUNING.zeroGravityAirDrag * Math.abs(p.vx)) * dt)
+    } else if (!contacts.support?.platform.frictionless) p.vx *= Math.exp(-dt / TUNING.zeroGravityGrip)
+  }
   // Stepping up needs a foothold to push from, which frictionless terrain cannot give.
   if (p.grounded && contacts.support && !contacts.support.platform.frictionless && !p.crouching && !input.jump && !bodyDrop
     && !p.sliding?.active && p.grabCooldown === 0) {
@@ -1516,14 +1765,18 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   }
   const oldX = p.x, oldY = p.y
   const following = p.grounded
-  const drag = !following && isWeightless(gravity) ? Math.exp(-TUNING.zeroGravityDrag * dt) : 1
+  // Air resistance in lasting weightlessness; in water it also slows a weightless moment of the swim, as it always has.
+  const drag = !following && (settledWeightless(p) || swimStrength > 0 && isWeightless(Math.hypot(gravity, options.lateralGravity ?? 0)))
+    ? Math.exp(-(TUNING.zeroGravityDrag + TUNING.zeroGravityAirDrag * Math.hypot(p.vx, p.vy) + restDrag(p, input, frameDirection)) * dt) : 1
   p.vx *= drag
   // Internal terrain ends are ledges; structural outer terrain encloses the room.
   p.x += p.vx * dt
   const collisionOutline = playerCollisionOutline(p, world)
   // Swimming contacts belong to the continuous sweep below. Applying the
   // standing axis stops first creates invisible walls inside flooded tunnels.
-  for (const b of platforms) if (!collisionOutline?.(b) && overlaps(p.x, p.y, b, height)) {
+  // So do a weightless roll's: its turned hull is not a standing body's (see `rolling` below).
+  const rolling = p.releaseTurn?.float !== undefined
+  for (const b of platforms) if (!rolling && !collisionOutline?.(b) && overlaps(p.x, p.y, b, height)) {
     if (p.vx > 0 && oldX + 12 <= b.x + .1 && exposedSide(platforms, b, 1, p.y - height, p.y)) { p.x = b.x - 12; p.vx = glidingBehind(p, world, b, 1) }
     else if (p.vx < 0 && oldX - 12 >= b.x + b.w - .1 && exposedSide(platforms, b, -1, p.y - height, p.y)) { p.x = b.x + b.w + 12; p.vx = glidingBehind(p, world, b, -1) }
   }
@@ -1569,10 +1822,13 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   p.vy -= Math.sign(p.vy) * excessTravel * (1 - Math.exp(-passiveDrag * powered * dt))
   p.y += p.vy * dt; p.grounded = false
   if (support) { p.y = support.y; p.vy = 0; p.grounded = true }
+  // A weightless roll turns the body over its middle, so a standing head's headroom does not apply: the feet swinging
+  // up toward a ceiling are not the head meeting it. The turned hull's sweep (stepPlayer) meets surfaces instead.
   // A corner buried in a neighbouring piece is a seam in the ground, not a wall to miss.
   const bareCorner = (b: Platform, x: number, y: number, side: number) =>
     !platforms.some(other => other !== b && pointInside(other, x + side * .5, y + .5))
   const land = (surface: GroundSurface) => {
+    if (!wasGrounded && weightless) absorbWeightlessArrival(p, p.vx, p.vy, surface.angle, dt)
     if (!wasGrounded) {
       absorbLanding(p, p.vy)
       const cos = Math.cos(surface.angle), sin = Math.sin(surface.angle)
@@ -1602,7 +1858,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         // A missed corner is a side contact, not support under empty space.
         p.x = p.x < b.x ? b.x - 12 : b.x + b.w + 12; p.vx = 0
       }
-    } else if (p.vy < 0 && oldY - height >= b.y + b.h - .1 && p.y - height <= b.y + b.h) {
+    } else if (!rolling && p.vy < 0 && oldY - height >= b.y + b.h - .1 && p.y - height <= b.y + b.h) {
       p.y = b.y + b.h + height; p.vy = 0
     }
   }

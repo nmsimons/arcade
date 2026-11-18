@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
-import { addItem, itemBounds, moveItem, resizeItem, setPressurePlateFacing } from '../src/games/jumping/editor.ts'
+import { addItem, flipWallPlate, itemBounds, moveItem, resizeItem, setPressurePlateFacing } from '../src/games/jumping/editor.ts'
 import { propPressesWallPlate } from '../src/games/jumping/wallPlates.ts'
 
 const steps = (run, frames, input = NEUTRAL_INPUT) => { for (let i = 0; i < frames; i++) stepRun(run, input) }
@@ -76,7 +76,22 @@ test('the studio turns a floor plate onto the nearest wall face, snaps moves to 
   assert.equal(level.triggers[0].w, 150)
   level = setPressurePlateFacing(level, 0, 'up')
   assert.equal(level.triggers[0].facing, undefined)
-  // A click beside a wall, away from floors and ceilings, places a wall plate.
-  const placed = addItem({ ...level, triggers: [] }, 'plate', { x: 1010, y: 760 }, { x: 1010, y: 760 })
-  assert.deepEqual([placed.level.triggers[0].facing, placed.level.triggers[0].x], ['right', 1000])
+})
+
+test('the vertical pressure plate tool snaps to the nearest wall face, and Flip horizontally moves it across its wall', () => {
+  const base = blankTrial()
+  base.platforms = [{ x: 900, y: 600, w: 100, h: 320 }]
+  // Beside the pillar's right face, the plate faces right on it; beside its left face, left.
+  let level = addItem(base, 'vertical-plate', { x: 1008, y: 760 }, { x: 1008, y: 760 }).level
+  assert.deepEqual([level.triggers[0].facing, level.triggers[0].x, level.triggers[0].y], ['right', 1000, 710])
+  assert.equal(addItem(base, 'vertical-plate', { x: 893, y: 760 }, { x: 893, y: 760 }).level.triggers[0].facing, 'left')
+  // In open air it faces right where it was clicked.
+  assert.deepEqual([addItem(base, 'vertical-plate', { x: 400, y: 500 }, { x: 400, y: 500 }).level.triggers[0].facing,
+    addItem(base, 'vertical-plate', { x: 400, y: 500 }, { x: 400, y: 500 }).level.triggers[0].x], ['right', 400])
+  level = flipWallPlate(level, 0)
+  assert.deepEqual([level.triggers[0].facing, level.triggers[0].x], ['left', 900], 'onto the far face of the pillar')
+  level = flipWallPlate(level, 0)
+  assert.deepEqual([level.triggers[0].facing, level.triggers[0].x], ['right', 1000])
+  // The ordinary plate tool stays on floors and ceilings beside a wall.
+  assert.equal(addItem(base, 'plate', { x: 1010, y: 760 }, { x: 1010, y: 760 }).level.triggers[0].facing, undefined)
 })

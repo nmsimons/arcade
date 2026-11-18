@@ -57,7 +57,7 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'pipe' | 'wall-stripes' | 'loose-panel' | 'grade-gate'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'vertical-plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'vertical-gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'pipe' | 'wall-stripes' | 'loose-panel' | 'grade-gate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -504,6 +504,27 @@ export function setGravityPlateFacing(level: JumpLevel, index: number, facing: P
   if (facing === 'down') plate.ceiling = true
   if (facing === 'left' || facing === 'right') plate.facing = facing
   return next
+}
+/** How far a vertical plate tool's click looks across for a wall face to stand on. */
+const WALL_SNAP = 40
+/** The nearest exposed vertical terrain face, of either facing, within `reach` of `x` along a span. */
+function nearestWallFace(level: JumpLevel, x: number, top: number, length: number, reach: number) {
+  return (['right', 'left'] as const).flatMap(facing => { const face = wallPlateSurface(levelTerrain(level), x, top, length, facing, reach); return face ? [{ ...face, facing }] : [] })
+    .sort((a, b) => a.delta - b.delta)[0] ?? null
+}
+/** Flip a wall pressure plate to face the other way: onto the far face of the solid it is mounted on, when there
+ * is one beside it, or in place. The vertical counterpart of Flip vertically. */
+export function flipWallPlate(level: JumpLevel, index: number): JumpLevel {
+  const plate = level.triggers?.[index]
+  if (!plate || plate.mode === 'coins' || !plate.facing) return level
+  const facing = plate.facing === 'left' ? 'right' : 'left', into = plate.facing === 'left' ? 1 : -1
+  // The far face lies inside the solid's direction from this face: search that way only.
+  const far = wallPlateSurface(levelTerrain(level), plate.x, plate.y, plate.w, facing, 4000, into)
+  const next = copyLevel(level), copy = next.triggers![index]
+  if (copy.mode === 'coins') return level
+  copy.facing = facing
+  if (far) copy.x = far.x
+  return carryWallTerminals(level, next)
 }
 /** Turn a pressure plate onto a floor, a ceiling, or a wall face, pivoting on its middle and snapping to a nearby face. */
 export function setPressurePlateFacing(level: JumpLevel, index: number, facing: PlateFacing): JumpLevel {
@@ -1234,6 +1255,25 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1, ...(water ? { effect: 'water' } as const : {}), ...(ceiling ? { ceiling: true } : {}) })
     return { level: trial, selection: { kind: 'gravity-plate', index: plates.length - 1 } }
   }
+  if (tool === 'vertical-gravity-plate') {
+    // The emitter stands on a wall and the field pulls sideways. A click marks the field's top: it fills down to the
+    // floor beside the wall and across to the room's far side, so whatever stands by the wall is in it, as a floor
+    // plate's click fills up to the ceiling. A drag sets the rectangle, with the emitter on the side it started from.
+    const trial = asTrial(next), plates = trial.gravityPlates ??= []
+    if (plates.length >= MAX_GRAVITY_PLATES) throw new Error('This level already has 16 gravity or water fields.')
+    const dragged = Math.hypot(end.x - start.x, end.y - start.y) >= 20
+    const probe = nearestWallFace(trial, start.x, start.y, 40, WALL_SNAP)
+    const beside = probe ? probe.x + (probe.facing === 'right' ? 1 : -1) * 13 : start.x
+    const floor = dragged ? null : groundAt(levelTerrain(trial), beside, start.y, levelHeight(trial))
+    const h = Math.min(levelHeight(trial), dragged ? Math.max(40, Math.abs(end.y - start.y)) : Math.max(40, (floor?.y ?? levelHeight(trial)) - start.y))
+    const top = clamp(dragged ? Math.min(start.y, end.y) : start.y, 0, levelHeight(trial) - h)
+    const wall = nearestWallFace(trial, start.x, top, h, WALL_SNAP)
+    const facing = wall?.facing ?? (dragged && end.x < start.x ? 'left' : 'right'), emitter = wall?.x ?? start.x
+    const w = Math.min(trial.width, dragged ? Math.max(40, Math.abs(end.x - start.x)) : Math.max(40, facing === 'right' ? trial.width - emitter : emitter))
+    const left = clamp(facing === 'right' ? emitter : emitter - w, 0, trial.width - w)
+    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: 1, facing })
+    return { level: trial, selection: { kind: 'gravity-plate', index: plates.length - 1 } }
+  }
   if (tool === 'wall-light') {
     const trial = asTrial(next), lights = trial.wallLights ??= []
     if (lights.length >= MAX_WALL_LIGHTS) throw new Error('This level already has 40 wall lights.')
@@ -1347,7 +1387,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       w: DIGITAL_DISPLAY_WIDTH, display: 'digital', mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
-  if (['goal', 'box', 'branded-box', 'ball', 'carried-emp', 'repulsor', 'pusher', 'repulsorbot', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
+  if (['goal', 'box', 'branded-box', 'ball', 'carried-emp', 'repulsor', 'pusher', 'repulsorbot', 'plate', 'vertical-plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
     // New objects follow the authored point. The canvas applies nearby surface
     // snapping separately, so Snap off and Alt also preserve the cursor's height.
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
@@ -1378,17 +1418,19 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
       const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
       const left = clamp(point.x - 50, 0, trial.width - 100)
-      const surface = plateSurface(plateSolids(trial), left, 100, point.y, 12), ceiling = !!surface?.ceiling
-      // Beside a wall and clear of any floor or ceiling, the plate goes on the wall's face.
-      const wall = surface ? null : (['right', 'left'] as const).map(facing => ({ facing, face: wallPlateSurface(levelTerrain(trial), point.x, point.y - 50, 100, facing, 12) }))
-        .filter(option => option.face).sort((a, b) => a.face!.delta - b.face!.delta)[0]
-      if (wall) {
-        trial.triggers.push({ ...snapWallPlate(trial, { x: wall.face!.x, y: point.y - 50, w: 100, facing: wall.facing }), targets: nearest ? [nearest.id] : [], mode: 'touch' })
-        return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
-      }
+      const ceiling = !!plateSurface(plateSolids(trial), left, 100, point.y, 12)?.ceiling
       trial.triggers.push({ x: left, y: clamp(point.y, ceiling ? 0 : 8, levelHeight(trial) - (ceiling ? 8 : 0)), w: 100,
         targets: nearest ? [nearest.id] : [], mode: 'touch', ...(ceiling ? { ceiling: true } : {}) })
       attachPressurePlateOnSurface(trial, trial.triggers.at(-1)!)
+      return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
+    }
+    if (tool === 'vertical-plate') {
+      // A plate on a wall face, the vertical counterpart of the floor and ceiling plate. Snap picks the nearest face
+      // and so its facing; in open air it faces right, ready to be moved onto a face.
+      if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
+      const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
+      const top = point.y - 50, wall = nearestWallFace(trial, point.x, top, 100, WALL_SNAP)
+      trial.triggers.push({ ...snapWallPlate(trial, { x: wall?.x ?? point.x, y: top, w: 100, facing: wall?.facing ?? 'right' }), targets: nearest ? [nearest.id] : [], mode: 'touch' })
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }
     if (tool === 'lift' || tool === 'moving-platform' || tool === 'gate' || tool === 'horizontal-gate') {

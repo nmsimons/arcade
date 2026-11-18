@@ -32,8 +32,9 @@ export function plateSurface(solids: readonly Platform[], left: number, width: n
 }
 
 /** The exposed vertical terrain face nearest a wall plate, facing its way and long enough to hold
- * part of it, within `reach` across the face. Wall plates never mount on moving machinery. */
-export function wallPlateSurface(solids: readonly Platform[], faceX: number, top: number, length: number, facing: 'left' | 'right', reach = 12) {
+ * part of it, within `reach` across the face, and only on the `beyond` side of `faceX` when given.
+ * Wall plates never mount on moving machinery. */
+export function wallPlateSurface(solids: readonly Platform[], faceX: number, top: number, length: number, facing: 'left' | 'right', reach = 12, beyond?: 1 | -1) {
   const side = facing === 'right' ? 1 : -1
   let best: { x: number; delta: number } | null = null
   for (const solid of solids) {
@@ -45,7 +46,7 @@ export function wallPlateSurface(solids: readonly Platform[], faceX: number, top
       const overlap = Math.min(top + length, Math.max(a[1], b[1])) - Math.max(top, Math.min(a[1], b[1]))
       if (overlap < Math.min(20, length)) continue
       const x = (a[0] + b[0]) / 2, delta = Math.abs(x - faceX)
-      if (delta > reach || best && delta >= best.delta) continue
+      if (delta > reach || best && delta >= best.delta || beyond && (x - faceX) * beyond <= 0) continue
       const footprint = { x: side > 0 ? x : x - 8, y: Math.max(top, Math.min(a[1], b[1])), w: 8, h: overlap }
       if (solids.some(other => polygonIntersects(polygonPoints(footprint), other, .02))) continue
       best = { x, delta }

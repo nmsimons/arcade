@@ -202,6 +202,7 @@ function walk(p: Player, visit: Visit, allRopes: boolean, mapContacts: boolean, 
   for (const palm of p.shove?.contact ?? []) if (once(palm)) lengths(palm, 'x', 'y')
   lengths(p.sliding, 'x', 'y', 'balanceSpeed')
   lengths(p.jumpLift, 'entrySpeed', 'extraSpeed')
+  lengths(p.rebound, 'speed')
   lengths(p.wallBrace, 'wallX', 'wallY')
   if (p.climbing) climb(p.climbing)
   if (allRopes) for (const value of p.ropes ?? []) rope(value)

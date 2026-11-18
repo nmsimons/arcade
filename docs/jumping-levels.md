@@ -1565,12 +1565,13 @@ For example, a member is `{ "mode": "weight", "behavior": "toggle",
 "toggleGroup": "doors", "x": 120, "y": 920, "w": 100,
 "targets": ["exit"] }`.
 
-**Facing** puts a pressure plate on a floor (faces up), a ceiling (faces down) or a
-wall face (faces left or right). A wall plate is pressed by contact rather than weight:
-a body leaning, braced or standing against it, palms pushing it, or a box or ball held
-against it. Clicking the plate tool beside a wall, away from any floor or ceiling,
-places a wall plate; moving one snaps it to the nearest terrain face pointing its way,
-and its length is resized along the face. The file stores optional `facing: "left"`
+**Vertical pressure plate** is the wall version of the plate, a separate tool as
+vertical and horizontal gates and force fields are. It sits on a wall face and is pressed
+by contact rather than weight: a body leaning, braced or standing against it, palms
+pushing it, or a box or ball held against it. A click snaps it to the nearest face, which
+sets the way it faces; in open air it faces right. Moving it snaps it to the nearest
+terrain face pointing its way, its length is resized along the face, and **Flip
+horizontally** moves it to the far face of its wall. The file stores optional `facing: "left"`
 or `"right"`, with `x` the face, `y` the plate's top and `w` its length down the face
 (40–240). Wall plates take no `ceiling` or `mount`. For example:
 `{ "mode": "touch", "facing": "left", "x": 900, "y": 820, "w": 90, "targets": ["exit"] }`
@@ -1643,14 +1644,18 @@ The rectangle stays inside the room, has a minimum width and height of 40 units,
 and can extend through the full room height. There is no smaller device-specific
 height or width limit. The plate and field add no solid collision geometry.
 
-**Emitter** picks the rectangle edge holding the emitter. On the bottom or top edge
-(`ceiling: true`) the field pulls vertically as described here. On the left or right
-edge (`facing: "right"` or `"left"`, the way the emitter faces) the field pulls
-sideways instead: positive gravity toward the emitter's edge, negative away from it,
+**Vertical gravity plate** is the wall version of the gravity plate, a separate tool.
+Its emitter stands on the left or right edge of the rectangle (`facing: "right"` or
+`"left"`, the way the emitter faces). A click beside a wall stands the emitter on that
+face: the click marks the field's top, and it fills down to the floor beside the wall
+and across to the room's far side, so whatever stands by the wall is inside it. A drag
+sets the rectangle, with the emitter on the side it started from. Like other gravity
+plates it starts Switched, so it does nothing until it is set to Always on or wired. **Flip horizontally** moves the emitter to the
+other side edge. The field pulls sideways instead of down: positive gravity toward the emitter's edge, negative away from it,
 replacing ordinary gravity inside the rectangle. Props and ropes fall sideways, and the
 player turns a quarter in the air and stands on whichever wall the pull carries them
-to, walking along it with Left and Right turned with the body (Right walks up a
-right-hand wall), jumping off it and falling back. Ledges, ladders, ropes and pushing
+to, walking up and down it with Up and Down, crouching into it by pressing toward it,
+jumping off it and falling back. Ledges, ladders, ropes and pushing
 are not available from a wall. A sideways field may not overlap water. See
 [wall footing](jumping-physics.md#sideways-fields-and-wall-footing).
 

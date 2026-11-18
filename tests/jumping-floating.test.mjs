@@ -351,8 +351,9 @@ test('swimming coverage fades at field edges, overlapping regions average, and E
   assert.ok(Math.abs(playerSwimStrength(field, p) - .5) < 1e-8)
 })
 
-test('Up and Down do not provide free-flight steering in gravity plates', () => {
-  for (const gravity of [-1, 0, .1, 1]) {
+test('Up and Down do not provide free-flight steering in gravity plates with weight', () => {
+  // Weightless fields steer with the boots instead (jumping-zero-gravity.test.mjs).
+  for (const gravity of [-1, .1, 1]) {
     const field = fieldFor([pool({ y: 0, h: 920, gravity })]), players = []
     for (const input of [NEUTRAL_INPUT, { ...NEUTRAL_INPUT, climb: true }, { ...NEUTRAL_INPUT, descend: true }]) {
       const p = createPlayer({ x: 500, y: 500 }); p.grounded = false; p.coyote = 0

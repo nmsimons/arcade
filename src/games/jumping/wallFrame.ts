@@ -1,4 +1,4 @@
-import type { Platform, Player } from './model.ts'
+import type { JumpInput, Platform, Player } from './model.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import type { Footwork } from './footwork.ts'
 import { polygonPoints } from './geometry.ts'
@@ -8,9 +8,9 @@ import { disablePlatformLedges, platformLedgesDisabled } from './terrainLedges.t
 /**
  * Footing on a wall. A sideways gravity field (gravity.ts) can turn the player until a wall is underfoot: `p.wall`
  * names the side gravity pulls toward. The ordinary controller then runs in a frame turned a quarter so that wall
- * is its floor, exactly as the reflected frame (gravityFrame.ts) serves a ceiling. Left and Right walk along the
- * wall, turned with the body: on a right-hand wall Right walks up, on a left-hand wall Right walks down, so a run
- * that carries the player onto a wall keeps going the same way.
+ * is its floor, exactly as the reflected frame (gravityFrame.ts) serves a ceiling. Controls stay screen-relative, as
+ * they are on a ceiling (`wallInput`): Up and Down walk up and down the wall, the direction toward the wall crouches
+ * into it, and the direction away stands and looks out.
  *
  * The frame is a rotation, not a reflection, so it is not its own inverse. `toLocal` enters it and `toWorld` leaves:
  * a right-hand wall enters with (x, y) → (−y, x), a left-hand wall with (x, y) → (y, −x). Point pairs, vectors,
@@ -150,6 +150,19 @@ export function changeWallFrame(p: Player, wall: Wall | undefined) {
   p.groundAngle = wallFrameAngle(wall)
   // The height a jump is measured from is a line across the new floor: the feet's height above it.
   p.jumpStart = wall ? p.x : p.y
+}
+
+/**
+ * Screen controls for a body on a wall, in the wall frame's terms. Up and Down walk along the wall; pressing toward the
+ * wall is the frame's Down (crouch, as Up crouches toward a ceiling) and pressing away from it is the frame's Up.
+ * Jump, detach and every other control pass through unchanged.
+ */
+export function wallInput(input: JumpInput, wall: Wall): JumpInput {
+  const up = !!input.climb, down = !!(input.descend ?? (input.drop && !input.detach))
+  const along = (up ? 1 : 0) - (down ? 1 : 0), toward = wall === 'right' ? 1 : -1
+  const into = input.move * toward > .5, out = input.move * toward < -.5
+  // On a right-hand wall the frame's +x runs up the screen; on a left-hand wall, down it.
+  return { ...input, move: along * toward, climb: out, crouch: into, descend: into, drop: into || !!input.detach && !!input.drop }
 }
 
 let active: Wall | undefined

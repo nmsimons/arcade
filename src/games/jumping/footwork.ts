@@ -317,6 +317,20 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     return foot
   }
   const previous: Footwork = p.anim.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
+  // Without weight nothing walks: a body gliding on its feet, skating on its boots or sliding on frictionless footing,
+  // carries them along where they stand, across the surface it glides on.
+  if (traveling && (p.weightless ?? 0) > 0) {
+    const shift = p.x - oldX
+    const feet = previous.feet.map(foot => {
+      const anchorX = foot.anchorX + shift, ground = groundAt(platforms, anchorX, p.y)
+      const moved: FootContact = { ...foot, anchorX, anchorY: ground?.y ?? foot.anchorY, groundY: ground?.y ?? foot.groundY,
+        groundAngle: ground?.angle ?? foot.groundAngle, angle: ground ? ground.angle * foot.facing : foot.angle, settle: null, release: null }
+      plantFoot(moved, platforms, p.y, p.x)
+      return moved
+    }) as Footwork['feet']
+    p.anim.footwork = settleFeet(p, { ...previous, feet, moving: false }, dt, platforms, 0)
+    return
+  }
   if (!traveling || p.crouch > 0 || p.pushing?.effort) { p.anim.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing); return }
   const rephased = traveling && (!previous.moving || previous.facing !== p.facing)
   const beforeCycle = p.anim.stride * p.facing

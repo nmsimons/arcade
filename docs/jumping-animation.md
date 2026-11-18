@@ -105,6 +105,7 @@ these pose queries, which Phase 4 replaces:
 - `model.ts`: `athletePose`, `dryLedgeReach`, `dryLedgeReachPose` and `swimmingLedgeReach` for ledge reach.
 - `playerContacts.ts` and `propPhysics.ts`: the swimming outline and swimming push hands; `dryPreparationFacesForward` and `retainInterruptedStepPose` for push anticipation.
 - `actorImpulse.ts`: `startImpactRagdoll` when a shove or impulse knocks a body down.
+- `model.ts`: `captureFloatEntry` (the standing rig before a weightless push-off) and `captureFloatTurn` (the unleaned float pose and lean a weightless feet-first roll starts from); see the weightless float below.
 
 The direct `model.ts` and `athlete.ts` cycle is gone. A wider runtime cycle
 remains: `model.ts` calls the animation, and shared helpers that the poses use
@@ -378,3 +379,94 @@ or `Player.anim`.
 - Only the head turns. Profile shows the near eye as an oval; full face shows
   both eyes round (`androidEyes`). A head with its back to the camera
   (`backView`) shows only its skull.
+
+## After the split: the weightless float
+
+A free body in lasting weightlessness is drawn floating (`floatingFree` in
+`poses/waterPose.ts`, November 17, 2026): the relaxed swimming rig with no
+strokes, turned about its middle by a lean. The state is `Player.anim.float`,
+advanced in `advanceFloatAnimation` (`athleteAnimation.ts`); nothing in the
+step reads it except the two captures below.
+
+- The lean is a damped spring (natural frequency 6 rad/s, damping 0.75) toward
+  where the body is going, measured in its drawn frame (a wall's quarter turn
+  undone, then the ceiling mirror and the facing): the travel, scaled by speed,
+  plus the boots' thrust at 0.8 (eased over 0.1 seconds; trim puffs excluded), so
+  the body shows what is asked before the drift turns. The spring chases an aim
+  eased over 0.12 seconds, so no change of target kicks it. A body about to land
+  eases back upright: one its drift will carry onto a surface, or one the boots
+  are pushing back onto the surface under its feet, as after a rebound.
+- The float is never still. Whatever the speed, the arms and legs drift about
+  their joints out of step (hands and feet move 5 to 8 units) and the waist
+  breathes, on a slow cycle that runs on through blends. Each change in the
+  boots' thrust kicks the legs: a spring that flexes the knees and draws the
+  thighs up, peaking near 0.7 and settling in about 0.4 seconds. A roll keeps
+  the kick and cycle it started with. Thrust is felt in the body's frame, so
+  landing in another frame takes the felt thrust over rather than kicking.
+- The head looks where the body is going: the face turns toward the travel and
+  the thrust before the trunk does, at most 19 degrees about the base of the
+  neck, eased over 0.1 seconds. Tipping head-first lifts the chin rather than
+  ducking the crown; travel behind the face lets the head go. At rest the float
+  lifts the swimming rig's forward head by about 10 degrees.
+- Turning, it bends at the waist (0.14 rad per rad/s of lean speed, at most 0.5):
+  the chest leads and the legs trail. About 40 percent of the idle sway stays at
+  any speed, answering an eased copy of the drift so a landing's sudden stop
+  does not jolt it. The float rig takes no terrain clearance: it would fit the unleaned
+  rig and lift the feet off a surface just before landing.
+- The pose blends in and out over 0.2 seconds against the ordinary pose.
+  Leaving a weightless surface it grows out of the stance the body pushed from
+  (`captureFloatEntry`, taken lazily before each step while standing
+  weightless), mirrored if the push turned it.
+- A change of facing in the air turns through the mirrored previous pose over
+  0.28 seconds instead of flipping. Handedness, not facing, decides it: the
+  ceiling mirror swaps facing without changing what is drawn.
+- A feet-first roll toward a surface (`orientInFlight` in `model.ts`) is drawn
+  by `releaseTurnPose` from `captureFloatTurn`: the pose drawn at that moment
+  (whatever is still fading in it) with its lean and bend taken out, rolled and
+  tucked a little through the middle, unwinding the lean and bend it started
+  with, so the roll is one eased rotation from what was on screen. The turn the
+  lean spring was making carries on into it and dies away over about 0.12
+  seconds (`floatRollLean`), so the turning speed has no kink as it starts. The float
+  follows the roll's remaining lean, so a roll turned back hands over what it
+  shows, and when the roll ends the float fades from the roll's last pose as it
+  does after a change of facing. The captured lean is taken within a half-turn,
+  so a roll never adds a spin the drawing did not show.
+- Head-first at a surface, the body tucks and flips forward onto its feet (the
+  head toward the chest), as a swimmer turns at a wall, rather than rolling back
+  over. A roll drawn within 45 degrees of a half-turn either way
+  (`FLOAT_FLIP_REACH`) adds a whole turn to the drawing (`over`, chosen by
+  `captureFloatTurn` and drawn through `floatRollLean`) while the hull turns the
+  short way, so physics is the same with or without animation. Diving at the
+  footing it already has, the lean spring carries on forward to upright a whole
+  turn on (`flipTo`) instead of swinging back. The lean is then kept within a
+  half-turn of upright.
+- Absorbing a hit, the float sinks onto its feet as the standing pose would
+  (`sinkOntoFeet`): the knees bend in step with the crouch, the thighs swinging
+  back half as far so each foot stays under its hip and flat, and the body sinks
+  by however much that draws the feet up. Bending by angle rather than solving
+  to a reach, a nearly straight leg never hesitates over which way to fold, and
+  the bend shows from the touch while the float fades out. A body that leaves
+  again before the float has faded (a rebound's push) grows the float out of
+  what was drawn, the stance and the fading float together, and that stance
+  moves on with the float (`flip.base`) rather than holding, so the straightening
+  knees never pause as the feet leave. Off the surface the body's drawn sink eases
+  off over a quarter second (`sinkHold`) behind the crouch: the legs finish
+  straightening by reaching back past where the feet were, not by shoving the
+  body on.
+- A body moving along a surface without weight glides on planted feet: the gait
+  sees no speed, and the footwork carries the planted feet with the body across
+  the surface (`advanceFootwork`), so a skate or a frictionless glide never
+  steps. Skating (a direction held along the surface) stands tall; Down alone
+  crouches.
+- Palms braced on a wall keep their brace pose; the float yields to it.
+- Floating, the boot plumes leave the soles and vector toward the exhaust by at
+  most 72 degrees (`airBoosters.ts`); they share the athlete's wall rotation,
+  mirror and size. They are longer and brighter than in weight, reaching about
+  11.5 units at full thrust. Trimming a slow drift, the boots give small puffs
+  rather than a steady burn: every 0.45 seconds a soft cloud, bright at its heart
+  and fading out at its edge, leaves each sole, swells as it drifts clear and
+  thins away over 0.3 seconds.
+
+The lab in `.local/zerog-lab/` (not in Git) measures pose snaps and body turn
+rates per scripted scenario and renders filmstrips.
+

@@ -7,6 +7,7 @@ import { sampleStride } from '../footwork.ts'
 import { BACK_GRIP, BACK_WRIST, FRONT_GRIP, FRONT_WRIST } from '../ledge.ts'
 import type { Limb, Point } from '../limbPose.ts'
 import { solidTopAt } from '../terrain.ts'
+import { TUNING } from '../movementTuning.ts'
 import { landingPreparation } from './fallPose.ts'
 import { clearLedgeReach, grippingArm } from './ledgePose.ts'
 import { slidingPose, wallBraceSharesSlide } from './slidingPose.ts'
@@ -38,7 +39,9 @@ export function locomotionPose(p: Player): AthletePose {
   const preparationOffset = p.grounded && !p.contacts?.push?.hands && !p.pushing?.effort && p.pushing
     ? Math.max(0, (p.pushing.wallX - p.x) * p.pushing.direction - 38) : 0
   const gait = moving * (1 - p.crouch) * (1 - air) * (1 - bodyPush)
-  const squat = p.crouch
+  // Without weight the crouch is a spring in the legs, absorbing a hit and pushing off: it eases in and out, by its own
+  // spring once the body is settled weightless (model.ts springCrouch).
+  const squat = p.crouchRate === undefined && Math.abs(p.gravity ?? TUNING.gravity) < TUNING.gravity * .05 ? smooth(p.crouch) : p.crouch
   // Walking loads the knee after heel contact, passes over the foot, then
   // rises before the next contact. Carry the walking chest and head with
   // that knee compression so the weight transfer reads at gameplay scale.

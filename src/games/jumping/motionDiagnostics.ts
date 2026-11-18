@@ -22,7 +22,7 @@ function snapshot(p: Player, input: JumpInput, time: number) {
       ragdoll: p.anim.ragdoll?.kind ?? null,
       support: p.contacts?.support?.collider.id ?? null, push: p.contacts?.push?.collider.id ?? null,
     },
-    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.anim.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0,
+    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.anim.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0, float: p.anim.float?.blend ?? 0,
       ceiling: p.waterMotion?.ceiling?.amount ?? 0, gravityTurn: playerTurnAngle(p),
       ragdoll: p.anim.ragdoll ? 1 - Math.min(1, p.anim.ragdoll.time / p.anim.ragdoll.duration) : 0 },
     contacts: {

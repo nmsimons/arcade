@@ -11,8 +11,6 @@ import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, reme
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
-import { plateFacing } from './wallPlates'
-import type { PlateFacing } from './wallPlates'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { setLoosePanel, setPipe, setWallStripes } from './editor'
 import { PANEL_CONTENTS, PANEL_HANGS, loosePanelRect } from './wallLoosePanels'
@@ -76,7 +74,7 @@ import type { GroundCover } from './terrainGroundCover'
 import { switchedItems, switchSources, switchTargets, switchItemLabel, wallWiringItems } from './switchPower'
 import { waterControlId } from './waterLevel'
 import { drawLogicRelay } from './logicRelay'
-import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPressurePlateFacing, setGravityPlateFacing, setPlateCeiling, setGravityPlateEffect, setWaterControl } from './editor'
+import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, flipWallPlate, setGravityPlateFacing, setPlateCeiling, setGravityPlateEffect, setWaterControl } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
@@ -153,8 +151,10 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'force-field', group: 'Mechanisms', label: 'Vertical force field', help: 'Click or drag vertically to place a barrier. Choose Blue to block only the player, or Red to let the player through and block objects. End handles change its length. Always on and Switched both obey EMP.' },
   { id: 'horizontal-force-field', group: 'Mechanisms', label: 'Horizontal force field', help: 'Click or drag horizontally to place a barrier. Blue supports the player; Red supports objects and lets the player through. End handles change its length. Always on and Switched both obey EMP.' },
   { id: 'gravity-plate', group: 'Mechanisms', label: 'Gravity plate', help: 'Click to place a field above a floor plate or below a ceiling plate, or drag its rectangle. Flip vertically changes the emitter edge without changing Gravity: −1 reverses gravity, 0 removes it, 1 is normal. Choose Always on or connect switches to power it. Partially covered bodies blend gravity by area; overlapping fields average their settings. EMP disables the field.' },
+  { id: 'vertical-gravity-plate', group: 'Mechanisms', label: 'Vertical gravity plate', help: 'Click beside a wall to stand the emitter on it: the field fills from the click down to the floor and across to the far side. Or drag its rectangle. Like other gravity plates it starts Switched; choose Always on or connect a switch. The field pulls sideways: positive Gravity toward the emitter, negative away. Bodies fall onto the wall and the player walks on it. Flip horizontally moves the emitter to the other edge.' },
   { id: 'water', group: 'Mechanisms', label: 'Water', help: 'Drag a semi-transparent blue rectangle, or click to fill down to the floor. Water is always present. Fixed buoyancy lets bodies settle partly submerged. Up and Down swim; Jump at the surface helps you get out.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click to place a pressure plate at the cursor. Snap catches nearby surfaces. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
+  { id: 'vertical-plate', group: 'Mechanisms', label: 'Vertical pressure plate', help: 'Click beside a wall to put a plate on its face. Contact presses it: a body leaning or braced on it, palms pushing it, or a box or ball held against it. Moving it snaps to the nearest face; Flip horizontally moves it to the other side of its wall.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
   { id: 'float-switch', group: 'Mechanisms', label: 'Float switch', help: 'A buoyant ball on a hinged arm. Water or a gravity lift raises it. Choose Raised or Lowered activation and connect its outputs.' },
   { id: 'logic-relay', group: 'Mechanisms', label: 'Logic relay', help: 'Place a studio-only logic node. Combine switches with OR, AND or XOR, optionally reverse the result, then connect its Activates outputs. Invisible during play, with no physical behavior.' },
@@ -1441,20 +1441,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
                 value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? gradeGate?.y ?? floatSwitch?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? gradeGate?.x ?? floatSwitch?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
             })}
           </div>
-          {trigger && trigger.mode !== 'coins' && <>
-            <BuilderSelect label="Facing" accessibleLabel="Pressure plate facing" value={plateFacing(trigger)}
-              options={[{ value: 'up', label: 'Floor (faces up)' }, { value: 'down', label: 'Ceiling (faces down)' }, { value: 'left', label: 'Wall (faces left)' }, { value: 'right', label: 'Wall (faces right)' }]}
-              onChange={value => commit(setPressurePlateFacing(history.present, selection.index, value as PlateFacing))} />
-          </>}
           {trigger && trigger.mode !== 'coins' && !trigger.facing && <>
             <BuilderSelect label="Mount" accessibleLabel="Pressure plate mount" value={trigger.mount?.mechanism ?? 'none'}
               options={[{ value: 'none', label: 'None' }, ...(level.mechanisms ?? []).flatMap((m, index) => m.kind === 'lift' && m.w >= trigger.w
                 ? [{ value: m.id, label: selectionLabel({ kind: 'mechanism', index }, level, doorName) }] : [])]}
               onChange={value => commit(setPressurePlateMount(history.present, selection.index, value === 'none' ? null : value))} />
           </>}
-          {gravityPlate && gravityPlate.effect !== 'water' && <BuilderSelect label="Emitter" accessibleLabel="Gravity plate emitter edge" value={gravityPlate.facing ?? (gravityPlate.ceiling ? 'down' : 'up')}
-            options={[{ value: 'up', label: 'Bottom edge' }, { value: 'down', label: 'Top edge' }, { value: 'right', label: 'Left edge (pulls sideways)' }, { value: 'left', label: 'Right edge (pulls sideways)' }]}
-            onChange={value => commit(setGravityPlateFacing(history.present, selection.index, value as PlateFacing))} />}
+          {facingPlate?.facing && <button className="builder-property-action" title={gravityPlate ? 'Move the emitter to the other side edge; the field and its strength stay unchanged' : 'Move the plate to the other side of its wall'} aria-pressed={facingPlate.facing === 'left'}
+            onClick={() => commit(gravityPlate ? setGravityPlateFacing(history.present, selection.index, gravityPlate.facing === 'left' ? 'right' : 'left') : flipWallPlate(history.present, selection.index))}>Flip horizontally</button>}
           {facingPlate && !facingPlate.facing && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
             onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</button>}
           {selection.kind === 'goal' && level.goal && !level.goal.kind && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {

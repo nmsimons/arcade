@@ -499,7 +499,8 @@ Every door is entered with Up while the robot stands grounded in its open
 doorway: the exit, and a facility area's level doors and bulkheads. Walking past
 a door never enters it. At the exit, Up held on the way in enters on arrival;
 level doors and bulkheads need a fresh press, because they stand in rows and the
-robot steps out of them. The bus is no door: it is solid, and the robot boards it
+robot steps out of them. Without weight, Up in an open doorway belongs to the door: the boots do not
+lift the robot off its floor there, so it can stand still and go through. The bus is no door: it is solid, and the robot boards it
 by walking into its left side at the stop, as its hands meet it. Its roof and far
 side never board it.
 Each open door shows three faint chevrons stacked in its doorway, with a soft
@@ -1080,9 +1081,9 @@ landing. Coverage includes the actual moving-ball transfer in
 ## Motion continuity and diagnostics
 
 Uninterrupted unsupported travel with gravity beyond 0.9 seconds eases into a
-horizontal prone pose over 0.28 seconds. Upward grav lifts and unsupported
-zero-g floating use the same timing; a weightless player retains the pose even
-after drifting to rest. Entering zero g preserves an existing prone blend.
+horizontal prone pose over 0.28 seconds. Upward grav lifts use the same timing.
+Lasting weightlessness floats instead of falling (see zero g below); a passing
+moment of it, shorter than the settle time, still counts toward the fall.
 Ordinary jump ascent travels against gravity. The descent of an ordinary jump
 does not reach that threshold. Climbing, wall bracing and slope sliding interrupt the fall
 timer. The fall state changes presentation only: steering, grabbing, pushing,
@@ -1345,11 +1346,55 @@ Unspecified weights preserve existing behavior. The retired light preset is
 normalized to ordinary weight on load. Regression coverage is in
 `tests/jumping-prop-weights.test.mjs`.
 
-Unsupported players in the five-percent gravity deadband experience air
-resistance on both velocity axes: exponential drag at 0.6 per second halves
-drift in about 1.16 seconds. Releasing horizontal input retains momentum for
-this gradual slowdown; steering still uses the ordinary air acceleration.
-Grounded and climbing controls retain their existing contact rules. Loose props
+Zero g is gravity, including a sideways pull, within five percent of normal.
+Its handling engages once weightlessness has lasted `zeroGravitySettle`
+(0.04 seconds), so a body crossing a flipping field's edge keeps ordinary flight
+for that step or two. Then:
+
+- Air resistance acts on both axes: velocity decays at `0.15 + 0.0009 * speed`
+  per second, gentle at a drift and firmer at speed. With no thrust, the boots
+  trim a slow drift: up to 0.5 per second more, fading in below 50, drawn as
+  small puffs against it. A 60 nudge still carries about 180 before it stops.
+- Booster boots thrust 320 per second squared toward the held screen direction
+  (Up and Down included) for as long as it is held; only the air limits the
+  speed, near 518 with a direction held. Thrust against the drift brakes twice
+  as hard, never past a stop.
+- Nothing walks. A held direction that does not press into the surface lifts a
+  standing body off it on its boots; one that presses in skates the body along
+  the surface on its boots. Otherwise the feet hold: the drift a slow landing
+  brings dies away within about 0.15 seconds (`zeroGravityGrip`), except on
+  frictionless terrain. Jump pushes off every surface the body touches (floor,
+  wall, ceiling or a corner) at 500, opposite the surface, blended with a held
+  direction that does not press into it.
+- A body heading for a surface rolls feet-first toward it with a released turn
+  into that surface's frame. The arrival is predicted from the air's slowing and
+  any held thrust or braking, measured to where the body would meet the surface
+  feet-first. The roll takes 0.5 to 0.9 seconds and finishes with 0.3 seconds of
+  travel left; one that will arrive sooner than planned hurries (down to 0.18
+  seconds) to finish first. It turns back if the body stops heading there, unless
+  it is already against the surface, where it pivots onto the feet. The hull
+  always turns the short way; a body drawn head-first for the surface flips
+  forward in the drawing only (jumping-animation.md), so physics never depends
+  on animation. During the roll the standing body's rectangle checks are
+  skipped: the turned hull's sweep meets surfaces.
+- Arriving at up to 170, measured across the surface (which may slope), the body
+  lands and stays; feet left a hair off a surface by a roll settle onto it.
+  Faster, however the last step meets the surface, the legs absorb it. Weightless
+  legs are a critically damped spring (`springCrouch`): the hit strikes it so the
+  knees give from the touch, folding deeper the harder the hit (nearly a full
+  crouch from 240), and the fold bottoms out `zeroGravityAbsorbTime` (0.12
+  seconds) later whatever its depth. From the bottom the legs push for 0.05
+  seconds with the feet planted, driving the hip away ever faster, and the feet
+  leave straight out from the surface at 0.35 of the arrival speed; the legs
+  finish straightening in the air. A crouch asked for folds most of the way in
+  0.2 seconds on a stiffer setting of the same spring. Ground under the feet
+  always lands this way rather than bouncing off at contact.
+- A gravity flip turn caught halfway by lasting weightlessness finishes toward
+  the frame it was heading for instead of holding (it would block the float).
+- Gravity sets walking traction: lighter gravity gives less grip to start and
+  stop with.
+
+Grounded and climbing controls otherwise retain their contact rules. Loose props
 retain their existing free-drift behavior.
 
 A free-flight collision in reduced gravity with an unsupported prop, or a
@@ -1361,7 +1406,9 @@ occlude them. Solver substeps recompute remaining closing speed so an impact
 cannot apply its initial momentum repeatedly. Ordinary grounded shoves, bracing
 and gravitational loads continue through the existing contact-force policy.
 This applies to floating props in weak gravity as well as zero gravity.
-Regression coverage lives in `tests/jumping-zero-gravity.test.mjs`.
+Regression coverage lives in `tests/jumping-zero-gravity.test.mjs`; `tests/jumping-zero-gravity-surfaces.test.mjs`
+sweeps arrivals on floors, ceilings, both wall faces, a ramp, a sloping ceiling, a leaning wall and frictionless
+floor, coasting and under thrust, across speeds either side of the stick limit and angles of attack to 60 degrees.
 
 Dry gravity fields change acceleration and preserve velocity through their
 boundaries. An upward field launches the player, balls and boxes beyond its top;
@@ -1403,14 +1450,19 @@ Verlet step. Shovebots keep ordinary gravity.
 The player gains a third footing besides the floor and the ceiling: a wall
 (`src/games/jumping/wallFrame.ts`). `p.wall` names the side gravity pulls toward,
 and the ordinary controller runs in a frame turned a quarter so that wall is its
-floor. Unlike the ceiling's reflection, the frame is a rotation, so controls turn with
-the body: Right walks up a right-hand wall and down a left-hand one, and a run carried
-onto a wall keeps its direction. Inside the frame, the pull across the wall is gravity
+floor. Unlike the ceiling's reflection, the frame is a rotation, but controls stay
+screen-relative as they do on a ceiling (`wallInput`): Up and Down walk up and down the
+wall and steer along it in the air, pressing toward the wall crouches into it (as Up
+crouches toward a ceiling), and pressing away stands and looks out. Inside the frame, the pull across the wall is gravity
 and the pull along it acts on a free body as a sideways acceleration; in the ordinary
 frame a sideways pull likewise accelerates a free body. When the pull along an axis
 clearly wins (by a 1.25 margin, with hysteresis toward the current footing), a free
-body starts a released turn of a quarter (onto or off a wall) or a half (wall to wall),
-lifting off the floor if needed. The turn pivots about the feet with the ordinary
+body starts a released turn of a quarter (between a wall and the floor or a ceiling) or
+a half (wall to wall), lifting off its footing if needed. A turn follows the pull: it
+unwinds if the pull that started it goes, and an ordinary floor/ceiling half-turn that a
+sideways pull catches becomes a turn onto the wall from where it stands, rather than
+waiting for a vertical pull that the field no longer supplies. The pull along a wall acts
+on a free body throughout, including during a turn. The turn pivots about the feet with the ordinary
 released-turn clearance, and the frame changes only when it completes. Position,
 velocity and facing carry across; footwork, contacts, braces, slides and pushes start
 afresh, because a quarter turn changes what a lone wall x or floor y means.
@@ -1426,8 +1478,10 @@ A wall offers free and grounded movement only: walking, running, crouching, slop
 and jumping. Ledge grips, step-ups, ladders, ropes, swimming and
 pushing props are not offered from a wall; ropes keep swinging in the world meanwhile.
 Hanging or climbing bodies keep their grip in a sideways field and do not turn.
-Exits, lift boarding, robot riding and floor plates require ordinary footing. A ceiling
-(reflected) body does not hand off directly to a wall. Coverage lives in
+Exits, lift boarding, robot riding and floor plates require ordinary footing. A quarter
+turn between a wall and a ceiling also crosses between the turned frame and the
+ceiling's reflected frame, so it reverses the facing, as the reflected frame's own
+half-turn does. Coverage lives in
 `tests/jumping-sideways-gravity.test.mjs`.
 
 ### Buoyant lever switches

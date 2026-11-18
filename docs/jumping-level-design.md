@@ -302,8 +302,8 @@ each needs its first appearance to be safe and readable:
   a wall the player walks), not where a press needs a pixel-exact lean.
 - **Sideways fields** turn walls into floors. Teach them where falling sideways
   lands on something safe, with the field's edge visible, before asking for a jump
-  between two walls or a walk off the field's end. Remember that Left and Right
-  turn with the body; a short wall walk with an obvious goal teaches it. Ledges,
+  between two walls or a walk off the field's end. On a wall Up and Down walk along
+  it, as the screen shows; a short wall walk with an obvious goal teaches it. Ledges,
   ladders, ropes and pushing are unavailable from a wall, so do not place a required
   grip or crate on a wall route.
 

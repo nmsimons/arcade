@@ -116,6 +116,10 @@
     {
       "file": "rampingup.jump-level.json",
       "reason": "The ladder moved (810ffe9); the recorded route climbed it where it was and now replays on that captured layout. A fresh-start medal route on the new layout has not yet been recorded."
+    },
+    {
+      "file": "updraft.jump-level.json",
+      "reason": "Being reworked in the studio (November 17: a zero-g room and further lifts), and zero g now flies on booster boots. The former A route no longer reaches the exit; a fresh-start medal route and timing audit are pending once the layout settles."
     }
   ],
   "runs": [
@@ -1818,41 +1822,62 @@
     {
       "file": "drift.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 3.7583333333333226,
-      "activeTime": 4.616666666666686,
+      "elapsed": 4.733333333333358,
+      "activeTime": 5.591666666666734,
       "coins": 0,
       "trace": [
         {
-          "frames": 85,
+          "frames": 68,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 24,
+          "frames": 6,
           "input": {
             "move": 1,
+            "climb": true,
             "jump": true
           }
         },
         {
-          "frames": 222,
+          "frames": 154,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 128,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 82,
-          "input": {}
+          "frames": 133,
+          "input": {
+            "drop": true,
+            "descend": true,
+            "crouch": true,
+            "move": -1
+          }
         },
         {
-          "frames": 141,
+          "frames": 29,
+          "input": {
+            "drop": true,
+            "descend": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 153,
           "input": {
             "move": 1,
             "climb": true
           }
         }
-      ]
+      ],
+      "grade": "B"
     },
     {
       "file": "flipside.jump-level.json",
@@ -1905,73 +1930,6 @@
         },
         {
           "frames": 138,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        }
-      ]
-    },
-    {
-      "file": "updraft.jump-level.json",
-      "jumpModel": "tap-hold",
-      "elapsed": 12.366666666666605,
-      "activeTime": 13.22499999999989,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 377,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 14,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 190,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 387,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 9,
-          "input": {
-            "move": -1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 81,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 238,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 6,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 285,
           "input": {
             "move": 1,
             "climb": true
@@ -2517,8 +2475,8 @@
     {
       "file": "roundtrip.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 20.724999999999465,
-      "activeTime": 21.58333333333275,
+      "elapsed": 20.74166666666613,
+      "activeTime": 21.599999999999415,
       "coins": 0,
       "trace": [
         {
@@ -2535,7 +2493,7 @@
           }
         },
         {
-          "frames": 283,
+          "frames": 284,
           "input": {
             "move": 1
           }
@@ -2762,7 +2720,7 @@
           }
         },
         {
-          "frames": 45,
+          "frames": 46,
           "input": {
             "move": -1
           }
@@ -2785,8 +2743,8 @@
     {
       "file": "polishingbay.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 9.983333333333407,
-      "activeTime": 10.841666666666692,
+      "elapsed": 9.825000000000083,
+      "activeTime": 10.683333333333367,
       "coins": 0,
       "trace": [
         {
@@ -2813,13 +2771,19 @@
           "input": {}
         },
         {
-          "frames": 907,
+          "frames": 777,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 256,
+          "frames": 119,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 248,
           "input": {
             "move": 1,
             "climb": true
@@ -6233,6 +6197,74 @@
           }
         }
       ]
+    },
+    {
+      "file": "updraft.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 12.366666666666605,
+      "activeTime": 13.22499999999989,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 377,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 14,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 190,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 387,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 9,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 81,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 238,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 6,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 285,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "Recorded on the layout committed in 1696ef5. Studio revisions on November 17 (a zero-g room and further lifts) and the booster-boot zero-g rework changed the route; this trace no longer reaches the exit."
     }
   ],
   "retiredRuns": [

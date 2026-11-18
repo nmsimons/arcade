@@ -94,15 +94,19 @@ for (const dt of [1 / 120, 1 / 30]) for (const inverted of [false, true]) for (c
   })
 }
 
-test('a gravity reversal unwinds a partial roll, zero gravity holds it, and respawn clears it', () => {
+test('a gravity reversal unwinds a partial roll, a moment of zero gravity holds it, lasting zero gravity finishes it, and respawn clears it', () => {
   const p = createPlayer({ x: 0, y: 500 }); p.grounded = false
   const reverse = field(-1), zero = field(0)
   for (let i = 0; i < 24; i++) stepPlayer(p, NEUTRAL_INPUT, 1 / 120, [], undefined, undefined, undefined, reverse)
   const angle = playerTurnAngle(p), progress = p.releaseTurn.progress
   assert.ok(angle > .5 && angle < Math.PI)
-  for (let i = 0; i < 30; i++) stepPlayer(p, NEUTRAL_INPUT, 1 / 120, [], undefined, undefined, undefined, zero)
+  // A pull passing through zero (shorter than TUNING.zeroGravitySettle) holds the roll where it is.
+  for (let i = 0; i < 3; i++) stepPlayer(p, NEUTRAL_INPUT, 1 / 120, [], undefined, undefined, undefined, zero)
   close(playerTurnAngle(p), angle); close(p.releaseTurn.progress, progress)
-  for (let i = 0; i < 40; i++) stepPlayer(p, NEUTRAL_INPUT, 1 / 120)
+  // Lasting weightlessness finishes it toward the frame it was heading for, leaving the body free to float.
+  for (let i = 0; i < 60; i++) stepPlayer(p, NEUTRAL_INPUT, 1 / 120, [], undefined, undefined, undefined, zero)
+  assert.equal(p.releaseTurn, undefined); assert.equal(p.inverted, true)
+  for (let i = 0; i < 80; i++) stepPlayer(p, NEUTRAL_INPUT, 1 / 120)
   assert.equal(p.inverted, false); assert.equal(p.releaseTurn, undefined)
   stepPlayer(p, NEUTRAL_INPUT, 1 / 120, [], undefined, undefined, undefined, reverse)
   assert.ok(p.releaseTurn); respawn(p); assert.equal(p.releaseTurn, undefined)

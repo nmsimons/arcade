@@ -31,14 +31,6 @@
       "trim": "hazard"
     },
     {
-      "name": "Thrower curb",
-      "x": 1260,
-      "y": 2580,
-      "w": 20,
-      "h": 80,
-      "material": "steel"
-    },
-    {
       "name": "Lift 3 deck",
       "x": 1600,
       "y": 1900,
@@ -186,6 +178,19 @@
       "w": 180,
       "h": 40,
       "material": "steel"
+    },
+    {
+      "x": 0,
+      "y": 1320,
+      "w": 525,
+      "h": 80
+    },
+    {
+      "x": 520,
+      "y": 960,
+      "w": 20,
+      "h": 80,
+      "material": "steel"
     }
   ],
   "entrance": {
@@ -197,6 +202,7 @@
     "ladders": [],
     "ropes": []
   },
+  "wallFinish": "chamber",
   "stains": "light",
   "floor": 2980,
   "goal": {
@@ -242,37 +248,36 @@
       "text": "LIFT STACK. EXIT: TOP LEDGE",
       "fontSize": 18,
       "align": "left"
-    },
-    {
-      "name": "Light bay label",
-      "x": 250,
-      "y": 490,
-      "w": 220,
-      "h": 30,
-      "text": "LIGHT BAY 0.5 G",
-      "fontSize": 22,
-      "align": "left"
-    },
-    {
-      "name": "Null gap label",
-      "x": 1020,
-      "y": 490,
-      "w": 240,
-      "h": 30,
-      "text": "ZERO G",
-      "fontSize": 22,
-      "align": "center"
     }
   ],
-  "stripes": [],
+  "loosePanels": [
+    {
+      "x": 1320,
+      "y": 1800
+    }
+  ],
+  "stripes": [
+    {
+      "x": 20,
+      "y": 2318,
+      "w": 500,
+      "h": 42
+    },
+    {
+      "x": 480,
+      "y": 1420,
+      "w": 40,
+      "h": 912
+    }
+  ],
   "gravityPlates": [
     {
       "name": "Lift 1",
       "id": "lift-1",
       "x": 380,
-      "y": 2580,
+      "y": 2405,
       "w": 180,
-      "h": 380,
+      "h": 555,
       "gravity": -1,
       "power": "always"
     },
@@ -309,9 +314,9 @@
     {
       "name": "Transfer field",
       "id": "transfer",
-      "x": 535,
+      "x": 540,
       "y": 960,
-      "w": 1065,
+      "w": 1060,
       "h": 70,
       "gravity": -1,
       "ceiling": true,
@@ -343,7 +348,7 @@
       "id": "null-gap",
       "x": 880,
       "y": 0,
-      "w": 515,
+      "w": 840,
       "h": 635,
       "gravity": 0,
       "ceiling": true,
@@ -377,18 +382,17 @@
       "gravity": 3,
       "power": "always",
       "facing": "right"
-    }
-  ],
-  "forceFields": [
+    },
     {
-      "name": "Hatch guard, near lip",
-      "id": "guard-a",
-      "x": 520,
-      "y": 960,
-      "w": 12,
-      "h": 80,
-      "orientation": "vertical",
+      "id": "2b066236-21b1-446c-b115-f95b0f79022d",
+      "x": 5,
+      "y": 1400,
+      "w": 520,
+      "h": 940,
+      "gravity": 0,
+      "ceiling": true,
       "power": "always"
     }
-  ]
+  ],
+  "forceFields": []
 }

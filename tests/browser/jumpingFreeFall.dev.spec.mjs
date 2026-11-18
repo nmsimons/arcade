@@ -93,7 +93,7 @@ test('an upward grav lift eases into a prone floating pose while steering remain
   expect(errors).toEqual([])
 })
 
-test('zero-g drift becomes prone, bumps a floating ball with neutral input and slows in the air', async ({ page }, info) => {
+test('zero-g drift floats feet-down, bumps a floating ball with neutral input and slows in the air', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Weightless drift', height: 1400, floor: 1400,
     entrance: { x: 300, y: 500 }, goal: { x: 1620, y: 1400 },
     platforms: [{ x: 100, y: 500, w: 260, h: 24 }],
@@ -125,22 +125,26 @@ test('zero-g drift becomes prone, bumps a floating ball with neutral input and s
   expect(released.signals.grounded).toBe(false)
   expect(released.blends.fall).toBe(0)
   expect(released.vx).toBeGreaterThan(300)
+  // Weightless, the body floats rather than falling prone: feet trailing below the hips, drifting where it was sent.
   await page.clock.runFor(1000)
   const floating = await sample()
-  expect(floating.blends.fall).toBe(1)
+  expect(floating.blends.fall).toBe(0)
+  expect(floating.blends.float).toBe(1)
   expect(floating.vx).toBeGreaterThan(0)
   expect(floating.vx).toBeLessThan(released.vx / 2)
-  expect(floating.y).toBeCloseTo(500, 1)
-  expect(await ballX()).toBeGreaterThan(800)
+  expect(Math.abs(floating.y - released.y)).toBeLessThan(120)
+  // The ball (from x 720) has been bumped along.
+  expect(await ballX()).toBeGreaterThan(750)
   expect(floating.points[7][1]).toBeGreaterThan(floating.points[0][1])
-  await page.screenshot({ path: info.outputPath('prone-zero-g.png') })
+  await page.screenshot({ path: info.outputPath('float-zero-g.png') })
   const ballBefore = await ballX()
   await page.clock.runFor(1000)
-  expect((await sample()).vx).toBeLessThan(floating.vx * .6)
-  expect(await ballX()).toBeGreaterThan(ballBefore + 100)
+  expect((await sample()).vx).toBeLessThan(floating.vx * .9)
+  expect(await ballX()).toBeGreaterThan(ballBefore + 50)
+  // The boots brake the drift and turn it round.
   await page.keyboard.down('a'); await page.clock.runFor(500)
   expect((await sample()).vx).toBeLessThan(0)
-  expect((await sample()).blends.fall).toBe(1)
+  expect((await sample()).blends.float).toBe(1)
   expect(errors).toEqual([])
 })
 

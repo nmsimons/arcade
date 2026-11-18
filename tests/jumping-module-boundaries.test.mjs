@@ -22,8 +22,8 @@ const ALLOWED = {
   'model.ts': {
     // Water contact helpers that live with the animation, the start-of-step turn
     // captures, gravity-turn and ragdoll starts, and the animation cadence hooks.
-    'athleteAnimation.ts': ['advanceWaterCeiling', 'advanceWaterLanding', 'advanceWaterPropReach', 'captureDryTurn', 'captureRopeTurnRelease',
-      'captureSlideEntry', 'settleWaterClearance', 'startImpactRagdoll'],
+    'athleteAnimation.ts': ['advanceWaterCeiling', 'advanceWaterLanding', 'advanceWaterPropReach', 'captureDryTurn', 'captureFloatEntry',
+      'captureFloatTurn', 'captureRopeTurnRelease', 'captureSlideEntry', 'settleWaterClearance', 'startImpactRagdoll'],
     'characterAnimation.ts': ['animateOrQueue', 'animates', 'cadence', 'preparePush', 'presentPush', 'presentWaterOrQueue', 'settleOrQueue'],
     // Captured turn poses and the presented ledge reach; gameplay never reads them.
     'athletePose.ts': ['athletePose', 'dryLedgeReach', 'dryLedgeReachPose'],

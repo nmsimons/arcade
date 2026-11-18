@@ -34,6 +34,32 @@ export interface CharacterAnimation {
   recovery: { pose: AthletePose; time: number; facing: number } | null
   /** The presented swimmer's clearance offset. The swimming hull uses its own `waterMotion.bodyOffset`. */
   waterClearance: { offset: [number, number]; facing: number } | null
+  /** Weightless floating, drawn from the relaxed float posture (poses/waterPose.ts floatPose): the body's lean from
+   * upright toward its travel and the lean's spin (a spring, pivoting at the waist), the facing that lean is measured
+   * in, the sculling phase, and how fully the float pose is shown (`blend`, easing in and out of other poses). */
+  float?: { lean: number; spin: number; facing: number; phase: number; blend: number
+    /** The boots' thrust as the body feels it: eased over a tenth of a second, so the lean follows it smoothly. */
+    drive?: { x: number; lift: number }
+    /** The frame `drive` is measured in (wall, ceiling mirror and step direction). */
+    driveFrame?: string
+    /** The legs' kick as the jets switch on or off or swing round: a spring (amount and its rate) that flexes the knees. */
+    kick?: number; kickRate?: number
+    /** Where the lean is aimed, eased toward its target (rad), and the head's turn toward the travel. */
+    aim?: number; neck?: number
+    /** Flipping forward onto the feet for a landing on the footing it has: the lean (rad) that is upright again. */
+    flipTo?: number
+    /** The drift the idle sway answers to, capped (poses/waterPose.ts floatSway) and eased (px/s, the controller's frame). */
+    sway?: [number, number]
+    /** How far the body is drawn sunk onto its feet (as a crouch): the crouch itself on a surface; leaving one, it
+     * eases off more slowly, so legs still straightening reach back behind the body rather than shove it on. */
+    sinkHold?: number
+    /** A fade into the float from `pose` (after a change of facing, the pose before it, already mirrored), over `time`.
+     * With `base` (the float as it was when the fade began), `pose` moves on with the float instead of holding still:
+     * what the body was doing carries on through the fade. */
+    flip?: { pose: import('./athleteRig.ts').AthletePose; time: number; base?: import('./athleteRig.ts').AthletePose } } | null
+  /** The drawn rig before this step while standing weightless, read lazily, for the float to grow out of when the body
+   * leaves the surface; `base` is the float in it then, if there was one. */
+  floatEntry?: { readonly pose: import('./athleteRig.ts').AthletePose; readonly base?: import('./athleteRig.ts').AthletePose; facing: number }
   /**
    * The crouch walk's forward step driving its body dip and arm counter-swing: the swinging
    * foot, its progress (0 to 1), the share of time spent stepping, the shift toward the
@@ -91,7 +117,11 @@ export interface Player {
   freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; impact?: { vx: number; vy: number; gait: GaitPose | null }; /** Seconds since steering began during a grounded recovery; a steered get-up ends the fall early. */ getUp?: number } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
-  airBoost: { x: number; lift: number; time: number } // Presentation of applied air-control forces.
+  /** Weightless, the crouch is a spring in the legs: its rate of folding (crouch per second). */
+  crouchRate?: number
+  /** Presentation of applied air-control forces. `trim`: the weightless boots' small puffs trimming a slow drift, which
+   * the floating body does not lean into. */
+  airBoost: { x: number; lift: number; time: number; trim?: boolean }
   contacts: PlayerContacts | null
   /** Presentation state owned by the animation, never read by the motor except through the listed couplings. */
   anim: CharacterAnimation
@@ -107,8 +137,26 @@ export interface Player {
   terrain?: readonly Platform[]
   gravity?: number
   inverted?: boolean
+  /** Without weight, a hit too fast to stay on: the crouch absorbing it, and the speed the legs push off at after. */
+  rebound?: { speed: number; time: number; /** The surface's slope (its normal is the way back off). */ angle?: number
+    /** Seconds the legs have been pushing off, once the fold has bottomed out. */ push?: number }
+  /** Seconds the body has been weightless without a break (model.ts settledWeightless). */
+  weightless?: number
   /** Footing on a wall, by the side gravity pulls toward (wallFrame.ts). */
   wall?: 'left' | 'right'
-  /** `toWall` marks a turn onto or off a wall: the frame it ends in (null for the floor), turning through `span`. */
-  releaseTurn?: { angle: number; target: number; pose?: AthletePose; facing?: number; time?: number; progress?: number; toWall?: 'left' | 'right' | null; span?: number }
+  /** `toWall` marks a turn onto or off a wall: the footing it ends on (null for the floor), turning through `span`. */
+  releaseTurn?: { angle: number; target: number; pose?: AthletePose; facing?: number; time?: number; progress?: number; toWall?: 'left' | 'right' | 'ceiling' | null; span?: number
+    /** A weightless feet-first turn: the float lean it started from (local, at `facing`), unwound as it rolls. */
+    float?: number
+    /** The waist bend that roll started with (poses/waterPose.ts floatBend), unwound with the lean. */
+    bend?: number
+    /** How fast the float lean was turning as the roll started (rad/s): carried on into it (floatRollLean). */
+    spin?: number
+    /** A whole turn (±2π, local at `facing`) the drawing adds to a weightless roll, so a body drawn head-first for the
+     * surface flips forward onto its feet while its hull turns the short way (athleteAnimation.ts captureFloatTurn). */
+    over?: number
+    /** Seconds a weightless feet-first roll takes, timed to its arrival (model.ts orientInFlight). */
+    duration?: number
+    /** The outward normal of the surface a weightless roll is turning the feet toward. */
+    toward?: readonly [number, number] }
 }

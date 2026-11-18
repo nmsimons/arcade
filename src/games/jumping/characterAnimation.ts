@@ -8,12 +8,13 @@
 // cannot change motion; the golden traces check that for all three.
 import { currentWallFrame, inWallFrame } from './wallFrame.ts'
 import { advanceDryTurn, advanceImpactRagdoll, advanceMovingRecovery, advanceReturningStepPreparation, advanceSlideEntry,
-  advanceSwimAnimation, dryTurnDirection, settleFallClearance, settlePresentedWaterClearance } from './athleteAnimation.ts'
+  advanceSwimAnimation, advanceFloatAnimation, dryTurnDirection, settleFallClearance, settlePresentedWaterClearance } from './athleteAnimation.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athleteAnimation.ts'
 import type { CharacterAnimation, JumpInput, Player } from './characterTypes.ts'
 import { advanceCrouchStep, advanceFootwork } from './footwork.ts'
 import { withTerrainQueries } from './geometry.ts'
 import { gaitPose } from './gait.ts'
+import { TUNING } from './movementTuning.ts'
 import { bodySize } from './sizeFrame.ts'
 import { mirrorPlayerState } from './gravityFrame.ts'
 import { easeHeldTool } from './gadgets.ts'
@@ -61,7 +62,9 @@ export function setAnimationCadence(p: Player, next: AnimationCadence) {
 
 /** The visible gait blends toward the actual motion; the feet return to rest. */
 function settleGait(p: Player, dt: number) {
-  const speed = p.climbing ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
+  // Without weight nothing walks: a body moving along a surface glides on planted feet.
+  const weightless = p.grounded && Math.abs(p.gravity ?? TUNING.gravity) < TUNING.gravity * .05
+  const speed = p.climbing || weightless ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
   const target = gaitPose(speed, !p.grounded && !p.hang && !p.mantle && !p.climbing), previous = p.anim.gait ?? gaitPose(0)
   if (p.contacts?.push && !p.contacts.push.passive || p.grounded && p.vx * p.facing < -1) target.run = 0
   const blend = (from: number, to: number, response = to > from ? .045 : .08) => {
@@ -120,6 +123,7 @@ function animateStepIn(p: Player, { input, dt, world, from, contacts, verticalUs
   advanceDryTurn(p, input, dt, turnFrame)
   advanceSlideEntry(p, dt, slideEntryFrame, input)
   advanceSwimAnimation(p, input, dt)
+  advanceFloatAnimation(p, dt, frameDirection)
 }
 
 export function animateSettle(p: Player, dt: number, previousFacing: number) {

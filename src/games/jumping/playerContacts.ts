@@ -1,5 +1,5 @@
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform } from './gravityFrame.ts'
-import { contactsToWorld, inWallFrame, turnContactWorld } from './wallFrame.ts'
+import { contactsToWorld, inWallFrame, turnContactWorld, wallInput } from './wallFrame.ts'
 import { bodySize, inSizeFrame, scaledContactWorld } from './sizeFrame.ts'
 import type { Prop, RobotState } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
@@ -235,7 +235,7 @@ export function narrowMantle(m: NonNullable<Player['mantle']>, world: ContactWor
 export function playerContacts(p: Player, input: JumpInput, world: ContactWorld, dt = STEP): PlayerContacts {
   const size = bodySize(p)
   if (size !== 1) return sizedContacts(p, world, scaled => playerContacts(p, input, scaled, dt)) as PlayerContacts
-  if (p.wall) return inWallFrame(p, wall => contactsToWorld(playerContacts(p, input, turnContactWorld(world, wall), dt), world, wall))
+  if (p.wall) return inWallFrame(p, wall => contactsToWorld(playerContacts(p, wallInput(input, wall), turnContactWorld(world, wall), dt), world, wall))
   if (p.inverted) {
     const reflected = mirrorContactWorld(world)
     mirrorPlayerState(p); p.inverted = false

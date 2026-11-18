@@ -146,3 +146,20 @@ for (const mirrored of [false, true]) for (const lean of [-40, -20, 20, 40]) {
     }
   })
 }
+
+// A low riser that tops out onto a walkable slope, as where a flat landing is cut into a ramp a little below its
+// surface. Steps only land on flat tops, so nothing steps the body up it: walking on, the toe bevel rides up over
+// its corner onto the slope. It is not a wall (a rectangle cannot draw this corner), whichever way the slope runs.
+for (const direction of [1, -1]) for (const rise of [4, 8, 14]) test(`walking ${direction > 0 ? 'right' : 'left'} onto a gentle slope over a ${rise}-unit riser carries on up it`, () => {
+  // Floor at 900; a flat 100 wide, then the riser, then a 22 degree slope up 120 to a shelf.
+  const outline = [[0, 300], [100, 300], [100, 300 - rise], [400, 180], [600, 180], [600, 400], [0, 400]]
+  const piece = { x: direction > 0 ? 600 : W - 1200, y: 600, w: 600, h: 400, polygon: direction > 0 ? outline : outline.map(([x, y]) => [600 - x, y]) }
+  const L = blankTrial(); Object.assign(L, { width: W, height: H, floor: H })
+  L.platforms = [{ x: 0, y: 900, w: W, h: 300 }, piece]
+  L.entrance = { x: direction > 0 ? 450 : W - 450, y: 900 }
+  const run = createRun(parseLevel(JSON.parse(JSON.stringify(L)))); run.started = true
+  const p = run.player
+  for (let i = 0; i < 240; i++) stepRun(run, { ...NEUTRAL_INPUT, move: direction })
+  const shelf = direction > 0 ? p.x > 1000 : p.x < W - 1000
+  assert.ok(shelf && Math.abs(p.y - 780) < 1, `reached the shelf: x ${p.x.toFixed(1)}, y ${p.y.toFixed(1)}`)
+})

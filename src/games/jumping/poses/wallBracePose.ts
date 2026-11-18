@@ -34,7 +34,9 @@ export function wallBraceArm(p: Player, shoulder: Point, limb: Limb, weight: num
 
 /** Keep the ordinary pushing silhouette, with the legs reaching diagonally to the wall. */
 export function wallBracePose(p: Player, free: AthletePose): AthletePose {
-  if (p.grounded) return free
+  // Feet that touch the ground for a step while the brace still holds, as squeezed between two props, keep the
+  // brace drawn rather than flicking out of it and back. A landing lets it go once the contact ends.
+  if (p.grounded && !p.wallBrace?.active) return free
   const brace = p.wallBrace!, slope = brace.normal ? -brace.normal[1] / brace.normal[0] * p.facing : 0
   const wallAt = (y: number) => (brace.wallX - p.x) * p.facing + slope * (p.y + y - (brace.wallY ?? p.y))
   const wall = Math.min(wallAt(-43), wallAt(-TUNING.height)), wallAngle = -Math.PI / 2 - Math.atan(slope)

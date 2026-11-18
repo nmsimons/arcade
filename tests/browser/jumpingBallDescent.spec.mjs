@@ -33,7 +33,10 @@ for (const walking of [false, true]) test(`walking off a ledge beside a ball kee
     if (before.signals.mode !== 'free' || after.signals.mode !== 'free' || before.signals.grounded || after.signals.grounded
       || before.signals.facing !== after.signals.facing || before.signals.sliding === after.signals.sliding) continue
     transitions++
-    for (let j = 0; j < after.points.length; j++) expect(Math.hypot(...after.points[j].map((v, axis) => v - before.points[j][axis]))).toBeLessThan(4)
+    // Walking, the brief contact on the ball can let go and catch again on alternate steps since slides end at once
+    // on gripping ground (1696ef5); the back hand's clearance from the ball then moves up to 4.5 units in a step.
+    // The bound matches the slide-landing allowance in the unit tests (5.5 units a tick).
+    for (let j = 0; j < after.points.length; j++) expect(Math.hypot(...after.points[j].map((v, axis) => v - before.points[j][axis]))).toBeLessThan(5)
   }
   expect(transitions).toBeGreaterThanOrEqual(2)
   expect(recent.at(-1).y).toBeCloseTo(500, 2)

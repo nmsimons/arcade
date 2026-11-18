@@ -662,7 +662,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // bevel diagonally, so its wall is found from the corner on that bevel.
       const wall = collisionOutline?.(b) ? 0
         : !b.polygon && !b.profile ? p.y > b.y && p.y - TUNING.height < b.y + b.h ? p.x < b.x ? -1 : p.x > b.x + b.w ? 1 : 0 : 0
-        : !b.looseProp ? toeCornerWall(b, from, p.x, p.y, normal) : 0
+        : !b.looseProp ? toeCornerWall(b, from, p.x, p.y, normal, angle => canGrip(angle, surfaceFriction(b))) : 0
       const n = wall ? [wall, 0] : normal
       const into = p.vx * n[0] + p.vy * n[1]
       // A gliding body keeps pace with a prop moving away from it, rather than stopping as at a wall.

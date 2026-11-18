@@ -4,9 +4,9 @@
  "math": "f218227f60a5a1d1",
  "cpu": "arm64",
  "recorded": {
-  "physics": "1696ef5 with uncommitted changes",
-  "state": "1696ef5 with uncommitted changes",
-  "pose": "1696ef5 with uncommitted changes"
+  "physics": "319852d with uncommitted changes",
+  "state": "319852d with uncommitted changes",
+  "pose": "319852d with uncommitted changes"
  },
  "traces": {
   "03.json|climber": {
@@ -338,8 +338,8 @@
     "7ef3c80e845acac8",
     "42d0c0ad35826ac6",
     "37a5da2ef6270f9e",
-    "36b0f23666270e29",
-    "aa28e2e20ccceaf8"
+    "b7f1c77c357b5374",
+    "8ca20c4b4ec290bc"
    ]
   },
   "07.json|climber": {
@@ -441,7 +441,7 @@
     "e876cb969c9afe56",
     "e7b02f8c475aecfb",
     "bb3f65b63bc2254a",
-    "4d027d6488435c73"
+    "4f3b399bcde6622f"
    ]
   },
   "08.json|runner": {
@@ -7229,10 +7229,10 @@
     "99d3a7f17f252ccf",
     "e19644e925384121",
     "be9eb0229906f34c",
-    "ffb73d608b2bbfa2",
-    "d31bc736db580654",
-    "6d7d39074bf29adb",
-    "3346979d9e4b54cb"
+    "b141262a60569521",
+    "84577bf85affacef",
+    "4513e64cb277aefe",
+    "14ef0a2dd457cad5"
    ]
   },
   "spire2.jump-level.json|climber": {
@@ -7317,14 +7317,14 @@
     "33a7eadd1e0b4190"
    ],
    "state": [
-    "424163bbc32cce9c",
-    "185cf31bdf686175",
-    "9e89555dab23378b",
-    "a42c586a12e63b5d",
-    "3c329762e89a83e0",
-    "446f22d88edfa3d2",
-    "048e2cc6896f1aef",
-    "815ee141c7c82844"
+    "1470ff23069249f3",
+    "86a3340584cd2972",
+    "9255b5883382cbe3",
+    "6af0b4bf5eb538a6",
+    "a5ee025f89a3638b",
+    "a0010a5caddafc56",
+    "6e6b21f46c55c1dc",
+    "91bef7d1ec9d4e31"
    ],
    "pose": [
     "371058610f6d8eeb",
@@ -7334,7 +7334,7 @@
     "05c99079ce55fb2e",
     "3c1e8650ddc1f46f",
     "f707f5e10e0e7384",
-    "64e848886d988aa7"
+    "67143c4ba4534aa5"
    ]
   },
   "updraft.jump-level.json|runner": {
@@ -7351,14 +7351,14 @@
     "cd3c579b3167620d"
    ],
    "state": [
-    "12589ee5b3374dca",
-    "75a71ff4bd08d95c",
-    "8ba8e046ff2efa0e",
-    "7b08c3397f377950",
-    "0dfb15489dd31f9e",
-    "e42ec60c4c4ac961",
-    "7f1ed13c768f0a77",
-    "249def4415072da3"
+    "c9eef3d36adbc80b",
+    "3af32ea70a3419de",
+    "f592b5249b1775b4",
+    "d847f2a0a02315c2",
+    "a9b9eb61366b5ca7",
+    "97f1a9fc7ee0548b",
+    "22e98b726ccfedaa",
+    "bb381612a0e7ab06"
    ],
    "pose": [
     "a1043f2d562e8cc9",

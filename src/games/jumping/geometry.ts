@@ -504,14 +504,24 @@ export function bodyContact(b: Platform, x: number, y: number, normal: Vec, heig
  * wall; every other outline finds the same wall here. The bevel is 12 across and 18 deep.
  * The body slides along it for the rest of the step, so the corner stays on the bevel's
  * line and can end past its upper end by no more than the step's travel. */
-export function toeCornerWall(b: Platform, from: Vec, x: number, y: number, normal: Vec) {
+export function toeCornerWall(b: Platform, from: Vec, x: number, y: number, normal: Vec, walkable: (angle: number) => boolean = () => false) {
   // Only the bevel itself pushes along this diagonal: a face of the terrain has its own.
   if (normal[1] >= 0 || Math.abs(Math.abs(normal[0]) * 12 + normal[1] * 18) > 1e-6) return 0
   const side = Math.sign(normal[0]), travel = Math.hypot(x - from[0], y - from[1])
-  for (const { a, nx, top } of boundaryEdges(boundaryGeometry(b))) {
+  const edges = boundaryEdges(boundaryGeometry(b))
+  for (let i = 0; i < edges.length; i++) {
+    const { a, nx, top, bottom } = edges[i]
     if (nx * side < 1 - EPS) continue
     const rise = y - top
-    if (rise > 0 && rise <= 18 + travel + 1e-3 && Math.abs((x - a[0]) * side * 18 - rise * 12) < .02) return side
+    if (rise > 0 && rise <= 18 + travel + 1e-3 && Math.abs((x - a[0]) * side * 18 - rise * 12) < .02) {
+      // A riser no taller than the bevel that tops out onto a walkable slope has no rectangle to match and no step
+      // onto it (steps land on flat tops): the bevel rides the body up over the corner onto the slope, as walking
+      // onto a ramp's foot does.
+      const lid = edges[(i + (side < 0 ? 1 : edges.length - 1)) % edges.length]
+      if (bottom - top <= 18 && lid.dx > EPS && Math.abs(lid.dy) > EPS * lid.dx
+        && walkable(Math.atan(lid.dy / lid.dx))) return 0
+      return side
+    }
   }
   return 0
 }

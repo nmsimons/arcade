@@ -268,6 +268,24 @@
       "y": 1420,
       "w": 40,
       "h": 912
+    },
+    {
+      "x": 1380,
+      "y": 0,
+      "w": 40,
+      "h": 645
+    },
+    {
+      "x": 0,
+      "y": 640,
+      "w": 240,
+      "h": 35
+    },
+    {
+      "x": 1610,
+      "y": 960,
+      "w": 30,
+      "h": 530
     }
   ],
   "gravityPlates": [
@@ -333,22 +351,11 @@
       "power": "always"
     },
     {
-      "name": "Light bay over lift 5",
-      "id": "light-bay-a",
-      "x": 0,
-      "y": 0,
-      "w": 850,
-      "h": 630,
-      "gravity": 0.5,
-      "ceiling": true,
-      "power": "always"
-    },
-    {
       "name": "Null gap",
       "id": "null-gap",
-      "x": 880,
+      "x": 0,
       "y": 0,
-      "w": 840,
+      "w": 1400,
       "h": 635,
       "gravity": 0,
       "ceiling": true,

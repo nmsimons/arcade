@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "id": "81521156-49cb-4d68-997b-02d0cff5f0d9",
+  "name": "Untitled level",
+  "width": 1800,
+  "height": 920,
+  "platforms": [],
+  "entrance": {
+    "x": 160,
+    "y": 920
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "floor": 920,
+  "goal": {
+    "x": 1620,
+    "y": 920
+  },
+  "times": {
+    "a": 10,
+    "b": 20,
+    "c": 40,
+    "d": 60
+  },
+  "props": [
+    {
+      "kind": "ball",
+      "x": 550,
+      "y": 510,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 810,
+      "y": 550,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 1275,
+      "y": 680,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 1080,
+      "y": 460,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 975,
+      "y": 665,
+      "size": 68
+    }
+  ],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [],
+  "gravityPlates": [
+    {
+      "id": "5ea53193-4a4a-423c-adbf-a02e20d9f27c",
+      "x": 0,
+      "y": 0,
+      "w": 1800,
+      "h": 920,
+      "gravity": 0,
+      "power": "always"
+    }
+  ]
+}

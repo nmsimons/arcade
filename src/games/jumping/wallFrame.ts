@@ -84,7 +84,8 @@ export function contactsToWorld(contacts: PlayerContacts, world: ContactWorld, w
   return {
     support: contacts.support && support ? { ...contacts.support, y: line(contacts.support.y, 'y', wall), angle: turnAngle(contacts.support.angle, s), platform: support.platform, collider: support } : null,
     push: null,
-    body: contacts.body.map(c => ({ ...c, collider: collider(c.collider.id), normal: turn(c.normal[0], c.normal[1], s), point: turn(c.point[0], c.point[1], s) })),
+    body: contacts.body.map(c => ({ ...c, collider: collider(c.collider.id), normal: turn(c.normal[0], c.normal[1], s), point: turn(c.point[0], c.point[1], s),
+      ...(c.kick ? { kick: turn(c.kick[0], c.kick[1], s) } : {}) })),
     motion: { ...contacts.motion, x: mx, y: my },
   }
 }

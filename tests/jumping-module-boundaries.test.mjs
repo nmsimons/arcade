@@ -101,7 +101,7 @@ const ANIM_FIELDS = {
   'actorImpulse.ts': ['dryTurn'], 'challenge.ts': ['ragdoll'], 'climbables.ts': ['*'], 'gadgets.ts': ['dryTurn'],
   'goal.ts': ['footwork'], 'gravityFrame.ts': ['footwork'],
   'model.ts': ['cadence', 'dryTurn', 'footwork', 'gait', 'pending', 'ragdoll', 'slideEntry', 'stride'],
-  'playerContacts.ts': ['dryTurn', 'footwork', 'slideEntry'], 'repulsorBot.ts': ['gait'], 'shove.ts': ['dryTurn'],
+  'playerContacts.ts': ['dryTurn', 'footwork', 'slideEntry'], 'repulsorBot.ts': ['gait'], 'repulsorBotRig.ts': ['float'], 'shove.ts': ['dryTurn'],
   'sizeFrame.ts': ['footwork', 'pending'], 'stepUp.ts': ['dryTurn', 'footwork', 'gait', 'stride'],
   'wallFrame.ts': ['dryTurn', 'footwork', 'slideEntry'],
 }

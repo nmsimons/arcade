@@ -11,7 +11,7 @@ import { bodyContact, bodyIntersects, bodyPolygon, lipCrossing, moveBody, neares
 import type { TerrainContact } from './geometry.ts'
 import { canGrip, FRICTIONLESS, groundVelocity, slidingVelocity, slipRests, surfaceFriction, TERRAIN_FRICTION } from './friction.ts'
 import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushRig } from './playerContacts.ts'
-import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
+import type { ContactWorld, PlayerCollider, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
 import { TUNING, weightlessArrivalTime } from './movementTuning.ts'
 import { carryWithRisingWater } from './waterTransport.ts'
@@ -206,7 +206,10 @@ function settleWallBrace(p: Player, contact: WallBraceContact | null, dt: number
     if (p.facing !== brace.direction || p.hang || p.mantle || p.climbing || ![brace.amount, ...brace.hands, ...brace.feet].some(Boolean)) p.wallBrace = null
   }
 }
-function updateWallBrace(p: Player, move: number, dt: number, platforms: readonly Platform[]) {
+/** The faces a body can brace on: without weight, not a floating prop, which a body against it pushes or rides. */
+const braceFaces = (p: Player, platforms: readonly Platform[]) => settledWeightless(p) ? platforms.filter(b => !b.looseProp) : platforms
+function updateWallBrace(p: Player, move: number, dt: number, allPlatforms: readonly Platform[]) {
+  const platforms = braceFaces(p, allPlatforms)
   let contact: WallBraceContact | null = null
   if (!p.grounded && !p.hang && !p.mantle && !p.climbing) {
     for (const direction of [p.facing, -p.facing]) {
@@ -237,7 +240,8 @@ function cantedWallFace(p: Player, platforms: readonly Platform[], wall: Platfor
     || platforms.some(other => other !== wall && pointInside(other, face.x + face.nx * .01, face.y + face.ny * .01))) return null
   return face
 }
-function updateCantedWallBrace(p: Player, move: number, dt: number, platforms: readonly Platform[], contacts: readonly TerrainContact[]) {
+function updateCantedWallBrace(p: Player, move: number, dt: number, allPlatforms: readonly Platform[], contacts: readonly TerrainContact[]) {
+  const platforms = braceFaces(p, allPlatforms)
   let contact: WallBraceContact | null = null
   if (!p.grounded && !p.hang && !p.mantle && !p.climbing && !p.releaseTurn && !(p.wallBrace?.active && !p.wallBrace.normal)) {
     for (const wall of platforms) {
@@ -681,13 +685,20 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
         : !b.looseProp ? toeCornerWall(b, from, p.x, p.y, normal, angle => canGrip(angle, surfaceFriction(b))) : 0
       const n = wall ? [wall, 0] : normal
       const into = p.vx * n[0] + p.vy * n[1]
-      // A gliding body keeps pace with a prop moving away from it, rather than stopping as at a wall.
-      const prop = b.looseProp && slickFooting(p) ? world.colliders.find(c => c.platform === b)?.prop : undefined
+      // A gliding body keeps pace with a prop moving away from it, rather than stopping as at a wall; so does a
+      // weightless one, which nothing holds back.
+      const prop = b.looseProp && (slickFooting(p) || floating) ? world.colliders.find(c => c.platform === b)?.prop : undefined
       const away = prop ? Math.min(0, prop.vx * n[0] + prop.vy * n[1]) : 0
       // Without weight a body that meets a surface too fast rebounds, slower than it came; a slow one stays against it.
       // Ground under the feet is a landing instead, which absorbs the hit in a crouch before the rebound (land()).
-      const rebound = floating && away - into > TUNING.zeroGravityStick && n[1] > -.5 ? TUNING.zeroGravityRebound : 0
-      if (into < away) { p.vx -= (into - away) * (1 + rebound) * n[0]; p.vy -= (into - away) * (1 + rebound) * n[1] }
+      // A loose prop is no wall: the body bump exchanges momentum with it (propPhysics.ts) instead of a rebound off it.
+      const rebound = floating && !b.looseProp && away - into > TUNING.zeroGravityStick && n[1] > -.5 ? TUNING.zeroGravityRebound : 0
+      if (into < away) {
+        p.vx -= (into - away) * (1 + rebound) * n[0]; p.vy -= (into - away) * (1 + rebound) * n[1]
+        // Stopped against a floating prop, the body has bumped it: the prop takes its share of the stop (a kick split by
+        // mass, propPhysics.ts), rather than the body halting dead against something that never moves.
+        if (floating && b.looseProp && into < away - 1) kickProp(p, world.colliders.find(c => c.platform === b), [n[0], n[1]], [-(into - away) * n[0], -(into - away) * n[1]])
+      }
     }
   }
   if (!p.climbing && !p.hang && !p.mantle && !p.releaseTurn) {
@@ -699,8 +710,9 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // A nearly vertical face is a wall contact. Solver-sized box tilts can
       // give it a tiny upward normal without making it a place to plant feet.
       if (c.face.ny >= -.01) return false
-      // Gliding on frictionless footing, a prop's tilted face is something met, never a slope to slide on.
-      if (c.platform.looseProp && slickFooting(p)) return false
+      // Gliding on frictionless footing, a prop's tilted face is something met, never a slope to slide on; so is it
+      // without weight, where nothing pulls the body down it and a held push carries the prop on.
+      if (c.platform.looseProp && (slickFooting(p) || floating)) return false
       // A trailing foot can brush the bank while running off its lip. A
       // separating contact cannot capture the body into a downhill slide.
       if (p.coyote > 0 && !p.sliding?.active && !c.platform.looseProp && p.vx * c.face.nx + p.vy * c.face.ny > .1
@@ -746,7 +758,11 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       if (ground && (!collisionOutline || !platforms.some(b => overlaps(p.x, ground!.y, b))) && canGrip(ground.angle, surfaceFriction(ground.platform)) && (p.grounded || p.vx * Math.sin(ground.angle) - p.vy * Math.cos(ground.angle) <= .1)) {
         if (!p.grounded && oldVy > 0) absorbLanding(p, oldVy)
         // Settling the last fraction onto a surface is still an arrival: a fast one without weight rebounds.
-        if (!p.grounded && floating) absorbWeightlessArrival(p, oldVx, oldVy, ground.angle)
+        if (!p.grounded && floating) {
+          absorbWeightlessArrival(p, oldVx, oldVy, ground.angle)
+          // Landing on a floating prop, the pair moves on together.
+          if (ground.platform.looseProp) kickProp(p, world.colliders.find(c => c.platform === ground.platform), [Math.sin(ground.angle), -Math.cos(ground.angle)], stoppedBy(oldVx, oldVy, ground.angle), true)
+        }
         p.grounded = true; p.vy = 0; p.groundAngle = ground.angle
         if (!platforms.some(b => overlaps(p.x, ground.y, b))) p.y = ground.y
       }
@@ -859,7 +875,7 @@ function turnToWall(p: Player, side: number, gravity: number) {
   p.grounded = false; p.coyote = 0
   p.anim.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null
   p.freeFall = null; p.anim.dryTurn = null; p.anim.slideEntry = null
-  p.contacts = null
+  dropContacts(p)
 }
 /** Without weight, a body drifting toward a surface it will reach soon swings feet-first to meet it: onto that floor,
  * wall or ceiling as its footing, by the same released turn a pull would start, pivoting about the body's middle. */
@@ -914,6 +930,7 @@ const settledWeightless = (p: Player) => (p.weightless ?? 0) >= TUNING.zeroGravi
 function orientInFlight(p: Player, world: ContactWorld, input: JumpInput, dt: number, field?: GravityField) {
   const before = p.flatOut ?? 0
   p.flatOut = 0
+  delete p.propPlan
   if (p.grounded || p.hang || p.mantle || p.climbing || p.waterMotion) return
   const roll = p.releaseTurn
   if (roll && roll.float === undefined) return
@@ -922,8 +939,20 @@ function orientInFlight(p: Player, world: ContactWorld, input: JumpInput, dt: nu
   // Held boots push the body along its travel (or brake it), so it arrives sooner (or later) than a coast would.
   const [tx, ty] = floatDirection(input, 1), along = (tx * p.vx + ty * p.vy) / speed
   const push = TUNING.zeroGravityThrust * along * (along < 0 ? TUNING.zeroGravityBrake : 1)
-  const wanted = surfaceAhead(p, world, speed, field)
-  const arrival = wanted && weightlessArrivalTime(wanted.travel, speed, push)
+  const wanted = surfaceAhead(p, world, speed, field, true)
+  // A floating prop is met when the gap across its face closes at the speed the two close on each other, sooner while
+  // the boots drive the body at it.
+  const arrival = wanted && (wanted.prop ? weightlessArrivalTime(wanted.prop.across, Math.max(1e-6, wanted.prop.closing),
+    push * Math.max(0, -(p.vx * wanted.normal[0] + p.vy * wanted.normal[1]) / speed)) : weightlessArrivalTime(wanted.travel, speed, push))
+  const current: Footing = p.wall ?? (p.inverted ? 'ceiling' : 'floor')
+  // One plan for meeting a floating prop ahead, which the roll, the hands and the drawing all follow. The feet take it
+  // when the body coasts onto it or comes down onto it as it stands, and a roll there fits without whirling round;
+  // otherwise the hands do (boots driving at it push it, and one coming too fast to turn for is fended off).
+  if (wanted?.prop && arrival !== null && arrival <= TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead) {
+    const underfoot = wanted.footing === current, span = underfoot ? 0 : Math.abs(footingTurn(current, wanted.footing, p.facing))
+    const feet = (underfoot || along <= PUSHING_ALONG) && (underfoot || arrival - FLOAT_ROLL_MARGIN >= rollUnhurried(span) * PROP_ROLL_LATE)
+    p.propPlan = { id: wanted.prop.id, meet: feet ? 'feet' : 'hands', arrival }
+  }
   // Flying flat out with no weightless landing ahead, the float leans the body head-first along its travel.
   if (!roll && flyingFlat(p) && !(arrival !== null && arrival <= TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead)) p.flatOut = before + dt
   if (roll) {
@@ -935,35 +964,56 @@ function orientInFlight(p: Player, world: ContactWorld, input: JumpInput, dt: nu
     if (roll.target && left > 0 && roll.duration && left * roll.duration > time) roll.duration = Math.max(FLOAT_ROLL_FASTEST, time / left)
     return
   }
-  const current: Footing = p.wall ?? (p.inverted ? 'ceiling' : 'floor')
-  if (!wanted || arrival === null || wanted.footing === current) return
+  if (!wanted || arrival === null || wanted.footing === current || wanted.prop && p.propPlan?.meet !== 'feet') return
   // Time the roll to finish with a little travel left to land on.
   const duration = arrival - TUNING.zeroGravityRollLead
   if (duration > TUNING.zeroGravityRollMax) return
   const target = footingTurn(current, wanted.footing, p.facing)
+  // A big turn takes more of the time there is (finishing just short of the surface rather than with travel to spare),
+  // so it does not swing the body round faster than it must.
+  const rollTime = Math.max(Math.min(Math.max(TUNING.zeroGravityRollMin, rollUnhurried(Math.abs(target))), arrival - FLOAT_ROLL_MARGIN), FLOAT_ROLL_FASTEST, duration)
   // The roll starts from the drawn lean and keeps the float posture: one smooth turn, not a turn plus a straightening.
-  // The body's hull turns the short way; a body drawn head-first for the surface flips forward instead (`over`).
-  const { pose, lean, bend, spin, over } = captureFloatTurn(p, target)
+  // The body's hull turns the short way; a body drawn head-first for the surface flips forward instead (`over`), when
+  // the roll leaves time for it.
+  const { pose, lean, bend, spin, over } = captureFloatTurn(p, target, rollTime)
   p.releaseTurn = { angle: 0, target, pose, facing: p.facing, time: 0, progress: 0,
-    duration: Math.max(Math.min(TUNING.zeroGravityRollMin, arrival - FLOAT_ROLL_MARGIN), FLOAT_ROLL_FASTEST, duration),
+    duration: rollTime,
     toWall: wanted.footing === 'floor' ? null : wanted.footing, span: Math.abs(target), float: lean, bend, spin, over, toward: wanted.normal }
-  p.anim.ragdoll = null; p.wallBrace = null; p.anim.dryTurn = null; p.anim.slideEntry = null; p.contacts = null
+  p.anim.ragdoll = null; p.wallBrace = null; p.anim.dryTurn = null; p.anim.slideEntry = null; dropContacts(p)
 }
+/** Thrust along the travel at least this share of full (a unit held direction) is driving at what lies ahead. */
+const PUSHING_ALONG = .3
+/** A loose prop at least this wide each way is footing a weightless body rolls its feet to. */
+const PROP_FOOTING = 40
+/** ...and one the body closes on faster than this (px/s). */
+const PROP_CLOSING = 20
+/** How long a weightless roll through `span` (rad) takes to stay under ROLL_TURN_MAX at its peak (its eased turn peaks at
+ * 1.5 times its average rate), when the arrival leaves that long. */
+const rollUnhurried = (span: number) => 1.5 * span / ROLL_TURN_MAX
+const ROLL_TURN_MAX = 3.5
+/** A roll onto a prop that would have to be quicker than this share of unhurried is left to the hands. */
+const PROP_ROLL_LATE = .55
 /** A late roll still finishes this long before contact, and none is quicker than FLOAT_ROLL_FASTEST seconds. */
 const FLOAT_ROLL_MARGIN = .06, FLOAT_ROLL_FASTEST = .18
 /** The surface a coasting weightless body is heading for, the footing it gives, and how far the body travels until
  * it would meet it feet-first: its body axis across the surface, half its height from its middle. None if weight would
  * return on the way (the body leaves the weightless field first): it will fall rather than land weightless, and a roll
  * begun for it would leave the body on its side or its head when the weight comes back. */
-function surfaceAhead(p: Player, world: ContactWorld, speed: number, field?: GravityField): { footing: Footing; travel: number; normal: [number, number] } | null {
+function surfaceAhead(p: Player, world: ContactWorld, speed: number, field?: GravityField, props = false): { footing: Footing; travel: number; normal: [number, number]; prop?: { id: string; across: number; closing: number } } | null {
   const horizon = TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead
   const reach = speed * horizon + TUNING.height + 40, ux = p.vx / speed, uy = p.vy / speed
   const body = playerContactBody(p), orientation = p.inverted ? -1 : 1, angle = playerTurnAngle(p)
   const probe = moveBody([body.x, body.y], [body.x + ux * reach, body.y + uy * reach], world.platforms, body.height,
     orientation, angle, body.outline)
-  let ahead: readonly [number, number] | null = null
-  for (const contact of probe.contacts) if (contact.normal[0] * ux + contact.normal[1] * uy < -.3 && !contact.platform.looseProp
-    && (!ahead || contact.normal[0] * ux + contact.normal[1] * uy < ahead[0] * ux + ahead[1] * uy)) ahead = contact.normal as [number, number]
+  let ahead: readonly [number, number] | null = null, aheadPlatform: Platform | null = null
+  // A prop counts only while the body is closing on it: one drifting away as fast is never reached.
+  const closing = (b: Platform, nx: number, ny: number) => {
+    const prop = world.colliders.find(c => c.platform === b)?.prop
+    return -((p.vx - (prop?.vx ?? 0)) * nx + (p.vy - (prop?.vy ?? 0)) * ny) > PROP_CLOSING
+  }
+  for (const contact of probe.contacts) if (contact.normal[0] * ux + contact.normal[1] * uy < -.3
+    && (!contact.platform.looseProp || props && Math.min(contact.platform.w, contact.platform.h) >= PROP_FOOTING && closing(contact.platform, contact.normal[0], contact.normal[1]))
+    && (!ahead || contact.normal[0] * ux + contact.normal[1] * uy < ahead[0] * ux + ahead[1] * uy)) { ahead = contact.normal as [number, number]; aheadPlatform = contact.platform }
   if (!ahead) return null
   const [nx, ny] = ahead, square = -(ux * nx + uy * ny)
   // The sweep slides on along the surface after meeting it; the gap across the surface is exact.
@@ -975,7 +1025,10 @@ function surfaceAhead(p: Player, world: ContactWorld, speed: number, field?: Gra
   const extent = Math.max(...hull.map(([x, y]) => -((x - middle[0]) * nx + (y - middle[1]) * ny)))
   const travel = Math.max(0, gap + extent - TUNING.height / 2) / square
   if (field && !weightlessAlong(p, field, ux, uy, travel)) return null
-  return { footing: Math.abs(ny) >= Math.abs(nx) ? ny < 0 ? 'floor' : 'ceiling' : nx > 0 ? 'left' : 'right', travel, normal: [nx, ny] }
+  // A floating prop is met when the gap across its face closes, at the speed the two close on each other.
+  const collider = aheadPlatform?.looseProp ? world.colliders.find(c => c.platform === aheadPlatform) : undefined, prop = collider?.prop
+  return { footing: Math.abs(ny) >= Math.abs(nx) ? ny < 0 ? 'floor' : 'ceiling' : nx > 0 ? 'left' : 'right', travel, normal: [nx, ny],
+    ...(prop ? { prop: { id: collider!.id, across: travel * square, closing: -((p.vx - prop.vx) * nx + (p.vy - prop.vy) * ny) } } : {}) }
 }
 /** Whether the body stays weightless moving `distance` along (ux, uy) from where it is, sampled every WEIGHTLESS_SAMPLE. */
 function weightlessAlong(p: Player, field: GravityField, ux: number, uy: number, distance: number) {
@@ -1022,12 +1075,23 @@ function floatDirection(input: JumpInput, frameDirection: number) {
 /** Without weight, jumping pushes off every surface the body touches: floor, wall, ceiling or a corner between them.
  * The push leaves along their combined normal, leaning toward a held direction that does not point into them, and keeps
  * the drift along the surface. Returns whether there was anything to push from. */
-function pushOff(p: Player, input: JumpInput, platforms: readonly Platform[], height: number, frameDirection: number, speed: number = TUNING.zeroGravityPushOff) {
+function pushOff(p: Player, input: JumpInput, platforms: readonly Platform[], world: ContactWorld, height: number, frameDirection: number, speed: number = TUNING.zeroGravityPushOff) {
   let nx = 0, ny = 0
+  const touched = new Map<Platform, [number, number]>()
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
     const probe = moveBody([p.x, p.y], [p.x + dx * 1.5, p.y + dy * 1.5], platforms, height, 1, playerTurnAngle(p))
-    for (const contact of probe.contacts) if (contact.normal[0] * dx + contact.normal[1] * dy < -.5) { nx += contact.normal[0]; ny += contact.normal[1] }
+    for (const contact of probe.contacts) if (contact.normal[0] * dx + contact.normal[1] * dy < -.5) {
+      nx += contact.normal[0]; ny += contact.normal[1]; touched.set(contact.platform, [contact.normal[0], contact.normal[1]])
+    }
   }
+  // Palms planted on a floating prop push off it even if the hull is not quite touching it.
+  const palms = p.contacts?.push?.floating ? p.contacts.push.hands?.palms : undefined
+  const held = palms && world.colliders.find(c => c.id === p.contacts!.push!.collider.id)?.platform
+  if (held && !touched.size) {
+    const hx = (palms![0].nx + palms![1].nx) / 2, hy = (palms![0].ny + palms![1].ny) / 2, length = Math.hypot(hx, hy) || 1
+    nx += hx / length; ny += hy / length; touched.set(held, [hx / length, hy / length])
+  }
+  const oldVx = p.vx, oldVy = p.vy
   const length = Math.hypot(nx, ny)
   if (length < .5) return false
   nx /= length; ny /= length
@@ -1035,19 +1099,43 @@ function pushOff(p: Player, input: JumpInput, platforms: readonly Platform[], he
   if ((hx || hy) && hx * nx + hy * ny > -.01) { const bx = nx + hx, by = ny + hy, b = Math.hypot(bx, by); nx = bx / b; ny = by / b }
   const along = p.vx * -ny + p.vy * nx
   p.vx = nx * speed - ny * along; p.vy = ny * speed + nx * along
+  // Pushing off a loose prop alone, the prop takes the reaction: the prop solver splits this change by mass. Against
+  // anything fixed as well, the push is all the player's.
+  const [only] = touched.keys()
+  if (touched.size === 1 && only.looseProp) kickProp(p, world.colliders.find(c => c.platform === only), touched.get(only)!, [p.vx - oldVx, p.vy - oldVy])
   p.grounded = false; p.coyote = 0; p.buffer = 0; p.wallJumpBuffer = 0; p.jumpStrength = undefined; p.jumpLift = null
-  p.wallJump = null; p.wallBrace = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null; p.anim.footwork = null
+  // The drawn palms (`pushing`) let go as they always do, fading, rather than vanishing as the body leaves.
+  p.wallJump = null; p.wallBrace = null; p.pushRig = null; p.ledgeReach = null; p.anim.footwork = null
   if (p.sliding) p.sliding.active = false
   delete p.rebound; p.crouching = false
   p.freeFall = null; p.anim.ragdoll = null; p.grabCooldown = Math.max(p.grabCooldown, .2)
   p.jumpStart = p.y; p.jumpHeight = 0
   return true
 }
+/** A turn starting after the step published its contacts drops them, all but a push-off's or landing's reaction owed
+ * to a prop (`kick`), which the prop solver still has to deliver this tick (propPhysics.ts reactToPushOffs). */
+function dropContacts(p: Player) {
+  const kicks = p.contacts?.body.filter(c => c.kick)
+  p.contacts = kicks?.length ? { support: null, push: null, body: kicks, motion: p.contacts!.motion } : null
+}
+/** Without weight a loose prop takes its share of a change in the player's velocity made against it: a push-off, a
+ * rebound, or a landing (`riding`: the player stands on it now and rides it). Published as a body contact
+ * (finishPlayerStep) and split by mass in the prop solver (propPhysics.ts reactToPushOffs). */
+function kickProp(p: Player, collider: PlayerCollider | undefined, normal: readonly [number, number], kick: readonly [number, number], riding = false) {
+  if (!collider?.prop || Math.hypot(kick[0], kick[1]) < 1e-6) return
+  p.propKick = { collider: collider.id, normal: [normal[0], normal[1]], kick: [kick[0], kick[1]], ...(riding ? { riding } : {}) }
+}
+/** The velocity a surface stops: the part of (vx, vy) into a surface at `angle`, as the change that removes it. */
+function stoppedBy(vx: number, vy: number, angle: number): [number, number] {
+  const nx = Math.sin(angle), ny = -Math.cos(angle), into = vx * nx + vy * ny
+  return into < 0 ? [-into * nx, -into * ny] : [0, 0]
+}
 /** Feet on frictionless terrain, standing or sliding: a collision there is a glide meeting something, not a walk into it. */
 const slickFooting = (p: Player) => p.grounded ? !!p.contacts?.support?.platform.frictionless : !!p.sliding?.active && !!p.sliding.slick
-/** The speed a gliding body keeps when it catches a loose prop sliding the same way: the prop's own. */
+/** The speed a gliding body keeps when it catches a loose prop sliding the same way: the prop's own. So does a
+ * weightless body: nothing holds it back, so meeting a prop it pushes it on rather than stopping dead behind it. */
 function glidingBehind(p: Player, world: ContactWorld, b: Platform, direction: number) {
-  if (!b.looseProp || !slickFooting(p)) return 0
+  if (!b.looseProp || !slickFooting(p) && !settledWeightless(p)) return 0
   const prop = world.colliders.find(c => c.platform === b)?.prop
   return prop && prop.vx * direction > 0 ? prop.vx : 0
 }
@@ -1064,7 +1152,7 @@ function turnToGravity(p: Player, gravity: number, pose?: AthletePose) {
   p.grounded = false; p.coyote = 0
   p.anim.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.pushRig = null; p.ledgeReach = null
   p.freeFall = null; p.anim.dryTurn = null; p.anim.slideEntry = null
-  p.contacts = null
+  dropContacts(p)
 }
 
 /** All movement modes publish contacts and advance presentation once, after
@@ -1095,6 +1183,11 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   if (preparation !== undefined) presentPush(p, contacts, preparation, dt)
   // A rolling ball remains an obstruction for the motor, but the published
   // working contacts and rig must release once the shove supplies no force.
+  if (p.propKick) {
+    const { collider: id, normal, kick, riding } = p.propKick, collider = world.colliders.find(c => c.id === id)
+    if (collider?.prop) contacts.body.push({ collider, normal, point: [p.x, p.y], load: 0, kick, ...(riding ? { riding } : {}) })
+    delete p.propKick
+  }
   p.contacts = contacts.push?.passive ? { ...contacts, push: null } : contacts
   advanceWaterCamera(p, input, dt)
   // Residual drift is not steering; only an actual step starts the faster get-up.
@@ -1164,7 +1257,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const gravity = p.gravity ?? TUNING.gravity
   const weightFree = isWeightless(Math.hypot(gravity, options.lateralGravity ?? 0)) && !swimStrength
   p.weightless = weightFree ? (p.weightless ?? 0) + dt : 0
-  if (!weightFree) p.flatOut = 0
+  if (!weightFree) { p.flatOut = 0; delete p.propPlan }
   // Device directions remain screen-relative; posture and ledge motions run
   // in this controller's gravity frame. Ropes and swimming retain screen input.
   const screenDown = !!(input.descend ?? (input.drop && !input.detach))
@@ -1691,7 +1784,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (p.ladderJumpGrace > 0 && p.buffer > 0) launchFromClimb(p, input.move, orientationGravity)
   // Without weight a jump pushes off whatever the body touches, instead of an ordinary jump or wall jump.
   const weightless = settledWeightless(p)
-  if (weightless && p.buffer > 0) pushOff(p, input, platforms, height, frameDirection)
+  if (weightless && p.buffer > 0) pushOff(p, input, platforms, world, height, frameDirection)
   // Feet carry no weight, so nothing walks: the boots lift a standing body off its surface when a direction is held
   // that does not press into it, and then fly it as they do any floating body. In a doorway Up enters the door instead.
   else if (weightless && p.grounded && !p.releaseTurn && !(options.doorway && input.climb) && floatDirection(input, frameDirection)[1] < .5
@@ -1706,8 +1799,11 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     r.time += dt
     if (r.push === undefined && (r.time >= TUNING.zeroGravityAbsorbTime * 2 || r.time > dt * 1.5 && (p.crouchRate ?? 0) <= 0)) r.push = 0
     else if (r.push !== undefined && (r.push += dt) >= REBOUND_PUSH_TIME - 1e-9) {
-      const angle = r.angle ?? 0
+      const angle = r.angle ?? 0, before = [p.vx, p.vy]
       p.vx = Math.sin(angle) * r.speed; p.vy = -Math.cos(angle) * r.speed
+      // Legs pushing off a floating prop push it away.
+      const support = p.contacts?.support?.collider.id
+      kickProp(p, world.colliders.find(c => c.id === support), [Math.sin(angle), -Math.cos(angle)], [p.vx - before[0], p.vy - before[1]])
       p.grounded = false; p.coyote = 0; p.crouching = false; p.anim.footwork = null; delete p.rebound
     }
   }
@@ -1867,7 +1963,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const bareCorner = (b: Platform, x: number, y: number, side: number) =>
     !platforms.some(other => other !== b && pointInside(other, x + side * .5, y + .5))
   const land = (surface: GroundSurface) => {
-    if (!wasGrounded && weightless) absorbWeightlessArrival(p, p.vx, p.vy, surface.angle, dt)
+    if (!wasGrounded && weightless) {
+      absorbWeightlessArrival(p, p.vx, p.vy, surface.angle, dt)
+      if (surface.platform.looseProp) kickProp(p, world.colliders.find(c => c.platform === surface.platform), [Math.sin(surface.angle), -Math.cos(surface.angle)], stoppedBy(p.vx, p.vy, surface.angle), true)
+    }
     if (!wasGrounded) {
       absorbLanding(p, p.vy)
       const cos = Math.cos(surface.angle), sin = Math.sin(surface.angle)
@@ -1898,7 +1997,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         p.x = p.x < b.x ? b.x - 12 : b.x + b.w + 12; p.vx = 0
       }
     } else if (!rolling && p.vy < 0 && oldY - height >= b.y + b.h - .1 && p.y - height <= b.y + b.h) {
-      p.y = b.y + b.h + height; p.vy = 0
+      // Without weight a floating prop the boots drive up into is pushed on, not hit: the body keeps pace with it rather
+      // than stopping. Let go, the body drifts clear of it instead of riding along under it on its head.
+      const prop = weightless && bodyClimb && b.looseProp ? world.colliders.find(c => c.platform === b)?.prop : undefined
+      p.y = b.y + b.h + height; p.vy = Math.min(0, prop?.vy ?? 0)
     }
   }
   let reach: Player['ledgeReach'] = null

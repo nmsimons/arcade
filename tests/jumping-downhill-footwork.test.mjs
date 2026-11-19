@@ -5,8 +5,9 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 
-const spelunk = JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk.jump-level.json', import.meta.url)))
+const spelunk = readBuiltinLevel('13b9b9d7-7937-4989-bc03-21238e7e58f2') // Exit I
 
 test('Spelunk downhill running completes descending-foot landings instead of restarting and dragging a leg', () => {
   // Retain the reported polygon and actual ball; place this isolated encounter

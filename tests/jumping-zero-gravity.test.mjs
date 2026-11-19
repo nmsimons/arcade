@@ -76,19 +76,47 @@ test('zero-g air resistance slows both drift axes gradually and independently of
   }
 })
 
-for (const kind of ['box', 'ball']) test(`a neutral drifting player transfers momentum to a floating ${kind} once across solver substeps`, () => {
+/** Speed after `t` seconds of the zero-g air from `s0`: ds/dt = -(a + b s + settle) s, the settle fading in below the
+ * rest speed. */
+const coasted = (s0, t) => {
+  let s = s0
+  for (let i = 0; i < t * 1e4; i++) s -= (TUNING.zeroGravityDrag + TUNING.zeroGravityAirDrag * s
+    + TUNING.zeroGravityRestDrag * Math.max(0, 1 - s / TUNING.zeroGravityRestSpeed)) * s * 1e-4
+  return s
+}
+
+for (const kind of ['box', 'ball']) test(`a neutral drifting player bumping a floating ${kind} side-on transfers momentum once across solver substeps`, () => {
+  for (const dt of [STEP, 1 / 30]) {
+    // The prop floats level with the body's middle, just ahead of its hull.
+    const run = fixture(kind, { props: [{ kind, x: 344, y: 838, size: 60 }] }), p = run.player, b = run.props[0]
+    p.vx = 300
+    stepRun(run, NEUTRAL_INPUT, dt)
+    assert.ok(b.vx > 50, 'a bump works without any steering force')
+    assert.ok(p.vx > 0 && p.vx < 200, 'the collision slows the player without an extra bounce')
+    // Momentum is conserved with the prop solver's masses. The hull's face is centred a little above the box's middle,
+    // so the box also takes some spin.
+    const mass = kind === 'box' ? .002 * 60 * 60 : .001 * 2829.8
+    close((2.5 * p.vx + mass * b.vx) / (2.5 * 300), 1, .03)
+    assert.ok(Math.abs(b.angularVelocity) < 2, 'no more than the lever of that offset gives')
+    assert.equal(bodyIntersects(p.x, p.y, kind === 'box' ? boxShape(b) : ballShape(b)), false)
+    // Afterwards both feel the same air: the pair's momentum dies away gently (the player may catch the prop and bump
+    // it again on the way, sharing a little more), rather than the prop keeping its speed forever.
+    const momentum = () => 2.5 * p.vx + mass * b.vx, before = momentum()
+    for (let i = 0; i < Math.round(1 / dt); i++) stepRun(run, NEUTRAL_INPUT, dt)
+    assert.ok(momentum() < before * .92 && momentum() > before * .75, `the air took ${(100 - momentum() / before * 100).toFixed(0)}% of the momentum in a second`)
+  }
+})
+
+for (const kind of ['box', 'ball']) test(`a weightless body drifting feet-first onto a floating ${kind} lands on it and rides it on, sharing its momentum`, () => {
   for (const dt of [STEP, 1 / 30]) {
     const run = fixture(kind), p = run.player, b = run.props[0]
-    p.vy = 300
-    stepRun(run, NEUTRAL_INPUT, dt)
-    assert.ok(b.vy > 50, 'a bump works without any steering force')
-    assert.ok(p.vy > 0 && p.vy < 200, 'the collision slows the player without an extra bounce')
-    close(p.vy / Math.exp(-airDrag(p.vy) * dt), b.vy, .05)
-    close(b.angularVelocity, 0, 1e-4)
-    assert.equal(bodyIntersects(p.x, p.y, kind === 'box' ? boxShape(b) : ballShape(b)), false)
-    const speed = b.vy
-    for (let i = 0; i < Math.round(1 / dt); i++) stepRun(run, NEUTRAL_INPUT, dt)
-    close(b.vy, speed, 1e-4)
+    p.vy = 120
+    for (let i = 0; i < Math.round(.5 / dt); i++) stepRun(run, NEUTRAL_INPUT, dt)
+    assert.equal(p.contacts?.support?.collider.prop, b, 'standing on the prop')
+    // The pair moves on together at the speed momentum gives them (the prop solver's masses), less the air.
+    const mass = kind === 'box' ? .002 * 60 * 60 : .001 * 2829.8, shared = 120 * 2.5 / (2.5 + mass)
+    assert.ok(b.vy > shared * .8 && b.vy < shared * 1.02, `the prop moves on at ${b.vy.toFixed(1)}, sharing ${shared.toFixed(1)}`)
+    assert.ok(p.y < b.y - (kind === 'box' ? 59 : 59.5), 'the feet stay on its top')
   }
 })
 
@@ -107,7 +135,8 @@ test('an incoming weightless object also shares its momentum with a stationary p
   stepRun(run, NEUTRAL_INPUT)
   assert.ok(run.player.vy < -100)
   assert.ok(run.props[0].vy > -300 && run.props[0].vy < 0)
-  close(run.player.vy / Math.exp(-airDrag(run.player.vy) * STEP), run.props[0].vy, .05)
+  // Both then feel the same air, so they leave together.
+  close(run.player.vy, run.props[0].vy, .5)
 })
 
 test('neutral player impacts also move unsupported objects in a 0.1 gravity field', () => {
@@ -322,4 +351,121 @@ test('a floating body keeps moving its limbs at any speed, kicks as the boots sw
   }
   assert.ok(kick > .3, `the legs kick as the boots switch (${kick.toFixed(2)})`)
   assert.ok(worst * 180 / Math.PI < 8000, `turn acceleration up to ${(worst * 180 / Math.PI).toFixed(0)}°/s²`)
+})
+
+/** A weightless room (the fixture's) with a wall standing in it at x 1500, and these props, set moving; the player
+ * parked far away. */
+function drifting(props, gravity = 0) {
+  const run = fixture('ball', { entrance: { x: 100, y: 1300 }, props: props.map(({ vx, vy, ...prop }) => prop), platforms: [{ x: 1500, y: 100, w: 40, h: 1200 }],
+    gravityPlates: [{ id: 'zero-g', x: 20, y: 20, w: 1760, h: 1360, gravity, power: 'always' }] })
+  props.forEach(({ vx = 0, vy = 0 }, i) => Object.assign(run.props[i], { vx, vy }))
+  return run
+}
+const until = (run, done, seconds = 4) => { for (let i = 0; i < seconds / STEP && !done(); i++) stepRun(run, NEUTRAL_INPUT) }
+
+test('without weight a fast prop rebounds off a wall, a ball more than a box, and a slow one stays against it', () => {
+  for (const [kind, share] of [['ball', .5], ['box', .3]]) {
+    const run = drifting([{ kind, x: 1300, y: 700, size: 60, vx: 300 }]), b = run.props[0]
+    let before = 0
+    until(run, () => { if (b.vx > 1) before = b.vx; return b.vx < -1 })
+    close(-b.vx / before, share, .05)
+    const room = drifting([{ kind, x: 1440, y: 700, size: 60, vx: 20 }]), slow = room.props[0]
+    until(room, () => slow.x > 1469.9, 3)
+    for (let i = 0; i < 12; i++) stepRun(room, NEUTRAL_INPUT)
+    assert.ok(slow.vx > -1, `a slow ${kind} stays against the wall (${slow.vx.toFixed(2)})`)
+  }
+})
+
+test('under gravity a prop still lands dead, without bouncing', () => {
+  const run = drifting([{ kind: 'ball', x: 900, y: 1000, size: 60, vy: 0 }], 1), b = run.props[0]
+  until(run, () => b.grounded, 3)
+  for (let i = 0; i < 24; i++) { stepRun(run, NEUTRAL_INPUT); assert.ok(b.vy >= -1e-6, 'no rebound off the floor') }
+})
+
+test('without weight a ball striking a resting ball leaves it the faster, and they part', () => {
+  const run = drifting([{ kind: 'ball', x: 600, y: 700, size: 60, vx: 250 }, { kind: 'ball', x: 900, y: 700, size: 60 }]), [a, b] = run.props
+  until(run, () => b.vx > 1)
+  for (let i = 0; i < 12; i++) stepRun(run, NEUTRAL_INPUT)
+  close(a.vx / b.vx, 1 / 3, .05)
+  for (let i = 0; i < 60; i++) stepRun(run, NEUTRAL_INPUT)
+  assert.ok(b.x - a.x > 70, 'they have parted')
+})
+
+test('a slow weightless drift settles away in the air instead of stopping dead', () => {
+  const run = drifting([{ kind: 'ball', x: 600, y: 700, size: 60, vx: 8 }]), b = run.props[0]
+  for (let i = 0; i < 2 / STEP; i++) stepRun(run, NEUTRAL_INPUT)
+  close(b.vx, coasted(8, 2), .2)
+})
+
+for (const kind of ['box', 'ball']) test(`pushing off a floating ${kind} sends it back, splitting the push by mass`, () => {
+  const run = fixture(kind), p = run.player, b = run.props[0]
+  p.vy = 30
+  for (let i = 0; i < 60; i++) stepRun(run, NEUTRAL_INPUT)
+  assert.equal(p.contacts?.support?.collider.prop, b, 'standing on it')
+  const before = { player: p.vy, prop: b.vy }
+  for (let i = 0; i < 3; i++) stepRun(run, { ...NEUTRAL_INPUT, jump: true })
+  const mass = kind === 'box' ? .002 * 60 * 60 : .001 * 2829.8
+  // Momentum is conserved: what the player gains upward the prop takes downward.
+  close(2.5 * (p.vy - before.player) + mass * (b.vy - before.prop), 0, 25)
+  assert.ok(b.vy - before.prop > 20, 'the prop goes the other way')
+  assert.ok(-(p.vy - before.player) < TUNING.zeroGravityPushOff, 'a loose prop gives less than a wall')
+})
+
+test('boots held at a floating ball push it steadily with the palms on it, not in bumps', () => {
+  const run = fixture('ball', { entrance: { x: 300, y: 838 }, props: [{ kind: 'ball', x: 380, y: 838, size: 60 }] }), p = run.player, b = run.props[0]
+  let episodes = 0, touching = false, palms = 0, ticks = 0
+  for (let i = 0; i < 2.5 / STEP; i++) {
+    stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
+    const now = !!p.contacts?.body?.some(c => c.collider.prop === b)
+    if (now && !touching) episodes++
+    touching = now
+    if (i > 1 / STEP) { ticks++; if (p.contacts?.push?.floating && p.contacts.push.hands?.palms) palms++ }
+  }
+  assert.ok(episodes <= 2, `one push, not a string of bumps (${episodes} contacts)`)
+  assert.equal(palms, ticks, 'the palms stay on the ball')
+  assert.ok(b.vx > 100 && Math.abs(p.vx - b.vx) < 5, 'they travel together')
+})
+
+test('coasting at a floating box, the body rolls its feet to it and lands', () => {
+  const run = fixture('box', { entrance: { x: 300, y: 838 }, props: [{ kind: 'box', x: 300, y: 600, size: 80 }] }), p = run.player, b = run.props[0]
+  p.vy = -160
+  let rolled = false
+  until(run, () => { rolled ||= !!p.releaseTurn; return p.contacts?.support?.collider.prop === b }, 3)
+  assert.ok(rolled, 'rolled feet-first')
+  assert.equal(p.contacts?.support?.collider.prop, b, 'landed on the box')
+})
+
+for (const kind of ['box', 'ball']) test(`let go after pushing a ${kind} overhead, the body keeps its hands on it, and a jump pushes it away`, () => {
+  const run = fixture(kind, { entrance: { x: 300, y: 838 }, props: [{ kind, x: 300, y: 740, size: kind === 'box' ? 80 : 68 }] }), p = run.player, b = run.props[0]
+  for (let i = 0; i < 120; i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+  assert.ok(b.vy < -40, `Up pushed the ${kind} up`)
+  let palms = 0, touching = 0
+  for (let i = 0; i < 240; i++) {
+    stepRun(run, NEUTRAL_INPUT)
+    if (p.contacts?.body?.some(c => c.collider.prop === b)) { touching++; if (p.contacts.push?.floating && p.contacts.push.hands?.palms) palms++ }
+  }
+  assert.equal(palms, touching, `whenever the body is against the ${kind} its palms are on it`)
+  const before = { player: p.vy, prop: b.vy }
+  for (let i = 0; i < 6; i++) stepRun(run, { ...NEUTRAL_INPUT, jump: true })
+  assert.ok(p.vy - before.player > 50, `the jump pushes the body away from the ${kind}`)
+  assert.ok(b.vy - before.prop < -20, `and sends the ${kind} the other way`)
+})
+
+for (const kind of ['box', 'ball']) test(`without weight a ${kind} held against a ceiling plate presses it, as contact presses a wall plate`, () => {
+  // Up held into the prop pushes it to the plate; then let go, it rests against it.
+  const size = kind === 'box' ? 80 : 68
+  const run = fixture(kind, { entrance: { x: 300, y: 838 }, props: [{ kind, x: 300, y: 740, size }],
+    // A slab's underside inside the weightless field, with the plate on it.
+    platforms: [{ x: 0, y: 400, w: 1800, h: 40 }], triggers: [{ x: 250, y: 440, w: 100, targets: [], mode: 'touch', ceiling: true }] }), plate = run.triggers[0]
+  let pressed = false
+  for (let i = 0; i < 6 / STEP && !pressed; i++) { stepRun(run, { ...NEUTRAL_INPUT, climb: true }); pressed = plate.active }
+  assert.ok(pressed, `the ${kind} pressed the plate`)
+})
+
+test('under weight a ceiling plate still needs a prop pressed up against it from below, not merely brushing it', () => {
+  const level = { ...blankTrial(), entrance: { x: 100, y: 920 }, props: [{ kind: 'ball', x: 300, y: 600, size: 68 }],
+    triggers: [{ x: 250, y: 400, w: 100, targets: [], mode: 'touch', ceiling: true }], platforms: [{ x: 200, y: 380, w: 200, h: 20 }] }
+  const run = createRun(level); run.started = true
+  for (let i = 0; i < 2 / STEP; i++) stepRun(run, NEUTRAL_INPUT)
+  assert.equal(run.triggers[0].active, false, 'a ball that fell away from the plate leaves it off')
 })

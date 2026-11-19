@@ -644,13 +644,15 @@ export function drawnFloatLean(p: Player) {
 }
 /** The start of a weightless feet-first roll: the relaxed float posture, unleaned, and the lean it is drawn with now
  * (releaseTurnPose unwinds it as the body rolls). Players that do not animate capture no pose. */
-export function captureFloatTurn(p: Player, target = 0): { pose?: AthletePose; lean: number; bend: number; spin: number; over: number } {
+export function captureFloatTurn(p: Player, target = 0, duration = Infinity): { pose?: AthletePose; lean: number; bend: number; spin: number; over: number } {
   const f = p.anim.float, lean = drawnFloatLean(p), bend = f ? floatBend(f.spin) * f.blend : 0, spin = f ? f.spin * f.blend : 0
   // Measured in the drawing, where a positive turn tips the head toward the chest: a body drawn heading head-first for
   // the surface (a roll within FLOAT_FLIP_REACH of a half-turn) tucks and flips forward onto its feet, as a swimmer
   // turns at a wall, rather than rolling back over.
   const drawn = target * p.facing - lean
-  const over = drawn < FLOAT_FLIP_REACH - Math.PI ? TAU : drawn > Math.PI + FLOAT_FLIP_REACH ? -TAU : 0
+  const flip = drawn < FLOAT_FLIP_REACH - Math.PI ? TAU : drawn > Math.PI + FLOAT_FLIP_REACH ? -TAU : 0
+  // Only when the roll is long enough to turn that far without whirling (its eased turn peaks at 1.5 times its average).
+  const over = flip && 1.5 * Math.abs(drawn + flip) / duration <= FLOAT_FLIP_TURN_MAX ? flip : 0
   if (p.anim.cadence === 'off') return { lean, bend, spin, over }
   // The roll starts from exactly what is drawn, whatever is fading in it: that pose with the lean and bend the roll
   // reapplies (and unwinds) taken back out.
@@ -668,9 +670,13 @@ export function advanceFloatAnimation(p: Player, dt: number, frameDirection = 1)
     const unwound = (roll.facing === p.facing ? 1 : -1) * (1 - smooth(roll.progress ?? 1))
     // The roll ends on the pose it started from, unwound. The float then fades from that pose into the live one, as
     // after a change of facing; the kick, sway and cycle carry on from where they were.
-    const held = p.anim.float, from = roll.pose && (roll.facing === p.facing ? roll.pose : reflectAthletePose(roll.pose))
+    const held = p.anim.float, lean = floatRollLean(roll, roll.facing === p.facing)
+    const captured = roll.pose && (roll.facing === p.facing ? roll.pose : reflectAthletePose(roll.pose))
+    // The fade starts from the pose as drawn: a roll turned back still shows the lean it has yet to unwind, so leaving
+    // that out jumped the body upright for a frame.
+    const from = captured && (lean ? rotatePose(captured, lean, 1, FLOAT_CENTER) : captured)
     const kept = { phase: held?.phase ?? 0, kick: held?.kick, kickRate: 0, sway: held?.sway, ...(from ? { flip: { pose: from, time: 0 } } : {}) }
-    p.anim.float = { ...kept, lean: floatRollLean(roll, roll.facing === p.facing), spin: (roll.bend ?? 0) * unwound / FLOAT_BEND, facing: handedness(p, frameDirection), blend: 1 }
+    p.anim.float = { ...kept, lean, spin: (roll.bend ?? 0) * unwound / FLOAT_BEND, facing: handedness(p, frameDirection), blend: 1 }
     delete p.anim.floatEntry
     return
   }
@@ -708,7 +714,8 @@ export function advanceFloatAnimation(p: Player, dt: number, frameDirection = 1)
   // mirror (gravityFrame.ts) leaves the drawing's handedness, and the body, as they were.
   if (!f.facing) f.facing = handedness(p, frameDirection)
   else if (f.facing !== handedness(p, frameDirection)) {
-    const before = floatPose({ ...p, facing: -p.facing })
+    // Mirror what is drawn, which may still be fading in from a roll or an earlier turn, not the bare float.
+    const before = f.flip ? athletePose({ ...p, facing: -p.facing }) : floatPose({ ...p, facing: -p.facing })
     f.flip = { pose: reflectAthletePose(before), time: 0 }
     f.lean = -f.lean; f.spin = -f.spin; if (f.aim !== undefined) f.aim = -f.aim; if (f.neck !== undefined) f.neck = -f.neck; f.facing = handedness(p, frameDirection)
   } else if (f.flip && (f.flip.time += dt) >= FLOAT_FLIP_TIME) delete f.flip
@@ -726,7 +733,10 @@ export function advanceFloatAnimation(p: Player, dt: number, frameDirection = 1)
   // A surface the drift is about to bring the body onto takes the feet: the lean waits for it. So does one under the
   // feet that the boots are pushing it back onto, as after a rebound; thrust toward any other is the roll's (model.ts).
   const speed = Math.hypot(p.vx, p.vy), boots = Math.hypot(thrust.x, thrust.lift)
-  const arriving = !!p.terrain && (speed > 20 && floatLanding(p, p.vx / speed, p.vy / speed, speed)
+  // A floating prop is a landing too when the body's plan is to meet it feet-first (model.ts orientInFlight), so the
+  // flip onto the feet starts in time rather than at the touch; one its hands will take never is.
+  const feetFirst = p.propPlan?.meet === 'feet'
+  const arriving = !!p.terrain && (speed > 20 && floatLanding(p, p.vx / speed, p.vy / speed, speed, 0, false, feetFirst)
     || boots > .3 && floatLanding(p, thrust.x / boots, -thrust.lift / boots, Math.max(0, (p.vx * thrust.x - p.vy * thrust.lift) / boots), TUNING.zeroGravityThrust, true))
   // Lean from upright (0) toward where the body is going: +π/2 is head-first along the facing, ±π head-first
   // downward. That is the travel, and more strongly the boots' thrust, so the body shows what is asked of it before
@@ -743,7 +753,12 @@ export function advanceFloatAnimation(p: Player, dt: number, frameDirection = 1)
   // A whole turn behind it (a forward flip) leaves the lean as it was: it is kept within a half-turn of upright.
   const turns = Math.round(f.lean / TAU) * TAU
   if (turns && f.flipTo === undefined) { f.lean -= turns; if (f.aim !== undefined) f.aim -= turns }
-  const goal = toward * amount * .9, aim = f.aim ?? f.lean, aimEase = 1 - Math.exp(-dt / FLOAT_AIM_TIME)
+  // Pushing a prop with the palms (a floating push), the body stands up behind its arms rather than diving head-first;
+  // it starts to while the boots are still driving it at one, so the hands get there before the head.
+  const pushing = Math.max(smooth(p.pushing?.amount ?? 0), p.propPlan?.meet === 'hands' && p.propPlan.arrival <= FLOAT_PUSH_AHEAD ? 1 : 0)
+  const travelled = toward * amount * .9
+  const goal = travelled + (Math.max(-FLOAT_PUSH_LEAN, Math.min(FLOAT_PUSH_LEAN, travelled)) - travelled) * pushing
+  const aim = f.aim ?? f.lean, aimEase = 1 - Math.exp(-dt / FLOAT_AIM_TIME)
   // Diving head-first at a surface it will land on as it is, the body tucks and flips forward onto its feet rather
   // than swinging back: upright again a whole turn on (`flipTo`, in the lean's own winding). Once begun it carries on
   // while the landing is still coming.
@@ -759,6 +774,8 @@ export function advanceFloatAnimation(p: Player, dt: number, frameDirection = 1)
     target = f.lean + Math.atan2(Math.sin(f.aim - f.lean), Math.cos(f.aim - f.lean))
   }
   f.spin += (FLOAT_SPRING ** 2 * (target - f.lean) - 2 * FLOAT_DAMPING * FLOAT_SPRING * f.spin) * dt
+  // A floating body never swings round faster than FLOAT_TURN_MAX: sudden turns read as a glitch, not a body.
+  f.spin = Math.max(-FLOAT_TURN_MAX, Math.min(FLOAT_TURN_MAX, f.spin))
   f.lean += f.spin * dt
   // The head leads: the face turns toward where the body is going (the travel and the thrust) before the trunk does,
   // lifting the chin as the body tips head-first, rather than ducking the crown into the turn. Travel behind the face
@@ -775,12 +792,18 @@ const FLOAT_NECK = .33, FLOAT_NECK_TIME = .1
 const FLOAT_AIM_TIME = .12
 /** A roll or lean this close to a half-turn either way (rad) goes forward: head-first at a surface is a forward flip. */
 export const FLOAT_FLIP_REACH = Math.PI / 4
+/** The fastest a forward flip may turn the drawn body (rad/s, at its peak). */
+const FLOAT_FLIP_TURN_MAX = 12
 /** Seconds the drawn sink takes to ease off once the feet have left a surface. */
 const FLOAT_SINK_SETTLE = .25
 /** Seconds the float's idle sway takes to follow a change in the drift. */
 const FLOAT_SWAY_TIME = .15
 /** How strongly held thrust leans the body, against 1 for travel at full speed, and the seconds it takes to follow. */
 const FLOAT_INTENT = .8, FLOAT_DRIVE_TIME = .1
+/** The fastest the float's lean turns (rad/s), about half a turn a second. */
+const FLOAT_TURN_MAX = 3.2
+/** The most a body pushing a prop with its palms leans toward it (rad). */
+const FLOAT_PUSH_LEAN = .3
 /** The legs' kick: rate gained per unit of change in the felt thrust, and its spring (rad/s, damping ratio). */
 const FLOAT_KICK = 14, FLOAT_KICK_SPRING = 9, FLOAT_KICK_DAMPING = .45
 /** The drawing's left-right sense: a ceiling's mirror reverses it along with the facing. Inside a ceiling's step the
@@ -788,14 +811,19 @@ const FLOAT_KICK = 14, FLOAT_KICK_SPRING = 9, FLOAT_KICK_DAMPING = .45
 const handedness = (p: Player, frameDirection = 1) => p.facing * (p.inverted ? -1 : 1) * frameDirection
 export const FLOAT_FLIP_TIME = .28
 
+/** How far ahead (s) a body driven at a prop starts standing up to push it with its hands. */
+const FLOAT_PUSH_AHEAD = 1
 /** Whether a floating body moving along (ux, uy) at `speed`, pushed along it by `push`, will reach a surface within the
  * weightless look-ahead; `underfoot`, only one beneath its feet. Not one it only reaches after weight has come back
  * (leaving the weightless field first): it will fall, not land as it floats. */
-function floatLanding(p: Player, ux: number, uy: number, speed: number, push = 0, underfoot = false) {
+function floatLanding(p: Player, ux: number, uy: number, speed: number, push = 0, underfoot = false, props = false) {
   const horizon = TUNING.zeroGravityRollMax + TUNING.zeroGravityRollLead
   const reach = speed * horizon + push * horizon ** 2 / 2 + 40
   const probe = moveBody([p.x, p.y], [p.x + ux * reach, p.y + uy * reach], p.terrain!, p.crouching ? TUNING.crouchHeight : TUNING.height)
-  const meeting = probe.contacts.find(contact => !contact.platform.looseProp && contact.normal[0] * ux + contact.normal[1] * uy < -.3)
+  // A prop the body is coming down onto feet-first is a landing too, unless the body's plan is to take it on the hands.
+  const below = (contact: { normal: readonly number[] }) => contact.normal[1] < -.9 && uy > .7 && p.propPlan?.meet !== 'hands'
+  const meeting = probe.contacts.find(contact => (!contact.platform.looseProp || (props || below(contact)) && Math.min(contact.platform.w, contact.platform.h) >= 40)
+    && contact.normal[0] * ux + contact.normal[1] * uy < -.3)
   if (!meeting || underfoot && meeting.normal[1] > -.7) return false
   // The sweep slides on along the surface; the travel to it is the gap across it over how squarely it is met.
   const [nx, ny] = meeting.normal, travel = ((p.x - probe.x) * nx + (p.y - probe.y) * ny) / -(ux * nx + uy * ny)

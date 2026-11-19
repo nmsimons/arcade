@@ -38,6 +38,21 @@ Run the affected checks after each fix. These test locations are included in the
 existing unit and browser CI jobs; a separate manual regression command must not
 be the only way to exercise a reported bug.
 
+## Built-in levels are named by id
+
+A built-in level's file can be renamed and its title retitled in the studio; its
+`id` stays. Tests, fixtures, scripts and review pages name built-in levels by
+that id and resolve the current file with
+`tests/helpers/jumping-builtin-levels.mjs` (`readBuiltinLevel`,
+`builtinLevelFile`, `withLevelFiles`), or in the app by the catalog's ids.
+Medal routes (`tests/fixtures/jumping-builtin-medal-runs.json`) carry `level`;
+historical, superseded and retired routes keep their captured `file` label for
+the layouts saved with them. Golden traces and the flicker budget key each
+built-in level's scripts by id, and the explorers are seeded by id, so a rename
+changes no input. Name a built-in level by its file or title only to show it.
+Levels outside the built-in collection (stress and fixture levels) keep their
+file names.
+
 ## UJG golden traces and the fast tier
 
 `tests/jumping-golden-traces.test.mjs` replays fixed input scripts on every

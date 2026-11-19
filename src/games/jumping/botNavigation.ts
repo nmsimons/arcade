@@ -15,6 +15,7 @@ import { ladderLanding } from './ladderGeometry.ts'
 import { botSwimClear, botWaterDetour, botWaterGraphKey, botWaterNodes, botWaterPoint, botWaterPosition, botWaterSurface, MAX_BOT_WATER_NODES } from './botWaterNavigation.ts'
 import { isWeightless, playerSwimStrength } from './gravity.ts'
 import { bodySize, sizedBodyOutline } from './sizeFrame.ts'
+import { botFloatMovement, botFloating } from './botFloatNavigation.ts'
 
 type Node = { x: number; y: number; climb?: string; swim?: boolean }
 type Edge = { to: number; jump: boolean; climb: boolean; swim?: boolean; cost: number; strength?: number; takeoff?: Node; catchX?: number; catchReach?: number;
@@ -388,7 +389,7 @@ export function botSearchPlaces(run: Run, robot: RobotState) {
   return graph.nodes.flatMap((node, index) => !node.climb && Number.isFinite(costs[index]) ? [{ ...node, cost: costs[index] }] : [])
 }
 
-export function botMovement(run: Run, robot: RobotState, dt: number, target?: Node): JumpInput {
+export function botMovement(run: Run, robot: RobotState, dt: number, target?: Node & { inverted?: boolean; vx?: number; vy?: number }): JumpInput {
   const actor = robot.actor!, k = bodySize(actor), graph = botNavigationGraph(run, k), left = 20, right = run.level.width - 20, barriers = barriersFor(run)
   const walkingSolids = barriers.length ? [...graph.solids, ...barriers] : graph.solids
   let state = navigation.get(robot)
@@ -398,6 +399,16 @@ export function botMovement(run: Run, robot: RobotState, dt: number, target?: No
     state.graph = graph; state.path = []; state.leg = undefined; state.flight = undefined; state.shoreTarget = undefined; state.waterDetour = undefined
     if (state.waterExit) state.waterExit = { goal: state.waterExit.goal }
     state.avoided.clear(); state.distances.clear(); state.age = 1
+  }
+  // Nothing walks without weight: the robot flies on its boots instead. The ground route starts afresh once it has
+  // weight again, from wherever it lands.
+  // A ledge is no way up without weight: a hand that catches one passing lets go again, rather than pull the body up
+  // onto a shelf it was only flying past.
+  if ((actor.weightless ?? 0) > 0 && (actor.hang || actor.mantle && !actor.mantle.ladder)) return { ...NEUTRAL_INPUT, detach: true, drop: true, descend: true }
+  if (botFloating(actor)) {
+    state.path = []; state.leg = undefined; state.flight = undefined; state.age = 1; state.runningJump = false
+    state.runup = undefined; state.launchSetup = undefined; state.backoff = undefined; state.stuck = 0; state.trying = false
+    return botFloatMovement(run, robot, dt, target, robot.seesPlayer)
   }
   // Wading counts as ground only while it leads on. Stuck in the shallows with no dry route, it swims out like any
   // other swimmer, and keeps at that until it is out of the water.

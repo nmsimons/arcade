@@ -90,14 +90,15 @@ function fixtureLevels(game) {
 export function goldenScripts(game) {
   const catalog = JSON.parse(readFileSync(new URL('index.json', game.levelsRoot), 'utf8'))
   const medals = JSON.parse(readFileSync(new URL('../fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
-  const routes = new Map([...medals.runs, ...medals.completionRuns ?? []].map(run => [run.file, run.trace]))
+  const routes = new Map([...medals.runs, ...medals.completionRuns ?? []].map(run => [run.level, run.trace]))
   // Facility areas (#91), Orientation among them, join once their layouts
   // settle. Their traces must be recorded on Apple Silicon, the only machine
   // with a recorded set.
-  const pending = file => JSON.parse(readFileSync(new URL(file, game.levelsRoot), 'utf8')).kind === 'hub'
-  const builtIn = catalog.levels.filter(file => !pending(file)).flatMap(file => [
-    ...Object.keys(PROFILES).map(profile => ({ key: `${file}|${profile}`, file, url: new URL(file, game.levelsRoot).href, script: exploreScript(file, profile) })),
-    ...routes.has(file) ? [{ key: `${file}|medal-route`, file, url: new URL(file, game.levelsRoot).href, script: routes.get(file) }] : [],
+  // A built-in level's traces are keyed and seeded by its durable id, so renaming its file or retitling it changes nothing.
+  const read = file => JSON.parse(readFileSync(new URL(encodeURIComponent(file), game.levelsRoot), 'utf8'))
+  const builtIn = catalog.levels.map(file => ({ file, level: read(file) })).filter(({ level }) => level.kind !== 'hub').flatMap(({ file, level: { id } }) => [
+    ...Object.keys(PROFILES).map(profile => ({ key: `${id}|${profile}`, file, url: new URL(encodeURIComponent(file), game.levelsRoot).href, script: exploreScript(id, profile) })),
+    ...routes.has(id) ? [{ key: `${id}|medal-route`, file, url: new URL(encodeURIComponent(file), game.levelsRoot).href, script: routes.get(id) }] : [],
   ])
   const fixtures = fixtureLevels(game).flatMap(name => Object.keys(PROFILES).map(profile => ({ key: `fixture:${name}|${profile}`,
     file: `fixture:${name}`, url: new URL(name, FIXTURES).href, script: exploreScript(`fixture:${name}`, profile) })))

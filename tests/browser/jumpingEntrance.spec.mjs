@@ -3,6 +3,7 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures, restartFromPause, openLevelLink } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { readFile } from 'node:fs/promises'
+import { builtinLevelFile } from '../helpers/jumping-builtin-levels.mjs'
 
 test('the silhouette emerges through a closing entrance; idle play, pause and restart use the same sequence', async ({ page }, info) => {
   const level = { ...blankTrial(), width: 1000, height: 600, floor: 500,
@@ -50,7 +51,7 @@ test('the silhouette emerges through a closing entrance; idle play, pause and re
   await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
 })
 
-for (const file of ['spire1.jump-level.json', '04.json', '05.json', 'spelunk.jump-level.json', 'rampingup.jump-level.json', 'buoyancy.jump-level.json']) {
+for (const file of ['spire1.jump-level.json', '04.json', '05.json', builtinLevelFile('13b9b9d7-7937-4989-bc03-21238e7e58f2'), 'rampingup.jump-level.json', 'buoyancy.jump-level.json']) {
   test(`the revised ${file} entrance activates from a fresh start`, async ({ page }, info) => {
     const level = JSON.parse(await readFile(new URL(`../../public/levels/jumping/${file}`, import.meta.url), 'utf8'))
     await useLevelFixtures(page, [level])

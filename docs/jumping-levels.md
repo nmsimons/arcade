@@ -1583,7 +1583,12 @@ is on the left side of a pillar whose left face is at x 900.
 **Flip vertically** mirrors a pressure plate for ceiling placement. Snap catches
 both floors and exposed undersides, choosing the facing automatically. A ceiling
 plate responds to inverted feet or the supported top edge of a prop pressed
-against it from below; its depression moves into the ceiling. The file uses
+against it from below; its depression moves into the ceiling. Without weight
+nothing rests, so floor and ceiling plates are pressed by contact, as a wall
+plate is: a box or ball held or drifted against the plate's face, or the body's
+feet, head or palms against it. Nothing holds a prop there either, so a Pressure
+plate is down only while something stays against it; a Switch or Toggle plate
+latches on the first press. The file uses
 optional `ceiling: true`, with `y` still the mounting surface. Omission keeps
 floor-facing artwork and contacts. Coin switches do not use this setting.
 

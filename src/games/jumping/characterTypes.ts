@@ -95,7 +95,7 @@ export interface Player {
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
-  pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
+  pushing: (Omit<PushHands, 'slope'> & { /** Floating palms handed over from one prop to the next: how far each still is from its new place, dying away. */ shift?: [number, number][]; direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
   /** The motor's push rig: `pushing`'s hands and easing from real contacts only.
    * Gameplay reads this; the presented `pushing` also eases toward anticipated contacts. */
   pushRig?: Player['pushing']
@@ -142,6 +142,14 @@ export interface Player {
     /** Seconds the legs have been pushing off, once the fold has bottomed out. */ push?: number }
   /** Seconds the body has been weightless without a break (model.ts settledWeightless). */
   weightless?: number
+  /** A change in the player's velocity made against a loose prop without weight this step (model.ts kickProp): a
+   * push-off, a rebound or a landing (`riding`: the player now stands on it). In the step's frame; published as a body
+   * contact so the prop solver can give the prop its share (propPhysics.ts reactToPushOffs). */
+  propKick?: { collider: string; normal: [number, number]; kick: [number, number]; riding?: boolean }
+  /** How a weightless body will meet the floating prop it is heading for (model.ts orientInFlight), decided once in physics
+   * and followed by the roll, the hands (playerContacts.ts floatingHands) and the drawn lean: `feet` when it coasts or
+   * comes down onto it and a roll fits without whirling, `hands` otherwise; the prop's collider, and seconds until. */
+  propPlan?: { id: string; meet: 'feet' | 'hands'; arrival: number }
   /** Seconds a weightless body has flown flat out along its facing with no weightless landing ahead (model.ts orientInFlight). */
   flatOut?: number
   /** Footing on a wall, by the side gravity pulls toward (wallFrame.ts). */

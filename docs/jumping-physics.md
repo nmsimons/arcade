@@ -187,6 +187,52 @@ as the body turns. Escaping hunters interrupt weapon windup/recovery and
 reserve palm shoves for dry footing. EMP still leaves the body under ordinary passive
 water physics. Regression coverage includes the Quarantine II water route in
 `tests/jumping-rbot-water.test.mjs` and `tests/browser/jumpingRbotWater.dev.spec.mjs`.
+Without weight (`botFloatNavigation.ts`), nothing walks, so the ground graph has
+nothing to offer and Rbot flies on its boots instead. It uses the player's
+controls: Left/Right in proportion, and Up and Down either on or off. The
+vertical boots engage and release with hysteresis, so they never flicker. Small
+corrections against its facing coast rather than turn the body round and back.
+It plans through a coarse 40-unit grid of open weightless space, sized to its
+own body. It searches with A*, never cutting a blocked corner, and flies at the
+farthest route point in clear view. It plans its braking from below the boots'
+real braking, so it stops short rather than overshoot. Patrolling, it keeps to
+its beat (its definition's left and right) on the floor of its home height. It
+skates along that floor by holding Down into it and stops by letting go, and it
+pauses at each end. Floating anywhere else, it flies home and lands feet-first
+through the ordinary roll. A ledge caught in passing is let go, not climbed:
+without weight, a shelf is no way up. Hunting, it flies to the clue. Once it
+sees the player, it holds a standoff 230 away on its own side, at their height,
+matching their drift. It backs off rather than come within about a body length
+of them or rest against them. A hover slower than 45 counts as footing for a
+shot, and the pulse pushes the floating body back at 70. After 0.35 seconds of
+recovery it brakes and holds its ground. A goal outside the field is reached by
+straight flight to the field's edge, and gravity does the rest. The ground graph
+plans again from wherever it lands. A robot under gravity does not yet plan a
+way up into a weightless field above it. Coverage is in
+`tests/jumping-rbot-zero-g.test.mjs`.
+Without weight (), nothing walks, so the ground graph has
+nothing to offer and Rbot flies on its boots instead. It uses the player's
+controls: Left/Right in proportion, and Up and Down either on or off. The
+vertical boots engage and release with hysteresis, so they never flicker. Small
+corrections against its facing coast rather than turn the body round and back.
+It plans through a coarse 40-unit grid of open weightless space, sized to its
+own body. It searches with A*, never cutting a blocked corner, and flies at the
+farthest route point in clear view. It plans its braking from below the boots'
+real braking, so it stops short rather than overshoot. Patrolling, it keeps to
+its beat (its definition's left and right) on the floor of its home height. It
+skates along that floor by holding Down into it and stops by letting go, and it
+pauses at each end. Floating anywhere else, it flies home and lands feet-first
+through the ordinary roll. A ledge caught in passing is let go, not climbed:
+without weight, a shelf is no way up. Hunting, it flies to the clue. Once it
+sees the player, it holds a standoff 230 away on its own side, at their height,
+matching their drift. It backs off rather than come within about a body length
+of them or rest against them. A hover slower than 45 counts as footing for a
+shot, and the pulse pushes the floating body back at 70. After 0.35 seconds of
+recovery it brakes and holds its ground. A goal outside the field is reached by
+straight flight to the field's edge, and gravity does the rest. The ground graph
+plans again from wherever it lands. A robot under gravity does not yet plan a
+way up into a weightless field above it. Coverage is in
+.
 Climb routes include intermediate ledge heights and exposed-lip handoffs onto
 the supporting platform. Jump edges retain their required strength, allowing
 short jumps under low ceilings as well as full-height reaches. Takeoff approach
@@ -1404,6 +1450,51 @@ for that step or two. Then:
   always lands this way rather than bouncing off at contact.
 - A gravity flip turn caught halfway by lasting weightlessness finishes toward
   the frame it was heading for instead of holding (it would block the float).
+- Loose props wholly inside lasting weightlessness (every part of them; one
+  straddling two fields that average out is not) follow the same rules
+  (docs/jumping-zero-g-objects.md). They feel the player's air, and sleep only
+  once it has all but stopped them (below 1 a second), so a drift dies away
+  rather than stopping dead; with no pull at all a slow one also takes the
+  player's settle drag. A contact one begins with a surface or another prop
+  closing faster than 30 rebounds at 0.5 of that speed for a ball and 0.3 for a
+  box, applied as an impulse at the contact point after the solve (Matter's own
+  restitution reaches a box's two-cornered contact only weakly); every body keeps
+  restitution 0, so nothing bounces under weight.
+- The player and a floating prop share one momentum budget, with the prop
+  solver's masses (the player 2.5). A body bump exchanges momentum as before. A
+  body arriving feet-first lands on the prop instead (the legs absorb a fast
+  arrival and push off again), and the prop takes the player's share of how fast
+  the body was closing on it while the player rides it on. A jump or a rebound
+  off a prop alone is computed as if the prop were fixed and published as a
+  body contact's `kick`; once a tick, before the prop substeps, the prop takes
+  the player's share of it the other way and the player gives that share back,
+  so a light prop sends the player off more slowly.
+- A body coasting at a prop at least 40 across, closing on it faster than 20, rolls
+  feet-first onto it as onto terrain. Boots driving at a prop (thrust along the
+  travel at 0.3 or more) push it instead: within 34 of the hull the contact
+  publishes a floating push with palms on its near face at the standing push's
+  height, working through the body's load as a swimmer's push does. Up held at a
+  prop overhead puts the palms on its underside. A prop and the body closing on
+  each other faster than 30, driven at or not, bring the palms up the same way
+  without a push's effort (the bump is still the body's), so the hands meet it.
+  Palms handed from one prop to the next keep their offset from the new places,
+  dying away over about 0.08 seconds, and released palms fade out as a
+  swimmer's do. Meeting a
+  prop the body keeps pace with it rather than stopping dead behind it, and a
+  prop's curved face is never a slope to slide down or a wall to brace on, so
+  held thrust is one continuous push, Up or Down held at one loading it as a
+  sideways push does; the body keeps pace with a prop overhead only while Up
+  drives it, and drifts clear when let go. A turn that starts after the step has
+  published its contacts keeps any reaction still owed to a prop.
+- A roll through a big turn takes more of the time its arrival leaves (up to
+  finishing just short of the surface), so it peaks under about 3.5 rad/s when
+  there is time; a late arrival still turns as fast as it must to land
+  feet-first on terrain. A roll onto a floating prop is timed by how fast the two
+  close on each other, and one that would have to be quicker than 0.55 of
+  unhurried is not started: the hands take the prop. A roll turned back unrolls
+  unhurried. A body resting against a prop it is not driving at or closing on
+  keeps its palms on it, and the controller's own weightless rebound never acts
+  off a loose prop (the body bump exchanges momentum instead).
 - Gravity sets walking traction: lighter gravity gives less grip to start and
   stop with.
 
@@ -1635,6 +1726,12 @@ broadening transfers into the shell's own cross sections as the swimming pose
 blends in, keeping the head, torso and limbs broad through horizontal strokes,
 dives and turns without lengthening the solved rig. Its artwork, shadow,
 headlight and palm emitter use that same presented rig.
+The same transfer follows the weightless float as it blends in, since a floating
+Rbot lies along any direction. Broadening in the screen's horizontal would
+stretch a prone or tumbling body to about 1.6 times its length. On a wall plate
+the artwork, visor, headlight and palm emitter broaden along the wall frame's
+own horizontal, after its turn, so a robot standing on a wall widens rather
+than lengthens. The physics view has no float, so firing never reads it.
 
 Intentional swimming well below the surface engages sculling that balances
 physical buoyancy. Horizontal travel can then maintain depth; releasing inputs

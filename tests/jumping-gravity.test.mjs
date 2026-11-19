@@ -287,13 +287,22 @@ test('a sleeping floor prop wakes when a remote switch powers reverse gravity', 
   step(run, 60); assert.ok(run.props[0].y < 730)
 })
 
-test('zero gravity preserves free-object momentum and adds no torque', () => {
+test('zero gravity slows a free object in the same air as the player, keeping its heading, and adds no torque', () => {
   const level = fixture({ gravity: 0 })
   level.props = [{ kind: 'box', x: 320, y: 500, size: 60 }, { kind: 'ball', x: 500, y: 500, size: 60 }]
   const run = createRun(level); run.started = true
   for (const b of run.props) { b.vx = 10; b.vy = -30 }
   step(run, 60)
-  for (const b of run.props) { close(b.vx, 10, 1e-6); close(b.vy, -30, 1e-6); close(b.y, 485, 1e-6); close(b.angularVelocity, 0); close(b.angle, b.kind === 'ball' ? 5 / 30 : 0) }
+  // Half a second of the zero-g air the player feels, settling a slow drift as the player's (ds/dt = -(a + b s + settle) s),
+  // along the same heading.
+  let speed = Math.hypot(10, 30)
+  for (let i = 0; i < 5000; i++) speed -= (TUNING.zeroGravityDrag + TUNING.zeroGravityAirDrag * speed
+    + TUNING.zeroGravityRestDrag * Math.max(0, 1 - speed / TUNING.zeroGravityRestSpeed)) * speed * 1e-4
+  for (const b of run.props) {
+    close(Math.hypot(b.vx, b.vy), speed, .01); close(b.vx / b.vy, -1 / 3, 1e-6)
+    assert.ok(b.y < 500 && b.y > 485, 'it drifted, a little less far than without air')
+    close(b.angularVelocity, 0); close(b.angle, b.kind === 'ball' ? (b.x - (b.kind === 'ball' ? 500 : 320)) / 30 : 0, 1e-6)
+  }
 })
 
 test('EMP suppresses a latched field, preserves switch/relay state, and restores gravity after expiry', () => {

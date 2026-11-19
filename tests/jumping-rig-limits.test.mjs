@@ -1,4 +1,5 @@
 import test from 'node:test'
+import { builtinLevelFile, builtinLevels } from './helpers/jumping-builtin-levels.mjs'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
@@ -55,8 +56,10 @@ test('every presented pose on every recorded route is inside the rig limits', ()
   let frames = 0
   // Superseded routes no longer finish their levels, but they still drive the same poses through them.
   for (const recording of [...recordings.runs, ...recordings.completionRuns ?? [], ...recordings.supersededRuns ?? []]) {
-    const file = new URL(encodeURIComponent(recording.file), levels)
-    if (recording.historical || !existsSync(file)) continue
+    // Routes name their level by id; one whose level has left the collection is skipped.
+    if (recording.historical || !recording.level || !builtinLevels().some(level => level.id === recording.level)) continue
+    const file = new URL(encodeURIComponent(builtinLevelFile(recording.level)), levels)
+    if (!existsSync(file)) continue
     const run = createRun(parseLevel(JSON.parse(readFileSync(file, 'utf8'))))
     let frame = 0
     for (const { frames: count, input } of recording.trace) for (let i = 0; i < count && !run.finished; i++, frame++) {

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "aac71758-36c3-43ab-9d28-bb4f2eed7325",
   "name": "Updraft",
   "width": 1720,
@@ -216,7 +216,56 @@
     "c": 32,
     "d": 64
   },
-  "props": [],
+  "props": [
+    {
+      "kind": "ball",
+      "x": 170,
+      "y": 1635,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 210,
+      "y": 1895,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 360,
+      "y": 1755,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 275,
+      "y": 205,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 580,
+      "y": 515,
+      "size": 68
+    },
+    {
+      "kind": "ball",
+      "x": 1015,
+      "y": 160,
+      "size": 68
+    },
+    {
+      "kind": "box",
+      "x": 310,
+      "y": 2020,
+      "size": 80
+    },
+    {
+      "kind": "box",
+      "x": 145,
+      "y": 1785,
+      "size": 80
+    }
+  ],
   "mechanisms": [],
   "triggers": [],
   "robots": [],
@@ -313,9 +362,9 @@
       "name": "Lift 3",
       "id": "lift-3",
       "x": 1600,
-      "y": 1610,
+      "y": 1510,
       "w": 120,
-      "h": 290,
+      "h": 390,
       "gravity": -1,
       "power": "always"
     },
@@ -401,5 +450,38 @@
       "power": "always"
     }
   ],
-  "forceFields": []
+  "forceFields": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "c2f4ef31-b376-4c51-9c85-77aea56a783e",
+        "x": 1695,
+        "y": 2635,
+        "intensity": 100,
+        "direction": -130,
+        "spread": 40,
+        "power": "always"
+      },
+      {
+        "id": "763c6459-0332-4ae5-962a-b8cf58232a6d",
+        "x": 30,
+        "y": 2950,
+        "intensity": 100,
+        "direction": -40,
+        "spread": 45,
+        "power": "always"
+      },
+      {
+        "id": "e2699c80-5e43-4d9d-9684-6ccc5e9add8d",
+        "x": 25,
+        "y": 35,
+        "intensity": 100,
+        "direction": 35,
+        "spread": 55,
+        "power": "always"
+      }
+    ]
+  }
 }

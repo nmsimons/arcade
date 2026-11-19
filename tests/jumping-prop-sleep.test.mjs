@@ -32,9 +32,14 @@ test('a sleeping stacked ball falls in 0.1 gravity after normal controls roll aw
 for (const gravity of [.001, -.001]) for (const kind of ['box', 'ball']) test(`an unsupported ${kind} keeps accelerating under ${gravity} gravity instead of sleeping in midair`, () => {
   const run = runFor(gravity, [{ kind, x: 700, y: 500, size: 80 }])
   step(run, 4)
+  // So slight a pull is weightless: the prop also feels the zero-g air, so it nears the speed where the two balance.
   const b = run.props[0], acceleration = TUNING.gravity * gravity
-  assert.ok(Math.abs(b.vy - acceleration * 4) < .001)
-  assert.ok(Math.abs(b.y - 500 - acceleration * 8) < .03)
+  let v = 0, y = 0
+  for (let t = 0; t < 4; t += 1e-4) {
+    v += (acceleration - (TUNING.zeroGravityDrag + TUNING.zeroGravityAirDrag * Math.abs(v)) * v) * 1e-4; y += v * 1e-4
+  }
+  assert.ok(Math.abs(b.vy - v) < Math.abs(v) * .02, `moving at ${b.vy.toFixed(3)}, expected ${v.toFixed(3)}`)
+  assert.ok(Math.abs(b.y - 500 - y) < Math.abs(y) * .03 + .03, `travelled ${(b.y - 500).toFixed(3)}, expected ${y.toFixed(3)}`)
   assert.equal(b.grounded, false)
 })
 

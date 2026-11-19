@@ -165,7 +165,9 @@ export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: nu
   }
   const before = turn.angle
   const progress = turn.progress === undefined ? undefined : Math.max(0, Math.min(1,
-    turn.progress + (turn.target ? 1 : -1) * dt / (turn.duration ?? AIR_TURN_TIME)))
+    // A weightless roll turned back unrolls unhurried (under about 3.5 rad/s at its peak), not at its approach's pace.
+    turn.progress + (turn.target ? 1 : -1) * dt / (!turn.target && turn.float !== undefined
+      ? Math.max(turn.duration ?? AIR_TURN_TIME, 1.5 * (turn.span ?? Math.PI / 2) / 3.5) : turn.duration ?? AIR_TURN_TIME)))
   const next = progress === undefined ? before + Math.max(-TURN_SPEED * dt, Math.min(TURN_SPEED * dt, turn.target - before))
     : Math.sign(turn.target || before || p.facing) * (walls ? turn.span ?? Math.PI : Math.PI) * progress * progress * (3 - 2 * progress)
   const advance = (height: number): Point | null => {

@@ -184,8 +184,7 @@ test('the built-in campaign names valid built-in levels', () => {
   assert.equal(start.name, 'Orientation')
   assert.equal(isHubLevel(start), true, 'Orientation is a facility area')
   assert.ok(value.wings.length >= 7 && value.finalCourse, 'the facility opens onto the wings and holds the dispatch door')
-  // Ascent I's exit leads through Ascent II and Spelunk to Exit.
-  const name = id => builtIns.find(level => level.id === id).name
-  assert.deepEqual(Object.keys(value.chained).map(name), ['Ascent II', 'Spelunk', 'Exit'])
+  // Ascent I's exit leads through Ascent II, Exit I and Exit II, named by id so a renamed or retitled level keeps its place.
+  assert.deepEqual(Object.keys(value.chained), ['d52a327a-3f29-4c04-b501-3ee77d6e2e42', '13b9b9d7-7937-4989-bc03-21238e7e58f2', 'b42dcd81-427a-4c2b-9c9b-a231874bef5b'])
   assert.ok(Object.values(value.chained).every(root => root === value.finalCourse))
 })

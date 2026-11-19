@@ -6,9 +6,10 @@ import { AREA_STATE_KEY, captureAreaState, keepsState, levelFingerprint, readAre
 import { blankTrial, parseLevel, prepareLevelRopes } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { setPropCarried } from '../src/games/jumping/propPhysics.ts'
+import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 
 const builtIn = file => parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`, import.meta.url), 'utf8')))
-const concourse = builtIn('Concourse.jump-level.json'), orientation = builtIn('Orientation.jump-level.json'), exit = builtIn('exit.jump-level.json')
+const concourse = builtIn('Concourse.jump-level.json'), orientation = builtIn('Orientation.jump-level.json'), exit = parseLevel(readBuiltinLevel('b42dcd81-427a-4c2b-9c9b-a231874bef5b')) // Exit II
 /** A fresh run that keeps its state, as the game prepares one. */
 const fresh = level => { const run = createRun(level); trackAreaProps(run); return run }
 const storage = () => { const values = new Map(); return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) } }

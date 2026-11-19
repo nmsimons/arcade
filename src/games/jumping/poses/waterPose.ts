@@ -122,8 +122,27 @@ export function floatPose(p: Player): AthletePose {
   // of the swimming rig's forward carriage.
   const pose = sinkOntoFeet(leadWithHead(bendAtWaist(floatLife(relaxed, f.phase, f.kick ?? 0), floatBend(f.spin) + FLOAT_BREATH * Math.sin(f.phase)), (f.neck ?? 0) - FLOAT_NECK_REST),
     p.crouchRate === undefined ? 0 : p.crouch, p.crouchRate === undefined ? 0 : f.sinkHold ?? p.crouch)
-  return f.lean ? { ...rotatePose(pose, f.lean, 1, FLOAT_CENTER), waterOffset: relaxed.waterOffset } : pose
+  const leaned = f.lean ? { ...rotatePose(pose, f.lean, 1, FLOAT_CENTER), waterOffset: relaxed.waterOffset } : pose
+  // Palms on a prop the boots drive at (a floating push, playerContacts.ts): the arms reach and press, the lean having
+  // stood the body up behind them (athleteAnimation.ts), so the hands, not the head, meet the prop.
+  const pushing = smooth(p.pushing?.amount ?? 0)
+  if (!pushing || !p.pushing?.palms) return leaned
+  // The palms sit on the prop where it meets the hull, which leaves the arms folded against the chest. The body is
+  // drawn standing off behind them instead, as far as it takes for the arms to reach out to them (at most
+  // FLOAT_STAND_OFF), so the arms take the push and the head stays clear of the prop. Nothing touches it there.
+  const palms = p.pushing.palms, px = ((palms[0].x + palms[1].x) / 2 - p.x) * p.facing, py = (palms[0].y + palms[1].y) / 2 - p.y
+  const dx = px - leaned.shoulder[0], dy = py - leaned.shoulder[1], reach = Math.hypot(dx, dy)
+  // ...and as far as it takes to keep the head a hand's breadth behind the palms (overhead, the head is near them).
+  const headLead = reach > 1e-6 ? ((leaned.head[0] - px) * dx + (leaned.head[1] - py) * dy) / reach + FLOAT_HEAD_CLEAR : 0
+  // The body stands off ahead of the arms reaching, so the head is clear before the palms arrive.
+  const back = reach > 1e-6 ? Math.min(FLOAT_STAND_OFF, Math.max(0, FLOAT_ARM_REACH - reach, headLead)) * Math.min(1, pushing * 2) / reach : 0
+  return pressPalms(p, back ? rotatePose(leaned, 0, 1, [0, 0], [-dx * back, -dy * back]) : leaned, pushing)
 }
+/** A floating body pushing with its palms stands off behind them until they are this far from its shoulder (most of
+ * the arm's length), by at most FLOAT_STAND_OFF units. */
+const FLOAT_ARM_REACH = (UPPER_ARM + FOREARM) * .88, FLOAT_STAND_OFF = 16
+/** The head stays at least this far (units, its own radius and a hand's breadth) behind the palms. */
+const FLOAT_HEAD_CLEAR = 6.2 + 6
 /** A floating body is never still: whatever its speed, the arms and legs drift slowly about their joints, out of step
  * with each other, and the waist breathes. The boots kicking in or letting go (`kick`) flex the knees and draw the
  * thighs up, then the legs spring out again. `phase` is the float's own slow cycle. */
@@ -387,6 +406,23 @@ function solveWaterBody(p: Player): AthletePose {
   return pose
 }
 
+/** The arms pressed to the presented push's palms, blended in by `weight`. */
+function pressPalms(p: Player, pose: AthletePose, weight: number): AthletePose {
+  const press = (arm: Limb, index: number) => {
+    const palm = p.pushing!.palms![index]
+    const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
+    const frame = pushPalmFrame(point, normal)
+    const pressed = solve(arm.root, frame.wrist, UPPER_ARM, FOREARM, 1)
+    const grip = { ...pressed, hand: add(pressed.end, [frame.palm[0] - frame.wrist[0], frame.palm[1] - frame.wrist[1]]),
+      handAngle: frame.angle, handOpen: 1 }
+    const free = { ...arm, hand: handGeometry(arm).palm }
+    // Keep the stroke's depth bend as contact fades. Flattening a 3D arm
+    // before blending used to make the wrist snap on its last contact frame.
+    return transferPose({ ...pose, frontArm: free }, { ...pose, frontArm: grip }, [0, 0], weight,
+      [0, 0], 0, true).frontArm
+  }
+  return { ...pose, frontArm: press(pose.frontArm, 0), backArm: press(pose.backArm, 1) }
+}
 /** Fit the limbs of a waterBodyPose to pressed palms, wall, floor and ceiling
  * braces, ledge reach and terrain. Only arms and legs change. */
 function fitWaterLimbs(p: Player, pose: AthletePose): AthletePose {
@@ -394,22 +430,7 @@ function fitWaterLimbs(p: Player, pose: AthletePose): AthletePose {
   const motion = p.waterMotion!
   const pushing = !p.grounded ? smooth(p.pushing?.amount ?? 0) : 0
   const clearancePlayer = p.terrain ? { ...p, terrain: p.terrain.filter(b => !b.looseProp) } : p
-  if (pushing && p.pushing?.palms) {
-    const press = (arm: Limb, index: number) => {
-      const palm = p.pushing!.palms![index]
-      const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
-      const frame = pushPalmFrame(point, normal)
-      const pressed = solve(arm.root, frame.wrist, UPPER_ARM, FOREARM, 1)
-      const grip = { ...pressed, hand: add(pressed.end, [frame.palm[0] - frame.wrist[0], frame.palm[1] - frame.wrist[1]]),
-        handAngle: frame.angle, handOpen: 1 }
-      const free = { ...arm, hand: handGeometry(arm).palm }
-      // Keep the stroke's depth bend as contact fades. Flattening a 3D arm
-      // before blending used to make the wrist snap on its last contact frame.
-      return transferPose({ ...pose, frontArm: free }, { ...pose, frontArm: grip }, [0, 0], pushing,
-        [0, 0], 0, true).frontArm
-    }
-    pose.frontArm = press(pose.frontArm, 0); pose.backArm = press(pose.backArm, 1)
-  }
+  if (pushing && p.pushing?.palms) pose = pressPalms(p, pose, pushing)
   if (motion.wall && !pushing) {
     const gap = (motion.wall.x - p.x) * p.facing
     const brace = (arm: Limb, back: boolean) => {

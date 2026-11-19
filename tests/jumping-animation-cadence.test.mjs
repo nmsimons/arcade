@@ -1,3 +1,4 @@
+import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -12,15 +13,17 @@ import { advanceCharacterAnimation, setAnimationCadence } from '../src/games/jum
 // step, sampled at the same frames, would show. (Physics is the same in both;
 // the golden traces check that.) The ordinary pose tests animate every step.
 const medals = JSON.parse(readFileSync(new URL('./fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
-const ROUTES = ['Boxes.jump-level.json', '03.json', 'Coins.jump-level.json', 'Lock Out 2.jump-level.json', 'Drain.json']
+// Recorded routes by level id (Boxes, Level 3, Coins, Lock Out 2, Drain).
+const ROUTES = ['06b6058e-4448-4c6a-81a2-e936a70fda0a', 'd810f5f5-1a01-431f-804b-575b1b731a3d', '70595ea8-5dec-420a-83bf-cdf1065aab1f',
+  'dbf1b51d-bf10-4c7a-aa35-0d769445c766', '38681eca-a164-4f9a-9113-c3ba119ed3ed']
 const points = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
   ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.joint, limb.end])]
 const local = (p, pose) => points(pose).map(([x, y]) => [x * p.facing, y])
 const jump = (now, before) => before ? Math.max(...now.map((q, i) => Math.hypot(q[0] - before[i][0], q[1] - before[i][1]))) : 0
 
-for (const file of ROUTES) for (const fps of [30, 60, 144]) test(`${file} keeps a continuous rig animated once per frame at ${fps} Hz`, () => {
-  const recording = medals.runs.find(run => run.file === file)
-  const level = parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`, import.meta.url), 'utf8')))
+for (const id of ROUTES) for (const fps of [30, 60, 144]) test(`${readBuiltinLevel(id).name} keeps a continuous rig animated once per frame at ${fps} Hz`, () => {
+  const recording = medals.runs.find(run => run.level === id)
+  const level = parseLevel(readBuiltinLevel(id))
   const everyStep = createRun(level), perFrame = createRun(level)
   setAnimationCadence(perFrame.player, 'frame')
   const inputs = recording.trace.flatMap(({ frames, input }) => Array(frames).fill({ ...NEUTRAL_INPUT, ...input }))
@@ -74,8 +77,8 @@ test('frame cadence animates only when a drawn frame asks, and resumes from rest
 
 test('physics without animation solves no rig on a dry pushing level; animating every step does', async () => {
   const { athletePoseSolves } = await import('../src/games/jumping/athletePose.ts')
-  const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/Boxes.jump-level.json', import.meta.url), 'utf8')))
-  const route = medals.runs.find(run => run.file === 'Boxes.jump-level.json').trace
+  const level = parseLevel(readBuiltinLevel(ROUTES[0]))
+  const route = medals.runs.find(run => run.level === ROUTES[0]).trace
   const solvesFor = cadence => {
     const run = createRun(level)
     setAnimationCadence(run.player, cadence)

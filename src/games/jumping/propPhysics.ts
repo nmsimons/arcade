@@ -20,13 +20,16 @@ import { flatBoxSupport } from './boxSupport.ts'
 import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysics.ts'
 import type { Vec } from './geometry.ts'
 
-import { propFloatDrag, propGravity, propSideGravity, propWaterStrength } from './gravity.ts'
+import { gravityAtPoint, isWeightless, propFloatDrag, propGravity, propSideGravity, propWaterStrength, sideGravityAtPoint } from './gravity.ts'
 import { propWeightScale } from './propWeight.ts'
 import { swimmingTerrainOutline } from './poses/waterPose.ts'
 import { powerOut } from './power.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
-interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; fields: Map<ForceFieldState, Matter.Body>; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
+/** A weightless contact that began this step: its normal, the contact point, the closing speed across it before the
+ * solve (Matter's units) and the share of it to send back. */
+interface Impact { a: Matter.Body; b: Matter.Body; nx: number; ny: number; x: number; y: number; closing: number; bounce: number }
+interface PropWorld { impacts: Impact[]; engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; fields: Map<ForceFieldState, Matter.Body>; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
 const worlds = new WeakMap<Run, PropWorld>()
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const material = { friction: .55, frictionStatic: 1.4, frictionAir: 0, restitution: 0, slop: .0001 }
@@ -36,6 +39,24 @@ const sideGravity = new WeakMap<Matter.Body, number>()
 /** Terrain bodies with no contact friction, and the props they currently support. */
 const slickBodies = new WeakSet<Matter.Body>()
 const slickProps = new WeakSet<Prop>()
+/** The prop each Matter body stands for. */
+const propOf = new WeakMap<Matter.Body, Prop>()
+/** Without weight a prop meets a surface or another prop as the player's legs do (docs/jumping-zero-g-objects.md): a
+ * hit closing faster than WEIGHTLESS_STICK (px/s) rebounds at this share of its speed, a slower one stays. Under any
+ * weight every contact keeps restitution 0, so no gravity puzzle changes. */
+const WEIGHTLESS_BOUNCE = { ball: .5, box: .3 } as const, WEIGHTLESS_STICK = 30
+/** A drifting weightless prop stays awake until the air has slowed it below this (px/s), so it never stops dead. */
+const WEIGHTLESS_REST_SPEED = 1, WEIGHTLESS_REST_SPIN = .02
+/** Props wholly inside lasting weightlessness, as of this step (a prop straddling two fields that average out is not). */
+const weightlessBodies = new WeakSet<Matter.Body>()
+const weightlessProp = (_world: PropWorld, body: Matter.Body) => weightlessBodies.has(body)
+/** Whether every part of a prop is weightless and dry: its middle and four points near its edge. */
+function whollyWeightless(run: Run, b: Prop, water: number) {
+  if (water) return false
+  const r = propHeight(b) / 2 * .9, cx = b.x, cy = b.y - propHeight(b) / 2
+  return [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([dx, dy]) => isWeightless(Math.hypot(
+    gravityAtPoint(run.gravityField, cx + dx, cy + dy), sideGravityAtPoint(run.gravityField, cx + dx, cy + dy))))
+}
 
 function controlledHull(points: readonly Vec[]) {
   const vertices = points.map(([x, y]) => ({ x, y }))
@@ -119,11 +140,27 @@ function worldFor(run: Run) {
   engine.gravity.y = 1; engine.gravity.scale = TUNING.gravity / 1e6
   const terrain = run.terrain.flatMap(s => terrainBodies(s, run))
   const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
-  const bodies = new Map(run.props.map(b => { b.waterImmersion = propWaterStrength(run.gravityField, b); return [b, makeProp(b)] as const }))
+  const bodies = new Map(run.props.map(b => { b.waterImmersion = propWaterStrength(run.gravityField, b); const body = makeProp(b); propOf.set(body, b); return [b, body] as const }))
   Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values(),
     ...[...bodies].flatMap(([prop, body]) => prop.floatSwitch ? [floatSwitchConstraint(body, prop.floatSwitch)] : [])])
-  const world: PropWorld = { engine, terrain, mechanisms, bodies, fields: new Map(), gravity: new Map(), floatDrag: new Map(), waterStrength: new Map(), floatQuiet: new Map(), driven: new Set() }; worlds.set(run, world)
+  const world: PropWorld = { impacts: [], engine, terrain, mechanisms, bodies, fields: new Map(), gravity: new Map(), floatDrag: new Map(), waterStrength: new Map(), floatQuiet: new Map(), driven: new Set() }; worlds.set(run, world)
   syncForceFieldBodies(run, world)
+  // A new contact between weightless props, or with terrain, rebounds if it closes fast enough (applied after the solve:
+  // Matter's own restitution reaches a box's two-cornered contact only weakly). Every body keeps restitution 0.
+  Events.on(engine, 'collisionStart', ({ pairs }) => {
+    for (const pair of pairs) {
+      const a = pair.collision.parentA, b = pair.collision.parentB
+      if (pair.isSensor || [a, b].some(body => propOf.has(body) && !weightlessProp(world, body))) continue
+      const bounce = Math.max(...[a, b].map(body => propOf.has(body) ? WEIGHTLESS_BOUNCE[propOf.get(body)!.kind === 'ball' ? 'ball' : 'box'] : 0))
+      if (!bounce) continue
+      const supports = pair.collision.supports.filter(Boolean)
+      const x = supports.reduce((sum, point) => sum + point.x, 0) / supports.length, y = supports.reduce((sum, point) => sum + point.y, 0) / supports.length
+      // A contact just begun is closing; turn the normal so that closing counts negative along it.
+      const speed = normalSpeed(a, b, pair.collision.normal.x, pair.collision.normal.y, x, y), sign = speed > 0 ? -1 : 1
+      const nx = pair.collision.normal.x * sign, ny = pair.collision.normal.y * sign, closing = Math.abs(speed)
+      if (closing * 60 > WEIGHTLESS_STICK) world.impacts.push({ a, b, nx, ny, x, y, closing, bounce })
+    }
+  })
   // Adjust field gravity and water resistance after Matter's sleeping decision,
   // before collision detection/solving. A persistent applied force would wake
   // every resting field prop forever, even when pinned against a ceiling.
@@ -212,6 +249,35 @@ function carryStackedBoxes(world: PropWorld, before: ReadonlyMap<Matter.Body, nu
   }
 }
 
+/** How fast `a` and `b` separate along (nx, ny) at the point (x, y), counting spin (Matter's velocity units). */
+function normalSpeed(a: Matter.Body, b: Matter.Body, nx: number, ny: number, x: number, y: number) {
+  const point = (body: Matter.Body) => {
+    const v = Body.getVelocity(body), w = Body.getAngularVelocity(body)
+    return [v.x - (y - body.position.y) * w, v.y + (x - body.position.x) * w]
+  }
+  const [ax, ay] = point(a), [bx, by] = point(b)
+  return (bx - ax) * nx + (by - ay) * ny
+}
+/** Send each weightless contact begun this step back at its share of the speed it closed at. */
+function reboundImpacts(world: PropWorld) {
+  for (const { a, b, nx, ny, x, y, closing, bounce } of world.impacts) {
+    const wanted = bounce * closing, now = normalSpeed(a, b, nx, ny, x, y)
+    if (now >= wanted) continue
+    const ra = (x - a.position.x) * ny - (y - a.position.y) * nx, rb = (x - b.position.x) * ny - (y - b.position.y) * nx
+    const effective = a.inverseMass + b.inverseMass + ra * ra * a.inverseInertia + rb * rb * b.inverseInertia
+    if (!effective) continue
+    const impulse = (wanted - now) / effective
+    for (const [body, sign, r] of [[a, -1, ra], [b, 1, rb]] as const) {
+      if (body.isStatic || !body.inverseMass) continue
+      const v = Body.getVelocity(body)
+      Sleeping.set(body, false)
+      Body.setVelocity(body, { x: v.x + sign * nx * impulse * body.inverseMass, y: v.y + sign * ny * impulse * body.inverseMass })
+      Body.setAngularVelocity(body, Body.getAngularVelocity(body) + sign * r * impulse * body.inverseInertia)
+    }
+  }
+  world.impacts.length = 0
+}
+
 /** Repair placed/imported overlaps before the first rendered frame, without
  * advancing the clock, moving the player, or letting props fall in the editor. */
 export function prepareProps(run: Run) {
@@ -245,9 +311,38 @@ export function setPropCarried(run: Run, prop: Prop, carried: boolean) {
     if (!run.props.includes(prop)) run.props.push(prop)
     if (world && !world.bodies.has(prop)) {
       const body = makeProp(prop)
+      propOf.set(body, prop)
       Body.setVelocity(body, { x: prop.vx / 60, y: prop.vy / 60 })
       Body.setAngularVelocity(body, prop.angularVelocity / 60)
       world.bodies.set(prop, body); Composite.add(world.engine.world, body)
+    }
+  }
+}
+
+/** Weightless push-offs from loose props this tick (Player.contacts `kick`, model.ts pushOff): the player was given the
+ * whole change of velocity as if the prop were fixed. Momentum splits it by mass, so the prop goes the other way and a
+ * light prop gives the player less. Applied once per tick, before the prop substeps. */
+export function reactToPushOffs(run: Run) {
+  const contacts = run.player.contacts?.body
+  if (!contacts?.some(c => c.kick)) return
+  const world = worldFor(run)
+  for (const contact of contacts) {
+    const b = contact.collider.prop, body = b && world.bodies.get(b), kick = contact.kick
+    if (!kick) continue
+    delete contact.kick
+    if (!b || !body) continue
+    const share = PLAYER_MASS / (PLAYER_MASS + body.mass)
+    if (contact.riding) {
+      // A landing: the player stopped against the prop and now rides it, so the pair moves on at the speed momentum
+      // gives them. The prop takes the player's share of how fast the body was closing on it (`kick` is the absolute
+      // speed the landing stopped, along the contact's normal); a prop already drifting away takes less.
+      const [nx, ny] = contact.normal, closing = Math.max(0, kick[0] * nx + kick[1] * ny + b.vx * nx + b.vy * ny)
+      b.vx -= nx * closing * share; b.vy -= ny * closing * share
+    } else {
+      // A push-off: the player was given the whole change as if the prop were fixed. The prop takes the player's share
+      // of it the other way, and the player gives that share back.
+      b.vx -= kick[0] * share; b.vy -= kick[1] * share
+      run.player.vx -= kick[0] * share; run.player.vy -= kick[1] * share
     }
   }
 }
@@ -304,6 +399,17 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     world.floatDrag.set(body, propFloatDrag(run.gravityField, b))
     world.waterStrength.set(body, propWaterStrength(run.gravityField, b))
     b.waterImmersion = world.waterStrength.get(body)
+    if (whollyWeightless(run, b, b.waterImmersion ?? 0)) weightlessBodies.add(body); else weightlessBodies.delete(body)
+    if (weightlessProp(world, body)) {
+      // Without weight a prop feels the same air as the player (TUNING.zeroGravityDrag and zeroGravityAirDrag): a struck
+      // prop slows over a few seconds instead of sailing on forever. With no pull at all a slow drift settles as the
+      // player's does (zeroGravityRestDrag below zeroGravityRestSpeed), so it comes to rest rather than creeping on for half
+      // a minute; a faint pull still draws it on.
+      const drift = Math.hypot(b.vx, b.vy), pulled = Math.hypot(gravity, side) > 1e-6
+      const settle = pulled ? 0 : TUNING.zeroGravityRestDrag * Math.max(0, 1 - drift / TUNING.zeroGravityRestSpeed)
+      const keep = Math.exp(-(TUNING.zeroGravityDrag + TUNING.zeroGravityAirDrag * drift + settle) * dt)
+      b.vx *= keep; b.vy *= keep; b.angularVelocity *= keep
+    }
     const sides = b.kind === 'ball' && b.size <= 60 && b.waterImmersion! > 0 ? 32 : 64
     if (b.kind === 'ball' && body.vertices.length !== sides) {
       const mass = body.mass
@@ -445,6 +551,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   }
   const before = new Map([...world.bodies.values()].map(body => [body, body.position.x] as const))
   Engine.update(world.engine, dt * 1000)
+  reboundImpacts(world)
   carryStackedBoxes(world, before, dt)
   // The synchronous correction stage owns all hull edits from here through
   // the final contact query. Track each write instead of rescanning vertices.
@@ -639,7 +746,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const gravity = Math.hypot(world.gravity.get(body) ?? TUNING.gravity, sideGravity.get(body) ?? 0)
     const floating = !b.grounded && (world.floatDrag.get(body) ?? 0) > 0 && gravity < .5 && !driven.has(body)
     const falling = !b.grounded && gravity > 1e-7 && !floating
-    body.sleepThreshold = b.floatSwitch || b.waterBob ? 0 : falling && gravity < TUNING.gravity * .05 ? 0 : 45
+    // Without weight, sleeping would stop a slow drift dead in mid-air: the air brings it to rest first.
+    const drifting = weightlessProp(world, body) && (Body.getSpeed(body) * 60 > WEIGHTLESS_REST_SPEED || Math.abs(Body.getAngularVelocity(body)) * 60 > WEIGHTLESS_REST_SPIN)
+    body.sleepThreshold = b.floatSwitch || b.waterBob || drifting ? 0 : falling && gravity < TUNING.gravity * .05 ? 0 : 45
     if (falling && body.isSleeping) Sleeping.set(body, false)
     // A force-balanced float is support without a solid contact. Require quiet
     // motion before sleeping; field changes, impacts and player loads still wake it.

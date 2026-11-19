@@ -11,12 +11,15 @@ import type { PreparedLevel } from './levelPreparation'
 import { keyboardMovement } from './input'
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { lightingForLevel } from './lightingDefinition'
-import { parseLevel } from './level'
 import './EndingReview.css'
+import { loadLevelCatalog } from './levelAssets'
 
 const DURATION = Math.round((BUS_ENDING_SECONDS - BUS_DEPARTURE_START_SECONDS) * 100) / 100
 type ReviewMode = 'approach' | 'departure'
 /** Development-only: normal controls on Exit's final approach, without saving progress. */
+/** Exit II, the level that ends at the bus. */
+const BUS_ENDING_LEVEL = 'b42dcd81-427a-4c2b-9c9b-a231874bef5b'
+
 export default function EndingReview() {
   const canvas = useRef<HTMLCanvasElement>(null), scene = useRef<BusEnding | null>(null)
   const source = useRef<PreparedLevel | null>(null), world = useRef<PreparedLevel | null>(null)
@@ -47,9 +50,13 @@ export default function EndingReview() {
     const node = canvas.current!, renderer = new LightingRenderer(), ctx = renderer.drawingContext(node)
     const abort = new AbortController()
     let frame = 0, previous = 0, accumulator = 0
-    fetch(`${import.meta.env.BASE_URL}levels/jumping/exit.jump-level.json`, { signal: abort.signal })
-      .then(response => { if (!response.ok) throw new Error('Could not load Exit.'); return response.json() })
-      .then(value => prepareLevelInWorker(parseLevel(value), { signal: abort.signal, play: true }))
+    // The bus ending is Exit II's, found by its durable id, so renaming or retitling the level keeps the review working.
+    loadLevelCatalog(import.meta.env.BASE_URL, (input, init) => fetch(input, { ...init, signal: abort.signal }))
+      .then(catalog => {
+        const exit = catalog.files.find(file => file.level.id === BUS_ENDING_LEVEL)
+        if (!exit) throw new Error('Could not load the bus ending level.')
+        return prepareLevelInWorker(exit.level, { signal: abort.signal, play: true })
+      })
       .then(prepared => {
         if (abort.signal.aborted) return
         source.current = prepared

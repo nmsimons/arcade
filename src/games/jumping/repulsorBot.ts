@@ -13,9 +13,10 @@ import { forceFieldPlatforms } from './forceField.ts'
 import { faceRobotToward, repulseRobot, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer } from './robotPhysics.ts'
 import { botActive, visibleShovebotRival } from './botCombat.ts'
 import { botEscapingWater, botInWater, botMovement } from './botNavigation.ts'
+import { botFloating } from './botFloatNavigation.ts'
 import { rightArmSupporting } from './armSupport.ts'
 import { createRope } from './climbables.ts'
-import { REPULSOR_BOT_SIZE, REPULSOR_BOT_WIDTH_SCALE, repulsorBotChestY, repulsorBotPose, repulsorBotWidthScale } from './repulsorBotRig.ts'
+import { REPULSOR_BOT_SIZE, REPULSOR_BOT_WIDTH_SCALE, repulsorBotChestY, repulsorBotPoint, repulsorBotPose, repulsorBotTurn, repulsorBotWidthScale } from './repulsorBotRig.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
 export { REPULSOR_BOT_WIDTH_SCALE } from './repulsorBotRig.ts'
 import { botSeesProp, chooseBotTactic } from './botTactics.ts'
@@ -38,6 +39,11 @@ export const REPULSOR_BOT_COLLAPSE = .35, REPULSOR_BOT_GET_UP = .6
 export const COLLAPSED_PUSH_SPEED = 60
 export const REPULSOR_BOT_RECOVERY = 1.4
 export const REPULSOR_BOT_RANGE = 1000
+/** Floating, Rbot fires once it has all but stopped (speed below this), and the pulse pushes it back at this speed. */
+const FLOAT_FIRING_SPEED = 45, FLOAT_RECOIL = 70
+/** After a floating shot, Rbot lets the recoil carry it this long before it steers again. */
+const FLOAT_RECOVERY_HOLD = .35
+
 const memories = new WeakMap<RobotState, BotSighting>(), plans = new WeakMap<RobotState, BotTactic>()
 const turnedToNoise = new WeakMap<RobotState, number>()
 const rivalTargets = new WeakMap<RobotState, RobotState>()
@@ -54,10 +60,10 @@ export function repulsorBotHand(robot: RobotState) {
   // Firing decisions use the physics rig, so the robot's animation cannot steer them.
   const actor = physicsView(robot.actor!), pose = repulsorBotPose(actor, athletePose(actor)), arm = actor.facing < 0 ? pose.backArm : pose.frontArm
   const flip = actor.inverted ? -1 : 1, angle = Math.atan2((arm.end[1] - arm.joint[1]) * flip, (arm.end[0] - arm.joint[0]) * actor.facing)
-  const dx = Math.cos(angle), dy = Math.sin(angle), palm = arm.hand ?? arm.end, size = bodySize(actor)
+  const dx = Math.cos(angle), dy = Math.sin(angle), palm = arm.hand ?? arm.end
   const scale = repulsorBotWidthScale(actor), length = Math.hypot(dx * scale, dy)
-  return { from: [actor.x + palm[0] * actor.facing * scale * size, actor.y + palm[1] * flip * size] as Vec,
-    direction: [dx * scale / length, dy / length] as Vec }
+  // On a wall the rig stands in that wall's frame, so the palm and the arm's line turn with it.
+  return { from: repulsorBotPoint(actor, palm, scale) as Vec, direction: repulsorBotTurn(actor, [dx * scale / length, dy / length]) as Vec }
 }
 
 function fire(run: Run, robot: RobotState) {
@@ -186,7 +192,9 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   const playerTarget: Vec | undefined = seen ? [run.player.x, run.player.y - (run.player.inverted ? -1 : 1) * TUNING.height / 2] : undefined
   // A rope leaves the player exposed: take an available shot before following
   // the climb route or diverting to a control, cargo, or another bot.
-  const ropeShot = actor.grounded && free && run.player.climbing?.kind === 'rope' && !!playerTarget
+  // Weightless, footing is wherever the body has stopped: a hover steady enough to aim from serves as well as a floor.
+  const footed = actor.grounded || botFloating(actor) && Math.hypot(actor.vx, actor.vy) < FLOAT_FIRING_SPEED
+  const ropeShot = footed && free && run.player.climbing?.kind === 'rope' && !!playerTarget
     && hasFiringLine(run, robot, playerTarget)
   const plan = robot.phase === 'windup' ? plans.get(robot) : clue ? chooseBotTactic(run, robot, clue, seen, dt) : undefined
   if (plan) plans.set(robot, plan)
@@ -195,7 +203,7 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   const approachingControl = !ropeShot && !rival && plan?.kind === 'operate' && Math.hypot(robot.x - plan.x, robot.y - plan.y) > 40
   const shotTarget: Vec | undefined = obstruction ? [obstruction.x, obstruction.y - 28] : prop ? [prop.x, prop.y - propHeight(prop) / 2] : playerTarget
   robot.time += dt
-  if ((robot.phase === 'patrol' || robot.phase === 'chase') && actor.grounded && free && !approachingControl
+  if ((robot.phase === 'patrol' || robot.phase === 'chase') && footed && free && !approachingControl
     && (ropeShot || obstruction || prop || seen && Math.abs(run.player.x - robot.x) <= 600 && Math.abs(run.player.y - robot.y) < 240)
     && shotTarget && (ropeShot || hasFiringLine(run, robot, shotTarget, prop, obstruction))) {
     robot.phase = 'windup'; robot.time = 0
@@ -209,13 +217,21 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
       robot.aim = Math.atan2(shotTarget[1] - repulsorBotChestY(robot), shotTarget[0] - robot.x)
       actor.facing = Math.cos(robot.aim) < 0 ? -1 : 1
     }
-    if (!free || !actor.grounded) { robot.phase = 'chase'; robot.time = 0 }
-    else if (robot.time >= REPULSOR_BOT_WINDUP) { fire(run, robot); robot.phase = 'recover'; robot.time = 0 }
+    // Floating, the windup may drift a little; only footing lost on the ground, or a real drift, spoils it.
+    if (!free || !(actor.grounded || botFloating(actor) && Math.hypot(actor.vx, actor.vy) < FLOAT_FIRING_SPEED * 2)) { robot.phase = 'chase'; robot.time = 0 }
+    else if (robot.time >= REPULSOR_BOT_WINDUP) {
+      const { direction } = repulsorBotHand(robot)
+      fire(run, robot); robot.phase = 'recover'; robot.time = 0
+      // Nothing holds a floating body still: the pulse pushes it back.
+      if (!actor.grounded && botFloating(actor)) { actor.vx -= direction[0] * FLOAT_RECOIL; actor.vy -= direction[1] * FLOAT_RECOIL }
+    }
   } else if (robot.phase === 'recover') {
     movement = { ...movement, move: 0, jump: false, climb: false, descend: false, crouch: false }
+    // Floating, recovery would leave the recoil to drift on: once the shot has settled, it brakes and holds its ground.
+    if (botFloating(actor) && !actor.grounded && robot.time > FLOAT_RECOVERY_HOLD) movement = botMovement(run, robot, dt, plan ?? clue)
     if (robot.time >= REPULSOR_BOT_RECOVERY) { robot.phase = hunting ? 'chase' : 'patrol'; robot.time = 0 }
   } else { robot.phase = hunting ? 'chase' : 'patrol'; movement = botMovement(run, robot, dt, plan ?? clue) }
-  if (standingOnPlayer) {
+  if (standingOnPlayer && !botFloating(actor)) {
     // A person is temporary support, not a firing perch. Step to the clear side
     // through the ordinary motor instead of charging forever on their head.
     // Keep that choice until stepping off; crossing the room's center must

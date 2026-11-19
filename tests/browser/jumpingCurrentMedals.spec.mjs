@@ -4,19 +4,22 @@ import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
+import { withLevelFiles } from '../helpers/jumping-builtin-levels.mjs'
 
 // These route regressions start from an already unlocked campaign.
 test.beforeEach(async ({ page }) => { await unlockJumpingLevels(page) })
 
-const accepted = new Set(['03.json', 'Coins.jump-level.json', 'Balls.jump-level.json'])
+// Level 3, Coins and Balls, by id; recordings carry their level's id and get its current file.
+const BALLS = 'be6bf80d-c9fe-42a7-9eeb-fb304e1b1878'
+const accepted = new Set(['d810f5f5-1a01-431f-804b-575b1b731a3d', '70595ea8-5dec-420a-83bf-cdf1065aab1f', BALLS])
 const records = JSON.parse(readFileSync(new URL('../fixtures/jumping-builtin-medal-runs.json', import.meta.url)))
 
-for (const recording of records.runs.filter(run => accepted.has(run.file))) {
+for (const recording of withLevelFiles(records.runs).filter(run => accepted.has(run.level))) {
   test(`built-in ${recording.file} completes with current held keyboard controls`, async ({ page }, info) => {
     const data = JSON.parse(readFileSync(new URL(`../../public/levels/jumping/${recording.file}`, import.meta.url)))
     // This new whole-route Night test includes several lamps and a passive
     // mechanism wait in software Chromium. Existing medal deadlines are unchanged.
-    test.setTimeout(recording.file === 'Balls.jump-level.json' ? 180000 : data.lighting?.nightMode ? 90000 : 60000)
+    test.setTimeout(recording.level === BALLS ? 180000 : data.lighting?.nightMode ? 90000 : 60000)
     expect(recording.jumpModel).toBe('tap-hold')
     const errors = [], checkpoints = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 852, height: 393 })
@@ -44,7 +47,7 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
       // The Balls whole-route check asserts completion, not frame-by-frame
       // rendered transitions. Preserve every physics step with fewer rendered
       // frames during its long held inputs, including the 7.5-second delivery.
-      if ((!wanted.size || recording.file === 'Balls.jump-level.json') && milliseconds > 500) await advanceJumpingPassiveWait(page, milliseconds)
+      if ((!wanted.size || recording.level === BALLS) && milliseconds > 500) await advanceJumpingPassiveWait(page, milliseconds)
       else await page.clock.runFor(milliseconds)
       checkpoints.push(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1)))
       await page.screenshot({ path: info.outputPath(`phase-${String(index++).padStart(2, '0')}.png`) })

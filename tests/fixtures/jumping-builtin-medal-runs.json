@@ -2,129 +2,129 @@
   "version": 2,
   "pendingAudit": [
     {
-      "file": "escapade.jump-level.json",
+      "level": "ab914f1b-985f-4992-9e03-44506d00cb33",
       "reason": "Added after the October 4 medal audit; a fresh-start medal route has not yet been recorded."
     },
     {
-      "file": "LAB.jump-level.json",
+      "level": "e784fe84-2ab2-427c-b5a2-1d1fec663e5c",
       "reason": "New authored level; its 13 / 20 / 30 medal targets have not yet been verified by a recorded fresh-start route."
     },
     {
-      "file": "pinball.jump-level.json",
+      "level": "19f66cc5-2de3-4a7f-9a4d-7df4092a7354",
       "reason": "Revised curved pinball layout published October 23; its authored 10 / 20 / 40 targets still require completed fresh-start medal recordings."
     },
     {
-      "file": "world1.jump-level.json",
+      "level": "9c86c84f-5cd0-4cfa-9c78-b257fe402ab1",
       "reason": "New World I level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
     },
     {
-      "file": "lockout1.jump-level.json",
+      "level": "243237ee-296d-40f6-abd4-950eee0bbffc",
       "reason": "New authored Lock Out I course; a completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "Quarantine II.jump-level.json",
+      "level": "8f8e6552-55a6-4b36-9fce-24a0d43619f0",
       "reason": "New authored Quarantine II course; Rbot water recovery has regression coverage, but a completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "Quarantine III.jump-level.json",
+      "level": "a9e72a69-c1f9-4b12-8670-4ecdafb342ee",
       "reason": "New authored Quarantine III course; the solution is now 25 and Rbot low-water recovery has regression coverage, but a completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "scaffold1.jump-level.json",
+      "level": "5b6e15bf-38a0-4baf-951a-204c2abc7e21",
       "reason": "Renamed from Triple Scaffold on October 22. The current 14-coin layout completed from a fresh entrance with its authored Rbot and ordinary tap/hold controls in 225.38 seconds, including several recoveries (jumping-triple-scaffold-completion.json). Initial deadlines are A 120 / B 180 / C 240 / D 300 seconds. The completion earns C; a fluent A route and independent deadline balance remain unverified."
     },
     {
-      "file": "scaffold2.jump-level.json",
+      "level": "16782da7-ca7e-40e6-a383-106746fd8df8",
       "reason": "Renamed from Hellstones on October 22. Studio revisions moved the entrance and exit, changed collectibles, and added a repulsor pickup. Its former fresh-start trace no longer completes; current Rbot pursuit is covered separately and a new player completion is pending."
     },
     {
-      "file": "Walls.jump-level.json",
+      "level": "d5e4ea37-a26f-46b9-8c84-d2b36840368b",
       "reason": "Studio revisions narrowed the center landing and replaced the six optional coins with three required coins. The prior direct and recovery traces miss the revised route; both need fresh completion checks."
     },
     {
-      "file": "scaffold4.jump-level.json",
+      "level": "363a26b8-1f98-4c5f-8fd3-8451b8455501",
       "reason": "Renamed from Spellbound on October 22. The authored course and hunter encounter were revised after this trace was recorded. The former completion no longer reaches the exit; its trace is retained as superseded evidence pending a fresh player route."
     },
     {
-      "file": "scaffold5.jump-level.json",
+      "level": "d4b07ef9-80a6-46c1-917c-19ad1902dc69",
       "reason": "Renamed from Blackout on October 22. Studio revisions changed the entrance, coin placements, and ladder access. Its former completion trace no longer reaches the exit; a fresh route and timing review are pending."
     },
     {
-      "file": "Here There Everywhere.jump-level.json",
+      "level": "ff487efc-cbdb-42f0-85c0-8df2b69532b4",
       "reason": "Reworked October 21. Fresh normal tap/hold A completion in 4.22 seconds, plus an alternate/recovery completion, are recorded in jumping-course-playtests.json. Deadlines A 6 / B 12 / C 22 / D 40 are grounded in those runs; independent human first-run balance remains pending."
     },
     {
-      "file": "scaffold3.jump-level.json",
+      "level": "ab711d55-3d87-4933-a858-12029b54589c",
       "reason": "Renamed from Hatchlings on October 22. A fresh-start normal tap/hold completion with the authored Rbot is recorded in jumping-course-playtests.json (66.37 seconds). Medal thresholds remain provisional; a fluent gold route and timing calibration still require review."
     },
     {
-      "file": "Quarantine.jump-level.json",
+      "level": "e7940f79-5502-451a-a373-9b63e4df1e11",
       "reason": "Renamed from Hurricane after its October 21 rework. The earlier normal tap/hold completion (7.57 seconds) and alternate/recovery route remain captured in jumping-course-playtests.json. Independent human first-run balance of A 12 / B 22 / C 35 / D 60 remains pending."
     },
     {
-      "file": "spire2.jump-level.json",
+      "level": "11234f12-817c-4966-a141-54e70573fae0",
       "reason": "Studio revisions changed the central pillar, control position, and forcefields and added an Rbot. The former tap/hold recording no longer reaches the exit; a fresh completion and timing audit are required."
     },
     {
-      "file": "08.json",
+      "level": "ujg-uninvited-company-v2",
       "reason": "The finale edit relocates Rbot to the entrance deck, adds a ledge under the rope and revises the lower cargo/water encounter. The former B route no longer reaches the exit."
     },
     {
-      "file": "spelunk1.jump-level.json",
+      "level": "13b9b9d7-7937-4989-bc03-21238e7e58f2",
       "reason": "Studio revisions moved the exit, rewired a control, removed a float switch, and moved a light. The former recording no longer powers the doorway; a fresh completion and timing audit are required."
     },
     {
-      "file": "07.json",
+      "level": "ujg-turnaround-v2",
       "reason": "More capable Rbot traversal changes the captured encounter and interrupts the former fixed-input route. Retain this trace and its captured map for comparison; the revised live encounter needs a fresh completion."
     },
     {
-      "file": "Waterline1.jump-level.json",
+      "level": "ecbb07bd-b1dd-476c-b09b-82eb321515e9",
       "reason": "October 23 pump rates changed to 20 and the lower-left float moved. The prior A route is retained against the captured pre-change layout for water and circuit regression coverage; the revised live level needs a fresh completion and timing audit."
     },
     {
-      "file": "Waterline2.jump-level.json",
+      "level": "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a",
       "reason": "New authored Waterline II layout. Pump/float wiring and Rbot water recovery have focused regression coverage; a completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "Ascent.jump-level.json",
+      "level": "5d45678a-5104-43be-9647-2a2bbd6ff932",
       "reason": "Ascent I was revised after its recorded completion and an Rbot was added. The earlier trace is retained as superseded evidence; the live layout needs a fresh completion and medal timing audit."
     },
     {
-      "file": "ascent2.jump-level.json",
+      "level": "d52a327a-3f29-4c04-b501-3ee77d6e2e42",
       "reason": "New authored Ascent II layout. A completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "buoyancy.jump-level.json",
+      "level": "7fdfaebe-18c3-431e-b9f4-3faba6b18cfe",
       "reason": "The finale edit changes the underwater ball positions and native sizes. The earlier small-ball route no longer loads both exit plates; a fresh normal-control completion and timing audit are required."
     },
     {
-      "file": "Tower.jump-level.json",
+      "level": "16f44bef-1ff7-42d7-ad5a-f8966310cd4b",
       "reason": "Crouch walking was halved to 60 units per second. The slower crouched push drops the heavy ball onto the lobby floor without the momentum to roll down to the lobby plate, so this route no longer reaches the exit. A fresh normal-control route and timing audit against 100 / 140 / 210 are required."
     },
     {
-      "file": "Balls.jump-level.json",
+      "level": "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878",
       "reason": "A crouched ball push now holds its contact at the crouch pace. The re-timed A route (32.04 against 35 / 40 / 60) no longer reaches the exit and is kept as superseded evidence; a fresh normal-control completion and timing audit are required."
     },
     {
-      "file": "Tower II.jump-level.json",
+      "level": "105e88ac-240d-49b1-b45d-4cc9c225b32e",
       "reason": "A crouched ball push now holds its contact at the crouch pace. The re-timed A route (107.93 against 110 / 150 / 210) no longer completes and is kept as superseded evidence; a fresh normal-control completion and timing audit are required."
     },
     {
-      "file": "Untitled level.jump-level.json",
+      "level": "b582a759-5ff2-4d06-874e-2adff6d09a70",
       "reason": "Added to the collection on November 15 with no door in the facility. Its 10 / 20 / 40 targets are the authored defaults; a completed fresh-start player route and medal timing audit are pending."
     },
     {
-      "file": "rampingup.jump-level.json",
+      "level": "f647e38f-d47e-4628-b322-b89e98882202",
       "reason": "The ladder moved (810ffe9); the recorded route climbed it where it was and now replays on that captured layout. A fresh-start medal route on the new layout has not yet been recorded."
     },
     {
-      "file": "updraft.jump-level.json",
+      "level": "aac71758-36c3-43ab-9d28-bb4f2eed7325",
       "reason": "Being reworked in the studio (November 17: a zero-g room and further lifts), and zero g now flies on booster boots. The former A route no longer reaches the exit; a fresh-start medal route and timing audit are pending once the layout settles."
     }
   ],
   "runs": [
     {
-      "file": "03.json",
+      "level": "d810f5f5-1a01-431f-804b-575b1b731a3d",
       "jumpModel": "tap-hold",
       "elapsed": 0.6833333333333333,
       "activeTime": 10.783333333333362,
@@ -250,7 +250,7 @@
       ]
     },
     {
-      "file": "Boxes.jump-level.json",
+      "level": "06b6058e-4448-4c6a-81a2-e936a70fda0a",
       "elapsed": 27.52499999999908,
       "activeTime": 28.383333333332363,
       "coins": 0,
@@ -404,7 +404,7 @@
       ]
     },
     {
-      "file": "Coins.jump-level.json",
+      "level": "70595ea8-5dec-420a-83bf-cdf1065aab1f",
       "jumpModel": "tap-hold",
       "elapsed": 10.791666666666694,
       "activeTime": 11.649999999999979,
@@ -569,7 +569,7 @@
       ]
     },
     {
-      "file": "jk.jump-level.json",
+      "level": "5adc6677-fb33-4064-a4ce-507e37130bc4",
       "elapsed": 14.09999999999984,
       "activeTime": 14.958333333333124,
       "coins": 0,
@@ -718,7 +718,7 @@
       ]
     },
     {
-      "file": "04.json",
+      "level": "ade313c6-a64a-48ea-a77e-85e0565acaf8",
       "elapsed": 11.033333333333347,
       "activeTime": 11.891666666666632,
       "coins": 0,
@@ -828,7 +828,7 @@
       ]
     },
     {
-      "file": "05.json",
+      "level": "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
       "jumpModel": "tap-hold",
       "elapsed": 9.125000000000123,
       "activeTime": 9.983333333333407,
@@ -881,7 +881,7 @@
       ]
     },
     {
-      "file": "nine.jump-level.json",
+      "level": "9369b0ce-0963-4681-bbcd-50dc5059d9df",
       "elapsed": 4.15833333333333,
       "activeTime": 5.016666666666706,
       "coins": 0,
@@ -972,7 +972,7 @@
       ]
     },
     {
-      "file": "Drain.json",
+      "level": "38681eca-a164-4f9a-9113-c3ba119ed3ed",
       "jumpModel": "tap-hold",
       "elapsed": 29.649999999999032,
       "activeTime": 40.50833333333168,
@@ -1140,7 +1140,7 @@
       ]
     },
     {
-      "file": "Lock Out 2.jump-level.json",
+      "level": "dbf1b51d-bf10-4c7a-aa35-0d769445c766",
       "jumpModel": "tap-hold",
       "elapsed": 15.166666666666446,
       "activeTime": 16.024999999999732,
@@ -1243,7 +1243,7 @@
       ]
     },
     {
-      "file": "fulltilt.jump-level.json",
+      "level": "c1b4d9a2-5e7f-4a63-9b1d-7f2e8c0a4d16",
       "jumpModel": "tap-hold",
       "elapsed": 0.9666666666666657,
       "activeTime": 16.649999999999697,
@@ -1486,7 +1486,7 @@
       ]
     },
     {
-      "file": "spire1.jump-level.json",
+      "level": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
       "elapsed": 45.716666666664715,
       "activeTime": 46.574999999998,
       "coins": 0,
@@ -1636,7 +1636,7 @@
       ]
     },
     {
-      "file": "overhead.jump-level.json",
+      "level": "c2e3a4c5-4b33-4e6b-962c-201342c974ba",
       "jumpModel": "tap-hold",
       "elapsed": 7.658333333333504,
       "activeTime": 8.516666666666824,
@@ -1697,7 +1697,7 @@
       ]
     },
     {
-      "file": "featherweight.jump-level.json",
+      "level": "8efe52fa-4d7a-4d50-b400-cefb9b3df1eb",
       "jumpModel": "tap-hold",
       "elapsed": 6.500000000000179,
       "activeTime": 10.358333333333386,
@@ -1797,7 +1797,7 @@
       ]
     },
     {
-      "file": "drift.jump-level.json",
+      "level": "af7c96c7-d0b1-45ba-9f17-6e302e202096",
       "jumpModel": "tap-hold",
       "elapsed": 3.466666666666657,
       "activeTime": 4.325000000000005,
@@ -1831,7 +1831,7 @@
       ]
     },
     {
-      "file": "flipside.jump-level.json",
+      "level": "2c20a618-5a7a-47dc-9618-101980626f5a",
       "jumpModel": "tap-hold",
       "elapsed": 7.825000000000179,
       "activeTime": 8.683333333333481,
@@ -1889,7 +1889,7 @@
       ]
     },
     {
-      "file": "fourlamps.jump-level.json",
+      "level": "809e8f88-ba3a-4de9-8333-b5789852bdfd",
       "jumpModel": "tap-hold",
       "elapsed": 11.200000000000005,
       "activeTime": 12.05833333333329,
@@ -1994,7 +1994,7 @@
       ]
     },
     {
-      "file": "oneortheother.jump-level.json",
+      "level": "e5c60d49-96e7-400a-b583-2b17a1a95947",
       "jumpModel": "tap-hold",
       "elapsed": 7.241666666666816,
       "activeTime": 8.10000000000018,
@@ -2061,7 +2061,7 @@
       ]
     },
     {
-      "file": "handoff.jump-level.json",
+      "level": "0de3d603-e5b2-4a55-bac0-374a94bdcc66",
       "jumpModel": "tap-hold",
       "elapsed": 12.608333333333258,
       "activeTime": 13.466666666666542,
@@ -2175,7 +2175,7 @@
       ]
     },
     {
-      "file": "proficiency.jump-level.json",
+      "level": "ef2f843c-b9ee-44e2-befe-3ff609608009",
       "jumpModel": "tap-hold",
       "elapsed": 18.108333333332777,
       "activeTime": 21.96666666666606,
@@ -2424,7 +2424,7 @@
       ]
     },
     {
-      "file": "roundtrip.jump-level.json",
+      "level": "377ebb2f-2f21-4984-9cd0-6d0c81220652",
       "jumpModel": "tap-hold",
       "elapsed": 20.74166666666613,
       "activeTime": 21.599999999999415,
@@ -2692,7 +2692,7 @@
       ]
     },
     {
-      "file": "polishingbay.jump-level.json",
+      "level": "5b0f2d64-5c3e-4b8e-9a3e-7d1c2f6a9b11",
       "jumpModel": "tap-hold",
       "elapsed": 9.825000000000083,
       "activeTime": 10.683333333333367,
@@ -2748,6 +2748,7 @@
   "historicalRuns": [
     {
       "file": "Waterline1.jump-level.json",
+      "level": "ecbb07bd-b1dd-476c-b09b-82eb321515e9",
       "jumpModel": "tap-hold",
       "elapsed": 29.4833333333323,
       "activeTime": 30.341666666665585,
@@ -2837,6 +2838,7 @@
     },
     {
       "file": "rampingup.jump-level.json",
+      "level": "f647e38f-d47e-4628-b322-b89e98882202",
       "elapsed": 46.683333333331326,
       "activeTime": 47.54166666666461,
       "coins": 10,
@@ -3205,6 +3207,7 @@
   "supersededRuns": [
     {
       "file": "Ascent.jump-level.json",
+      "level": "5d45678a-5104-43be-9647-2a2bbd6ff932",
       "jumpModel": "tap-hold",
       "route": "Two wall-jump chimneys, the three-rope crossing, and the 40-coin exit.",
       "elapsed": 39.18333333333175,
@@ -3584,6 +3587,7 @@
     },
     {
       "file": "buoyancy.jump-level.json",
+      "level": "7fdfaebe-18c3-431e-b9f4-3faba6b18cfe",
       "jumpModel": "tap-hold",
       "elapsed": 30.75833333333199,
       "activeTime": 50.616666666664436,
@@ -3893,6 +3897,7 @@
     },
     {
       "file": "08.json",
+      "level": "ujg-uninvited-company-v2",
       "elapsed": 9.5250000000001,
       "activeTime": 10.383333333333384,
       "coins": 0,
@@ -4004,6 +4009,7 @@
     },
     {
       "file": "07.json",
+      "level": "ujg-turnaround-v2",
       "elapsed": 25.04999999999922,
       "activeTime": 25.908333333332504,
       "coins": 0,
@@ -4212,6 +4218,7 @@
     },
     {
       "file": "Tower.jump-level.json",
+      "level": "16f44bef-1ff7-42d7-ad5a-f8966310cd4b",
       "elapsed": 87.61666666668246,
       "activeTime": 88.47500000001648,
       "coins": 0,
@@ -4936,6 +4943,7 @@
     },
     {
       "file": "Balls.jump-level.json",
+      "level": "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878",
       "jumpModel": "tap-hold",
       "elapsed": 32.04166666666549,
       "activeTime": 32.899999999998776,
@@ -5336,6 +5344,7 @@
     },
     {
       "file": "Tower II.jump-level.json",
+      "level": "105e88ac-240d-49b1-b45d-4cc9c225b32e",
       "elapsed": 107.92500000003196,
       "activeTime": 108.78333333336597,
       "coins": 8,
@@ -6151,6 +6160,7 @@
     },
     {
       "file": "updraft.jump-level.json",
+      "level": "aac71758-36c3-43ab-9d28-bb4f2eed7325",
       "jumpModel": "tap-hold",
       "elapsed": 12.366666666666605,
       "activeTime": 13.22499999999989,

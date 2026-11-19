@@ -67,7 +67,8 @@ export function mirrorContacts(contacts: PlayerContacts, world: ContactWorld): P
   return {
     support: contacts.support && support ? { ...contacts.support, y: -contacts.support.y, angle: -contacts.support.angle, platform: support.platform, collider: support } : null,
     push: contacts.push ? { ...contacts.push, collider: collider(contacts.push.collider.id), hands: hands(contacts.push.hands) } : null,
-    body: contacts.body.map(c => ({ ...c, collider: collider(c.collider.id), normal: [c.normal[0], -c.normal[1]], point: [c.point[0], -c.point[1]] })),
+    body: contacts.body.map(c => ({ ...c, collider: collider(c.collider.id), normal: [c.normal[0], -c.normal[1]], point: [c.point[0], -c.point[1]],
+      ...(c.kick ? { kick: [c.kick[0], -c.kick[1]] as [number, number] } : {}) })),
     motion: { ...contacts.motion, y: -contacts.motion.y },
   }
 }

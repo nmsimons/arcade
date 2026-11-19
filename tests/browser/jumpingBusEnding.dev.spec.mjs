@@ -1,8 +1,9 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { readBuiltinLevel } from '../helpers/jumping-builtin-levels.mjs'
 
-const exit = JSON.parse(readFileSync(new URL('../../public/levels/jumping/exit.jump-level.json', import.meta.url), 'utf8'))
+const exit = readBuiltinLevel('b42dcd81-427a-4c2b-9c9b-a231874bef5b') // Exit II
 
 test('Exit plays its bus payoff, pauses, resumes the scene, and completes after departure', async ({ page }, info) => {
   test.setTimeout(120000)

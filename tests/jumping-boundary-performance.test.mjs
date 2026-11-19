@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { nearestBoundary, nearbyBoundary, pointInside, polygonPoints, lineBlocked, segmentPenetration, ropeBend, withTerrainQueries } from '../src/games/jumping/geometry.ts'
+import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 
-const cave = JSON.parse(readFileSync(new URL('../public/levels/jumping/spelunk.jump-level.json', import.meta.url))).platforms
+const cave = readBuiltinLevel('13b9b9d7-7937-4989-bc03-21238e7e58f2').platforms // Exit I's cave
 
 test('repeated cave contacts reuse edge lengths and reject distant edge distances', t => {
   const shape = cave.find(b => b.polygon?.length > 12), [x, y] = polygonPoints(shape)[0]

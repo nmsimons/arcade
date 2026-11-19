@@ -23,7 +23,7 @@ import { gradeFor, gradeTimes } from './grading.ts'
 import type { Grade } from './grading.ts'
 export { gradeFor } from './grading.ts'
 import type { PickupState } from './pickups.ts'
-import { planMechanismMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
+import { planMechanismMotion, prepareProps, propBlocksMechanism, reactToPushOffs, stepPropPhysics } from './propPhysics.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { followPropGrip, playerContacts, translatePlayer } from './playerContacts.ts'
 import { advanceFootwork } from './footwork.ts'
@@ -318,6 +318,16 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number, powered: bool
   const steps = Math.max(1, Math.ceil(dt * 240), Math.ceil(travel / (Math.min(...run.props.map(b => b.size)) * .15))), h = dt / steps
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h, powered)
 }
+/** Without weight a floor or ceiling plate is pressed by contact, as a wall plate is: feet, head or hands held against
+ * its face, whichever way up the body is. */
+function weightlessTouch(actor: Player, position: { x: number; y: number }, plate: { w: number; ceiling?: boolean }) {
+  if (actor.wall || !(actor.weightless ?? 0) || actor.releaseTurn) return false
+  if (actor.x + TUNING.width / 2 < position.x || actor.x - TUNING.width / 2 > position.x + plate.w) return false
+  const height = actor.crouching ? TUNING.crouchHeight : TUNING.height, sign = actor.inverted ? -1 : 1
+  const ends = [actor.y, actor.y - sign * height]
+  const reach = (actor.contacts?.push?.floating && actor.contacts.push.hands?.palms) || []
+  return ends.some(y => Math.abs(y - position.y) < 3) || reach.some(palm => Math.abs(palm.y - position.y) < 3 && palm.x >= position.x && palm.x <= position.x + plate.w)
+}
 function stepTriggers(run: Run, dt: number, powered = !powerOut(run)) {
   const toggledGroups = new Set<string>()
   run.level.triggers.forEach((plate, index) => {
@@ -333,6 +343,7 @@ function stepTriggers(run: Run, dt: number, powered = !powerOut(run)) {
     const weighted = run.props.some(b => wall ? propPressesWallPlate(b, wall) : propLoadsPlate(b, position.x, position.y, plate.w, plate.ceiling))
     const loads = (actor: Player) => wall ? actorPressesWallPlate(actor, wall)
       : !actor.wall && !!actor.inverted === !!plate.ceiling && actor.grounded && Math.abs(actor.y - position.y) < 3 && actor.x >= position.x && actor.x <= position.x + plate.w
+        || weightlessTouch(actor, position, plate)
     const touched = loads(run.player) || run.robots.some(robot => robot.actor && loads(robot.actor))
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
@@ -546,6 +557,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   else if (run.robots.some(r => r.actor)) stepRobots(run, dt, world, false)
   applyContactEmp(run)
   if (run.gadgets.disabled.has(run.player)) input = NEUTRAL_INPUT
+  reactToPushOffs(run)
   stepProps(run, playerContacts(run.player, input, world, dt), dt, powered)
   run.robots.forEach((r, i) => { r.vx = (r.x - robotStarts[i]) / dt })
   world = syncPlatforms(run)

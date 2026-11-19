@@ -88,6 +88,8 @@ export interface PushHands {
 
 /** Two reachable contacts on the visible surface, independent of a ball's
  * rotation. Short props lower the hands instead of dropping the pushing pose. */
+/** A pull (px/s²) weaker than this is weightless (gravity.ts isWeightless: 5 percent of ordinary gravity). */
+const WEIGHTLESS_PULL = 1550 * .05
 export function propPushHands(b: Prop, x: number, y: number, direction: number, handHeight = 43, maxGap = 38): PushHands | null {
   if (b.kind === 'ball') {
     const r = b.size / 2, cy = b.y - r
@@ -140,7 +142,9 @@ export function propPushHands(b: Prop, x: number, y: number, direction: number, 
 
 /** Only the contacting edge/corner loads a plate, including a tilted box. */
 export function propLoadsPlate(b: Prop, left: number, y: number, width: number, ceiling = false) {
-  if (!b.grounded) return false
+  // Under weight a plate counts a prop resting on it. Without weight nothing rests, so contact presses it, as it does a
+  // wall plate: a prop held or drifted against its face.
+  if (!b.grounded && !(b.gravity !== undefined && Math.abs(b.gravity) < WEIGHTLESS_PULL)) return false
   if (b.kind === 'ball') return Math.abs(b.y - (ceiling ? b.size : 0) - y) < 2 && b.x > left + 2 && b.x < left + width - 2
   const shape = boxShape(b), points = shape.polygon?.map(([x, y]) => [shape.x + x, shape.y + y])
     ?? [[shape.x, shape.y + (ceiling ? 0 : shape.h)], [shape.x + shape.w, shape.y + (ceiling ? 0 : shape.h)]]

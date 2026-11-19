@@ -23,6 +23,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { basename, join, resolve } from 'node:path'
+import { builtinLevelFile } from '../tests/helpers/jumping-builtin-levels.mjs'
 
 const VIEWPORT = { width: 1600, height: 900 }
 
@@ -52,9 +53,10 @@ const SCENES = [
   { name: 'world1', file: 'world1.jump-level.json' },
   { name: 'fulltilt', file: 'fulltilt.jump-level.json' },
   { name: 'buoyancy', file: 'buoyancy.jump-level.json' },
-  { name: 'spelunk-bots', file: 'spelunk.jump-level.json', entrance: { x: 3000, y: 1780 } },
-  { name: 'exit-bus', file: 'exit.jump-level.json', entrance: { x: 20300, y: 2320 } },
-  { name: 'exit-ridge', file: 'exit.jump-level.json', entrance: { x: 16760, y: 2445 } },
+  // Exit I (once Spelunk) and Exit II, by id: their files may be renamed.
+  { name: 'spelunk-bots', file: builtinLevelFile('13b9b9d7-7937-4989-bc03-21238e7e58f2'), entrance: { x: 3000, y: 1780 } },
+  { name: 'exit-bus', file: builtinLevelFile('b42dcd81-427a-4c2b-9c9b-a231874bef5b'), entrance: { x: 20300, y: 2320 } },
+  { name: 'exit-ridge', file: builtinLevelFile('b42dcd81-427a-4c2b-9c9b-a231874bef5b'), entrance: { x: 16760, y: 2445 } },
   // Sequences. A short hop from the crest of Full Tilt's first hill, down to the slope below.
   { name: 'jump-landing', sequence: true, file: 'fulltilt.jump-level.json',
     follow: { width: 520, height: 320 }, at: [.35, .62], steps: [

@@ -16,7 +16,8 @@
     "Drain.json",
     "drift.jump-level.json",
     "escapade.jump-level.json",
-    "exit.jump-level.json",
+    "exit2.jump-level.json",
+    "exit1.jump-level.json",
     "featherweight.jump-level.json",
     "flipside.jump-level.json",
     "fourlamps.jump-level.json",
@@ -51,7 +52,7 @@
     "scaffold5.jump-level.json",
     "Security.jump-level.json",
     "04.json",
-    "spelunk.jump-level.json",
+    "Spelunk3.jump-level.json",
     "spire1.jump-level.json",
     "spire2.jump-level.json",
     "Tower.jump-level.json",
@@ -59,10 +60,10 @@
     "07.json",
     "08.json",
     "Untitled level 2.jump-level.json",
-    "Untitled level.jump-level.json",
     "updraft.jump-level.json",
     "Waterline1.jump-level.json",
     "Waterline2.jump-level.json",
-    "world1.jump-level.json"
+    "world1.jump-level.json",
+    "Billiards.jump-level.json"
   ]
 }

@@ -8,6 +8,7 @@ import { NEUTRAL_INPUT, TUNING, STEP } from '../src/games/jumping/model.ts'
 import { drawGoal, drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
 import { gameCamera } from '../src/games/jumping/camera.ts'
 import { moveItem, setFinish } from '../src/games/jumping/editor.ts'
+import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 
 const fixture = () => readLevelAsset('walk-off.json')
 
@@ -61,7 +62,7 @@ test('the run-off marker stays on the edge when moved, and no door or indicator 
 })
 
 test('Exit uses a walk-in bus on its continuous outdoor ground', () => {
-  const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/exit.jump-level.json', import.meta.url))))
+  const level = parseLevel(readBuiltinLevel('b42dcd81-427a-4c2b-9c9b-a231874bef5b')) // Exit II
   assert.deepEqual(level.goal, { kind: 'bus', x: level.width - 120, y: 2320 })
   assert.equal(level.timing, 'untimed'); assert.deepEqual(levelProblems(level), [])
   assert.ok(!level.platforms.some(b => b.x === 19780 && b.y === 2245), 'the raised door plinth is removed')

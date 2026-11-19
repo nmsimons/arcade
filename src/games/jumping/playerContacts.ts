@@ -8,8 +8,8 @@ import type { GroundSurface } from './terrain.ts'
 import { exposedWallFaces, groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { boxPushFace, propBounds, propPushHands, PROP_APPROACH_GAP, smallSubmergedProp } from './propGeometry.ts'
-import type { PushHands } from './propGeometry.ts'
-import { bodyContact, bodyIntersects, bodyPolygon, lineBlocked, moveBody } from './geometry.ts'
+import type { PushHands, PushPalm } from './propGeometry.ts'
+import { bodyContact, bodyIntersects, bodyPolygon, lineBlocked, moveBody, nearestBoundary } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ladderMantleProgress, ledgeBodyOutline, ledgeLean, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
@@ -39,6 +39,63 @@ export interface ContactWorld {
   ropePlatforms?: readonly Platform[]
 }
 export interface SupportContact extends GroundSurface { collider: PlayerCollider }
+/** A weightless body starts reaching for a prop this far ahead of its hull, and has its palms fully on it from this. */
+const FLOAT_REACH = 34, FLOAT_FULL_REACH = 14
+/** Without the boots driving at it, a prop and the body closing on each other this fast (px/s) still bring the hands up. */
+const FLOAT_FEND = 30
+/** ...and a prop within this of the hull (units) that the body rests against keeps them on it. */
+const FLOAT_REST_GAP = 3
+/** Palms found further than this (units) from where they were drawn last step come across rather than jump there. */
+const FLOAT_PALM_JUMP = 6
+/** Without weight the hands meet a prop the body is about to touch (a floating push), so the hands, not the head, meet
+ * it, and they stay on it while a push lasts. The reach looks along the way the boots drive, then the way the body is
+ * going, then to either side and overhead for a prop closing on it. A face beside the body takes the palms at the
+ * standing push's height; an underside overhead takes them pressed up under it; a top below is the feet's (a landing).
+ * Boots driving at the prop push it; otherwise the hands only fend it off (the bump is still the body's). */
+function floatingHands(p: Player, input: JumpInput, world: ContactWorld, hull: ReturnType<typeof playerContactBody>): PushContact | null {
+  // Most of the time no prop is anywhere near: skip the sweeps.
+  const near = FLOAT_REACH + TUNING.height
+  if (!world.colliders.some(c => c.prop && c.platform.x < p.x + near && c.platform.x + c.platform.w > p.x - near
+    && c.platform.y < p.y + near && c.platform.y + c.platform.h > p.y - TUNING.height - near)) return null
+  const outline = playerCollisionOutline(p, world, hull)
+  const reaching = (gap: number) => Math.max(0, Math.min(1, (FLOAT_REACH - gap) / (FLOAT_REACH - FLOAT_FULL_REACH)))
+  const lift = Number(!!(input.descend ?? (input.drop && !input.detach))) - Number(input.climb)
+  const move = Math.max(-1, Math.min(1, input.move)), driveLength = Math.hypot(move, lift)
+  const drive: Vec = driveLength > .01 ? [move / driveLength, lift / driveLength] : [0, 0]
+  const speed = Math.hypot(p.vx, p.vy)
+  const probes: Vec[] = [...driveLength > .01 ? [drive] : [], ...speed > FLOAT_FEND ? [[p.vx / speed, p.vy / speed] as Vec] : [],
+    [p.facing, 0], [-p.facing, 0], [0, -1]]
+  for (const [dx, dy] of probes) {
+    const ahead = moveBody([hull.x, hull.y], [hull.x + dx * FLOAT_REACH, hull.y + dy * FLOAT_REACH], world.platforms, hull.height, 1, playerTurnAngle(p), outline)
+    const hit = ahead.contacts.find(c => c.normal[0] * dx + c.normal[1] * dy < -.55)
+    const collider = hit && world.colliders.find(c => c.platform === hit.platform && c.prop), prop = collider?.prop
+    // The feet are taking this one (the body's plan for it, model.ts orientInFlight): the hands leave it to them.
+    if (!hit || !collider || !prop || p.propPlan?.meet === 'feet' && p.propPlan.id === collider.id) continue
+    const [nx, ny] = hit.normal, driven = -(drive[0] * nx + drive[1] * ny) > .3
+    // Not driven at nor closing, the hands still rest on a prop the body is up against (drifting along with it).
+    const closingSpeed = -((p.vx - prop.vx) * nx + (p.vy - prop.vy) * ny)
+    if (!driven && closingSpeed <= -FLOAT_FEND) continue // drifting apart: let it go
+    const resting = !driven && closingSpeed < FLOAT_FEND
+    const effort = driven ? Math.min(1, driveLength) : 0
+    if (Math.abs(nx) >= Math.abs(ny) * .8) {
+      const direction = -Math.sign(nx), hands = propPushHands(prop, p.x, p.y, direction, undefined, FLOAT_REACH + TUNING.width / 2)
+      if (!hands?.palms || resting && (hands.wallX - p.x) * direction - TUNING.width / 2 > FLOAT_REST_GAP) continue
+      return { collider, direction, effort, wallX: hands.wallX, hands, swimming: true, floating: true,
+        reach: reaching((hands.wallX - p.x) * direction - TUNING.width / 2) }
+    }
+    if (ny < 0) continue
+    const top = hull.y - hull.height
+    const palm = (side: number): PushPalm => {
+      const face = nearestBoundary(collider.platform, p.x + side * 6 * p.facing, top - FLOAT_REACH / 2, [0, 1])
+      return { x: face.x, y: face.y, nx: face.nx, ny: face.ny }
+    }
+    const palms: [PushPalm, PushPalm] = [palm(1), palm(-1)]
+    if (palms.some(palm => palm.ny < .3 || top - palm.y > (resting ? FLOAT_REST_GAP : FLOAT_REACH))) continue
+    return { collider, direction: p.facing, effort, wallX: p.x, hands: { wallX: p.x, slope: 0, palms }, swimming: true, floating: true,
+      reach: reaching(top - Math.max(palms[0].y, palms[1].y)) }
+  }
+  return null
+}
 export interface PushContact {
   collider: PlayerCollider
   direction: number
@@ -47,6 +104,9 @@ export interface PushContact {
   hands: PushHands | null
   /** A swimmer keeps the kicking pose and uses water pushing controls. */
   swimming?: boolean
+  /** Without weight: palms on a floating prop the boots drive the body at, drawn by the float (poses/waterPose.ts).
+   * Like a swimmer's push it works through the body's load, not a hand motor. */
+  floating?: boolean
   /** Reachable palms working a small supported prop near the submerged floor. */
   lowSwimming?: boolean
   /** A swimming palm eases into its comfortable reach without stretching the trunk. */
@@ -59,7 +119,9 @@ export interface PushContact {
 export interface PlayerContacts {
   support: SupportContact | null
   push: PushContact | null
-  body: { collider: PlayerCollider; normal: Vec; point: Vec; load: number; impactSpeed?: number }[]
+  /** `kick`: the player's change of velocity pushing off this prop without weight, all of it as if the prop were fixed;
+   * the prop solver splits it by mass (propPhysics.ts). */
+  body: { collider: PlayerCollider; normal: Vec; point: Vec; load: number; impactSpeed?: number; kick?: Vec; riding?: boolean }[]
   /** Travel after collision resolution, excluding transport by a moving support. */
   motion: { x: number; y: number; speed: number }
 }
@@ -76,7 +138,7 @@ function sizedContacts(p: Player, world: ContactWorld, query: (scaled: ContactWo
     support: contacts.support && { ...contacts.support, y: contacts.support.y * size, collider: collider(contacts.support.collider), platform: collider(contacts.support.collider).platform },
     push: contacts.push && { ...contacts.push, wallX: contacts.push.wallX * size, collider: collider(contacts.push.collider), hands: hands(contacts.push.hands) },
     body: contacts.body.map(c => ({ ...c, collider: collider(c.collider), point: [c.point[0] * size, c.point[1] * size] as Vec,
-      ...(c.impactSpeed !== undefined ? { impactSpeed: c.impactSpeed * size } : {}) })),
+      ...(c.impactSpeed !== undefined ? { impactSpeed: c.impactSpeed * size } : {}), ...(c.kick ? { kick: [c.kick[0] * size, c.kick[1] * size] as Vec } : {}) })),
     motion: { x: contacts.motion.x * size, y: contacts.motion.y * size, speed: contacts.motion.speed * size },
   }
 }
@@ -323,7 +385,10 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     const move = Math.max(-1, Math.min(1, input.move))
     const hull = propBody(), { height } = hull
     const accelerationY = (p.gravity ?? TUNING.gravity) + (p.swimAcceleration ?? 0)
-    const probe = moveBody([hull.x, hull.y], [hull.x + move * .2, hull.y + (accelerationY < 0 ? -.2 : .2)], world.platforms, height, 1, playerTurnAngle(p), playerCollisionOutline(p, world, hull))
+    // Without weight the boots drive up and down as well: Up or Down held into a prop loads it as a sideways push does.
+    const lift = (p.weightless ?? 0) >= TUNING.zeroGravitySettle - 1e-9 && !p.waterMotion
+      ? Number(!!(input.descend ?? (input.drop && !input.detach))) - Number(input.climb) : 0
+    const probe = moveBody([hull.x, hull.y], [hull.x + move * .2, hull.y + (lift ? lift * .2 : accelerationY < 0 ? -.2 : .2)], world.platforms, height, 1, playerTurnAngle(p), playerCollisionOutline(p, world, hull))
     for (const hit of probe.contacts) {
       const collider = world.colliders.find(c => c.platform === hit.platform && c.prop)
       if (!collider || collider === support?.collider || body.some(c => c.collider === collider)) continue
@@ -336,7 +401,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       const point = bodyContact(hit.platform, hull.x, hull.y, hit.normal, height, hull.outline)
       const normal = propContactNormal(p, collider, hit.normal, point)
       const load = Math.max(0, -normal[0] * move * (p.grounded ? TUNING.acceleration : TUNING.airAcceleration))
-        + Math.max(0, -normal[1] * gravity)
+        + Math.max(0, -normal[1] * gravity) + Math.max(0, -normal[1] * lift) * TUNING.zeroGravityThrust
       if (load) body.push({ collider, normal, point: [point.x, point.y], load })
     }
   }
@@ -366,11 +431,17 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       const rx = point.x - prop.x, ry = point.y - prop.y + prop.size / 2
       const closing = -(normal[0] * (vx + prop.angularVelocity * ry) + normal[1] * (vy - prop.angularVelocity * rx))
       if (closing <= .01) continue
+      // Without weight a body coming down feet-first onto a prop lands on it (model.ts kickProp shares the momentum)
+      // rather than bumping it away a step early and drifting on behind it, never touching. A prop that is the one
+      // arriving, rising into the feet, still bumps the body.
+      if (isWeightless(p.gravity ?? TUNING.gravity) && normal[1] < -.7
+        && -(normal[0] * p.vx + normal[1] * p.vy) >= normal[0] * prop.vx + normal[1] * prop.vy) continue
       const existing = body.find(contact => contact.collider === collider)
       if (existing) { existing.impactSpeed = closing; existing.normal = normal; existing.point = [point.x, point.y] }
       else body.push({ collider, normal, point: [point.x, point.y], load: 0, impactSpeed: closing })
     }
   }
+  if (!support && !p.waterMotion && free && !departing && hasProps && (p.weightless ?? 0) >= TUNING.zeroGravitySettle - 1e-9) push = floatingHands(p, input, world, propBody())
   if (!support && p.waterMotion && free && direction && !departing && hasProps) {
     // Reach toward the first side face in the same solid sweep, so palms lead
     // the head and remain on a slowly moving float between body contacts.
@@ -538,11 +609,27 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
 /** The next push rig for one step: hands on the contact, easing in and out. */
 function nextPushPose(p: Player, current: Player['pushing'], contact: PushContact | null, dt: number, speed: number, motion: readonly [number, number]): Player['pushing'] {
   if (contact?.passive) contact = null
-  if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
+  if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && (p.waterMotion || contact.floating)) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
-    const previous = current?.direction === contact.direction && current.colliderId === contact.collider.id ? current : null
+    const same = current?.direction === contact.direction && current.colliderId === contact.collider.id
+    // A floating body turning its hands from one prop to the next carries the press over and eases the palms across,
+    // rather than dropping its arms and starting again.
+    // A change of facing mid-push (a floating body has no footing to turn on) hands the palms over the same way.
+    const handover = !same && contact.floating && current?.palms && contact.hands.palms
+    const previous = same || handover ? current : null
     let hands = contact.hands
+    // The palms keep the handover's offset from their new places, dying away, so they travel across with the props.
+    const keep = Math.exp(-dt / .08)
+    // Palms re-found on the same prop far from where they are drawn (a fading release taken up again) come across too.
+    // Measured against where they were drawn carried on with the body (a moving push keeps them in step), and not while an
+    // earlier handover is still coming across.
+    const jumped = same && contact.floating && current?.palms && !current.shift && contact.hands.palms
+      && contact.hands.palms.some((palm, i) => Math.hypot(palm.x - current.palms![i].x - motion[0], palm.y - current.palms![i].y - motion[1]) > FLOAT_PALM_JUMP)
+    const shift = handover || jumped ? contact.hands.palms!.map((palm, i) => [(current!.palms![i].x - palm.x) * keep, (current!.palms![i].y - palm.y) * keep] as [number, number])
+      : same && contact.floating && current?.shift ? current.shift.map(([x, y]) => [x * keep, y * keep] as [number, number]) : undefined
+    const shifting = shift?.some(([x, y]) => Math.hypot(x, y) > .05)
+    if (shifting && hands.palms) hands = { ...hands, palms: hands.palms.map((palm, i) => ({ ...palm, x: palm.x + shift![i][0], y: palm.y + shift![i][1] })) as PushHands['palms'] }
     if (contact.anticipation !== undefined && contact.collider.prop && previous?.height !== undefined && hands.height !== undefined) {
       // Losing force contact must not teleport a crouched palm to a lower
       // approach grip. Ease the unloaded height, querying the actual surface
@@ -556,7 +643,7 @@ function nextPushPose(p: Player, current: Player['pushing'], contact: PushContac
     // deliver. Ease its presentation independently of the hand-contact blend.
     const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
     const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
-    return { ...hands, colliderId: contact.collider.id, direction: contact.direction,
+    return { ...hands, ...(shifting ? { shift } : {}), colliderId: contact.collider.id, direction: contact.direction,
       // A prop has already received this tick's force. Its working palms must
       // be established now; resistance still loads the body gradually above.
       amount: contact.anticipation === undefined
@@ -575,7 +662,9 @@ function nextPushPose(p: Player, current: Player['pushing'], contact: PushContac
     // timed contact blend was young. Release that actual outgoing weight.
     const amount = Math.max(0, Math.max(current.amount, current.effort ? current.ready ?? 0 : 0) - dt / .16)
     const ready = Math.max(0, (current.ready ?? 0) - dt / .16)
-    return (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && current.direction === p.facing
+    // A floating body's palms let go the same way (a floating push), whichever frame its facing is read in.
+    const floating = (p.weightless ?? 0) >= TUNING.zeroGravitySettle - 1e-9
+    return (amount || ready) && (p.grounded || p.waterMotion || floating) && !p.hang && !p.mantle && !p.climbing && (current.direction === p.facing || floating)
       // Released palms relax with the outgoing body. Keeping their old world
       // coordinates pins the arms behind a running player and can fold the
       // trunk or flip an elbow as the shoulders pass the abandoned contact.

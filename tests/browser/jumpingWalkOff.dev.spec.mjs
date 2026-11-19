@@ -1,8 +1,9 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { finishJumpingEntrance, installBuiltInFixtures, selectBuilderOption, useLevelFixtures, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
+import { readBuiltinLevel } from '../helpers/jumping-builtin-levels.mjs'
 
-const exit = JSON.parse(readFileSync(new URL('../../public/levels/jumping/exit.jump-level.json', import.meta.url), 'utf8'))
+const exit = readBuiltinLevel('b42dcd81-427a-4c2b-9c9b-a231874bef5b') // Exit II
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/jumping/walk-off.json', import.meta.url), 'utf8'))
 
 test('Play Exit uses the authored entrance despite an old outdoor checkpoint; Resume keeps the live run', async ({ page }) => {

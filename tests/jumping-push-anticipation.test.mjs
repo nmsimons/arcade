@@ -1,4 +1,5 @@
 import test from 'node:test'
+import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 import assert from 'node:assert/strict'
 import {createPlayer,NEUTRAL_INPUT,STEP,TUNING} from '../src/games/jumping/model.ts'
 import {anticipatePush,playerContacts,updatePushingPose} from '../src/games/jumping/playerContacts.ts'
@@ -143,8 +144,8 @@ test('an early reach toward a distant prop keeps each palm beside its wrist',()=
  // wrist stops at full reach; the palm used to follow the contact, up to 42
  // units past it on this route, drawn as a stretched rubber arm.
  const medals=JSON.parse(readFileSync(new URL('./fixtures/jumping-builtin-medal-runs.json',import.meta.url),'utf8'))
- const file='Drain.json',route=medals.runs.find(run=>run.file===file).trace
- const run=createRun(parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`,import.meta.url),'utf8'))))
+ const drain='38681eca-a164-4f9a-9113-c3ba119ed3ed',route=medals.runs.find(run=>run.level===drain).trace
+ const run=createRun(parseLevel(readBuiltinLevel(drain)))
  let tick=0,frames=0,widest=0
  for(const {frames:count,input} of route)for(let i=0;i<count&&!run.finished;i++){
   stepRun(run,{...NEUTRAL_INPUT,...input})

@@ -150,6 +150,9 @@ reads or resets in `actorImpulse.ts`, `armSupport.ts`, `botHearing.ts`,
 deferred step that would hold world references across it) and `wallFrame.ts`
 (which turns footwork into a wall's frame and clears footwork, the dry turn and
 slide entry when the body changes between floor and wall footing).
+`repulsorBotRig.ts` reads the float blend to move Rbot's broad build into its
+shell's cross section while it floats. Its muzzle and aim pass the physics view,
+which has no float, so only the artwork, visor, headlight and shadow follow it.
 
 ## Phase 4: gameplay reads physics, not animation
 
@@ -388,7 +391,8 @@ strokes, turned about its middle by a lean. The state is `Player.anim.float`,
 advanced in `advanceFloatAnimation` (`athleteAnimation.ts`); nothing in the
 step reads it except the two captures below.
 
-- The lean is a damped spring (natural frequency 6 rad/s, damping 0.75) toward
+- The lean is a damped spring (natural frequency 6 rad/s, damping 0.75, never
+  turning faster than 3.2 rad/s: sudden swings read as glitches) toward
   where the body is going, measured in its drawn frame (a wall's quarter turn
   undone, then the ceiling mirror and the facing): the travel, scaled by speed,
   plus the boots' thrust at 0.8 (eased over 0.1 seconds; trim puffs excluded), so
@@ -466,6 +470,23 @@ step reads it except the two captures below.
   last left the floor, which buckled the knees and dropped the hips. Skating (a
   direction held along the surface) stands tall; Down alone crouches.
 - Palms braced on a wall keep their brace pose; the float yields to it.
+- Pushing a floating prop (a floating push, jumping-physics.md), the arms press
+  to the palms on its face and the lean stands the body up behind them (at most
+  0.12 rad toward the prop), so the hands meet it and the head stays clear. The
+  body starts standing up while the boots are still driving it at a prop it will
+  meet within 0.7 seconds, so the hands arrive first without a sudden swing. The
+  same palms fend off a prop closing on the body and press up under one
+  overhead. The palms sit where the prop meets the hull, which would fold the
+  arms against the chest, so the body is drawn standing off behind them (at
+  most 16 units) until they are most of an arm's length from its shoulder and
+  the head is a hand's breadth behind them; it leans into the push by up to 0.3
+  rad. A change of facing mid-push hands the palms over rather than dropping
+  them, and a push-off lets them fade like any release. Any change of facing in
+  the air mirrors what is drawn (which may still be fading in), not the bare
+  float. A
+  prop the body coasts onto counts as a landing for the lean (its forward flip
+  starts in time), as it does for the roll. An abandoned roll hands back to the
+  float from the pose as drawn, its remaining lean included.
 - Floating, the boot plumes leave the soles and vector toward the exhaust by at
   most 72 degrees (`airBoosters.ts`); they share the athlete's wall rotation,
   mirror and size. They are longer and brighter than in weight, reaching about

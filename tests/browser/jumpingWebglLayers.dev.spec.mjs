@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
+import { builtinLevelFile } from '../helpers/jumping-builtin-levels.mjs'
 
 // Phase 1 of the WebGL renderer (docs/jumping-webgl-renderer.md): Full Tilt's backdrop and terrain drawn by
 // WebGL from retained meshes look like Canvas's, within anti-aliasing, and the Canvas frame places them.
@@ -172,18 +173,18 @@ test('the default draws with WebGL only on a GPU, and ?renderer=canvas turns it 
 test('levels the layers do not cover yet stay entirely on Canvas', async ({ page }) => {
   await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async caveFile => {
     const [{ LightingRenderer }, { createPreviewRun }, { parseLevel }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    // Spelunk's cave environment is for a later phase.
-    const level = parseLevel(await (await fetch('/levels/jumping/spelunk.jump-level.json')).json())
+    // Exit I's (once Spelunk's) cave environment is for a later phase.
+    const level = parseLevel(await (await fetch(`/levels/jumping/${encodeURIComponent(caveFile)}`)).json())
     const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 200
     const renderer = new LightingRenderer({ backend: 'canvas', webglLayers: 'software' })
     try {
       renderer.render(canvas.getContext('2d'), createPreviewRun(level), { nightMode: false, ambient: 0, lights: [] }, { x: 0, y: 0, zoom: .5, width: 320, height: 200 }, 0)
       return renderer.worldLayerStats ?? null
     } finally { renderer.dispose() }
-  })
+  }, builtinLevelFile('13b9b9d7-7937-4989-bc03-21238e7e58f2'))
   expect(result).toBeNull()
 })

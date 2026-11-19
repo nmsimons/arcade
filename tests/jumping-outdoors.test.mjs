@@ -8,6 +8,7 @@ import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { resizeLevelHeight } from '../src/games/jumping/editor.ts'
 import { daylightPortals, EnvironmentLighting } from '../src/games/jumping/environmentLighting.ts'
 import { androidMaterials } from '../src/games/jumping/androidArtwork.ts'
+import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 
 const fixture = JSON.parse(readFileSync(new URL('fixtures/jumping-escape-runs.json', import.meta.url)))
 const read = name => parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${name}`, import.meta.url))))
@@ -93,19 +94,10 @@ for (const recording of fixture.runs) test(`captured ${recording.file} ${recordi
 })
 
 test('current finale assets are valid and follow the Ascent levels', () => {
-  for (const name of ['spelunk.jump-level.json', 'exit.jump-level.json']) {
-    const level = read(name)
-    assert.deepEqual(levelProblems(level), [])
-  }
-  const catalog = JSON.parse(readFileSync(new URL('../public/levels/jumping/index.json', import.meta.url)))
-  // Facility hubs share the collection but are not part of the course order.
-  const courses = catalog.levels.filter(name => read(name).kind !== 'hub')
-  const start = courses.indexOf('Ascent.jump-level.json')
-  assert.ok(start >= 0)
-  const closing = courses.slice(start)
-  assert.deepEqual(closing.slice(0, 2), ['Ascent.jump-level.json', 'ascent2.jump-level.json'])
-  assert.equal(read(closing[2]).id, '13b9b9d7-7937-4989-bc03-21238e7e58f2', 'Spelunk keeps its identity when the author renames its file')
-  assert.deepEqual(closing.slice(2), ['spelunk.jump-level.json', 'exit.jump-level.json'])
+  // The finale (Exit I, once Spelunk, then Exit II) by id: renaming or retitling a level, or reordering the library, keeps it.
+  const finale = ['13b9b9d7-7937-4989-bc03-21238e7e58f2', 'b42dcd81-427a-4c2b-9c9b-a231874bef5b']
+  for (const id of finale) assert.deepEqual(levelProblems(parseLevel(readBuiltinLevel(id))), [])
+  // That they follow the Ascent levels, through each level's exit, is the campaign's chain (jumping-campaign.test.mjs).
 })
 
 test('the overlook waits for an explicit finish while retaining the final latch', () => {

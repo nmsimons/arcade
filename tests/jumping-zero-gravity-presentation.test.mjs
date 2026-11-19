@@ -294,3 +294,80 @@ test('a sprawl that slides off its support eases out of it instead of snapping u
   assert.ok(left, 'slid off the ledge')
   assert.ok(worst < 10, `worst joint jump ${worst.toFixed(1)} in one frame`)
 })
+
+test('a floating body turning round mid-push keeps its palms, and a turn of facing mirrors what is drawn without a jump', () => {
+  // Pushing a ball, then steering the other way: the palms are handed over rather than dropped, and the mirrored
+  // fade starts from the pose on screen (which may itself still be fading in), so no joint jumps.
+  const run = createRun(parseLevel({ ...blankTrial(), entrance: { x: 300, y: 920 }, props: [{ kind: 'ball', x: 380, y: 563, size: 68 }],
+    gravityPlates: [{ id: 'z', x: 0, y: 0, w: 1800, h: 920, gravity: 0, power: 'always' }] }))
+  run.started = true
+  const p = run.player
+  Object.assign(p, { x: 320, y: 560, grounded: false, weightless: 1 })
+  let previous = null, worst = 0
+  for (let i = 0; i < 2 / STEP; i++) {
+    stepRun(run, { ...NEUTRAL_INPUT, move: i < 1 / STEP ? 1 : -1 })
+    const now = joints(p).map(([x, y]) => [x + p.x, y + p.y])
+    if (previous) {
+      const moved = order => Math.max(...now.map(([x, y], k) => Math.hypot(x - previous[order[k]][0], y - previous[order[k]][1])))
+      worst = Math.max(worst, Math.min(moved([0, 1, 2, 3, 4, 5, 6]), moved([0, 1, 2, 4, 3, 6, 5])) - Math.hypot(p.vx, p.vy) * STEP)
+    }
+    previous = now
+  }
+  assert.ok(worst < 6, `worst joint jump ${worst.toFixed(1)} in a frame`)
+})
+
+test('the drawn palms keep up with a fast floating push instead of trailing behind the ball', () => {
+  const run = createRun(parseLevel({ ...blankTrial(), entrance: { x: 300, y: 920 }, props: [{ kind: 'ball', x: 400, y: 563, size: 68 }],
+    gravityPlates: [{ id: 'z', x: 0, y: 0, w: 1800, h: 920, gravity: 0, power: 'always' }] }))
+  run.started = true
+  const p = run.player, b = run.props[0]
+  Object.assign(p, { x: 320, y: 560, grounded: false, weightless: 1 })
+  let worst = 0, fast = 0
+  for (let i = 0; i < 2.5 / STEP; i++) {
+    stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
+    const drawn = p.pushing?.palms, real = p.contacts?.push?.hands?.palms
+    if (b.vx > 150 && drawn && real && p.pushing.amount > .99) { fast++; worst = Math.max(worst, ...drawn.map((palm, k) => Math.hypot(palm.x - real[k].x, palm.y - real[k].y))) }
+  }
+  assert.ok(fast > 30, 'pushed the ball past 150')
+  assert.ok(worst < 3, `the drawn palms trail the ball by at most ${worst.toFixed(1)}`)
+})
+
+test('Rbot floating weightless and turned onto a wall frame keeps its proportions rather than stretching', async () => {
+  const { repulsorBotPoint, repulsorBotPresentation } = await import('../src/games/jumping/repulsorBotRig.ts')
+  const { robotHeadlightPose } = await import('../src/games/jumping/robotHeadlight.ts')
+  // A weightless hall like the user's Billiards: floor and ceiling fields, and side fields that turn a body onto
+  // their wall. The robot is flung at the right-hand wall, lands on it and floats home from there to its floor.
+  const level = parseLevel({ ...blankTrial(), width: 2000, height: 1200, floor: 1200, entrance: { x: 160, y: 1200 }, goal: { x: 1900, y: 1200 },
+    platforms: [{ x: 400, y: 200, w: 40, h: 800 }, { x: 1600, y: 200, w: 40, h: 800 }, { x: 520, y: 80, w: 1000, h: 40 }, { x: 500, y: 1080, w: 1000, h: 40 }],
+    robots: [{ x: 1246, y: 1080, left: 530, right: 1470, kind: 'repulsor' }],
+    gravityPlates: [{ id: 'c', x: 520, y: 120, w: 1000, h: 480, gravity: 0, ceiling: true, power: 'always' },
+      { id: 'f', x: 500, y: 600, w: 1000, h: 480, gravity: 0, power: 'always' },
+      { id: 'r', x: 440, y: 200, w: 120, h: 800, gravity: 0, power: 'always', facing: 'right' },
+      { id: 'l', x: 1480, y: 200, w: 120, h: 800, gravity: 0, power: 'always', facing: 'left' }] })
+  const run = createRun(level), robot = run.robots[0]
+  const standingPose = robot.actor
+  // Drawn lengths in the world: the torso, and each leg from hip to ankle through the knee.
+  const lengths = () => {
+    const { actor, pose } = repulsorBotPresentation(robot), at = point => repulsorBotPoint(actor, point)
+    const span = (...points) => points.slice(1).reduce((sum, point, i) => sum + Math.hypot(...[0, 1].map(k => at(point)[k] - at(points[i])[k])), 0)
+    return { torso: span(pose.hip, pose.shoulder), front: span(pose.frontLeg.root, pose.frontLeg.joint, pose.frontLeg.end),
+      back: span(pose.backLeg.root, pose.backLeg.joint, pose.backLeg.end) }
+  }
+  const standing = lengths()
+  // Staggered, it drifts with the fling until it lands on the wall, then floats home from there.
+  Object.assign(standingPose, { x: 1300, y: 500, vx: 260, vy: 0, grounded: false, stagger: 3 }); robot.x = standingPose.x; robot.y = standingPose.y
+  let floating = 0, walled = 0, worst = { ratio: 0 }, headlight = 0
+  for (let t = 0; t < 1600; t++) {
+    stepRun(run, NEUTRAL_INPUT)
+    const actor = robot.actor
+    if ((actor.anim.float?.blend ?? 0) < .99) continue
+    floating++; if (actor.wall) walled++
+    const now = lengths()
+    for (const part of ['torso', 'front', 'back']) if (now[part] / standing[part] > worst.ratio) worst = { ratio: now[part] / standing[part], part, t, wall: actor.wall }
+    const { pose } = repulsorBotPresentation(robot), head = repulsorBotPoint(actor, pose.head), light = robotHeadlightPose(robot)
+    headlight = Math.max(headlight, Math.hypot(light.x - head[0], light.y - head[1]))
+  }
+  assert.ok(floating > 300 && walled > 60, `floated ${floating} ticks, ${walled} of them in a wall frame`)
+  assert.ok(worst.ratio < 1.12, `a drawn limb grew to ${worst.ratio.toFixed(2)} of its standing length (${JSON.stringify(worst)})`)
+  assert.ok(headlight < 25, `the headlight stays at the face (${headlight.toFixed(1)} from the head)`)
+})

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "5d45678a-5104-43be-9647-2a2bbd6ff932",
   "name": "Ascent I",
   "width": 1800,
@@ -3718,5 +3718,47 @@
       "gravity": -1,
       "effect": "water"
     }
-  ]
+  ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "7c5ff9fa-5c25-4f47-a3ca-4e40aee66d46",
+        "x": 1695,
+        "y": 4900,
+        "intensity": 100,
+        "direction": -135,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "6017c7be-7797-45ef-9212-c66318663e18",
+        "x": 1175,
+        "y": 2775,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 145,
+        "power": "always"
+      },
+      {
+        "id": "6ac2c941-59be-4443-ad85-ea03960adfb7",
+        "x": 645,
+        "y": 1395,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 95,
+        "power": "always"
+      },
+      {
+        "id": "6140fea2-4e0b-44e7-b63a-0eebcbf84db7",
+        "x": 600,
+        "y": 270,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 50,
+        "power": "always"
+      }
+    ]
+  }
 }

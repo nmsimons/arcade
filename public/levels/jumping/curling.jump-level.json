@@ -1,25 +1,26 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "5b0f2d64-5c3e-4b8e-9a3e-7d1c2f6a9b11",
   "name": "Curling",
   "width": 2000,
-  "height": 700,
+  "height": 900,
   "platforms": [
     {
       "name": "Loading floor",
       "x": 0,
-      "y": 660,
+      "y": 775,
       "w": 230,
-      "h": 40,
+      "h": 125,
       "material": "steel",
       "trim": "hazard"
     },
     {
       "name": "Polished bay",
       "x": 230,
-      "y": 660,
-      "w": 1270,
+      "y": 775,
+      "w": 1565,
       "h": 40,
+      "material": "steel",
       "frictionless": true,
       "polygon": [
         [
@@ -27,11 +28,11 @@
           0
         ],
         [
-          1270,
+          1565,
           0
         ],
         [
-          1270,
+          1565,
           40
         ],
         [
@@ -42,46 +43,59 @@
     },
     {
       "name": "Lift block",
-      "x": 1500,
-      "y": 340,
-      "w": 500,
-      "h": 360,
+      "x": 1795,
+      "y": 455,
+      "w": 205,
+      "h": 445,
+      "material": "steel",
       "trim": "hazard"
+    },
+    {
+      "x": 550,
+      "y": 690,
+      "w": 560,
+      "h": 25,
+      "material": "steel",
+      "trim": "hazard",
+      "frictionless": true
     }
   ],
   "entrance": {
     "x": 32.0253164556962,
-    "y": 660
+    "y": 775
   },
   "checkpoints": [],
   "climbables": {
     "ladders": [],
     "ropes": []
   },
+  "floorMaterial": "steel",
+  "wallFinish": "plank",
   "stains": "light",
-  "floor": 700,
+  "floor": 900,
   "goal": {
     "x": 2000,
-    "y": 340,
+    "y": 455,
     "flipX": true
   },
   "times": {
     "a": 16,
     "b": 20,
     "c": 30,
-    "d": 45
+    "d": 90
   },
   "props": [
     {
       "kind": "box",
       "x": 195,
-      "y": 660,
-      "size": 40
+      "y": 775,
+      "size": 40,
+      "branded": true
     },
     {
       "kind": "box",
       "x": 133,
-      "y": 660,
+      "y": 775,
       "size": 40,
       "gadget": "tractor"
     }
@@ -89,12 +103,11 @@
   "mechanisms": [],
   "triggers": [
     {
-      "x": 925,
-      "y": 660,
-      "w": 150,
+      "x": 800,
+      "y": 775,
+      "w": 60,
       "targets": [
-        "wall-lift",
-        "b6f39110-37b2-4a49-b4cb-930f0cad994b"
+        "wall-lift"
       ],
       "mode": "touch"
     }
@@ -103,17 +116,49 @@
   "timers": [
     {
       "x": 1835,
-      "y": 200
+      "y": 315
     }
   ],
   "pickups": [],
   "texts": [],
+  "pipes": [
+    {
+      "points": [
+        [
+          230,
+          845
+        ],
+        [
+          1795,
+          845
+        ]
+      ]
+    },
+    {
+      "points": [
+        [
+          830,
+          815
+        ],
+        [
+          830,
+          840
+        ]
+      ]
+    }
+  ],
+  "loosePanels": [
+    {
+      "x": 375,
+      "y": 180
+    }
+  ],
   "gravityPlates": [
     {
       "name": "Wall lift",
       "id": "wall-lift",
-      "x": 1180,
-      "y": 425,
+      "x": 1475,
+      "y": 540,
       "w": 320,
       "h": 235,
       "gravity": 1,
@@ -126,11 +171,25 @@
       "switchReversed": true,
       "id": "b6f39110-37b2-4a49-b4cb-930f0cad994b",
       "x": 565,
-      "y": 0,
+      "y": 715,
       "w": 12,
-      "h": 670,
+      "h": 70,
       "orientation": "vertical",
-      "power": "switched"
+      "power": "always"
+    },
+    {
+      "id": "b02b5e22-666b-4db3-8273-bc29c93d6176",
+      "x": 1085,
+      "y": 715,
+      "w": 12,
+      "h": 65,
+      "orientation": "vertical",
+      "power": "always"
     }
-  ]
+  ],
+  "lighting": {
+    "nightMode": false,
+    "ambient": 0,
+    "lights": []
+  }
 }

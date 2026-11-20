@@ -223,9 +223,9 @@ test('a pathological but valid rope uses a cheap sketch in previews', () => {
   assert.ok(preview.player.ropes[0].definition.rest.key.startsWith('preview:'))
 })
 
-test('asset publishing rejects HTML, directories, symlinks and invalid JSON before publishing', async () => {
+test('asset publishing rejects HTML, directories, symlinks and invalid JSON before publishing', async t => {
   const script = resolve('scripts/jumping-levels.mjs')
-  for (const mode of ['html', 'directory', 'symlink', 'invalid-json']) {
+  for (const mode of ['html', 'directory', 'symlink', 'invalid-json']) await t.test(mode, async t => {
     const root = await mkdtemp(join(tmpdir(), 'jumping-security-')), source = join(root, 'public/levels/jumping'), target = join(root, 'deployed')
     try {
       await mkdir(source, { recursive: true }); await mkdir(target)
@@ -234,7 +234,15 @@ test('asset publishing rejects HTML, directories, symlinks and invalid JSON befo
       await writeFile(join(target, 'sentinel.txt'), 'untouched')
       if (mode === 'html') await writeFile(join(source, 'payload.html'), '<script>alert(1)</script>')
       if (mode === 'directory') await mkdir(join(source, 'nested'))
-      if (mode === 'symlink') await symlink(join(source, 'level.json'), join(source, 'linked.json'))
+      if (mode === 'symlink') {
+        try { await symlink(join(source, 'level.json'), join(source, 'linked.json')) }
+        catch (error) {
+          if (process.platform === 'win32' && error.code === 'EPERM') {
+            t.skip('Creating Windows symlinks requires Developer Mode or administrator privileges.'); return
+          }
+          throw error
+        }
+      }
       if (mode === 'invalid-json') await writeFile(join(source, 'bad.json'), '{}')
       for (const command of ['index', 'check', 'sync']) {
         const args = [script, command, ...(command === 'sync' ? [target] : [])]
@@ -248,5 +256,5 @@ test('asset publishing rejects HTML, directories, symlinks and invalid JSON befo
         assert.throws(() => execFileSync(process.execPath, [resolve('node_modules/vite/bin/vite.js'), 'build', '--config', resolve('vite.config.ts')], { cwd: root, stdio: 'pipe' }), /Unexpected level asset/)
       }
     } finally { await rm(root, { recursive: true, force: true }) }
-  }
+  })
 })

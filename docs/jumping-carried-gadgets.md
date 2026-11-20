@@ -1,15 +1,15 @@
-# Carried EMP and repulsor rifle for L.A.B. Experiments
+# Carried EMP, repulsor rifle and tractor gun for L.A.B. Experiments
 
 **Prototype contract — October 20, 2026. Implemented on `codex/carried-gadgets` for review.**
 
-This proposal focuses on two reusable tools: a carried EMP projector and a
-repulsor rifle. The player deliberately picks up, carries, fires, and drops one
+This proposal focuses on three reusable tools: a carried EMP projector, a
+repulsor rifle, and a [tractor gun](#tractor-gun) added on November 19, 2026. The player deliberately picks up, carries, fires, and drops one
 tool at a time. Equipping a sleeve preserves normal traversal. Tools belong
 to their authored level and never enter a campaign inventory.
 
 The behavior below is the starting contract for the playable prototype. Numerical
 tuning and control ergonomics still require playtesting. The editor can place
-both tools under **Gadgets**; **Stress tests · Development → Tool Bench** provides
+all three tools under **Gadgets**; **Stress tests · Development → Tool Bench** provides
 a sandbox. Existing campaign levels and automatic EMP collectibles retain their
 behavior. This revision supersedes the earlier automatic-pickup, hands-free gadget proposal.
 Boosts, grapples, remote cars, and other gadgets are deferred outside this scope.
@@ -217,7 +217,7 @@ color. Failed actions should not open a dialog or interrupt movement.
 | Player with empty hands | Blocked by existing player contacts | Passes through |
 | Loose tool, or tool transferring during pickup/drop | Passes through | Blocked as an object |
 | Held tool | Tool passes; the player's body remains blocked | Detaches at the first swept contact on the approach side; player continues |
-| Repulsor pulse | Passes through | Stops at the first field surface |
+| Repulsor pulse or tractor beam | Passes through | Stops at the first field surface |
 | Carried EMP bolt | Beam or either emitter absorbs the bolt and disables this field | Beam or either emitter absorbs the bolt and disables this field |
 | Automatic EMP collectible | Global effect disables the field | Global effect disables the field |
 
@@ -340,6 +340,54 @@ timer indefinitely. Inside its patrol range the normal recovery still resumes
 its motor. This does not by itself establish a richer adversary; evaluate the
 encounter separately from the rifle's object-manipulation uses.
 
+## Tractor gun
+
+**The repulsor reversed; reusable, no ammunition.** Each fresh Use fires one
+bounded beam along the selected direction, with the repulsor's 1,500-unit range,
+0.4-second cooldown, ray width, start point, first-hit ordering and occlusion
+rules. Water does not block it; terrain, closed gates, lifts and active red
+fields stop it. Ropes, ladders, coins and other non-physical items are ignored.
+The same hip-fire, aiming, ducking, supporting-arm, power and red-field rules
+apply as for the other sleeves.
+
+| First hit | Result |
+| --- | --- |
+| Loose box, ball, or dropped tool | Pull it back along the beam toward the emitter: the repulsor's impulse, reversed. |
+| Float-switch ball | The same pull through its existing constrained arm; switching follows the actual angle and electrical rules. |
+| The prop the player stands on or hangs from | No effect. Pulling one's own footing is an internal force: no lift, launch or self-propulsion. |
+| Shovebot or Rbot | The repulsor's bounded recoil, reversed: it enters recovery, turns to face the player, and rolls toward them under its own wheel braking. |
+| Terrain, closed gate, lift/platform, or active red field | Stop; no movement. |
+
+**The pull.** The velocity change is along the beam toward the emitter and is
+the repulsor's mass-scaled `3600 / mass`, capped at 1,000 units/second, at any
+distance. Repeat shots add up exactly as repeated repulsor shots do. Sideways
+motion is untouched, and there is no spin or recoil on the player.
+
+**Using the gun has consequences.** Nothing eases the arrival. A pulled item
+keeps its speed, losing only what friction, drag and collisions ordinarily take,
+and reaches the player as any moving prop would: a fast ball or crate shoves the
+player and can pin them against a wall. A pulled bot rolls into the player,
+displacing them as a pushed bot does, and an EMP bot that touches the player
+shocks them as usual. A shovebot arrives facing the player. Aiming, timing and
+stepping aside are the player's job; the gun does not protect them from
+what they pull.
+
+Consequences, all from ordinary physics:
+
+- On an ordinary floor a ball rolls in at nearly full speed; a box slides about
+  as far as the repulsor would have pushed it the other way.
+- On ice and in zero g, little or nothing slows the item before it reaches the
+  player. Zero-g air drag still slows it gradually.
+- Pulled from a shelf or downward, gravity acts as usual.
+- A level beam passes over a sleeve lying flat on the floor, as with the
+  repulsor. Duck, fire from above at a diagonal, or float it in zero g. A
+  recalled tool flies past the hands; catch it with Interact as it passes.
+
+Possible uses include fetching a crate or ball across a gap, recalling a dropped
+tool through a gap too small for the player, retrieving cargo from beyond a blue
+field that blocks the player, catching an item drifting away in zero g, and
+dragging a bot off its patrol or over an edge — at the price of meeting it.
+
 ## Level boundaries, pause, and restart
 
 Tools and their state exist only within the current run. No tool,
@@ -358,7 +406,7 @@ control. Directional aiming follows fresh movement input after resume, with
 no retained aim session or pending shot.
 
 Restart restores authored tools and positions, empties the hands, resets aim
-and cooldowns, and clears outages, device disables, bolts, and pulses. Beginning another run or playtest
+and cooldowns, and clears outages, device disables, bolts, and pulses in flight. Beginning another run or playtest
 also clears this state. A future resume that preserves a world must preserve
 held/loose identity and timers consistently; it cannot duplicate a tool or reset
 its cooldown. A stranded tool has no automatic recall or replacement button.
@@ -366,7 +414,7 @@ its cooldown. A stranded tool has no automatic recall or replacement button.
 ## Authoring and compatibility
 
 Gadgets are physical `props` entries with `kind: "box"` and an explicit
-`gadget: "emp"` or `gadget: "repulsor"`. Other prop kinds reject this field.
+`gadget: "emp"`, `gadget: "repulsor"` or `gadget: "tractor"`. Other prop kinds reject this field.
 They share the ordinary prop count limit and editor placement, naming, selection,
 move, duplicate, undo, preview, and save/reopen paths. `size` retains the prop
 scale parameter (default 40); sleeve hull width is `size * .4` and height is

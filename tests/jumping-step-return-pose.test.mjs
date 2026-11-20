@@ -7,6 +7,7 @@ import {pointInside,nearestBoundary} from '../src/games/jumping/geometry.ts'
 import {ballShape,boxShape} from '../src/games/jumping/propGeometry.ts'
 import {movingStepPropFixture} from './helpers/jumpingStepProps.mjs'
 import {assertReturningShoes} from './helpers/jumpingReturnRig.mjs'
+import {drawnPushFormed} from './helpers/jumpingDrawnPush.mjs'
 const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]))
 const world=(p,a)=>[p.x+a[0]*p.facing,p.y+a[1]]
 test('return preparation retains a proportionate, contact-safe rig throughout all real prop interruptions',()=>{
@@ -53,7 +54,8 @@ test('return preparation retains a proportionate, contact-safe rig throughout al
    }
    if(p.contacts.push?.hands&&p.pushing?.palms){
     force++
-    for(const [i,arm]of[pose.frontArm,pose.backArm].entries()){
+    // The drawn push forms from the pose drawn; once formed, its palms are on the face.
+    if(drawnPushFormed(p))for(const [i,arm]of[pose.frontArm,pose.backArm].entries()){
      const palm=p.pushing.palms[i];assert.ok(distance(world(p,arm.hand),[palm.x+palm.nx*1.6,palm.y+palm.ny*1.6])<.001,'force palm '+context)
     }
    }

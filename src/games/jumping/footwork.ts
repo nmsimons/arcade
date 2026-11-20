@@ -129,10 +129,12 @@ function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: numb
     const points = platformOutline(b), probeY = Math.min(foot.y, y - 2.8)
     for (let i = 0; i < points.length; i++) {
       const a = points[i], end = points[(i + 1) % points.length]
-      if (Math.abs(a[0] - end[0]) > 1e-7 || probeY <= Math.min(a[1], end[1]) || probeY >= Math.max(a[1], end[1])) continue
-      const normal = Math.sign(end[1] - a[1])
-      if ((bodyX - a[0]) * normal < 0) continue
-      const intrusion = Math.max(...sole.map(offset => -(foot.x + offset - a[0]) * normal))
+      // A crate tipped a hair (a pushed crate on ice settles a fraction of a degree off) still has a riser: lifting the
+      // sole over its face popped a stepping foot ten units up for a frame.
+      if (Math.abs(a[0] - end[0]) > Math.abs(a[1] - end[1]) * .02 || probeY <= Math.min(a[1], end[1]) || probeY >= Math.max(a[1], end[1])) continue
+      const normal = Math.sign(end[1] - a[1]), faceX = a[0] + (end[0] - a[0]) * (probeY - a[1]) / (end[1] - a[1])
+      if ((bodyX - faceX) * normal < 0) continue
+      const intrusion = Math.max(...sole.map(offset => -(foot.x + offset - faceX) * normal))
       if (intrusion > 0) {
         const shift = (intrusion + .05) * normal
         foot.x += shift
@@ -304,11 +306,16 @@ export function advanceCrouchStep(p: Player, dt: number) {
   p.anim.crouchStep = amount < .001 ? null : { ...step, amount }
 }
 
-/** Persistent world-space contacts survive changes in speed and body pose. */
-export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: readonly Platform[]) {
+/**
+ * Persistent world-space contacts survive changes in speed and body pose. `gliding`: sliding on ice, not striding.
+ * `effort`: on ice with a direction held, the pace the legs work at. The stride runs at that pace, and a planted
+ * foot slips back under the body by however much the body falls short of it, as feet scrabbling on ice do.
+ */
+export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: readonly Platform[], gliding = false, effort = 0) {
   if (!p.grounded || p.hang || p.mantle) { p.anim.footwork = null; return }
   const run = p.anim.gait?.run ?? 0, moving = p.anim.gait?.moving ?? 0, jog = p.anim.gait?.jog ?? 0
-  const profile = strideProfile(run, moving, jog), traveling = Math.abs(p.x - oldX) > .0001
+  const profile = strideProfile(run, moving, jog), traveling = Math.abs(p.x - oldX) > .0001 || effort > 0
+  const slip = effort * dt * p.facing
   const makeFoot = (offset: number): FootContact => {
     const x = oldX + offset * p.facing, ground = groundAt(platforms, x, p.y)
     const foot = { x, anchorX: x, anchorY: ground?.y ?? p.y, y: p.y - 2.8, groundAngle: ground?.angle ?? 0, groundY: ground?.y ?? p.y,
@@ -317,9 +324,9 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     return foot
   }
   const previous: Footwork = p.anim.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
-  // Without weight nothing walks: a body gliding on its feet, skating on its boots or sliding on frictionless footing,
-  // carries them along where they stand, across the surface it glides on.
-  if (traveling && (p.weightless ?? 0) > 0) {
+  // Without weight nothing walks: a body gliding on its feet, skating on its boots or sliding on ice (not pushing with
+  // its feet, characterAnimation.ts), carries them along where they stand, across the surface it glides on.
+  if (traveling && ((p.weightless ?? 0) > 0 || gliding)) {
     const shift = p.x - oldX
     const feet = previous.feet.map(foot => {
       // A foot still in a stride or step (walking onto a weightless plate) has no footing yet; its anchor is where it
@@ -355,9 +362,11 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
       const change = beforeCycle + oldOffset - p.anim.stride * p.facing
       armOffset = { angle: Math.atan2(Math.sin(change), Math.cos(change)), time: 0 }
     }
-  } else if (traveling) p.anim.stride += Math.abs(p.x - oldX) / profile.length * TAU * p.facing
+  } else if (traveling) p.anim.stride += (effort ? effort * dt : Math.abs(p.x - oldX)) / profile.length * TAU * p.facing
   const feet = previous.feet.map((before, index): FootContact => {
     const foot = { ...before }, cycle = p.anim.stride * p.facing + index * Math.PI
+    // A planted foot moves with the ice, not the world, by the pace the legs work at less what the body makes of it.
+    if (effort && foot.planted) { const shift = p.x - oldX - slip; foot.x += shift; foot.anchorX += shift }
     if (rephased) foot.blockedCycle = -1
     const lap = Math.floor(cycle / TAU), step = sampleStride(cycle, run, moving, jog)
     const targetX = p.x + step.ankle[0] * p.facing

@@ -6,11 +6,13 @@ import type { BuiltInLevels } from './builtInLevels'
 import { LevelThumbnail } from './LevelThumbnail'
 import { DeleteLevelButton, MissingLevelNotice } from './LevelFileActions'
 import { RecycleBin } from './RecycleBin'
+import type { Campaign } from './campaign'
+import { librarySections } from './libraryOrder'
 
 export type LibraryChoice = { kind: 'new' } | { kind: 'open' | 'template'; file: LevelFile }
 
-export function BuilderLibrary({ levels, level, dirty, saving, message, onSave, onChoose, onClose }: {
-  levels: BuiltInLevels; level: JumpLevel
+export function BuilderLibrary({ levels, level, dirty, saving, message, campaign = null, onSave, onChoose, onClose }: {
+  levels: BuiltInLevels; level: JumpLevel; campaign?: Campaign | null
   dirty: boolean; saving: boolean; message: string
   onSave: () => Promise<LevelFile | undefined>; onChoose: (choice: LibraryChoice) => void; onClose: () => void
 }) {
@@ -53,6 +55,16 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, onSave, 
   }
   const byName = sortLevelEntriesByName(levels.entries)
   const sortedByName = byName.every((file, i) => file.fileName === levels.entries[i].fileName)
+  // The order the facility plays it (libraryOrder.ts): each facility area before the courses behind its doors, the
+  // wings in the order the concourse opens them, then the final course and its route on, and last the levels the
+  // campaign never reaches. Offered only when it places every file.
+  const byCampaign = (() => {
+    if (!campaign) return null
+    const ordered = librarySections(levels.entries, file => 'level' in file ? file.level : undefined, campaign)
+      .flatMap(section => [...section.hub && section.kind !== 'dispatch' ? [section.hub] : [], ...section.entries])
+    return ordered.length === levels.entries.length ? ordered : null
+  })()
+  const sortedByCampaign = !!byCampaign && byCampaign.every((file, i) => file.fileName === levels.entries[i].fileName)
   async function saveOrder(files: LocalLevelEntry[], order: 'filename' | 'listed', moved?: string, done?: string) {
     if (writingOrder.current || !levels.canWrite || levels.busy) return
     writingOrder.current = true; setOrderSaving(true); setOrderError(''); setOrderMessage('Saving order…')
@@ -124,7 +136,10 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, onSave, 
       <p className="jumping-visually-hidden" role="status" aria-label="Level order">{orderMessage}</p>
       <div className="builder-library-content">
         <div className="builder-local-heading"><h3>Built-in levels</h3>
-          {levels.entries.length > 0 && <button disabled={!levels.canWrite || levels.busy || orderSaving || sortedByName} onClick={() => void saveOrder(byName, 'listed', undefined, 'Sorted by level name.')}>Sort by level name</button>}
+          {levels.entries.length > 0 && <div className="builder-library-sorts">
+            {byCampaign && <button disabled={!levels.canWrite || levels.busy || orderSaving || sortedByCampaign} onClick={() => void saveOrder(byCampaign, 'listed', undefined, 'Sorted by campaign order.')}>Sort by campaign order</button>}
+            <button disabled={!levels.canWrite || levels.busy || orderSaving || sortedByName} onClick={() => void saveOrder(byName, 'listed', undefined, 'Sorted by level name.')}>Sort by level name</button>
+          </div>}
         </div>
         <p className="jumping-visually-hidden" id="library-order-help">Open a level to edit it, or use it as a template.{levels.entries.length > 1 && (levels.canWrite ? ' Drag to reorder, or focus a level and use Alt + Arrow keys. Order saves automatically.' : ' Enable saving to reorder levels.')}</p>
         {levels.entries.length ? <div ref={grid} className="builder-local-files" role="group" aria-label="Built-in level files" aria-describedby="library-order-help"

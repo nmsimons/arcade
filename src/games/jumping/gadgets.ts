@@ -7,25 +7,28 @@ import { ballShape, boxShape, propHeight } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { faceRobotToward, repulseRobot, robotPlatforms } from './robotPhysics.ts'
-import { setPropCarried, repulseProp } from './propPhysics.ts'
+import { firstPropCollider, setPropCarried, repulseProp } from './propPhysics.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 import { athletePose } from './athletePose.ts'
 import { gameplayPose } from './gameplayPose.ts'
 import { cadence } from './characterAnimation.ts'
 import { powerOut } from './power.ts'
 
-export type GadgetKind = 'emp' | 'repulsor'
+export type GadgetKind = 'emp' | 'repulsor' | 'tractor'
 export const GADGET_SIZE = 40
 export const GADGET_REACH = 60
 export const REPULSOR_RANGE = 1500
 export const REPULSOR_COOLDOWN = .4
 export const REPULSOR_BEAM_SECONDS = .025
 export const REPULSOR_IMPACT_SECONDS = .09
+/** The tractor shares the repulsor's reach, cooldown, ray and impulse, reversed. */
+export const TRACTOR_RANGE = REPULSOR_RANGE
+export const TRACTOR_COOLDOWN = REPULSOR_COOLDOWN
 export const EMP_RANGE = 900
 export const EMP_BOLT_SPEED = 1200
 export const EMP_COOLDOWN = 1
 export const EMP_DISABLE_SECONDS = 5
-export const gadgetLabel = (kind: GadgetKind) => kind === 'emp' ? 'Carried EMP' : 'Repulsor rifle'
+export const gadgetLabel = (kind: GadgetKind) => kind === 'emp' ? 'Carried EMP' : kind === 'tractor' ? 'Tractor gun' : 'Repulsor rifle'
 export interface HeldTool {
   kind: GadgetKind; size: number; angle: number; aiming: boolean; blocked: boolean
   presentation?: { forearm: number; upper: number; climbAim?: number; firing?: boolean }
@@ -197,7 +200,7 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
       else if (state.blocked) feedback(run, 'Barrel blocked')
       else if (prop.gadgetCooldown) feedback(run, 'Cooling')
       else if (prop.gadget === 'emp') fireEmp(run)
-      else fireRepulsor(run)
+      else firePulse(run, prop.gadget!)
     }
   } else state.aiming = false
   return input
@@ -249,7 +252,18 @@ export function pulseHit(from: Vec, direction: Vec, shapes: readonly Platform[],
   }
   return { distance, index, point: [from[0] + direction[0] * distance, from[1] + direction[1] * distance] as Vec }
 }
-function fireRepulsor(run: Run) {
+/** The prop the player stands on or hangs from. Pulling it would be the
+ * player pulling against their own footing: an internal force with no effect. */
+function playerBearsOn(run: Run, prop: Prop) {
+  const p = run.player
+  if (p.contacts?.support?.collider.prop === prop) return true
+  const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
+  if (grip?.platform === undefined) return false
+  return run.props.filter(b => b.kind === 'box' && !b.gadget)[grip.platform - firstPropCollider(run)] === prop
+}
+/** One bounded pulse along the aim. The repulsor pushes the first physical hit
+ * away; the tractor pulls it back along the same ray toward the emitter. */
+function firePulse(run: Run, kind: 'repulsor' | 'tractor') {
   const state = run.gadgets, p = run.player, frame = heldToolFrame(p)!, direction: Vec = [Math.cos(frame.angle), Math.sin(frame.angle)]
   // A fresh shot is immediate and the displayed emitter must match its ray.
   p.heldTool!.presentation = { ...armAngles(p), climbAim: p.climbing ? 1 : 0, firing: true }
@@ -258,14 +272,19 @@ function fireRepulsor(run: Run) {
   const targets = [...blockers.map(shape => ({ shape, prop: null as Prop | null, robot: -1 })),
     ...run.props.map(prop => ({ shape: prop.kind === 'box' ? boxShape(prop) : ballShape(prop), prop, robot: -1 })),
     ...run.robots.flatMap((robot, index) => robotPlatforms(robot).map(shape => ({ shape, prop: null, robot: index })))]
-  const hit = pulseHit(from, direction, targets.map(t => t.shape)), target = targets[hit.index]
-  state.held!.gadgetCooldown = REPULSOR_COOLDOWN; state.serial++; state.shots++; state.lastShotKind = 'repulsor'
-  state.pulses.push({ from, to: hit.point, age: 0 })
-  if (target?.prop) repulseProp(run, target.prop, direction)
-  if (target && target.robot >= 0) {
-    repulseRobot(run.robots[target.robot], direction[0], p.x)
-  }
-  feedback(run, target?.prop || target && target.robot >= 0 ? 'Hit' : 'Pulse')
+  const hit = pulseHit(from, direction, targets.map(t => t.shape), kind === 'tractor' ? TRACTOR_RANGE : REPULSOR_RANGE), target = targets[hit.index]
+  state.held!.gadgetCooldown = kind === 'tractor' ? TRACTOR_COOLDOWN : REPULSOR_COOLDOWN; state.serial++; state.shots++; state.lastShotKind = kind
+  state.pulses.push({ from, to: hit.point, age: 0, kind })
+  // The tractor is the same impulse pointed back at the emitter. Nothing eases
+  // the arrival: a pulled crate or bot reaches the player at full speed.
+  // Only the player's own footing or grip is exempt, being pulled against itself.
+  const toward = kind === 'tractor' ? [-direction[0], -direction[1]] as Vec : direction
+  const robot = target && target.robot >= 0 ? run.robots[target.robot] : null
+  if (kind === 'tractor' && target?.prop && playerBearsOn(run, target.prop)) { feedback(run, 'No pull'); return }
+  if (target?.prop) repulseProp(run, target.prop, toward)
+  if (robot) repulseRobot(robot, toward[0], p.x)
+  const struck = !!target?.prop || !!robot
+  feedback(run, kind === 'tractor' ? struck ? 'Pulled' : 'Pull' : struck ? 'Hit' : 'Pulse')
 }
 
 function fireEmp(run: Run) {

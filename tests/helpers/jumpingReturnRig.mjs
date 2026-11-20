@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import {drawnPushFormed} from './jumpingDrawnPush.mjs'
 import {handOutline} from '../../src/games/jumping/athlete.ts'
 import {pointInside,nearestBoundary} from '../../src/games/jumping/geometry.ts'
 import {ballShape} from '../../src/games/jumping/propGeometry.ts'
@@ -47,7 +48,8 @@ export function assertReturningRig(p,pose,prop,context){
    assert.ok(distance(world(leg.end),[foot.x,foot.y])<1e-5,'actual ankle '+context)
   }
  }
- if(p.contacts.push?.hands&&p.pushing?.palms)for(const [i,arm]of[pose.frontArm,pose.backArm].entries()){
+ // The drawn push forms from the pose drawn; once formed, its palms are on the face.
+ if(p.contacts.push?.hands&&p.pushing?.palms&&drawnPushFormed(p))for(const [i,arm]of[pose.frontArm,pose.backArm].entries()){
   const palm=p.pushing.palms[i]
   assert.ok(distance(world(arm.hand),[palm.x+palm.nx*1.6,palm.y+palm.ny*1.6])<.001,'force palm '+context)
  }

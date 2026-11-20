@@ -83,7 +83,11 @@ export function slidingPose(p: Player, free: AthletePose): AthletePose {
   const lowest = (angle: number) => Math.min(...FOOT_CONTACT.map(point => { const q = footPoint(point, angle, 0); return q[0] * nx * p.facing + q[1] * ny }))
   const ankle = 2.8 + lowest(poseAngle * p.facing) - lowest(soleAngle)
   const spread = (2.5 + speed * 4) * (1 - .6 * upslope), center = at(0, 2.8)
-  const front = at((spread + correction * .6) * p.facing, ankle), back = at(-(spread - correction * .6) * p.facing, ankle)
+  // Holding a direction on a slick slope, the feet scrabble: each steps along the face and lifts from it in turn.
+  const scrabble = p.anim.scrabble, step = (offset: number) => scrabble
+    ? [Math.sin(scrabble.phase + offset) * 7 * scrabble.amount, Math.max(0, Math.cos(scrabble.phase + offset)) * 6 * scrabble.amount] : [0, 0]
+  const [frontStep, frontLift] = step(0), [backStep, backLift] = step(Math.PI)
+  const front = at((spread + correction * .6 + frontStep) * p.facing, ankle + frontLift), back = at((-(spread - correction * .6) + backStep) * p.facing, ankle + backLift)
   const away = 9 * upslope
   const hipTarget: Point = [center[0] - balance * 2 + nx * p.facing * away, center[1] - 29 + speed * 2 + ny * away]
   // Fit both legs before placing the torso, instead of pulling a foot off the

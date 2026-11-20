@@ -35,6 +35,9 @@ priority over aiming and use. Momentum, gravity, buoyancy, and support motion
 continue. Rifle
 pulses stop at the first solid/red boundary and apply a finite mass-dependent
 impulse to a prop, or bounded shovebot recoil; they do not directly flip switches.
+Tractor beams use the same ray, prop impulse and bot recoil reversed, never on the
+player's own footing. Nothing brakes the arrival: a pulled item or bot meets the player
+under the ordinary prop and bot contact rules.
 The reusable carried EMP fires a swept electric bolt at 1,200 units/second,
 with a 900-unit range and one-second cooldown. Its first hit disables just that
 mechanism, shovebot, force field, or dry gravity emitter for five seconds.
@@ -51,6 +54,25 @@ query identifies the supporting surface and the nearest reachable pushing face.
 The same policy supplies prop forces, the player motor, support transport and
 the pushing pose. Only the selected prop receives the player's shove; a nearer
 wall blocks an object behind it.
+
+Running into a loose box or ball shares momentum by mass, on every surface. On the
+first step the working hands are on an object, a body arriving faster than the
+object moves away (by more than 5 units/second, `IMPACT_CLOSING` in `model.ts`)
+collides with it, however gently: the object gains the player's share of that closing speed
+(`PLAYER_MASS / (PLAYER_MASS + mass)`, the player 2.5), published as a riding body
+contact `kick` and applied in `reactToPushOffs` (`propPhysics.ts`), and the stance
+then follows it at its own pace. A running player therefore starts an 80-unit crate
+at about 60 rather than the walking push's 48, with the palms staying on its face,
+and a light ball leaves ahead of the hands, which let go and relax with the body.
+Only the hands' arrival is a collision, and only the body's own speed counts. While
+the hands stay on an object (`pushHold`), the push owns its pace, however fast the
+stance walks the body back to it or a player who started with hands on it
+accelerates; without that rule a crouched pusher on Boxes' ramp struck its crate
+some 30 times in a row and chased it at 240. A ball rolling into a standing player
+is the contact solver's to stop. The share has no higher threshold: at 60, a slow
+arrival was caught at the face instead and lost its momentum, so on ice a slightly
+longer run-up delivered a crate about 30% shorter. Regression coverage lives in
+`tests/jumping-push-impact.test.mjs`.
 
 If the player braces against a wall or another object while standing on a loose
 prop, the supporting prop receives the opposite shove at the feet. This lets a
@@ -1241,6 +1263,63 @@ a brief gap in a moving box, ball or bot contact. A new surface starts its own
 blend. This memory is presentation only: missing contacts release physical forces
 immediately, and jumping or turning away still clears the pose.
 
+Every drawn push starts from the pose actually drawn, on every footing, ice or
+grip (`nextPushPose` and `drawnPalmShift` in `playerContacts.ts`, `locomotionPose.ts`):
+
+- The drawn stance (`ready`) forms over a tenth of a second from wherever it was,
+  rather than snapping to the full stance, palms on the face, when the first force
+  lands. The palms are therefore on their contact once the push has formed (about
+  0.1 s), not on the first loaded frame; tests check them with
+  `tests/helpers/jumpingDrawnPush.mjs`.
+- The body joins the stance (`stance`) no faster than that either. In the air only
+  a working push moves the body, while the arms may already reach, so touching
+  down mid-reach no longer throws the trunk forward in one frame.
+- The trunk meets the working palms only as far as the push has formed (its
+  `amount`), over the first half unit past the arms' full stretch, and leaves them
+  as the release fades. Part way it is mixed through the limbs' own bends, so bones
+  keep their lengths, and a hand the mix sinks into a solid is cleared again.
+- A drawn palm is an anchor for arm clearance only once it has arrived on its
+  contact; on its way it clears like a free hand.
+- When the contact's wrists jump beyond the prop's own travel, the palms come
+  across from where they are drawn: more than 6 units, or a face turning more than
+  30 degrees, for palms bearing force (a tumbling crate's next face, taken in a frame
+  or two); more than 3 units for a free reach, which glides over about 0.1 s (a reach
+  that becomes a working push lower on the face, a fading release re-found where the
+  crate slid on, a corner grip whose face turns). The wrist, not the palm, is kept,
+  because a turning palm face swings the wrist and the whole reach with it.
+
+The motor's push rig (`updatePushRig`), which gameplay reads (`gameplayPose.ts`
+draws it in place of the drawn push), keeps its own rules: its force-bearing palms
+are established at once and its trunk fitted at once, except on ice, and its
+release is slower on ice. The drawn push is never read by physics.
+
+A dry turn budgets every cleared joint (`advanceDryTurn`): in an ordinary turn a
+joint may follow its target's own motion and close the rest of the gap at 600
+units a second, so a turn that hands over to a stride already under way ends when
+the drawn pose has caught up, rather than closing the gap in its last frame.
+Slides, reaches, departures, recoils and returning steps keep the bare 600 units
+a second. A turn into a working push holds the arms to the incoming palms only
+once the drawn push has formed there; until then it turns like a reach, trunk
+whole and hands on their way. A shoe the stride sets down while an ordinary turn
+is still drawing it elsewhere (short of the contact, or high in its swing) comes
+down onto that contact with the turn, and is held to it once it is drawn there.
+The contact stays where the stride put it; setting it down where the foot was
+drawn left it planted out of step with the stride.
+
+The gravity and size frames carry the drawn palms' offset (`shift`) with the
+palms.
+
+Landing preparation (`landingPreparation`) weighs every contact its sweep meets,
+counting each contact's time from the start of the whole sweep. A face the body
+slides down (a crate tipped a fraction of a degree, whose normal leans slightly
+upward) therefore no longer hides the floor below and flickers the arms. A riser
+for a stepping foot (`clearTerrain` in `footwork.ts`) includes faces within about
+a degree of vertical, so a stepping foot is kept behind a slightly tipped pushed
+crate rather than lifted over its face for a frame.
+
+Push and turn scenes are checked for single-frame joint jumps in
+`tests/jumping-push-engage.test.mjs`.
+
 A stationary reversal between blocked pushing faces releases the outgoing
 hands and reaches toward the incoming brace over the ordinary dry turn. This
 is an explicit presentation distinction: the motor selects the new pressure
@@ -1343,26 +1422,83 @@ planted feet away from their surface merely to conceal an oscillation.
 
 ## Frictionless terrain
 
-A terrain piece with `frictionless: true` offers no grip (`FRICTIONLESS` in
-`src/games/jumping/friction.ts`). Feet on it can neither drive nor brake: grounded
-steering leaves velocity unchanged, so a standing player stays put, a moving one
-coasts, and only jumping and air control change course. Exactly level ground still
-holds a standing body; any slope fails the same `canGrip` balance used everywhere
-else, so feet slide and gravity alone acts along it, with no sliding friction. A slide
-that reaches level slick ground keeps its speed. Ground following and landings use
-the piece's own grip, so walking or coasting onto a slick ramp hands the body to the
-ordinary slide rather than a walking support. Step-ups and the push stance need a
-foothold, so neither starts from slick footing, and no working push contact forms
-there: a face still blocks the body, but the hands neither drive a prop nor hold it
-back, so a box pushed off a grippy pad keeps gliding when its pusher follows it on. Jumps, wall braces, wall jumps,
-ledges, ladders and ropes do not depend on surface grip and work as usual.
+A terrain piece with `frictionless: true` is ice. It has one friction coefficient,
+for holding and sliding alike, shared by feet and loose props (`SLICK` in
+`src/games/jumping/friction.ts`, 0.1), and one sliding rule (`slideOn`): a slide
+loses the coefficient times its load (gravity times the cosine of the slope) each
+second, and never reverses.
 
-Props see the same surface. Matter pairs take the lower friction of two bodies, and
-making a body static resets its friction to 1, so slick terrain bodies set friction
-and static friction to zero after creation. A box glides down any slope and keeps
-sliding on the level; the static slope hold and the ball's settling drag do not apply
-while a slick piece supports the prop. Shovebots keep their wheel drive. The look is
-part of the contract: a pale glaze along every exposed face, with glints on its tops
+- **Holding.** Feet and props hold on slopes up to about 6 degrees, through the same
+  `canGrip` balance used everywhere else; anything steeper slides.
+- **Feet on level ice** push off no harder than that friction allows
+  (`slickVelocity`): a held direction speeds up or brakes toward its pace, and
+  letting go slides to rest, all at about 155 per second squared. Getting moving is
+  as hard as stopping. A let-go glide from a run covers about 540 and lasts about
+  2.6 seconds; ordinary ground stops in a stride.
+- **Props** meet the same friction. Matter pairs take the lower friction of two
+  bodies, and making a body static resets its friction to 1, so slick terrain
+  bodies set Matter's friction to zero after creation: Matter's contact friction
+  stops a sliding box within a stride at any setting this low. `propPhysics.ts`
+  applies `slideOn` along the supporting surface after each step instead, unless
+  the prop is being pushed. A crate or ball at 300 slides about 290. The static
+  slope hold and the ball's ordinary settling drag do not apply on ice.
+- **Faces the feet cannot grip**, on any terrain. Walking or sliding into a face
+  steeper than the surface's grip holds, the feet plant at the crease and shed what
+  speed their grip allows in a planted moment (`CREASE_PLANT`, 0.3 seconds, in
+  `model.ts`). Whatever is left carries the body on up the face, along it, and the
+  ordinary slide slows it and brings it back down. Ordinary grip sheds more than a
+  full run, so walking or running into a steep face stops at its foot as it always
+  has; ice sheds little, so a glide carries partway up a slick slope.
+
+Drawn (`characterAnimation.ts`), a body on ice with nothing held slides on planted
+feet, its footwork carried as without weight. Any held direction moves the legs:
+starting off, braking or pushing up a slick slope, they step at a walking pace and
+the planted feet slip back under the body by however much it falls short of that
+pace; travelling the way it faces faster than that, they keep pace with it as in an
+ordinary run, pushing a crate included. On a slick slope the sliding pose's feet step
+along the face in turn (`anim.scrabble`). Pushing on ice, the stance eases in over a
+tenth of a second from a standstill and unwinds over 0.4 seconds when let go; let go
+the trunk meets the palms only as they take the face, not while they reach for it (a
+sprint at a crate leans no further than on ordinary ground), leaves them as gradually
+as the hands let go, and palms taken up again during that unwind come across from
+where they are drawn. Sliding fast with nothing
+held, whether after letting go of a crate or from a run, the player glides in a
+curler's stance (`anim.curl`): hips sunk, trunk pitched forward, front foot under the
+hips and the trailing leg back, on sliding feet, rising out of it as the slide slows.
+A held direction takes the legs out of it at once. Gliding on onto ordinary ground,
+the stance eases out as the feet stop; where two pieces of ground meet flush, their
+touching sides are solid ground to the legs, not a riser to clear
+(`clearRiserLeg` in `athleteClearance.ts`), so the trailing foot does not jump at
+the seam. Gliding off a step down, the trailing foot is still over the tread as the
+body leaves it and its airborne tilt sinks the sole a few units into the tread's
+top; a sole nearer that open top than the step's face leaves through the top, as
+airborne feet do, rather than being pushed out through the face across the whole
+tread in one frame. Ordinary pushing keeps its
+first-force palms. Physics reads none of it.
+
+Ground following and landings use the piece's own grip, so walking or coasting onto
+a slick ramp hands the body to the ordinary slide rather than a walking support.
+Step-ups need a foothold, so none starts from slick footing. A lip is not a step:
+ground following carries a body on slick footing, gliding or running, up over a
+rise of at most `SLIDE_LIP` (2 units, `model.ts`) onto the next fixed piece, paying the
+climb from its speed as a rise of that height would (a glide at 320 keeps about
+315). The body hull's toe bevel reaches the lip's edge a little before the feet do,
+so the body is carried onto the top as the toe gets there rather than catching on
+the corner. A glide too slow to pay the rise, a loose prop, a lip without headroom,
+and anything taller meet the lip as a step, which slick footing still cannot climb.
+Pushing works on ice,
+as curling (docs/jumping-ice.md): a crate sliding on ice offers almost nothing to
+push against, so a push drives it toward the pace the pusher asks for rather than the
+walking shove a crate dragging on ordinary ground takes. Feet on grippy footing push
+it off as hard as any shove; feet on ice push it only as hard as the ice grips them,
+shared between pusher and crate by mass, so a pair on the ice gathers speed slowly.
+The hands stay on the face across the edge onto the ice, and letting go leaves both
+sliding by the same friction. Feet on ice cannot walk the body to its push stance
+any faster or slower than its own steering or the crate it follows, forward or
+back: a body closer than the stance bends its arms rather than being drawn back. Jumps,
+wall braces, wall jumps, ledges, ladders and ropes do not depend on surface grip and
+work as usual. Shovebots keep their wheel drive. The look is part of the contract: a
+pale glaze along every exposed face, with glints on its tops
 (`src/games/jumping/slickTerrain.ts`). Coverage lives in
 `tests/jumping-frictionless-terrain.test.mjs`.
 

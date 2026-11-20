@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "id": "5b0f2d64-5c3e-4b8e-9a3e-7d1c2f6a9b11",
+  "name": "Curling",
+  "width": 2000,
+  "height": 700,
+  "platforms": [
+    {
+      "name": "Loading floor",
+      "x": 0,
+      "y": 660,
+      "w": 230,
+      "h": 40,
+      "material": "steel",
+      "trim": "hazard"
+    },
+    {
+      "name": "Polished bay",
+      "x": 230,
+      "y": 660,
+      "w": 1270,
+      "h": 40,
+      "frictionless": true,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          1270,
+          0
+        ],
+        [
+          1270,
+          40
+        ],
+        [
+          0,
+          40
+        ]
+      ]
+    },
+    {
+      "name": "Lift block",
+      "x": 1500,
+      "y": 340,
+      "w": 500,
+      "h": 360,
+      "trim": "hazard"
+    }
+  ],
+  "entrance": {
+    "x": 32.0253164556962,
+    "y": 660
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "stains": "light",
+  "floor": 700,
+  "goal": {
+    "x": 2000,
+    "y": 340,
+    "flipX": true
+  },
+  "times": {
+    "a": 16,
+    "b": 20,
+    "c": 30,
+    "d": 45
+  },
+  "props": [
+    {
+      "kind": "box",
+      "x": 195,
+      "y": 660,
+      "size": 40
+    },
+    {
+      "kind": "box",
+      "x": 133,
+      "y": 660,
+      "size": 40,
+      "gadget": "tractor"
+    }
+  ],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "x": 925,
+      "y": 660,
+      "w": 150,
+      "targets": [
+        "wall-lift",
+        "b6f39110-37b2-4a49-b4cb-930f0cad994b"
+      ],
+      "mode": "touch"
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "x": 1835,
+      "y": 200
+    }
+  ],
+  "pickups": [],
+  "texts": [],
+  "gravityPlates": [
+    {
+      "name": "Wall lift",
+      "id": "wall-lift",
+      "x": 1180,
+      "y": 425,
+      "w": 320,
+      "h": 235,
+      "gravity": 1,
+      "power": "switched",
+      "facing": "left"
+    }
+  ],
+  "forceFields": [
+    {
+      "switchReversed": true,
+      "id": "b6f39110-37b2-4a49-b4cb-930f0cad994b",
+      "x": 565,
+      "y": 0,
+      "w": 12,
+      "h": 670,
+      "orientation": "vertical",
+      "power": "switched"
+    }
+  ]
+}

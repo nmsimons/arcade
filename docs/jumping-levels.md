@@ -344,7 +344,16 @@ switches can let go of anchor 1 or anchor 2; wire switches to the rope like any
 other switched object.
 
 The development level library, `/lab/library`, loads the built-in JSON
-collection. Facility areas are not tiles. Click a tile, press Enter,
+collection and lists it in the order the facility plays it (`libraryOrder.ts`).
+Facility areas are not tiles: each heads the row of courses it leads to. Areas
+without level doors come first, nearest the start first. The wings follow in the
+order the concourse opens them, each with its courses in the order their doors
+open. A course an exit leads into follows the course before it. The dispatch
+door's final course and the route on from it come after every wing. Levels the
+campaign never reaches come last, under **Not in the campaign**. In local dev,
+each area heading has **Edit**. A collection without the campaign's start, such
+as a test fixture catalog, is one plain list. **Next level** after a library run
+follows the library's order. Click a tile, press Enter,
 or press controller A to play. Timed tiles show personal bests and letter grades;
 untimed tiles show completion. Finishing updates those records. In local dev,
 unready maps show repair messages and remain editable. Each tile has **Play**;
@@ -394,7 +403,10 @@ update the manifest. External-edit checks protect changes made outside the
 studio; a failed write leaves the current draft editable.
 
 Drag library entries or use Alt + arrow keys to reorder them. The manifest saves
-the order automatically. **Delete** moves a built-in to the private recycle bin;
+the order automatically. **Sort by campaign order** lists the collection the way
+the development level library does (`libraryOrder.ts`): each facility area
+before the courses behind its doors, and the wings in the order the concourse
+opens them. **Sort by level name** sorts alphabetically. **Delete** moves a built-in to the private recycle bin;
 **Recover** restores it without overwriting another file. Permanent deletion and
 emptying the bin require confirmation. Recovery files never enter published
 assets. Add external JSON by placing it in `public/levels/jumping/` and refreshing
@@ -720,8 +732,8 @@ grey dots following a short arc to suggest the sphere's shape.
 Save the optional preset as `"weight": "normal"` or `"heavy"` on a prop;
 omitting it preserves normal behavior. The retired `"light"` preset loads as normal.
 
-**Gadgets → Carried EMP / Repulsor rifle** places a right-forearm sleeve. Save it
-as a `props` entry with `kind: "box"`, `gadget: "emp"` or `gadget: "repulsor"`,
+**Gadgets → Carried EMP / Repulsor rifle / Tractor gun** places a right-forearm sleeve. Save it
+as a `props` entry with `kind: "box"` and `gadget: "emp"`, `"repulsor"` or `"tractor"`,
 and the usual `x`, `y`, `size`, optional name and weight. The default scale is 40;
 its actual rectangular hull is `size * .4` wide and `size * .2` high. As with
 other props, X is the center and Y is the unrotated bottom. The editor shows that
@@ -733,7 +745,11 @@ F / RT fires it. The EMP sends a traveling bolt that disables the hit device for
 five seconds, with a one-second cooldown. It remains equipped after firing.
 A hit anywhere on an active blue or red force-field beam, or either emitter,
 disables only that field; its normal power and clearance rules apply afterward.
-Movement directions also point either tool in eight directions;
+The repulsor pushes the first loose prop or bot along its beam; the tractor pulls
+it back toward the player with the same impulse and nothing slowing its arrival,
+so a pulled crate, ball or bot hits the player. Neither moves terrain, gates,
+lifts or the player's own footing.
+Movement directions also point any tool in eight directions;
 neutral input returns to horizontal hip fire. The arm shows direction without a
 reticle. Active red fields drop the sleeve on the approach side while the player
 continues through.
@@ -1207,10 +1223,12 @@ hangs and swings from its other anchor, and anyone holding it keeps their grip.
 ```
 
 Terrain uses one friction unless a piece sets `frictionless: true` (studio: select
-the piece, **Surface → Frictionless**). Frictionless terrain has no grip at all: feet
-cannot walk, brake, step up or push from it, any slope slides, and boxes and balls
-glide. Exactly level slick ground still holds a body that is standing still, and a
-moving one coasts until something stops it. Jumping and air control, wall braces and
+the piece, **Surface → Frictionless**). For feet it is ice: walking off and stopping
+are both slow, at the same rate, letting go glides on to a stop, a slope steeper than
+about 6 degrees slides, and running at one carries the body partway up before it
+slides back. Feet cannot step up or take a push stance on it, though walking into a
+loose prop nudges it on. Boxes and balls meet the same friction: a long slide that
+slows steadily to rest. Jumping and air control, wall braces and
 wall jumps, ledges, ladders and ropes work as usual, so a slick floor is crossed by
 momentum or by leaping. The piece draws a pale glaze along every exposed face. Only
 `true` is valid; omit the field for ordinary grip. See
@@ -1278,7 +1296,7 @@ disable the rest of the level or remove carried equipment. EMP-disabled and
 deactivated bots cannot shock the player. Pausing freezes the effect; restarting
 clears it. Crackling blue arcs and an electrical sound identify the shock.
 The handheld EMP uses the same lightning-blue palette; the repulsor sleeve
-shares Rbot's red armor.
+shares Rbot's red armor; the tractor sleeve is green, with a forked emitter.
 Drag either square handle on the shovebot's patrol line to move that endpoint;
 the inspector follows while dragging. Snap aligns endpoints to the grid, and
 Alt bypasses snapping. Limits include the bot's starting position, stay inside

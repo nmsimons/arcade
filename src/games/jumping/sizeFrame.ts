@@ -139,6 +139,7 @@ function walk(p: Player, visit: Visit, allRopes: boolean, mapContacts: boolean, 
     if (!value || !once(value)) return
     lengths(value, 'wallX', 'height')
     for (const palm of value.palms ?? []) if (once(palm)) lengths(palm, 'x', 'y')
+    if ('shift' in value) for (const offset of value.shift ?? []) if (once(offset)) lengths(offset, '0', '1')
   }
   const footwork = (value: Footwork | null | undefined) => {
     if (!value || !once(value)) return

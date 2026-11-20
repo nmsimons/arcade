@@ -290,11 +290,12 @@ listing every movement rule in the room.
 Three surface rules change what an ordinary-looking space asks of the player, so
 each needs its first appearance to be safe and readable:
 
-- **Frictionless terrain** removes walking and braking, not jumping. A player who
-  stops on it can only leave by leaping, so never let a slick floor become a dead
-  end: give it a wall, a lip or an ordinary patch to push off from, and let the
-  first encounter be a short, flat glide with a visible landing. Slick slopes are
-  slides in both directions; a slick dip with no exit traps the player. Boxes and
+- **Frictionless terrain** is ice for the player: getting moving is as hard as
+  stopping, and a run glides on a long way after it is let go. Give a slick floor
+  room to stop before anything that punishes overshooting, and let the first
+  encounter be a short, flat glide with a visible landing. Slick slopes steeper than
+  a gentle ramp cannot be walked up: momentum carries the player partway, then they
+  slide back, so a slick dip needs a jump out or an ordinary patch to leave by. Boxes and
   balls glide too, which makes slick floors good conveyors for chain reactions.
 - **Wall plates** are pressed by contact. A prop resting against one holds it,
   which is the point: let the player see a box slide or fall into it. Put a plate

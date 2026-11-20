@@ -7,6 +7,7 @@ import { playerContacts } from '../src/games/jumping/playerContacts.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { platformSurface } from '../src/games/jumping/terrain.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { drawnPushFormed } from './helpers/jumpingDrawnPush.mjs'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 
 const advance = (run, frames, input = {}) => {
@@ -145,7 +146,8 @@ test('pushing varied prop sizes keeps palms on the surface and feet moving with 
         }
         assert.ok(p.pushing?.palms, `${kind} ${size} retains both hand contacts`)
         contacts++
-        for (const [j, arm] of [pose.frontArm, pose.backArm].entries()) {
+        // A tumbling crate's next face is drawn taken over a frame or two (docs/jumping-physics.md).
+        if (drawnPushFormed(p)) for (const [j, arm] of [pose.frontArm, pose.backArm].entries()) {
           const palm = p.pushing.palms[j]
           assert.ok(Math.hypot(p.x + arm.hand[0] * direction - palm.x - palm.nx * 1.6,
             p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < 2, 'palms follow the visible surface')

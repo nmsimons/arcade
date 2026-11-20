@@ -42,6 +42,8 @@ import { POWER_DOWN_WARNING_SECONDS, powerDownWarning } from './jumping/powerDow
 import type { EntranceAnimation } from './jumping/goal'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile, LocalLevelEntry } from './jumping/levelAssets'
+import { librarySections } from './jumping/libraryOrder'
+import type { LibrarySection } from './jumping/libraryOrder'
 import { levelFileName } from './jumping/levelFiles'
 import { useBuiltInLevels } from './jumping/builtInLevels'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
@@ -135,9 +137,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     finally { deleting.current = false }
   }
   const [playingFile, setPlayingFile] = useState({ collection: 'built-in', fileName: initialCatalog.files[0]?.fileName ?? '' })
-  const playingFiles = playingFile.collection === 'built-in' ? catalog.files : []
-  const campaignIndex = playingFiles.findIndex(file => file.fileName === playingFile.fileName)
-  const nextFile = playingFiles.slice(campaignIndex + 1).find(file => levelProblems(file.level).length === 0)
   const [editorFile, setEditorFile] = useState<{ file: LevelFile; key: number } | null>(null)
   const [recordKey, setRecordKey] = useState(initialCatalog.files[0]?.level.id ?? '')
   const rootRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null)
@@ -235,6 +234,15 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   // campaign orders only a collection that holds it: in one without its start, as with test fixtures,
   // every level stands outside the campaign and is open.
   const campaignFits = !!campaign && levelsById.has(campaign.start)
+  // The library lists the facility in the order it is played (libraryOrder.ts), and Next level after a library run
+  // follows the same order.
+  const sections = useMemo(() => librarySections(files, entry => 'level' in entry ? entry.level : undefined, campaignFits ? campaign : null),
+    [files, campaign, campaignFits])
+  const tileNumbers = useMemo(() => new Map(sections.flatMap(section => section.entries).map((entry, index) => [entry, index])), [sections])
+  const orderedFiles = useMemo(() => sections.flatMap(section => section.entries.filter((entry): entry is LevelFile => 'level' in entry)), [sections])
+  const playingFiles = playingFile.collection === 'built-in' ? orderedFiles : []
+  const campaignIndex = playingFiles.findIndex(file => file.fileName === playingFile.fileName)
+  const nextFile = playingFiles.slice(campaignIndex + 1).find(file => levelProblems(file.level).length === 0)
   // Links, the library and the start screen read the same progress, from the saved records' snapshots.
   const progress = useMemo(() => !campaign || !levelsById.has(campaign.start) ? null : savedProgress(campaign, levelsById,
     id => bestTimes[id] ?? readBest({ getItem: () => savedTimes }, id),
@@ -247,7 +255,22 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const unlocked = new Set(campaign || campaignError ? catalog.files
     .filter(file => !progress || linkOpen(campaign!, progress, levelsById, file.level.id)).map(file => file.fileName) : [])
   // The library highlights the chosen level, or else the first open one, so a new save never starts on a locked tile.
-  const highlighted = selected && unlocked.has(selected.fileName) ? selected.fileName : catalog.files.find(file => unlocked.has(file.fileName) && !isHubLevel(file.level))?.fileName
+  const highlighted = selected && unlocked.has(selected.fileName) ? selected.fileName : orderedFiles.find(file => unlocked.has(file.fileName) && !isHubLevel(file.level))?.fileName
+  /** A section's heading row: its facility area, and in development an Edit button for it. None for the one plain list. */
+  function sectionHeading(section: LibrarySection<LocalLevelEntry>, index: number) {
+    if (section.kind === 'outside' && sections.length === 1) return null
+    const hub = section.hub && 'level' in section.hub ? section.hub : undefined, name = hub?.level.name
+    const courses = (count: number) => `${count} ${count === 1 ? 'course' : 'courses'}`
+    const [title, detail] = section.kind === 'wing' ? [name ?? `Wing ${section.order}`, `Wing ${section.order} · ${courses(section.entries.length)}`]
+      : section.kind === 'dispatch' ? ['Dispatch', `The final course, behind the dispatch door${name ? ` in ${name}` : ''}`]
+      : section.kind === 'area' ? [name ?? 'Facility area', hub && campaign && hub.level.id === campaign.start ? 'Facility area · a new game starts here' : 'Facility area']
+      : ['Not in the campaign', `${section.entries.length === 1 ? 'A level' : `${section.entries.length} levels`} the facility does not lead to`]
+    return <div key={`section-${index}-${hub?.fileName ?? section.kind}`} className={`jumping-library-section jumping-library-${section.kind}`} data-menu-item={devEditing && hub ? true : undefined}>
+      {hub && <div className="jumping-library-section-preview" aria-hidden="true"><LevelThumbnail level={hub.level} /></div>}
+      <div className="jumping-library-section-text"><h3>{title}</h3><span>{detail}</span></div>
+      {devEditing && hub && <button className="jumping-level-edit" data-menu-primary aria-label={`Edit ${hub.level.name}`} disabled={builtIn.refreshing} onClick={() => editFile(hub)}>Edit</button>}
+    </div>
+  }
   function presentHub(target: Run | null, playtest: boolean) {
     if (!target?.hub || !isHubLevel(target.level)) return
     // Door and bulkhead switches and grade averages read the player's records, in playtests too.
@@ -1191,7 +1214,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
               const dialog = event.currentTarget.closest<HTMLElement>('.game-dialog')
               if (dialog) dialog.dataset.inputMethod = 'pointer'
             }
-          }}>{files.filter(file => !('level' in file) || !isHubLevel(file.level)).map((file, index) => {
+          }}>{sections.flatMap((section, sectionIndex) => [sectionHeading(section, sectionIndex), ...section.entries.map(file => {
+            const index = tileNumbers.get(file) ?? 0
             if ('missing' in file) return <div key={file.fileName} className="jumping-level-tile jumping-missing-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)}>
               <div className="jumping-level-card"><MissingLevelNotice fileName={file.fileName} compact /></div>
               {devEditing && <div className="jumping-level-tile-actions"><DeleteLevelButton fileName={file.fileName} primary disabled={builtIn.busy || !builtIn.canWrite} onClick={() => void deleteFile(file)} /></div>}
@@ -1229,7 +1253,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
               {devEditing && <DeleteLevelButton fileName={file.fileName} disabled={builtIn.busy || !builtIn.canWrite} onClick={() => void deleteFile(file)} />}
             </div>
             </div>
-          })}</div>
+          })])}</div>
           </div>
       </div>
     </KeyboardDialog>}

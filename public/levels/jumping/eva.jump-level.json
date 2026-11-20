@@ -1,0 +1,257 @@
+{
+  "version": 2,
+  "id": "81521156-49cb-4d68-997b-02d0cff5f0d9",
+  "name": "EVA",
+  "width": 2000,
+  "height": 1400,
+  "platforms": [
+    {
+      "x": 700,
+      "y": 400,
+      "w": 600,
+      "h": 240,
+      "material": "steel",
+      "trim": "hazard",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          600,
+          0
+        ],
+        [
+          600,
+          240
+        ],
+        [
+          560,
+          240
+        ],
+        [
+          560,
+          32
+        ],
+        [
+          40,
+          32
+        ],
+        [
+          40,
+          240
+        ],
+        [
+          0,
+          240
+        ]
+      ]
+    },
+    {
+      "x": 0,
+      "y": 800,
+      "w": 300,
+      "h": 600
+    },
+    {
+      "x": 1700,
+      "y": 800,
+      "w": 300,
+      "h": 600
+    },
+    {
+      "x": 1700,
+      "y": 0,
+      "w": 300,
+      "h": 600
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "w": 300,
+      "h": 600
+    },
+    {
+      "x": 700,
+      "y": 760,
+      "w": 600,
+      "h": 240,
+      "material": "steel",
+      "trim": "hazard-bottom",
+      "polygon": [
+        [
+          0,
+          240
+        ],
+        [
+          600,
+          240
+        ],
+        [
+          600,
+          0
+        ],
+        [
+          560,
+          0
+        ],
+        [
+          560,
+          208
+        ],
+        [
+          40,
+          208
+        ],
+        [
+          40,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "entrance": {
+    "x": 120,
+    "y": 800
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "wallFinish": "plate",
+  "floor": 1400,
+  "goal": {
+    "x": 2000,
+    "y": 800,
+    "flipX": true,
+    "id": "d24315c5-e87e-49df-a6ce-a4c70938db37",
+    "power": "switched"
+  },
+  "times": {
+    "a": 10,
+    "b": 20,
+    "c": 40,
+    "d": 60
+  },
+  "props": [
+    {
+      "kind": "ball",
+      "x": 834,
+      "y": 734,
+      "size": 68
+    },
+    {
+      "kind": "box",
+      "x": 960,
+      "y": 815,
+      "size": 80
+    },
+    {
+      "kind": "ball",
+      "x": 966,
+      "y": 673,
+      "size": 68
+    },
+    {
+      "kind": "box",
+      "x": 1180,
+      "y": 700,
+      "size": 80
+    }
+  ],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "x": 1750,
+      "y": 800,
+      "w": 100,
+      "targets": [
+        "d24315c5-e87e-49df-a6ce-a4c70938db37"
+      ],
+      "mode": "touch"
+    }
+  ],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [],
+  "loosePanels": [
+    {
+      "x": 1440,
+      "y": 1200
+    }
+  ],
+  "stripes": [
+    {
+      "x": 265,
+      "y": 600,
+      "w": 35,
+      "h": 200
+    },
+    {
+      "x": 1700,
+      "y": 600,
+      "w": 35,
+      "h": 200
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "5ea53193-4a4a-423c-adbf-a02e20d9f27c",
+      "x": 300,
+      "y": 0,
+      "w": 1400,
+      "h": 1400,
+      "gravity": 0,
+      "power": "always"
+    }
+  ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "23971ebc-3d1b-48bb-afc9-a128f86a8843",
+        "x": 1000,
+        "y": 1360,
+        "intensity": 100,
+        "direction": -90,
+        "spread": 160,
+        "power": "always"
+      },
+      {
+        "id": "c8c9aa94-753b-4fb8-9df1-5b64f219537e",
+        "x": 1000,
+        "y": 30,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always"
+      },
+      {
+        "id": "41384ef6-90c7-4353-af34-e917491305a9",
+        "x": 1990,
+        "y": 700,
+        "intensity": 100,
+        "direction": 180,
+        "spread": 20,
+        "power": "always"
+      },
+      {
+        "id": "5056c3d0-7ac8-4399-80b4-4f7b41834f2c",
+        "x": 10,
+        "y": 700,
+        "intensity": 100,
+        "direction": 0,
+        "spread": 20,
+        "power": "always"
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ import { canGrabLedge, ledgeExposed, ledgeObstacles, platformLedges, sameLedge }
 import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, bodyPolygon, lipCrossing, moveBody, nearestBoundary, pointInside, toeCornerWall } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
-import { canGrip, FRICTIONLESS, groundVelocity, slidingVelocity, slipRests, surfaceFriction, TERRAIN_FRICTION } from './friction.ts'
+import { canGrip, groundVelocity, SLICK, slickVelocity, slidingVelocity, slipRests, surfaceFriction, TERRAIN_FRICTION } from './friction.ts'
 import { constrainWaterPosture, mantleAdvance, narrowMantle, playerContactBody, playerContacts, playerCollisionOutline, pushingVelocity, staticContactWorld, translateFeet, updatePushRig } from './playerContacts.ts'
 import type { ContactWorld, PlayerCollider, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
@@ -1130,6 +1130,35 @@ function stoppedBy(vx: number, vy: number, angle: number): [number, number] {
   const nx = Math.sin(angle), ny = -Math.cos(angle), into = vx * nx + vy * ny
   return into < 0 ? [-into * nx, -into * ny] : [0, 0]
 }
+/** How much faster than a loose object the body must arrive for taking it in the hands to be a collision. */
+const IMPACT_CLOSING = 5
+/** Meeting a face it cannot grip, how long the feet plant at its crease to shed speed by their grip (seconds). */
+const CREASE_PLANT = .3
+/** The tallest rise in the ground a glide rides over rather than meets as a step (units). */
+export const SLIDE_LIP = 2
+/** How far ahead of the feet the body hull's toe bevel reaches per unit of height (bodyPolygon: 12 across, 18 up). */
+const TOE_LEAD = 12 / 18
+/**
+ * Ground a glide moving from `oldX` to `x` rides up onto: the top of another fixed piece whose edge its toe crosses,
+ * at most SLIDE_LIP above its feet at `y`, with room for the body there. The toe meets the edge a little before the
+ * feet do, so the body is carried onto the top as the toe reaches it; otherwise the hull would catch on the corner.
+ * The rise is paid from the glide's speed, as climbing it would; a glide too slow to climb it meets the lip instead.
+ */
+function slideLip(platforms: readonly Platform[], oldX: number, x: number, y: number, vx: number, gravity: number) {
+  const direction = Math.sign(vx)
+  if (gravity <= 0 || !direction || !groundAt(platforms, oldX, y, .15)) return null
+  const toe = x + direction * SLIDE_LIP * TOE_LEAD
+  const ahead = groundAt(platforms, toe, y - SLIDE_LIP / 2, SLIDE_LIP / 2 + .01)
+  if (!ahead || ahead.y >= y - .15 || ahead.platform.looseProp) return null
+  const { platform } = ahead, edge = direction > 0 ? platform.x : platform.x + platform.w
+  // The edge must lie ahead of where the feet were, and within the toe's reach of where they arrive at this rise.
+  if ((edge - oldX) * direction <= 0 || (edge - x) * direction > (y - ahead.y) * TOE_LEAD) return null
+  const onto = direction > 0 ? Math.max(x, edge + .01) : Math.min(x, edge - .01)
+  const surface = groundAt([platform], onto, ahead.y, .15)
+  if (!surface || !canGrip(surface.angle, surfaceFriction(platform)) || platforms.some(b => overlaps(onto, surface.y, b))) return null
+  const kept = vx * vx - 2 * gravity * (y - surface.y)
+  return kept > 0 ? { x: onto, surface, vx: direction * Math.sqrt(kept) } : null
+}
 /** Feet on frictionless terrain, standing or sliding: a collision there is a glide meeting something, not a walk into it. */
 const slickFooting = (p: Player) => p.grounded ? !!p.contacts?.support?.platform.frictionless : !!p.sliding?.active && !!p.sliding.slick
 /** The speed a gliding body keeps when it catches a loose prop sliding the same way: the prop's own. So does a
@@ -1179,7 +1208,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   // Presented push preparation is solved before the contacts are published,
   // as it always was, when animating every step.
   const preparation = cadence(p) === 'tick' ? preparePush(p, input, world, contacts) : undefined
-  updatePushRig(p, contacts.push ?? null, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
+  updatePushRig(p, contacts.push ?? null, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y], !!contacts.support?.platform.frictionless)
   if (preparation !== undefined) presentPush(p, contacts, preparation, dt)
   // A rolling ball remains an obstruction for the motor, but the published
   // working contacts and rig must release once the shove supplies no force.
@@ -1269,6 +1298,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     ? 0 : Math.max(0, p.ladderJumpGrace - dt)
   p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt; p.airBoost.trim = false
   const stepIntent = p.stepIntent; p.stepIntent = null
+  const pushHold = p.pushHold; delete p.pushHold
   const pressed = input.jump && !p.jumpHeld
   if (pressed) p.jumpStrength = input.jumpStrength === undefined ? undefined : Math.max(0, Math.min(1, input.jumpStrength))
   p.jumpHeld = input.jump
@@ -1850,7 +1880,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (!dx && !dy && trim > .01) { p.airBoost.x = -p.vx / speed * TRIM_PUFF * trim; p.airBoost.lift = p.vy / speed * TRIM_PUFF * trim; p.airBoost.trim = true }
   } else if (p.sliding?.active && !p.grounded) {
     const angle = p.sliding.angle, tangent = [Math.cos(angle), Math.sin(angle)]
-    const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, gravity, dt, p.sliding.slick ? FRICTIONLESS : TERRAIN_FRICTION)
+    const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, gravity, dt, p.sliding.slick ? SLICK : TERRAIN_FRICTION)
     // The ordinary gravity step below supplies the normal load for the sweep.
     // Subtract its tangent contribution here so gravity is integrated only once.
     const beforeGravity = speed - gravity * tangent[1] * dt
@@ -1865,13 +1895,27 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const beforeSteering = p.vx
     // Velocity stays in world space. Limited shoe traction can follow a slow
     // bot, but cannot instantly match a charge or erase momentum on departure.
-    const steered = ground?.platform.frictionless ? p.vx
+    // On ice the feet push off and stop only as hard as the ice holds them, which is less in light gravity.
+    const steered = ground?.platform.frictionless ? slickVelocity(p.vx, target, Math.abs(move) > .01, ground.angle, gravity, dt)
       : ground && canGrip(ground.angle)
       ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? Math.max(0, gravity + (p.swimAcceleration ?? 0)) * .8 : groundSteering, dt) + (carrier?.vx ?? 0)
       : coasting || !p.grounded && isWeightless(gravity) && !move ? p.vx
       : approach(p.vx, target, (p.grounded ? groundSteering : TUNING.airAcceleration + (TUNING.swimHorizontalAcceleration - TUNING.airAcceleration) * waterControl) * dt)
     // The working stance walks the body to its push distance, which needs traction.
-    const constrained = ground?.platform.frictionless ? null : pushingVelocity(p, contacts.push, world, dt, steered)
+    const constrained = pushingVelocity(p, contacts.push, world, dt, steered)
+    // Running into a loose object, the hands take it with the body's momentum: the object takes the player's share of
+    // the closing speed by mass (a riding kick, propPhysics.ts reactToPushOffs), and the stance follows it at its own
+    // pace. Only the hands' arrival is a collision, on the first step they are on the object (`pushHold`), and only
+    // the body's own arrival counts: it must close clearly faster than the object moves away (IMPACT_CLOSING). Hands
+    // already on it own its pace, however fast the stance walks the body back to it, and an object rolling into a
+    // standing body is the solver's to stop.
+    const pushed = contacts.push?.collider.prop
+    if (constrained !== null && pushed) {
+      const direction = contacts.push!.direction, id = contacts.push!.collider.id, working = !contacts.push!.passive
+      if (working && pushHold !== id && beforeSteering * direction - Math.max(0, pushed.vx * direction) > IMPACT_CLOSING)
+        kickProp(p, contacts.push!.collider, [-direction, 0], [-beforeSteering, 0], true)
+      if (working || Math.abs(constrained - steered) > 1) p.pushHold = id
+    }
     p.vx = constrained ?? steered
     if (!p.grounded && constrained === null) p.airBoost.x = (p.vx - beforeSteering) / (TUNING.airAcceleration * dt)
   }
@@ -1916,11 +1960,20 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     else if (p.vx < 0 && oldX - 12 >= b.x + b.w - .1 && exposedSide(platforms, b, -1, p.y - height, p.y)) { p.x = b.x + b.w + 12; p.vx = glidingBehind(p, world, b, -1) }
   }
   let support = following ? followGround(platforms, oldX, p.x, oldY) : null
+  // A glide rides up over a lip too low to be a step (SLIDE_LIP), paying the climb from its speed, rather than
+  // stopping against it: the step-up gate above gives slick footing no foothold.
+  if (following && contacts.support?.platform.frictionless) {
+    const lip = slideLip(platforms, oldX, p.x, oldY, p.vx, gravity)
+    if (lip) { p.x = lip.x; support = lip.surface; p.vx = lip.vx }
+  }
+  // The face momentum carries the body onto when the feet lose it; by default the one it leaves.
+  let carryAngle: number | undefined
   if (following && !support) {
     const before = groundAt(platforms, oldX, oldY, .2)
     const ahead = before && p.x >= before.platform.x && p.x <= before.platform.x + before.platform.w
       ? platformSurface(before.platform, p.x, oldY) : null
-    if (ahead && !canGrip(ahead.angle) && ahead.y < oldY) {
+    // A face the feet cannot grip (by its own friction: ordinary ground's steep faces, any real slope of ice).
+    if (ahead && ahead.y < oldY && !canGrip(ahead.angle, surfaceFriction(before!.platform))) {
       // Walk as far as the supporting face permits. Applying a free-fall step
       // before reaching this crease can push the player back down the old face,
       // repeating a tiny uphill/downhill cycle without ever hitting the new one.
@@ -1930,8 +1983,15 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         const mid = (low + high) / 2
         if (followGround(platforms, oldX, oldX + dx * mid, oldY)) low = mid; else high = mid
       }
-      p.x = oldX + dx * low; p.vx = 0
-      support = followGround(platforms, oldX, p.x, oldY)
+      p.x = oldX + dx * low
+      // The feet plant at the crease and shed what speed their grip allows in a planted moment (CREASE_PLANT). Any
+      // left over carries the body on up the face, along it, and the ordinary slide slows it and brings it back down.
+      // Ordinary grip sheds more than a full run, so walking or running into a steep face still stops at its foot;
+      // ice sheds little, so a glide carries on up a slick slope.
+      const along = Math.abs(p.vx) * Math.cos(ahead.angle)
+      const kept = along - surfaceFriction(before!.platform).grip * Math.max(0, gravity) * CREASE_PLANT
+      if (kept > 0) { p.vx = Math.sign(p.vx) * kept * Math.cos(ahead.angle); carryAngle = ahead.angle }
+      else { p.vx = 0; support = followGround(platforms, oldX, p.x, oldY) }
     }
   }
   if (support && platforms.some(b => b !== support!.platform && oldY - height >= b.y + b.h - .1 && overlaps(p.x, support!.y, b, height))) {
@@ -1941,7 +2001,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (following && !support) {
     // Carry the actual surface velocity over a crest or onto a steeper face.
     const before = groundAt(platforms, oldX, oldY, .2)
-    if (before) p.vy = p.vx * Math.tan(before.angle)
+    if (carryAngle !== undefined) p.vy = p.vx * Math.tan(carryAngle)
+    else if (before) p.vy = p.vx * Math.tan(before.angle)
   }
   sustainJump(p, dt)
   p.vy = Math.max(-1100, Math.min(1100, p.vy + (gravity + (p.swimAcceleration ?? 0)) * dt))

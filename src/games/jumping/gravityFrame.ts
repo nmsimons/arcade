@@ -84,6 +84,8 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     if (value.slope !== undefined) value.slope = -value.slope
     // The presented push and the push rig can share palms from the same contact.
     for (const palm of value.palms ?? []) if (!seen.has(palm)) { seen.add(palm); palm.y = -palm.y; palm.ny = -palm.ny }
+    // The drawn palms' offset still coming across (playerContacts.ts drawnPalmShift).
+    if ('shift' in value && value.shift) value.shift = value.shift.map(([x, y]) => [x, -y])
   }
   const footwork = (value: Footwork | null) => {
     if (!value || seen.has(value)) return

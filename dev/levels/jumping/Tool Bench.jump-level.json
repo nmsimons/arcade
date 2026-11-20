@@ -18,6 +18,7 @@
   "climbables": { "ladders": [{ "x": 385, "top": 570, "bottom": 720, "platform": -1, "side": 1 }], "ropes": [] },
   "props": [
     { "name": "Repulsor", "kind": "box", "gadget": "repulsor", "x": 160, "y": 720, "size": 40 },
+    { "name": "Tractor", "kind": "box", "gadget": "tractor", "x": 212, "y": 720, "size": 40 },
     { "name": "Spare EMP", "kind": "box", "gadget": "emp", "x": 265, "y": 720, "size": 40 },
     { "kind": "ball", "x": 450, "y": 720, "size": 68 },
     { "kind": "ball", "x": 540, "y": 720, "size": 68, "weight": "heavy" },

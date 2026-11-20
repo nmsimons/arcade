@@ -287,6 +287,9 @@ export function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
 export function clearRiserLeg(p: Player, leg: Leg, cornerOnly = false): Leg {
   let current = leg
   const rootX = p.x + leg.root[0] * p.facing
+  // Where two pieces meet flush (ice laid against ordinary ground), their touching sides are a seam inside solid
+  // ground, not a riser: solid on both sides of it at the sole's height.
+  const solid = (x: number, y: number) => p.terrain!.some(o => !o.looseProp && pointInside(o, x, y))
   for (const b of p.terrain!) {
     if (rootX + 36 < b.x || rootX - 36 > b.x + b.w || p.y < b.y || p.y - 62 > b.y + b.h) continue
     const points = platformOutline(b)
@@ -304,9 +307,13 @@ export function clearRiserLeg(p: Player, leg: Leg, cornerOnly = false): Leg {
       let intrusion = 0
       for (const point of FOOT_CONTACT) {
         const sole = footPoint(point, current.footAngle * current.footFacing, current.toeAngle * current.footFacing)
-        const y = p.y + current.end[1] + sole[1]
-        if (y > top + .01 && y < bottom - .01) intrusion = Math.max(intrusion,
-          (current.end[0] + sole[0] * current.footFacing - wall) * side + .05)
+        const y = p.y + current.end[1] + sole[1], depth = (current.end[0] + sole[0] * current.footFacing - wall) * side
+        // A sole sunk into the top of the ledge behind the face, nearer its open top than the face (a trailing foot
+        // tilting as the body glides off a step down), leaves through that top, as airborne clearance does; pushing
+        // it out through the face would throw it across the whole tread in one frame.
+        const throughTop = y - top < depth && !solid(p.x + (current.end[0] + sole[0] * current.footFacing) * p.facing, top - .5)
+        if (y > top + .01 && y < bottom - .01 && !throughTop && !(solid(a[0] - .5, y) && solid(a[0] + .5, y)))
+          intrusion = Math.max(intrusion, depth + .05)
       }
       if (intrusion > 0) current = clearAirborneFoot(p, { ...current, ...solve(current.root,
         [current.end[0] - intrusion * side, current.end[1]], 15, 14.5, -1, p.grounded ? Math.PI / 12 : MIN_KNEE_OPENING), jointDepth: 0, endDepth: 0 }, 16)

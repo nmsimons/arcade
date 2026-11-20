@@ -21,7 +21,7 @@ import { goalEase } from './goal.ts'
 import { openAirAt } from './environment.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo' | 'pump'
-export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'power-warning' | 'emp-shot' | 'repulsor' | 'shove'
+export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'power-warning' | 'emp-shot' | 'repulsor' | 'tractor' | 'shove'
   | 'relay' | 'drip' | 'bubble' | 'bird-whistle' | 'bird-trill' | 'bird-chirp' | 'air-brake'
 /** What a step or landing comes down on, which colours its sound (sound.ts). */
 export type Surface = 'stone' | 'earth' | 'grass' | 'metal' | 'wood' | 'rubber'
@@ -369,7 +369,7 @@ export class JumpingAudioState {
         if (this.cues.length > 8) this.cues.pop()
       }
       this.warningBeat = warning?.beat ?? null
-      if (run.gadgets.shots > before.shots) cue(run.gadgets.lastShotKind === 'emp' ? 'emp-shot' : 'repulsor', p.x, p.y - 30)
+      if (run.gadgets.shots > before.shots) cue(run.gadgets.lastShotKind === 'emp' ? 'emp-shot' : run.gadgets.lastShotKind === 'tractor' ? 'tractor' : 'repulsor', p.x, p.y - 30)
       if (run.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length > before.penalties) cue('time-penalty', p.x, p.y - 30)
       // Another stopwatch extends an existing pause and still deserves feedback.
       if (run.timeStopRemaining > before.stopped + .01 || run.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length > before.timeBonuses

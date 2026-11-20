@@ -244,28 +244,37 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   const braking = input.move * p.vx < -1
   const approach = !p.grounded && (p.pushing?.ready ?? 0) > 0 && p.pushing?.effort === 0
   const direction = contactTurn ? push!.direction : approach ? p.pushing!.direction : dryTurnDirection(p, input, before)
-  if (motion.target !== direction) { motion.target = direction; motion.time = 0 }
+  if (motion.target !== direction) { motion.target = direction; motion.time = 0; motion.goal = undefined }
   motion.time += dt
   const gait = p.anim.gait && { ...p.anim.gait, run: braking ? 0 : p.anim.gait.run }
   const incoming = motion.step && p.pushing ? { ...p.pushing, amount: Math.max(p.pushing.amount, p.pushing.ready ?? 0) } : p.pushing
   let target = athletePose({ ...p, anim: { ...p.anim, dryTurn: null, slideEntry: null, gait }, facing: direction, pushing: incoming })
   if (direction !== p.facing) target = reflectAthletePose(target)
+  // A shoe the stride sets down while the turn is still drawing it on its way (a dozen units short, or still high in
+  // its swing) comes down onto its contact with the rest of the turn, and is held there once it is drawn there.
+  // Pinning it to the contact (below) at once leapt the foot up to a dozen units in one frame, about ten ticks into
+  // a turn out of a push. The contact stays where the stride put it: setting it down where the foot was drawn left it
+  // planted out of step, the hips sinking to keep it and rising in one go when it let go.
+  // A returning step keeps its own motor-owned contacts throughout.
+  const landing = (name: 'frontLeg' | 'backLeg') => !motion.step && target[name].planted && !from[name].planted
+    && Math.hypot(from[name].end[0] - target[name].end[0], from[name].end[1] - target[name].end[1]) > 2
+  const pinned = (name: 'frontLeg' | 'backLeg') => target[name].planted && !motion.recoil && !landing(name)
   // A planted shoe uses the current motor contact, including heel/toe roll.
   // Blending its angle independently of its ankle would drag material points.
-  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted && !motion.recoil) {
+  for (const name of ['frontLeg','backLeg'] as const) if (pinned(name)) {
     from = { ...from, [name]: { ...from[name], end: target[name].end, footAngle: target[name].footAngle,
       toeAngle: target[name].toeAngle, footFacing: target[name].footFacing, planted: true } }
   }
   // The old pelvis follows the motor root immediately. Bend the loaded leg
   // enough for its unchanged contact before interpolating the two valid rigs.
   let dip = 0
-  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted && !motion.recoil) {
+  for (const name of ['frontLeg','backLeg'] as const) if (pinned(name)) {
     const end = target[name].end, dx = end[0] - from.hip[0]
     dip = Math.max(dip, end[1] - Math.sqrt(Math.max(0, 29 ** 2 - dx ** 2)) - from.hip[1] - 1)
   }
   if (dip) {
     from = rotatePose(from, 0, 1, [0,0], [0,dip])
-    for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) from[name].end = target[name].end
+    for (const name of ['frontLeg','backLeg'] as const) if (pinned(name)) from[name].end = target[name].end
   }
   const duration = motion.step ? .1 : motion.slide ? .16 : .14
   const fraction = Math.min(1, dt / Math.max(dt, duration - motion.time + dt))
@@ -283,7 +292,10 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
     let pose = t === 1 ? target : transferPose(from, target, [0,0], t, [0,0], 0, true, 0,
       { depth: bend * (motion.slide ? 6 : 8), kneeOpening: motion.slide ? MIN_KNEE_OPENING : 0,
         legDepth: motion.slide ? bend * 6 : undefined })
-    if (reaching && t < 1) pose = transferReachingPushTurn(p, pose, from, target, t)
+    // A contact turn is held to the incoming palms once the drawn push has formed there; until then its arms are still
+    // on their way, as in a reach.
+    const formed = (incoming?.ready ?? 0) >= 1
+    if ((reaching || contactTurn && !formed) && t < 1) pose = transferReachingPushTurn(p, pose, from, target, t)
     else if (contactTurn && t < 1) pose = transferPushTurn(p, pose, from, target, t)
     if (!p.grounded || motion.recoil) {
       pose = clearBody(p, pose).pose
@@ -304,16 +316,30 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
     return articulateAnkles(p, pose)
   }
   let t = fraction, pose = sample(t)
-  if (motion.slide || reaching || motion.departure || motion.recoil) {
-    // Reacquired slopes and crowded reaches can require more clearance than
-    // the raw transfer predicts. Budget the final cleared joints, preserving
-    // fixed bones and safe skin instead of blending corrected coordinates.
-    const points = (rig: AthletePose) => [rig.hip, rig.waist, rig.shoulder, rig.head,
-      ...[rig.frontArm, rig.backArm, rig.frontLeg, rig.backLeg].flatMap(limb =>
-        [[...limb.joint, limb.jointDepth ?? 0], [...limb.end, limb.endDepth ?? 0]])]
-    const previous = points(from), limit = 600 * dt
+  // Reacquired slopes and crowded reaches can require more clearance than
+  // the raw transfer predicts. Budget the final cleared joints, preserving
+  // fixed bones and safe skin instead of blending corrected coordinates.
+  // Every turn is budgeted: a moving target (a stride already under way as the
+  // turn hands over to it) otherwise left the drawn joints behind, and the
+  // turn's last step closed the gap at once, a foot or hand leaping ten units.
+  // A joint may follow its target's own motion, and close the rest of the gap
+  // at most 600 units a second, so the turn ends when the pose has caught up.
+  const points = (rig: AthletePose) => [rig.hip, rig.waist, rig.shoulder, rig.head,
+    ...[rig.frontArm, rig.backArm, rig.frontLeg, rig.backLeg].flatMap(limb =>
+      [[...limb.joint, limb.jointDepth ?? 0], [...limb.end, limb.endDepth ?? 0]])]
+  // Slides, reaches, departures, recoils and returning steps keep the bare 600 units a second: their targets are not a
+  // stride under way, and a returning step's incoming rig can change at once as its reach gives way to the real push.
+  const strict = motion.slide || reaching || motion.departure || motion.recoil || motion.step
+  const goal = points(target), lastGoal = motion.goal?.length === goal.length && !strict ? motion.goal : null
+  motion.goal = goal
+  {
+    const previous = points(from)
+    const limits = goal.map((point, i) => {
+      const own = lastGoal ? Math.hypot(...point.map((value, axis) => value - (lastGoal[i][axis] ?? 0))) : 0
+      return Math.max(600 * dt + own * .5, own * 1.2)
+    })
     const safe = (rig: AthletePose) => points(rig).every((point, i) =>
-      Math.hypot(...point.map((value, axis) => value - (previous[i][axis] ?? 0))) <= limit)
+      Math.hypot(...point.map((value, axis) => value - (previous[i][axis] ?? 0))) <= limits[i])
     if (!safe(pose)) {
       let low = 0, high = t
       for (let i = 0; i < 14; i++) {

@@ -2,10 +2,16 @@
 // surface types can supply their own grip without changing movement or collisions.
 export interface SurfaceFriction { grip: number; sliding: number }
 export const TERRAIN_FRICTION: SurfaceFriction = { grip: 1.05, sliding: .65 }
-/** Frictionless terrain: feet get no traction, so only gravity and momentum act along it. */
+/** No traction at all: only gravity and momentum act along it. */
 export const FRICTIONLESS: SurfaceFriction = { grip: 0, sliding: 0 }
-/** The grip a terrain piece offers. Callers asking only whether a face is floor-like keep the default. */
-export const surfaceFriction = (surface?: { frictionless?: boolean } | null) => surface?.frictionless ? FRICTIONLESS : TERRAIN_FRICTION
+/**
+ * Slick (`frictionless`) terrain: ice, for feet and loose props alike. One coefficient for holding and sliding: a
+ * body holds on slopes up to about 6 degrees and slides on anything steeper, and a slide slows by that coefficient
+ * times its load (slideOn) until it comes to rest. Feet push off no harder than that either (slickVelocity).
+ */
+export const SLICK: SurfaceFriction = { grip: .1, sliding: .1 }
+/** The grip a terrain piece offers feet. Callers asking only whether a face is floor-like keep the default. */
+export const surfaceFriction = (surface?: { frictionless?: boolean } | null) => surface?.frictionless ? SLICK : TERRAIN_FRICTION
 
 const approach = (value: number, target: number, delta: number) => value + Math.max(-delta, Math.min(delta, target - value))
 
@@ -31,6 +37,23 @@ export function groundVelocity(vx: number, target: number, angle: number, accele
   // square root keeps ordinary slopes responsive while reducing steep climbing.
   const reserve = Math.max(0, normal + Math.sign(target - speed) * downhill / friction.grip)
   return approach(speed, target, acceleration * Math.sqrt(reserve) * dt) * normal
+}
+
+/**
+ * Coulomb sliding friction: the speed left along a surface after one step of sliding, where `load` is how hard the
+ * surface pushes back per unit mass (gravity times the cosine of its slope). It slows a slide and never reverses it.
+ */
+export const slideOn = (speed: number, load: number, dt: number, surface: SurfaceFriction) =>
+  Math.sign(speed) * Math.max(0, Math.abs(speed) - surface.sliding * Math.max(0, load) * dt)
+
+/**
+ * Ground steering on slick footing, in surface space. The ice holds the feet by its sliding friction alone, so it
+ * limits pushing off exactly as much as stopping: a held direction speeds up or brakes toward its pace at that rate,
+ * and letting go slides to rest by the same friction a loose prop meets (slideOn). Getting moving is as hard as stopping.
+ */
+export function slickVelocity(vx: number, target: number, driving: boolean, angle: number, gravity: number, dt: number, surface = SLICK) {
+  const normal = Math.cos(angle), load = Math.max(0, gravity) * normal
+  return (driving ? approach(vx / normal, target, surface.sliding * load * dt) : slideOn(vx / normal, load, dt, surface)) * normal
 }
 
 /** Integrate gravity and friction together, catching a stop without reversing it. */

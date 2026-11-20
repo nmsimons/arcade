@@ -155,7 +155,7 @@ for (const outage of ['EMP hit', 'global EMP']) test(`a ${outage} stops retaliat
   const x = bot.x; tick(run, 60); assert.equal(bot.x, x)
 })
 
-for (const kind of ['emp', 'repulsor']) test(`carrying a ${kind} keeps F as tool fire, including at close range`, () => {
+for (const kind of ['emp', 'repulsor', 'tractor']) test(`carrying a ${kind} keeps F as tool fire, including at close range`, () => {
   const file = blankTrial(); file.goal.x = 1700
   file.props = [{ kind: 'box', gadget: kind, x: 190, y: 920, size: 40 }]
   file.robots = [{ kind: 'repulsor', x: 700, y: 920, left: 26, right: 1774 }]

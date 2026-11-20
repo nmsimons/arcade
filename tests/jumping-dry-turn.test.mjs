@@ -10,6 +10,7 @@ import { footPoint, FOOT_CONTACT } from '../src/games/jumping/footwork.ts'
 import { LEDGE_CATCH_TIME } from '../src/games/jumping/ledge.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
 import { athleteSkin } from './helpers/jumpingSkin.mjs'
+import { drawnPushFormed } from './helpers/jumpingDrawnPush.mjs'
 
 const worldPoint = (p, a) => [p.x + a[0] * p.facing, p.y + a[1] * (p.inverted ? -1 : 1)]
 const distance = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]))
@@ -168,20 +169,23 @@ test('letting go of a ledge preserves visible facing through the release without
   }
 })
 
-test('turning into a real prop contact retains first-force palms and fixed support legs', () => {
+// The drawn push forms from the pose drawn, so the palms settle onto the first force's contact as the stance forms
+// (docs/jumping-physics.md), rather than leaping there on the first loaded frame.
+test('turning into a real prop contact settles onto its first-force palms and keeps fixed support legs', () => {
   for (const side of [-1,1]) for (const kind of ['box','ball']) for (const size of [30,80]) {
     const level = blankTrial(); level.entrance = {x:540-side*(size/2+25.5),y:920}
     level.props = [{kind,x:540,y:920,size}]
     const run = createRun(level)
     Object.assign(run.player,{ facing:-side, vx:-side*410, anim: { ...run.player.anim, gait:gaitPose(-side*410) } })
-    let touched = 0
+    let touched = 0, formed = 0
     for (let i=0;i<60;i++) {
       stepRun(run,{...NEUTRAL_INPUT,move:side})
       const p = run.player, pose = athletePose(p)
       bones(pose); soles(p,pose)
       if (!p.contacts.push?.collider.prop) continue
       touched++
-      for (const [j,arm] of [pose.frontArm,pose.backArm].entries()) {
+      if (drawnPushFormed(p)) formed++
+      if (drawnPushFormed(p)) for (const [j,arm] of [pose.frontArm,pose.backArm].entries()) {
         const palm = p.pushing.palms[j]
         assert.ok(arm.hand,'the palm is present on the first force-bearing tick')
         assert.ok(distance(worldPoint(p,arm.hand),[palm.x+palm.nx*1.6,palm.y+palm.ny*1.6])<.001,JSON.stringify({side,kind,size,i,j,hand:worldPoint(p,arm.hand),palm,turn:!!p.anim.dryTurn,shoulder:pose.shoulder}))
@@ -189,7 +193,7 @@ test('turning into a real prop contact retains first-force palms and fixed suppo
       const head = worldPoint(p,pose.head)
       for (const solid of run.platforms) assert.ok(!pointInside(solid,...head) && nearestBoundary(solid,...head).distance >= 6.18, JSON.stringify({side,kind,size,i,head,solid,distance:nearestBoundary(solid,...head).distance,turn:!!p.anim.dryTurn}))
     }
-    assert.ok(touched>20,'the encounter actually applies the shove')
+    assert.ok(touched>20 && formed>10,'the encounter actually applies the shove')
   }
 })
 

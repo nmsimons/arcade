@@ -23,6 +23,7 @@ test('development maps stay outside production; stress benchmarks retain both re
       if (file === 'Tool Bench.jump-level.json') {
         assert.ok(level.props.some(prop => prop.gadget === 'emp'))
         assert.ok(level.props.some(prop => prop.gadget === 'repulsor'))
+        assert.ok(level.props.some(prop => prop.gadget === 'tractor'))
       }
       continue
     }

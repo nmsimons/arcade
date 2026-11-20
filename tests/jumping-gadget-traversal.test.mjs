@@ -25,7 +25,7 @@ function sameArm(p) {
   assert.deepEqual(athletePose(p)[key], athletePose({ ...p, heldTool: undefined })[key], 'a working right arm keeps its ordinary pose')
 }
 
-for (const kind of ['repulsor', 'emp']) for (const climb of ['ladder', 'rope']) test(`${kind} follows every ${climb} hand stroke smoothly when ascending and descending`, () => {
+for (const kind of ['repulsor', 'emp', 'tractor']) for (const climb of ['ladder', 'rope']) test(`${kind} follows every ${climb} hand stroke smoothly when ascending and descending`, () => {
   const level = scene(kind)
   if (climb === 'ladder') level.climbables.ladders = [{ x: 160, top: 300, bottom: 920, platform: -1, side: 1 }]
   else level.climbables.ropes = [{ x: 160, y: 300, length: 600, segments: 75 }]
@@ -48,7 +48,7 @@ for (const kind of ['repulsor', 'emp']) for (const climb of ['ladder', 'rope']) 
   assert.ok(maximum < 4, `ordinary climbing has no gadget pose jumps (${maximum})`)
 })
 
-for (const kind of ['repulsor', 'emp']) test(`${kind} catches freeze the incoming sleeve pose for the transfer`, () => {
+for (const kind of ['repulsor', 'emp', 'tractor']) test(`${kind} catches freeze the incoming sleeve pose for the transfer`, () => {
   const level = scene(kind)
   level.climbables.ladders = [{ x: 160, top: 300, bottom: 920, platform: -1, side: 1 }]
   const run = equipped(level)
@@ -61,7 +61,7 @@ for (const kind of ['repulsor', 'emp']) test(`${kind} catches freeze the incomin
   assert.deepEqual(caught.heldTool, snapshot, 'later input cannot rewrite the pose the catch started from')
 })
 
-for (const kind of ['repulsor', 'emp']) test(`${kind} allows ladder climbing and descending with the sleeve on its working arm`, () => {
+for (const kind of ['repulsor', 'emp', 'tractor']) test(`${kind} allows ladder climbing and descending with the sleeve on its working arm`, () => {
   const level = scene(kind)
   level.climbables.ladders = [{ x: 160, top: 500, bottom: 920, platform: -1, side: 1 }]
   const run = equipped(level)

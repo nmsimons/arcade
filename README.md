@@ -634,8 +634,8 @@ for the full workflow and [Making a fun jumping level](docs/jumping-level-design
 for the level-design brief.
 
 The [carried-gadget prototype](docs/jumping-carried-gadgets.md) adds deliberate
-pickup/drop, normal traversal with a supporting-arm use gate, a carried EMP, and a repulsor
-sleeve with eight-direction movement aiming and red-field detachment. Place tools under
+pickup/drop, normal traversal with a supporting-arm use gate, a carried EMP, a repulsor
+sleeve and a tractor sleeve that pulls items and bots back at the player, with eight-direction movement aiming and red-field detachment. Place tools under
 **Gadgets** in the studio, or open **Stress tests · Development → Tool Bench**
 in a development build. Other gadget candidates remain deferred.
 

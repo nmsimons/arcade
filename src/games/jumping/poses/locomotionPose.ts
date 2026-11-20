@@ -1,7 +1,7 @@
 // Ground and air locomotion, crouching, landing, reaching and pushing.
 import { handGeometry, pushPalmFrame } from '../androidHand.ts'
-import { bodyIntrusion, clearAirborneFoot, clearLimb, clearRiserLeg, clearSlidingArm, clearSlidingJoint, pushBallSurface } from '../athleteClearance.ts'
-import { FOREARM, HEAD_RADIUS, UPPER_ARM, add, armPose, clamp, lerp, mix, mixAngle, smooth, solveLeg } from '../athleteRig.ts'
+import { bodyIntrusion, clearAirborneFoot, clearLimb, clearRiserLeg, limbClearance, clearSlidingArm, clearSlidingJoint, pushBallSurface } from '../athleteClearance.ts'
+import { FOREARM, HEAD_RADIUS, UPPER_ARM, add, armPose, clamp, lerp, mix, mixAngle, smooth, solveLeg, transferPose } from '../athleteRig.ts'
 import type { AthletePose } from '../athleteRig.ts'
 import { sampleStride } from '../footwork.ts'
 import { BACK_GRIP, BACK_WRIST, FRONT_GRIP, FRONT_WRIST } from '../ledge.ts'
@@ -32,7 +32,8 @@ export function locomotionPose(p: Player): AthletePose {
   const pushing = smooth(Math.max(p.pushing?.amount ?? 0, p.pushing?.ready ?? 0))
   // Gather the supported body with the hands before contact. Otherwise the
   // first force-bearing frame moves the shoulders and both wrists at once.
-  const bodyPush = p.grounded ? pushing : smooth(p.pushing?.amount ?? 0)
+  // The drawn push eases this across a touchdown (playerContacts.ts nextStance); the motor's rig has no stance.
+  const bodyPush = p.pushing?.stance !== undefined ? smooth(p.pushing.stance) : p.grounded ? pushing : smooth(p.pushing?.amount ?? 0)
   // Preparation aims at the incoming working stance, not the distant surface.
   // Keep the real palm coordinates for contact, but cap unloaded reach so a
   // faster, earlier anticipation cannot pull the pelvis toward the object.
@@ -74,15 +75,18 @@ export function locomotionPose(p: Player): AthletePose {
   // A quick, eased compression absorbs the impact, followed by a longer recovery.
   const landing = (landingTime < .28 ? smooth(landingTime / .28) : 1 - smooth((landingTime - .28) / .72)) * (1 - air * .7)
   const landingDepth = landing * lerp(2.5, 16, p.landingImpact) * (1 - squat)
+  // Sliding fast across ice with nothing held (characterAnimation.ts advanceCurl), a curler's crouch: hips sunk and
+  // the trunk pitched forward over the sliding front foot. The push stance owns the trunk while the hands work.
+  const glide = smooth(p.anim.curl ?? 0) * (1 - bodyPush)
   // The idle crouch must fit the same 40-unit opening as its walking pose.
-  const dip = squat * (13.4 + 1.8 * (1 - moving)) + landingDepth
+  const dip = squat * (13.4 + 1.8 * (1 - moving)) + landingDepth + glide * 8
   const slopeLean = -p.groundAngle * p.facing * (1 - air) * .3
   const hipHeight = lerp(lerp(-33.2, lerp(-31.4, -28.3, run), moving), -31.5 + tuck * 2.5, air)
   // A walk still carries the chest ahead of the supported pelvis. Keep the
   // running pitch while giving the slower gait a small, sustained forward lean.
-  const pelvicPitch = (lerp(.065, .225, run) + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014
+  const pelvicPitch = (lerp(.065, .225, run) + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014 + glide * .3
   const chestPitch = (lerp(.16, .435, run) + Math.sin(cycle * 2 - .55) * lerp(.035, .1, run)
-    + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + duckWave(.1) * .1 + air * (.12 + speed * .18 + tuck * .18 - descent * .06 + preparation * .12 + steering * .025) + landingDepth * .035 + slopeLean
+    + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + duckWave(.1) * .1 + air * (.12 + speed * .18 + tuck * .18 - descent * .06 + preparation * .12 + steering * .025) + landingDepth * .035 + slopeLean + glide * .4
   const hip: Point = [-squat * 3 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4) + duckWave(0) * duckShift, hipHeight + dip + hipBob]
   const waist: Point = [hip[0] + Math.sin(pelvicPitch) * 6.5, hip[1] - Math.cos(pelvicPitch) * 6.5]
   const shoulder: Point = [waist[0] + Math.sin(chestPitch) * 10.1, waist[1] - Math.cos(chestPitch) * 10.1 + chestBob - hipBob]
@@ -185,6 +189,11 @@ export function locomotionPose(p: Player): AthletePose {
     frontAnkle = [(contacts[0].x - p.x) * p.facing, contacts[0].y - p.y]
     backAnkle = [(contacts[1].x - p.x) * p.facing, contacts[1].y - p.y]
   }
+  // Gliding across ice (characterAnimation.ts advanceCurl): the front foot slides under the hips and the
+  // trailing leg stretches back, within the push crouch's reach.
+  const curl = smooth(p.anim.curl ?? 0)
+  // Standing taller once the hands are off, the trailing foot comes in so the leg still reaches it.
+  if (curl) { frontAnkle = mix(frontAnkle, [6, -2.8], curl); backAnkle = mix(backAnkle, [-15 - 6 * bodyPush, -2.8], curl) }
   if (bodyPush && p.pushing!.palms) {
     // Meet the farther palm before applying a load. A long approach reach
     // advances the pelvis with the chest, rather than stretching the spine.
@@ -294,7 +303,10 @@ export function locomotionPose(p: Player): AthletePose {
     frontArm = press(frontArm, -43, 0); backArm = press(backArm, -46, 1)
     // Loaded prop elbows clear a rotating face without moving either palm.
     // Unloaded reaches and blending wall palms retain their free clearance.
-    const contact = !!p.contacts?.push?.hands, anchored = contact && !!p.pushing!.palms
+    // So do drawn palms still on their way to a new contact (playerContacts.ts eases them in): only a palm that has
+    // arrived is an anchor. The motor's rig (no stance) places its palms at once.
+    const arrived = p.pushing!.stance === undefined || pushing >= 1 && !p.pushing!.shift
+    const contact = !!p.contacts?.push?.hands, anchored = contact && !!p.pushing!.palms && arrived
     frontArm = clearLimb(p,frontArm,UPPER_ARM,FOREARM,1,true,contact,anchored)
     backArm = clearLimb(p,backArm,UPPER_ARM,FOREARM,1,true,contact,anchored)
   }
@@ -319,19 +331,66 @@ export function locomotionPose(p: Player): AthletePose {
   const backLeg = solveLeg(add(hip, [0, 1]), backAnkle, contacts ? contacts[1].angle * backFacing : lerp(backStep.angle * (1 - squat) * moving, .12, air), p.grounded, backPlanted, backFacing, 1 - air, -1,
     contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight, squat, ankleFlex, backStep.toeCurl * gait)
   const result: AthletePose = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
-  return settleLocomotionContacts(p, p.grounded && p.contacts?.push?.hands && p.pushing?.palms ? fitLoadedPushTrunk(p, result) : result)
+  // The trunk meets the palms as fully as the push has formed (playerContacts.ts eases the drawn stance in on every
+  // footing): from a standstill against a crate, fitting it at once leapt from standing to a full reach in a single
+  // frame. Letting go, it leaves them as gradually as the release fades, so pressing again picks up the pose drawn.
+  // The motor's rig (gameplayPose.ts draws it in place of the drawn push, and it has no stance) keeps its own rule,
+  // which gameplay reads: fitted at once, except on ice.
+  // The drawn trunk also joins the palms over the first half unit past full stretch: fitting it at once there, which
+  // draws the trunk in to a 17.5 reach, made it lurch a couple of units in one frame whenever a moving or tipping face
+  // crossed that line.
+  const drawn = p.pushing?.stance !== undefined
+  const eased = drawn || !!p.contacts?.support?.platform.frictionless
+  const weight = !eased ? 1 : smooth(p.pushing?.amount ?? 0) * (drawn && p.pushing?.palms ? smooth((pushReach(p, result) - FULL_STRETCH) / .5) : 1)
+  // The drawn push mixes through the limbs' own bends, so bones keep their lengths part way; the rig keeps its own mix.
+  const mixed = (fit: AthletePose) => drawn ? transferPose(result, fit, [0, 0], weight) : mixPoints(result, fit, weight)
+  const fitted = p.grounded && p.pushing?.palms && (p.contacts?.push?.hands || eased && p.pushing.amount) && weight > 0
+    ? weight >= 1 ? fitLoadedPushTrunk(p, result) : mixed(fitLoadedPushTrunk(p, structuredClone(result)))
+    : result
+  // Part way, neither arm is the one cleared above: a hand the blend has sunk into a solid (a letting-go palm carried
+  // with the body into the face it left) is cleared again. One resting on a face is left there: refolding it moved
+  // the hand a dozen units in a frame as a push let go. A palm that has arrived on its contact stays its anchor.
+  if (fitted !== result && weight < 1 && p.pushing?.stance !== undefined) {
+    const contact = !!p.contacts?.push?.hands, anchored = contact && pushing >= 1 && !p.pushing.shift
+    for (const name of ['frontArm', 'backArm'] as const) if (limbClearance(p, fitted[name], { hands: true, handContact: true }).handIntrusion(fitted[name])) {
+      fitted[name] = clearLimb(p, fitted[name], UPPER_ARM, FOREARM, 1, true, contact, anchored)
+    }
+  }
+  return settleLocomotionContacts(p, fitted)
 }
 
-/** A loaded grounded push fits the supported trunk to both force-bearing wrists. */
-function fitLoadedPushTrunk(p: Player, result: AthletePose): AthletePose {
-  const arms = [result.frontArm, result.backArm].map((arm, index) => {
+/** Every point of two poses, mixed (the motor rig's trunk fit on ice). */
+function mixPoints(from: AthletePose, to: AthletePose, weight: number): AthletePose {
+  const point = (a: Point | undefined, b: Point | undefined) => a && b ? mix(a, b, weight) : b ?? a
+  const limb = <T extends Limb>(a: T, b: T): T => ({ ...b, root: point(a.root, b.root)!, joint: point(a.joint, b.joint)!, end: point(a.end, b.end)!,
+    ...(a.hand || b.hand ? { hand: point(a.hand, b.hand) } : {}) })
+  return { ...to, hip: point(from.hip, to.hip)!, waist: point(from.waist, to.waist)!, shoulder: point(from.shoulder, to.shoulder)!, head: point(from.head, to.head)!,
+    frontArm: limb(from.frontArm, to.frontArm), backArm: limb(from.backArm, to.backArm), frontLeg: limb(from.frontLeg, to.frontLeg), backLeg: limb(from.backLeg, to.backLeg) }
+}
+
+/** Both arms placed on their working palms' wrists (lengths not yet kept). */
+function armsOnPalms(p: Player, result: AthletePose) {
+  return [result.frontArm, result.backArm].map((arm, index) => {
     const palm = p.pushing!.palms![index]
     const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y]
     const normal: Point = [palm.nx * p.facing, palm.ny]
     const frame = pushPalmFrame(point, normal)
     return { ...arm, end: frame.wrist, hand: frame.palm, handAngle: frame.angle, handOpen: 1 }
   })
-  if (arms.some(arm => Math.hypot(arm.end[0] - arm.root[0], arm.end[1] - arm.root[1]) > 18.98 + .001)) {
+}
+
+/** How far the farther working wrist is from its shoulder. */
+function pushReach(p: Player, result: AthletePose) {
+  return Math.max(...armsOnPalms(p, result).map(arm => Math.hypot(arm.end[0] - arm.root[0], arm.end[1] - arm.root[1])))
+}
+
+/** The farthest a working wrist sits from its shoulder before the trunk must lean to it. */
+const FULL_STRETCH = 18.98
+
+/** A loaded grounded push fits the supported trunk to both force-bearing wrists. */
+function fitLoadedPushTrunk(p: Player, result: AthletePose): AthletePose {
+  const arms = armsOnPalms(p, result)
+  if (arms.some(arm => Math.hypot(arm.end[0] - arm.root[0], arm.end[1] - arm.root[1]) > FULL_STRETCH + .001)) {
     // A canted face can expose only a high grip to a crouching body. Fit
     // the supported trunk to those wrists before folding the arms around
     // the face; a clamped wrist cannot represent a force-bearing palm.

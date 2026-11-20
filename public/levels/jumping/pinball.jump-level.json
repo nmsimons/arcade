@@ -1084,8 +1084,54 @@
   "forceFields": [],
   "floatSwitches": [],
   "lighting": {
-    "nightMode": false,
+    "nightMode": true,
     "ambient": 0,
-    "lights": []
+    "lights": [
+      {
+        "id": "e52555da-8660-4f0f-9a22-24d7a07f0646",
+        "x": 855,
+        "y": 45,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always"
+      },
+      {
+        "id": "ea388fc2-140f-4a60-8e01-2c35c49ffcc0",
+        "x": 690,
+        "y": 750,
+        "intensity": 100,
+        "direction": 125,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "a72ac9af-5a5c-4d67-a0b4-ee54d03491f2",
+        "x": 1015,
+        "y": 750,
+        "intensity": 100,
+        "direction": 55,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "3a4420ce-b7cb-4062-96cb-9bcea1207bec",
+        "x": 225,
+        "y": 1505,
+        "intensity": 100,
+        "direction": -90,
+        "spread": 160,
+        "power": "always"
+      },
+      {
+        "id": "c76923ca-541d-41e1-88b7-401d4f13d3ba",
+        "x": 1505,
+        "y": 1505,
+        "intensity": 100,
+        "direction": -90,
+        "spread": 160,
+        "power": "always"
+      }
+    ]
   }
 }

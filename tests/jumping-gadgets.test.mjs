@@ -332,7 +332,7 @@ test('a sleeve foreshortens with a forearm turning through depth', () => {
 })
 
 test('red detachment preserves cooldown and EMP charge without a manual drop', () => {
-  for (const kind of ['repulsor', 'emp']) {
+  for (const kind of ['repulsor', 'emp', 'tractor']) {
     const level = scene([gadget(kind)])
     level.forceFields = [{ id: 'red', mode: 'objects', x: 350, y: 500, w: 12, h: 420, orientation: 'vertical' }]
     const run = createRun(level); pickup(run)

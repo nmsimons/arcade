@@ -4,6 +4,7 @@ import { CROUCHED_PUSH_SCENARIOS, crouchedPushScenario } from './helpers/jumping
 import { escapingDownhillBall } from './helpers/jumpingPushScenarios.mjs'
 import { athleteOutlinePoints } from './helpers/jumpingAthleteOutline.mjs'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { drawnPushFormed } from './helpers/jumpingDrawnPush.mjs'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
@@ -66,7 +67,7 @@ test('crouch entry, loaded work and release retain the complete skin, palms and 
     const run = crouchedPushScenario(config, facing, inverted), p = run.player
     const escaping = escapingDownhillBall(config)
     assert.equal(p.inverted, inverted, 'the real gravity plate establishes the encounter')
-    let loaded = 0, previous, previousRoot, previousLoaded = false
+    let loaded = 0, formed = 0, previous, previousRoot, previousLoaded = false
     for (let tick = 0; tick < 600; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: tick < 480 ? facing : 0, crouch: config.ceiling || tick >= 120 && tick < 360 })
       const context = `${config.name}; facing=${facing}; inverted=${inverted}; tick=${tick}`
@@ -95,7 +96,9 @@ test('crouch entry, loaded work and release retain the complete skin, palms and 
       previousLoaded = !!p.pushing?.effort
       if (p.pushing?.effort) {
         loaded++
-        for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+        // The drawn push forms from the pose drawn (about a tenth of a second); then its palms are on the face.
+        if (drawnPushFormed(p)) formed++
+        if (drawnPushFormed(p)) for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
           const palm = p.pushing.palms[i], [x, y] = worldPoint(p, arm.hand)
           assert.ok(Math.hypot(x - palm.x - palm.nx * 1.6, y - palm.y - palm.ny * 1.6) < .5,
             context + ': real force keeps the existing palm offset')
@@ -114,7 +117,7 @@ test('crouch entry, loaded work and release retain the complete skin, palms and 
       assert.ok((run.props[0].x - p.x) * facing - config.size / 2 > 60, config.name + ': the ball rolls out of hand reach')
     // Under the beam the 120-unit crawl to the cargo takes two seconds at crouch speed; the push then holds
     // for the rest of the encounter.
-    } else assert.ok(loaded > (config.ceiling ? 240 : 350), config.name + ': sustained physical force is exercised')
+    } else assert.ok(loaded > (config.ceiling ? 240 : 350) && formed > (config.ceiling ? 200 : 300), config.name + ': sustained physical force is exercised')
     if (!config.ceiling) {
       stepRun(run, { ...NEUTRAL_INPUT, jump: true })
       assert.ok(!p.grounded && p.vy * (inverted ? -1 : 1) < 0, config.name + ': fresh jump escape stays immediate')

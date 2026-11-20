@@ -396,6 +396,9 @@ export function* soundSteps(rate: number): Generator<void, SoundSamples> {
       (Math.sin(t * Math.PI * 2 * 1046.5) + .3 * Math.sin(t * Math.PI * 2 * 1568)) * .13 * Math.exp(-t * 19) * Math.min(1, (.28 - t) / .025)),
     repulsor: make(.22, (t, noise) => Math.min(1, t / .003) *
       (Math.sin(Math.PI * 2 * (240 * t - 300 * t * t)) * .24 + noise * .06) * Math.exp(-t * 24)),
+    // The repulsor's falling sweep run upward: the same pulse, drawn in.
+    tractor: make(.22, (t, noise) => Math.min(1, t / .003) *
+      (Math.sin(Math.PI * 2 * (150 * t + 300 * t * t)) * .24 + noise * .05) * Math.exp(-t * 24)),
     shove: make(.2, (t, noise) => Math.min(1, t / .006) *
       (Math.sin(Math.PI * 2 * (110 * t - 90 * t * t)) * .4 + noise * .045) * Math.exp(-t * 28) * Math.min(1, (.2 - t) / .03)),
     'emp-shot': make(.18, (t, noise) => Math.min(1, t / .002) *

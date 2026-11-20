@@ -5,6 +5,7 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { drawnPushFormed } from './helpers/jumpingDrawnPush.mjs'
 import { groundAt } from '../src/games/jumping/terrain.ts'
 import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
 import { boxShape } from '../src/games/jumping/propGeometry.ts'
@@ -41,7 +42,7 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
   const results = []
   for (const facing of [-1, 1]) for (const config of PUSH_SCENARIOS) {
     const run = pushScenario(config, facing), p = run.player
-    let previous = [true, true], steps = 0, establishedSpeed = 0
+    let previous = [true, true], steps = 0, establishedSpeed = 0, formed = 0
     const movers = new Set(), start = [p.x, p.y], carrier = run.mechanisms[0]
     const carrierStart = carrier && [carrier.x, carrier.y]
     for (let tick = 0; tick < 480; tick++) {
@@ -62,13 +63,16 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
         }
       }
       previous = p.anim.footwork.feet.map(foot => foot.planted)
-      for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+      // The drawn push forms from the pose drawn (about a tenth of a second); then its palms are on the face.
+      if (drawnPushFormed(p)) formed++
+      if (drawnPushFormed(p)) for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
         const palm = p.pushing.palms[i]
         assert.ok(Math.hypot(p.x + arm.hand[0] * p.facing - palm.x - palm.nx * 1.6,
           p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .5, config.name + ': visible contact supplies the shove')
       }
       if (tick > 120) establishedSpeed = Math.max(establishedSpeed, p.contacts.motion.speed)
     }
+    assert.ok(formed > 360, config.name + ': the drawn push forms and holds its palms on the face')
     if (!config.blocked && config.effort !== .02) assert.equal(movers.size, 2, config.name + ': both legs advance')
     if (config.effort === .02) assert.ok(steps < 4, 'creep does not churn after the initial stance')
     if (config.name === '90-speed ball') assert.ok(Math.abs(establishedSpeed - 90) < .001, 'the established flat shove retains its 90-unit motor target after closing the initial hand gap')
@@ -162,12 +166,13 @@ test('low working pushes retain drive, alternating support and clearance across 
       passedBehind ||= gap < -3; passedAhead ||= gap > 3
       if (!p.pushing?.effort) continue // A tipping crate can physically leave and reacquire the palms.
       loaded++
-      for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+      // A reacquired contact is drawn coming across from where the palms were (docs/jumping-physics.md).
+      if (drawnPushFormed(p)) for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
         const palm = p.pushing.palms[i]
         assert.ok(Math.hypot(p.x + arm.hand[0] * facing - palm.x - palm.nx * 1.6,
           p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .5, config.name + ': force keeps visible hand contact')
       }
-      if (config.size === 30 && !config.crouch && !config.slope) {
+      if (config.size === 30 && !config.crouch && !config.slope && drawnPushFormed(p)) {
         assert.ok(pose.hip[1] < -23, `${config.name}; facing=${facing}; tick=${tick}; hip=${pose.hip[1]}: upright intent retains room to drive from the legs`)
         assert.ok(pose.shoulder[0] - pose.hip[0] > 9, 'the torso hinges to the low grips')
       }

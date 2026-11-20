@@ -56,6 +56,20 @@
 .level-thumbnail { display: block; flex-shrink: 0; width: 100%; height: 80px; overflow: hidden; }
 .jumping-level-card .level-thumbnail { height: 140px; }
 .jumping-level-card strong { font-size: 17px; line-height: 22px; height: 44px; letter-spacing: -.02em; font-weight: 600; margin-top: 12px; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* Each facility area heads the courses it leads to, across the whole row (libraryOrder.ts). */
+.jumping-library-section { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; margin-top: 14px; padding: 10px 0 8px; border-bottom: 1px solid var(--jumping-rule); }
+.jumping-library-section:first-child { margin-top: 0; }
+.jumping-library-section-preview { flex: 0 0 auto; width: 120px; border-radius: 5px; overflow: hidden; }
+.jumping-library-section-preview .level-thumbnail { height: 56px; }
+.jumping-library-section-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.jumping-library-section h3 { margin: 0; font-size: 19px; line-height: 24px; font-weight: 600; letter-spacing: -.02em; color: var(--jumping-ink); overflow-wrap: anywhere; }
+.jumping-library-section span { font-size: 12px; color: var(--jumping-ink); opacity: .7; }
+.jumping-game .jumping-library-section button { flex: 0 0 auto; min-height: 34px; padding: 5px 12px; font-size: 11px; }
+@media (max-width: 620px) {
+  .jumping-library-section-preview { width: 80px; }
+  .jumping-library-section-preview .level-thumbnail { height: 40px; }
+  .jumping-library-section h3 { font-size: 16px; line-height: 20px; }
+}
 .jumping-level-problems { min-height: 0; max-height: 6em; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--jumping-color-ink) transparent; }
 .jumping-level-problems p { margin: 0; padding-right: 12px; font-size: 12px; color: var(--jumping-ink); line-height: 21px; overflow-wrap: anywhere; }
 .jumping-level-problems .jumping-load-error { color: var(--jumping-danger); }

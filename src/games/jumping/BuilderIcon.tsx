@@ -5,6 +5,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'back-wall': 'M3 3h18v18H3zM12 3v18M4 9h7M4 15h7M15 6h3M15 12h3M15 18h3',
   'carried-emp': 'M3 7h18v10H3zM6 7v10M13 8l-3 4h3l-1 4 4-5h-3Z',
   repulsor: 'M3 7h18v10H3zM6 7v10M16 7v10M9 10h4M20 10h2v4h-2',
+  tractor: 'M3 7h15v10H3zM6 7v10M18 8h4M18 16h4M13 10l-3 2 3 2',
   node: 'M3 17h6m6 0h6M12 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM12 3v7M8.5 6.5h7',
   'rotate-left': 'M8 3 4 7l4 4M4 7h9a7 7 0 1 1-7 9',
   'rotate-right': 'm16 3 4 4-4 4M20 7h-9a7 7 0 1 0 7 9',

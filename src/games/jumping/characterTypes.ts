@@ -22,7 +22,9 @@ export interface JumpInput { move: number; jump: boolean; jumpStrength?: number;
  * impact ragdoll. The movement step advances it today; it never changes motion
  * except through the couplings in docs/jumping-animation.md. */
 export interface CharacterAnimation {
-  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; reaching?: boolean; step?: boolean; recoil?: boolean } | null
+  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; reaching?: boolean; step?: boolean; recoil?: boolean
+    /** The joints of the pose the turn was heading for on its last step, to tell the target's own motion from catching up. */
+    goal?: number[][] } | null
   slideEntry: { pose: AthletePose; facing: number; time: number; landing?: boolean } | null
   footwork: Footwork | null
   stride: number
@@ -32,6 +34,10 @@ export interface CharacterAnimation {
   ragdoll: ImpactRagdoll | null
   /** The get-up blend from a prone recovery toward the moving gait. It can outlast the physical fall. */
   recovery: { pose: AthletePose; time: number; facing: number } | null
+  /** Pushing a crate across ice faster than a walk: how fully the curler's glide shows (poses/locomotionPose.ts). */
+  curl?: number
+  /** Scrabbling on a slick slope while a direction is held: the legs' stepping phase (rad) and how fully it shows. */
+  scrabble?: { phase: number; amount: number }
   /** The presented swimmer's clearance offset. The swimming hull uses its own `waterMotion.bodyOffset`. */
   waterClearance: { offset: [number, number]; facing: number } | null
   /** Weightless floating, drawn from the relaxed float posture (poses/waterPose.ts floatPose): the body's lean from
@@ -95,7 +101,8 @@ export interface Player {
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
-  pushing: (Omit<PushHands, 'slope'> & { /** Floating palms handed over from one prop to the next: how far each still is from its new place, dying away. */ shift?: [number, number][]; direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
+  pushing: (Omit<PushHands, 'slope'> & { /** Floating palms handed over from one prop to the next: how far each still is from its new place, dying away. */ shift?: [number, number][]; direction: number; amount: number; ready?: number;
+    /** The drawn push only: how far the body has joined the stance (the hands can reach while it is in the air). */ stance?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
   /** The motor's push rig: `pushing`'s hands and easing from real contacts only.
    * Gameplay reads this; the presented `pushing` also eases toward anticipated contacts. */
   pushRig?: Player['pushing']
@@ -146,6 +153,9 @@ export interface Player {
    * push-off, a rebound or a landing (`riding`: the player now stands on it). In the step's frame; published as a body
    * contact so the prop solver can give the prop its share (propPhysics.ts reactToPushOffs). */
   propKick?: { collider: string; normal: [number, number]; kick: [number, number]; riding?: boolean }
+  /** The loose object the hands were on, or whose push stance set the body's pace, on the last step (model.ts
+   * stepMotion). Only the hands' arrival on an object is an impact; while they stay on it the push owns its pace. */
+  pushHold?: string
   /** How a weightless body will meet the floating prop it is heading for (model.ts orientInFlight), decided once in physics
    * and followed by the roll, the hands (playerContacts.ts floatingHands) and the drawn lean: `feet` when it coasts or
    * comes down onto it and a roll fits without whirling, `hands` otherwise; the prop's collider, and seconds until. */

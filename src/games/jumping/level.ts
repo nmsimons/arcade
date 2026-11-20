@@ -70,7 +70,7 @@ import type { LevelEnvironment } from './environment.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
-export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight; branded?: boolean; gadget?: 'emp' | 'repulsor' }
+export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight; branded?: boolean; gadget?: 'emp' | 'repulsor' | 'tractor' }
 export interface Mechanism extends NamedObject, SwitchSettings { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
@@ -574,13 +574,13 @@ export function parseLevel(value: unknown): JumpLevel {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
       if (b.weight !== undefined && b.weight !== 'light' && b.weight !== 'normal' && b.weight !== 'heavy') fail()
       if (b.branded !== undefined && (b.kind !== 'box' || typeof b.branded !== 'boolean')) fail()
-      if (b.gadget !== undefined && (b.kind !== 'box' || !['emp', 'repulsor'].includes(b.gadget as string))) fail()
+      if (b.gadget !== undefined && (b.kind !== 'box' || !['emp', 'repulsor', 'tractor'].includes(b.gadget as string))) fail()
       const size = num(b.size, 30, 200)
       return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2, width - size / 2), y: num(b.y, -1800, level.floor!), size,
         // Retired light variants load as ordinary props, keeping saved levels usable.
         ...(b.weight === undefined || b.weight === 'light' ? {} : { weight: b.weight as PropWeight }),
         ...(b.branded === undefined ? {} : { branded: b.branded as boolean }),
-        ...(b.gadget === undefined ? {} : { gadget: b.gadget as 'emp' | 'repulsor' }) }
+        ...(b.gadget === undefined ? {} : { gadget: b.gadget as 'emp' | 'repulsor' | 'tractor' }) }
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()

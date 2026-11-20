@@ -1410,14 +1410,14 @@
       "file": "spelunk2.jump-level.json",
       "variant": "ordinary",
       "seconds": 17.308333333333334,
-      "elapsed": 15.099999999999783,
+      "elapsed": 14.7999999999998,
       "inputs": [
         {
           "frames": 162,
           "input": {}
         },
         {
-          "frames": 363,
+          "frames": 327,
           "input": {
             "move": 1
           }

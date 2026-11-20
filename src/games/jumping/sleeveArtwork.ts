@@ -1,8 +1,8 @@
 import type { GadgetKind } from './gadgets.ts'
-import { EMP_PALETTE, ROBOT_PALETTE } from './equipmentPalette.ts'
+import { EMP_PALETTE, ROBOT_PALETTE, TRACTOR_PALETTE } from './equipmentPalette.ts'
 
 export function drawSleeve(ctx: CanvasRenderingContext2D, kind: GadgetKind, size: number, blocked = false) {
-  const colors = kind === 'emp' ? EMP_PALETTE : ROBOT_PALETTE
+  const colors = kind === 'emp' ? EMP_PALETTE : kind === 'tractor' ? TRACTOR_PALETTE : ROBOT_PALETTE
   ctx.save(); ctx.scale(size / 40, size / 40)
   ctx.fillStyle = colors.body
   // A hollow cuff with a directional emitter; nothing projects as a handle.
@@ -21,6 +21,13 @@ export function drawSleeve(ctx: CanvasRenderingContext2D, kind: GadgetKind, size
     ctx.beginPath(); ctx.moveTo(1, -3); ctx.lineTo(-2, .5); ctx.lineTo(.5, .5)
     ctx.lineTo(-.5, 3); ctx.lineTo(3, -.5); ctx.lineTo(.5, -.5); ctx.closePath(); ctx.fill()
     ctx.fillStyle = colors.metal; ctx.fillRect(5, -3, 2, 6)
+  } else if (kind === 'tractor') {
+    // An inward chevron and a forked emitter: two prongs around an open mouth.
+    ctx.beginPath(); ctx.moveTo(2, -2.5); ctx.lineTo(-1.5, 0); ctx.lineTo(2, 2.5); ctx.lineTo(2, 1)
+    ctx.lineTo(.5, 0); ctx.lineTo(2, -1); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = colors.metal; ctx.fillRect(4, -4, 4, 2.5); ctx.fillRect(4, 1.5, 4, 2.5)
+    ctx.save(); ctx.globalAlpha *= .18
+    ctx.fillStyle = '#000000'; ctx.fillRect(4, -1.5, 2, 3); ctx.restore()
   } else {
     ctx.fillRect(-2, -2.5, 5, 1.5)
     ctx.fillStyle = colors.metal; ctx.fillRect(4, -3.5, 3, 7)

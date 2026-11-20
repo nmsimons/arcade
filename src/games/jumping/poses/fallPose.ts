@@ -47,11 +47,20 @@ export function landingPreparation(p: Player): number {
   // Most airborne frames have no nearby floor. Avoid a full hull query then.
   if (![x - 12, x, x + 12].some(at => groundAt(p.terrain!, at, p.y + dy / 2, dy / 2 + .01))) return 0
   const sweep = moveBody([p.x, p.y], [x, y], p.terrain, p.crouching ? TUNING.crouchHeight : TUNING.height)
-  const support = sweep.contacts.find(contact => contact.normal[1] < 0 && 'time' in contact)
   // Round objects gradually change from a landing face into a sliding side.
   // Their contact normal must fade preparation rather than toggle the rig.
-  return support && 'time' in support && typeof support.time === 'number'
-    ? smooth(1 - support.time) * smooth((-support.normal[1] - .5) / .35) : 0
+  // Weigh every contact the sweep meets: a face the body slides down (a crate
+  // tipped a hair, whose normal leans a fraction upward) is no support, and must
+  // not hide the floor it slides onto. Taking the first flickered the arms.
+  // Each slide resumes with the rest of the horizon, so a contact's time counts
+  // from the start of the whole sweep, not of its own leg.
+  let support = 0, elapsed = 0
+  for (const contact of sweep.contacts) {
+    if (!('time' in contact) || typeof contact.time !== 'number') continue
+    elapsed += (1 - elapsed) * contact.time
+    if (contact.normal[1] < 0) support = Math.max(support, smooth(1 - elapsed) * smooth((-contact.normal[1] - .5) / .35))
+  }
+  return support
 }
 export function fallRecoveryPose(p: Player): AthletePose {
   const fall = p.freeFall!, recovery = fall.recovery

@@ -142,6 +142,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'branded-box', group: 'Objects', label: 'L.A.B. crate', help: 'Place a crate with the L.A.B. Experiments stencil. It behaves like an ordinary box. Toggle L.A.B. branding in the inspector for either crate style.' },
   { id: 'carried-emp', group: 'Gadgets', label: 'Carried EMP', help: 'E / X picks up or drops. F / RT fires an electric bolt: hit devices stop for five seconds; one-second cooldown. Movement also aims. Red fields drop the tool.' },
   { id: 'repulsor', group: 'Gadgets', label: 'Repulsor rifle', help: 'Pick up with E / X. F / RT fires. Movement also aims in eight directions. Red fields drop carried tools and block pulses.' },
+  { id: 'tractor', group: 'Gadgets', label: 'Tractor gun', help: 'Pick up with E / X. F / RT pulls the first loose box, ball, tool or bot back along the beam toward you, at full speed: what you pull hits you. Movement also aims. Red fields drop carried tools and block the beam.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click to place a shovebot at the cursor. Snap catches nearby surfaces. Drag either end of its patrol range, or set the limits in the inspector.' },
   { id: 'repulsorbot', group: 'Objects', label: 'Repulsorbot', help: 'Enters through a portal on a flat sill with 40 × 80 clear space. Hunts across the level once it spots you. Runs, jumps, and climbs with the player rig. Cover blocks shots; EMP disables it.' },
   { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate or coin switch to move it.' },
@@ -207,6 +208,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     return () => { active = false }
   }, [])
   const doorName = useMemo(() => facilityDoorName(levelsById), [levelsById])
+  // The library can sort the collection into the order the facility plays it, when the campaign's start is in it.
+  const libraryCampaign = useMemo(() => campaignFile && levelsById.has(campaignFile.start) ? resolveCampaign(campaignFile, levelsById) : null, [campaignFile, levelsById])
   const previewRun = useMemo(() => {
     const run = isRunLevel(level) ? createPreviewRun(level) : null
     // The level being edited stands in for its saved copy, so its own doors, wiring and name count.
@@ -1717,7 +1720,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       {(lightingGeometry.error || message) && <span className="builder-status-message">{lightingGeometry.error || message}</span>}
     </span>{controllerConnected && <span className="builder-controller-hint">Y / △: Canvas ↔ controls · A / ×: Select / edit / drag · B / ○: Cancel · Help: Controller</span>}<span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
     {active && helpOpen && <BuilderHelp tools={TOOLS} onClose={() => setHelpOpen(false)} />}
-    {active && libraryOpen && <BuilderLibrary levels={levels} level={level} dirty={dirty} saving={saving}
+    {active && libraryOpen && <BuilderLibrary levels={levels} level={level} dirty={dirty} saving={saving} campaign={libraryCampaign}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}
     {active && saveFailure && <SaveFailureDialog {...saveFailure} onClose={() => setSaveFailure(null)} />}
     {active && textEntry && <BuilderTextEntry input={textEntry} onClose={() => setTextEntry(null)} />}

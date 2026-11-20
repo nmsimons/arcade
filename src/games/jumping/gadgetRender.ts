@@ -5,7 +5,7 @@ import { EMP_DISABLE_SECONDS, REPULSOR_BEAM_SECONDS, REPULSOR_IMPACT_SECONDS } f
 import { paintNormally } from './worldPaint.ts'
 import type { Exposure, WorldPaint } from './worldPaint.ts'
 import { robotTop } from './robotPhysics.ts'
-import { EMP_PALETTE } from './equipmentPalette.ts'
+import { EMP_PALETTE, TRACTOR_PALETTE } from './equipmentPalette.ts'
 import { playerContactBody } from './playerContacts.ts'
 
 /** Three short arcs, redrawn at 14 Hz: no particles, blur, or lighting pass. */
@@ -75,13 +75,16 @@ export function drawGadgets(ctx: CanvasRenderingContext2D, run: Run, paint: Worl
     paint(ctx, playerExposure, () => { ctx.beginPath(); ctx.moveTo(x - 4, y - 3); ctx.lineTo(x, y); ctx.lineTo(x + 4, y - 3); ctx.stroke() })
   }
   for (const pulse of run.gadgets.pulses) paint(ctx, 1, () => {
+    const color = pulse.kind === 'emp' ? EMP_PALETTE.body : pulse.kind === 'tractor' ? TRACTOR_PALETTE.body : '#d6b86e'
     if (pulse.kind !== 'emp' && pulse.age < REPULSOR_BEAM_SECONDS) {
       ctx.save(); ctx.globalAlpha *= Math.max(0, 1 - pulse.age / REPULSOR_BEAM_SECONDS)
-      ctx.strokeStyle = '#d6b86e'; ctx.lineWidth = 3
+      ctx.strokeStyle = color; ctx.lineWidth = 3
       ctx.beginPath(); ctx.moveTo(...pulse.from); ctx.lineTo(...pulse.to); ctx.stroke(); ctx.restore()
     }
+    // The repulsor's ring spreads from its hit; the tractor's draws in on it.
+    const spread = pulse.kind === 'tractor' ? REPULSOR_IMPACT_SECONDS - pulse.age : pulse.age
     ctx.save(); ctx.globalAlpha *= Math.max(0, 1 - pulse.age / REPULSOR_IMPACT_SECONDS)
-    ctx.strokeStyle = pulse.kind === 'emp' ? EMP_PALETTE.body : '#d6b86e'; ctx.lineWidth = 2
-    ctx.beginPath(); ctx.arc(pulse.to[0], pulse.to[1], 4 + pulse.age * 45, 0, Math.PI * 2); ctx.stroke(); ctx.restore()
+    ctx.strokeStyle = color; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.arc(pulse.to[0], pulse.to[1], 4 + spread * 45, 0, Math.PI * 2); ctx.stroke(); ctx.restore()
   })
 }

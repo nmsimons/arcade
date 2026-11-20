@@ -358,6 +358,7 @@
 }
 .builder-local-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 20px 0 10px; }
 .jumping-builder .builder-local-heading h3 { margin: 0; }
+.builder-library-sorts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .builder-library .builder-local-file { position: relative; }
 .builder-file-actions { display: flex; gap: 8px; }
 .builder-file-actions .builder-use-template { flex: 1; min-width: 0; }

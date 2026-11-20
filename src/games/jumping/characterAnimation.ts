@@ -60,11 +60,54 @@ export function setAnimationCadence(p: Player, next: AnimationCadence) {
   p.anim.pending = null
 }
 
+/** On ice: standing on slick footing, or sliding on a slick slope. */
+const onIce = (p: Player) => p.grounded ? !!p.contacts?.support?.platform.frictionless : !!p.sliding?.active && !!p.sliding.slick
+/** On ice with nothing held, the feet glide where they stand rather than stride. */
+const iceGlide = (p: Player, input: JumpInput) => p.grounded && onIce(p) && Math.abs(input.move) <= .01
+/**
+ * On ice with a direction held, the legs keep working however little the body moves: starting off, braking or pushing
+ * up a slope, the feet scrabble and slip at a walking pace. Travelling the way it faces faster than that, the legs
+ * keep pace with the body, as in an ordinary run. 0 when nothing is held.
+ */
+const iceEffort = (p: Player, input: JumpInput) => onIce(p) && Math.abs(input.move) > .01
+  ? Math.max(TUNING.walkSpeed * Math.min(1, Math.abs(input.move)), p.vx * p.facing) : 0
+/** Stride length the slope scrabble steps by: about a running stride. */
+const SCRABBLE_STRIDE = 55
+
+/** Sliding across ice with nothing held faster than this, the player glides in a curler's stance. */
+const CURL_SPEED = 110
+/**
+ * Sliding fast across ice with nothing held, from a run or after letting go of a crate, the player glides as a curler
+ * follows a stone: front foot under the hips, trailing leg stretched back, both feet sliding, rising out of it only as
+ * the slide slows. While a direction is held the legs work instead (iceEffort), pushing or not. Eased in and out, so
+ * the stance never pops.
+ */
+function advanceCurl(p: Player, input: JumpInput, dt: number) {
+  const onIceFeet = p.grounded && !!p.contacts?.support?.platform.frictionless
+  const following = onIceFeet && Math.abs(input.move) <= .01
+  const target = following ? smoothstep((Math.abs(p.vx) - CURL_SPEED * .6) / (CURL_SPEED * .4)) : 0
+  const amount = (p.anim.curl ?? 0) + (target - (p.anim.curl ?? 0)) * (1 - Math.exp(-dt / (target < (p.anim.curl ?? 0) ? .2 : .07)))
+  if (amount < .005 && !target) delete p.anim.curl; else p.anim.curl = amount
+}
+const smoothstep = (t: number) => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x) }
+
+/** The slope scrabble's stepping, eased in and out; drawn by poses/slidingPose.ts. */
+function advanceScrabble(p: Player, effort: number, dt: number) {
+  const sliding = !p.grounded && !!p.sliding?.active && !!p.sliding.slick
+  const target = sliding && effort ? 1 : 0, previous = p.anim.scrabble
+  if (!previous && !target) return
+  const amount = (previous?.amount ?? 0) + (target - (previous?.amount ?? 0)) * (1 - Math.exp(-dt / .08))
+  if (!target && amount < .01) { delete p.anim.scrabble; return }
+  p.anim.scrabble = { phase: ((previous?.phase ?? 0) + effort * dt / SCRABBLE_STRIDE * Math.PI * 2) % (Math.PI * 2), amount }
+}
+
 /** The visible gait blends toward the actual motion; the feet return to rest. */
-function settleGait(p: Player, dt: number) {
-  // Without weight nothing walks: a body moving along a surface glides on planted feet.
+function settleGait(p: Player, dt: number, gliding = false, effort = 0) {
+  // Without weight nothing walks: a body moving along a surface glides on planted feet. So does one sliding on ice
+  // with nothing held; with a direction held, the legs work at its pace however slowly the body goes.
   const weightless = p.grounded && Math.abs(p.gravity ?? TUNING.gravity) < TUNING.gravity * .05
-  const speed = p.climbing || weightless ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
+  const moving = p.climbing || weightless || gliding ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
+  const speed = effort && p.grounded ? Math.max(Math.abs(moving), effort) : moving
   const target = gaitPose(speed, !p.grounded && !p.hang && !p.mantle && !p.climbing), previous = p.anim.gait ?? gaitPose(0)
   if (p.contacts?.push && !p.contacts.push.passive || p.grounded && p.vx * p.facing < -1) target.run = 0
   const blend = (from: number, to: number, response = to > from ? .045 : .08) => {
@@ -91,7 +134,7 @@ export function preparePush(p: Player, input: JumpInput, world: ContactWorld, co
   return contacts.push || !p.waterMotion && p.ledgeReach ? null : anticipatePush(p, input, world)
 }
 export function presentPush(p: Player, contacts: PlayerContacts, preparation: PushContact | null, dt: number) {
-  updatePushingPose(p, contacts.push ?? preparation, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
+  updatePushingPose(p, contacts.push ?? preparation, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y], !!contacts.support?.platform.frictionless)
 }
 
 /** The rest of the step's animation, after its contacts are published. */
@@ -101,19 +144,23 @@ export function animateStep(p: Player, step: AnimationStep) {
 }
 function animateStepIn(p: Player, { input, dt, world, from, contacts, verticalUsed, frameDirection, turnFrame, slideEntryFrame }: AnimationStep) {
   advanceReturningStepPreparation(p, input, dt, world)
-  settleGait(p, dt)
+  advanceCurl(p, input, dt)
+  // A curler's feet slide with the body rather than step, until a direction is held: then the legs work at once.
+  const gliding = iceGlide(p, input) || (p.anim.curl ?? 0) > .5 && Math.abs(input.move) <= .01, effort = gliding ? 0 : iceEffort(p, input)
+  settleGait(p, dt, gliding, effort)
+  advanceScrabble(p, effort, dt)
   // Climbing and crouching own the pose; unused Up still gets a quiet glance.
   const look = verticalUsed || p.climbing || p.hang || p.mantle || p.crouching || p.freeFall?.amount ? 0
     : Number(frameDirection > 0 ? input.climb : input.descend)
   p.anim.look += (look - p.anim.look) * (1 - Math.exp(-dt / .1))
   if (Math.abs(p.anim.look - look) < .001) p.anim.look = look
   const visibleDirection = dryTurnDirection(p, input, turnFrame)
-  if (visibleDirection === p.facing) advanceFootwork(p, dt, from[0], world.platforms)
+  if (visibleDirection === p.facing) advanceFootwork(p, dt, from[0], world.platforms, gliding, effort)
   else {
     // Footwork belongs to presentation. Grips and steering retain mechanical
     // facing; resting/swing shoes turn toward the body's outgoing direction.
     const feetPlayer = { ...p, facing: visibleDirection }
-    advanceFootwork(feetPlayer, dt, from[0], world.platforms)
+    advanceFootwork(feetPlayer, dt, from[0], world.platforms, gliding, effort)
     p.anim.footwork = feetPlayer.anim.footwork; p.anim.stride = feetPlayer.anim.stride
   }
   advanceCrouchStep(p, dt)

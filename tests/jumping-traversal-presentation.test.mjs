@@ -4,6 +4,7 @@ import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { createPlayer, NEUTRAL_INPUT, playerState, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
+import { drawnPushFormed } from './helpers/jumpingDrawnPush.mjs'
 import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
 import { mirrorPlatform, mirrorPlayerState } from '../src/games/jumping/gravityFrame.ts'
 import { anticipatePush, staticContactWorld } from '../src/games/jumping/playerContacts.ts'
@@ -229,24 +230,29 @@ test('light and full blocked efforts have different supported body loading', () 
   assert.ok(Math.abs(full.player.x - low.player.x) < .01, 'load presentation does not displace the physical player')
 })
 
-test('prop motion starts with both palms on the face, including fresh low and tall encounters', () => {
+// The drawn push starts from the pose drawn, so a crate already moving under the first force is drawn with the palms
+// arriving on its face as the stance forms (docs/jumping-physics.md), and on it from then on.
+test('prop motion is drawn with both palms on the face once the push forms, including fresh low and tall encounters', () => {
   for (const direction of [-1, 1]) for (const kind of ['box', 'ball']) for (const size of [30, 80]) {
     const level = blankTrial()
     level.entrance = { x: 540 - direction * (size / 2 + 25.5), y: 920 }
     level.props = [{ kind, x: 540, y: 920, size }]
     const run = createRun(level)
+    let formed = 0
     for (let frame = 0; frame < 30; frame++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: direction })
       if (Math.abs(run.props[0].x - 540) <= .5) continue
       const p = run.player, pose = athletePose(p)
       assert.ok(p.pushing?.palms, 'moving a prop establishes a visible working contact')
-      for (const [index, arm] of [pose.frontArm, pose.backArm].entries()) {
+      if (drawnPushFormed(p)) formed++
+      if (drawnPushFormed(p)) for (const [index, arm] of [pose.frontArm, pose.backArm].entries()) {
         const palm = p.pushing.palms[index], hand = worldPoint(p, arm.hand)
         assert.ok(Math.hypot(hand[0] - palm.x - palm.nx * 1.6, hand[1] - palm.y - palm.ny * 1.6) < .5,
           `${kind} ${size}, direction ${direction}, frame ${frame}: the palm leads the shove`)
       }
       limbLengths(pose)
     }
+    assert.ok(formed > 0, `${kind} ${size}, direction ${direction}: the push forms within the encounter`)
   }
 })
 
@@ -295,11 +301,14 @@ test('a running approach reaches before the shove and cannot anticipate through 
     level.entrance = { x: 540 - direction * 140, y: 920 }
     level.props = [{ kind, x: 540, y: 920, size: 80 }]
     const run = createRun(level)
-    let prepared = false, loaded = false
+    let prepared = false, loaded = false, shoved = false
     for (let frame = 0; frame < 80; frame++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: direction })
       const p = run.player
-      if (p.pushing?.ready && !p.pushing.effort) {
+      // Approaching hands are the ready, unloaded ones before the first shove. A ball struck at a run then rolls out
+      // of the hands, which let go in the same unloaded pose.
+      shoved ||= !!p.pushing?.effort
+      if (p.pushing?.ready && !p.pushing.effort && !shoved) {
         prepared = true
         assert.ok(Math.abs(run.props[0].x - 540) < .001, 'the approaching hands do not apply force')
       }

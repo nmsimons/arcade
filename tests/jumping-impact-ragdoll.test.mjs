@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { drawnPushFormed } from './helpers/jumpingDrawnPush.mjs'
 import { createPlayer, NEUTRAL_INPUT, respawn, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { repulsePlayer } from '../src/games/jumping/actorImpulse.ts'
 import { mirrorPlatform } from '../src/games/jumping/gravityFrame.ts'
@@ -166,7 +167,7 @@ test('a working push takes over recoil with its real palms and supported feet', 
     for (let i = 0; i < 100; i++) stepRun(run, NEUTRAL_INPUT)
     repulsePlayer(p, [direction, 0])
     assert.ok(p.anim.ragdoll)
-    let contacts = 0
+    let contacts = 0, formed = 0
     const from = run.props[0].x
     for (let frame = 0; frame < 90; frame++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: direction })
@@ -176,13 +177,15 @@ test('a working push takes over recoil with its real palms and supported feet', 
       const pose = athletePose(p)
       lengths(pose)
       assert.ok(pose.frontLeg.planted || pose.backLeg.planted, 'a loaded push has a supporting shoe')
-      for (const [index, arm] of [pose.frontArm, pose.backArm].entries()) {
+      // The drawn push forms from the pose drawn (about a tenth of a second); then its palms are on the face.
+      if (drawnPushFormed(p)) formed++
+      if (drawnPushFormed(p)) for (const [index, arm] of [pose.frontArm, pose.backArm].entries()) {
         const palm = p.pushing.palms[index]
         assert.ok(Math.hypot(p.x + arm.hand[0] * p.facing - palm.x - palm.nx * 1.6,
           p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .1, 'the visible palm stays on its working contact')
       }
     }
-    assert.ok(contacts > 30)
+    assert.ok(contacts > 30 && formed > 15)
     assert.ok(blocked ? Math.abs(run.props[0].x - from) < 1 : (run.props[0].x - from) * direction > 5)
   }
 })

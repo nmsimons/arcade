@@ -974,8 +974,8 @@
     {
       "level": "38681eca-a164-4f9a-9113-c3ba119ed3ed",
       "jumpModel": "tap-hold",
-      "elapsed": 29.649999999999032,
-      "activeTime": 40.50833333333168,
+      "elapsed": 29.483333333332375,
+      "activeTime": 40.34166666666502,
       "coins": 60,
       "trace": [
         {
@@ -1023,7 +1023,7 @@
           "input": {}
         },
         {
-          "frames": 422,
+          "frames": 402,
           "input": {
             "move": -1
           }
@@ -1487,8 +1487,8 @@
     },
     {
       "level": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
-      "elapsed": 45.716666666664715,
-      "activeTime": 46.574999999998,
+      "elapsed": 45.72499999999805,
+      "activeTime": 46.58333333333133,
       "coins": 0,
       "trace": [
         {
@@ -1576,7 +1576,7 @@
           }
         },
         {
-          "frames": 117,
+          "frames": 129,
           "input": {
             "move": -1,
             "crouch": true
@@ -1622,16 +1622,12 @@
           }
         },
         {
-          "frames": 326,
+          "frames": 316,
           "input": {
             "move": 1,
             "climb": true,
             "detach": true
           }
-        },
-        {
-          "frames": 1,
-          "input": {}
         }
       ]
     },
@@ -2839,8 +2835,8 @@
     {
       "file": "rampingup.jump-level.json",
       "level": "f647e38f-d47e-4628-b322-b89e98882202",
-      "elapsed": 46.683333333331326,
-      "activeTime": 47.54166666666461,
+      "elapsed": 46.708333333331325,
+      "activeTime": 47.56666666666461,
       "coins": 10,
       "trace": [
         {
@@ -3198,7 +3194,7 @@
           }
         },
         {
-          "frames": 19,
+          "frames": 22,
           "input": {}
         }
       ]

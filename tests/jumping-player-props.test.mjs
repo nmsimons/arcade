@@ -8,6 +8,7 @@ import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { mechanismShape } from '../src/games/jumping/mechanisms.ts'
 import { robotHulls, robotPlatforms } from '../src/games/jumping/robotPhysics.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { drawnPushFormed } from './helpers/jumpingDrawnPush.mjs'
 
 function clear(run) {
   const p = run.player, barriers = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
@@ -30,7 +31,7 @@ for (const size of [80, 120, 160]) for (const direction of [-1, 1]) for (const d
     run.started = true; p.facing = direction
     for (let t = 0; t < 1; t += dt) stepRun(run, NEUTRAL_INPUT, dt)
     assert.equal(p.contacts.support.collider.prop.kind, 'ball', 'the player starts standing on the actual curved support')
-    let supported = 0, loaded = 0
+    let supported = 0, loaded = 0, formed = 0
     for (let t = 0; t < 2; t += dt) {
       stepRun(run, { ...NEUTRAL_INPUT, move: direction }, dt)
       if (p.contacts?.support?.collider.prop?.kind !== 'ball') continue
@@ -42,7 +43,9 @@ for (const size of [80, 120, 160]) for (const direction of [-1, 1]) for (const d
       if (p.pushing) assert.ok(p.pushing.height >= 20, 'an approach cannot reach down below the working hand band')
       if (p.contacts.push?.effort) {
         loaded++
-        for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+        // The drawn push forms from the pose drawn; once formed, its palms are on the face.
+        if (drawnPushFormed(p)) formed++
+        if (drawnPushFormed(p)) for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
           const palm = p.pushing.palms[i]
           assert.ok(Math.hypot(p.x + arm.hand[0] * p.facing - palm.x - palm.nx * 1.6,
             p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .5, 'a reachable tall box still receives the real working palms')
@@ -56,7 +59,7 @@ for (const size of [80, 120, 160]) for (const direction of [-1, 1]) for (const d
     }
     assert.ok(supported > 3, 'held input actually exercises balance on the ball')
     if (size === 80) assert.equal(loaded, 0, 'a box top level with the footing is not a pushing face')
-    if (size === 160) assert.ok(loaded > 3, 'curved support does not disable a legitimate push')
+    if (size === 160) assert.ok(loaded > 3 && formed > 0, 'curved support does not disable a legitimate push')
   })
 }
 

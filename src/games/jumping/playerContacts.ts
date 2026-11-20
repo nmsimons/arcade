@@ -315,10 +315,9 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
   // Prop forces run before the player sweep. A pressed/buffered jump is
   // already a departure intent and must not receive one last grounded shove.
   const departing = input.jump && !p.jumpHeld || p.buffer > 0
-  // Feet on frictionless terrain have nothing to push from: no working contact forms, so the
-  // hands neither drive a prop nor hold it back. The body still blocks like any contact.
+  // Feet on ice push too, only as hard as the ice grips them (propPhysics.ts, the push on a crate that is sliding).
   const drive = Math.min(1, Math.abs(input.move))
-  if (support && !support.platform.frictionless && direction && !departing) for (const c of world.colliders) {
+  if (support && direction && !departing) for (const c of world.colliders) {
     if (c.prop && c === collider) continue
     // Standing hand reach must not turn a ceiling above the crouched body into a wall.
     if (p.crouching && c.platform.y + c.platform.h <= p.y - TUNING.crouchHeight) continue
@@ -513,6 +512,12 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
   const ground = groundAt(world.platforms, x, p.y, Math.abs(x - p.x) * 2 + 1, s => canGrip(s.angle))
   if (!ground || world.platforms.some(b => bodyIntersects(x, ground.y, b, p.crouching ? TUNING.crouchHeight : TUNING.height))) return 0
   const constrained = (x - p.x) / dt
+  // Feet on ice cannot walk the body to its stance, forward or back, any faster than they can push it there: it goes
+  // no quicker and no slower than its own steering or the prop it follows. Too close, the arms bend instead.
+  if (p.contacts?.support?.platform.frictionless && contact.collider.prop) {
+    const own = requestedVelocity * direction, prop = contact.collider.prop.vx * direction
+    return direction * Math.max(Math.min(own, prop), Math.min(constrained * direction, Math.max(own, prop)))
+  }
   const workingApproach = !contact.passive
     && (requestedVelocity * direction < 0 || (p.contacts?.support?.angle ?? 0) * direction < 0)
   if (contact.collider.prop?.kind !== 'ball' || workingApproach) return constrained
@@ -607,7 +612,8 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
 }
 
 /** The next push rig for one step: hands on the contact, easing in and out. */
-function nextPushPose(p: Player, current: Player['pushing'], contact: PushContact | null, dt: number, speed: number, motion: readonly [number, number]): Player['pushing'] {
+function nextPushPose(p: Player, current: Player['pushing'], contact: PushContact | null, dt: number, speed: number, motion: readonly [number, number],
+  slick = !!p.contacts?.support?.platform.frictionless, presented = false): Player['pushing'] {
   if (contact?.passive) contact = null
   if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && (p.waterMotion || contact.floating)) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
@@ -624,11 +630,14 @@ function nextPushPose(p: Player, current: Player['pushing'], contact: PushContac
     // Palms re-found on the same prop far from where they are drawn (a fading release taken up again) come across too.
     // Measured against where they were drawn carried on with the body (a moving push keeps them in step), and not while an
     // earlier handover is still coming across.
-    const jumped = same && contact.floating && current?.palms && !current.shift && contact.hands.palms
+    // A release on ice fades slowly enough to be taken up again while the crate has slid on from the palms.
+    const jumped = same && (contact.floating || slick && !current?.effort && current?.amount) && current?.palms && !current.shift && contact.hands.palms
       && contact.hands.palms.some((palm, i) => Math.hypot(palm.x - current.palms![i].x - motion[0], palm.y - current.palms![i].y - motion[1]) > FLOAT_PALM_JUMP)
-    const shift = handover || jumped ? contact.hands.palms!.map((palm, i) => [(current!.palms![i].x - palm.x) * keep, (current!.palms![i].y - palm.y) * keep] as [number, number])
+    // These are the motor rig's rules; the drawn push takes its own offset below (drawnPalmShift).
+    let shift = presented ? undefined
+      : handover || jumped ? contact.hands.palms!.map((palm, i) => [(current!.palms![i].x - palm.x) * keep, (current!.palms![i].y - palm.y) * keep] as [number, number])
       : same && contact.floating && current?.shift ? current.shift.map(([x, y]) => [x * keep, y * keep] as [number, number]) : undefined
-    const shifting = shift?.some(([x, y]) => Math.hypot(x, y) > .05)
+    let shifting = shift?.some(([x, y]) => Math.hypot(x, y) > .05)
     if (shifting && hands.palms) hands = { ...hands, palms: hands.palms.map((palm, i) => ({ ...palm, x: palm.x + shift![i][0], y: palm.y + shift![i][1] })) as PushHands['palms'] }
     if (contact.anticipation !== undefined && contact.collider.prop && previous?.height !== undefined && hands.height !== undefined) {
       // Losing force contact must not teleport a crouched palm to a lower
@@ -639,11 +648,18 @@ function nextPushPose(p: Player, current: Player['pushing'], contact: PushContac
         Math.max(PROP_APPROACH_GAP, (hands.wallX - p.x) * contact.direction + 1))
       if (palms) hands = { ...palms, wallX: hands.wallX, slope: hands.slope }
     }
+    // The drawn push offsets the palms it will draw, after any easing of their height.
+    if (presented) {
+      const prop = contact.collider.prop
+      shift = drawnPalmShift(p, current, hands.palms, same, !!contact.floating, contact.anticipation === undefined, prop ? [prop.vx * dt, prop.vy * dt] : [0, 0], keep, dt)
+      shifting = shift?.some(([x, y]) => Math.hypot(x, y) > .05)
+      if (shifting && hands.palms) hands = { ...hands, palms: hands.palms.map((palm, i) => ({ ...palm, x: palm.x + shift![i][0], y: palm.y + shift![i][1] })) as PushHands['palms'] }
+    }
     // Opposition is the requested motion that the contact solver could not
     // deliver. Ease its presentation independently of the hand-contact blend.
     const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
     const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
-    return { ...hands, ...(shifting ? { shift } : {}), colliderId: contact.collider.id, direction: contact.direction,
+    const pose = { ...hands, ...(shifting ? { shift } : {}), colliderId: contact.collider.id, direction: contact.direction,
       // A prop has already received this tick's force. Its working palms must
       // be established now; resistance still loads the body gradually above.
       amount: contact.anticipation === undefined
@@ -651,39 +667,88 @@ function nextPushPose(p: Player, current: Player['pushing'], contact: PushContac
         : Math.max(0, Math.max(previous?.amount ?? 0, previous?.effort ? previous.ready ?? 0 : 0) - dt / .16),
       // An unloaded target can appear nearby on a turn or after a prop moves.
       // Ease toward it; retaining old load here would freeze a released brace.
-      ready: contact.anticipation === undefined ? (contact.collider.prop && !contact.swimming ? 1 : 0)
+      // The drawn stance forms from the pose actually drawn, on every footing: a body that meets a crate without
+      // having reached for it takes a tenth of a second to drop into the stance rather than snapping from standing
+      // to a full crouch, palms on the face, in one frame. The motor's rig (updatePushRig) keeps its own timing,
+      // which gameplay reads: its palms that take the first force are established at once, except on ice.
+      ready: contact.anticipation === undefined ? (contact.collider.prop && !contact.swimming
+        ? slick || presented ? Math.min(1, (previous?.ready ?? 0) + dt / .1) : 1 : 0)
         // A returning step already owns and budgets its whole incoming rig.
         // Keep its target current rather than adding a second handoff delay.
         : p.anim.dryTurn?.step ? contact.anticipation
           : (previous?.ready ?? 0) + (contact.anticipation - (previous?.ready ?? 0)) * (1 - Math.exp(-dt / .045)),
       effort: contact.effort, load }
+    return presented ? { ...pose, stance: nextStance(p, previous, pose, dt) } : pose
   } else if (current) {
     // Force-bearing prop palms used the full ready stance, even when the
     // timed contact blend was young. Release that actual outgoing weight.
-    const amount = Math.max(0, Math.max(current.amount, current.effort ? current.ready ?? 0 : 0) - dt / .16)
-    const ready = Math.max(0, (current.ready ?? 0) - dt / .16)
+    // Letting go of a crate on ice, the body is still gliding with it: the stance unwinds more slowly.
+    const release = p.grounded && slick ? .4 : .16
+    const amount = Math.max(0, Math.max(current.amount, current.effort ? current.ready ?? 0 : 0) - dt / release)
+    const ready = Math.max(0, (current.ready ?? 0) - dt / release)
     // A floating body's palms let go the same way (a floating push), whichever frame its facing is read in.
     const floating = (p.weightless ?? 0) >= TUNING.zeroGravitySettle - 1e-9
-    return (amount || ready) && (p.grounded || p.waterMotion || floating) && !p.hang && !p.mantle && !p.climbing && (current.direction === p.facing || floating)
+    const stance = presented ? nextStance(p, current, { amount, ready }, dt) : 0
+    return (amount || ready || stance) && (p.grounded || p.waterMotion || floating) && !p.hang && !p.mantle && !p.climbing && (current.direction === p.facing || floating)
       // Released palms relax with the outgoing body. Keeping their old world
       // coordinates pins the arms behind a running player and can fold the
       // trunk or flip an elbow as the shoulders pass the abandoned contact.
       ? { ...current, wallX: current.wallX + motion[0],
         palms: current.palms?.map(palm => ({ ...palm, x: palm.x + motion[0], y: palm.y + motion[1] })) as PushHands['palms'],
-        amount, ready, effort: 0, load: (current.load ?? 0) * Math.exp(-dt / .08) } : null
+        amount, ready, effort: 0, load: (current.load ?? 0) * Math.exp(-dt / .08), ...(presented ? { stance } : {}) } : null
   }
   return null
 }
 
+/** The drawn push's palms come across from where they were drawn whenever their contact jumps: a handover between
+ * floating props, a press taken up again, or a reach that becomes a working push (touching down beside a crate, the
+ * reach's palms sit lower on the face than the stance's). It measures and keeps the wrists, where the arm meets the
+ * hand: palms re-found at a crate's corner can turn their faces most of a right angle while barely moving, which swung
+ * the wrist and the whole reach in a frame. A further jump adds to an offset still coming across. Returns the offset,
+ * dying away, to add to the contact's palms. */
+function drawnPalmShift(p: Player, current: Player['pushing'], palms: PushHands['palms'], same: boolean, floating: boolean, loaded: boolean, carried: readonly [number, number], keep: number, dt: number) {
+  const before = current?.palms
+  if (!palms || !before || !(same || floating)) return undefined
+  const wrist = (palm: PushPalm) => [palm.x + palm.nx * 2.8 + palm.ny * .7 * p.facing, palm.y + palm.ny * 2.8 - palm.nx * p.facing * .7]
+  const old = current!.shift
+  // How far the contact itself moved beyond the surface it is on (`carried`, the prop's own travel this step), from
+  // where the drawn palms were less any offset they still carried. A reach's palms stay put on a crate as the body
+  // runs at it, and a moving push's palms travel with the crate.
+  const jumps = palms.map((palm, i) => wrist(palm).map((v, axis) => v - wrist(before[i])[axis] + (old?.[i][axis] ?? 0) - carried[axis]))
+  // A working palm re-found a little way along its face snaps there, as it does while its height adapts; one that jumps
+  // farther, or whose face turns, comes across. Free palms, which bear nothing, come across from any jump of note.
+  const jumped = !same || jumps.some(([x, y]) => Math.hypot(x, y) > (loaded ? FLOAT_PALM_JUMP : 3))
+    || palms.some((palm, i) => palm.nx * before[i].nx + palm.ny * before[i].ny < Math.cos(Math.PI / 6))
+  if (!jumped && !old) return undefined
+  // Floating palms glide across with the props, and a reach's free palms glide too; working palms on footing close the gap
+  // two units a step faster, so a tumbling crate's next face is taken in a frame or two rather than leaving loaded
+  // hands hovering off it.
+  return palms.map((_, i) => {
+    const x = (old?.[i][0] ?? 0) - (jumped ? jumps[i][0] : 0), y = (old?.[i][1] ?? 0) - (jumped ? jumps[i][1] : 0), length = Math.hypot(x, y)
+    const scale = floating || !loaded ? keep : length ? Math.max(0, length * keep - 240 * dt) / length : 0
+    return [x * scale, y * scale] as [number, number]
+  })
+}
+
+/** How far the drawn body has joined the push stance. Standing, it follows the hands' readiness; in the air only a
+ * working push takes it, while the arms may already reach. It moves no faster than the stance forms (a tenth of a
+ * second), so touching down mid-reach does not throw the trunk into the stance in a single frame. Only the drawn
+ * push carries it; the motor's rig keeps the stance its state implies (poses/locomotionPose.ts). */
+function nextStance(p: Player, previous: Player['pushing'], next: { amount: number; ready?: number }, dt: number) {
+  const target = p.grounded ? Math.max(next.amount, next.ready ?? 0) : next.amount
+  const from = previous?.stance ?? (previous ? p.grounded ? Math.max(previous.amount, previous.ready ?? 0) : previous.amount : 0)
+  return from + Math.max(-dt / .1, Math.min(dt / .1, target - from))
+}
+
 /** Presentation consumes the solved contact and anticipation; it never moves the player. */
-export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
-  p.pushing = nextPushPose(p, p.pushing, contact, dt, speed, motion)
+export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0], slick?: boolean) {
+  p.pushing = nextPushPose(p, p.pushing, contact, dt, speed, motion, slick, true)
 }
 
 /** The motor's push rig: the same hands and easing from real contacts only,
  * without anticipation, so animation can never change it. Gameplay reads this. */
-export function updatePushRig(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
-  p.pushRig = nextPushPose(p, p.pushRig ?? null, contact?.anticipation === undefined ? contact : null, dt, speed, motion)
+export function updatePushRig(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0], slick?: boolean) {
+  p.pushRig = nextPushPose(p, p.pushRig ?? null, contact?.anticipation === undefined ? contact : null, dt, speed, motion, slick)
 }
 
 /** Transport the body and its planted anchors before measuring locomotion. */

@@ -7,6 +7,7 @@ import type { Prop, Run } from './challenge.ts'
 import type { Platform } from './model.ts'
 import type { PlayerContacts } from './playerContacts.ts'
 import { TUNING } from './model.ts'
+import { SLICK, slideOn, surfaceFriction } from './friction.ts'
 import { bodyPolygon, convexParts, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { BOX_RESTING_ANGLE_TOLERANCE, ballHull, ballShape, boxShape, propHeight, propWidth, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
@@ -459,9 +460,18 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (push?.collider.prop === b && (!push.swimming || lowSwimPush) && !push.passive) {
       // Small floor props retain a useful hand push through the stand/swim
       // transition. Water lowers the pace; weight still limits acceleration.
-      const pace = lowSwimPush ? 54 : b.kind === 'ball' ? ballPushPace(run.player) : 90
+      // A crate dragging on ordinary ground takes a walking shove. One sliding on ice offers almost nothing to push
+      // against, so it goes at the pace the pusher asks for, gathering speed only as fast as the pusher's legs can
+      // speed up a body that heavy: the pusher's own acceleration on its footing (a run's on grippy ground, the ice's
+      // friction on ice) shared between pusher and crate by mass. Off grippy footing that is a brisk run-up; on ice
+      // the pair gathers speed slowly, as a curler and stone do.
+      const sliding = b.kind === 'box' && slickProps.has(b) && !lowSwimPush
+      const footing = playerContact.support?.platform
+      const legs = footing?.frictionless ? surfaceFriction(footing).sliding * TUNING.gravity : TUNING.acceleration
+      const pace = lowSwimPush ? 54 : b.kind === 'ball' ? ballPushPace(run.player) : sliding ? TUNING.runSpeed : 90
       const target = push.direction * push.effort * pace
-      const maximum = b.kind === 'ball' ? 3800 : 1900
+      const maximum = Math.min(b.kind === 'ball' ? 3800 : 1900,
+        sliding ? legs * PLAYER_MASS / (PLAYER_MASS + body.mass / propWeightScale(b)) : Infinity)
       // Keep a ball's push force when a load resists it, despite its lower
       // walking-speed target. A loaded chain must not stall below that target.
       const response = b.kind === 'ball' ? 70 : 35
@@ -740,6 +750,14 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     }
     if (!changed) break
   }
+  // A prop resting partly on ice and partly on grippy ground is not sliding on ice: the grippy part still drags it.
+  for (const contact of contacts) {
+    const a = byBody.get(contact.bodyA), b = byBody.get(contact.bodyB), ny = contact.normal.y
+    const directionA = (world.gravity.get(contact.bodyA) ?? TUNING.gravity) < 0 ? -1 : 1
+    const directionB = (world.gravity.get(contact.bodyB) ?? TUNING.gravity) < 0 ? -1 : 1
+    if (a && ny * directionA < -.3 && contact.bodyB.isStatic && !slickBodies.has(contact.bodyB)) slickProps.delete(a)
+    if (b && ny * directionB > .3 && contact.bodyA.isStatic && !slickBodies.has(contact.bodyA)) slickProps.delete(b)
+  }
   for (const [b, body] of world.bodies) {
     // Low acceleration can look stationary to Matter's speed-only sleep test.
     // A body under gravity may sleep only while a real support carries it.
@@ -757,6 +775,15 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     world.floatQuiet.set(body, quiet)
     if (quiet >= .5 && !b.waterBob) Sleeping.set(body, true)
     const normal = supports.get(body)
+    // On ice, the slick surface's own sliding friction (friction.ts SLICK, as under feet). Matter's contact friction
+    // stops a sliding box within a stride at any setting that low, so slick terrain bodies keep none and it is applied
+    // here: the speed along the surface loses the coefficient times the load each step, so gravity down a slope
+    // gentler than the friction angle never outlasts it, and the prop holds.
+    if (normal && slickProps.has(b) && !driven.has(body)) {
+      const v = Body.getVelocity(body), tx = -normal.y, ty = normal.x, along = (v.x * tx + v.y * ty) * 60
+      const kept = slideOn(along, gravity * Math.abs(normal.y), dt, SLICK)
+      if (kept !== along) Body.setVelocity(body, { x: v.x + tx * (kept - along) / 60, y: v.y + ty * (kept - along) / 60 })
+    }
     // Static friction holds a settled face on a moderate slope. Checking face
     // alignment keeps corners free to tip; steep slopes keep their momentum.
     if (b.kind === 'box' && normal && !slickProps.has(b) && !driven.has(body) && Math.abs(normal.x) > .02 && Math.abs(normal.x) < .65 * Math.abs(normal.y)

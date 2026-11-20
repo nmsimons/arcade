@@ -521,7 +521,7 @@
     },
     {
       "name": "fast",
-      "elapsed": 13.608333333333201,
+      "elapsed": 13.424999999999878,
       "activeTime": 14.466666666666486,
       "grade": "A",
       "shots": 1,
@@ -592,7 +592,7 @@
           "input": {}
         },
         {
-          "frames": 88,
+          "frames": 66,
           "input": {
             "move": 1
           }

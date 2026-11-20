@@ -47,10 +47,12 @@ test('walking, running and crouched approaches gather before the first loaded pa
      assert.ok(preparation>=.18,label+': fast and slow approaches have time to prepare')
      const motion=Math.max(...wrists.map((point,i)=>Math.hypot(...point.map((v,j)=>v-previous[i][j]))))
      assert.ok(motion<6+TUNING.runSpeed*dt,label+`: first contact wrist motion ${motion}`)
+     // A prepared stance is nearly formed as the first force lands: the palms are within a unit of the face, and on it
+     // once the stance completes (docs/jumping-physics.md).
      for(const [i,arm]of [pose.frontArm,pose.backArm].entries()){
       const palm=p.pushing.palms[i]
-      assert.ok(Math.hypot(p.x+arm.hand[0]*p.facing-palm.x-palm.nx*1.6,p.y+arm.hand[1]-palm.y-palm.ny*1.6)<.5,
-       label+': working palms still meet the actual surface immediately')
+      assert.ok(Math.hypot(p.x+arm.hand[0]*p.facing-palm.x-palm.nx*1.6,p.y+arm.hand[1]-palm.y-palm.ny*1.6)<1,
+       label+': working palms meet the actual surface as the prepared stance lands')
      }
      break
     }

@@ -44,6 +44,13 @@ by `CheckField` (`StudioFields.tsx`), so the caption is still the accessible nam
 and clicking it toggles the box. `Field` stacks a caption over its control;
 `InspectorButton` is the inspector's full-width action.
 
-Shared level-file dialogs (`SaveFailureDialog`, `FileActionDialog`) and
-`DeleteLevelButton` are also used by the game's level menu, so they keep the
-game's styling; the library styles its delete button in `builder.css`.
+The level-file dialogs (`SaveFailureDialog`, `FileActionDialog` in
+`LevelFileActions.tsx`) appear only in the studio and use shadcn buttons and
+inputs in an alert-dialog layout. They keep the `game-dialog` class, which the
+app's keyboard and controller menu handling looks for, so the old
+`.game-dialog button` rules also skip `data-slot` elements. `DeleteLevelButton`,
+in the same file, is shared with the game's level menu and stays a plain button;
+the library styles it in `builder.css`.
+
+The `data-slot` exclusions use `:where(:not([data-slot]))`, which adds no
+specificity, so later game rules still override the older global ones as before.

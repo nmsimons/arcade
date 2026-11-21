@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { moveDialogSelection } from '../hardVacuum/dialogNavigation'
+import { Button } from '@/components/ui/button'
 import './levelFiles.css'
 
 export function SaveFailureDialog({ fileName, reason, returnFocus, onClose }: {
@@ -16,7 +17,7 @@ export function SaveFailureDialog({ fileName, reason, returnFocus, onClose }: {
       if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
     }
   }, [returnFocus])
-  return <dialog ref={dialog} className="game-dialog level-file-dialog jumping-ui jumping-save-failure" role="alertdialog"
+  return <dialog ref={dialog} className="game-dialog studio-dialog level-file-dialog jumping-save-failure" role="alertdialog"
     aria-modal="true" aria-label="Save failed" aria-describedby={descriptionId}
     data-dialog-screen="level-save-failed" data-controller-mode="menu"
     onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose() }}
@@ -27,13 +28,15 @@ export function SaveFailureDialog({ fileName, reason, returnFocus, onClose }: {
       else if (event.key === 'Tab') { event.preventDefault(); close.current?.focus() }
       else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') event.preventDefault()
     }} onPointerDownCapture={event => { event.currentTarget.dataset.inputMethod = 'pointer' }}>
-    <header className="jumping-ui-heading"><p className="jumping-eyebrow">LEVEL STUDIO</p><h2>Save failed.</h2></header>
-    <div className="jumping-notice-copy" id={descriptionId}>
-      <p>Could not save <strong>{fileName}</strong>.</p>
-      <p>{reason}</p>
-      <p>Your changes are still in the editor.</p>
+    <div className="level-file-body">
+      <h2>Save failed</h2>
+      <div className="level-file-copy" id={descriptionId}>
+        <p>Could not save <strong>{fileName}</strong>.</p>
+        <p className="level-file-error">{reason}</p>
+        <p>Your changes are still in the editor.</p>
+      </div>
     </div>
-    <div className="jumping-notice-actions"><button ref={close} type="button" data-initial-focus onClick={onClose}>Close</button></div>
+    <div className="level-file-actions"><Button ref={close} type="button" variant="outline" data-initial-focus onClick={onClose}>Close</Button></div>
   </dialog>
 }
 
@@ -51,7 +54,7 @@ export function FileActionDialog({ title, children, confirmLabel, destructive = 
     catch (error) { setError((error as Error).message) }
     finally { pending.current = false; setBusy(false) }
   }
-  return <dialog ref={dialog} className={`game-dialog level-file-dialog jumping-ui${destructive ? ' is-destructive' : ''}`} role="alertdialog" aria-modal="true" aria-label={title}
+  return <dialog ref={dialog} className={`game-dialog studio-dialog level-file-dialog${destructive ? ' is-destructive' : ''}`} role="alertdialog" aria-modal="true" aria-label={title}
     data-dialog-screen="level-file-action" data-controller-mode="menu" onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!pending.current) onClose() }}
     onKeyDown={event => {
       event.currentTarget.dataset.inputMethod = 'keyboard'
@@ -62,14 +65,14 @@ export function FileActionDialog({ title, children, confirmLabel, destructive = 
       }
     }} onPointerDownCapture={event => { event.currentTarget.dataset.inputMethod = 'pointer' }}>
     <form onSubmit={event => { event.preventDefault(); void confirm() }}>
-      <header className="jumping-ui-heading"><p className="jumping-eyebrow">LEVEL FILES</p><h2>{title}</h2></header>
-      <div className="jumping-notice-copy">
-        <fieldset disabled={busy}>{children}</fieldset>
+      <div className="level-file-body">
+        <h2>{title}</h2>
+        <fieldset className="level-file-copy" disabled={busy}>{children}</fieldset>
         {error && <p role="alert" className="level-file-error">{error}</p>}
       </div>
       <div className="level-file-actions">
-        <button ref={cancel} type="button" data-initial-focus disabled={busy} onClick={onClose}>Cancel</button>
-        <button className={destructive ? 'level-file-danger' : 'level-file-primary'} type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Working…' : confirmLabel}</button>
+        <Button ref={cancel} type="button" variant="outline" data-initial-focus disabled={busy} onClick={onClose}>Cancel</Button>
+        <Button className={destructive ? 'level-file-danger bg-destructive text-primary-foreground hover:bg-destructive/90' : 'level-file-primary'} type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Working…' : confirmLabel}</Button>
       </div>
     </form>
   </dialog>

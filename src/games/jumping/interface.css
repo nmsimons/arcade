@@ -8,7 +8,7 @@
   scrollbar-width: thin;
   scrollbar-color: var(--jumping-color-ink) transparent;
 }
-.jumping-game .jumping-ui button:not([data-slot]),
+.jumping-game .jumping-ui button:where(:not([data-slot])),
 .jumping-game .jumping-builder-return {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-width: 0; min-height: 48px; padding: 12px 14px;
@@ -19,7 +19,7 @@
   transition: none;
 }
 .jumping-game .jumping-builder-return { --jumping-button-shadow: var(--ui-shadow-card); background: var(--jumping-paper); }
-.jumping-game .jumping-ui button:not([data-slot]):disabled { opacity: var(--jumping-inactive-opacity); cursor: default; }
+.jumping-game .jumping-ui button:where(:not([data-slot])):disabled { opacity: var(--jumping-inactive-opacity); cursor: default; }
 .jumping-game .jumping-ui h2 {
   margin: 0; color: var(--jumping-ink);
   font: 800 var(--jumping-type-large)/1 'Segoe UI', sans-serif;
@@ -30,7 +30,7 @@
   padding: 0; border: 0; background: transparent; color: inherit;
   font: var(--jumping-type-small)/1.5 ui-monospace, monospace;
 }
-.jumping-game .jumping-ui :is(.level-file-danger, .level-file-delete, .builder-delete) { color: var(--jumping-danger); }
+.jumping-game .jumping-ui .level-file-delete { color: var(--jumping-danger); }
 .jumping-ui :is(.level-file-delete, .local-folder-refresh) svg { width: 20px; height: 20px; flex: none; }
 
 /* Each band owns its background all the way to the panel edges. */
@@ -129,7 +129,6 @@
 .jumping-ui .jumping-level-problems p { color: var(--jumping-muted); font-size: var(--jumping-type-small); line-height: 1.5; }
 .jumping-ui .jumping-level-problems .jumping-load-error { color: var(--jumping-danger); }
 
-.jumping-ui.level-file-dialog::backdrop { background: var(--jumping-backdrop); backdrop-filter: none; }
 .jumping-game .jumping-ui .level-file-delete-labeled { font-size: var(--jumping-type-normal); }
 .jumping-ui .level-thumbnail.level-file-placeholder { border: 0; border-radius: 0; background: var(--jumping-section); color: var(--jumping-muted); font-size: var(--jumping-type-normal); }
 .jumping-ui .level-file-placeholder span { font-size: var(--jumping-type-small); }
@@ -150,7 +149,6 @@
 .jumping-ui .local-folder-errors { color: var(--jumping-danger); border: 0; padding: 0; }
 
 /* Confirmations keep the same section bands and equally weighted actions. */
-.jumping-game .level-file-dialog.jumping-ui,
 .jumping-ui .jumping-notice-panel {
   width: min(34em, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
   margin: auto; padding: 0; border: 0; border-radius: 2px;
@@ -160,23 +158,18 @@
 /* The preparation title needs the panel's full width to keep its words intact. */
 .jumping-ui .jumping-notice-panel .jumping-brand-heading { flex-direction: column; align-items: flex-start; gap: 16px; overflow-wrap: normal; }
 .jumping-game .jumping-notice-panel .jumping-brand-heading .lab-logo { max-width: 100%; }
-.jumping-ui.is-destructive .jumping-ui-heading { --jumping-header: var(--jumping-danger); }
 .jumping-ui .jumping-notice-copy { padding: 28px 32px; }
 .jumping-ui .jumping-notice-copy p { font-size: var(--jumping-type-normal); line-height: 1.5; margin: 0 0 16px; }
 .jumping-ui .jumping-notice-copy p:last-child { margin-bottom: 0; }
-.jumping-ui .jumping-notice-copy :is(.level-file-note, .level-file-error) { font-size: var(--jumping-type-small); }
-.jumping-ui .level-file-error { color: var(--jumping-danger); }
-.jumping-ui :is(.level-file-actions, .jumping-notice-actions) {
+.jumping-ui .jumping-notice-actions {
   display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
   margin: 0; padding: 20px 32px; background: var(--jumping-section);
 }
 .jumping-ui .jumping-notice-actions { flex-direction: column; }
 .jumping-ui .jumping-notice-actions button { justify-content: flex-start; }
-:is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) { --notice-inset: 32px; }
-:is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) :is(.jumping-ui-heading, .jumping-notice-copy) { padding-inline: calc(var(--notice-inset) + 14px); }
-:is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) .jumping-notice-actions { padding-inline: var(--notice-inset); }
-.jumping-ui .level-file-actions button { flex: 1 1 9em; }
-.jumping-ui.level-file-dialog label { color: var(--jumping-muted); font-size: var(--jumping-type-small); }
+.jumping-ui .jumping-notice-panel { --notice-inset: 32px; }
+.jumping-ui .jumping-notice-panel :is(.jumping-ui-heading, .jumping-notice-copy) { padding-inline: calc(var(--notice-inset) + 14px); }
+.jumping-ui .jumping-notice-panel .jumping-notice-actions { padding-inline: var(--notice-inset); }
 .jumping-game .jumping-ui input {
   min-width: 0; min-height: 48px; padding: 12px; border: 0; border-bottom: 2px solid var(--jumping-muted);
   border-radius: 0; background: var(--jumping-soft); color: var(--jumping-ink); font: var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif;
@@ -238,8 +231,8 @@
   .jumping-ui .local-folder .local-folder-label-short { display: inline; }
   .jumping-game .jumping-ui .local-folder-actions button { min-width: 44px; padding-inline: 8px; }
   .jumping-ui .jumping-ui-heading, .jumping-ui .jumping-notice-copy { padding: 24px; }
-  :is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) { --notice-inset: 24px; }
-  .jumping-ui :is(.level-file-actions, .jumping-notice-actions) { padding: 16px 24px; }
+  .jumping-ui .jumping-notice-panel { --notice-inset: 24px; }
+  .jumping-ui .jumping-notice-actions { padding: 16px 24px; }
 }
 @media (max-height: 650px) and (min-width: 621px) {
   .jumping-ui .jumping-library-bar { min-height: 64px; padding-block: 8px; }

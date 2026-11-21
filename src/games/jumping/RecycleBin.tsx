@@ -4,6 +4,8 @@ import type { DeletedLevel } from './levelFiles'
 import { DeleteLevelButton, FileActionDialog } from './LevelFileActions'
 import { LevelThumbnail } from './LevelThumbnail'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Field } from './StudioFields'
 
 export function RecycleBin({ levels: local }: { levels: BuiltInLevels }) {
   const [restore, setRestore] = useState<DeletedLevel | null>(null), [fileName, setFileName] = useState('')
@@ -33,7 +35,7 @@ export function RecycleBin({ levels: local }: { levels: BuiltInLevels }) {
     </div>
     {restore && <FileActionDialog title="Recover level" confirmLabel="Recover" onClose={() => setRestore(null)} onConfirm={() => local.restoreDeleted(restore, fileName)}>
       <p>Recover <strong>{restore.level?.name ?? restore.fileName}</strong> to the built-in collection.</p>
-      <label>Filename<input aria-label="Recovery filename" value={fileName} onChange={event => setFileName(event.target.value)} /></label>
+      <Field>Filename<Input aria-label="Recovery filename" value={fileName} onChange={event => setFileName(event.target.value)} /></Field>
       <p className="level-file-note">Existing files will not be overwritten. The level keeps its ID and is added to the end of a custom order.</p>
     </FileActionDialog>}
     {deleted && <FileActionDialog title="Delete level permanently?" confirmLabel="Delete permanently" destructive onClose={() => setDeleted(null)} onConfirm={() => local.deletePermanently([deleted])}>

@@ -29,10 +29,11 @@
     "scaffold5.jump-level.json",
     "Gravity.jump-level.json",
     "Drain.json",
+    "eva.jump-level.json",
     "rampingup.jump-level.json",
+    "updraft.jump-level.json",
     "drift.jump-level.json",
     "pinball.jump-level.json",
-    "updraft.jump-level.json",
     "Security.jump-level.json",
     "lockout1.jump-level.json",
     "08.json",
@@ -61,7 +62,6 @@
     "buoyancy.jump-level.json",
     "curling.jump-level.json",
     "04.json",
-    "eva.jump-level.json",
     "Untitled level.jump-level.json"
   ]
 }

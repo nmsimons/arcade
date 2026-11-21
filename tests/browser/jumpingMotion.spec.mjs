@@ -248,6 +248,26 @@ for (const direction of [-1, 1]) for (const width of [16, 24]) test(`a keyboard 
   expect(departure.vy).toBeLessThan(0)
 })
 
+// Since 5761b90 the drawn hands ease onto the push palms instead of snapping there: no joint moves more than 8 units in a
+// frame (tests/jumping-push-engage.test.mjs). When palms are taken up, re-gripped or moved by a crouch, the hands catch up
+// over a few frames. They may be off the palms only in such spells, each shorter than PALM_CATCH_UP, and are otherwise on them.
+const PALM_CATCH_UP = .15
+function expectHandsOnPalms(frames) {
+  let off = null, previous = null
+  for (const frame of frames) {
+    // A break in the loaded frames (palms let go) starts a new spell.
+    if (previous !== null && frame.time - previous > .03) off = null
+    previous = frame.time
+    const gap = Math.max(...frame.contacts.hands.map((hand, i) => {
+      const palm = frame.contacts.palms[i]
+      return Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)
+    }))
+    if (gap < .5) { off = null; continue }
+    off ??= frame.time
+    expect(frame.time - off, `hands ${gap.toFixed(2)} from the palms at ${frame.time.toFixed(3)} s`).toBeLessThan(PALM_CATCH_UP)
+  }
+}
+
 for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the surface before and after restart (${direction})`, async ({ page }, info) => {
   const level = blankTrial(); level.entrance = { x: 540 - direction * 65.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
@@ -269,10 +289,7 @@ for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the
     const loaded = frames.filter(frame => frame.contacts.palms.length)
     expect(loaded.length).toBeGreaterThan(5)
     expect(frames.at(-1).x * direction).toBeGreaterThan(level.entrance.x * direction + 1)
-    for (const frame of loaded) frame.contacts.hands.forEach((hand, i) => {
-        const palm = frame.contacts.palms[i]
-        expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
-      })
+    expectHandsOnPalms(loaded)
     await page.screenshot({ path: info.outputPath(`${attempt}-palm-contact.png`) })
   }
 })
@@ -321,11 +338,8 @@ for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low d
     for (const frame of loaded) {
       expect(frame.signals.grounded).toBe(true)
       expect(frame.contacts.feet.some(foot => foot.planted)).toBe(true)
-      frame.contacts.hands.forEach((hand, i) => {
-        const palm = frame.contacts.palms[i]
-        expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
-      })
     }
+    expectHandsOnPalms(loaded)
   }
   await page.keyboard.down(key); await page.clock.runFor(600); await checkContact()
   await page.clock.runFor(1400); await checkContact()
@@ -374,11 +388,8 @@ for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`cro
       expect(frame.signals.grounded).toBe(true)
       expect(frame.signals.inverted).toBe(reversed)
       expect(frame.contacts.feet.some(foot => foot.planted)).toBe(true)
-      frame.contacts.hands.forEach((hand, i) => {
-        const palm = frame.contacts.palms[i]
-        expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
-      })
     }
+    expectHandsOnPalms(loaded)
   }
   await check()
   if (!reversed) await page.keyboard.down(crouchKey)

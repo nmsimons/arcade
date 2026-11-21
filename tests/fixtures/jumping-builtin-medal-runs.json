@@ -2,6 +2,10 @@
   "version": 2,
   "pendingAudit": [
     {
+      "level": "81521156-49cb-4d68-997b-02d0cff5f0d9",
+      "reason": "EVA became a timed Gravity wing course; its authored 10 / 20 / 40 / 60 targets, which need a prop steered onto the exit switch in zero g, have not yet been verified by a recorded fresh-start route."
+    },
+    {
       "level": "ab914f1b-985f-4992-9e03-44506d00cb33",
       "reason": "Added after the October 4 medal audit; a fresh-start medal route has not yet been recorded."
     },
@@ -1640,167 +1644,6 @@
       ]
     },
     {
-      "level": "c2e3a4c5-4b33-4e6b-962c-201342c974ba",
-      "jumpModel": "tap-hold",
-      "elapsed": 7.658333333333504,
-      "activeTime": 8.516666666666824,
-      "coins": 10,
-      "trace": [
-        {
-          "frames": 197,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 12,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 239,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 12,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 228,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 12,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 218,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 104,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        }
-      ]
-    },
-    {
-      "level": "8efe52fa-4d7a-4d50-b400-cefb9b3df1eb",
-      "jumpModel": "tap-hold",
-      "elapsed": 6.500000000000179,
-      "activeTime": 10.358333333333386,
-      "coins": 24,
-      "trace": [
-        {
-          "frames": 97,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 30,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 239,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 30,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 107,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 30,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 62,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 30,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 123,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 30,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 131,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 30,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 84,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 220,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        }
-      ]
-    },
-    {
       "level": "af7c96c7-d0b1-45ba-9f17-6e302e202096",
       "jumpModel": "tap-hold",
       "elapsed": 15.124999999999782,
@@ -1982,64 +1825,6 @@
         {
           "frames": 115,
           "input": {
-            "climb": true
-          }
-        }
-      ]
-    },
-    {
-      "level": "2c20a618-5a7a-47dc-9618-101980626f5a",
-      "jumpModel": "tap-hold",
-      "elapsed": 7.825000000000179,
-      "activeTime": 8.683333333333481,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 326,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 4,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 249,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 24,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 183,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 20,
-          "input": {}
-        },
-        {
-          "frames": 98,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 138,
-          "input": {
-            "move": 1,
             "climb": true
           }
         }
@@ -6829,6 +6614,228 @@
         }
       ],
       "reason": "Second Gap was retired when Orientation took over the tutorials; this captured-layout route is retained as historical evidence, not an audit of a deployed level."
+    },
+    {
+      "level": "c2e3a4c5-4b33-4e6b-962c-201342c974ba",
+      "jumpModel": "tap-hold",
+      "elapsed": 7.658333333333504,
+      "activeTime": 8.516666666666824,
+      "coins": 10,
+      "trace": [
+        {
+          "frames": 197,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 239,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 228,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 218,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "Overhead was removed from the Gravity wing in November 2026; this trace is retained as historical evidence, not an audit of a deployed level."
+    },
+    {
+      "level": "8efe52fa-4d7a-4d50-b400-cefb9b3df1eb",
+      "jumpModel": "tap-hold",
+      "elapsed": 6.500000000000179,
+      "activeTime": 10.358333333333386,
+      "coins": 24,
+      "trace": [
+        {
+          "frames": 97,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 239,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 107,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 62,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 123,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 131,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 220,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "Featherweight was removed from the Gravity wing in November 2026; this trace is retained as historical evidence, not an audit of a deployed level."
+    },
+    {
+      "level": "2c20a618-5a7a-47dc-9618-101980626f5a",
+      "jumpModel": "tap-hold",
+      "elapsed": 7.825000000000179,
+      "activeTime": 8.683333333333481,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 326,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 4,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 249,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 183,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 98,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 138,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "Flip Side was removed from the Gravity wing in November 2026; this trace is retained as historical evidence, not an audit of a deployed level."
     }
   ]
 }

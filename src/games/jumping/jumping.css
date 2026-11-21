@@ -13,15 +13,15 @@
   letter-spacing: .1em; text-transform: uppercase;
 }
 /* shadcn/ui components (data-slot) style themselves in the Level studio. */
-.jumping-game button:not([data-slot]) { cursor: pointer; border: 1px solid var(--jumping-rule); border-radius: 4px; padding: 9px 13px; color: var(--jumping-ink); background: var(--jumping-paper); font: inherit; pointer-events: auto; }
-.jumping-game button:not([data-slot]):hover { background: var(--jumping-soft); }
-.jumping-game button:not([data-slot]):focus-visible, .jumping-game .game-dialog button:focus { outline: 2px solid var(--jumping-color-ink); outline-offset: 3px; }
+.jumping-game button:where(:not([data-slot])) { cursor: pointer; border: 1px solid var(--jumping-rule); border-radius: 4px; padding: 9px 13px; color: var(--jumping-ink); background: var(--jumping-paper); font: inherit; pointer-events: auto; }
+.jumping-game button:where(:not([data-slot])):hover { background: var(--jumping-soft); }
+.jumping-game button:where(:not([data-slot])):focus-visible, .jumping-game .game-dialog button:where(:not([data-slot])):focus { outline: 2px solid var(--jumping-color-ink); outline-offset: 3px; }
 .jumping-game .jumping-builder-return { position: absolute; top: 20px; left: 20px; }
-.jumping-game kbd:not([data-slot]) { font: 10px ui-monospace, monospace; border: 1px solid var(--jumping-rule); border-radius: 3px; padding: 3px 5px; color: var(--jumping-ink); white-space: nowrap; }
+.jumping-game kbd:where(:not([data-slot])) { font: 10px ui-monospace, monospace; border: 1px solid var(--jumping-rule); border-radius: 3px; padding: 3px 5px; color: var(--jumping-ink); white-space: nowrap; }
 .jumping-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; background: var(--jumping-backdrop); backdrop-filter: none; }
 .jumping-game .game-dialog { color: var(--jumping-ink); font-family: 'Segoe UI', sans-serif; scrollbar-color: var(--jumping-color-ink) var(--jumping-paper); }
-.jumping-game .game-dialog button:is(:hover, :focus):not(:disabled) { background: var(--jumping-soft); color: var(--jumping-ink); border-color: var(--jumping-rule); }
-.jumping-game .game-dialog button:focus:not(:disabled) { outline: 2px solid var(--jumping-color-ink); outline-offset: 3px; }
+.jumping-game .game-dialog button:where(:not([data-slot])):is(:hover, :focus):not(:disabled) { background: var(--jumping-soft); color: var(--jumping-ink); border-color: var(--jumping-rule); }
+.jumping-game .game-dialog button:where(:not([data-slot])):focus:not(:disabled) { outline: 2px solid var(--jumping-color-ink); outline-offset: 3px; }
 .jumping-menu { max-width: 500px; width: 100%; margin: auto; background: var(--jumping-paper); padding: 36px; border: 1px solid var(--jumping-rule); border-top: 3px solid var(--jumping-rule); border-radius: 5px; box-shadow: none; }
 .jumping-menu h2 { font-size: 30px; letter-spacing: -.05em; font-weight: 600; line-height: 1.12; margin: 14px 0; }
 .jumping-menu > p:not(.jumping-eyebrow), .jumping-menu-heading > p:not(.jumping-eyebrow) { font-size: 13px; color: var(--jumping-ink); line-height: 1.65; }

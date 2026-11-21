@@ -39,7 +39,7 @@
 .menu-outfitter .menu-item { padding: 10px 14px; }
 .menu-outfitter .menu-help { margin-top: 16px; padding-top: 12px; }
 .menu-eyebrow { color: #9ab1a6; font-size: 10px; letter-spacing: .16em; }
-.game-dialog button {
+.game-dialog button:where(:not([data-slot])) {
   position: relative;
   min-height: 42px;
   border-radius: 5px;
@@ -58,15 +58,15 @@
 }
 .menu-button { letter-spacing: .04em; }
 .menu-item { text-align: left; }
-.game-dialog button:hover:not(:disabled) { background-color: #192b23; border-color: #527b65; }
-.game-dialog button[aria-pressed="true"] {
+.game-dialog button:where(:not([data-slot])):hover:not(:disabled) { background-color: #192b23; border-color: #527b65; }
+.game-dialog button:where(:not([data-slot]))[aria-pressed="true"] {
   border-color: #698b7b;
   color: #d8e9df;
   box-shadow: inset 0 -2px #739b88;
 }
 /* :focus (not only :focus-visible) keeps controller selection visible after
    using a mouse. Preserve child text colours and price/status hierarchy. */
-.game-dialog button:focus:not(:disabled) {
+.game-dialog button:where(:not([data-slot])):focus:not(:disabled) {
   outline: 2px solid #a6d5bc;
   outline-offset: 2px;
   border-color: transparent;
@@ -75,8 +75,8 @@
   box-shadow: none;
   transition: none;
 }
-.game-dialog button:active:not(:disabled) { background-color: #294536; }
-.game-dialog button:disabled {
+.game-dialog button:where(:not([data-slot])):active:not(:disabled) { background-color: #294536; }
+.game-dialog button:where(:not([data-slot])):disabled {
   cursor: not-allowed;
   opacity: .65;
   background-color: #0b1410;
@@ -105,4 +105,4 @@
   .menu-outfitter .menu-item { flex-direction: column; gap: 8px; }
   .menu-outfitter .menu-item > span:last-child { text-align: left; }
 }
-@media (prefers-reduced-motion: reduce) { .game-dialog button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .game-dialog button:where(:not([data-slot])) { transition: none; } }

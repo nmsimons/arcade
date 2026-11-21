@@ -188,6 +188,22 @@
 .studio-ui .builder-library .level-file-delete svg { width: 16px; height: 16px; }
 .builder-local-file > .level-file-delete { margin: 0 8px 8px; }
 
+/* File dialogs (save failure and recycle-bin confirmations) follow shadcn's alert dialog:
+   title and copy, then a footer of actions. They stay .game-dialog for the app's keyboard
+   and controller menu handling, so these rules outrank that class's game styling. */
+.jumping-game .level-file-dialog.studio-dialog {
+  width: min(28rem, calc(100vw - 32px)); height: fit-content; max-height: calc(100dvh - 32px); overflow: auto;
+  color: var(--foreground); font-family: inherit;
+}
+.level-file-body { display: grid; gap: 10px; padding: 20px 24px; }
+.jumping-game .level-file-dialog h2 { margin: 0; color: var(--foreground); font-size: 1rem; font-weight: 600; line-height: 1.4; }
+.jumping-game .level-file-dialog.is-destructive h2 { color: var(--destructive); }
+.level-file-copy { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; font-size: .875rem; line-height: 1.5; }
+.level-file-copy p { margin: 0; overflow-wrap: anywhere; }
+.level-file-copy .level-file-note { font-size: .75rem; color: var(--muted-foreground); }
+.studio-ui .level-file-error { margin: 0; color: var(--destructive); font-size: .8125rem; line-height: 1.5; overflow-wrap: anywhere; }
+.level-file-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--border); background: var(--muted); }
+
 /* Controller text entry: an on-screen keyboard. */
 .jumping-game .builder-text-entry { width: min(640px, calc(100vw - 24px)); height: fit-content; max-height: calc(100dvh - 24px); padding: 20px; overflow: auto; }
 .builder-text-preview { display: block; min-height: 52px; padding: 10px 12px; margin-bottom: 12px; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--input); border-radius: var(--radius-lg); background: var(--background); }

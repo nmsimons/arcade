@@ -6,6 +6,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: collectibles and wall
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { drawPickup } = await import('/src/games/jumping/pickups.ts')
     const { drawWallTexts } = await import('/src/games/jumping/wallText.ts')
+    const { wallWear } = await import('/src/games/jumping/wallWear.ts')
     const h = await lightingHarness({ backend })
     h.run.level = { ...h.run.level, platforms: [], texts: [], timers: [], triggers: [], climbables: { ropes: [], ladders: [] } }
     h.run.terrain = []; h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []
@@ -22,7 +23,8 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: collectibles and wall
     const maskCanvas = document.createElement('canvas'); maskCanvas.width = 1280; maskCanvas.height = 720
     const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true }); maskCtx.translate(0, 40)
     for (const pickup of pickups) drawPickup(maskCtx, pickup, 0)
-    drawWallTexts(maskCtx, texts)
+    // The room's own wear, as the renderer draws it: flaked and thinned graffiti paint is left out of the mask.
+    drawWallTexts(maskCtx, texts, false, undefined, wallWear(h.run.level))
     const mask = maskCtx.getImageData(0, 0, 1280, 720).data
     h.run.pickups = pickups
     h.run.level.texts = texts

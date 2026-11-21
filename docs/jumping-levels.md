@@ -664,7 +664,9 @@ characters, and areas are 40–2,000 units wide and 24–1,200 units high, bound
 the level. Choose **Back wall → Wall text** in the builder, then edit content,
 font size, alignment, position, and dimensions in the inspector. **Style** selects
 painted **Official** stencils or **Graffiti** marker lettering, muted red in daytime
-and warm yellow in night mode for readability. The wall fonts are bundled with
+and warm yellow in night mode for readability. Graffiti drips from the bottoms of
+its strokes and wears with the room's **Stains** setting (see
+[Graffiti](jumping-wall-wear.md#graffiti)). The wall fonts are bundled with
 the game and work offline. **Rotation (°)** turns
 the area around its center, from −180 to 180 degrees; positive values turn
 clockwise. The selection frame and resize handles rotate with it. In JSON,

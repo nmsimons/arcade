@@ -220,11 +220,47 @@ by the same steps:
   visibly different on a rotated stamp, worn or not. A copied raster is the same
   under any clip. Other small wall-art paths that must survive the patch redraw
   need the same: `fillRect`, as the stains use, or a whole raster.
+- **Graffiti** (`graffitiWear.ts`): its paint wears with the room too. See
+  [Graffiti](#graffiti) below.
 
 Terrain wear (cracks, chips, rust on steel, pebbles and soil in earth) is age and
 material, not water, and stays as it is. The stain under a
 loose panel is drawn at the level's stain opacity, but always appears,
 including at `"none"`.
+
+### Graffiti
+
+Graffiti looks hand-painted and aged: it drips, and its paint has flaked and
+thinned.
+
+- **Drips are how the paint went on**, so every piece has them, at every stain
+  level. They hang from the lowest points of strokes wherever open wall lies
+  below: about one for every two characters, spaced apart, with a neck where
+  the drip leaves the stroke, a run that narrows a little, and a bead where the
+  paint gathered. Most are short and a few run long. A drip stops short of the
+  next stroke below it, so it never runs into another line, and stays inside
+  the text area. Drips run down the wall, not down the lettering: a tilted
+  piece's drips hang plumb.
+- **Wear is the room's water and grime**, so it follows **Stains** as stamps do.
+  None leaves the paint fresh. Light flakes about 3% of the ink away as chips,
+  specks and the odd scuff; Heavy flakes about 6.5% and thins a patch or two
+  (about one per sixteen characters) in two steps, to 78% at its edge and 55% in
+  its core, so the patch has a soft edge without a gradient. Flaking gathers
+  around one or two places on the piece.
+- **Readability comes first.** Unworn paint keeps its full colour and contrast,
+  and the amount flaked is a share of the ink, so small lettering gets few marks.
+- Like stamp wear, both are random per piece, hashed from the level's ID and the
+  piece's place, size and words, so they are the same on every visit but
+  reshuffle when it is moved, resized or reworded.
+
+To find where the paint is, the lettering is drawn once on a small scratch
+canvas at its own resolution and read back; the game canvas is never read. On
+Canvas a piece is rasterized whole and copied in (`drawRastered` in
+`wallText.ts`), as stamps are, since its drips and flaked clip are paths. A
+WebGL recording takes them directly. Outside a browser (unit tests) there is no
+scan: graffiti wears, but does not drip. Review sheet:
+`.local/look/graffiti-sheet.html` on the dev server (`?scale=`, `x`, `y`,
+`stains=none|light`, `night=1`).
 
 ### Variation per level
 

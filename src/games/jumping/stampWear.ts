@@ -17,8 +17,8 @@ const STYLES: Record<StainLevel, StampWearStyle | null> = {
 const REFERENCE_AREA = 6800
 const MOST_MARKS = 240
 
-interface Box { x0: number; y0: number; x1: number; y1: number }
-const overlaps = (a: Box, list: readonly Box[], gap: number) =>
+export interface Box { x0: number; y0: number; x1: number; y1: number }
+export const overlaps = (a: Box, list: readonly Box[], gap: number) =>
   list.some(b => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap)
 
 /** A small seeded generator (mulberry32), so a stamp wears the same on every visit. */
@@ -38,7 +38,7 @@ export function hash(text: string) {
 }
 
 /** An irregular blob's outline: a rough, squashed polygon around its centre, and its bounds. */
-function blob(random: () => number, cx: number, cy: number, r: number, aspect: number, turn: number) {
+export function blob(random: () => number, cx: number, cy: number, r: number, aspect: number, turn: number) {
   const corners = 7 + Math.floor(random() * 4), points: number[] = []
   const c = Math.cos(turn), s = Math.sin(turn)
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
@@ -52,7 +52,7 @@ function blob(random: () => number, cx: number, cy: number, r: number, aspect: n
   return { points, box: { x0, y0, x1, y1 } }
 }
 /** A scuff: a thin sliver rubbed off across the ink, tapering at both ends. */
-function sliver(random: () => number, cx: number, cy: number, length: number, thickness: number, turn: number) {
+export function sliver(random: () => number, cx: number, cy: number, length: number, thickness: number, turn: number) {
   const c = Math.cos(turn), s = Math.sin(turn), steps = 6, top: number[] = [], bottom: number[] = []
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   const at = (along: number, across: number, out: number[]) => {
@@ -69,7 +69,7 @@ function sliver(random: () => number, cx: number, cy: number, length: number, th
   for (let i = bottom.length - 2; i >= 0; i -= 2) points.push(bottom[i], bottom[i + 1])
   return { points, box: { x0, y0, x1, y1 } }
 }
-function outline(path: ArtPath, points: readonly number[]) {
+export function outline(path: ArtPath, points: readonly number[]) {
   path.moveTo(points[0], points[1])
   for (let i = 2; i < points.length; i += 2) path.lineTo(points[i], points[i + 1])
   path.closePath()

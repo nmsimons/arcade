@@ -5,6 +5,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: fixed night ambient r
   const result = await page.evaluate(async backend => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { drawWallTexts, GRAFFITI_FONT } = await import('/src/games/jumping/wallText.ts')
+    const { wallWear } = await import('/src/games/jumping/wallWear.ts')
     const font = new FontFace(GRAFFITI_FONT, 'url(/src/games/jumping/fonts/PermanentMarker-Regular.ttf)')
     document.fonts.add(font); await font.load()
     const h = await lightingHarness({ backend }), ctx = h.canvas.getContext('2d')
@@ -13,7 +14,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: fixed night ambient r
     h.run.terrain = []; h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []; h.run.pickups = []
     h.run.player.x = 1000; h.run.player.y = 650
     // Locate opaque glyph interiors independently of the lighting compositor.
-    ctx.clearRect(0, 0, 1280, 720); ctx.save(); ctx.translate(0, 40); drawWallTexts(ctx, texts, true); ctx.restore()
+    ctx.clearRect(0, 0, 1280, 720); ctx.save(); ctx.translate(0, 40); drawWallTexts(ctx, texts, true, undefined, wallWear(h.run.level)); ctx.restore()
     const ink = { pixels: ctx.getImageData(0, 0, 1280, 720).data }
     const colors = [[113, 128, 116], [244, 211, 94]], points = [[], []]
     for (const [index, text] of texts.entries()) for (let y = text.y; y < text.y + 90; y++) for (let x = text.x; x < text.x + 620; x++) {

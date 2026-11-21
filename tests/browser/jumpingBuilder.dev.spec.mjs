@@ -25,7 +25,7 @@ async function open(page, level, { renderControl = true } = {}) {
       if (String(args[0]).includes('lightingGeometry.worker')) window.builderLightingWorkers++
       return Reflect.construct(target, args)
     } })
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc, image = proto.drawImage, clear = proto.clearRect
     // Wall timers are read from the renderer's display reports (src/games/jumping/debugFrames.ts):
     // the reading stands for the face, and the transform places it.
     window.addEventListener('jumping-display', ({ detail: { canvas, transform: t, value } }) => {
@@ -47,18 +47,36 @@ async function open(page, level, { renderControl = true } = {}) {
         window.jumpPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
       }
     })
+    const recordWallText = (canvas, value, x, y, color, baseFont, t) => {
+      const local = canvas.jumpCamera?.inverse().multiply(t) ?? t
+      const fontSize = Number(baseFont.match(/([\d.]+)px/)?.[1]) * Math.hypot(local.c, local.d)
+      // Compare authored font sizes across the editor and gameplay zooms.
+      const font = baseFont.replace(/[\d.]+px/, `${Math.round(fontSize * 1000) / 1000}px`)
+      canvas.wallTexts.push({ text: value, x, y, color, font, rotation: Math.atan2(t.b, t.a) * 180 / Math.PI,
+        fontSize, screenX: x * t.a + y * t.c + t.e, screenY: x * t.b + y * t.d + t.f })
+    }
     proto.fillText = function (value, x, y, ...rest) {
       this.canvas.builderLabels?.push(String(value))
       if (['#718074', '#94433f'].includes(this.fillStyle)) {
-        const t = this.getTransform()
-        const local = this.canvas.jumpCamera?.inverse().multiply(t) ?? t
-        const fontSize = Number(this.font.match(/([\d.]+)px/)?.[1]) * Math.hypot(local.c, local.d)
-        // Compare authored font sizes across the editor and gameplay zooms.
-        const font = this.font.replace(/[\d.]+px/, `${Math.round(fontSize * 1000) / 1000}px`)
-        this.canvas.wallTexts?.push({ text: value, x, y, color: this.fillStyle, font, rotation: Math.atan2(t.b, t.a) * 180 / Math.PI,
-          fontSize, screenX: x * t.a + y * t.c + t.e, screenY: x * t.b + y * t.d + t.f })
+        // Graffiti is lettered on a raster of its own and copied in (wallText.ts, drawRastered): keep it with the
+        // raster until it is drawn onto a world canvas.
+        if (this.canvas.wallTexts) recordWallText(this.canvas, value, x, y, this.fillStyle, this.font, this.getTransform())
+        else (this.canvas.rasterTexts ??= []).push({ value, x, y, color: this.fillStyle, font: this.font, t: this.getTransform() })
       }
       return text.call(this, value, x, y, ...rest)
+    }
+    proto.clearRect = function (...args) {
+      if (this.canvas.rasterTexts) this.canvas.rasterTexts = []
+      return clear.apply(this, args)
+    }
+    proto.drawImage = function (source, ...args) {
+      if (source?.rasterTexts?.length && this.canvas.wallTexts && args.length === 8) {
+        // A raster copied at its own size: its pixels land offset by the copy, under this context's transform.
+        const [sx, sy, , , dx, dy] = args
+        const shift = this.getTransform().translate(dx - sx, dy - sy)
+        for (const r of source.rasterTexts) recordWallText(this.canvas, r.value, r.x, r.y, r.color, r.font, shift.multiply(r.t))
+      }
+      return image.call(this, source, ...args)
     }
   })
   await page.goto(renderControl ? '/lab/library?renderControl=1' : '/lab/library')
@@ -901,7 +919,8 @@ test('wall text styles and rotation preserve selection, rotated resizing, save a
   const game = page.getByRole('img', { name: 'Untitled level: reach the exit' })
   const rendered = await game.evaluate(c => c.wallTexts.map(({ text, color, font, rotation }) => ({ text, color, font, rotation })))
   expect(rendered.map(({ text, color, font }) => ({ text, color, font }))).toEqual(text.map(({ text, color, font }) => ({ text, color, font })))
-  rendered.forEach((line, i) => expect(line.rotation).toBeCloseTo(text[i].rotation, 6))
+  // Graffiti's transform passes through its raster's setTransform, which keeps it in single precision.
+  rendered.forEach((line, i) => expect(line.rotation).toBeCloseTo(text[i].rotation, 5))
   await page.screenshot({ path: info.outputPath('wall-text-styles-play.png') })
 })
 

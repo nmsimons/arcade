@@ -402,11 +402,15 @@ unchanged saved level without a write. Renames keep level identity and
 update the manifest. External-edit checks protect changes made outside the
 studio; a failed write leaves the current draft editable.
 
-Drag library entries or use Alt + arrow keys to reorder them. The manifest saves
-the order automatically. **Sort by campaign order** lists the collection the way
-the development level library does (`libraryOrder.ts`): each facility area
-before the courses behind its doors, and the wings in the order the concourse
-opens them. **Sort by level name** sorts alphabetically. **Delete** moves a built-in to the private recycle bin;
+The studio library opens sorted by **Campaign order** whenever the campaign
+covers the collection, the way the development level library lists it
+(`libraryOrder.ts`): each facility area before the courses behind its doors, the
+wings in the order the concourse opens them, and levels the campaign never
+reaches last. **Level name** sorts alphabetically. Both only change the view.
+**Saved order** shows the manifest's own order, which places levels outside the
+campaign: drag entries or use Alt + arrow keys to reorder them, and the manifest
+saves the order automatically. **Save as campaign order** and **Save as name
+order** rewrite it in one step. **Delete** moves a built-in to the private recycle bin;
 **Recover** restores it without overwriting another file. Permanent deletion and
 emptying the bin require confirmation. Recovery files never enter published
 assets. Add external JSON by placing it in `public/levels/jumping/` and refreshing

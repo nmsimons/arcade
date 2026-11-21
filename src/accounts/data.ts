@@ -1,6 +1,7 @@
 import { AREA_STATE_SLOT, FACILITY_PLACE_SLOT, SAVE_SLOTS, LEVELS_SLOT, withWorkspaceLock } from './profileStorage.ts'
 import { CloudChangedError } from './errors.ts'
 import type { KeyStorage } from './profileStorage.ts'
+import { isTrialRecord } from '../games/jumping/trials.ts'
 import { decodeLevelFile, decodeLevelManifest, isLevelFileName } from '../games/jumping/levelAssets.ts'
 import { textBytes, MAX_LEVEL_BYTES, MAX_LEVEL_FILES } from '../games/jumping/levelLimits.ts'
 
@@ -53,6 +54,10 @@ export function parseWorkspace(text: string): Workspace {
     if (key === 'arcade.jumping.completed.v1') {
       const completed: unknown = JSON.parse(raw)
       if (!object(completed) || Object.keys(completed).length > 10000 || Object.entries(completed).some(([id, done]) => id.length > 400 || done !== true)) throw new Error('Invalid completed levels.')
+    }
+    if (key === 'arcade.jumping.trials.v1') {
+      const trials: unknown = JSON.parse(raw)
+      if (!object(trials) || Object.keys(trials).length > 10000 || Object.entries(trials).some(([id, record]) => id.length > 400 || !isTrialRecord(record))) throw new Error('Invalid course trials.')
     }
     // The game reads back only a well-formed place and otherwise starts afresh, so any small object is kept.
     if (key === FACILITY_PLACE_SLOT && (textBytes(raw) > 4096 || !object(JSON.parse(raw)))) throw new Error('Invalid facility place.')

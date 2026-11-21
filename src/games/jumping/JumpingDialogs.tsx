@@ -6,6 +6,7 @@ import { GRADE_TARGETS, gradeTimes } from './grading'
 import type { PuzzleLevel } from './level'
 import type { CourseRecord, WingRecord } from './facility'
 import { RELEASE_GRADES, releaseCertificate } from './releaseCertificate'
+import type { TrialTally } from './releaseCertificate'
 
 function RestartIcon() {
   return <svg className="jumping-dialog-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
@@ -80,8 +81,14 @@ function ReleaseCertificate({ progress, reveal = false }: { progress: StartProgr
       <div><dt>Courses passed</dt><dd>{certificate.passed} / {certificate.required}</dd></div>
       <div><dt>Grades</dt><dd>{RELEASE_GRADES.map(grade => `${grade} ${certificate.grades[grade]}`).join(' · ')}</dd></div>
       {certificate.total !== null && <div><dt>Best times</dt><dd>{formatTime(certificate.total)}</dd></div>}
+      {certificate.trials && <div><dt>Trials</dt><dd>{trialTally(certificate.trials)}</dd></div>}
+      {certificate.trials && <div><dt>Passed first try</dt><dd>{certificate.trials.firstTry} / {certificate.passed}</dd></div>}
     </dl>
   </section>
+}
+/** Trials, then how many were restarted or failed, as `64 · 31 restarted · 5 failed`. */
+function trialTally({ tries, restarts, fails }: TrialTally) {
+  return [String(tries), ...restarts ? [`${restarts} restarted`] : [], ...fails ? [`${fails} failed`] : []].join(' · ')
 }
 function courseRecord(course: Exclude<CourseRecord, { state: 'locked' }>) {
   if (course.state === 'passed') return course.best === null ? 'Passed' : `${formatTime(course.best)} ${course.grade}`

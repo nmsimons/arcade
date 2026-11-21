@@ -358,6 +358,7 @@ while the door is shut:
 | Untimed | UNTIMED (lamp amber), or COMPLETE once finished (lamp green). |
 | Improved just now | The new time and grade roll in; "PERSONAL BEST" on a new best. |
 | Certification door | Source group, completion count and points, e.g. "CERTIFICATION 5 / 6", with the source courses' best grades. |
+| Tried | Below any of the above, TRIALS with the number of tries logged there (see [Trials](#trials)). |
 
 Standing at a placard with the camera settled may show the A/B/C/D targets that
 the result dialog shows today. Placards are drawn behind terrain and actors,
@@ -539,7 +540,7 @@ course record offers:
 | --- | --- |
 | Continue | Plays on from the place behind the display, at `/lab/facility`. Esc, the controller's Menu button and B do the same. |
 | Progress | Once released, the release certificate first. The evaluation total, then each wing: its passes, or Sealed, and each course's best time and grade or the D deadline to pass. Locked courses stay dark, as their placards do. |
-| Restart | Asks first, with Cancel as the default, then erases every course record (best times and completions) and the robot's place, and wakes in Orientation's pod at `/lab/facility`. With cloud saves on, the erased save syncs like any other change, and earlier versions stay in the cloud save history. |
+| Restart | Asks first, with Cancel as the default, then erases every course record (best times, completions and trials) and the robot's place, and wakes in Orientation's pod at `/lab/facility`. With cloud saves on, the erased save syncs like any other change, and earlier versions stay in the cloud save history. |
 | Controls | How to play: it opens by saying a controller is the best way to play (or that one is connected), then lists what the robot can do, grouped as Move, Jump, Climb, Swim and Tools, each with how to do it on the controller, keyboard or touch in use. The courses teach the rest. |
 
 **Level studio** (development builds) and **Back to arcade** sit along the foot
@@ -571,9 +572,32 @@ without the start screen. Courses return the robot to their doors at
 4. Instead of the result dialog, the wing reloads with the robot stepping out of
    the course door (the entrance animation, from that door). The placard and
    board lamp update in view, and a live region announces the result, e.g.
-   "Boxes passed. Grade B, 42.37 seconds, personal best."
+   "Boxes passed. Grade B, 42.37 seconds, personal best, trial 14." The trial
+   is the try that set the best (see [Trials](#trials)).
 5. On F, the placard shows the run's time with F and the deadline; the next door stays dark.
 6. **Leave course** on the pause screen returns to the door without a record.
+
+#### Trials
+
+The lab logs every try at a course (`trials.ts`, saved as
+`arcade.jumping.trials.v1`), so practice shows without costing anything. A try
+begins when the course clock starts, after the entrance animation, and ends one
+way:
+
+| Outcome | When |
+| --- | --- |
+| Pass | The course is finished before D. |
+| Fail | The clock ran past D. A try that fails stays a fail however it then ends: finished, restarted or left. |
+| Restart | The try is abandoned before D: Restart course, Leave course, a link elsewhere, or closing the game. |
+
+Restarting during the entrance animation logs nothing. An untimed place that
+keeps its state resumes when left, so leaving it logs nothing, while Restart
+does. Studio playtests and facility areas log no tries; a course played from
+the level library does. The log is evidence, never a penalty: it changes no
+grade, door or rating. It appears on the door placard as TRIALS, in the result
+announcement as the trial that set a personal best, and on the release
+certificate. Restart erases it with the course records, and it syncs with cloud
+saves as `trials.json`.
 
 #### The release
 
@@ -581,7 +605,9 @@ Finishing the game ends on the robot's system display too. Once the bus has
 gone, the release screen fills the view over the place, as the start screen
 does: the L.A.B. mark, the level's name and "RELEASED.", then the reward, the
 **release certificate**: the unit rating it earned, then the courses passed, the
-tally of best grades (A, B, C and D) and the total of its best times. The rating
+tally of best grades (A, B, C and D), the total of its best times and, once any
+are logged, the trials: how many, how many restarted and failed, and how many
+passed courses were passed on the first try (see [Trials](#trials)). The rating
 comes from the average best grade, A = 4 to D = 1, over the graded courses
 (`releaseCertificate.ts`): **Exemplary** with an A on every one, then
 **Distinguished** (3.5 or more), **Commendable** (3), **Proficient** (2) and

@@ -93,3 +93,42 @@ for (const storageAvailable of [true, false]) test(`a completed run updates the 
     await expect(card(page, 'Finish room')).toHaveAccessibleDescription(`Best ${finishTime} Grade A`)
   }
 })
+
+test('the studio library opens in campaign order, says so, and reorders only its saved order', async ({ page }) => {
+  const area = (id, name, courseDoors, bulkheads) => ({ version: 1, id, name, kind: 'hub', timing: 'untimed', width: 1800, height: 920, floor: 920,
+    entrance: { x: 200, y: 920 }, platforms: [], checkpoints: [], climbables: { ladders: [], ropes: [] }, props: [], mechanisms: [], triggers: [], robots: [],
+    courseDoors, bulkheads, evaluationBoards: [] })
+  const wing = area('lesson-wing', 'Lesson wing', CAMPAIGN.map((course, i) => ({ id: `door-${i}`, x: 500 + i * 400, y: 920, course: course.id })),
+    [{ id: 'wing-to-hall', x: 1600, y: 920, to: 'lesson-hall' }])
+  const hall = area('lesson-hall', 'Lesson hall', [], [{ id: 'hall-to-wing', x: 900, y: 920, to: wing.id }])
+  // File names give a saved order that is neither the campaign's nor the names'.
+  const files = { 'a-outside.json': level('outside', 'Zebra outside'), 'b-course.json': CAMPAIGN[2], 'c-wing.json': wing,
+    'd-course.json': CAMPAIGN[0], 'e-hall.json': hall, 'f-course.json': CAMPAIGN[1] }
+  await installBuiltInFixtures(page, files)
+  await page.route('**/levels/jumping-campaign.json', route => route.fulfill({ json: { version: 3, start: hall.id } }))
+  await page.goto('/lab/library?renderControl=1')
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  const library = page.getByRole('dialog', { name: 'Level library', exact: true })
+  const sort = name => library.getByRole('group', { name: 'Sort', exact: true }).getByRole('button', { name, exact: true })
+  const shown = () => library.locator('.builder-local-file small').allTextContents()
+  await expect(sort('Campaign order')).toHaveAttribute('aria-pressed', 'true')
+  await expect(library).toContainText('Sorted by campaign order')
+  await expect.poll(shown).toEqual(['e-hall.json', 'c-wing.json', 'd-course.json', 'f-course.json', 'b-course.json', 'a-outside.json'])
+  // Sorting is a view: only the saved order can be dragged or moved with Alt + arrows.
+  const first = library.getByRole('button', { name: 'Open e-hall.json', exact: true })
+  await expect(first.locator('..')).toHaveAttribute('draggable', 'false')
+  await first.focus(); await page.keyboard.press('Alt+ArrowRight')
+  await expect.poll(shown).toEqual(['e-hall.json', 'c-wing.json', 'd-course.json', 'f-course.json', 'b-course.json', 'a-outside.json'])
+  await sort('Level name').click()
+  await expect(sort('Level name')).toHaveAttribute('aria-pressed', 'true'); await expect(sort('Campaign order')).toHaveAttribute('aria-pressed', 'false')
+  const byName = Object.entries(files).sort(([, a], [, b]) => a.name.localeCompare(b.name)).map(([file]) => file)
+  await expect.poll(shown).toEqual(byName)
+  await sort('Saved order').click()
+  await expect(library).toContainText('Saved order: drag levels')
+  await expect.poll(shown).toEqual(Object.keys(files))
+  await expect(library.getByRole('button', { name: 'Open a-outside.json', exact: true }).locator('..')).toHaveAttribute('draggable', 'true')
+  await library.getByRole('button', { name: 'Save as campaign order', exact: true }).click()
+  await expect.poll(shown).toEqual(['e-hall.json', 'c-wing.json', 'd-course.json', 'f-course.json', 'b-course.json', 'a-outside.json'])
+  await expect(library.getByRole('button', { name: 'Save as campaign order', exact: true })).toBeDisabled()
+})

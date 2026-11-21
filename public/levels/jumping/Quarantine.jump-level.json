@@ -854,6 +854,16 @@
       "fontSize": 28,
       "align": "center",
       "rotation": 90
+    },
+    {
+      "x": 45,
+      "y": 1485,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
     }
   ],
   "loosePanels": [

@@ -179,7 +179,18 @@
   "robots": [],
   "timers": [],
   "pickups": [],
-  "texts": [],
+  "texts": [
+    {
+      "x": 1750,
+      "y": 610,
+      "w": 115,
+      "h": 25,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "loosePanels": [
     {
       "x": 1440,

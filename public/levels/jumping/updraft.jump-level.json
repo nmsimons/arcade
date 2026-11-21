@@ -279,24 +279,14 @@
   "pickups": [],
   "texts": [
     {
-      "name": "Course title",
       "x": 40,
-      "y": 2650,
-      "w": 300,
-      "h": 44,
-      "text": "UPDRAFT",
-      "fontSize": 34,
-      "align": "left"
-    },
-    {
-      "name": "Exit direction",
-      "x": 40,
-      "y": 2694,
-      "w": 300,
-      "h": 28,
-      "text": "LIFT STACK. EXIT: TOP LEDGE",
-      "fontSize": 18,
-      "align": "left"
+      "y": 2635,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
     }
   ],
   "loosePanels": [

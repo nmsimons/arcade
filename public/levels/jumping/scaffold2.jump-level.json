@@ -1260,7 +1260,18 @@
       "kind": "coin"
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 1320,
+      "y": 30,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "gravityPlates": [
     {
       "id": "47f9ee3d-42da-42af-9429-b2a37308ec4f",

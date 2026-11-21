@@ -484,7 +484,18 @@
     }
   ],
   "pickups": [],
-  "texts": [],
+  "texts": [
+    {
+      "x": 4370,
+      "y": 75,
+      "w": 110,
+      "h": 50,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "stripes": [
     {
       "x": 1425,

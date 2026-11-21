@@ -1542,12 +1542,6 @@
       "x": 250,
       "y": 700,
       "size": 100
-    },
-    {
-      "kind": "box",
-      "x": 7625,
-      "y": 700,
-      "size": 40
     }
   ],
   "mechanisms": [],
@@ -1735,8 +1729,8 @@
       "style": "lab-stamp"
     },
     {
-      "x": 7585,
-      "y": 585,
+      "x": 7560,
+      "y": 635,
       "w": 55,
       "h": 30,
       "text": "Jammed again.",
@@ -1802,7 +1796,7 @@
   ],
   "wallDoors": [
     {
-      "name": "Exit",
+      "name": "Concourse",
       "x": 7640,
       "y": 700,
       "condition": "jammed"

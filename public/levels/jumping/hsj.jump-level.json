@@ -168,7 +168,18 @@
     }
   ],
   "pickups": [],
-  "texts": [],
+  "texts": [
+    {
+      "x": 20,
+      "y": 20,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "pipes": [
     {
       "points": [

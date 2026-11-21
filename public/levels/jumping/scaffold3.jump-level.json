@@ -2046,7 +2046,18 @@
       "kind": "coin"
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 1320,
+      "y": 30,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "loosePanels": [
     {
       "x": 1035,

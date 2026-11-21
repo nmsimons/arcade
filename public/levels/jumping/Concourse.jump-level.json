@@ -1176,15 +1176,15 @@
   ],
   "texts": [
     {
-      "x": 1101.0152826994004,
-      "y": 187.7726246545999,
-      "w": 105,
-      "h": 350,
+      "x": 857.5,
+      "y": 875,
+      "w": 285,
+      "h": 45,
       "text": "L.A.B.\nexperiments",
       "fontSize": 28,
       "align": "center",
       "style": "lab-stamp",
-      "rotation": -5
+      "rotation": 0
     },
     {
       "x": 130,
@@ -1291,12 +1291,7 @@
       "size": "large"
     }
   ],
-  "loosePanels": [
-    {
-      "x": 1095,
-      "y": 345
-    }
-  ],
+  "loosePanels": [],
   "gravityPlates": [
     {
       "id": "3fbedf4b-3491-4110-a52b-f29de3be3126",

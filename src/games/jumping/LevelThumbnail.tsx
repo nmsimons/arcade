@@ -19,7 +19,7 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = fa
     const run = isRunLevel(prepared) ? createPreviewRun(prepared) : null
     return { prepared, run, player: run?.player ?? levelPlayer(prepared, true) }
   }, [level, preview, visible])
-  const geometry = useLightingGeometry(scene?.prepared ?? level, visible)
+  const geometry = useLightingGeometry(scene?.prepared ?? level, visible, true)
   useEffect(() => {
     const visibility = new IntersectionObserver(entries => setVisible(entries[0].isIntersecting))
     visibility.observe(ref.current!)

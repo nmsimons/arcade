@@ -65,9 +65,12 @@ test('WebGL layers draw the backdrop and terrain as Canvas does, and report the 
 
 // The whole frame drawn by WebGL on its own canvas, exposure included: daylight levels with coins, ropes,
 // ladders, wall text, displays and water; lamps by day (Tower) and at night, with their beams and glow
-// (escapade); a cave's regions at night (spelunk); and a landscape's sky (exit). Edges anti-alias
+// (escapade); a cave's regions at night (Exit I); and a landscape's sky (Exit II). Edges anti-alias
 // differently; whole objects may not.
-for (const file of ['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy', 'Tower', 'escapade', 'spelunk', 'exit']) test(`the WebGL frame draws ${file} as Canvas does`, async ({ page }, info) => {
+// The finale levels go by their durable ids (tests/helpers/jumping-builtin-levels.mjs), since their files were renamed.
+const frames = [...['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy', 'Tower', 'escapade'].map(name => [name, `${name}.jump-level.json`]),
+  ['Exit I', builtinLevelFile('13b9b9d7-7937-4989-bc03-21238e7e58f2')], ['Exit II', builtinLevelFile('b42dcd81-427a-4c2b-9c9b-a231874bef5b')]]
+for (const [title, file] of frames) test(`the WebGL frame draws ${title} as Canvas does`, async ({ page }, info) => {
   await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async name => {
@@ -75,7 +78,7 @@ for (const file of ['fulltilt', 'Quarantine II', 'scaffold4', 'buoyancy', 'Tower
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/worldFrame.ts'), import('/src/games/jumping/challenge.ts'),
       import('/src/games/jumping/level.ts'), import('/src/games/jumping/lightingDefinition.ts')])
     await document.fonts.ready
-    const level = parseLevel(await (await fetch(`/levels/jumping/${name}.jump-level.json`)).json()), run = createPreviewRun(level), definition = lightingForLevel(level)
+    const level = parseLevel(await (await fetch(`/levels/jumping/${encodeURIComponent(name)}`)).json()), run = createPreviewRun(level), definition = lightingForLevel(level)
     const width = 960, height = 600, view = { x: run.player.x - 299.63, y: run.player.y - 259.39, width, height, zoom: 1.5789 }
     const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
     const ctx = canvas.getContext('2d', { willReadFrequently: true })

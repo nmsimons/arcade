@@ -80,6 +80,12 @@
 .builder-status:has(.builder-controller-hint) { flex-wrap: wrap; gap: 2px 16px; }
 .builder-controller-hint { flex: 1 1 360px; }
 
+/* Outline and ghost buttons hover to steel, which is also the tool rail's and the steel bands' own color: there they
+   hover to sage instead, so a hovered button never vanishes into its surface. */
+.jumping-game :is(.builder-tools, .builder-library-folder, .builder-bin-header, .level-file-actions)
+  [data-slot=button]:is([data-variant=outline], [data-variant=ghost]):hover:not(:disabled, [aria-pressed=true], :focus-visible) {
+  background: var(--accent); color: var(--accent-foreground);
+}
 /* State changes are immediate, as in the rest of the game's UI. */
 .jumping-builder [data-slot] { transition: none; }
 /* Keyboard focus is a filled highlight, as everywhere in the game (tests/browser/helpers/

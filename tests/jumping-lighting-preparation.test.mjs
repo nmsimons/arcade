@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { prepareLightingGeometry } from '../src/games/jumping/lightingPreparation.ts'
+import { prepareLightingGeometry, PREVIEW_LIGHTING_WORKERS } from '../src/games/jumping/lightingPreparation.ts'
 import { LEVEL_PREPARATION_TIMEOUT, LEVEL_WORKER_START_TIMEOUT } from '../src/games/jumping/levelPreparation.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
 
@@ -53,4 +53,29 @@ test('duplicate lighting readiness cannot reset the solve budget; abort cancels 
     controller.abort(); await rejected
     assert.equal(worker.terminated, true)
   }
+})
+
+test('level previews share a few lighting workers; queued drafts keep their snapshot, cancel cleanly and fill freed slots', async t => {
+  const list = workers(t), limit = PREVIEW_LIGHTING_WORKERS, flush = () => new Promise(resolve => setImmediate(resolve))
+  const drafts = Array.from({ length: limit + 2 }, (_, i) => ({ ...blankTrial(), name: `Preview ${i}` }))
+  const controllers = drafts.map(() => new AbortController())
+  const pending = drafts.map((level, i) => prepareLightingGeometry(level, controllers[i].signal, { preview: true }))
+  await flush()
+  // A library full of cards must not start every solve at once.
+  assert.equal(list.length, limit)
+  drafts[limit].name = 'Edited while queued'
+  const cancelled = assert.rejects(pending[limit + 1], { name: 'AbortError' })
+  controllers[limit + 1].abort(); await cancelled
+  // A failed solve frees its slot as surely as a finished one.
+  const failed = assert.rejects(pending[0], /too long/)
+  list[0].onmessage({ data: { ready: true } }); t.mock.timers.tick(LEVEL_PREPARATION_TIMEOUT); await failed
+  await flush()
+  assert.equal(list.length, limit + 1)
+  list[limit].onmessage({ data: { ready: true } })
+  assert.equal(list[limit].request.name, 'Preview ' + limit)
+  for (const worker of list.slice(1)) { worker.onmessage({ data: { ready: true } }); worker.onmessage({ data: { groups: [] } }) }
+  for (const result of pending.slice(1, limit + 1)) assert.deepEqual(await result, [])
+  await flush()
+  // The cancelled request never started a worker.
+  assert.equal(list.length, limit + 1)
 })

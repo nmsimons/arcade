@@ -1370,12 +1370,6 @@
       "x": 200,
       "y": 260,
       "size": 40
-    },
-    {
-      "kind": "box",
-      "x": 1140,
-      "y": 380,
-      "size": 40
     }
   ],
   "mechanisms": [
@@ -1558,7 +1552,7 @@
     {
       "x": 1160,
       "y": 380,
-      "condition": "jammed"
+      "condition": "boarded"
     }
   ],
   "pipes": [

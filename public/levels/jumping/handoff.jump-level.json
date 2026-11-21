@@ -4,8 +4,6 @@
   "name": "Handoff",
   "width": 1634,
   "height": 834,
-  "floor": 834,
-  "wallFinish": "tile",
   "platforms": [
     {
       "x": 0,
@@ -47,10 +45,11 @@
       "y": 132.25,
       "w": 960,
       "h": 177.75,
+      "material": "steel",
       "polygon": [
         [
           0,
-          0.0
+          0
         ],
         [
           850,
@@ -78,10 +77,9 @@
         ],
         [
           0,
-          30.0
+          30
         ]
-      ],
-      "material": "steel"
+      ]
     },
     {
       "x": 960,
@@ -116,17 +114,19 @@
     "x": 890,
     "y": 590
   },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "wallFinish": "tile",
+  "floor": 834,
   "goal": {
     "x": 1634,
     "y": 258,
     "flipX": true,
     "id": "exit",
     "power": "switched"
-  },
-  "checkpoints": [],
-  "climbables": {
-    "ladders": [],
-    "ropes": []
   },
   "times": {
     "a": 14,
@@ -137,7 +137,7 @@
   "props": [
     {
       "kind": "box",
-      "x": 1214.0,
+      "x": 1214,
       "y": 608,
       "size": 120,
       "branded": true
@@ -151,57 +151,57 @@
   ],
   "mechanisms": [
     {
-      "id": "release",
       "name": "Retaining gate",
+      "wireTerminal": {
+        "x": 268,
+        "y": 223
+      },
+      "switchLogic": "and",
+      "id": "release",
       "kind": "gate",
       "x": 290,
       "y": 86,
       "w": 20,
       "h": 80,
-      "travel": 80,
-      "switchLogic": "and",
-      "wireTerminal": {
-        "x": 268,
-        "y": 223
-      }
+      "travel": 80
     },
     {
-      "id": "bollard",
       "name": "Delivery bollard (sinks on DeliveryOpen)",
+      "wireTerminal": {
+        "x": 820,
+        "y": 332
+      },
+      "switchLogic": "or",
+      "switchReversed": true,
+      "id": "bollard",
       "kind": "gate",
       "x": 810,
       "y": 228,
       "w": 20,
       "h": 44,
-      "travel": 44,
-      "switchLogic": "or",
-      "switchReversed": true,
-      "wireTerminal": {
-        "x": 820,
-        "y": 332
-      }
+      "travel": 44
     },
     {
-      "id": "door",
       "name": "Closet door",
+      "wireTerminal": {
+        "x": 286,
+        "y": 482
+      },
+      "switchLogic": "or",
+      "id": "door",
       "kind": "gate",
       "x": 240,
       "y": 510,
       "w": 20,
       "h": 80,
-      "travel": 80,
-      "switchLogic": "or",
-      "wireTerminal": {
-        "x": 286,
-        "y": 482
-      }
+      "travel": 80
     }
   ],
   "triggers": [
     {
       "name": "A",
-      "mode": "weight",
-      "behavior": "pressure",
+      "showWires": true,
+      "wireHeight": 434,
       "x": 1034,
       "y": 608,
       "w": 76,
@@ -211,13 +211,17 @@
         "handoff",
         "not-a"
       ],
-      "showWires": true,
-      "wireHeight": 434
+      "mode": "weight",
+      "behavior": "pressure"
     },
     {
       "name": "B",
-      "mode": "weight",
-      "behavior": "pressure",
+      "showWires": true,
+      "wireHeight": 484,
+      "wireTerminal": {
+        "x": 905,
+        "y": 332
+      },
       "x": 855,
       "y": 290,
       "w": 100,
@@ -226,26 +230,22 @@
         "handoff",
         "clear"
       ],
-      "wireTerminal": {
-        "x": 905,
-        "y": 332
-      },
-      "showWires": true,
-      "wireHeight": 484
+      "mode": "weight",
+      "behavior": "pressure"
     },
     {
       "name": "R",
-      "mode": "weight",
-      "behavior": "toggle",
-      "startsOn": false,
+      "showWires": true,
+      "wireHeight": 544,
       "x": 20,
       "y": 590,
       "w": 110,
       "targets": [
         "release"
       ],
-      "showWires": true,
-      "wireHeight": 544
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false
     }
   ],
   "robots": [],
@@ -287,82 +287,82 @@
       "rotation": -3
     }
   ],
+  "pipes": [
+    {
+      "name": "Basin drain",
+      "points": [
+        [
+          420,
+          764
+        ],
+        [
+          800,
+          764
+        ]
+      ],
+      "size": "large"
+    }
+  ],
   "wallLights": [
     {
-      "id": "handoff",
       "name": "Handoff (TransferReady)",
-      "x": 1096,
-      "y": 150,
-      "switchLogic": "and",
       "wireTerminal": {
         "x": 1072,
         "y": 150
-      }
+      },
+      "switchLogic": "and",
+      "id": "handoff",
+      "x": 1096,
+      "y": 150
     },
     {
-      "id": "clear",
       "name": "Clear to leave (DepartureReady)",
-      "x": 1096,
-      "y": 200,
+      "wireTerminal": {
+        "x": 1072,
+        "y": 200
+      },
       "switchLogic": "and",
       "relay": true,
       "targets": [
         "exit"
       ],
-      "wireTerminal": {
-        "x": 1072,
-        "y": 200
-      }
+      "id": "clear",
+      "x": 1096,
+      "y": 200
     }
   ],
   "logicRelays": [
     {
-      "id": "delivery",
       "name": "DeliveryOpen",
-      "x": 1022,
-      "y": 330,
+      "showWires": true,
+      "wireHeight": 464,
+      "wireTerminal": {
+        "x": 1072,
+        "y": 330
+      },
       "switchLogic": "or",
       "targets": [
         "bollard",
         "door"
       ],
-      "wireTerminal": {
-        "x": 1072,
-        "y": 330
-      },
-      "showWires": true,
-      "wireHeight": 464
+      "id": "delivery",
+      "x": 1022,
+      "y": 330
     },
     {
-      "id": "not-a",
       "name": "NOT A",
-      "x": 1022,
-      "y": 200,
+      "wireTerminal": {
+        "x": 1072,
+        "y": 200
+      },
       "switchLogic": "or",
       "switchReversed": true,
       "targets": [
         "clear"
       ],
-      "wireTerminal": {
-        "x": 1072,
-        "y": 200
-      }
-    }
-  ],
-  "pipes": [
-    {
-      "name": "Basin drain",
-      "size": "large",
-      "points": [
-        [
-          424,
-          764
-        ],
-        [
-          796,
-          764
-        ]
-      ]
+      "id": "not-a",
+      "x": 1022,
+      "y": 200
     }
   ]
 }

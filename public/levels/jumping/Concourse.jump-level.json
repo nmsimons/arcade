@@ -1098,9 +1098,7 @@
       "to": "facility-movement",
       "targets": [
         "concourse-to-freight",
-        "concourse-to-construction",
-        "concourse-to-assessment",
-        "dispatch-door"
+        "concourse-to-water"
       ]
     },
     {
@@ -1110,12 +1108,7 @@
       "to": "facility-freight",
       "power": "switched",
       "targets": [
-        "concourse-to-security",
-        "concourse-to-targets",
-        "concourse-to-assessment",
-        "dispatch-door",
-        "317aeef4-55cd-4c73-a19c-882ca546264b",
-        "5490e676-4f77-4937-97b5-3eb0a82df5cd"
+        "concourse-to-construction"
       ]
     },
     {
@@ -1125,12 +1118,7 @@
       "to": "facility-construction",
       "power": "switched",
       "targets": [
-        "concourse-to-security",
-        "concourse-to-targets",
-        "concourse-to-assessment",
-        "dispatch-door",
-        "317aeef4-55cd-4c73-a19c-882ca546264b",
-        "5490e676-4f77-4937-97b5-3eb0a82df5cd"
+        "concourse-to-targets"
       ]
     },
     {
@@ -1140,9 +1128,9 @@
       "to": "facility-targets",
       "power": "switched",
       "targets": [
-        "concourse-to-water",
-        "concourse-to-assessment",
-        "dispatch-door"
+        "concourse-to-security",
+        "317aeef4-55cd-4c73-a19c-882ca546264b",
+        "5490e676-4f77-4937-97b5-3eb0a82df5cd"
       ]
     },
     {
@@ -1161,9 +1149,7 @@
       "power": "switched",
       "switchLogic": "or",
       "targets": [
-        "concourse-to-assessment",
-        "concourse-to-water",
-        "dispatch-door"
+        "concourse-to-assessment"
       ]
     },
     {
@@ -1262,6 +1248,15 @@
       "text": "1",
       "fontSize": 96,
       "align": "center"
+    }
+  ],
+  "wallDoors": [
+    {
+      "name": "Playground",
+      "x": 1665,
+      "y": 760,
+      "condition": "boarded",
+      "frame": "bulkhead"
     }
   ],
   "pipes": [

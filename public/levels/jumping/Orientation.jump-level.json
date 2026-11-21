@@ -1735,15 +1735,6 @@
       "style": "lab-stamp"
     },
     {
-      "x": 7620,
-      "y": 595,
-      "w": 40,
-      "h": 50,
-      "text": "EXIT",
-      "fontSize": 12,
-      "align": "center"
-    },
-    {
       "x": 7585,
       "y": 585,
       "w": 55,
@@ -1811,6 +1802,7 @@
   ],
   "wallDoors": [
     {
+      "name": "Exit",
       "x": 7640,
       "y": 700,
       "condition": "jammed"

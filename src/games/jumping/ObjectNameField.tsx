@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { OBJECT_NAME_MAX_LENGTH } from './objectNames'
+import { Input } from '@/components/ui/input'
 
 export function ObjectNameField({ value, placeholder, onCommit, label = 'Object name', title = 'Name this object. Leave blank to use its default name. Enter applies; Esc cancels.' }: {
   value: string; placeholder: string; onCommit: (value: string) => void; label?: string; title?: string
@@ -9,7 +10,7 @@ export function ObjectNameField({ value, placeholder, onCommit, label = 'Object 
     if (!cancelled.current && draft !== null) onCommit(draft)
     cancelled.current = false; setDraft(null)
   }
-  return <input aria-label={label} value={draft ?? value} placeholder={placeholder} maxLength={OBJECT_NAME_MAX_LENGTH}
+  return <Input aria-label={label} value={draft ?? value} placeholder={placeholder} maxLength={OBJECT_NAME_MAX_LENGTH}
     title={title}
     onChange={event => setDraft(event.target.value)} onBlur={apply} onKeyDown={event => {
       if (event.key === 'Enter') {

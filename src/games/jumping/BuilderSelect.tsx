@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { CheckIcon, ChevronDownIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type Option = { value: string; label: string }
 function popupPosition(rect: DOMRect, count: number): CSSProperties {
@@ -15,10 +17,14 @@ function popupPosition(rect: DOMRect, count: number): CSSProperties {
   }
 }
 
-/** A select-only combobox with an app-styled popup, independent of the OS menu. */
-export function BuilderSelect({ label, accessibleLabel = label, title, value, options, onChange }: {
+/** A select-only combobox with an app-styled popup, independent of the OS menu.
+ *  It keeps its own listbox (not Radix Select) so focus stays on the trigger, which the
+ *  controller and keyboard navigation read; it wears shadcn/ui's Select styling. */
+export function BuilderSelect({ label, accessibleLabel = label, title, value, options, onChange, inline = false, className }: {
   label: string; accessibleLabel?: string; title?: string; value: string
   options: readonly Option[]; onChange: (value: string) => void
+  /** Caption beside the trigger, for toolbars. */
+  inline?: boolean; className?: string
 }) {
   const id = useId(), trigger = useRef<HTMLButtonElement>(null), list = useRef<HTMLDivElement>(null)
   const [popup, setPopup] = useState<{ style: CSSProperties; active: number; container: Element } | null>(null)
@@ -99,22 +105,29 @@ export function BuilderSelect({ label, accessibleLabel = label, title, value, op
     }
   }
 
-  return <div className="builder-select-field">
+  return <div className={cn('builder-select-field flex min-w-0 gap-1.5 text-xs font-medium', inline ? 'items-center' : 'flex-col', className)}>
     <span id={`${id}-label`}>{label}</span>
-    <button ref={trigger} type="button" className="builder-select" role="combobox" aria-label={accessibleLabel}
+    <button ref={trigger} type="button" data-slot="select-trigger" data-size={inline ? 'sm' : 'default'}
+      className={cn('builder-select flex min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-background pr-2 pl-2.5 text-left text-sm font-normal whitespace-nowrap transition-colors outline-none select-none',
+        'hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:border-ring disabled:cursor-not-allowed disabled:opacity-50',
+        inline ? 'h-7 w-fit rounded-[min(var(--radius-md),10px)]' : 'h-8 w-full')} role="combobox" aria-label={accessibleLabel}
       aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? `${id}-list` : undefined}
       aria-activedescendant={popup ? `${id}-option-${popup.active}` : undefined} data-value={value}
       title={title ?? options[selected]?.label} onKeyDown={keyDown} onBlur={() => setPopup(null)}
       onClick={() => { search.current.text = ''; if (popup) setPopup(null); else show() }}>
-      <span>{options[selected]?.label}</span>
-      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square" strokeLinejoin="miter"><path d="m6 9 6 6 6-6" /></svg>
+      <span className="min-w-0 truncate">{options[selected]?.label}</span>
+      <ChevronDownIcon aria-hidden="true" className="pointer-events-none size-4 shrink-0 opacity-70" />
     </button>
-    {popup && createPortal(<div ref={list} id={`${id}-list`} className="builder-select-options" role="listbox" aria-label={accessibleLabel}
+    {popup && createPortal(<div ref={list} id={`${id}-list`} data-slot="select-content" role="listbox" aria-label={accessibleLabel}
+      className="builder-select-options fixed z-50 min-w-36 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
       style={popup.style} onMouseDown={event => event.preventDefault()}>
       {options.map((option, index) => <div key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={option.value === value}
-        data-value={option.value} data-active={index === popup.active} onPointerMove={() => setPopup(current => current && current.active !== index ? { ...current, active: index } : current)}
+        data-slot="select-item" data-value={option.value} data-active={index === popup.active}
+        className="group/option relative flex min-h-7 w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-2 text-sm select-none data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+        onPointerMove={() => setPopup(current => current && current.active !== index ? { ...current, active: index } : current)}
         onClick={() => choose(index)}>
-        <span>{option.label}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square" strokeLinejoin="miter"><path d="m5 12 4 5L19 6" /></svg>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{option.label}</span>
+        <CheckIcon aria-hidden="true" className="pointer-events-none absolute right-2 size-4 opacity-0 group-aria-selected/option:opacity-100" />
       </div>)}
     </div>, popup.container)}
   </div>

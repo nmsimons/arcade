@@ -5,6 +5,8 @@
 @import "./arcade/routeMessage.css";
 /* Entry branding shares the palette without loading the game engine. */
 @import "./games/jumping/theme.css";
+/* Level studio shadcn/ui tokens, scoped to .studio-ui. */
+@import "./games/jumping/studio.css";
 @import "./games/bumperBall/bumperBall.css";
 @import "./games/urbanFire/urbanFire.css";
 

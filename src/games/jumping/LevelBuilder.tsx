@@ -80,6 +80,13 @@ import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
 import { drawPlacementPreview, placementPreview } from './builderPlacement'
 import { BUILDER_GRID_SIZE } from './builderSnap'
+import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
+import { ClipboardPasteIcon, CopyIcon, HelpCircleIcon, LibraryIcon, MinusIcon, PlayIcon, PlusIcon, Redo2Icon, ScissorsIcon, Undo2Icon } from 'lucide-react'
+import { CheckField, Field, InspectorButton } from './StudioFields'
 import './builder.css'
 import { protectUnsavedDraft } from '../../accounts/runtime'
 
@@ -181,6 +188,10 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'fast-stopwatch', group: 'Collectibles', label: 'Fast stopwatch', help: 'A dark-red stopwatch. Touching it makes the clock run twice as fast for 5 seconds. Extra watches extend the effect.' },
   { id: 'emp', group: 'Collectibles', label: 'EMP', help: 'A gold lightning bolt. Cuts power to mechanisms, switches, shovebots, and spotlights for 5 seconds. Ambient light remains. Always-on exits stay open; switched exits follow their inputs.' },
 ]
+/* Title band actions invert on focus, as elsewhere in the game's chrome. */
+const chromeButton = 'text-chrome-foreground hover:bg-secondary hover:text-secondary-foreground focus-visible:bg-chrome-foreground focus-visible:text-chrome focus-visible:ring-0'
+/* The active tool is the one strong fill in the toolbar and tool rail. */
+const toolbarPressed = 'aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90 aria-pressed:hover:text-primary-foreground'
 /** Level doors and bulkheads go by what the facility shows on them, so the studio reads `doorName`. */
 const selectionLabel = (s: Selection, level: JumpLevel, doorName?: DoorName) => objectLabel(level, s, doorName)
 const COURSE_EQUIPMENT: readonly Tool[] = ['coin', 'coin-switch', 'timer', 'stopwatch', 'fast-stopwatch', 'time-bonus', 'time-penalty']
@@ -1081,7 +1092,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     onLibrary: () => { if (!saving && !levels.busy) setLibraryOpen(true) },
     onTest: () => { if (!drag && !problem && !saving && !levels.busy) void save(true) }, onEditText: setTextEntry })
 
-  return <section ref={builderRef} className="jumping-builder" hidden={!active} aria-label="Level builder"
+  return <section ref={builderRef} className="jumping-builder studio-ui" hidden={!active} aria-label="Level builder"
     onCopy={event => copyEvent(event)} onCut={event => copyEvent(event, true)} onPaste={pasteEvent}
     onKeyDownCapture={event => { if (event.nativeEvent.isTrusted) event.currentTarget.dataset.inputMethod = 'keyboard' }} onKeyDown={event => {
     if (libraryOpen || helpOpen || saveFailure) return
@@ -1140,47 +1151,60 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       }
     }
   }} onKeyUp={event => { if (event.code === 'Space') panHeld.current = false; if (event.key === 'Alt') setPointer(previous => previous && { ...previous, free: false }) }} onBlur={() => { panHeld.current = false }}>
-    <header className="builder-header">
-      <div className="builder-brand"><h1>Level studio</h1></div>
-      <div className="builder-main-actions">
-        <button className="builder-play" title="Test this level; saves any changes first" disabled={!!problem || levels.busy || saving} aria-busy={saving} onClick={() => void save(true)}><span aria-hidden="true">▶</span> Save and Test</button>
-        <button title="Save this level (Ctrl/⌘ + S)" disabled={levels.busy || saving} onClick={() => void save()}>Save level</button>
-        <button aria-haspopup="dialog" title="Level builder help (F1)" onClick={() => setHelpOpen(true)}>Help</button>
-        <button aria-haspopup="dialog" title="Open the library to create or choose a level" disabled={saving} onClick={() => { setMessage(''); setLibraryOpen(true) }}>Library</button>
-        <button className="builder-back" title="Return to the game" disabled={saving} onClick={onClose}>Back to game</button>
+    <header className="builder-header flex min-w-0 items-center gap-4 bg-chrome px-4 py-2 text-chrome-foreground">
+      <div className="builder-brand min-w-0"><h1 className="m-0 truncate text-lg leading-tight font-semibold tracking-tight">Level studio</h1></div>
+      <div className="builder-main-actions ml-auto flex flex-wrap items-center justify-end gap-1">
+        <Button size="sm" className="builder-play bg-chrome-foreground text-chrome hover:bg-accent focus-visible:ring-chrome-foreground/60" title="Test this level; saves any changes first" disabled={!!problem || levels.busy || saving} aria-busy={saving} onClick={() => void save(true)}><PlayIcon aria-hidden="true" className="fill-current" /> Save and Test</Button>
+        <Button size="sm" variant="ghost" className={chromeButton} title="Save this level (Ctrl/⌘ + S)" disabled={levels.busy || saving} onClick={() => void save()}>Save level</Button>
+        <Button size="sm" variant="ghost" className={chromeButton} aria-haspopup="dialog" title="Level builder help (F1)" onClick={() => setHelpOpen(true)}><HelpCircleIcon aria-hidden="true" />Help</Button>
+        <Button size="sm" variant="ghost" className={chromeButton} aria-haspopup="dialog" title="Open the library to create or choose a level" disabled={saving} onClick={() => { setMessage(''); setLibraryOpen(true) }}><LibraryIcon aria-hidden="true" />Library</Button>
+        <Button size="sm" variant="ghost" className={cn('builder-back', chromeButton)} title="Return to the game" disabled={saving} onClick={onClose}>Back to game</Button>
       </div>
     </header>
-    <div className="builder-view-controls" role="group" aria-label="Canvas controls">
-      <div className="builder-control-group builder-mode-controls" role="group" aria-label="Editing tools">
-        {TOOLS.filter(item => item.group === 'Editing').map(item => <button key={item.id} aria-label={item.label} aria-pressed={tool === item.id} aria-keyshortcuts={item.id === 'select' ? 'V' : 'N'} title={item.id === 'select' ? 'Pointer (V): select, move, and resize objects' : 'Node (N): move terrain nodes or add them along an edge'} onClick={() => { setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /></button>)}
-      </div>
-      <div className="builder-control-group" role="group" aria-label="Terrain transforms">
+    <div className="builder-view-controls flex min-w-0 items-center gap-3 overflow-x-auto bg-accent px-3 py-1.5" role="group" aria-label="Canvas controls">
+      <ButtonGroup className="builder-control-group builder-mode-controls" aria-label="Editing tools">
+        {TOOLS.filter(item => item.group === 'Editing').map(item => <Button key={item.id} variant="outline" size="icon-sm" className={toolbarPressed} aria-label={item.label} aria-pressed={tool === item.id} aria-keyshortcuts={item.id === 'select' ? 'V' : 'N'} title={item.id === 'select' ? 'Pointer (V): select, move, and resize objects' : 'Node (N): move terrain nodes or add them along an edge'} onClick={() => { setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /></Button>)}
+      </ButtonGroup>
+      <ButtonGroup className="builder-control-group" aria-label="Terrain transforms">
         {([
           ['rotate-left', 'Rotate left', 'Rotate selected terrain 90° counterclockwise'],
           ['rotate-right', 'Rotate right', 'Rotate selected terrain 90° clockwise'],
           ['flip-horizontal', 'Flip horizontal', 'Mirror selected terrain left to right'],
           ['flip-vertical', 'Flip vertical', 'Mirror selected terrain top to bottom'],
-        ] as const).map(([kind, label, title]) => <button key={kind} aria-label={label} title={title} disabled={!allTerrain} onClick={() => transformSelectedTerrain(kind)}><BuilderIcon kind={kind} /></button>)}
-      </div>
-      <div className="builder-control-group builder-placement-options" role="group" aria-label="Placement options">
-        <label className="builder-inline-check" title={`Snap positions, sizes and nodes to ${gridSize} units, catch nearby surfaces, and align selection centers and bounds to the level center. Hold Alt to bypass.`}><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap</label>
-        <BuilderSelect label="Grid" accessibleLabel="Snap grid" title="Choose the spacing for snapping and nudges. Hold Alt to bypass snapping."
+        ] as const).map(([kind, label, title]) => <Button key={kind} variant="outline" size="icon-sm" aria-label={label} title={title} disabled={!allTerrain} onClick={() => transformSelectedTerrain(kind)}><BuilderIcon kind={kind} /></Button>)}
+      </ButtonGroup>
+      <div className="builder-control-group builder-placement-options flex flex-none items-center gap-3" role="group" aria-label="Placement options">
+        <CheckField title={`Snap positions, sizes and nodes to ${gridSize} units, catch nearby surfaces, and align selection centers and bounds to the level center. Hold Alt to bypass.`} className="whitespace-nowrap" checked={snap} onCheckedChange={checked => setSnap(checked)}>Snap</CheckField>
+        <BuilderSelect inline label="Grid" accessibleLabel="Snap grid" title="Choose the spacing for snapping and nudges. Hold Alt to bypass snapping."
           value={String(gridSize)} options={[{ value: String(BUILDER_GRID_SIZE), label: '5 units' }, { value: String(LEVEL_GRID_SIZE), label: '20 units' }]}
           onChange={value => setGridSize(Number(value))} />
-        <label className="builder-inline-check" title="Keep the object tool active after placing an object. Pointer and Node stay active until you switch tools."><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} />Keep placing</label>
+        <CheckField title="Keep the object tool active after placing an object. Pointer and Node stay active until you switch tools." className="whitespace-nowrap" checked={keepTool} onCheckedChange={checked => setKeepTool(checked)}>Keep placing</CheckField>
       </div>
-      <div className="builder-control-group" role="group" aria-label="Edit history"><button title="Undo the last edit (Ctrl/⌘ + Z)" disabled={!history.past.length} onClick={undo}>Undo</button><button title="Redo the last undone edit (Ctrl/⌘ + Shift + Z)" disabled={!history.future.length} onClick={redo}>Redo</button></div>
-      <div className="builder-control-group" role="group" aria-label="Clipboard">
-        <button title="Cut selected objects (Ctrl/⌘ + X)" disabled={!selectedItems.some(copyableSelection)} onClick={() => { void copyToClipboard(true) }}>Cut</button>
-        <button title="Copy selected objects (Ctrl/⌘ + C)" disabled={!selectedItems.some(copyableSelection)} onClick={() => { void copyToClipboard() }}>Copy</button>
-        <button title="Paste copied objects (Ctrl/⌘ + V)" onClick={() => { void paste() }}>Paste</button>
+      <ButtonGroup className="builder-control-group" aria-label="Edit history">
+        <Button variant="outline" size="icon-sm" aria-label="Undo" title="Undo the last edit (Ctrl/⌘ + Z)" disabled={!history.past.length} onClick={undo}><Undo2Icon aria-hidden="true" /></Button>
+        <Button variant="outline" size="icon-sm" aria-label="Redo" title="Redo the last undone edit (Ctrl/⌘ + Shift + Z)" disabled={!history.future.length} onClick={redo}><Redo2Icon aria-hidden="true" /></Button>
+      </ButtonGroup>
+      <ButtonGroup className="builder-control-group" aria-label="Clipboard">
+        <Button variant="outline" size="icon-sm" aria-label="Cut" title="Cut selected objects (Ctrl/⌘ + X)" disabled={!selectedItems.some(copyableSelection)} onClick={() => { void copyToClipboard(true) }}><ScissorsIcon aria-hidden="true" /></Button>
+        <Button variant="outline" size="icon-sm" aria-label="Copy" title="Copy selected objects (Ctrl/⌘ + C)" disabled={!selectedItems.some(copyableSelection)} onClick={() => { void copyToClipboard() }}><CopyIcon aria-hidden="true" /></Button>
+        <Button variant="outline" size="icon-sm" aria-label="Paste" title="Paste copied objects (Ctrl/⌘ + V)" onClick={() => { void paste() }}><ClipboardPasteIcon aria-hidden="true" /></Button>
+      </ButtonGroup>
+      <ButtonGroup className="builder-control-group" aria-label="Object grouping">
+        <Button variant="outline" size="sm" title="Group selected objects (Ctrl/⌘ + G)" disabled={selectedItems.length < 2 || !!selectedGroup} onClick={() => group()}>Group</Button>
+        <Button variant="outline" size="sm" title="Ungroup selected objects (Ctrl/⌘ + Shift + G)" disabled={!canUngroup} onClick={() => group(true)}>Ungroup</Button>
+      </ButtonGroup>
+      <ButtonGroup className="builder-control-group builder-zoom-controls ml-auto" aria-label="Canvas zoom">
+        <Button variant="outline" size="icon-sm" aria-label="Zoom out" title="Zoom out to see more of the level" onClick={() => zoom(.8)}><MinusIcon aria-hidden="true" /></Button>
+        <output aria-label="Zoom" title="Current canvas zoom" className="flex h-7 min-w-14 items-center justify-center border-y border-border bg-background px-1.5 text-xs font-medium tabular-nums">{Math.round(view.zoom * 100)}%</output>
+        <Button variant="outline" size="icon-sm" aria-label="Zoom in" title="Zoom in for more precise editing" onClick={() => zoom(1.25)}><PlusIcon aria-hidden="true" /></Button>
+      </ButtonGroup>
+      <div className="builder-control-group flex flex-none items-center gap-2" role="group" aria-label="Canvas view">
+        <CheckField title="Show daylight or night lighting in this view. This does not change the saved level." className="whitespace-nowrap" checked={lightingPreview} onCheckedChange={checked => setLightingPreview(checked)}>Lighting</CheckField>
+        <ButtonGroup>
+          <Button variant="outline" size="sm" title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</Button>
+          <Button variant="outline" size="sm" title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</Button>
+        </ButtonGroup>
       </div>
-      <div className="builder-control-group" role="group" aria-label="Object grouping">
-        <button title="Group selected objects (Ctrl/⌘ + G)" disabled={selectedItems.length < 2 || !!selectedGroup} onClick={() => group()}>Group</button>
-        <button title="Ungroup selected objects (Ctrl/⌘ + Shift + G)" disabled={!canUngroup} onClick={() => group(true)}>Ungroup</button>
-      </div>
-      <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" title="Zoom out to see more of the level" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom" title="Current canvas zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" title="Zoom in for more precise editing" onClick={() => zoom(1.25)}>+</button></div>
-      <div className="builder-control-group" role="group" aria-label="Canvas view"><label className="builder-inline-check" title="Show daylight or night lighting in this view. This does not change the saved level."><input type="checkbox" checked={lightingPreview} onChange={e => setLightingPreview(e.target.checked)} />Lighting</label><button title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</button><button title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
     </div>
     <aside className="builder-tools" aria-label="Building tools">
         {['Facility', 'Terrain', 'Scenery', 'Movement', 'Objects', 'Gadgets', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
@@ -1188,8 +1212,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           const hub = isHubLevel(level)
           const items = TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isRunLevel(level))
             && (item.group !== 'Facility' || hub) && (!hub || !COURSE_EQUIPMENT.includes(item.id)))
-          return items.length ? <div className="builder-tool-group" key={group}><h2>{group}</h2>
-            <div className="builder-tool-grid">{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div>
+          return items.length ? <div className="builder-tool-group px-3 pt-3 pb-1" key={group}><h2 className="m-0 mb-1.5 text-xs font-semibold text-muted-foreground">{group}</h2>
+            <div className="builder-tool-grid grid grid-cols-3 gap-1">{items.map(item => <Button key={item.id} variant="outline" aria-pressed={tool === item.id} title={item.help}
+              className={cn('builder-tool h-auto min-h-14 min-w-0 flex-col gap-1 px-0.5 py-1.5 text-[11px] leading-tight font-medium whitespace-normal', toolbarPressed)}
+              onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} className="size-5" /><span className="max-w-full hyphens-auto [overflow-wrap:anywhere]">{item.label}</span></Button>)}</div>
           </div> : null
         })}
     </aside>
@@ -1199,23 +1225,26 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' || drag?.mode === 'bezier' || drag?.mode === 'wire-terminal' ? 'grabbing' : hoveredNode || hoveredCurveHandle || hoveredTerminal ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setMarquee(null); setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
-      <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={terrainDrag ? history.present : level} preview /><span>Overview</span></button>
+      <Button variant="outline" className="builder-minimap h-auto flex-col items-stretch gap-1 p-1.5 text-xs font-normal shadow-md" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={terrainDrag ? history.present : level} preview /><span>Overview</span></Button>
     </div>
     <aside className="builder-inspector" aria-label="Inspector" ref={inspectorRef}>
-      <div className="builder-inspector-tabs" role="tablist" aria-label="Inspector" onKeyDown={event => {
+      <div className="builder-inspector-tabs sticky top-0 z-10 bg-background px-4 pt-3 pb-2">
+      <div className="grid h-8 grid-cols-2 rounded-lg bg-muted p-[3px]" role="tablist" aria-label="Inspector" onKeyDown={event => {
         const next = event.key === 'Home' ? 'level' : event.key === 'End' ? 'object'
           : null
         if (!next) return
         event.preventDefault(); event.stopPropagation(); chooseInspectorTab(next)
         event.currentTarget.querySelector<HTMLButtonElement>(`#builder-inspector-tab-${next}`)?.focus()
       }}>
-        {(['level', 'object'] as const).map(tab => <button key={tab} role="tab" id={`builder-inspector-tab-${tab}`}
+        {(['level', 'object'] as const).map(tab => <button key={tab} role="tab" id={`builder-inspector-tab-${tab}`} data-slot="tabs-trigger"
+          className="inline-flex items-center justify-center rounded-md border border-transparent px-2 text-sm font-medium text-foreground/70 transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-sm"
           aria-controls={`builder-inspector-panel-${tab}`} aria-selected={inspectorTab === tab} tabIndex={inspectorTab === tab ? 0 : -1}
           title={tab === 'level' ? 'Edit level settings' : 'Inspect the selected object'} onClick={() => chooseInspectorTab(tab)}>{tab === 'level' ? 'Level' : 'Object'}</button>)}
       </div>
+      </div>
       <div id="builder-inspector-panel-object" role="tabpanel" aria-labelledby="builder-inspector-tab-object" hidden={inspectorTab !== 'object'}>
-      <div className="builder-inspector-heading">
-      <BuilderSelect label="Selected object" value={selectedItems.length > 1 ? 'group' : selection ? `${selection.kind}:${selection.index}` : ''}
+      <div className="builder-inspector-heading px-4 pt-1 pb-1">
+      <BuilderSelect className="[&>span:first-child]:sr-only" label="Selected object" value={selectedItems.length > 1 ? 'group' : selection ? `${selection.kind}:${selection.index}` : ''}
         options={[{ value: '', label: 'Nothing selected' }, ...(selectedItems.length > 1 ? [{ value: 'group', label: `${selectedItems.length} objects selected` }] : []), ...allSelections(level).map(s => ({ value: `${s.kind}:${s.index}`, label: selectionLabel(s, level, doorName) }))]}
         onChange={value => { if (value === 'group') return; const [kind, index] = value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform' && kind !== 'back-wall') setTool('select') }} />
       </div>
@@ -1223,16 +1252,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <h3 className="builder-object-heading">{selectedItems.length} objects selected</h3>
         <p className="builder-hint">{selectedGroup ? 'Saved group. Click a member to select just that object; drag a member to move the group.' : 'Drag any selected object to move the selection. Group keeps these objects together.'} Shift-click adds or removes objects. {allTerrain ? 'Rotate and flip transform the shape group around its center.' : 'Rotate and flip are available when all selected objects are terrain or back walls.'}</p>
         <div className="builder-object-actions">
-          <button title="Duplicate selected objects (Ctrl/⌘ + D)" disabled={!selectedItems.some(copyableSelection)} onClick={duplicate}>Duplicate</button>
-          <button className="builder-delete" aria-label="Delete selected objects" disabled={!selectedItems.some(copyableSelection)} onClick={remove}>Delete</button>
+          <InspectorButton title="Duplicate selected objects (Ctrl/⌘ + D)" disabled={!selectedItems.some(copyableSelection)} onClick={duplicate}>Duplicate</InspectorButton>
+          <InspectorButton variant="destructive" className="builder-delete" aria-label="Delete selected objects" disabled={!selectedItems.some(copyableSelection)} onClick={remove}>Delete</InspectorButton>
         </div>
         <ul className="builder-selection-list">{selectedItems.map(s => <li key={`${s.kind}:${s.index}`}>{selectionLabel(s, level, doorName)}</li>)}</ul>
       </div> : selection && bounds ? <div className="builder-property-card">
         <h3 className="builder-object-heading">{selectionLabel(selection, level, doorName)}</h3>
         {/* The facility names a level door or bulkhead by where it leads, so it has no name of its own. */}
         {hubDoor ? <p className="builder-hint">Named in the facility by where it leads.</p>
-          : <label>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemName(level, selection) ?? ''}
-            placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>}
+          : <Field>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemName(level, selection) ?? ''}
+            placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></Field>}
         {Boolean(editingWall || trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject || hubDoor || gradeGate || exitDoor) && <BuilderInspectorSection title="Behavior">
           {hubDoor && <BuilderSelect label="Leads to" accessibleLabel={selection.kind === 'bulkhead' ? 'Bulkhead destination' : 'Level door destination'}
             title={selection.kind === 'bulkhead' ? 'The part of the facility this bulkhead opens onto' : 'The level this door opens onto'}
@@ -1256,14 +1285,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             title="Switched opens the door only while its connected switches are on, as a switched exit does"
             value={hubDoor.power ?? 'always'} options={[{ value: 'always', label: 'Always open' }, { value: 'switched', label: 'Switched' }]}
             onChange={value => commit(setObjectPower(history.present, selection, value === 'switched' ? 'switched' : 'always'))} />}
-          {returnDoor && <button className="builder-property-action" aria-pressed={!!returnDoor.dispatch}
+          {returnDoor && <InspectorButton aria-pressed={!!returnDoor.dispatch}
             title="The facility's way out, to the final course: a blast gate lettered EXIT, released once the evaluation is complete, and not itself part of the evaluation"
-            onClick={() => commit(setDoorDispatch(history.present, selection, !returnDoor.dispatch))}>Exit door</button>}
+            onClick={() => commit(setDoorDispatch(history.present, selection, !returnDoor.dispatch))}>Exit door</InspectorButton>}
           {gradeGate && <>
             <BuilderSelect label="Average" accessibleLabel="Grade average reaches" value={gradeGate.grade}
               options={GRADE_LETTERS.map(letter => ({ value: letter, label: letter === 'a' ? 'A' : `${letter.toUpperCase()} or better` }))}
               onChange={value => commit(editGradeGate(history.present, selection.index, { grade: value as GradeLetter }))} />
-            <label><input type="checkbox" checked={!!gradeGate.switchReversed} onChange={e => commit(editGradeGate(history.present, selection.index, { switchReversed: e.target.checked }))} />Reversed</label>
+            <CheckField checked={!!gradeGate.switchReversed} onCheckedChange={checked => commit(editGradeGate(history.present, selection.index, { switchReversed: checked }))}>Reversed</CheckField>
             <fieldset className="builder-connections"><legend>Averages</legend>
               <BuilderConnectionList key={gradeGate.id} label="Averaged doors" empty="No level doors in this area" items={(level.courseDoors ?? []).map((door, index) => ({
                 id: door.id, label: selectionLabel({ kind: 'course-door', index }, level, doorName), checked: gradeGate.doors.includes(door.id),
@@ -1276,7 +1305,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <BuilderSelect label="Region lighting" value={editingWall.lighting ?? 'night'} options={[{ value: 'day', label: 'Day' }, { value: 'night', label: 'Night' }]}
               onChange={lighting => { const next = copyLevel(history.present); next.environment!.walls[selection.index].lighting = lighting as 'day' | 'night'; commit(next) }} />
             {!usesRegionLighting(level) && <><p className="builder-hint">This level currently uses uniform lighting. Enable regions to use this wall’s Day or Night setting.</p>
-              <button onClick={() => commit(setLightingLayout(history.present, 'regions'))}>Enable regional lighting</button></>}
+              <InspectorButton onClick={() => commit(setLightingLayout(history.present, 'regions'))}>Enable regional lighting</InspectorButton></>}
             <p className="builder-hint">Background only: no collision, grip, or cover. The frontmost back wall sets lighting where regions overlap.</p>
           </>}
           {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : gravityPlate ? 'Gravity plate power' : forceField ? 'Force field power' : 'Mechanism power'} value={objectPower}
@@ -1298,17 +1327,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             {!digitalCoinSwitch && <BuilderSelect label="Orientation" accessibleLabel="Coin switch orientation" value={trigger.orientation ?? 'horizontal'}
               options={[{ value: 'horizontal', label: 'Horizontal' }, { value: 'vertical', label: 'Vertical' }]}
               onChange={value => commit(setCoinSwitchOrientation(history.present, selection.index, value === 'vertical' ? 'vertical' : 'horizontal'))} />}
-            <label>Coins required<NumberField label="Coins required" min={1} max={80} step={1} value={trigger.threshold} {...numberEdit((base, value) => setCoinThreshold(base, selection.index, value))} /></label>
+            <Field>Coins required<NumberField label="Coins required" min={1} max={80} step={1} value={trigger.threshold} {...numberEdit((base, value) => setCoinThreshold(base, selection.index, value))} /></Field>
           </>}
           {floatSwitch && <>
             <div className="builder-dimensions">
-              <label>Arm length<NumberField label="Float arm length" min={40} max={400} step={5} value={floatSwitch.armLength} {...numberEdit((base, value) => changedObject(base, 'armLength', value))} /></label>
-              <label>Ball size<NumberField label="Float ball size" min={20} max={100} step={5} value={floatSwitch.size} {...numberEdit((base, value) => changedObject(base, 'size', value))} /></label>
+              <Field>Arm length<NumberField label="Float arm length" min={40} max={400} step={5} value={floatSwitch.armLength} {...numberEdit((base, value) => changedObject(base, 'armLength', value))} /></Field>
+              <Field>Ball size<NumberField label="Float ball size" min={20} max={100} step={5} value={floatSwitch.size} {...numberEdit((base, value) => changedObject(base, 'size', value))} /></Field>
             </div>
-            <label>Travel angle (°)<NumberField label="Float travel angle" min={10} max={80} step={5} value={floatSwitch.travelAngle ?? 45} {...numberEdit((base, value) => changedObject(base, 'travelAngle', value))} /></label>
+            <Field>Travel angle (°)<NumberField label="Float travel angle" min={10} max={80} step={5} value={floatSwitch.travelAngle ?? 45} {...numberEdit((base, value) => changedObject(base, 'travelAngle', value))} /></Field>
             <BuilderSelect label="Active when" accessibleLabel="Float activation" value={floatSwitch.activeWhen ?? 'raised'} options={[{ value: 'raised', label: 'Raised' }, { value: 'lowered', label: 'Lowered' }]} onChange={value => changeObject('activeWhen', value)} />
             <BuilderSelect label="Starts" accessibleLabel="Float starting position" value={floatSwitch.startsRaised ? 'raised' : 'lowered'} options={[{ value: 'lowered', label: 'Lowered' }, { value: 'raised', label: 'Raised' }]} onChange={value => changeObject('startsRaised', value === 'raised')} />
-            <button className="builder-property-action" onClick={() => changeObject('flipX', !floatSwitch.flipX)}>Flip horizontally</button>
+            <InspectorButton onClick={() => changeObject('flipX', !floatSwitch.flipX)}>Flip horizontally</InspectorButton>
           </>}
           {prop && <>
             <BuilderSelect label="Weight" accessibleLabel="Object weight" value={prop.weight === 'heavy' ? 'heavy' : 'normal'}
@@ -1318,8 +1347,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
                 if (value === 'heavy') object.weight = value; else delete object.weight
                 commit(next)
               }} />
-            {prop.kind === 'box' && !prop.gadget && <label className="builder-headlight"><input type="checkbox" checked={!!prop.branded}
-              onChange={event => commit(setCrateBranding(history.present, selection.index, event.target.checked))} />L.A.B. branding</label>}
+            {prop.kind === 'box' && !prop.gadget && <CheckField checked={!!prop.branded} onCheckedChange={checked => commit(setCrateBranding(history.present, selection.index, checked))}>L.A.B. branding</CheckField>}
           </>}
           {forceField && <>
             <BuilderSelect label="Mode" accessibleLabel="Force field mode" value={forceField.mode ?? 'player'}
@@ -1334,35 +1362,35 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <BuilderSelect label="Appearance" accessibleLabel="Field appearance" value={gravityPlate.effect ?? 'gravity'}
               options={[{ value: 'gravity', label: 'Gravity plate' }, { value: 'water', label: 'Water' }]}
               onChange={value => commit(setGravityPlateEffect(level, selection.index, value === 'water' ? 'water' : 'gravity'))} />
-            {gravityPlate.effect !== 'water' && <label>Gravity (× normal)<NumberField label="Gravity strength" min={-3} max={3} step={.1} precision={2} value={gravityPlate.gravity}
+            {gravityPlate.effect !== 'water' && <Field>Gravity (× normal)<NumberField label="Gravity strength" min={-3} max={3} step={.1} precision={2} value={gravityPlate.gravity}
               {...numberEdit((base, value) => {
                 if (!Number.isFinite(value)) return base
                 const next = copyLevel(base); next.gravityPlates![selection.index].gravity = clamp(value, -3, 3); return next
-              })} /></label>}
+              })} /></Field>}
             {gravityPlate.effect === 'water' && <>
-              <label>Initial level (%)<NumberField label="Initial water level" min={gravityPlate.waterMinLevel ?? 0} max={100} step={5} value={gravityPlate.waterLevel ?? 100}
+              <Field>Initial level (%)<NumberField label="Initial water level" min={gravityPlate.waterMinLevel ?? 0} max={100} step={5} value={gravityPlate.waterLevel ?? 100}
                 {...numberEdit((base, value) => {
                   if (!Number.isFinite(value)) return base
                   const next = copyLevel(base), plate = next.gravityPlates![selection.index]
                   plate.waterLevel = clamp(value, plate.waterMinLevel ?? 0, 100); return next
-                })} /></label>
-              <label>Low water mark (%)<NumberField label="Low water mark" min={0} max={100} step={5} value={gravityPlate.waterMinLevel ?? 0}
+                })} /></Field>
+              <Field>Low water mark (%)<NumberField label="Low water mark" min={0} max={100} step={5} value={gravityPlate.waterMinLevel ?? 0}
                 {...numberEdit((base, value) => {
                   if (!Number.isFinite(value)) return base
                   const next = copyLevel(base), plate = next.gravityPlates![selection.index]
                   plate.waterMinLevel = clamp(value, 0, 100)
                   if ((plate.waterLevel ?? 100) < plate.waterMinLevel) plate.waterLevel = plate.waterMinLevel
                   return next
-                })} /></label>
-              <label>Fill / drain speed (% per second)<NumberField label="Water level speed" min={.1} max={100} step={1} value={gravityPlate.waterRate ?? 10}
+                })} /></Field>
+              <Field>Fill / drain speed (% per second)<NumberField label="Water level speed" min={.1} max={100} step={1} value={gravityPlate.waterRate ?? 10}
                 {...numberEdit((base, value) => {
                   if (!Number.isFinite(value)) return base
                   const next = copyLevel(base); next.gravityPlates![selection.index].waterRate = clamp(value, .1, 100); return next
-                })} /></label>
+                })} /></Field>
             </>}
           </>}
-          {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? gridSize : 1} value={mechanism.travel} {...numberEdit((base, value) => changedObject(base, 'travel', value))} /></label>}
-          {(pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && <label>{pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'}<NumberField label={pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'} min={1} max={9} step={1} value={pickup.seconds} {...numberEdit((base, value) => setPickupSeconds(base, selection.index, value))} /></label>}
+          {mechanism?.kind === 'lift' && <Field>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? gridSize : 1} value={mechanism.travel} {...numberEdit((base, value) => changedObject(base, 'travel', value))} /></Field>}
+          {(pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && <Field>{pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'}<NumberField label={pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'} min={1} max={9} step={1} value={pickup.seconds} {...numberEdit((base, value) => setPickupSeconds(base, selection.index, value))} /></Field>}
           {selection.kind === 'entrance' && <BuilderSelect label="Entrance" accessibleLabel="Entrance style" value={level.entrance.kind ?? 'door'}
             options={[{ value: 'door', label: 'Door' }, { value: 'charging-bay', label: 'Charging bay' }]} onChange={value => {
               const next = copyLevel(history.present)
@@ -1370,20 +1398,20 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               commit(next)
             }} />}
           {robot && robot.kind !== 'repulsor' && <BuilderSelect label="Mode" accessibleLabel="Shovebot mode" value={robot.mode ?? 'shove'} options={[{ value: 'shove', label: 'Shove' }, { value: 'emp', label: 'EMP + shove' }]} onChange={value => commit(setShovebotMode(history.present, selection.index, value as 'shove' | 'emp'))} />}
-          {robot && robot.kind !== 'repulsor' && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={ROBOT_HALF_WIDTH} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? gridSize : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - ROBOT_HALF_WIDTH)} step={snap ? gridSize : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
-          {robot?.kind === 'repulsor' && <label className="builder-headlight" title="Starts asleep in an installed pod. Sight, sound or contact wakes it before the hunt begins."><input type="checkbox" checked={!!robot.chargingBay} onChange={event => {
+          {robot && robot.kind !== 'repulsor' && <div className="builder-dimensions"><Field>Left limit<NumberField label="Shovebot left limit" min={ROBOT_HALF_WIDTH} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? gridSize : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></Field><Field>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - ROBOT_HALF_WIDTH)} step={snap ? gridSize : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></Field></div>}
+          {robot?.kind === 'repulsor' && <CheckField title="Starts asleep in an installed pod. Sight, sound or contact wakes it before the hunt begins." checked={!!robot.chargingBay} onCheckedChange={checked => {
             const next = copyLevel(history.present)
-            if (event.target.checked) next.robots![selection.index].chargingBay = true
+            if (checked) next.robots![selection.index].chargingBay = true
             else delete next.robots![selection.index].chargingBay
             commit(next)
-          }} />Charging bay</label>}
-          {robot && <label className="builder-headlight" title="Lights ahead of this bot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
+          }}>Charging bay</CheckField>}
+          {robot && <CheckField title="Lights ahead of this bot in night mode" checked={!!robot.headlight} onCheckedChange={checked => commit(setShovebotHeadlight(history.present, selection.index, checked))}>Headlight</CheckField>}
           {switchedObject && <><fieldset className="builder-connections builder-switch-rule"><legend>Switch behavior</legend>
             <BuilderSelect label="Logic" accessibleLabel="Switch logic" value={objectSwitchLogic}
               options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
               onChange={value => commit(setObjectSwitchLogic(history.present, selection, value === 'and' ? 'and' : value === 'xor' ? 'xor' : 'or'))} />
-            <div className="builder-action-row"><label><input type="checkbox" checked={objectSwitchReversed} onChange={e => commit(setObjectSwitchReversed(history.present, selection, e.target.checked))} />Reversed</label>
-            {!logicRelay && !hubDoor && selection.kind !== 'rope' && <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>}
+            <div className="builder-action-row"><CheckField checked={objectSwitchReversed} onCheckedChange={checked => commit(setObjectSwitchReversed(history.present, selection, checked))}>Reversed</CheckField>
+            {!logicRelay && !hubDoor && selection.kind !== 'rope' && <CheckField title="Use this item's resulting on/off state to switch other items" checked={!!switchedObject.definition.relay} onCheckedChange={checked => commit(setObjectRelay(history.present, selection, checked))}>Relay</CheckField>}
             </div>
             <p className="builder-hint">{objectSwitchReversed ? 'Off' : 'On'} when {objectSwitchLogic === 'and' ? 'every connected switch is active'
               : objectSwitchLogic === 'xor' ? 'exactly one connected switch is active' : 'any connected switch is active'}. {objectSwitchReversed ? 'On' : 'Off'} otherwise.</p>
@@ -1420,7 +1448,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
                   <BuilderSelect label="Logic" accessibleLabel={`${title} switch logic`} value={control?.switchLogic ?? 'or'}
                     options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
                     onChange={value => commit(setWaterControl(history.present, selection.index, action, { switchLogic: value === 'and' ? 'and' : value === 'xor' ? 'xor' : 'or' }))} />
-                  <label><input type="checkbox" checked={!!control?.switchReversed} onChange={e => commit(setWaterControl(history.present, selection.index, action, { switchReversed: e.target.checked }))} />Reversed</label>
+                  <CheckField checked={!!control?.switchReversed} onCheckedChange={checked => commit(setWaterControl(history.present, selection.index, action, { switchReversed: checked }))}>Reversed</CheckField>
                   <BuilderConnectionList key={id} label={`${title} water`} empty="No switches" items={incomingSources.map(source => ({
                     id: sourceKey(source), label: sourceLabel(source),
                     checked: switchTargets(source.definition).includes(id), onChange: checked => {
@@ -1440,8 +1468,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
               const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
                 : ({ x: light || wallLight || logicRelay || gradeGate || floatSwitch ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay || gradeGate || floatSwitch ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
-              return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? gridSize : 1}
-                value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? gradeGate?.y ?? floatSwitch?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? gradeGate?.x ?? floatSwitch?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
+              return <Field key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? gridSize : 1}
+                value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? gradeGate?.y ?? floatSwitch?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? gradeGate?.x ?? floatSwitch?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></Field>
             })}
           </div>
           {trigger && trigger.mode !== 'coins' && !trigger.facing && <>
@@ -1450,32 +1478,32 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
                 ? [{ value: m.id, label: selectionLabel({ kind: 'mechanism', index }, level, doorName) }] : [])]}
               onChange={value => commit(setPressurePlateMount(history.present, selection.index, value === 'none' ? null : value))} />
           </>}
-          {facingPlate?.facing && <button className="builder-property-action" title={gravityPlate ? 'Move the emitter to the other side edge; the field and its strength stay unchanged' : 'Move the plate to the other side of its wall'} aria-pressed={facingPlate.facing === 'left'}
-            onClick={() => commit(gravityPlate ? setGravityPlateFacing(history.present, selection.index, gravityPlate.facing === 'left' ? 'right' : 'left') : flipWallPlate(history.present, selection.index))}>Flip horizontally</button>}
-          {facingPlate && !facingPlate.facing && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
-            onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</button>}
-          {selection.kind === 'goal' && level.goal && !level.goal.kind && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
+          {facingPlate?.facing && <InspectorButton title={gravityPlate ? 'Move the emitter to the other side edge; the field and its strength stay unchanged' : 'Move the plate to the other side of its wall'} aria-pressed={facingPlate.facing === 'left'}
+            onClick={() => commit(gravityPlate ? setGravityPlateFacing(history.present, selection.index, gravityPlate.facing === 'left' ? 'right' : 'left') : flipWallPlate(history.present, selection.index))}>Flip horizontally</InspectorButton>}
+          {facingPlate && !facingPlate.facing && <InspectorButton title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
+            onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</InspectorButton>}
+          {selection.kind === 'goal' && level.goal && !level.goal.kind && <InspectorButton title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
             const next = copyLevel(history.present)
             if (next.goal) { if (next.goal.flipX) delete next.goal.flipX; else next.goal.flipX = true }
             commit(next)
-          }}>Flip horizontally</button>}
-          {mechanism?.orientation === 'horizontal' && <button className="builder-property-action" title={mechanism.kind === 'lift' ? 'Reverse the platform’s travel direction' : 'Reverse the gate’s opening direction'} aria-pressed={!!mechanism.flipX} onClick={() => {
+          }}>Flip horizontally</InspectorButton>}
+          {mechanism?.orientation === 'horizontal' && <InspectorButton title={mechanism.kind === 'lift' ? 'Reverse the platform’s travel direction' : 'Reverse the gate’s opening direction'} aria-pressed={!!mechanism.flipX} onClick={() => {
             const next = copyLevel(level), m = next.mechanisms![selection.index]
             if (m.flipX) delete m.flipX; else m.flipX = true
             commit(next)
-          }}>Flip horizontally</button>}
+          }}>Flip horizontally</InspectorButton>}
           {selection.kind === 'rope' && (['start', 'end'] as const).filter(which => which === 'start' || level.climbables.ropes[selection.index].end).map(which => {
             // A tied rope numbers its anchors; a hanging rope has just the one.
             const rope = level.climbables.ropes[selection.index], point = which === 'end' ? rope.end! : rope
             const name = rope.end ? which === 'start' ? 'anchor 1' : 'anchor 2' : 'anchor'
             const host = point.anchor && selectionLabel({ kind: 'platform', index: point.anchor.platform }, level, doorName)
-            return <div className="builder-anchor" key={which}><span>{rope.end ? `${name === 'anchor 1' ? 'Anchor 1' : 'Anchor 2'}: ${host ?? 'free'}` : host ? `Anchored to ${host}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach this anchor to nearby terrain, or detach it" onClick={() => {
+            return <div className="builder-anchor" key={which}><span>{rope.end ? `${name === 'anchor 1' ? 'Anchor 1' : 'Anchor 2'}: ${host ?? 'free'}` : host ? `Anchored to ${host}` : 'Free anchor'}</span><InspectorButton title="Attach this anchor to nearby terrain, or detach it" onClick={() => {
               const next = copyLevel(history.present), r = next.climbables.ropes[selection.index], target = which === 'end' ? r.end! : r
               if (target.anchor) { delete target.anchor; commit(next) } else commit(anchorRope(next, selection.index, 40, which))
-            }}>{point.anchor ? `Detach ${name}` : `Attach ${name} to nearby terrain`}</button></div>
+            }}>{point.anchor ? `Detach ${name}` : `Attach ${name} to nearby terrain`}</InspectorButton></div>
           })}
-          {selection.kind === 'rope' && <button className="builder-property-action" title={level.climbables.ropes[selection.index].end ? 'Free the second anchor so the rope hangs from the first' : 'Tie the free end where it rests'}
-            onClick={() => commit(setRopeTied(history.present, selection.index, !level.climbables.ropes[selection.index].end))}>{level.climbables.ropes[selection.index].end ? 'Untie anchor 2' : 'Tie the free end'}</button>}
+          {selection.kind === 'rope' && <InspectorButton title={level.climbables.ropes[selection.index].end ? 'Free the second anchor so the rope hangs from the first' : 'Tie the free end where it rests'}
+            onClick={() => commit(setRopeTied(history.present, selection.index, !level.climbables.ropes[selection.index].end))}>{level.climbables.ropes[selection.index].end ? 'Untie anchor 2' : 'Tie the free end'}</InspectorButton>}
           {selection.kind === 'rope' && level.climbables.ropes[selection.index].end && <>
             <BuilderSelect label="Release" accessibleLabel="Rope release" title="Let switches drop one anchor for the rest of the run"
               value={level.climbables.ropes[selection.index].release?.anchor ?? 'none'}
@@ -1484,22 +1512,22 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             {level.climbables.ropes[selection.index].release && <p className="builder-hint">When its switch rule turns on, the anchor lets go and stays released until restart. The rope then hangs from the other anchor.</p>}
           </>}
           {canPlaceOnSurface(selection, level) && <div className="builder-surface-placement">
-            <button disabled={!support || Math.abs(support.delta) < .1} title={facingPlate?.ceiling ? 'Place on the next ceiling surface · End' : 'Place on the next surface below · End'} onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">{facingPlate?.ceiling ? '↑' : '↓'}</span></button>
+            <InspectorButton disabled={!support || Math.abs(support.delta) < .1} title={facingPlate?.ceiling ? 'Place on the next ceiling surface · End' : 'Place on the next surface below · End'} onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">{facingPlate?.ceiling ? '↑' : '↓'}</span></InspectorButton>
             <span className={support && Math.abs(support.delta) < .1 ? 'is-supported' : ''}>{support ? Math.abs(support.delta) < .1 ? 'On surface'
               : facingPlate?.ceiling ? support.delta < 0 ? `${Math.round(-support.delta)} below ceiling` : 'Overlaps ceiling'
                 : support.delta > 0 ? `${Math.round(support.delta)} above surface` : 'Overlaps surface'
               : facingPlate?.ceiling ? 'No clear ceiling above' : 'No clear surface below'}</span>
           </div>}
-          {(chosen || editingWall || pipe) && <div className="builder-action-row"><button title="Activate Node to add or move outline points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected node; at least three must remain" disabled={selectedNode === null || shapePoints(level, selection)!.length <= 3} onClick={removeNode}>Delete node</button></div>}
+          {(chosen || editingWall || pipe) && <div className="builder-action-row"><InspectorButton title="Activate Node to add or move outline points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</InspectorButton><InspectorButton title="Remove the selected node; at least three must remain" disabled={selectedNode === null || shapePoints(level, selection)!.length <= 3} onClick={removeNode}>Delete node</InspectorButton></div>}
           {(chosen || editingWall || pipe) && selectedNode !== null && shapePoints(level, selection)?.[selectedNode] && <fieldset>
             <legend>Node {selectedNode + 1} of {shapePoints(level, selection)!.length}</legend>
             <div className="builder-dimensions">{(['x', 'y'] as const).map(axis => {
               const p = shapePoints(level, selection)![selectedNode]
-              return <label key={axis}>Node {axis.toUpperCase()}<NumberField label={`Node ${axis.toUpperCase()}`} min={0} max={axis === 'x' ? level.width : roomHeight} step={snap ? gridSize : 1}
+              return <Field key={axis}>Node {axis.toUpperCase()}<NumberField label={`Node ${axis.toUpperCase()}`} min={0} max={axis === 'x' ? level.width : roomHeight} step={snap ? gridSize : 1}
                 value={axis === 'x' ? p[0] : roomHeight - p[1]} {...numberEdit((base, value) => {
                   const point = shapePoints(base, selection)![selectedNode]
                   return moveShapeVertex(base, selection, selectedNode, axis === 'x' ? value - point[0] : 0, axis === 'y' ? levelHeight(base) - value - point[1] : 0)
-                })} /></label>
+                })} /></Field>
             })}</div>
           </fieldset>}
           {editingWall && <p className="builder-hint">Drag inside the selected wall to move it. Square handles resize. Drag round nodes to reshape; Node adds points along edges. Snap, Alt, and arrow keys work as for terrain.</p>}
@@ -1525,8 +1553,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               <BuilderSelect label="Behind it" accessibleLabel="Loose panel contents" value={loose.contents ?? 'services'} options={PANEL_CONTENTS.map(c => ({ value: c.id, label: c.label }))}
                 onChange={value => commit(setLoosePanel(history.present, selection.index, { contents: value === 'services' ? undefined : value as Exclude<PanelContents, 'services'> }))} />
             </div>
-            <label><input type="checkbox" checked={!!loose.leak}
-              onChange={event => commit(setLoosePanel(history.present, selection.index, { leak: event.target.checked || undefined }))} />Leak</label>
+            <CheckField checked={!!loose.leak} onCheckedChange={checked => commit(setLoosePanel(history.present, selection.index, { leak: checked || undefined }))}>Leak</CheckField>
             <p className="builder-hint">Loosen a panel where something gave way or someone reached the services: beside a pump, a tank or a powered door. Two or three in a room is plenty. Wall art only, with no collision.</p>
           </>}
           {wallBand && <>
@@ -1541,13 +1568,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               <BuilderSelect label="Frame" accessibleLabel="Blocked door frame" value={wallDoor.frame ?? 'door'} options={[{ value: 'door', label: 'Door' }, { value: 'bulkhead', label: 'Bulkhead' }]}
                 onChange={value => commit(setWallDoor(history.present, selection.index, { frame: value === 'bulkhead' ? 'bulkhead' : undefined }))} />
             </div>
-            <button className="builder-property-action" aria-pressed={!!wallDoor.flipX} onClick={() => commit(setWallDoor(history.present, selection.index, { flipX: !wallDoor.flipX }))}>Flip horizontally</button>
+            <InspectorButton aria-pressed={!!wallDoor.flipX} onClick={() => commit(setWallDoor(history.present, selection.index, { flipX: !wallDoor.flipX }))}>Flip horizontally</InspectorButton>
             <p className="builder-hint">Wall art only: it never opens and has no collision.</p>
           </>}
           {editingWall && <>
             <p className="builder-hint">Back wall layer {selection.index + 1} of {level.environment!.walls.length}. Later layers take precedence.</p>
-            <div className="builder-action-row">{[false, true].map(front => <button key={String(front)} disabled={selection.index === (front ? level.environment!.walls.length - 1 : 0)}
-              onClick={() => { const result = reorderBackWall(history.present, selection.index, front); commit(result.level); chooseSelection({ kind: 'back-wall', index: result.index }) }}>{front ? 'Bring to front' : 'Send to back'}</button>)}</div>
+            <div className="builder-action-row">{[false, true].map(front => <InspectorButton key={String(front)} disabled={selection.index === (front ? level.environment!.walls.length - 1 : 0)}
+              onClick={() => { const result = reorderBackWall(history.present, selection.index, front); commit(result.level); chooseSelection({ kind: 'back-wall', index: result.index }) }}>{front ? 'Bring to front' : 'Send to back'}</InspectorButton>)}</div>
           </>}
           {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
             const next = copyLevel(history.present); next.platforms[selection.index].material = material; commit(next)
@@ -1566,29 +1593,29 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           {chosen && <fieldset className="builder-terrain-order">
             <legend>Draw order ({terrainPosition + 1} of {level.platforms.length})</legend>
             <div className="builder-action-row">
-              <button disabled={terrainPosition === 0} title="Draw behind all other terrain" onClick={() => commit(reorderTerrain(history.present, selection.index, 'back'))}>Send to back</button>
-              <button disabled={terrainPosition === 0} title="Move back one terrain layer" onClick={() => commit(reorderTerrain(history.present, selection.index, 'backward'))}>Backward</button>
-              <button disabled={terrainPosition === level.platforms.length - 1} title="Move forward one terrain layer" onClick={() => commit(reorderTerrain(history.present, selection.index, 'forward'))}>Forward</button>
-              <button disabled={terrainPosition === level.platforms.length - 1} title="Draw above all other terrain" onClick={() => commit(reorderTerrain(history.present, selection.index, 'front'))}>Bring to front</button>
+              <InspectorButton disabled={terrainPosition === 0} title="Draw behind all other terrain" onClick={() => commit(reorderTerrain(history.present, selection.index, 'back'))}>Send to back</InspectorButton>
+              <InspectorButton disabled={terrainPosition === 0} title="Move back one terrain layer" onClick={() => commit(reorderTerrain(history.present, selection.index, 'backward'))}>Backward</InspectorButton>
+              <InspectorButton disabled={terrainPosition === level.platforms.length - 1} title="Move forward one terrain layer" onClick={() => commit(reorderTerrain(history.present, selection.index, 'forward'))}>Forward</InspectorButton>
+              <InspectorButton disabled={terrainPosition === level.platforms.length - 1} title="Draw above all other terrain" onClick={() => commit(reorderTerrain(history.present, selection.index, 'front'))}>Bring to front</InspectorButton>
             </div>
           </fieldset>}
           {light && <>
             <div className="builder-dimensions">
-              <label>Direction (°)<NumberField label="Light direction" value={light.direction} min={-180} max={180} step={5} {...numberEdit((base, value) => changedObject(base, 'direction', value))} /></label>
-              <label>Spread (°)<NumberField label="Light spread" value={light.spread} min={20} max={160} step={5} {...numberEdit((base, value) => changedObject(base, 'spread', value))} /></label>
+              <Field>Direction (°)<NumberField label="Light direction" value={light.direction} min={-180} max={180} step={5} {...numberEdit((base, value) => changedObject(base, 'direction', value))} /></Field>
+              <Field>Spread (°)<NumberField label="Light spread" value={light.spread} min={20} max={160} step={5} {...numberEdit((base, value) => changedObject(base, 'spread', value))} /></Field>
             </div>
-            <label className="builder-headlight" title="Irregular dimming and brief dropouts, like a malfunctioning lamp"><input type="checkbox" checked={!!light.flicker} onChange={event => commit(editLight(history.present, selection.index, { flicker: event.target.checked }))} />Flicker</label>
+            <CheckField title="Irregular dimming and brief dropouts, like a malfunctioning lamp" checked={!!light.flicker} onCheckedChange={checked => commit(editLight(history.present, selection.index, { flicker: checked }))}>Flicker</CheckField>
           </>}
           {light?.power === 'switched' &&
-            <button title="Hold to preview this light without changing its power connections" aria-pressed={previewLight === light.id}
+            <InspectorButton title="Hold to preview this light without changing its power connections" aria-pressed={previewLight === light.id}
               onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setPreviewLight(light.id) }} onPointerUp={() => setPreviewLight(null)} onPointerCancel={() => setPreviewLight(null)} onBlur={() => setPreviewLight(null)}
-              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setPreviewLight(light.id) } }} onKeyUp={() => setPreviewLight(null)}>Hold to preview</button>}
+              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setPreviewLight(light.id) } }} onKeyUp={() => setPreviewLight(null)}>Hold to preview</InspectorButton>}
           {wallText && <>
-            {wallText.style !== 'lab-stamp' && <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>}
+            {wallText.style !== 'lab-stamp' && <Field>Text<Textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></Field>}
             <div className="builder-dimensions">
               <BuilderSelect label="Style" accessibleLabel="Text style" title="Official lettering, graffiti, a message screen, or the L.A.B. wall stamp" value={wallText.style ?? 'official'} options={[{ value: 'official', label: 'Official' }, { value: 'graffiti', label: 'Graffiti' }, { value: 'terminal', label: 'Message screen' }, { value: 'lab-stamp', label: 'L.A.B. stamp' }]} onChange={value => changeObject('style', value)} />
-              <label>Rotation (°)<NumberField label="Text rotation" min={-180} max={180} step={5} value={wallText.rotation ?? 0} {...numberEdit((base, value) => changedObject(base, 'rotation', value))} /></label>
-              {wallText.style !== 'lab-stamp' && <><label>Font size<NumberField label="Text font size" min={12} max={96} step={2} value={wallText.fontSize} {...numberEdit((base, value) => changedObject(base, 'fontSize', value))} /></label>
+              <Field>Rotation (°)<NumberField label="Text rotation" min={-180} max={180} step={5} value={wallText.rotation ?? 0} {...numberEdit((base, value) => changedObject(base, 'rotation', value))} /></Field>
+              {wallText.style !== 'lab-stamp' && <><Field>Font size<NumberField label="Text font size" min={12} max={96} step={2} value={wallText.fontSize} {...numberEdit((base, value) => changedObject(base, 'fontSize', value))} /></Field>
               <BuilderSelect label="Alignment" accessibleLabel="Text alignment" value={wallText.align} options={['left', 'center', 'right'].map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) }))} onChange={value => changeObject('align', value)} /></>}
             </div>
           </>}
@@ -1596,18 +1623,18 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         {/* A grade average is invisible during play, so it has no wall wiring. */}
         {Boolean(selectedSource && !['grade-gate', 'course-door', 'bulkhead'].includes(selectedSource.kind) || terminalPosition) && <BuilderInspectorSection title="Wall wiring" open={false} reveal={terminalFocus !== null}>
           {selectedSource && selectedSource.kind !== 'grade-gate' && selectedSource.kind !== 'course-door' && selectedSource.kind !== 'bulkhead' && <fieldset className="builder-connections"><legend>Back-wall wiring</legend>
-            <label><input type="checkbox" checked={!!selectedSource.definition.showWires} onChange={e => commit(setWallWiring(history.present, selection, e.target.checked))} />Show wall wiring</label>
-            {selectedSource.definition.showWires && <label>Wire height<NumberField label="Wire height" min={0} max={levelHeight(level)} step={snap ? gridSize : 1}
-              value={selectedSource.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT} {...numberEdit((base, value) => setWallWiring(base, selection, true, value))} /></label>}
+            <CheckField checked={!!selectedSource.definition.showWires} onCheckedChange={checked => commit(setWallWiring(history.present, selection, checked))}>Show wall wiring</CheckField>
+            {selectedSource.definition.showWires && <Field>Wire height<NumberField label="Wire height" min={0} max={levelHeight(level)} step={snap ? gridSize : 1}
+              value={selectedSource.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT} {...numberEdit((base, value) => setWallWiring(base, selection, true, value))} /></Field>}
           </fieldset>}
           {terminalPosition && <fieldset className="builder-connections"><legend>Wall terminal</legend>
             <div className="builder-dimensions">
-              <label>X<NumberField label="Wire terminal X" min={4} max={level.width - 4} step={snap ? gridSize : 1} value={terminalPosition.x}
-                {...numberEdit((base, value) => setWallTerminal(base, selection, { x: value, y: terminalPosition.y }))} /></label>
-              <label>Y<NumberField label="Wire terminal Y" min={4} max={roomHeight - 4} step={snap ? gridSize : 1} value={roomHeight - terminalPosition.y}
-                {...numberEdit((base, value) => setWallTerminal(base, selection, { x: terminalPosition.x, y: levelHeight(base) - value }))} /></label>
+              <Field>X<NumberField label="Wire terminal X" min={4} max={level.width - 4} step={snap ? gridSize : 1} value={terminalPosition.x}
+                {...numberEdit((base, value) => setWallTerminal(base, selection, { x: value, y: terminalPosition.y }))} /></Field>
+              <Field>Y<NumberField label="Wire terminal Y" min={4} max={roomHeight - 4} step={snap ? gridSize : 1} value={roomHeight - terminalPosition.y}
+                {...numberEdit((base, value) => setWallTerminal(base, selection, { x: terminalPosition.x, y: levelHeight(base) - value }))} /></Field>
             </div>
-            <button disabled={!customTerminal} onClick={() => { commit(setWallTerminal(history.present, selection, null)); setTerminalFocus(null) }}>Reset terminal position</button>
+            <InspectorButton disabled={!customTerminal} onClick={() => { commit(setWallTerminal(history.present, selection, null)); setTerminalFocus(null) }}>Reset terminal position</InspectorButton>
           </fieldset>}
         </BuilderInspectorSection>}
         {Boolean(floatSwitch || prop || chosen && selectedNode !== null || forceField || gravityPlate || wallText?.style === 'terminal' || wallText?.style === 'lab-stamp' || trigger || selectedSource || terminalPosition || robot?.kind === 'repulsor' || logicRelay || hubDoor || selection.kind === 'evaluation-board') && <BuilderInspectorSection title="Object help" open={false}>
@@ -1666,13 +1693,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           {robot?.kind === 'repulsor' && <p className="builder-hint">{robot.chargingBay ? 'Wakes in its charging bay when it sees, hears or touches a rival.' : 'Enters through the shown portal. Give its full 40 × 80 opening a flat sill and clear space. Unsupported starts remain static until you fix their placement.'} Hunts across the level once alerted. Large forearms charge and fire from the palms. Sight and cover govern its shots.</p>}
           {logicRelay && <p className="builder-hint">Visible only in the studio. Sends its result to connected items, with no physical behavior during play.</p>}
         </BuilderInspectorSection>}
-        <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
+        <div className="builder-object-actions"><InspectorButton title="Duplicate this object (Ctrl/⌘ + D)" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</InspectorButton><InspectorButton variant="destructive" className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={remove}>Delete</InspectorButton></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}
       </div>
       <div id="builder-inspector-panel-level" role="tabpanel" aria-labelledby="builder-inspector-tab-level" hidden={inspectorTab !== 'level'}>
       <div className="builder-level-settings">
-        <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value, levels.entries.map(file => file.fileName))); commit({ ...history.present, name: e.target.value }) }} /></label>
-        <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
+        <Field>Level name<Input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value, levels.entries.map(file => file.fileName))); commit({ ...history.present, name: e.target.value }) }} /></Field>
+        <Field>File name<Input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></Field>
         <p className="builder-save-location">Built-in levels · Saved in this checkout</p>
         <BuilderSelect label="Type" accessibleLabel="Level type" title="A course ends at its exit. A facility area has no exit or clock: the robot leaves through its level doors and bulkheads."
           value={isHubLevel(level) ? 'hub' : isPuzzleLevel(level) ? 'course' : 'playground'}
@@ -1682,15 +1709,15 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <BuilderInspectorSection title="World">
           <EnvironmentFields level={level} onChange={commit} selectedWall={selection?.kind === 'back-wall' ? selection.index : null} onSelectWall={editBackWall}
             onCreateWall={() => { chooseSelection(null); setTool('back-wall'); canvasRef.current?.focus() }} />
-          {level.environment && <label><input type="checkbox" checked={environmentGrid} onChange={e => setEnvironmentGrid(e.target.checked)} />Editor grid</label>}
-          <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={MAX_LEVEL_WIDTH} {...numberEdit((base, value) => {
+          {level.environment && <CheckField checked={environmentGrid} onCheckedChange={checked => setEnvironmentGrid(checked)}>Editor grid</CheckField>}
+          <div className="builder-dimensions"><Field>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={MAX_LEVEL_WIDTH} {...numberEdit((base, value) => {
             const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.environment?.walls ?? []).map(w => w.x + w.w), ...(base.environment?.groundCover ?? []).map(c => c.x + c.w), ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).filter(s => s.kind !== 'goal' || base.goal?.kind !== 'walk-off').map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
             const width = clamp(value, extent, MAX_LEVEL_WIDTH)
             return { ...base, width, ...(base.goal?.kind === 'walk-off' ? { goal: { ...base.goal, x: width } } : {}) }
-          })} /></label>
-          <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>
+          })} /></Field>
+          <Field>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></Field></div>
           {!usesRegionLighting(level) && <div className="builder-lighting-settings" role="group" aria-label="Level lighting">
-            <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(setLightingLayout(history.present, 'uniform'), e.target.checked))} />Night mode</label></div>
+            <div className="builder-lighting-heading"><span>Lighting</span><CheckField title="Use spotlights against the game's dark background" checked={nightModeEnabled(level.lighting)} onCheckedChange={checked => commit(setLevelNightMode(setLightingLayout(history.present, 'uniform'), checked))}>Night mode</CheckField></div>
           </div>}
           <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
         </BuilderInspectorSection>
@@ -1699,16 +1726,16 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             onChange={kind => commit(setFinish(history.present, kind as 'doorway' | 'overlook' | 'walk-off' | 'bus'))} />}
           {level.goal.kind === 'bus' && <p className="builder-hint">Place the bus on flat ground. Walk into its left side to board and finish; it is solid, so the robot can stand on its roof. The bus then drives away in the same view.</p>}
           {level.goal.kind === 'walk-off' && <p className="builder-hint">Continue flat ground to the right edge. Running or jumping completely off that edge finishes the level. The guide is visible only in the studio.</p>}
-          {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
-            const next = e.target.checked ? copyLevel(history.present) : setFinish(history.present, 'doorway')
-            if (e.target.checked) next.timing = 'untimed'; else delete next.timing
+          {isPuzzleLevel(level) && <CheckField checked={level.timing === 'untimed'} onCheckedChange={checked => {
+            const next = checked ? copyLevel(history.present) : setFinish(history.present, 'doorway')
+            if (checked) next.timing = 'untimed'; else delete next.timing
             commit(next)
-          }} />Untimed level</label>}
+          }}>Untimed level</CheckField>}
           {isPuzzleLevel(level) && level.timing !== 'untimed' && <fieldset className="builder-grades"><legend>Grade times (seconds)</legend><div className="builder-grade-inputs">{GRADE_TARGETS.map((grade, index) => {
             const times = gradeTimes(level)
             const min = index === 0 ? 1 : Math.floor(times[GRADE_TARGETS[index - 1]]) + 1
             const max = index === 3 ? 7200 : Math.min(3600, Math.ceil(times[GRADE_TARGETS[index + 1]]) - 1)
-            return <label key={grade}>{grade.toUpperCase()}<NumberField label={`${grade.toUpperCase()} time`} min={min} max={max} step={1} value={times[grade]} {...numberEdit((base, value) => ({ ...base, times: { ...gradeTimes({ times: base.times! }), [grade]: value } }))} /></label>
+            return <Field key={grade}>{grade.toUpperCase()}<NumberField label={`${grade.toUpperCase()} time`} min={min} max={max} step={1} value={times[grade]} {...numberEdit((base, value) => ({ ...base, times: { ...gradeTimes({ times: base.times! }), [grade]: value } }))} /></Field>
           })}</div></fieldset>}
         </BuilderInspectorSection>}
       </div>

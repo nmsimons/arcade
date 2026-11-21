@@ -194,6 +194,9 @@ test('both plate tools snap onto ceilings and preserve their vertical flip on sa
   await page.getByRole('button', { name: 'Open ceiling.json', exact: true }).click()
   await page.getByRole('button', { name: 'Fit level', exact: true }).click()
   const canvas = page.getByRole('application', { name: 'Level canvas' })
+  // Map clicks through the fitted view, not a frame drawn before the fit.
+  const zoom = page.getByRole('status', { name: 'Zoom', exact: true })
+  await expect.poll(async () => canvas.evaluate((c, z) => !!c.plateView && Math.round(c.plateView.a * 100) === z, parseInt(await zoom.textContent()))).toBe(true)
   for (const [tool, kind, x] of [['Pressure plate', 'trigger:0', 280], ['Gravity plate', 'gravity-plate:0', 520]]) {
     await page.getByRole('button', { name: tool, exact: true }).click()
     await expect.poll(() => canvas.evaluate(c => !!c.plateView)).toBe(true)

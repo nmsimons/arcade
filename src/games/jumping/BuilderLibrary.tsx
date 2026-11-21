@@ -8,6 +8,9 @@ import { DeleteLevelButton, MissingLevelNotice } from './LevelFileActions'
 import { RecycleBin } from './RecycleBin'
 import type { Campaign } from './campaign'
 import { librarySections } from './libraryOrder'
+import { PlusIcon, RefreshCwIcon, XIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export type LibraryChoice = { kind: 'new' } | { kind: 'open' | 'template'; file: LevelFile }
 
@@ -92,7 +95,7 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, campaign
     }
     return cards.length
   }
-  return <dialog ref={dialog} className="builder-library jumping-ui" aria-label={pending ? 'Unsaved changes' : 'Level library'}
+  return <dialog ref={dialog} className="builder-library studio-dialog" aria-label={pending ? 'Unsaved changes' : 'Level library'}
     aria-modal="true" role={pending ? 'alertdialog' : 'dialog'} onCancel={event => {
       event.preventDefault()
       if (dragging.current) { endDrag(); return }
@@ -102,43 +105,43 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, campaign
       event.stopPropagation()
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') event.preventDefault()
     }} onPointerDownCapture={event => { event.currentTarget.dataset.inputMethod = 'pointer' }}>
-    <header className="builder-library-header">
-      <div><h2>{pending ? 'Unsaved changes' : binOpen ? 'Recycle bin' : 'Library'}</h2></div>
-      <div className="builder-library-actions">
-        {!pending && !binOpen && <button className="builder-play" disabled={levels.busy} onClick={() => choose({ kind: 'new' })}><span aria-hidden="true">+ </span>New level</button>}
-        {!pending && !binOpen && levels.canWrite && <button disabled={levels.busy} onClick={() => { setBinOpen(true); void levels.loadDeleted() }}>Recycle bin</button>}
-        {binOpen && <button disabled={levels.busy} onClick={() => setBinOpen(false)}>Back to levels</button>}
+    <header className="builder-library-header flex flex-none flex-wrap items-center gap-2 border-b border-border px-6 py-3">
+      <div className="min-w-0 flex-1"><h2 className="m-0 text-lg leading-tight font-semibold tracking-tight">{pending ? 'Unsaved changes' : binOpen ? 'Recycle bin' : 'Library'}</h2></div>
+      <div className="builder-library-actions flex flex-wrap gap-1.5 empty:hidden">
+        {!pending && !binOpen && <Button size="sm" className="builder-play" disabled={levels.busy} onClick={() => choose({ kind: 'new' })}><PlusIcon aria-hidden="true" />New level</Button>}
+        {!pending && !binOpen && levels.canWrite && <Button size="sm" variant="outline" disabled={levels.busy} onClick={() => { setBinOpen(true); void levels.loadDeleted() }}>Recycle bin</Button>}
+        {binOpen && <Button size="sm" variant="outline" disabled={levels.busy} onClick={() => setBinOpen(false)}>Back to levels</Button>}
       </div>
-      <button className="builder-library-close" ref={close} aria-label="Close library" disabled={saving || orderSaving || levels.busy} onClick={onClose}>Close</button>
+      <Button size="sm" variant="ghost" className="builder-library-close" ref={close} aria-label="Close library" disabled={saving || orderSaving || levels.busy} onClick={onClose}><XIcon aria-hidden="true" />Close</Button>
     </header>
     {binOpen ? <RecycleBin levels={levels} /> : pending ? <div className="builder-library-confirm">
       <div className="builder-library-confirm-copy">
-      <h3>Save your changes?</h3>
-      <p>“{level.name}” has unsaved changes. {pending.kind === 'new' ? 'Creating a new level' : pending.kind === 'open' ? `Opening “${pending.file.level.name}”` : `Using “${pending.file.level.name}” as a template`} will replace this draft.</p>
+      <h3 className="m-0 mb-2 text-base font-semibold">Save your changes?</h3>
+      <p className="m-0 text-sm leading-relaxed">“{level.name}” has unsaved changes. {pending.kind === 'new' ? 'Creating a new level' : pending.kind === 'open' ? `Opening “${pending.file.level.name}”` : `Using “${pending.file.level.name}” as a template`} will replace this draft.</p>
       {message && <p className="builder-library-message" role="status">{message}</p>}
       </div>
-      <div className="builder-library-confirm-actions">
-        <button ref={cancel} disabled={saving} onClick={() => setPending(null)}>Cancel</button>
-        <button className="builder-delete" disabled={saving || levels.busy} onClick={() => onChoose(pending)}>Discard changes</button>
-        <button className="builder-play" disabled={saving || levels.busy || !levels.canWrite} aria-busy={saving} onClick={async () => {
+      <div className="builder-library-confirm-actions mt-6 flex flex-wrap justify-end gap-2">
+        <Button variant="outline" ref={cancel} disabled={saving} onClick={() => setPending(null)}>Cancel</Button>
+        <Button variant="destructive" className="builder-delete" disabled={saving || levels.busy} onClick={() => onChoose(pending)}>Discard changes</Button>
+        <Button className="builder-play" disabled={saving || levels.busy || !levels.canWrite} aria-busy={saving} onClick={async () => {
           const saved = await onSave()
           if (saved) onChoose(pending.kind === 'open' && pending.file.level.id === saved.level.id ? { ...pending, file: saved } : pending)
-        }}>Save and continue</button>
+        }}>Save and continue</Button>
       </div>
     </div> : <>
-      <div className="builder-library-folder">
-        <p>Built-in levels · Saved in this checkout</p>
-        <button disabled={levels.busy || orderSaving} onClick={() => void levels.refresh()}>Refresh built-in levels</button>
+      <div className="builder-library-folder flex flex-none flex-wrap items-center gap-x-4 gap-y-2 bg-muted px-6 py-2 text-xs">
+        <p className="m-0">Built-in levels · Saved in this checkout</p>
+        <Button size="sm" variant="outline" disabled={levels.busy || orderSaving} onClick={() => void levels.refresh()}><RefreshCwIcon aria-hidden="true" />Refresh built-in levels</Button>
         {levels.errors.map(error => <p key={error} role="alert">{error}</p>)}
         {message && <p className="builder-library-message" role="status">{message}</p>}
         {orderError && <p className="builder-library-message" role="alert">{orderError}</p>}
       </div>
       <p className="jumping-visually-hidden" role="status" aria-label="Level order">{orderMessage}</p>
       <div className="builder-library-content">
-        <div className="builder-local-heading"><h3>Built-in levels</h3>
-          {levels.entries.length > 0 && <div className="builder-library-sorts">
-            {byCampaign && <button disabled={!levels.canWrite || levels.busy || orderSaving || sortedByCampaign} onClick={() => void saveOrder(byCampaign, 'listed', undefined, 'Sorted by campaign order.')}>Sort by campaign order</button>}
-            <button disabled={!levels.canWrite || levels.busy || orderSaving || sortedByName} onClick={() => void saveOrder(byName, 'listed', undefined, 'Sorted by level name.')}>Sort by level name</button>
+        <div className="builder-local-heading flex flex-wrap items-center justify-between gap-2"><h3 className="m-0 text-sm font-semibold">Built-in levels</h3>
+          {levels.entries.length > 0 && <div className="builder-library-sorts flex flex-wrap justify-end gap-1.5">
+            {byCampaign && <Button size="sm" variant="outline" disabled={!levels.canWrite || levels.busy || orderSaving || sortedByCampaign} onClick={() => void saveOrder(byCampaign, 'listed', undefined, 'Sorted by campaign order.')}>Sort by campaign order</Button>}
+            <Button size="sm" variant="outline" disabled={!levels.canWrite || levels.busy || orderSaving || sortedByName} onClick={() => void saveOrder(byName, 'listed', undefined, 'Sorted by level name.')}>Sort by level name</Button>
           </div>}
         </div>
         <p className="jumping-visually-hidden" id="library-order-help">Open a level to edit it, or use it as a template.{levels.entries.length > 1 && (levels.canWrite ? ' Drag to reorder, or focus a level and use Alt + Arrow keys. Order saves automatically.' : ' Enable saving to reorder levels.')}</p>
@@ -153,7 +156,7 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, campaign
             const from = levels.entries.findIndex(file => file.fileName === dragging.current), slot = slotAt(event.clientX, event.clientY)
             endDrag(); move(from, slot > from ? slot - 1 : slot)
           }}>{levels.entries.map((file, index) => <div
-          className={`builder-local-file${dragged === file.fileName ? ' is-dragging' : ''}${dropSlot === index ? ' drop-before' : ''}${dropSlot === levels.entries.length && index === levels.entries.length - 1 ? ' drop-after' : ''}`}
+          className={cn('builder-local-file', dragged === file.fileName && 'is-dragging', dropSlot === index && 'drop-before', dropSlot === levels.entries.length && index === levels.entries.length - 1 && 'drop-after')}
           key={file.fileName} draggable={canReorder && !('missing' in file)} onDragStart={event => {
             if (!canReorder || 'missing' in file) { event.preventDefault(); return }
             dragging.current = file.fileName; setDragged(file.fileName)
@@ -170,13 +173,13 @@ export function BuilderLibrary({ levels, level, dirty, saving, message, campaign
             <MissingLevelNotice fileName={file.fileName} />
             <DeleteLevelButton fileName={file.fileName} disabled={levels.busy || !levels.canWrite} primary onClick={() => void deleteFile(file)} />
           </> : <>
-          <button className="builder-file-preview" disabled={levels.busy} aria-label={`Open ${file.fileName}`}
+          <Button variant="ghost" className="builder-file-preview" disabled={levels.busy} aria-label={`Open ${file.fileName}`}
             aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown"
             onClick={() => choose({ kind: 'open', file })}>
             <LevelThumbnail level={file.level} /><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small>
             </span>
-          </button>
-          <div className="builder-file-actions"><button className="builder-use-template" disabled={levels.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => choose({ kind: 'template', file })}>Use as template</button>
+          </Button>
+          <div className="builder-file-actions"><Button size="sm" variant="secondary" className="builder-use-template" disabled={levels.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => choose({ kind: 'template', file })}>Use as template</Button>
           <DeleteLevelButton fileName={file.fileName} disabled={levels.busy || !levels.canWrite} onClick={() => void deleteFile(file)} /></div>
           </>}
         </div>)}</div> : <p className="builder-library-empty">{levels.restoring ? 'Loading built-in levels…' : 'Create a new level to start this collection.'}</p>}

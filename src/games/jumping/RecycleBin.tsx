@@ -3,6 +3,7 @@ import type { BuiltInLevels } from './builtInLevels'
 import type { DeletedLevel } from './levelFiles'
 import { DeleteLevelButton, FileActionDialog } from './LevelFileActions'
 import { LevelThumbnail } from './LevelThumbnail'
+import { Button } from '@/components/ui/button'
 
 export function RecycleBin({ levels: local }: { levels: BuiltInLevels }) {
   const [restore, setRestore] = useState<DeletedLevel | null>(null), [fileName, setFileName] = useState('')
@@ -12,7 +13,7 @@ export function RecycleBin({ levels: local }: { levels: BuiltInLevels }) {
     <div className="builder-bin-header">
       <p>Recover a level or delete it permanently.</p>
       <div className="builder-library-actions">
-        <button className="level-file-danger" disabled={local.busy || !local.canWrite || !local.trash.deleted.length} onClick={() => setEmpty([...local.trash.deleted])}>Empty recycle bin</button>
+        <Button size="sm" variant="destructive" className="level-file-danger" disabled={local.busy || !local.canWrite || !local.trash.deleted.length} onClick={() => setEmpty([...local.trash.deleted])}>Empty recycle bin</Button>
       </div>
     </div>
     <div className="builder-bin-content" aria-busy={local.busy}>
@@ -25,7 +26,7 @@ export function RecycleBin({ levels: local }: { levels: BuiltInLevels }) {
           <span><strong>{entry.level?.name ?? entry.fileName}</strong><small title={entry.fileName}>{entry.fileName}</small></span>
         </div>
         <div className="builder-file-actions">
-          <button className="builder-use-template" disabled={local.busy || !local.canWrite} aria-label={`Recover ${entry.fileName}`} onClick={() => { setFileName(entry.fileName); setRestore(entry) }}>Recover</button>
+          <Button size="sm" variant="secondary" className="builder-use-template" disabled={local.busy || !local.canWrite} aria-label={`Recover ${entry.fileName}`} onClick={() => { setFileName(entry.fileName); setRestore(entry) }}>Recover</Button>
           <DeleteLevelButton fileName={entry.fileName} disabled={local.busy || !local.canWrite} permanent onClick={() => setDeleted(entry)} />
         </div>
       </div>)}</div>

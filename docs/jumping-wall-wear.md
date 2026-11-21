@@ -92,8 +92,8 @@ across its middle.
 
 A loose panel names a point on the wall; it is the panel under that point, so it
 moves with the panels when **Wall finish** changes. The level reports one
-outside the level; one not on a panelled wall (a landscape's sky and cave walls
-have none); two on the same panel; and a wall timer, wall light or coin switch
+outside the level; one not on a panelled wall (nothing under Blue sky has
+panels: sky, rock and painted building walls); two on the same panel; and a wall timer, wall light or coin switch
 on one, which would have nothing to hang on. Hardware fixed to the wall (pipes,
 wiring, doors, charging bays) is drawn in front of it. Wall text is still drawn
 over it.

@@ -1017,7 +1017,7 @@ to the wall and drawn in front of it. Wall text is drawn over it. A loose panel
 is artwork only: no collision, grip, cover or light.
 
 The level reports a loose panel outside the level, one not on a panelled wall
-(a landscape's sky and cave walls have none), two on the same panel, and a wall
+(nothing under Blue sky has panels: sky, rock and painted building walls), two on the same panel, and a wall
 timer, wall light or coin switch on one, which would have nothing to hang on.
 In the studio, **Back wall → Loose panel** loosens the panel under a click;
 drag it or use the arrow keys to move it a panel at a time, and choose **Hangs
@@ -1168,7 +1168,7 @@ than water, and does not change with this setting. In the studio, **Stains** is
 directly under **Wall finish**.
 Finishes are artwork only: they add no collision, cover or lighting, keep the
 wall's base colour and fine grid, and apply wherever the course wall is drawn, including
-facility back walls in environments. The level's optional `floorMaterial` applies the same palette
+facility back walls on an Indoor wall background (under Blue sky those are painted instead). The level's optional `floorMaterial` applies the same palette
 to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a
 terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.
@@ -1978,8 +1978,16 @@ disabled. No existing file is upgraded merely by opening it.
 Back walls are rectangles or simple local polygons with 3–64 vertices. Up to 40
 walls may overlap; optional names have the same 80-character limit as other
 objects. Coordinates use the same top-left origin as terrain. The retained
-`facility` kind uses the standard course wall and grid. With Blue sky selected,
-`cave` walls use light gray stone with subtle texture and no grid or panel joints.
+`facility` kind uses the standard course wall and grid, in the level's **Wall
+finish**, on the Indoor wall background. With Blue sky selected, `cave` walls
+use pale fractured rock (facets, bedding and cracks) and `facility` walls are a
+building's painted outside wall: warm off-white render with faded and
+touched-up patches, flaking chips, scuffs, hairline cracks and brown water
+stains at the level's **Stains** setting, with no grid or panel joints. Choose
+between them with **Object → Appearance → Surface → Rock** or **Building**, as
+for Exit II's tower. The control appears only under Blue sky, where the two
+differ; a wall keeps its surface through edits, duplication and background
+changes.
 The Indoor wall background retains the standard course wall treatment.
 New authoring chooses the kind from the background. Back walls never supply
 collision, grip, robot cover, pressure load or shadow casters. Author physical

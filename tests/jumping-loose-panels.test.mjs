@@ -34,8 +34,9 @@ test('a loose panel must be on a panelled wall, on a panel of its own, and leave
   assert.deepEqual(problems({ loosePanels: [{ x: 500, y: 400 }], timers: [{ x: p.x + 20, y: p.y + 20 }] }), ['Move “Wall timer 1” off “Loose panel 1”.'])
   assert.deepEqual(problems({ loosePanels: [{ name: 'Fuse box', x: 500, y: 400 }], wallLights: [{ id: 'lamp', x: p.x + 40, y: p.y + 40 }] }), ['Move “Wall light 1” off “Fuse box · Loose panel 1”.'])
   const environment = { kind: 'landscape', horizon: 500, walls: [{ x: 0, y: 0, w: 1200, h: 1400, kind: 'facility' }, { x: 1800, y: 0, w: 600, h: 1400, kind: 'cave' }] }
+  // Against the sky nothing is panelled: a building wall is painted render, a cave wall rock.
   assert.deepEqual(problems({ version: 2, environment, lighting: { ambient: 0, lights: [] }, loosePanels: [{ x: 500, y: 400 }, { x: 2000, y: 400 }, { x: 1500, y: 400 }] }),
-    ['Put “Loose panel 2” on a panelled back wall.', 'Put “Loose panel 3” on a panelled back wall.'])
+    ['Put “Loose panel 1” on a panelled back wall.', 'Put “Loose panel 2” on a panelled back wall.', 'Put “Loose panel 3” on a panelled back wall.'])
 })
 
 test('a loose panel is its whole panel, doubles whole, hanging from one top bolt and tilted a few degrees', () => {

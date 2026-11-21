@@ -52,7 +52,7 @@ import { TerrainMaterialPicker } from './TerrainMaterialPicker'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
 import { EnvironmentFields } from './EnvironmentFields'
-import { drawBackWallOutline, reorderBackWall } from './backWallEditing'
+import { drawBackWallOutline, reorderBackWall, setBackWallKind } from './backWallEditing'
 import { usesRegionLighting } from './environment'
 import { setLightingLayout } from './environmentEditor'
 import { shapePoints, shapeNodeTarget, shapeVertexTarget, insertShapeNode, moveShapeVertex, deleteShapeNode } from './editorShape'
@@ -1572,6 +1572,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <p className="builder-hint">Wall art only: it never opens and has no collision.</p>
           </>}
           {editingWall && <>
+            {level.environment!.kind === 'landscape' && <>
+              <BuilderSelect label="Surface" accessibleLabel="Back wall surface" value={editingWall.kind}
+                options={[{ value: 'cave', label: 'Rock' }, { value: 'facility', label: 'Building' }]}
+                onChange={value => commit(setBackWallKind(history.present, selection.index, value === 'facility' ? 'facility' : 'cave'))} />
+              <p className="builder-hint">{editingWall.kind === 'facility'
+                ? 'Painted off-white render, worn and water-stained by the level’s Stains setting.'
+                : 'Pale rock. Choose Building for a structure standing outside.'}</p>
+            </>}
             <p className="builder-hint">Back wall layer {selection.index + 1} of {level.environment!.walls.length}. Later layers take precedence.</p>
             <div className="builder-action-row">{[false, true].map(front => <InspectorButton key={String(front)} disabled={selection.index === (front ? level.environment!.walls.length - 1 : 0)}
               onClick={() => { const result = reorderBackWall(history.present, selection.index, front); commit(result.level); chooseSelection({ kind: 'back-wall', index: result.index }) }}>{front ? 'Bring to front' : 'Send to back'}</InspectorButton>)}</div>

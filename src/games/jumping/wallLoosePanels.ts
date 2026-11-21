@@ -1,7 +1,6 @@
 import type { NamedObject } from './objectNames.ts'
 import { panelAt, panelFace, stainInk, type WallFinish, type WallPanel } from './wallFinish.ts'
 import { dryLength, levelSalt, steps, wallWear, type StainSetting, type WallWear } from './wallWear.ts'
-import { pointInside } from './geometry.ts'
 import { LEVEL_GRID_SIZE } from './level.ts'
 import type { LevelEnvironment } from './environment.ts'
 
@@ -225,14 +224,11 @@ export function loosePanelArt(wall: WallOf, loose: LoosePanel, wear: WallWear, n
 interface Level { id: string; width: number; wallFinish?: Exclude<WallFinish, 'course'>; stains?: StainSetting; loosePanels?: LoosePanel[]; environment?: LevelEnvironment; gravityPlates?: readonly (Rect & { effect?: string })[] }
 
 /**
- * Whether a point lies on a panelled back wall: anywhere indoors, and against the sky only on a facility wall
- * (the frontmost wall there), which is drawn with the course wall. Cave walls and sky have no panels.
+ * Whether the level's back wall is panelled, so a loose panel can hang on it: everywhere indoors, nowhere against
+ * the sky, where cave walls are rock, building walls painted render (paintedWall.ts), and the sky is open.
  */
-export function panelledAt(level: Pick<Level, 'environment'>, x: number, y: number) {
-  const environment = level.environment
-  if (environment?.kind !== 'landscape') return true
-  for (let i = environment.walls.length - 1; i >= 0; i--) if (pointInside(environment.walls[i], x, y)) return environment.walls[i].kind === 'facility'
-  return false
+export function panelledAt(level: Pick<Level, 'environment'>) {
+  return level.environment?.kind !== 'landscape'
 }
 const arts = new Map<string, Piece[]>()
 /** Each loose panel's artwork, built once for its point, hang, contents, leak, and the level's finish, stains, ID and night. */
@@ -317,6 +313,6 @@ export function drawLoosePanels(ctx: CanvasRenderingContext2D, level: Level, hei
   const panels = level.loosePanels
   if (!panels?.length) return
   const wall: WallOf = { width: level.width, height, finish: level.wallFinish ?? 'course', id: level.id }, wear = wallWear(level)
-  for (const loose of panels) if (panelledAt(level, loose.x, loose.y)) drawPanel(ctx, loose, artFor(wall, loose, wear, night), zoom, height)
+  for (const loose of panels) if (panelledAt(level)) drawPanel(ctx, loose, artFor(wall, loose, wear, night), zoom, height)
 }
 

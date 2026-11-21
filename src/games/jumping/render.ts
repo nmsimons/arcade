@@ -28,6 +28,7 @@ import { drawChargingBay, drawChargingBayCover, ROBOT_BAY_WIDTH_SCALE } from './
 import { backWallPath, drawLandscape } from './environment.ts'
 import { drawTerrainGroundCover, drawTerrainGroundCoverSurface } from './terrainGroundCover.ts'
 import { drawCaveWall } from './caveWall.ts'
+import { drawPaintedWall } from './paintedWall.ts'
 import { drawAthlete } from './athleteDraw.ts'
 import { layerSkipped } from './measureLayers.ts'
 import { reportWall } from './debugFrames.ts'
@@ -73,7 +74,12 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
     for (const wall of level.environment.walls) {
       ctx.save(); ctx.beginPath(); backWallPath(ctx, wall); ctx.clip()
       if (wall.kind === 'cave') drawCaveWall(ctx, view)
-      else drawCourseWall(ctx, level, view, zoom)
+      else {
+        // A building standing outside: painted render, not the facility's precast panels. It still fills the
+        // level, so it reports the camera as the course wall does.
+        reportWall(ctx.canvas, () => ctx.getTransform())
+        drawPaintedWall(ctx, view, wallWear(level))
+      }
       ctx.restore()
     }
   } else drawCourseWall(ctx, level, view, zoom)

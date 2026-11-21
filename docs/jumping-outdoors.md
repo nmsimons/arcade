@@ -133,11 +133,20 @@ or the enclosed service approach into a sky scene.
 
 Keep sky, wall receivers, and playable geometry distinct in draw order and
 lighting composition. Sky artwork does not change illumination of terrain or
-actors. Cave back walls against the sky use light gray stone with a faint,
-world-anchored texture and no grid or panel joints. Facility back walls retain
-the standard course wall; the Indoor wall background also keeps its familiar
-treatment. A small shared stone tile supplies the texture without per-frame
-generation. Each terrain piece that
+actors. Cave back walls against the sky use pale gray rock, world-anchored,
+with no grid or panel joints: broad irregular facets a shade lighter or darker,
+two wavy bedding lines and a few forked cracks, all within a narrow pale range
+so the robot and terrain keep their contrast against it. The Indoor wall
+background keeps its familiar course wall. Two shared tiles of unrelated sizes (`caveWall.ts`: 1536-unit
+facets, 704-unit detail) supply the rock as pattern fills, so it repeats only
+every few screens, needs no per-frame generation, and matches the daylight
+patch redraw. A building standing outside, such as Exit II's tower, uses a
+`facility` back wall (**Surface → Building** in the studio), drawn as painted
+render rather than the facility's precast panels (`paintedWall.ts`): warm
+off-white paint (`#efece4`) with soft faded and touched-up patches, clusters of
+flaking chips showing grey render, faint scuffs, hairline cracks and brown water
+streaks on the course wall's stain grid, at the level's Stains setting. It
+ignores Wall finish and has no panels, so loose panels do not hang on it. Each terrain piece that
 overlaps a Night region keeps the darker color throughout, including any part
 extending into Day; pieces entirely in Day keep the lighter color. Daylight
 spill lights the back wall and open space independently. Mixed-light levels

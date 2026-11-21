@@ -218,7 +218,7 @@ function loosePanelProblems(level: JumpLevel): string[] {
   const issues: string[] = [], seen = new Map<string, number>(), height = levelHeight(level)
   for (const [i, m] of (level.loosePanels ?? []).entries()) {
     if (m.x < 0 || m.y < 0 || m.x > level.width || m.y > height) { issues.push(`Keep ${loosePanelReference(level, i)} inside the level rectangle.`); continue }
-    if (!panelledAt(level, m.x, m.y)) { issues.push(`Put ${loosePanelReference(level, i)} on a panelled back wall.`); continue }
+    if (!panelledAt(level)) { issues.push(`Put ${loosePanelReference(level, i)} on a panelled back wall.`); continue }
     const hole = loosePanelRect(level.wallFinish, m), key = `${hole.x},${hole.y}`, first = seen.get(key)
     if (first !== undefined) { issues.push(`${loosePanelReference(level, i)} is the same panel as ${loosePanelReference(level, first)}.`); continue }
     seen.set(key, i)

@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 
-for (const backend of ['canvas', 'gpu']) test(`${backend}: sky caves use quiet gray stone without a grid and retain world-anchored texture`, async ({ page }, info) => {
+for (const backend of ['canvas', 'gpu']) test(`${backend}: sky caves use pale fractured stone without a grid and retain world-anchored texture`, async ({ page }, info) => {
   await page.goto('/lab/library')
   const result = await page.evaluate(async backend => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
@@ -62,11 +62,15 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: sky caves use quiet g
   expect(result.cave.mean).toBeGreaterThan(224)
   expect(result.cave.mean).toBeLessThan(235)
   expect(result.cave.range).toBeGreaterThan(0)
-  expect(result.cave.range).toBeLessThan(16)
+  // Fractured facets, bedding and cracks, still pale and far quieter than the facility's panels and joints.
+  expect(result.cave.range).toBeGreaterThan(8)
+  expect(result.cave.range).toBeLessThan(26)
   expect(result.cave.stripe).toBeLessThan(1)
-  expect(result.facility.stripe).toBeGreaterThan(3)
+  // A building under the sky is painted render: no panel joints, lighter than the rock. Indoors keeps the
+  // course wall's panels.
+  expect(result.facility.stripe).toBeLessThan(1)
   expect(result.facility.mean).toBeGreaterThan(result.cave.mean)
-  expect(result.indoor.mean).toBeCloseTo(result.facility.mean,5)
+  expect(result.indoor.stripe).toBeGreaterThan(3)
   expect(result.panError).toBe(0)
   expect(result.lit.sky[2]).toBeGreaterThan(result.lit.sky[0]+20)
   expect(result.lit.mouth[0]).toBeGreaterThan(result.lit.deep[0]+35)

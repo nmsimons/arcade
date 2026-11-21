@@ -22,7 +22,7 @@ export function EnvironmentFields({ level, onChange, selectedWall, onSelectWall,
   return <div className="builder-environment grid gap-3">
     <BuilderSelect label="Background" value={environment?.kind ?? 'interior'} options={[{ value: 'interior', label: 'Indoor wall' }, { value: 'landscape', label: 'Blue sky' }]}
       onChange={kind => onChange(setBackground(level, kind as 'interior' | 'landscape'))} />
-    {/* The indoor wall's finish, which also dresses facility back walls against the sky. */}
+    {/* The indoor wall's finish. Building walls against the sky are painted instead (paintedWall.ts). */}
     <BuilderSelect label="Wall finish" value={level.wallFinish ?? 'course'} options={WALL_FINISHES.map(finish => ({ value: finish.id, label: finish.label }))}
       onChange={finish => {
         // The ordinary course wall is saved by leaving the field out.

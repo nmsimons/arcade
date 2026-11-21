@@ -64,6 +64,18 @@ export function transformBackWall(level: JumpLevel, index: number, transform: Te
   return setPoints(level, index, points)
 }
 
+/**
+ * What a back wall shows under a Blue sky: `cave` rock, or a `facility` building wall in the level's Wall finish,
+ * for a building standing outside. Indoor walls draw the course wall either way.
+ */
+export function setBackWallKind(level: JumpLevel, index: number, kind: BackWall['kind']) {
+  const wall = level.environment?.walls[index]
+  if (!wall || wall.kind === kind) return level
+  const next = copyLevel(level)
+  next.environment!.walls[index].kind = kind
+  return next
+}
+
 export function reorderBackWall(level: JumpLevel, index: number, front: boolean) {
   const next = copyLevel(level), walls = next.environment!.walls, target = front ? walls.length - 1 : 0
   if (index === target) return { level, index }

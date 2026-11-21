@@ -1,7 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { backWallPoints, backWallPointAt, backWallEdgeAt, moveBackWallPoint, insertBackWallPoint, deleteBackWallPoint } from '../src/games/jumping/backWallEditing.ts'
+import { backWallPoints, backWallPointAt, backWallEdgeAt, moveBackWallPoint, insertBackWallPoint, deleteBackWallPoint, setBackWallKind } from '../src/games/jumping/backWallEditing.ts'
+import { setBackground } from '../src/games/jumping/environmentEditor.ts'
+import { duplicateItem } from '../src/games/jumping/editor.ts'
 
 const cave = () => parseLevel({ ...blankTrial(), version: 2,
   lighting: { nightMode: true, ambient: 0, lights: [] },
@@ -37,4 +39,21 @@ test('clicking an edge inserts a movable point; deleting restores the original o
   assert.throws(() => deleteBackWallPoint(triangle, 0, 0), /three points/)
   assert.throws(() => insertBackWallPoint(level, 0, 0, 100, 200), /distinct/)
   assert.throws(() => insertBackWallPoint(level, 0, 0, NaN, 200), /distinct/)
+})
+
+test('a back wall under a blue sky can be rock or a building, and keeps its choice through edits and saves', () => {
+  const level = cave(), before = structuredClone(level)
+  const building = setBackWallKind(level, 0, 'facility')
+  assert.equal(building.environment.walls[0].kind, 'facility')
+  assert.deepEqual(level, before, 'the source is untouched')
+  assert.equal(setBackWallKind(building, 0, 'facility'), building, 'choosing the current surface changes nothing')
+  assert.equal(setBackWallKind(level, 5, 'facility'), level, 'a missing wall changes nothing')
+  assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(building))), building)
+  // Moving its outline, duplicating it and switching the background all keep the surface.
+  assert.equal(moveBackWallPoint(building, 0, 0, 20, 100).environment.walls[0].kind, 'facility')
+  const copy = duplicateItem(building, { kind: 'back-wall', index: 0 })
+  assert.deepEqual(copy.level.environment.walls.map(wall => wall.kind), ['facility', 'facility'])
+  const indoors = setBackground(building, 'interior')
+  assert.equal(setBackground(indoors, 'landscape').environment.walls[0].kind, 'facility')
+  assert.equal(setBackWallKind(building, 0, 'cave').environment.walls[0].kind, 'cave')
 })

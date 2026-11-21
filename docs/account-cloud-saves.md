@@ -25,12 +25,12 @@ through **Load cloud saves**, which restarts the game. Expiry, offline mode,
 denied consent and provider failures leave local progress available. Reconnect
 is explicit. Wait for the account indicator to confirm sync before closing a tab.
 
-Hard Vacuum expedition/recovery, L.A.B. best times, L.A.B. completion, the
-robot's place in L.A.B.'s facility and the state of the untimed places it left
+Hard Vacuum expedition/recovery, L.A.B. best times, L.A.B. completion, L.A.B.'s
+trial log (`Untitled Jumping Game/trials.json`), the robot's place in L.A.B.'s facility and the state of the untimed places it left
 (`Untitled Jumping Game/facility-areas.json`) are allowlisted save slots. L.A.B. opens
 into the facility, so with cloud saves on it waits up to eight seconds
 for the account's first cloud check before placing the robot. Restart on
-L.A.B.'s start screen erases its best times, completions and place; the erased
+L.A.B.'s start screen erases its best times, completions, trials and place; the erased
 save syncs like any other change, and earlier versions stay in the history. Other games do not currently persist progress. Arbitrary
 browser storage and credentials are never uploaded. Historical level-library
 storage and version metadata remain supported solely for backup compatibility.
@@ -142,6 +142,7 @@ Apps/Dream Large Arcade/
   Untitled Jumping Game/
     personal-bests.json
     completed-levels.json
+    trials.json
     facility-place.json
     Levels/
       index.json

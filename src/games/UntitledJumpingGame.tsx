@@ -37,6 +37,8 @@ import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffec
 import type { Run } from './jumping/challenge'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration } from './jumping/goal'
 import { COMPLETION_KEY, readCompleted, saveCompleted } from './jumping/completion'
+import { readTrials, recordTrial, TRIALS_KEY } from './jumping/trials'
+import type { TrialRecord } from './jumping/trials'
 import { gradeClock } from './jumping/grading'
 import { POWER_DOWN_WARNING_SECONDS, powerDownWarning } from './jumping/powerDownWarning'
 import type { EntranceAnimation } from './jumping/goal'
@@ -190,6 +192,11 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const savedCompletions = useSyncExternalStore(subscribeGameStorage, () => {
     try { return playerStorage.getItem(COMPLETION_KEY) } catch { return null }
   })
+  const savedTrials = useSyncExternalStore(subscribeGameStorage, () => {
+    try { return playerStorage.getItem(TRIALS_KEY) } catch { return null }
+  })
+  /** A course's trial log, from the saved snapshot. */
+  const trialsOf = (id: string) => readTrials({ getItem: () => savedTrials }, id)
   const [completedLevels, setCompletedLevels] = useState<Record<string, boolean>>({})
   function completed(id: string) { return !!completedLevels[id] || readCompleted({ getItem: key => key === COMPLETION_KEY ? savedCompletions : savedTimes }, id) }
   const [bestTimes, setBestTimes] = useState<Record<string, number | null>>({})
@@ -225,6 +232,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const campaignNow = () => campaignFileRef.current && resolveCampaign(campaignFileRef.current, levelsById)
   /** Doors read saved records directly, so a course just finished counts at once. */
   const bestNow = (id: string) => bestTimes[id] ?? readBest(playerStorage, id), completedNow = (id: string) => !!completedLevels[id] || readCompleted(playerStorage, id)
+  const trialsNow = (id: string) => { try { return readTrials(playerStorage, id) } catch { return null } }
   /** Passes, and each wing door's wiring from grades and its area's switches as last left. */
   const progressNow = (campaign: Campaign) => savedProgress(campaign, levelsById, bestNow, completedNow, playerStorage)
   const savedAreas = useSyncExternalStore(subscribeGameStorage, () => {
@@ -250,7 +258,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     { getItem: () => savedAreas }), [campaign, levelsById, bestTimes, completedLevels, savedTimes, savedCompletions, savedAreas])
   // The system menu shows the evaluation on the start screen and when pausing in the facility.
   const menuProgress: StartProgress | null = (startScreen || facilityWhere) && progress
-    ? { passed: progress.passed, required: progress.required, complete: progress.complete, wings: progressRecords(campaign!, progress, levelsById, bestTime),
+    ? { passed: progress.passed, required: progress.required, complete: progress.complete, wings: progressRecords(campaign!, progress, levelsById, bestTime, trialsOf),
       released: gameReleased(levelsById, completed) } : null
   const unlocked = new Set(campaign || campaignError ? catalog.files
     .filter(file => !progress || linkOpen(campaign!, progress, levelsById, file.level.id)).map(file => file.fileName) : [])
@@ -280,10 +288,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // A studio playtest opens every door; its placards and boards read as they do in the facility.
     if (playtest) {
       target.hub.open = new Set([...target.level.courseDoors, ...target.level.bulkheads].map(door => door.id))
-      const shown = studioPresentation(target.level, levelsById, campaign && campaignFits ? campaign : null, campaign && campaignFits ? progressNow(campaign) : undefined, bestNow, completedNow)
+      const shown = studioPresentation(target.level, levelsById, campaign && campaignFits ? campaign : null, campaign && campaignFits ? progressNow(campaign) : undefined, bestNow, completedNow, trialsNow)
       target.hub.placards = shown.placards; target.hub.signs = shown.signs
     } else if (campaign && place?.kind === 'hub') {
-      const { open, placards, signs, switched } = hubPresentation(campaign, progressNow(campaign), target.level, levelsById, bestNow, completedNow)
+      const { open, placards, signs, switched } = hubPresentation(campaign, progressNow(campaign), target.level, levelsById, bestNow, completedNow, trialsNow)
       target.hub.open = open; target.hub.placards = placards; target.hub.signs = signs; target.hub.switched = switched
     }
     // Switches, and the doors and mechanisms they drive, start from the grades.
@@ -390,7 +398,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   /** Erase the save, then wake again in the opening, at the facility's own address. */
   function restartGame() {
     let notice = ''
-    unsavedPlace.current = null
+    unsavedPlace.current = null; currentTry.current = null
     try { for (const key of GAME_KEYS) playerStorage.removeItem(key) }
     catch { notice = 'Saved progress could not be erased on this device.' }
     setBestTimes({}); setCompletedLevels({})
@@ -504,12 +512,42 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   useLayoutEffect(() => {
     if (screen === 'playing' || screen === 'ending') canvasRef.current?.focus({ preventScroll: true })
   }, [screen])
+  // The lab's trial log (`trials.ts`): the course try now running, logged once when it ends. Studio
+  // playtests and facility areas run no tries. `tryKey` is the record key of the course being played.
+  const currentTry = useRef<{ run: Run; key: string; resumes: boolean } | null>(null)
+  const tryKey = useRef<{ key: string; playtest: boolean }>({ key: '', playtest: true })
+  function beginTry(target: Run | null) {
+    const { key, playtest } = tryKey.current, level = target && levelsById.get(target.level.id)
+    currentTry.current = target && !target.hub && !playtest && key ? {
+      run: target, key,
+      // An untimed facility place left unfinished resumes where it was, so leaving it ends no try.
+      resumes: !!level && keepsState(level) && facility.current?.level === level.id,
+    } : null
+  }
+  /**
+   * End the try now running: passed or failed when `finished`, otherwise restarted, unless the clock never
+   * started. A try past D is a fail however it ends. `leaving` a place that resumes logs nothing.
+   */
+  function endTry(finished: boolean, { leaving = false, newBest = false } = {}): TrialRecord | null {
+    const current = currentTry.current; currentTry.current = null
+    if (!current || !current.run.started || leaving && current.resumes && !finished) return null
+    try { return recordTrial(playerStorage, current.key, current.run.failed ? 'fail' : finished ? 'pass' : 'restart', newBest) }
+    catch { return null }
+  }
+  // Closing or leaving the game mid-try abandons it, as Restart does.
+  const abandonTry = useEffectEvent(() => { endTry(false, { leaving: true }) })
+  useEffect(() => {
+    const hide = (event: PageTransitionEvent) => { if (!event.persisted) abandonTry() }
+    window.addEventListener('pagehide', hide)
+    return () => { window.removeEventListener('pagehide', hide); abandonTry() }
+  }, [])
   function resetPosition() {
     endingScene.current = null; pauseReturn.current = 'playing'
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
     adaptiveLighting?.reset(); setLightingReduced(false)
     if (preparedStart.current?.run) {
       const world = clonePreparedLevel(preparedStart.current)
+      endTry(false); beginTry(world.run)
       run.current = world.run; player.current = world.player!
       // A place that keeps its state restarts as authored, and forgets what was saved.
       const stateful = statefulLevel()
@@ -530,6 +568,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
    */
   async function beginPlay(level: JumpLevel, fromBuilder: boolean, key: string, facilityArea = false, ahead: Promise<PreparedLevel> | null = null) {
     playPreparation.current?.abort(); facilityReady.current = false
+    // Moving on from a course mid-try abandons that try.
+    endTry(false, { leaving: true })
     const controller = new AbortController(); playPreparation.current = controller
     // Moving between facility places, what is on screen holds, as a door closing behind the robot would,
     // while the opening screen covers the facility's first place. Elsewhere the current screen stays.
@@ -554,6 +594,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       }
       lastAreaSave.current = ''
       run.current = world.run; player.current = world.player!
+      tryKey.current = { key, playtest: fromBuilder }; beginTry(world.run)
       presentHub(world.run, fromBuilder)
       lightingRenderer.state.reset()
       if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
@@ -755,8 +796,13 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   // Router/catalog changes transition the running game and retained editor together.
   // This synchronizes imperative input, audio and preparation work after commit.
   useEffect(() => { followRoute() }, [location.key, location.pathname, catalog.files, builtIn.restoring, builtIn.busy, campaign, campaignError])
+  // The run whose finish was handled. A course opened from a link returns to the facility by address,
+  // so frames keep coming while the next place loads; the finish is handled once, or a second pass
+  // would read the record just saved as the previous best.
+  const finishedRun = useRef<Run | null>(null)
   const finishRun = useEffectEvent(() => {
-    if (!run.current?.finished || screenRef.current !== 'playing') return
+    if (!run.current?.finished || screenRef.current !== 'playing' || finishedRun.current === run.current) return
+    finishedRun.current = run.current
     // In the facility, a hub run ends at the door the robot took, without a record.
     const place = facility.current, campaign = campaignNow()
     if (place?.kind === 'hub') {
@@ -775,6 +821,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       changeScreen('complete'); return
     }
     const previousBest = bestTime(recordKey)
+    const timed = run.current.level.timing !== 'untimed', newBest = timed && (previousBest === null || run.current.elapsed < previousBest)
+    const trials = endTry(true, { newBest })
     setResult({ elapsed: run.current.elapsed, grade: run.current.grade ?? 'A' })
     setSaveError(false)
     if (!testing) {
@@ -800,8 +848,10 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     // the record; the live region announces it instead of a result dialog.
     if (place && campaign && !testing) {
       const level = run.current.level, { elapsed, failed, grade } = run.current
+      // A personal best says which trial set it, so practice shows where it paid off.
+      const trial = trials ? `, trial ${trials.bestTry}` : ''
       if (level.timing !== 'untimed') setFacilityNotice(failed ? `${level.name} not passed. ${formatTime(elapsed)}.`
-        : `${level.name} passed. Grade ${grade}, ${formatTime(elapsed)}${previousBest === null || elapsed < previousBest ? ', personal best' : ''}.`)
+        : `${level.name} passed. Grade ${grade}, ${formatTime(elapsed)}${newBest ? `, personal best${trial}` : ''}.`)
       const next = nextPlace(campaign, place, null, levelsById, !failed)
       if (next) { goToPlace(next); return }
     }

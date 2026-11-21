@@ -2,6 +2,8 @@ import type { Campaign, CampaignFile, CampaignWing, FacilityProgress } from './c
 import { courseAvailable, exitDestination, wingName } from './campaign.ts'
 import { BEST_TIME_KEY, formatTime } from './challenge.ts'
 import { COMPLETION_KEY } from './completion.ts'
+import { TRIALS_KEY, trialCount } from './trials.ts'
+import type { TrialRecord } from './trials.ts'
 import { gradeFor, gradeTimes } from './grading.ts'
 import type { Grade } from './grading.ts'
 import { AREA_STATE_KEY, readAreaState } from './areaState.ts'
@@ -62,18 +64,21 @@ export function saveFacilityPlace(storage: Pick<Storage, 'setItem'>, place: Faci
   storage.setItem(FACILITY_KEY, JSON.stringify({ place: savedPlace(place) }))
 }
 
-/** Every saved value of a L.A.B. game: course records, the robot's place and the places it left. Restarting erases them all. */
-export const GAME_KEYS = [BEST_TIME_KEY, COMPLETION_KEY, FACILITY_KEY, AREA_STATE_KEY] as const
+/** Every saved value of a L.A.B. game: course records and trials, the robot's place and the places it left. Restarting erases them all. */
+export const GAME_KEYS = [BEST_TIME_KEY, COMPLETION_KEY, TRIALS_KEY, FACILITY_KEY, AREA_STATE_KEY] as const
 /** A new game has no saved place and no course records; anything else can be continued or restarted. */
 export function savedGameExists(storage: Pick<Storage, 'getItem'>) {
   if (readFacilitySave(storage).place) return true
-  return [BEST_TIME_KEY, COMPLETION_KEY].some(key => {
+  return [BEST_TIME_KEY, COMPLETION_KEY, TRIALS_KEY].some(key => {
     try { const value: unknown = JSON.parse(storage.getItem(key) ?? '{}'); return !!value && typeof value === 'object' && Object.keys(value).length > 0 }
     catch { return false }
   })
 }
 
 type Levels = ReadonlyMap<string, JumpLevel>
+/** A course's trial log, where one is kept. */
+type Trials = (course: string) => TrialRecord | null
+const noTrials: Trials = () => null
 const hubLevel = (levels: Levels, id?: string) => { const level = id === undefined ? undefined : levels.get(id); return level && isHubLevel(level) ? level : undefined }
 /** The progress of the wing whose level this is; none for the opening, the concourse and areas outside the campaign. */
 const areaWing = (campaign: Campaign, progress: FacilityProgress, id: string) => {
@@ -162,10 +167,10 @@ export function arrivalLevel(level: HubLevel, arrival: Arrival, visited = false)
  * Which doors open, what is lettered above them and what their placards read.
  * Every door is lettered with where it leads, the dispatch door EXIT, which has
  * no placard. A level door's placard is a screen of its level's data, never its name: the D
- * deadline until passed, then the best time and grade. The evaluation board
+ * deadline until passed, then the best time and grade, and once tried, its trial count. The evaluation board
  * shows each wing's passes, or SEALED. A locked door's placard is dark.
  */
-export function hubPresentation(campaign: Campaign, progress: FacilityProgress, level: HubLevel, levels: Levels, best: (course: string) => number | null, completed: (course: string) => boolean = () => false) {
+export function hubPresentation(campaign: Campaign, progress: FacilityProgress, level: HubLevel, levels: Levels, best: (course: string) => number | null, completed: (course: string) => boolean = () => false, trials: Trials = noTrials) {
   // A switched door or bulkhead opens while the area's wiring is on (`run.hub.switched`); every other one is set here.
   const open = new Set<string>(), switched = new Set<string>(), placards = new Map<string, string[]>(), signs = new Map<string, string>()
   const grade = courseGrades(levels, best, completed)
@@ -177,7 +182,7 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
     if (door.power === 'switched' && !passed) switched.add(door.id); else open.add(door.id)
     if (door.dispatch) { signs.set(door.id, 'EXIT'); continue }
     signs.set(door.id, course.name.toUpperCase())
-    placards.set(door.id, courseScreen(course, best(door.course), passed))
+    placards.set(door.id, courseScreen(course, best(door.course), passed, trials(door.course)))
   }
   for (const bulkhead of level.bulkheads) {
     const target = hubLevel(levels, bulkhead.to)
@@ -189,12 +194,16 @@ export function hubPresentation(campaign: Campaign, progress: FacilityProgress, 
   }
   return { open, placards, signs, switched }
 }
-/** A level door's placard: its course's data, since the name is lettered above the door. */
-function courseScreen(course: PuzzleLevel, time: number | null, passed: boolean) {
-  if (course.timing === 'untimed') return [passed ? 'COMPLETE' : 'UNTIMED']
+/**
+ * A level door's placard: its course's data, since the name is lettered above the door,
+ * and below it how many trials the robot has run there, so practice shows.
+ */
+export function courseScreen(course: PuzzleLevel, time: number | null, passed: boolean, trials: TrialRecord | null = null) {
+  const tried = trials && trialCount(trials) ? [`TRIALS ${trialCount(trials)}`] : []
+  if (course.timing === 'untimed') return [passed ? 'COMPLETE' : 'UNTIMED', ...tried]
   const deadline = `D ${formatTime(gradeTimes(course).d).replace(/\.00$/, '')}`
-  if (time === null) return ['NO RECORD', deadline]
-  return passed ? [`BEST ${formatTime(time)}`, `GRADE ${gradeFor(time, course)}`] : [`BEST ${formatTime(time)} F`, deadline]
+  if (time === null) return ['NO RECORD', deadline, ...tried]
+  return [...passed ? [`BEST ${formatTime(time)}`, `GRADE ${gradeFor(time, course)}`] : [`BEST ${formatTime(time)} F`, deadline], ...tried]
 }
 
 /**
@@ -214,17 +223,17 @@ export function facilityDoorName(levels: Levels) {
  * the collection, each door is lettered with where it leads and its placard
  * shows a new save's data. A door with no destination yet reads NO LEVEL or NOWHERE.
  */
-export function studioPresentation(level: HubLevel, levels: Levels, campaign: Campaign | null, progress?: FacilityProgress, best: (course: string) => number | null = () => null, completed: (course: string) => boolean = () => false) {
+export function studioPresentation(level: HubLevel, levels: Levels, campaign: Campaign | null, progress?: FacilityProgress, best: (course: string) => number | null = () => null, completed: (course: string) => boolean = () => false, trials: Trials = noTrials) {
   const fits = !!campaign && levels.has(campaign.start)
   // A new save: nothing passed, with the wiring as authored, so a sealed wing reads SEALED.
   const fresh = () => facilityProgress(campaign!, () => false, campaignWiring(campaign!, levels, facilityRecords(levels, () => null, () => false)))
-  const shown = fits ? hubPresentation(campaign!, progress ?? fresh(), level, levels, best, completed) : null
+  const shown = fits ? hubPresentation(campaign!, progress ?? fresh(), level, levels, best, completed, trials) : null
   const name = facilityDoorName(levels), placards = new Map<string, string[]>(), signs = new Map<string, string>()
   for (const door of level.courseDoors) {
     const course = levels.get(door.course)
     signs.set(door.id, !door.course ? 'NO LEVEL' : shown?.signs.get(door.id) ?? (name(door) ?? door.course).toUpperCase())
     // The Exit has no placard.
-    if (!door.dispatch) placards.set(door.id, shown?.placards.get(door.id) ?? (course && isPuzzleLevel(course) ? courseScreen(course, best(door.course), false) : []))
+    if (!door.dispatch) placards.set(door.id, shown?.placards.get(door.id) ?? (course && isPuzzleLevel(course) ? courseScreen(course, best(door.course), false, trials(door.course)) : []))
   }
   for (const bulkhead of level.bulkheads) signs.set(bulkhead.id, !bulkhead.to ? 'NOWHERE' : shown?.signs.get(bulkhead.id) ?? (name(bulkhead) ?? bulkhead.to).toUpperCase())
   for (const board of level.evaluationBoards) placards.set(board.id, shown?.placards.get(board.id) ?? ['EVALUATION'])
@@ -432,10 +441,10 @@ export function evaluationLines(campaign: Campaign, progress: FacilityProgress, 
 /** A course on the start screen's progress list. A locked course stays dark, as its door's placard does. */
 export type CourseRecord =
   | { state: 'locked' }
-  | { state: 'open' | 'passed'; id: string; name: string; best: number | null; grade: Grade | null; deadline: number | null }
+  | { state: 'open' | 'passed'; id: string; name: string; best: number | null; grade: Grade | null; deadline: number | null; trials: TrialRecord | null }
 export interface WingRecord { id: string; name: string; open: boolean; passed: number; courses: CourseRecord[] }
 /** The start screen's progress: each wing in campaign order, with its courses' records once it is open. */
-export function progressRecords(campaign: Campaign, progress: FacilityProgress, levels: Levels, best: (course: string) => number | null): WingRecord[] {
+export function progressRecords(campaign: Campaign, progress: FacilityProgress, levels: Levels, best: (course: string) => number | null, trials: Trials = noTrials): WingRecord[] {
   return progress.wings.map((wing, i) => ({
     id: wing.id, name: wingName(campaign.wings[i], levels), open: wing.open, passed: wing.passed,
     courses: wing.doors.map((door): CourseRecord => {
@@ -443,7 +452,7 @@ export function progressRecords(campaign: Campaign, progress: FacilityProgress, 
       if (!wing.open || door.state === 'locked' || !course || !isPuzzleLevel(course)) return { state: 'locked' }
       const timed = course.timing !== 'untimed', time = timed ? best(door.course) : null
       return { state: door.state, id: door.course, name: course.name, best: time,
-        grade: time === null ? null : gradeFor(time, course), deadline: timed ? gradeTimes(course).d : null }
+        grade: time === null ? null : gradeFor(time, course), deadline: timed ? gradeTimes(course).d : null, trials: trials(door.course) }
     }),
   }))
 }

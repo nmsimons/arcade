@@ -283,11 +283,11 @@ test('the start screen lists each wing’s courses, dark while locked, and a sea
   const best = id => ({ m1: 12.5, f1: 90 })[id] ?? null
   const [movement, freight, water] = progressRecords(campaign, progress(['m1']), levels, best)
   assert.deepEqual(movement, { id: 'm-hub', name: 'Movement wing', open: true, passed: 1, courses: [
-    { state: 'passed', id: 'm1', name: 'Hop Skip Jump I', best: 12.5, grade: 'B', deadline: 75 },
-    { state: 'open', id: 'm2', name: 'A Bigger Swing', best: null, grade: null, deadline: 75 },
+    { state: 'passed', id: 'm1', name: 'Hop Skip Jump I', best: 12.5, grade: 'B', deadline: 75, trials: null },
+    { state: 'open', id: 'm2', name: 'A Bigger Swing', best: null, grade: null, deadline: 75, trials: null },
   ] })
   // A run slower than the D deadline leaves the door open, not passed; the next door stays dark.
-  assert.deepEqual(freight.courses, [{ state: 'open', id: 'f1', name: 'Boxes', best: 90, grade: 'F', deadline: 75 }, { state: 'locked' }])
+  assert.deepEqual(freight.courses, [{ state: 'open', id: 'f1', name: 'Boxes', best: 90, grade: 'F', deadline: 75, trials: null }, { state: 'locked' }])
   assert.deepEqual(water, { id: 'w-hub', name: 'Water wing', open: false, passed: 0, courses: [{ state: 'locked' }] })
 })
 
@@ -303,7 +303,7 @@ test('a new game has no saved place or course records; restarting erases them an
   const records = storage()
   records.setItem('arcade.jumping.completed.v1', JSON.stringify({ m1: true }))
   assert.equal(savedGameExists(records), true, 'passes from the level grid can continue')
-  assert.deepEqual([...GAME_KEYS].sort(), ['arcade.jumping.areas.v1', 'arcade.jumping.completed.v1', FACILITY_KEY, 'arcade.jumping.times.v1'].sort())
+  assert.deepEqual([...GAME_KEYS].sort(), ['arcade.jumping.areas.v1', 'arcade.jumping.completed.v1', FACILITY_KEY, 'arcade.jumping.times.v1', 'arcade.jumping.trials.v1'].sort())
 })
 
 test('the studio names doors and bulkheads as the facility shows them, never by their saved names', () => {

@@ -19,6 +19,8 @@ export default defineConfig(({ mode, isPreview }) => {
       // Direct `vite build` must enforce the same boundary as npm's prebuild.
       buildStart() { execFileSync(process.execPath, [resolve('scripts/jumping-levels.mjs'), 'check'], { stdio: 'inherit' }) },
     }],
+    // shadcn/ui components import through @/ (tsconfig.app.json paths).
+    resolve: { alias: { '@': resolve('src') } },
     build: { outDir: desktop ? 'desktop/renderer' : 'dist/web', manifest: true, rollupOptions: { input: desktop ? resolve('index.html') : { main: resolve('index.html'), auth: resolve('auth-redirect.html'), downloads: resolve('downloads/index.html') } } },
     base: desktop ? '/' : env.VITE_BASE ?? '/',
     // Benchmark output must not reload (and resume) paused interactive previews.

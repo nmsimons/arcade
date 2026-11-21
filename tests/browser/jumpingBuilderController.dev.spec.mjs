@@ -198,7 +198,9 @@ test('controller places, drags, nudges, duplicates, pans, zooms and saves a play
   const saved = await readTestLevel(page, 'controller.json')
   expect(saved.props).toHaveLength(2)
   expect(saved.props[0].x - saved.props[0].size / 2).toBeCloseTo(dragged + 5)
-  expect(saved.height - saved.props[0].y + saved.props[0].size).toBeCloseTo(Number(afterY))
+  // Fine drawing leaves a fractional size, and the Top field shows whole units: whether the
+  // snapped edge is the bottom (on the floor) or the top depends on the canvas size.
+  expect(saved.height - saved.props[0].y + saved.props[0].size).toBeCloseTo(Number(afterY), 0)
   await page.clock.runFor(200)
   await expect(page.getByRole('button', { name: 'Resume', exact: true })).toHaveCount(0)
 })

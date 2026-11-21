@@ -9,13 +9,17 @@ import { setBackground, setLightingLayout } from './environmentEditor'
 import { BuilderSelect } from './BuilderSelect'
 import { NumberField } from './NumberField'
 import { objectLabel } from './objectLabels'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Field, InspectorButton, pressedStyle } from './StudioFields'
+import { cn } from '@/lib/utils'
 
 export function EnvironmentFields({ level, onChange, selectedWall, onSelectWall, onCreateWall }: {
   level: JumpLevel; onChange: (level: JumpLevel) => void; selectedWall: number | null
   onSelectWall: (index: number) => void; onCreateWall: () => void
 }) {
   const environment = level.environment, regional = usesRegionLighting(level)
-  return <div className="builder-environment">
+  return <div className="builder-environment grid gap-3">
     <BuilderSelect label="Background" value={environment?.kind ?? 'interior'} options={[{ value: 'interior', label: 'Indoor wall' }, { value: 'landscape', label: 'Blue sky' }]}
       onChange={kind => onChange(setBackground(level, kind as 'interior' | 'landscape'))} />
     {/* The indoor wall's finish, which also dresses facility back walls against the sky. */}
@@ -43,17 +47,19 @@ export function EnvironmentFields({ level, onChange, selectedWall, onSelectWall,
         onChange={baseLighting => onChange({ ...level, environment: { ...environment, baseLighting: baseLighting as 'day' | 'night' } })} />
       <p className="builder-hint">Choose day or night for each back wall. Light carries through unobstructed openings. Background choice does not change collision.</p>
     </>}
-    <div className="builder-back-wall-heading"><h3>Back walls</h3><span>{environment?.walls.length ?? 0} / 40</span></div>
+    <div className="builder-back-wall-heading flex items-center justify-between gap-2"><h3 className="m-0 text-sm font-semibold">Back walls</h3><Badge variant="secondary" className="tabular-nums">{environment?.walls.length ?? 0} / 40</Badge></div>
     {(environment?.walls.length ?? 0) > 1 && <p className="builder-hint">Front to back. Select a wall to edit its shape, light, or layer.</p>}
-    {environment?.walls.length ? <div className="builder-back-wall-list" role="group" aria-label="Back walls">
-      {[...environment.walls.entries()].reverse().map(([i, wall]) => <button key={i} aria-pressed={selectedWall === i} onClick={() => onSelectWall(i)}>
-        <span>{objectLabel(level, { kind: 'back-wall', index: i })}</span><span className={'builder-region-badge builder-region-' + (wall.lighting ?? 'night')}>{wall.lighting ?? 'night'}</span>
-      </button>)}
+    {environment?.walls.length ? <div className="builder-back-wall-list grid max-h-60 gap-1 overflow-auto" role="group" aria-label="Back walls">
+      {[...environment.walls.entries()].reverse().map(([i, wall]) => <Button key={i} variant="outline" size="sm" aria-pressed={selectedWall === i} onClick={() => onSelectWall(i)}
+        className={cn('h-auto min-h-8 w-full justify-between py-1 text-left whitespace-normal', pressedStyle)}>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{objectLabel(level, { kind: 'back-wall', index: i })}</span>
+        <Badge variant={(wall.lighting ?? 'night') === 'night' ? 'default' : 'outline'} className={'builder-region-badge capitalize builder-region-' + (wall.lighting ?? 'night')}>{wall.lighting ?? 'night'}</Badge>
+      </Button>)}
     </div> : <p className="builder-hint">Back walls shape the background and define lit or dark areas. Draw one, then use the regular object and node tools to edit it.</p>}
-    <button className="builder-property-action" disabled={(environment?.walls.length ?? 0) >= 40} onClick={onCreateWall}>Draw back wall</button>
-    {environment?.kind === 'landscape' && <details className="builder-sky-settings"><summary>Sky</summary>
-      <label>Cloud baseline<NumberField label="Cloud baseline" value={environment.horizon} min={0} max={levelHeight(level)} step={20} onPreview={() => {}}
-        onCommit={horizon => onChange({ ...level, environment: { ...environment, horizon } })} /></label>
+    <InspectorButton disabled={(environment?.walls.length ?? 0) >= 40} onClick={onCreateWall}>Draw back wall</InspectorButton>
+    {environment?.kind === 'landscape' && <details className="builder-sky-settings grid gap-2.5"><summary className="cursor-pointer text-sm font-semibold">Sky</summary>
+      <Field>Cloud baseline<NumberField label="Cloud baseline" value={environment.horizon} min={0} max={levelHeight(level)} step={20} onPreview={() => {}}
+        onCommit={horizon => onChange({ ...level, environment: { ...environment, horizon } })} /></Field>
       <p className="builder-hint">Move the cloud layer up or down. The blue sky remains flat.</p>
     </details>}
   </div>

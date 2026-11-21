@@ -48,10 +48,10 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'loose-panel': 'M2 3h20v18H2zM7 6l11 2-2 11-11-2zM7 6h0M8 8h1',
   'grade-gate': 'M3 21h18M6 21v-6M11 21V9M16 21v-8M2 12h20',
 }
-export function BuilderIcon({ kind }: { kind: Tool | TerrainTransform }) {
+export function BuilderIcon({ kind, className }: { kind: Tool | TerrainTransform; className?: string }) {
   const color = kind === 'time-penalty' || kind === 'fast-stopwatch' ? TIME_PENALTY_COLOR : 'currentColor'
-  if (kind === 'emp') return <svg width="22" height="22" viewBox="-24 -24 48 48" fill="currentColor" aria-hidden="true"><path d={EMP_BOLT_PATH} /></svg>
-  if (kind === 'stopwatch' || kind === 'fast-stopwatch') return <svg width="22" height="22" viewBox="-26 -32 52 56" fill={color} aria-hidden="true"><path d={STOPWATCH_FACE_PATH} fillRule="evenodd" /><path d={STOPWATCH_DETAILS_PATH} /><path d={STOPWATCH_HAND_PATH} /></svg>
-  if (kind === 'time-bonus' || kind === 'time-penalty') return <svg width="22" height="22" viewBox="-26 -36 52 56" fill={color} aria-hidden="true"><g transform="translate(0 -4)"><path d={TIME_BONUS_ARROW_PATH} transform={kind === 'time-penalty' ? 'scale(-1 1)' : undefined} fill="none" stroke={color} strokeWidth={TIME_BONUS_ARROW_WIDTH} strokeLinecap="round" strokeLinejoin="round" /><text x="0" y="8" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="22" fontWeight="700">{TIME_BONUS_DEFAULT_SECONDS}</text></g></svg>
-  return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true"><path d={paths[kind]} /></svg>
+  if (kind === 'emp') return <svg className={className} width="22" height="22" viewBox="-24 -24 48 48" fill="currentColor" aria-hidden="true"><path d={EMP_BOLT_PATH} /></svg>
+  if (kind === 'stopwatch' || kind === 'fast-stopwatch') return <svg className={className} width="22" height="22" viewBox="-26 -32 52 56" fill={color} aria-hidden="true"><path d={STOPWATCH_FACE_PATH} fillRule="evenodd" /><path d={STOPWATCH_DETAILS_PATH} /><path d={STOPWATCH_HAND_PATH} /></svg>
+  if (kind === 'time-bonus' || kind === 'time-penalty') return <svg className={className} width="22" height="22" viewBox="-26 -36 52 56" fill={color} aria-hidden="true"><g transform="translate(0 -4)"><path d={TIME_BONUS_ARROW_PATH} transform={kind === 'time-penalty' ? 'scale(-1 1)' : undefined} fill="none" stroke={color} strokeWidth={TIME_BONUS_ARROW_WIDTH} strokeLinecap="round" strokeLinejoin="round" /><text x="0" y="8" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="22" fontWeight="700">{TIME_BONUS_DEFAULT_SECONDS}</text></g></svg>
+  return <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true"><path d={paths[kind]} /></svg>
 }

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Input } from '@/components/ui/input'
 
 const display = (value: number, precision: number) => String(Number(value.toFixed(precision)))
 const complete = (text: string, precision: number) => (precision ? /^-?\d+(?:\.\d+)?$/ : /^-?\d+$/).test(text) && Number.isFinite(Number(text)) && Math.abs(Number(text)) <= Number.MAX_SAFE_INTEGER
@@ -15,7 +16,7 @@ export function NumberField({ value, onCommit, onPreview, label, step = 1, min, 
     else onPreview(null)
     cancelled.current = false; setDraft(null)
   }
-  return <input className="builder-number" type="number" aria-label={label} title="Enter to edit / apply · Esc to cancel · ↑ ↓ navigate, or step while editing · Shift for larger steps"
+  return <Input className="builder-number tabular-nums" type="number" aria-label={label} title="Enter to edit / apply · Esc to cancel · ↑ ↓ navigate, or step while editing · Shift for larger steps"
     min={min} max={max} step={step} disabled={disabled} value={draft ?? display(value, precision)}
     onFocus={event => event.currentTarget.select()} onChange={event => {
       const text = event.target.value

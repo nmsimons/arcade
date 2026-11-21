@@ -1,6 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { Tool } from './editor'
 import { BuilderIcon } from './BuilderIcon'
+import { XIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 
 const SECTIONS = ['Canvas', 'Inspector', 'Objects', 'Levels', 'Shortcuts', 'Controller'] as const
 type Section = typeof SECTIONS[number]
@@ -46,6 +49,13 @@ const SHORTCUTS = [
   { group: 'Number fields', items: [['Enter', 'Start editing / apply (leaving the field also applies)'], ['Esc', 'Cancel the current entry and resume navigation'], ['↑ / ↓ while editing', 'Step the value'], ['Shift + ↑ / ↓', 'Take larger steps'], ['Alt + ↑ / ↓', 'Step one unit']] },
 ]
 
+/** Shortcut keys as keycaps; joining words and symbols stay plain text. */
+function KeyCombo({ keys }: { keys: string }) {
+  return <span className="inline-flex flex-wrap items-center gap-1">{keys.split(/( \+ | \/ | while editing)/).map((part, i) =>
+    part === ' + ' || part === ' / ' || part === ' while editing' || /(click|drag|wheel)$/i.test(part)
+      ? <span key={i}>{part.trim()}</span> : <Kbd key={i}>{part}</Kbd>)}</span>
+}
+
 function CanvasDiagram({ kind }: { kind: 'move' | 'resize' | 'node' }) {
   const shape = kind === 'node' ? '56,150 56,95 150,45 224,95 224,150' : '56,150 56,70 224,70 224,150'
   return <svg viewBox="0 0 280 190" className="builder-help-diagram" aria-hidden="true">
@@ -89,23 +99,24 @@ export function BuilderHelp({ tools, onClose }: {
       if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true })
     }
   }, [])
-  return <dialog ref={dialog} className="builder-help-dialog jumping-ui" aria-label="Level builder help" aria-modal="true"
+  return <dialog ref={dialog} className="builder-help-dialog studio-dialog" aria-label="Level builder help" aria-modal="true"
     onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose() }}
     onKeyDown={event => {
       event.stopPropagation()
       if (event.key === 'Escape') { event.preventDefault(); onClose() }
     }}>
-    <header className="jumping-ui-heading builder-help-heading">
-      <h2>Help.</h2>
-      <button ref={close} aria-label="Close help" title="Close help" onClick={onClose}>Close</button>
+    <header className="builder-help-heading flex flex-none items-center justify-between gap-4 border-b border-border px-6 py-3">
+      <h2 className="m-0 text-lg leading-tight font-semibold tracking-tight">Help</h2>
+      <Button size="sm" variant="ghost" ref={close} aria-label="Close help" title="Close help" onClick={onClose}><XIcon aria-hidden="true" />Close</Button>
     </header>
-    <div className="builder-help-tabs" role="tablist" aria-label="Help topics" onKeyDown={event => {
+    <div className="builder-help-tabs flex flex-none flex-wrap gap-1 border-b border-border bg-muted px-6 py-2" role="tablist" aria-label="Help topics" onKeyDown={event => {
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? SECTIONS.length - 1 : -1
       if (next < 0) return
       event.preventDefault(); setSection(SECTIONS[next])
       event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=tab]')[next].focus()
     }}>
-      {SECTIONS.map(name => <button key={name} role="tab" id={`builder-help-tab-${name}`} aria-controls={`builder-help-panel-${name}`} aria-selected={name === section} tabIndex={name === section ? 0 : -1} onClick={() => setSection(name)}>{name}</button>)}
+      {SECTIONS.map(name => <button key={name} role="tab" id={`builder-help-tab-${name}`} data-slot="tabs-trigger"
+        className="inline-flex h-7 items-center rounded-md border border-transparent px-2.5 text-sm font-medium text-foreground/70 transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-selected:border-border aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-sm" aria-controls={`builder-help-panel-${name}`} aria-selected={name === section} tabIndex={name === section ? 0 : -1} onClick={() => setSection(name)}>{name}</button>)}
     </div>
     {SECTIONS.map(name => <div key={name} id={`builder-help-panel-${name}`} role="tabpanel" aria-labelledby={`builder-help-tab-${name}`} hidden={section !== name} className="builder-help-content" tabIndex={0}>
       {name === 'Canvas' && <>
@@ -160,7 +171,7 @@ export function BuilderHelp({ tools, onClose }: {
         <div><dt>Grade times</dt><dd>Set increasing A, B, C, and D deadlines in seconds. D should allow a realistic first run with purpose. A D or better unlocks the next course. After D expires the run becomes F: the wall clock dims at zero and time pickups turn grey. The player can keep exploring or restart.</dd></div>
       </dl>}
       {name === 'Shortcuts' && <div className="builder-help-shortcuts">
-        {SHORTCUTS.map(group => <section key={group.group}><h3>{group.group}</h3><dl>{group.items.map(([keys, action]) => <div key={keys}><dt>{keys}</dt><dd>{action}</dd></div>)}</dl></section>)}
+        {SHORTCUTS.map(group => <section key={group.group}><h3>{group.group}</h3><dl>{group.items.map(([keys, action]) => <div key={keys}><dt><KeyCombo keys={keys} /></dt><dd>{action}</dd></div>)}</dl></section>)}
       </div>}
       {name === 'Controller' && <div className="builder-help-shortcuts">
         <p>Use a standard Xbox, PlayStation, or compatible controller. Release held buttons and sticks after changing screens.</p>

@@ -1,4 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { pressedStyle } from './StudioFields'
 
 const ROWS = ['1234567890', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm', '.,-_/:!?']
 
@@ -26,27 +29,27 @@ export function BuilderTextEntry({ input, onClose }: { input: HTMLInputElement |
     })
   }
   const append = (value: string) => setText(previous => (previous + value).slice(0, limit))
-  return <dialog ref={dialog} className="builder-text-entry jumping-ui" aria-label={`Edit ${name}`} aria-modal="true"
+  return <dialog ref={dialog} className="builder-text-entry studio-dialog" aria-label={`Edit ${name}`} aria-modal="true"
     onCancel={event => { event.preventDefault(); onClose() }} onKeyDown={event => {
       event.stopPropagation()
       if (event.key === 'Escape') { event.preventDefault(); onClose() }
     }}>
-    <h2>{name}</h2>
+    <h2 className="m-0 mb-3 text-base font-semibold">{name}</h2>
     <output className="builder-text-preview" aria-label="Text entry preview">{text || ' '}</output>
     <div className="builder-text-keys" role="group" aria-label="Characters">
       {ROWS.map((row, index) => <div key={row}>{[...row].map((character, i) => {
         const value = shift ? character.toUpperCase() : character
-        return <button key={character} data-initial-focus={index === 0 && i === 0 ? '' : undefined} aria-label={`Type ${value}`} onClick={() => append(value)}>{value}</button>
+        return <Button key={character} variant="secondary" size="sm" className="h-9 min-w-0 px-0 font-mono text-sm" data-initial-focus={index === 0 && i === 0 ? '' : undefined} aria-label={`Type ${value}`} onClick={() => append(value)}>{value}</Button>
       })}</div>)}
     </div>
     <div className="builder-text-actions">
-      <button aria-pressed={shift} onClick={() => setShift(previous => !previous)}>Shift</button>
-      <button onClick={() => append(' ')}>Space</button>
-      {input instanceof HTMLTextAreaElement && <button onClick={() => append('\n')}>New line</button>}
-      <button onClick={() => setText(previous => previous.slice(0, -1))}>Backspace</button>
-      <button onClick={() => setText('')}>Clear</button>
-      <button onClick={onClose}>Cancel</button>
-      <button onClick={apply}>Done</button>
+      <Button variant="outline" size="sm" className={cn(pressedStyle)} aria-pressed={shift} onClick={() => setShift(previous => !previous)}>Shift</Button>
+      <Button variant="outline" size="sm" onClick={() => append(' ')}>Space</Button>
+      {input instanceof HTMLTextAreaElement && <Button variant="outline" size="sm" onClick={() => append('\n')}>New line</Button>}
+      <Button variant="outline" size="sm" onClick={() => setText(previous => previous.slice(0, -1))}>Backspace</Button>
+      <Button variant="outline" size="sm" onClick={() => setText('')}>Clear</Button>
+      <Button variant="ghost" size="sm" className="ml-auto" onClick={onClose}>Cancel</Button>
+      <Button size="sm" onClick={apply}>Done</Button>
     </div>
   </dialog>
 }

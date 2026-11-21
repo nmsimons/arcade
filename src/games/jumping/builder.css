@@ -1,413 +1,253 @@
-/* Editor typography: large title, normal controls, small supporting text.
-   Header subtitles use the game's shared eyebrow style.
-   Headings, buttons, and toolbar controls share semibold; no per-control type variants. */
+/* Level studio layout. Controls are shadcn/ui components (src/components/ui) styled with
+   Tailwind utilities and the tokens studio.css scopes to .studio-ui; this file arranges the
+   panels and styles what the components do not: inspector rhythm, dialogs, and canvas overlays.
+   Colors come from those tokens, which map onto the game's palette in theme.css. */
 .jumping-builder {
-  --builder-field: var(--jumping-section);
-  --builder-hover: var(--jumping-soft);
   position: absolute; inset: 0; z-index: 20;
-  display: grid; grid-template: auto auto minmax(0, 1fr) auto / 288px minmax(0, 1fr) 320px;
+  display: grid; grid-template: auto auto minmax(0, 1fr) auto / 264px minmax(0, 1fr) 304px;
   overflow: auto;
-  background: var(--jumping-section); color: var(--jumping-ink);
-  font: 400 var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif;
+  background: var(--secondary); color: var(--foreground);
+  font: 400 .875rem/1.5 'Segoe UI', system-ui, sans-serif;
   letter-spacing: normal; text-transform: none;
 }
 .jumping-builder[hidden] { display: none; }
-.jumping-game .jumping-builder button {
-  min-width: 0; min-height: 44px; padding: 10px 12px;
-  border: 0; border-radius: 2px; box-shadow: none;
-  background: transparent; color: inherit;
-  font: inherit; font-weight: 600;
-  transition: none;
-}
-.jumping-game .jumping-builder button:disabled { opacity: var(--jumping-inactive-opacity); cursor: default; }
-.jumping-game .jumping-builder button:hover:not(:disabled) { background: var(--builder-hover); color: var(--jumping-color-ink); }
-.jumping-builder label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.jumping-builder input:not([type=checkbox]), .jumping-builder select, .jumping-builder textarea {
-  width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px;
-  border: 0; border-radius: 2px; background: var(--builder-field); color: var(--jumping-color-ink);
-  font: inherit; resize: vertical;
-}
-.jumping-builder input[type=range] { padding: 0; accent-color: var(--jumping-color-ink); cursor: pointer; }
-.jumping-builder input[type=number] { font-variant-numeric: tabular-nums; }
-.jumping-builder input:disabled { opacity: var(--jumping-inactive-opacity); }
-.jumping-builder :is(input:not([type=checkbox]), textarea):focus:not([data-builder-editing=true]) { caret-color: transparent; }
+.jumping-builder :is(h1, h2, h3) { letter-spacing: normal; text-transform: none; }
+/* Arrow keys and the controller move between fields; the caret appears once editing starts. */
+.jumping-builder :is(input, textarea):focus:not([data-builder-editing=true]) { caret-color: transparent; }
+.jumping-builder :is(input, textarea)[data-builder-editing=true]:focus { border-color: var(--primary); box-shadow: inset 0 -2px 0 var(--primary); }
 .builder-number::-webkit-inner-spin-button { opacity: 1; }
-.jumping-builder input[type=checkbox] {
-  appearance: none; display: grid; place-content: center; flex: none;
-  width: 20px; height: 20px; margin: 0; border: 0; border-radius: 2px;
-  background: var(--builder-field); color: var(--jumping-color-paper); cursor: pointer;
-}
-.jumping-builder input[type=checkbox]:checked { background: var(--jumping-color-ink); }
-.jumping-builder input[type=checkbox]:checked::after {
-  content: ''; width: 6px; height: 11px; margin-top: -3px;
-  border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg);
-}
-.jumping-builder h2 { margin: 0 0 12px; color: inherit; font: inherit; font-weight: 600; letter-spacing: normal; text-transform: none; }
-.jumping-builder h3 { margin: 0 0 16px; font: inherit; font-weight: 600; }
-.jumping-builder kbd { border: 0; padding: 0; color: inherit; font: inherit; }
+.jumping-builder textarea { resize: vertical; }
 
-/* Title and actions use the same centered header layout as the level picker. */
-.builder-header {
-  --builder-hover: var(--jumping-color-steel);
-  grid-column: 1 / -1;
-  background: var(--jumping-color-ink); color: var(--jumping-color-paper); z-index: 2;
-}
-.builder-brand { min-width: 0; }
-.builder-header h1 { margin: 0; font: 800 var(--jumping-type-large)/1 'Segoe UI', sans-serif; letter-spacing: -.055em; }
-.builder-main-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+/* Header and toolbar span the window; the title band stays a single compact row. */
+.builder-header { grid-column: 1 / -1; position: relative; z-index: 2; box-shadow: var(--ui-shadow-header); }
+.builder-view-controls { grid-column: 1 / -1; z-index: 1; scrollbar-width: thin; }
+.builder-view-controls > * { flex: none; }
 
-/* The tool rail is a single flat surface, with spacing and headings for groups. */
-.builder-tools, .builder-inspector { min-height: 0; min-width: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--jumping-color-ink) transparent; }
-.builder-tools { --builder-field: var(--jumping-color-paper); --builder-hover: var(--jumping-color-paper); background: var(--jumping-section); }
-.builder-tool-group { padding: 16px; }
-.builder-tool-group + .builder-tool-group { padding-top: 8px; }
-.builder-tool-grid { --builder-hover: var(--jumping-color-ink); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.jumping-game .builder-tool-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 72px; padding: 10px 4px; background: var(--jumping-paper); font-size: var(--jumping-type-small); }
-.jumping-game .builder-tool-grid button:hover:not(:disabled) { color: var(--jumping-color-paper); }
-.builder-tool-grid svg { width: 24px; height: 24px; flex: none; color: inherit; }
-.jumping-game .jumping-builder .builder-tool-grid button[aria-pressed=true] { background: var(--jumping-soft); color: var(--jumping-ink); }
-.jumping-builder .builder-inline-check { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; white-space: nowrap; }
+/* Tool rail and inspector scroll independently. */
+.builder-tools, .builder-inspector { min-height: 0; min-width: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--primary) transparent; }
+.builder-tools { background: var(--secondary); padding-bottom: 12px; }
+.builder-inspector { background: var(--background); scroll-padding-top: 56px; border-left: 1px solid var(--border); }
 
-/* Matching sage bands frame the workspace controls and status. */
+/* Stage and the overlays drawn on it. */
 .builder-stage { position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
-.builder-view-controls {
-  --builder-field: var(--jumping-color-paper); --builder-hover: var(--jumping-color-ink);
-  grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; min-width: 0;
-  padding: 8px 16px; background: var(--jumping-soft); z-index: 1;
-  overflow-x: auto; scrollbar-width: thin; font-weight: 600;
-}
-.builder-control-group { display: flex; align-items: center; gap: 8px; flex: none; }
-.builder-placement-options { gap: 16px; }
-.builder-placement-options .builder-select-field { display: flex; align-items: center; gap: 8px; }
-.jumping-game .builder-placement-options .builder-select { gap: 8px; }
-.builder-zoom-controls { margin-left: auto; }
-.jumping-game .builder-view-controls button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; padding: 10px; background: var(--jumping-paper); white-space: nowrap; }
-.jumping-game .builder-view-controls button:hover:not(:disabled) { color: var(--jumping-color-paper); }
-.jumping-game .builder-mode-controls button { gap: 8px; }
-.builder-mode-controls svg { flex: none; }
-.jumping-game .jumping-builder .builder-mode-controls button[aria-pressed=true] { background: var(--jumping-color-ink); color: var(--jumping-color-paper); }
-.builder-view-controls output { min-width: 3.5em; text-align: center; font: inherit; font-variant-numeric: tabular-nums; }
 .jumping-game .builder-stage > canvas { display: block; min-height: 0; min-width: 0; width: 100%; height: 100%; touch-action: none; }
-.builder-stage > canvas:focus-visible { outline: 4px solid var(--jumping-color-ink); outline-offset: -4px; }
-.builder-controller-cursor { position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; z-index: 3; pointer-events: none; border: 2px solid var(--jumping-color-ink); border-radius: 50%; background: var(--jumping-color-paper); box-shadow: 0 0 0 2px var(--jumping-color-paper); }
+.builder-stage > canvas:focus-visible { outline: 3px solid var(--ring); outline-offset: -3px; }
+.jumping-game .builder-stage > .builder-placement-preview { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.builder-controller-cursor { position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; z-index: 3; pointer-events: none; border: 2px solid var(--primary); border-radius: 50%; background: var(--primary-foreground); box-shadow: 0 0 0 2px var(--primary-foreground); }
 .builder-controller-cursor[hidden] { display: none; }
-.builder-controller-cursor::before, .builder-controller-cursor::after { content: ''; position: absolute; background: var(--jumping-color-ink); }
+.builder-controller-cursor::before, .builder-controller-cursor::after { content: ''; position: absolute; background: var(--primary); }
 .builder-controller-cursor::before { left: 7px; top: -5px; width: 2px; height: 26px; }
 .builder-controller-cursor::after { left: -5px; top: 7px; width: 26px; height: 2px; }
-.builder-controller-cursor[data-dragging=true] { background: var(--jumping-selection); }
-.jumping-game .builder-stage > .builder-placement-preview { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.builder-controller-cursor[data-dragging=true] { background: var(--primary); }
 .builder-stage[data-placement-at-cursor=true] .builder-controller-cursor { visibility: hidden; }
-.jumping-game .jumping-builder .builder-minimap { position: absolute; right: 16px; bottom: 16px; width: 148px; padding: 8px; background: var(--jumping-paper); box-shadow: var(--ui-shadow-card); }
+.builder-minimap { position: absolute; right: 12px; bottom: 12px; z-index: 3; width: 144px; }
 .builder-minimap .level-thumbnail { height: 56px; }
-.builder-minimap > span { display: block; margin-top: 6px; font-size: var(--jumping-type-small); font-weight: 400; }
-.builder-environment { display: grid; gap: 14px; }
-.builder-back-wall-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.builder-back-wall-heading h3 { margin: 0; }
-.builder-back-wall-heading > span { font-size: var(--jumping-type-small); }
-.builder-back-wall-list { display: grid; gap: 4px; max-height: 240px; overflow: auto; }
-.jumping-game .builder-back-wall-list button { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; background: var(--builder-field); }
-.builder-back-wall-list button > span:first-child { overflow-wrap: anywhere; }
-.builder-region-badge { flex: none; padding: 2px 6px; border-radius: 2px; font-size: var(--jumping-type-small); text-transform: capitalize; }
-.builder-region-day { background: #e8edda; color: #303c36; }
-.builder-region-night { background: #39413f; color: #f1f1ed; }
-.builder-sky-settings { display: grid; gap: 10px; }
 
-/* A single field rhythm throughout the inspector: normal labels, filled controls. */
-.builder-inspector { background: var(--jumping-paper); scroll-padding-top: 52px; }
-.builder-inspector-tabs { position: sticky; top: 0; z-index: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: var(--jumping-section); }
-.jumping-game .jumping-builder .builder-inspector-tabs button { min-height: 52px; padding: 14px 20px; border-radius: 0; background: var(--jumping-section); text-align: left; }
-.jumping-game .jumping-builder .builder-inspector-tabs button[aria-selected=true] { background: var(--jumping-paper); color: var(--jumping-ink); }
-.jumping-game .jumping-builder .builder-inspector-tabs button[aria-selected=false]:hover:not(:disabled) { background: var(--jumping-soft); color: var(--jumping-ink); }
-.builder-inspector-empty { margin: 0; padding: 20px; }
-.builder-inspector-heading { padding: 12px 20px 4px; background: var(--jumping-paper); }
-.builder-inspector-heading .builder-select-field > span, .jumping-builder .builder-object-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.builder-property-card { display: grid; gap: 12px; padding: 12px 20px 20px; }
-.builder-inspector-section { min-width: 0; border-top: 1px solid color-mix(in srgb, var(--jumping-ink) 18%, transparent); }
-.builder-inspector-section > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 0; font-weight: 600; cursor: pointer; list-style: none; }
-.builder-inspector-section > summary::-webkit-details-marker, .builder-inspector-subsection > summary::-webkit-details-marker { display: none; }
-.builder-inspector-section > summary svg { width: 18px; height: 18px; flex: none; transform: rotate(-90deg); }
-.builder-inspector-section[open] > summary svg { transform: none; }
-.builder-inspector-section-content { display: grid; gap: 12px; padding: 0 0 8px; }
-.builder-inspector-section:not([open]) > .builder-inspector-section-content, .builder-inspector-subsection:not([open]) > div { display: none; }
-.builder-inspector-subsection { min-width: 0; }
-.builder-inspector-subsection > summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; min-height: 40px; cursor: pointer; list-style: none; }
-.builder-inspector-subsection > summary::before { content: '+'; width: 12px; }
-.builder-inspector-subsection[open] > summary::before { content: '−'; }
-.builder-inspector-subsection > summary .builder-hint { margin-left: auto; }
-.builder-inspector-subsection > div { display: grid; gap: 12px; padding: 4px 0 8px; }
-.builder-toggle-group { display: grid; gap: 12px; min-width: 0; }
-.builder-toggle-group-picker { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; align-items: end; }
-.builder-toggle-group-picker svg { display: block; width: 20px; height: 20px; }
-.builder-connection-list { display: grid; gap: 8px; min-width: 0; }
-.builder-connection-options { max-height: 240px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--jumping-ink) transparent; }
-.jumping-builder .builder-hint { margin: 0; font-size: var(--jumping-type-small); line-height: 1.5; overflow-wrap: anywhere; }
-.jumping-builder .builder-object-heading { margin: 0; font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere; }
-.builder-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
-.builder-surface-placement, .builder-anchor { display: grid; gap: 8px; }
-.builder-surface-placement > span, .builder-anchor > span { font-size: inherit; overflow-wrap: anywhere; }
-.builder-materials, .builder-connections, .builder-grades, .builder-terrain-order { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.builder-inspector legend { margin-bottom: 8px; padding: 0; font: inherit; font-weight: 600; }
+/* Inspector: one field rhythm. Labels are 12px captions above 32px controls. */
+.builder-inspector-heading .builder-select-field { gap: 0; }
+.builder-property-card, .builder-level-settings { display: grid; gap: 12px; padding: 8px 16px 16px; }
+.builder-inspector-empty { margin: 0; padding: 12px 16px; color: var(--muted-foreground); }
+.jumping-builder .builder-object-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.builder-inspector-section:not([open]) > .builder-inspector-section-content,
+.builder-inspector-subsection:not([open]) > div { display: none; }
+.builder-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
+.builder-action-row, .builder-object-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.builder-object-actions { padding-top: 12px; border-top: 1px solid var(--border); }
+.builder-inspector fieldset { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.builder-inspector legend { margin-bottom: 6px; padding: 0; font-size: .75rem; font-weight: 600; }
 .builder-switch-rule > legend { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.builder-materials > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.jumping-game .jumping-builder .builder-inspector button { background: var(--builder-field); }
-.jumping-game .jumping-builder .builder-inspector button:where(:not([role=tab])):hover:not(:disabled) { background: var(--jumping-color-ink); color: var(--jumping-color-paper); }
-.jumping-game .builder-materials button { display: grid; gap: 8px; padding: 8px; }
-.jumping-game .jumping-builder .builder-inspector button[aria-pressed=true] { background: var(--jumping-soft); color: var(--jumping-ink); }
-.builder-materials svg { width: 100%; height: 32px; border-radius: 0; }
-.jumping-builder .builder-inspector label:has(> input[type=checkbox]) { flex-direction: row; align-items: center; gap: 8px; min-height: 44px; padding: 6px 0; overflow-wrap: anywhere; }
-.builder-connection-options label + label { border-top: 1px solid color-mix(in srgb, var(--jumping-ink) 8%, transparent); }
-.builder-action-row, .builder-object-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.builder-selection-list { margin: 0; padding-left: 20px; overflow-wrap: anywhere; }
-.jumping-game .builder-surface-placement button { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.jumping-game .builder-property-action { width: 100%; }
-.jumping-game .jumping-builder .builder-delete { color: var(--jumping-danger); }
-.builder-level-settings { display: grid; gap: 12px; padding: 16px 20px 20px; }
-.builder-level-settings .builder-save-location { margin: 0 0 4px; font-size: var(--jumping-type-small); }
-.builder-lighting-settings { display: grid; gap: 6px; }
-.builder-lighting-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.jumping-builder .builder-night-mode, .jumping-builder .builder-headlight { white-space: nowrap; flex-direction: row; align-items: center; gap: 8px; min-height: 44px; }
-.builder-save-field { display: grid; gap: 6px; }
-.jumping-game .jumping-builder .builder-save-location { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; }
-.builder-save-location > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.builder-save-location svg { flex: none; width: 20px; height: 20px; }
-.builder-grade-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.jumping-builder .builder-grade-inputs input { padding-inline: 8px; }
-.builder-validation { padding: 20px; background: var(--jumping-color-rust); color: var(--jumping-color-paper); }
+.builder-connections + .builder-connections { padding-top: 4px; }
+.jumping-builder .builder-hint { margin: 0; font-size: .75rem; line-height: 1.5; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.builder-selection-list { margin: 0; padding-left: 18px; font-size: .8125rem; overflow-wrap: anywhere; }
+.builder-surface-placement, .builder-anchor { display: grid; gap: 6px; }
+.builder-surface-placement > span, .builder-anchor > span { font-size: .75rem; overflow-wrap: anywhere; color: var(--muted-foreground); }
+.builder-surface-placement > button { justify-content: space-between; }
+.builder-level-settings .builder-save-location { margin: -4px 0 0; font-size: .75rem; color: var(--muted-foreground); }
+.builder-lighting-settings { display: grid; gap: 4px; }
+.builder-lighting-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: .75rem; font-weight: 500; }
+.builder-grade-inputs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.builder-region-day { background: var(--background); color: var(--foreground); border-color: var(--input); }
+.builder-validation { padding: 12px 16px; background: var(--destructive); color: var(--primary-foreground); font-size: .8125rem; }
 .builder-validation strong { font-weight: 600; }
-.builder-validation p { margin: 12px 0 0; font: inherit; overflow-wrap: anywhere; }
-.builder-status { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 32px; padding: 6px 20px; background: var(--jumping-soft); color: var(--jumping-ink); font-size: var(--jumping-type-small); }
-.builder-status:has(.builder-controller-hint) { flex-wrap: wrap; gap: 4px 16px; }
+.builder-validation p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.builder-status {
+  grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  min-height: 28px; padding: 4px 16px; background: var(--accent); color: var(--accent-foreground); font-size: .75rem;
+}
+.builder-status-copy { display: flex; gap: 12px; min-width: 0; }
+.builder-status-message { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.builder-status output { font-variant-numeric: tabular-nums; }
+.builder-status:has(.builder-controller-hint) { flex-wrap: wrap; gap: 2px 16px; }
 .builder-controller-hint { flex: 1 1 360px; }
 
-/* Focus has the same flat, high-contrast treatment as the dialogs. */
-.jumping-game .jumping-builder button:where(:not([role=tab])):focus-visible:not(:disabled),
-.jumping-game .jumping-builder :is(input:not([type=checkbox]), select, textarea):focus-visible {
-  outline: none; box-shadow: none; background: var(--jumping-color-ink); color: var(--jumping-color-paper);
+/* State changes are immediate, as in the rest of the game's UI. */
+.jumping-builder [data-slot] { transition: none; }
+/* Keyboard focus is a filled highlight, as everywhere in the game (tests/browser/helpers/
+   jumpingAccessibility.mjs): it must contrast with both its surroundings and its text. A
+   controller moves focus without a keyboard, so focus is always drawn while it drives. */
+.jumping-builder :is([data-slot=button], [data-slot=select-trigger], [data-slot=tabs-trigger]):focus-visible:not(:disabled),
+.jumping-builder[data-input-method=controller] :is([data-slot=button], [data-slot=select-trigger], [data-slot=tabs-trigger]):focus:not(:disabled) {
+  border-color: var(--primary); background: var(--primary); color: var(--primary-foreground);
 }
-.jumping-game .jumping-builder :is(input, textarea)[data-builder-editing=true]:focus { box-shadow: inset 0 -3px currentColor; }
-.jumping-game .jumping-builder .builder-inspector button:where(:not([role=tab])):focus-visible:not(:disabled) { background: var(--jumping-color-ink); color: var(--jumping-color-paper); outline: 3px solid var(--jumping-color-paper); outline-offset: -5px; }
-/* Tab selection joins the pane; keyboard focus is a separate inset ring. */
-.jumping-game .jumping-builder .builder-inspector-tabs button:focus-visible:not(:disabled) { outline: 2px solid var(--jumping-ink); outline-offset: -6px; }
-.jumping-game .builder-header button:focus-visible:not(:disabled) { background: var(--jumping-color-paper); color: var(--jumping-color-ink); }
-.jumping-game .builder-view-controls button:focus-visible:not(:disabled) { outline: 3px solid var(--jumping-color-paper); outline-offset: -5px; }
-.jumping-builder :is(summary, input[type=checkbox]):focus-visible { outline: 3px solid var(--jumping-color-ink); outline-offset: 3px; }
-.jumping-builder[data-input-method=controller] :is(button, input, textarea, summary):focus:not(:disabled) { outline: 3px solid var(--jumping-selection); outline-offset: -3px; }
-.jumping-builder[data-input-method=controller] .builder-stage > canvas:focus { outline: 4px solid var(--jumping-color-ink); outline-offset: -4px; }
-.jumping-builder select option { background: var(--jumping-paper); color: var(--jumping-ink); }
-.builder-text-entry { position: fixed; inset: 0; width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 24px; overflow: auto; border: 0; border-radius: 2px; color: var(--jumping-ink); background: var(--jumping-paper); }
-.builder-text-entry::backdrop { background: rgb(30 40 34 / .65); }
-.builder-text-preview { display: block; min-height: 60px; padding: 12px; margin-bottom: 16px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--jumping-section); }
-.builder-text-keys { display: grid; gap: 4px; }
-.builder-text-keys > div { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
-.jumping-game .builder-text-keys button { padding: 8px 2px; background: var(--jumping-section); }
-.builder-text-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 16px; }
-@media (forced-colors: active) {
-  .jumping-game .jumping-builder :is(button, input, select, textarea):focus-visible { forced-color-adjust: none; background: Highlight; color: HighlightText; }
-  .jumping-game .jumping-builder .builder-inspector-tabs button[aria-selected=true] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
-  .jumping-builder input[type=checkbox] { border: 2px solid ButtonText; }
-  .jumping-builder input[type=checkbox]:checked { forced-color-adjust: none; background: Highlight; color: HighlightText; }
-  .builder-tools button[aria-pressed=true]::after, .builder-mode-controls button[aria-pressed=true]::after, .builder-materials button[aria-pressed=true]::after { content: '✓'; }
+.jumping-builder .builder-header [data-slot=button]:focus-visible:not(:disabled),
+.jumping-builder[data-input-method=controller] .builder-header [data-slot=button]:focus:not(:disabled) {
+  border-color: var(--chrome-foreground); background: var(--chrome-foreground); color: var(--chrome);
 }
-@media (max-width: 1100px) {
-  .jumping-builder { grid-template-columns: 252px minmax(0, 1fr) 288px; }
-  .builder-tool-group { padding-inline: 12px; }
-  .builder-inspector-heading, .builder-property-card, .builder-level-settings, .builder-validation, .builder-inspector-empty { padding-inline: 16px; }
-  .jumping-game .jumping-builder .builder-inspector-tabs button { padding-inline: 16px; }
-}
-@media (max-width: 760px) {
-  .jumping-builder { grid-template: auto auto minmax(200px, 1fr) minmax(180px, 24vh) auto / 104px minmax(0, 1fr); }
-  .builder-main-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .builder-main-actions .builder-back { grid-column: 2; }
-  .builder-tools { grid-column: 1; grid-row: 3; }
-  .builder-tool-group { padding: 12px 8px; }
-  .builder-tool-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .jumping-game .builder-tool-grid button { min-height: 64px; padding: 8px 4px; gap: 6px; }
-  .builder-stage { grid-column: 2; grid-row: 3; }
-  .builder-view-controls { flex-wrap: nowrap; gap: 12px; padding: 6px; overflow-x: auto; scrollbar-width: thin; }
-  .builder-zoom-controls { margin-left: 0; }
-  .jumping-game .jumping-builder .builder-minimap { width: 88px; right: 8px; bottom: 8px; padding: 6px; }
-  .builder-minimap .level-thumbnail { height: 32px; }
-  .builder-inspector { grid-column: 1 / -1; grid-row: 4; }
-  .builder-inspector-heading, .builder-property-card, .builder-level-settings, .builder-validation { padding-block: 16px; }
-  .builder-status { grid-row: 5; padding: 8px 12px; }
-  .builder-status > span:last-child { display: none; }
-}
-@media (max-height: 540px) and (min-width: 761px) {
-  .builder-header h1 { font-size: var(--jumping-type-normal); font-weight: 600; line-height: 1.5; letter-spacing: normal; }
-  .builder-header .jumping-eyebrow { display: none; }
-  .builder-view-controls { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; gap: 12px; }
-  .builder-zoom-controls { margin-left: 0; }
-  .jumping-game .jumping-builder .builder-minimap { display: none; }
-  .builder-status > span:last-child { display: none; }
-}
+.jumping-builder[data-input-method=controller] :is(button, input, textarea, summary):focus:not(:disabled) { outline: 2px solid var(--ring); outline-offset: 1px; }
+.jumping-builder[data-input-method=controller] .builder-stage > canvas:focus { outline: 3px solid var(--ring); outline-offset: -3px; }
 
-/* A stable modal shell, a quiet topic strip, and game-like instructional figures. */
-.jumping-game .builder-help-dialog.jumping-ui {
-  position: fixed; inset: 0; width: min(60rem, calc(100vw - 32px)); height: min(48rem, calc(100dvh - 32px));
-  max-width: none; max-height: none; margin: auto; padding: 0;
-  border: 0; border-radius: 2px; box-shadow: var(--ui-shadow-overlay); overflow: hidden;
-  background: var(--jumping-paper); font: inherit;
+/* Dialogs share a flat modal shell drawn from the same tokens. */
+.jumping-game .studio-dialog {
+  position: fixed; inset: 0; max-width: none; max-height: none; margin: auto; padding: 0;
+  border: 0; border-radius: var(--radius-xl); box-shadow: var(--ui-shadow-overlay); overflow: hidden;
+  background: var(--background); color: var(--foreground); font: inherit;
 }
+.studio-dialog::backdrop { background: var(--jumping-backdrop); }
+
+/* Help: a header, a topic strip, and a scrolling panel. */
+.jumping-game .builder-help-dialog { width: min(56rem, calc(100vw - 32px)); height: min(46rem, calc(100dvh - 32px)); }
 .builder-help-dialog[open] { display: flex; flex-direction: column; }
-.builder-help-dialog::backdrop { background: var(--jumping-backdrop); }
-.builder-help-heading { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
-.builder-help-tabs { display: flex; flex: none; flex-wrap: wrap; gap: 8px; padding: 12px 24px; background: var(--jumping-section); }
-.jumping-game .jumping-ui .builder-help-tabs button[aria-selected=true] { background: var(--jumping-soft); color: var(--jumping-color-ink); }
-.jumping-game .jumping-ui .builder-help-tabs button:focus-visible { background: var(--jumping-color-ink); color: var(--jumping-color-paper); outline: 3px solid var(--jumping-color-paper); outline-offset: -5px; }
-.builder-help-content { flex: 1; min-height: 0; overflow-y: auto; padding: 32px; scrollbar-width: thin; }
+.builder-help-content { flex: 1; min-height: 0; overflow-y: auto; padding: 24px; scrollbar-width: thin; font-size: .875rem; }
 .builder-help-content[hidden] { display: none; }
-.builder-help-content:focus-visible { outline: 3px solid var(--jumping-color-ink); outline-offset: -6px; }
-.jumping-game .builder-help-content h3 { margin: 0 0 8px; font: inherit; font-weight: 600; }
+.builder-help-content:focus-visible { outline: 2px solid var(--ring); outline-offset: -4px; }
+.jumping-game .builder-help-content h3 { margin: 0 0 6px; font-size: .875rem; font-weight: 600; }
 .builder-help-content p { margin: 0; }
 .builder-help-content dl { margin: 0; }
 .builder-help-content dt { font-weight: 600; }
-.builder-help-content dd { margin: 4px 0 0; }
-.builder-help-copy { display: grid; gap: 24px; }
-.builder-help-guides { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-bottom: 32px; }
+.builder-help-content dd { margin: 4px 0 0; color: var(--muted-foreground); }
+.builder-help-copy { display: grid; gap: 16px; }
+.builder-help-guides { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
 .builder-help-content figure { margin: 0; }
-.builder-help-content figcaption { margin-top: 16px; }
-.builder-help-content .builder-help-feature { margin-bottom: 32px; }
-.builder-help-diagram { display: block; width: 100%; background: var(--jumping-paper); }
-.builder-help-surface { max-height: 200px; background: var(--jumping-section); }
-.help-grid { stroke: var(--jumping-section); stroke-width: 1.5; fill: none; }
-.help-solid { fill: var(--jumping-soft); }
-.help-object { fill: var(--jumping-color-rust); }
-.help-selection { stroke: var(--jumping-color-rust); stroke-width: 2; fill: none; }
-.help-handle { fill: var(--jumping-color-rust); }
-.help-node { fill: var(--jumping-paper); stroke: var(--jumping-color-rust); stroke-width: 2; }
-.help-ink-stroke { fill: none; stroke: var(--jumping-color-ink); stroke-width: 3; stroke-linejoin: miter; stroke-linecap: square; }
-.builder-help-surface .help-ink-stroke:last-child { stroke: var(--jumping-paper); }
-.builder-help-objects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
-.builder-help-objects dt { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.builder-help-objects dt svg { flex: none; width: 24px; height: 24px; }
-.builder-help-shortcuts { display: grid; gap: 32px; }
-.builder-help-shortcuts dl { display: grid; gap: 0; }
-.builder-help-shortcuts dl > div { display: grid; grid-template-columns: minmax(12em, 1fr) 2fr; gap: 16px; padding: 12px; }
-.builder-help-shortcuts dl > div:nth-child(odd) { background: var(--jumping-section); }
-.builder-help-shortcuts dd { margin: 0; }
-@media (max-width: 760px) {
-  .builder-help-content { padding: 24px; }
-  .builder-help-tabs { padding: 8px 12px; gap: 4px; }
-  .builder-help-guides, .builder-help-objects { grid-template-columns: minmax(0, 1fr); }
-  .builder-help-guides figure { display: grid; grid-template-columns: minmax(100px, 1fr) 1.5fr; align-items: center; gap: 16px; }
-  .builder-help-guides figcaption { margin: 0; }
-  .builder-help-shortcuts dl > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-}
+.builder-help-content figcaption { margin-top: 10px; }
+.builder-help-content .builder-help-feature { margin-bottom: 24px; }
+.builder-help-diagram { display: block; width: 100%; border-radius: var(--radius-lg); background: var(--secondary); }
+.builder-help-surface { max-height: 200px; }
+.help-grid { stroke: var(--background); stroke-width: 1.5; fill: none; }
+.help-solid { fill: var(--accent); }
+.help-object { fill: var(--destructive); }
+.help-selection { stroke: var(--destructive); stroke-width: 2; fill: none; }
+.help-handle { fill: var(--destructive); }
+.help-node { fill: var(--background); stroke: var(--destructive); stroke-width: 2; }
+.help-ink-stroke { fill: none; stroke: var(--foreground); stroke-width: 3; stroke-linejoin: miter; stroke-linecap: square; }
+.builder-help-surface .help-ink-stroke:last-child { stroke: var(--background); }
+.builder-help-objects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+.builder-help-objects dt { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.builder-help-objects dt svg { flex: none; width: 20px; height: 20px; }
+.builder-help-shortcuts { display: grid; gap: 20px; }
+.builder-help-shortcuts dl { display: grid; gap: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.builder-help-shortcuts dl > div { display: grid; grid-template-columns: minmax(12em, 1fr) 2fr; gap: 12px; align-items: center; padding: 6px 12px; }
+.builder-help-shortcuts dl > div + div { border-top: 1px solid var(--border); }
+.builder-help-shortcuts dd { margin: 0; color: var(--foreground); }
 
-.builder-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
-.builder-templates button { text-align: left; padding: 10px; }
-.builder-templates .level-thumbnail { height: 70px; }
-.builder-templates strong { display: block; font-weight: 500; font-size: 12px; margin: 5px 0; }
-.builder-templates span { color: var(--jumping-ink); font-size: 9px; }
-.builder-local-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-top: 16px; }
-.builder-local-file { display: grid; grid-template-rows: auto 40px; gap: 8px; padding: 8px; min-width: 0; border: 1px solid var(--jumping-rule); border-radius: 5px; background: var(--jumping-paper); }
-.jumping-builder .builder-local-files button, .jumping-builder .builder-file-preview { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 0; text-align: left; padding: 11px 10px; background: var(--jumping-paper); border: 1px solid var(--jumping-rule); border-radius: 4px; font-size: 11px; }
-.jumping-builder .builder-local-files .builder-use-template { justify-content: center; align-items: center; min-height: 40px; padding: 8px 10px; font-size: 11px; background: var(--jumping-section); }
-.jumping-builder .builder-local-files .builder-use-template:hover { background: var(--jumping-soft); }
-.builder-file-preview > span:last-child { min-width: 0; }
-.builder-local-files strong, .builder-local-files small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.builder-local-files strong { font-size: 11px; font-weight: 500; color: var(--jumping-ink); }
-.builder-local-files small { margin-top: 4px; font: 9px ui-monospace, monospace; color: var(--jumping-ink); }
-.builder-library { position: fixed; inset: 0; margin: auto; width: calc(100vw - clamp(32px, 6vw, 120px)); height: calc(100dvh - clamp(32px, 6vh, 96px)); --library-padding: clamp(20px, 3vw, 48px); max-width: none; max-height: none; padding: 0; border: 1px solid var(--jumping-rule); border-radius: 12px; background: var(--jumping-paper); color: var(--jumping-ink); box-shadow: none; overflow: hidden; }
+/* Library and recycle bin: a near-full-screen shell of level cards. */
+.jumping-game .builder-library { --library-padding: 24px; width: calc(100vw - clamp(32px, 6vw, 120px)); height: calc(100dvh - clamp(32px, 6vh, 96px)); }
 .builder-library[open] { display: flex; flex-direction: column; }
-.builder-library::backdrop { background: var(--jumping-backdrop); backdrop-filter: none; }
-.builder-library-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 22px var(--library-padding); border-bottom: 1px solid var(--jumping-rule); flex-shrink: 0; }
-.jumping-builder .builder-library-header h2 { font: 600 clamp(24px, 3vw, 36px) 'Segoe UI', sans-serif; text-transform: none; letter-spacing: -.04em; color: var(--jumping-ink); margin: 0; }
-.builder-library-actions, .builder-library-confirm-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-.jumping-builder .builder-library button { min-height: 40px; }
-.builder-library-folder { padding: 20px var(--library-padding) 0; flex-shrink: 0; max-height: 42%; overflow: auto; }
-.builder-library .jumping-collection-tabs { display: inline-flex; margin-bottom: 12px; }
-.builder-library .jumping-collection-tabs button[aria-pressed="true"] { background: var(--jumping-color-ink); color: var(--jumping-color-paper); }
-.builder-library .jumping-collection-tabs button[aria-pressed="false"]:hover { background: var(--jumping-soft); }
-.builder-library-content { padding: 4px var(--library-padding) 26px; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: thin; scrollbar-gutter: stable; overscroll-behavior: contain; }
-.jumping-builder .builder-library-content h3 { margin: 24px 0 6px; font-size: 14px; }
-.builder-library-description, .builder-library-empty { color: var(--jumping-ink); font-size: 12px; line-height: 1.6; }
-.builder-library-description { margin: 0 0 16px; }
-.builder-library-empty { padding: 24px; text-align: center; border: 1px dashed var(--jumping-rule); border-radius: 6px; }
-.builder-library .level-thumbnail { width: 100%; height: 140px; }
-.builder-library .builder-local-files, .builder-library .builder-templates { gap: 20px; align-items: start; }
-.builder-library .builder-local-files strong, .builder-library .builder-templates strong { font-size: 16px; line-height: 22px; height: 44px; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.builder-library .builder-local-files { margin-top: 0; }
-.builder-library .builder-templates span { display: block; overflow-wrap: anywhere; }
-.builder-library-confirm { margin: auto; width: min(100%, 540px); padding: 30px; overflow: auto; }
-.jumping-builder .builder-library-confirm h3 { font-size: 22px; margin: 0 0 16px; }
-.builder-library-confirm p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
-.builder-library-confirm-actions { margin-top: 28px; }
-.builder-library-message { color: var(--jumping-danger); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-@media (max-width: 620px) {
-  .builder-library { width: calc(100vw - 20px); height: calc(100dvh - 24px); border-radius: 8px; }
-  .builder-library-header { padding: 16px; gap: 10px; }
-  .builder-library-actions { gap: 8px; }
-  .builder-library-folder { padding: 12px 16px 0; }
-  .builder-library-content { padding: 0 16px 16px; }
-  .builder-library .builder-local-files, .builder-library .builder-templates { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .builder-library .level-thumbnail { height: 100px; }
-  .builder-library .builder-local-files strong, .builder-library .builder-templates strong { font-size: 14px; line-height: 18px; height: 36px; }
-  .jumping-builder .builder-library button { min-height: 44px; }
-  .builder-library-confirm { padding: 24px; }
-}
-@media (max-height: 650px) {
-  .builder-library-header { padding-block: 12px; }
-  .jumping-builder .builder-library-header h2 { font-size: 24px; }
-  .builder-library-folder { padding-top: 12px; }
-  .builder-library .local-folder { padding-block: 12px; gap: 8px 16px; }
-  .builder-library .level-thumbnail { height: 90px; }
-}
-@media (max-height: 650px) and (min-width: 621px) {
-  .builder-library .builder-local-files, .builder-library .builder-templates { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
-}
-.builder-local-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 20px 0 10px; }
-.jumping-builder .builder-local-heading h3 { margin: 0; }
-.builder-library-sorts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.builder-library .builder-local-file { position: relative; }
-.builder-file-actions { display: flex; gap: 8px; }
-.builder-file-actions .builder-use-template { flex: 1; min-width: 0; }
-.jumping-builder .builder-local-files .level-file-delete { flex-direction: row; align-items: center; justify-content: center; padding: 8px 10px; }
-.jumping-builder .builder-local-files .level-file-delete-labeled { gap: 8px; min-height: 40px; padding: 8px 14px; font-size: 12px; line-height: 1.4; }
-.builder-bin-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding: 20px var(--library-padding); border-bottom: 1px solid var(--jumping-rule); }
-.jumping-builder .builder-bin-header h3 { font-size: 22px; margin: 0 0 10px; }
-.builder-bin-header p { font-size: 12px; color: var(--jumping-ink); margin: 0; line-height: 1.6; }
-.builder-bin-content { padding: 20px var(--library-padding); overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.builder-library-folder { max-height: 35%; overflow: auto; }
+.builder-library-folder [role=alert], .builder-library-message { margin: 0; color: var(--destructive); font-size: .75rem; overflow-wrap: anywhere; }
+.builder-library-content, .builder-bin-content { flex: 1; min-height: 0; overflow-y: auto; padding: 12px var(--library-padding) 24px; scrollbar-width: thin; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.builder-local-heading { margin: 4px 0 12px; }
+.builder-library-description, .builder-library-empty { color: var(--muted-foreground); font-size: .8125rem; line-height: 1.6; }
+.builder-library-empty { margin: 0; padding: 24px; text-align: center; border: 1px dashed var(--input); border-radius: var(--radius-lg); }
+.builder-library-confirm { margin: auto; width: min(100%, 520px); padding: 24px; overflow: auto; }
+.builder-library-confirm p { overflow-wrap: anywhere; }
+.builder-bin-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 10px var(--library-padding); background: var(--muted); font-size: .8125rem; }
+.builder-bin-header p { margin: 0; }
+.builder-local-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 12px; align-items: start; }
+.builder-local-file { position: relative; display: grid; grid-template-rows: auto auto; min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); }
+.builder-local-file:hover { border-color: var(--input); }
 .builder-local-file[draggable=true] > button:first-child { cursor: grab; }
 .builder-local-file.is-dragging { opacity: var(--jumping-inactive-opacity); }
-.builder-local-file.drop-before::before, .builder-local-file.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--jumping-color-ink); pointer-events: none; }
-.builder-local-file.drop-before::before { left: -11px; }
-.builder-local-file.drop-after::after { right: -11px; }
-@media (max-width: 620px) {
-  .builder-library-header { flex-wrap: wrap; }
-  .builder-library-header > div:first-child { flex: 1; }
-  .builder-library-actions { justify-content: flex-end; }
-  .builder-local-file.drop-before::before { left: -7px; }
-  .builder-local-file.drop-after::after { right: -7px; }
-  .builder-bin-header, .builder-bin-content { padding: 16px; }
-  .builder-file-actions { gap: 4px; }
-  .jumping-game .builder-file-actions .level-file-delete { min-width: 34px; padding: 6px; }
+.builder-local-file.drop-before::before, .builder-local-file.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--primary); pointer-events: none; }
+.builder-local-file.drop-before::before { left: -8px; }
+.builder-local-file.drop-after::after { right: -8px; }
+.builder-library .builder-local-file { overflow: visible; }
+.jumping-game .builder-file-preview {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 8px;
+  width: 100%; height: auto; min-width: 0; padding: 8px; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  text-align: left; white-space: normal; font-weight: 400;
+  background: var(--accent); color: var(--accent-foreground);
 }
-@media (max-width: 620px), (max-height: 650px) {
-  .builder-library .builder-local-file { grid-template-rows: auto 52px; }
+/* Cards match the game's level library: sage at rest, steel under the pointer. */
+.jumping-game .builder-file-preview:hover:not(:disabled, :focus-visible) { background: var(--secondary); color: var(--secondary-foreground); }
+.builder-file-preview .level-thumbnail { width: 100%; height: 116px; border-radius: var(--radius-md); }
+.builder-file-preview > span:last-child { display: block; min-width: 0; }
+.builder-file-preview strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; font-weight: 600; line-height: 1.4; }
+.builder-file-preview small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; color: var(--muted-foreground); font: .6875rem/1.4 ui-monospace, monospace; }
+.builder-file-actions { display: flex; gap: 6px; padding: 8px; }
+.builder-file-actions .builder-use-template { flex: 1; min-width: 0; }
+.level-file-placeholder { display: grid; place-content: center; background: var(--muted); color: var(--muted-foreground); }
+/* Shared with the game's level menu, so it is a plain button here. */
+.jumping-game .studio-ui .builder-library .level-file-delete {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
+  min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--background); color: var(--destructive); font: 500 .8125rem/1 inherit; cursor: pointer;
 }
+.jumping-game .studio-ui .builder-library .level-file-delete:hover:not(:disabled) { background: color-mix(in srgb, var(--destructive) 10%, transparent); }
+.jumping-game .studio-ui .builder-library .level-file-delete:focus-visible { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); outline: none; }
+.jumping-game .studio-ui .builder-library .level-file-delete:disabled { opacity: .5; cursor: default; }
+.studio-ui .builder-library .level-file-delete svg { width: 16px; height: 16px; }
+.builder-local-file > .level-file-delete { margin: 0 8px 8px; }
 
-/* Inspector pickers share the fields' surfaces; open menus cast a soft shadow. */
-.builder-select-field { display: grid; gap: 6px; min-width: 0; }
-.jumping-game .jumping-builder .builder-inspector .builder-select {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  width: 100%; text-align: left; font-weight: 400; background: var(--jumping-color-sage);
-}
-.builder-select > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.builder-select > svg { width: 20px; height: 20px; flex: none; }
-.builder-select-options {
-  position: fixed; z-index: 40; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain;
-  background: var(--jumping-color-sage); color: var(--jumping-color-ink); border-radius: 2px;
-  box-shadow: var(--ui-shadow-overlay);
-  scrollbar-width: thin; scrollbar-color: var(--jumping-color-ink) var(--jumping-color-sage);
-}
-.builder-select-options [role=option] { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 12px; cursor: pointer; }
-.builder-select-options [role=option] > span { min-width: 0; overflow-wrap: anywhere; }
-.builder-select-options [role=option] > svg { visibility: hidden; flex: none; width: 20px; height: 20px; }
-.builder-select-options [aria-selected=true] > svg { visibility: visible; }
-.builder-select-options [data-active=true] { background: var(--jumping-color-ink); color: var(--jumping-color-paper); }
+/* Controller text entry: an on-screen keyboard. */
+.jumping-game .builder-text-entry { width: min(640px, calc(100vw - 24px)); height: fit-content; max-height: calc(100dvh - 24px); padding: 20px; overflow: auto; }
+.builder-text-preview { display: block; min-height: 52px; padding: 10px 12px; margin-bottom: 12px; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--input); border-radius: var(--radius-lg); background: var(--background); }
+.builder-text-keys { display: grid; gap: 4px; }
+.builder-text-keys > div { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+.builder-text-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
 @media (forced-colors: active) {
-  .jumping-game .jumping-builder .builder-inspector .builder-select:focus-visible { background: Highlight; color: HighlightText; }
+  .jumping-builder :is(input, textarea, summary):focus-visible { outline: 2px solid Highlight; outline-offset: 1px; }
+  .jumping-game .jumping-builder button:focus-visible:not(:disabled),
+  .jumping-game .jumping-builder[data-input-method=controller] button:focus:not(:disabled) { forced-color-adjust: none; border-color: Highlight; background: Highlight; color: HighlightText; }
+  .jumping-builder [role=tab][aria-selected=true] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .jumping-builder [data-slot=checkbox] { border: 2px solid ButtonText; }
+  .jumping-builder [data-slot=checkbox][data-state=checked] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .jumping-builder button[aria-pressed=true] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .builder-select-options { border: 1px solid ButtonText; }
   .builder-select-options [data-active=true] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
 }
+@media (max-width: 1100px) {
+  .jumping-builder { grid-template-columns: 244px minmax(0, 1fr) 280px; }
+  .builder-tool-group { padding-inline: 8px; }
+  .builder-property-card, .builder-level-settings, .builder-inspector-heading, .builder-inspector-tabs { padding-inline: 12px; }
+}
+@media (max-width: 760px) {
+  .jumping-builder { grid-template: auto auto minmax(200px, 1fr) minmax(180px, 24vh) auto / 96px minmax(0, 1fr); }
+  .builder-header { flex-wrap: wrap; gap: 6px; }
+  .builder-main-actions { margin-left: 0; width: 100%; justify-content: flex-start; }
+  .builder-tools { grid-column: 1; grid-row: 3; }
+  .builder-tool-group { padding: 8px 6px 2px; }
+  .builder-tool-grid { grid-template-columns: minmax(0, 1fr); }
+  .builder-stage { grid-column: 2; grid-row: 3; }
+  .builder-view-controls { gap: 8px; padding: 6px; }
+  .builder-zoom-controls { margin-left: 0; }
+  .builder-minimap { width: 88px; right: 8px; bottom: 8px; }
+  .builder-minimap .level-thumbnail { height: 32px; }
+  .builder-inspector { grid-column: 1 / -1; grid-row: 4; border-left: 0; border-top: 1px solid var(--border); }
+  .builder-status { grid-row: 5; padding: 4px 12px; }
+  .builder-status > span:last-child { display: none; }
+  .builder-help-content { padding: 16px; }
+  .builder-help-tabs { padding-inline: 12px; }
+  .builder-help-guides, .builder-help-objects { grid-template-columns: minmax(0, 1fr); }
+  .builder-help-guides figure { display: grid; grid-template-columns: minmax(100px, 1fr) 1.5fr; align-items: center; gap: 12px; }
+  .builder-help-guides figcaption { margin: 0; }
+  .builder-help-shortcuts dl > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+@media (max-height: 540px) and (min-width: 761px) {
+  .builder-minimap { display: none; }
+  .builder-status > span:last-child { display: none; }
+}
+@media (max-width: 620px) {
+  .jumping-game .builder-library { --library-padding: 12px; width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  .builder-library-header { padding-inline: 12px; }
+  .builder-library-folder { padding-inline: 12px; }
+  .builder-library .builder-local-files { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .builder-file-preview .level-thumbnail { height: 80px; }
+  .builder-library-confirm { padding: 16px; }
+}
+@media (max-height: 650px) {
+  .builder-file-preview .level-thumbnail { height: 80px; }
+}
+
+/* Popup lists portal to the studio root, so they read the same tokens. */
+.builder-select-options { scrollbar-width: thin; scrollbar-color: var(--primary) transparent; }

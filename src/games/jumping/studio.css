@@ -1,0 +1,68 @@
+/* shadcn/ui for the Level studio (docs: components.json, src/components/ui).
+   Utilities compile with the app's Tailwind build, but every token they read is
+   defined only on .studio-ui, so shadcn components render nowhere else. The
+   tokens reuse the game's palette from theme.css rather than adding shades. */
+/* The data-attribute variants shadcn/ui components use, as published in the shadcn
+   package's tailwind.css (4.23.0). Vendored so the app does not depend on the CLI;
+   add any new ones here when `npx shadcn add` brings a component that needs them. */
+@custom-variant data-open { &:where([data-state="open"]), &:where([data-open]:not([data-open="false"])) { @slot; } }
+@custom-variant data-closed { &:where([data-state="closed"]), &:where([data-closed]:not([data-closed="false"])) { @slot; } }
+@custom-variant data-checked { &:where([data-state="checked"]), &:where([data-checked]:not([data-checked="false"])) { @slot; } }
+@custom-variant data-unchecked { &:where([data-state="unchecked"]), &:where([data-unchecked]:not([data-unchecked="false"])) { @slot; } }
+@custom-variant data-selected { &:where([data-selected="true"]) { @slot; } }
+@custom-variant data-disabled { &:where([data-disabled="true"]), &:where([data-disabled]:not([data-disabled="false"])) { @slot; } }
+@custom-variant data-active { &:where([data-state="active"]), &:where([data-active]:not([data-active="false"])) { @slot; } }
+@custom-variant data-horizontal { &:where([data-orientation="horizontal"]) { @slot; } }
+@custom-variant data-vertical { &:where([data-orientation="vertical"]) { @slot; } }
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chrome: var(--chrome);
+  --color-chrome-foreground: var(--chrome-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+.studio-ui {
+  --radius: 0.3125rem;
+  --background: var(--jumping-color-paper);
+  --foreground: var(--jumping-color-ink);
+  --card: var(--jumping-color-paper);
+  --card-foreground: var(--jumping-color-ink);
+  --popover: var(--jumping-color-paper);
+  --popover-foreground: var(--jumping-color-ink);
+  --primary: var(--jumping-color-ink);
+  --primary-foreground: var(--jumping-color-paper);
+  --secondary: var(--jumping-color-steel);
+  --secondary-foreground: var(--jumping-color-ink);
+  --muted: var(--jumping-color-steel);
+  --muted-foreground: var(--jumping-color-ink);
+  --accent: var(--jumping-color-sage);
+  --accent-foreground: var(--jumping-color-ink);
+  --destructive: var(--jumping-color-rust);
+  --border: var(--jumping-color-steel);
+  --input: var(--jumping-color-sage);
+  --ring: var(--jumping-color-ink);
+  /* The title band and other dark chrome. */
+  --chrome: var(--jumping-color-ink);
+  --chrome-foreground: var(--jumping-color-paper);
+}

@@ -29,16 +29,6 @@
       "y": 720,
       "course": "38681eca-a164-4f9a-9113-c3ba119ed3ed",
       "targets": [
-        "door-overhead"
-      ]
-    },
-    {
-      "id": "door-overhead",
-      "x": 975,
-      "y": 720,
-      "course": "c2e3a4c5-4b33-4e6b-962c-201342c974ba",
-      "power": "switched",
-      "targets": [
         "door-ramping-up"
       ]
     },
@@ -47,16 +37,6 @@
       "x": 1335,
       "y": 720,
       "course": "f647e38f-d47e-4628-b322-b89e98882202",
-      "power": "switched",
-      "targets": [
-        "door-featherweight"
-      ]
-    },
-    {
-      "id": "door-featherweight",
-      "x": 1695,
-      "y": 720,
-      "course": "8efe52fa-4d7a-4d50-b400-cefb9b3df1eb",
       "power": "switched",
       "targets": [
         "door-drift"
@@ -77,20 +57,7 @@
       "x": 2415,
       "y": 720,
       "course": "19f66cc5-2de3-4a7f-9a4d-7df4092a7354",
-      "power": "switched",
-      "targets": [
-        "door-flip-side"
-      ]
-    },
-    {
-      "id": "door-flip-side",
-      "x": 2775,
-      "y": 720,
-      "course": "2c20a618-5a7a-47dc-9618-101980626f5a",
-      "power": "switched",
-      "targets": [
-        "door-updraft"
-      ]
+      "power": "switched"
     },
     {
       "id": "door-updraft",
@@ -98,6 +65,15 @@
       "y": 720,
       "course": "aac71758-36c3-43ab-9d28-bb4f2eed7325",
       "power": "switched"
+    },
+    {
+      "id": "286c653c-6bb5-4531-83e5-1c975cd71a3b",
+      "x": 2785,
+      "y": 720,
+      "course": "81521156-49cb-4d68-997b-02d0cff5f0d9",
+      "targets": [
+        "door-updraft"
+      ]
     }
   ],
   "bulkheads": [

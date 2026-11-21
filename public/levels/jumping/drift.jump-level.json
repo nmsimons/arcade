@@ -191,7 +191,7 @@
       "x": 4525,
       "y": 0,
       "w": 200,
-      "h": 380,
+      "h": 420,
       "material": "stone",
       "trim": "hazard-bottom"
     },
@@ -433,6 +433,7 @@
       }
     ]
   },
+  "wallFinish": "chamber",
   "stains": "light",
   "floor": 1000,
   "goal": {
@@ -483,18 +484,7 @@
     }
   ],
   "pickups": [],
-  "texts": [
-    {
-      "name": "-1 G label",
-      "x": 2295,
-      "y": 880,
-      "w": 300,
-      "h": 40,
-      "text": "-1 G",
-      "fontSize": 30,
-      "align": "left"
-    }
-  ],
+  "texts": [],
   "stripes": [
     {
       "x": 1425,
@@ -518,13 +508,13 @@
       "x": 4025,
       "y": 580,
       "w": 700,
-      "h": 420
+      "h": 40
     },
     {
       "x": 4025,
-      "y": 0,
+      "y": 380,
       "w": 700,
-      "h": 420
+      "h": 40
     }
   ],
   "gravityPlates": [
@@ -612,6 +602,25 @@
       "gravity": -1,
       "power": "always",
       "facing": "right"
+    },
+    {
+      "id": "15ce099a-67a7-4d01-8e69-e3f2f4d81d27",
+      "x": 4025,
+      "y": 0,
+      "w": 500,
+      "h": 405,
+      "gravity": -0.1,
+      "ceiling": true,
+      "power": "always"
+    },
+    {
+      "id": "36ea37c8-c613-410a-a50c-d28c7c455b01",
+      "x": 4025,
+      "y": 595,
+      "w": 500,
+      "h": 365,
+      "gravity": 0.1,
+      "power": "always"
     }
   ],
   "lighting": {
@@ -665,11 +674,11 @@
       },
       {
         "id": "drift-light-5",
-        "x": 4285,
+        "x": 4510,
         "y": 20,
         "intensity": 100,
-        "direction": 90,
-        "spread": 60,
+        "direction": 125,
+        "spread": 90,
         "power": "always"
       }
     ]

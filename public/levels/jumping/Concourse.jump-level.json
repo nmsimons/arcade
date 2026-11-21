@@ -1014,8 +1014,8 @@
   "props": [
     {
       "kind": "box",
-      "x": 185,
-      "y": 1400,
+      "x": 1830,
+      "y": 1740,
       "size": 60,
       "weight": "heavy",
       "branded": true
@@ -1023,32 +1023,32 @@
     {
       "kind": "ball",
       "x": 180,
-      "y": 1080,
+      "y": 1400,
       "size": 30
     },
     {
       "kind": "box",
-      "x": 235,
-      "y": 1400,
+      "x": 1780,
+      "y": 1740,
       "size": 40,
       "weight": "heavy"
     },
     {
       "kind": "box",
-      "x": 232.5,
-      "y": 1360,
+      "x": 1782.5,
+      "y": 1700,
       "size": 35
     },
     {
       "kind": "box",
-      "x": 187.5,
-      "y": 1340,
+      "x": 1827.5,
+      "y": 1680,
       "size": 35
     },
     {
       "kind": "box",
-      "x": 220,
-      "y": 1325,
+      "x": 1795,
+      "y": 1665,
       "size": 30
     }
   ],
@@ -1093,7 +1093,7 @@
     },
     {
       "id": "concourse-to-movement",
-      "x": 1670,
+      "x": 1000,
       "y": 1740,
       "to": "facility-movement",
       "targets": [
@@ -1105,8 +1105,8 @@
     },
     {
       "id": "concourse-to-freight",
-      "x": 345,
-      "y": 1400,
+      "x": 1670,
+      "y": 1740,
       "to": "facility-freight",
       "power": "switched",
       "targets": [
@@ -1136,7 +1136,7 @@
     {
       "id": "concourse-to-targets",
       "x": 345,
-      "y": 1080,
+      "y": 1400,
       "to": "facility-targets",
       "power": "switched",
       "targets": [
@@ -1155,7 +1155,7 @@
     },
     {
       "id": "concourse-to-security",
-      "x": 1665,
+      "x": 345,
       "y": 1080,
       "to": "facility-security",
       "power": "switched",
@@ -1169,7 +1169,7 @@
     {
       "id": "concourse-to-assessment",
       "x": 1665,
-      "y": 760,
+      "y": 1080,
       "to": "facility-assessment",
       "power": "switched",
       "switchLogic": "and",
@@ -1210,8 +1210,8 @@
       "align": "center"
     },
     {
-      "x": 130,
-      "y": 1135,
+      "x": 1450,
+      "y": 1475,
       "w": 425,
       "h": 105,
       "text": "2",
@@ -1220,7 +1220,7 @@
     },
     {
       "x": 125,
-      "y": 815,
+      "y": 1135,
       "w": 425,
       "h": 105,
       "text": "4",
@@ -1228,8 +1228,8 @@
       "align": "center"
     },
     {
-      "x": 130,
-      "y": 495,
+      "x": 1450,
+      "y": 815,
       "w": 425,
       "h": 105,
       "text": "6",
@@ -1237,16 +1237,7 @@
       "align": "center"
     },
     {
-      "x": 1450,
-      "y": 495,
-      "w": 425,
-      "h": 105,
-      "text": "7",
-      "fontSize": 96,
-      "align": "center"
-    },
-    {
-      "x": 1450,
+      "x": 130,
       "y": 815,
       "w": 425,
       "h": 105,
@@ -1264,7 +1255,7 @@
       "align": "center"
     },
     {
-      "x": 1450,
+      "x": 780,
       "y": 1475,
       "w": 425,
       "h": 105,
@@ -1324,7 +1315,7 @@
     {
       "id": "3bad5e4c-22f5-4266-bee8-41e2e002adc6",
       "x": 150,
-      "y": 820,
+      "y": 1140,
       "w": 55,
       "h": 260,
       "gravity": -1,
@@ -1352,7 +1343,7 @@
     {
       "switchReversed": true,
       "id": "317aeef4-55cd-4c73-a19c-882ca546264b",
-      "x": 1555,
+      "x": 235,
       "y": 800,
       "w": 12,
       "h": 280,
@@ -1362,7 +1353,7 @@
     {
       "switchReversed": true,
       "id": "5490e676-4f77-4937-97b5-3eb0a82df5cd",
-      "x": 1760,
+      "x": 440,
       "y": 800,
       "w": 12,
       "h": 280,

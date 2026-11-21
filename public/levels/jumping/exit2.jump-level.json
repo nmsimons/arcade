@@ -4030,7 +4030,7 @@
     },
     {
       "kind": "ball",
-      "x": 9070,
+      "x": 8984,
       "y": 3035,
       "size": 68
     }
@@ -4404,6 +4404,7 @@
       "style": "lab-stamp"
     }
   ],
+  "stripes": [],
   "gravityPlates": [
     {
       "id": "d56c494b-8da3-4e89-90b7-28c8b5c03a41",
@@ -4556,12 +4557,12 @@
         ]
       },
       {
-        "x": 8810,
+        "x": 8800,
         "y": 1720,
-        "w": 940,
-        "h": 1345,
-        "kind": "cave",
-        "lighting": "day"
+        "w": 960,
+        "h": 1315,
+        "kind": "facility",
+        "lighting": "night"
       },
       {
         "x": 11535,
@@ -4693,7 +4694,7 @@
         "intensity": 100,
         "direction": 90,
         "spread": 160,
-        "power": "switched",
+        "power": "always",
         "name": "5C"
       },
       {
@@ -4713,7 +4714,7 @@
         "intensity": 100,
         "direction": 90,
         "spread": 160,
-        "power": "switched",
+        "power": "always",
         "name": "Lobby"
       },
       {

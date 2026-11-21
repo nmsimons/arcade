@@ -1,4 +1,5 @@
 import { gravityPlateActive } from './gravity.ts'
+import { wallLettering } from './wallDoor.ts'
 import { drawForceField } from './forceFieldRender.ts'
 import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion, drawWaterSurfaceDetails } from './gravityRender.ts'
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
@@ -345,7 +346,7 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom, false)
   drawWaterBackdrop(ctx, run)
   drawWallWiring(ctx, level, run)
-  drawWallTexts(ctx, level.texts ?? [], false, paintNormally, wallWear(level))
+  drawWallTexts(ctx, wallLettering(level), false, paintNormally, wallWear(level))
   drawPuzzleWorld(ctx, run)
   ctx.restore()
 }

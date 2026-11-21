@@ -5,6 +5,8 @@ import { addItem, deleteItem, hitItem, itemOutline, moveItem, replacePlatform, s
 import { copySelections, pasteSelections } from '../src/games/jumping/editorSelection.ts'
 import { placeOnSurface } from '../src/games/jumping/editorPlacement.ts'
 import { objectLabel } from '../src/games/jumping/objectLabels.ts'
+import { wallDoorSign, wallLettering } from '../src/games/jumping/wallDoor.ts'
+import { bulkheadSignBounds, courseDoorSignBounds } from '../src/games/jumping/hub.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
@@ -50,4 +52,15 @@ test('a wall door is never an exit: walking into it and pressing Up do nothing',
   for (let i = 0; i < 30; i++) stepRun(run, { ...NEUTRAL_INPUT, climb: i % 2 === 0 })
   assert.equal(run.finished, false)
   assert.equal(run.exit, null)
+})
+
+test('a named blocked door is lettered above it like a level door or bulkhead; an unnamed one is not', () => {
+  const door = { x: 600, y: 920, condition: 'boarded', name: ' Old stores ' }, bulkhead = { ...door, frame: 'bulkhead', name: 'Freight lift' }
+  assert.deepEqual(wallDoorSign(door), { ...courseDoorSignBounds(door), text: 'OLD STORES', fontSize: 16, align: 'center', style: 'official' })
+  assert.deepEqual(wallDoorSign(bulkhead), { ...bulkheadSignBounds(bulkhead), text: 'FREIGHT LIFT', fontSize: 18, align: 'center', style: 'official' })
+  assert.equal(wallDoorSign({ x: 600, y: 920, condition: 'sealed' }), null)
+  assert.equal(wallDoorSign({ x: 600, y: 920, condition: 'sealed', name: '   ' }), null)
+  // The lettering joins the level's own wall texts.
+  const text = { x: 100, y: 100, w: 200, h: 40, text: 'HELLO', fontSize: 20, align: 'left' }
+  assert.deepEqual(wallLettering({ texts: [text], wallDoors: [door, { x: 900, y: 920, condition: 'jammed' }] }).map(t => t.text), ['HELLO', 'OLD STORES'])
 })

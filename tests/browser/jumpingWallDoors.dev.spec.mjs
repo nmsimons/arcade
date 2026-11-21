@@ -9,6 +9,14 @@ test('blocked doors are placed as wall art and restyled in the studio', async ({
     { x: 240 + i * 180, y: 920, condition }, { x: 1000 + i * 180, y: 920, condition, frame: 'bulkhead', ...(i % 2 ? { flipX: true } : {}) }])
   const level = { ...blankTrial(), name: 'Blocked doors', width: 1800, wallDoors, entrance: { x: 120, y: 920 }, goal: { x: 1720, y: 920, flipX: true } }
   await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'blocked.json': level })
+  // Record the wall lettering the studio draws; wall text is laid out on cached offscreen canvases.
+  await page.addInitScript(() => {
+    window.drawnText = new Set()
+    for (const context of [CanvasRenderingContext2D, OffscreenCanvasRenderingContext2D]) {
+      const text = context.prototype.fillText
+      context.prototype.fillText = function (value, ...rest) { window.drawnText.add(String(value)); return text.call(this, value, ...rest) }
+    }
+  })
   await page.goto('/lab/library')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
@@ -24,8 +32,18 @@ test('blocked doors are placed as wall art and restyled in the studio', async ({
   await selectBuilderOption(page, 'Blocked door condition', 'caved-in')
   await selectBuilderOption(page, 'Blocked door frame', 'bulkhead')
   await expect(page.getByRole('combobox', { name: 'Selected object', exact: true })).toHaveText('Caved in bulkhead 9')
+  // Its name is edited in the inspector and lettered above it, as a bulkhead's destination is.
+  const name = page.getByRole('textbox', { name: 'Object name', exact: true }), drawn = () => page.evaluate(() => [...window.drawnText])
+  // Lettering is laid out once and cached, so look for each new name among everything drawn.
+  const lettered = wanted => expect.poll(async () => (await drawn()).some(value => value.includes(wanted))).toBe(true)
+  await name.fill('Old stores'); await name.press('Enter')
+  await expect(page.getByRole('combobox', { name: 'Selected object', exact: true })).toHaveText('Old stores · Caved in bulkhead 9')
+  await lettered('OLD STORES')
+  await name.fill('Freight lift'); await name.press('Enter')
+  await lettered('FREIGHT LIFT')
+  await page.getByRole('application', { name: 'Level canvas' }).screenshot({ path: info.outputPath('named-blocked-door.png') })
   const saved = await saveTestLevel(page)
   expect(saved.level.wallDoors).toHaveLength(9)
-  expect(saved.level.wallDoors[8]).toMatchObject({ y: 920, condition: 'caved-in', frame: 'bulkhead' })
+  expect(saved.level.wallDoors[8]).toMatchObject({ y: 920, condition: 'caved-in', frame: 'bulkhead', name: 'Freight lift' })
   expect(levelProblems(saved.level)).toEqual([])
 })

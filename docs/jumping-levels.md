@@ -953,7 +953,10 @@ striped frame of a bulkhead; `flipX` mirrors the artwork. Like a real door, `x`
 is the middle of the sill and the doorway is 40 by 80, but a blocked door has
 no collision, gives no cover and never responds to Up. In the studio, **Back
 wall → Blocked door** places one on a flat sill, and **Object → Appearance**
-chooses its condition and frame.
+chooses its condition and frame. A blocked door with a `name` (**Object →
+Name**) has it lettered on the wall above, in capitals, as a level door or
+bulkhead has where it leads: the bulkhead lettering for a bulkhead frame, the
+level door's otherwise. An unnamed one has no lettering.
 
 ### Pipes
 

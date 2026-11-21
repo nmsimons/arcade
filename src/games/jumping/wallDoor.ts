@@ -1,5 +1,7 @@
 import { drawDoorway, entranceDoor } from './goal.ts'
 import type { NamedObject } from './objectNames.ts'
+import { bulkheadSign, courseDoorSign } from './hub.ts'
+import type { WallText } from './wallText.ts'
 
 /**
  * A door painted into the back wall that never opens: art for sealed, jammed,
@@ -16,6 +18,16 @@ const frameWidth = (door: Pick<WallDoor, 'frame'>) => door.frame === 'bulkhead' 
 export function wallDoorBounds(door: Pick<WallDoor, 'x' | 'y' | 'frame'>) {
   const b = entranceDoor(door), f = frameWidth(door)
   return { x: b.x - f, y: b.y - f, w: b.w + f * 2, h: b.h + f }
+}
+
+/** A named blocked door has its name lettered on the wall above it, as a level door or bulkhead has where it leads. */
+export function wallDoorSign(door: WallDoor): WallText | null {
+  const name = door.name?.trim().toUpperCase()
+  return !name ? null : door.frame === 'bulkhead' ? bulkheadSign(door, name) : courseDoorSign(door, name)
+}
+/** A level's wall lettering: its wall texts, then the names above its blocked doors. */
+export function wallLettering(level: { texts?: readonly WallText[]; wallDoors?: readonly WallDoor[] }): WallText[] {
+  return [...level.texts ?? [], ...(level.wallDoors ?? []).flatMap(door => wallDoorSign(door) ?? [])]
 }
 
 export function drawWallDoors(ctx: CanvasRenderingContext2D, doors: readonly WallDoor[]) {

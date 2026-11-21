@@ -24,6 +24,7 @@
  * it as before.
  */
 import { drawLevelBackdrop, drawTerrain } from './render.ts'
+import { wallLettering } from './wallDoor.ts'
 import { clipOpenAir, drawLandscape, hasRegionLighting } from './environment.ts'
 import { EnvironmentLighting } from './environmentLighting.ts'
 import { drawPuzzleWorld, drawWaterBackdrop } from './challengeRender.ts'
@@ -164,8 +165,8 @@ export class WebGLWorldFrame {
       }
       drawWallWiring(ctx, level, run, paint, night)
       // In regions, each text is lit as the air around it.
-      if (regions) for (const text of level.texts ?? []) drawWallTexts(ctx, [text], this.environment.exposureAt(run, text.x + text.w / 2, text.y + text.h / 2) < .7, paint, wallWear(level))
-      else drawWallTexts(ctx, level.texts ?? [], night, paint, wallWear(level))
+      if (regions) for (const text of wallLettering(level)) drawWallTexts(ctx, [text], this.environment.exposureAt(run, text.x + text.w / 2, text.y + text.h / 2) < .7, paint, wallWear(level))
+      else drawWallTexts(ctx, wallLettering(level), night, paint, wallWear(level))
       drawPuzzleWorld(ctx, run, false, paint, ink, sources, 'wall', playerExposure)
       // The glow sits over the wall's artwork but behind the fixtures it comes from, and behind every object.
       if (night) { recorder.effect('glow'); drawLightFixtures(ctx, sources, ambientPaint(paint)) }

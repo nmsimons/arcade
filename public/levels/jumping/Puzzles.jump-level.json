@@ -19,6 +19,7 @@
   "floor": 720,
   "wallFinish": "tile",
   "kind": "hub",
+  "optional": true,
   "props": [],
   "mechanisms": [],
   "triggers": [],
@@ -39,36 +40,7 @@
       "y": 720,
       "course": "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a",
       "power": "switched",
-      "targets": [
-        "door-four-lamps"
-      ]
-    },
-    {
-      "id": "door-four-lamps",
-      "x": 1855,
-      "y": 720,
-      "course": "809e8f88-ba3a-4de9-8333-b5789852bdfd",
-      "power": "switched",
-      "targets": [
-        "door-one-or-the-other"
-      ]
-    },
-    {
-      "id": "door-one-or-the-other",
-      "x": 2210,
-      "y": 720,
-      "course": "e5c60d49-96e7-400a-b583-2b17a1a95947",
-      "power": "switched",
-      "targets": [
-        "door-handoff"
-      ]
-    },
-    {
-      "id": "door-handoff",
-      "x": 2565,
-      "y": 720,
-      "course": "0de3d603-e5b2-4a55-bac0-374a94bdcc66",
-      "power": "switched"
+      "targets": []
     }
   ],
   "bulkheads": [

@@ -122,6 +122,8 @@ export interface JumpLevel {
   vacantPods?: { x: number; y: number; robot?: boolean }[]
   pickups?: Pickup[]
   kind?: 'hub'; courseDoors?: CourseDoor[]; bulkheads?: Bulkhead[]; evaluationBoards?: EvaluationBoard[]
+  /** A facility area whose courses are an optional wing: outside the evaluation's required courses (docs/jumping-facility.md). */
+  optional?: true
   /** Studio-only nodes that switch on an average of this area's level door grades. */
   gradeGates?: GradeGate[]
 }
@@ -538,10 +540,12 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.kind !== undefined && v.kind !== 'hub') fail()
   const hub = v.kind === 'hub'
   if (hub && (goal !== undefined || v.timing !== 'untimed' || v.times !== undefined)) fail()
-  if (!hub && ['courseDoors', 'bulkheads', 'evaluationBoards', 'gradeGates'].some(key => v[key] !== undefined)) fail()
+  if (!hub && ['courseDoors', 'bulkheads', 'evaluationBoards', 'gradeGates', 'optional'].some(key => v[key] !== undefined)) fail()
+  if (v.optional !== undefined && v.optional !== true) fail()
   if (goal !== undefined || hub) {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
     if (hub) level.kind = 'hub'
+    if (hub && v.optional === true) level.optional = true
   }
   if (goal !== undefined) {
     const location = point(goal), g = object(goal), flipX = g.flipX

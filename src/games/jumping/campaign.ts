@@ -22,7 +22,8 @@ export async function loadCampaign(base: string, fetchFile: typeof fetch = fetch
  */
 export interface CampaignFile { version: 3; start: string }
 /** A wing: a facility area with level doors, and the courses behind them in the order its wiring opens them. */
-export interface CampaignWing { level: string; courses: string[] }
+/** `optional`: its facility area is marked optional, so its courses lie outside the evaluation's required courses. */
+export interface CampaignWing { level: string; courses: string[]; optional?: true }
 /**
  * The facility's structure, as its levels lay it out. A new game starts in
  * `start`. `areas` are the facility areas the robot can reach from there,
@@ -40,13 +41,14 @@ export interface Campaign {
 
 export type DoorState = 'locked' | 'open' | 'passed'
 export interface WingProgress {
-  id: string; open: boolean; passed: number
+  id: string; open: boolean; passed: number; optional?: true
   doors: { course: string; state: DoorState }[]
 }
 /** Which wings, wing courses and dispatch door the facility's wiring opens; see `campaignWiring` in facility.ts. */
 export interface CampaignWiring { wing: (wing: CampaignWing) => boolean; door: (course: string) => boolean; dispatch?: () => boolean }
 /**
- * `complete` is the evaluation: every wing course passed. `released` is the
+ * `complete` is the evaluation: every required wing course passed. Optional wings' courses are not counted in
+ * `required` or `passed`. `released` is the
  * dispatch door: open by its wiring, or, with no dispatch door, once complete.
  */
 export interface FacilityProgress { wings: WingProgress[]; required: number; passed: number; complete: boolean; released: boolean }
@@ -172,8 +174,8 @@ export function facilityProgress(campaign: Campaign, passed: (course: string) =>
     const open = wiring.wing(wing)
     const doors = wing.courses.map(course => ({ course, state: (passed(course) ? 'passed' : open && wiring.door(course) ? 'open' : 'locked') as DoorState }))
     const count = doors.filter(door => door.state === 'passed').length
-    total += doors.length; done += count
-    return { id: wing.level, open, passed: count, doors }
+    if (!wing.optional) { total += doors.length; done += count }
+    return { id: wing.level, open, passed: count, doors, ...wing.optional ? { optional: true as const } : {} }
   })
   const complete = total > 0 && done === total
   return { wings, required: total, passed: done, complete, released: wiring.dispatch ? wiring.dispatch() : complete }

@@ -36,7 +36,8 @@ const ratings: [number, string][] = [[3.5, 'Distinguished'], [3, 'Commendable'],
 export function releaseCertificate(progress: { passed: number; required: number; wings: readonly WingRecord[] }): ReleaseCertificate {
   const grades: Record<CourseGrade, number> = { A: 0, B: 0, C: 0, D: 0 }
   let total: number | null = null, graded = 0, sum = 0, trials: TrialTally | null = null
-  for (const wing of progress.wings) for (const course of wing.courses) {
+  // Optional wings are extra challenges: they never change the rating, the tallies or the trial log.
+  for (const wing of progress.wings) if (!wing.optional) for (const course of wing.courses) {
     if (course.state === 'locked') continue
     const log = course.trials ?? null
     if (log && trialCount(log)) {

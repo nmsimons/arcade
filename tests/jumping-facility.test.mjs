@@ -328,3 +328,39 @@ test('the studio names doors and bulkheads as the facility shows them, never by 
   assert.deepEqual([...draft.signs.values()], ['NO LEVEL', 'HOP SKIP JUMP I', 'NOWHERE'])
   assert.deepEqual([...draft.placards.values()], [[], ['NO RECORD', 'D 1:15']])
 })
+
+test('an optional wing stays outside the evaluation, the release and the certificate', async () => {
+  const { releaseCertificate } = await import('../src/games/jumping/releaseCertificate.ts')
+  // An ordinary concourse bulkhead opens onto an optional puzzle wing once the freight wing is complete; it switches nothing.
+  const hall = levels.get('hall'), withOptional = new Map(levels)
+  withOptional.set('hall', { ...hall, bulkheads: [...hall.bulkheads.map(b => b.id === 'hall-to-f' ? { ...b, targets: [...b.targets, 'hall-to-p'] } : b),
+    { ...bulkhead('hall-to-p', 2200, 'p-hub'), power: 'switched' }] })
+  withOptional.set('p-hub', { ...hub('p-hub', [door('door-p1', 600, 'p1')], [bulkhead('p-to-hall', 200, 'hall')], [], 'Puzzles'), optional: true })
+  withOptional.set('p1', course('p1', 'Waterline I'))
+  const optional = resolveCampaign(parseCampaign({ version: 3, start: 'wake' }), withOptional)
+  assert.deepEqual(optional.wings.map(wing => [wing.level, !!wing.optional]), [['m-hub', false], ['f-hub', false], ['w-hub', false], ['p-hub', true]])
+  const progressAt = passes => {
+    const grade = id => passes.includes(id) ? 'D' : null
+    return facilityProgress(optional, id => passes.includes(id),
+      campaignWiring(optional, withOptional, { grade, complete: area => !!withOptional.get(area) && areaComplete(withOptional.get(area), grade) }))
+  }
+  // Before the freight wing is complete the optional wing is sealed, and stays off the board.
+  const early = progressAt(['m1', 'm2'])
+  assert.equal(early.wings.find(wing => wing.id === 'p-hub').open, false)
+  assert.deepEqual(evaluationLines(optional, early, withOptional), ['EVALUATION 2 / 5', 'MOVEMENT WING 2/2', 'FREIGHT WING 0/2', 'WATER WING SEALED'])
+  // Every required course passed: the evaluation completes and the release opens without the optional course.
+  const done = progressAt(everything)
+  assert.deepEqual([done.required, done.passed, done.complete, done.released], [5, 5, true, true])
+  assert.equal(done.wings.find(wing => wing.id === 'p-hub').open, true)
+  assert.deepEqual(evaluationLines(optional, done, withOptional).at(-1), 'PUZZLES OPTIONAL 0/1')
+  // Passing it never changes the required count; the board reads it as an ordinary wing row.
+  const all = progressAt([...everything, 'p1'])
+  assert.deepEqual([all.required, all.passed], [5, 5])
+  assert.deepEqual(boardRows(evaluationLines(optional, all, withOptional)).at(-1), { kind: 'wing', name: 'PUZZLES OPTIONAL', status: '1/1', lamp: 'complete' })
+  // The release certificate rates the required courses only.
+  const records = progressRecords(optional, all, withOptional, () => null)
+  assert.equal(records.at(-1).optional, true)
+  const certificate = releaseCertificate({ passed: all.passed, required: all.required, wings: records.map(wing => wing.optional
+    ? { ...wing, courses: wing.courses.map(course => course.state === 'locked' ? course : { ...course, grade: 'D', best: 99 }) } : wing) })
+  assert.equal(certificate.grades.D, 0)
+})

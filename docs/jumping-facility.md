@@ -54,16 +54,24 @@ in development builds only. What exists:
   inputs. Wake, the four tutorial levels and Company stay in the collection but
   leave the campaign; their direct links stay open. Orientation's golden traces await recording on Apple
   Silicon, like the other facility areas.
-- Seven wings: Boot Camp (8 courses), Freight (5), Construction (7), Gravity
-  (8), Security (6), Puzzles (5) and Assessment (6), for 45 required courses.
-  Gravity's doors run in rising difficulty: Drain, Overhead, Ramping Up,
-  Featherweight, Drift, Pinball, Flip Side and Updraft. Puzzles adds Four
-  Lamps, One or the Other and Handoff after the two Waterlines, and Assessment
-  adds Proficiency and Round Trip (November 17, 2026).
+- Six required wings: Boot Camp (8 courses), Freight (5), Construction (7),
+  Gravity (6), Security (6) and Assessment (6), for 38 required courses.
+  Gravity's doors are Drain, Ramping Up, Drift, Pinball, EVA and Updraft, and
+  Assessment adds Proficiency and Round Trip (November 17, 2026).
   The concourse's wiring opens them as wings are completed: Freight and
   Construction once Boot Camp is complete; Gravity once Freight or Construction
-  is; Security once Freight, Construction and Gravity are; Puzzles once Gravity
-  and Security are; and Assessment once all six others are. Slow is Smooth
+  is; Security once Freight, Construction and Gravity are; and Assessment once
+  the other five required wings are.
+- One optional wing, Puzzles (November 21, 2026), for hard puzzle courses with
+  no enemies and generous C and D deadlines. Its bulkhead is an ordinary
+  concourse bulkhead, opening once Gravity and Security are complete, but
+  nothing waits on it: Assessment and the dispatch door no longer need it, and
+  its courses never count toward the evaluation or the release certificate
+  (`"optional": true`, [level files](jumping-levels.md)). How the facility
+  signals that it is optional is still to design. It holds Waterline I and II;
+  new puzzles are being designed for it. Four Lamps, One or the Other and
+  Handoff left the campaign: they solved by trial and error or by their own wall
+  text. Their files and direct links stay. Slow is Smooth
   and Buoyancy stay in the collection with no door; their direct links stay open.
   Most wings are still flat corridors that make the campaign playable end to
   end, not designed wings.

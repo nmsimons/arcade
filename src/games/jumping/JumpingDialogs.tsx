@@ -98,8 +98,9 @@ function ProgressReport({ progress }: { progress: StartProgress }) {
   return <section className="jumping-dialog-controls jumping-start-progress" aria-label="Evaluation progress" data-controller-scroll>
     {progress.released && <ReleaseCertificate progress={progress} />}
     <p className="jumping-start-total">{progress.complete ? 'Evaluation complete. Unit released for dispatch.' : `Evaluation ${progress.passed} / ${progress.required}`}</p>
-    {progress.wings.map(wing => <section key={wing.id} aria-label={wing.name}>
-      <h3><span>{wing.name}</span> <span>{wing.open ? `${wing.passed}/${wing.courses.length}` : 'Sealed'}</span></h3>
+    {/* An optional wing stays off the report until it opens, as on the evaluation board. */}
+    {progress.wings.filter(wing => !wing.optional || wing.open).map(wing => <section key={wing.id} aria-label={wing.optional ? `${wing.name} (optional)` : wing.name}>
+      <h3><span>{wing.name}{wing.optional && ' (optional)'}</span> <span>{wing.open ? `${wing.passed}/${wing.courses.length}` : 'Sealed'}</span></h3>
       {wing.open && <ul>{wing.courses.map((course, i) => course.state === 'locked'
         ? <li key={i} className="jumping-start-locked">Locked</li>
         : <li key={course.id}><span>{course.name}</span> <span>{courseRecord(course)}</span></li>)}</ul>}

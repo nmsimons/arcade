@@ -188,3 +188,21 @@ test('the built-in campaign names valid built-in levels', () => {
   assert.deepEqual(Object.keys(value.chained), ['d52a327a-3f29-4c04-b501-3ee77d6e2e42', '13b9b9d7-7937-4989-bc03-21238e7e58f2', 'b42dcd81-427a-4c2b-9c9b-a231874bef5b'])
   assert.ok(Object.values(value.chained).every(root => root === value.finalCourse))
 })
+
+test('the built-in Puzzles wing is optional, entered from the concourse, and nothing required waits on it', () => {
+  const root = new URL('../public/levels/jumping/', import.meta.url)
+  const manifest = decodeLevelManifest(readFileSync(new URL('index.json', root), 'utf8'))
+  const builtIns = manifest.levels.map(name => decodeLevelFile(readFileSync(new URL(encodeURIComponent(name), root), 'utf8')))
+  const byId = new Map(builtIns.map(level => [level.id, level]))
+  const value = resolveCampaign(parseCampaign(JSON.parse(readFileSync(new URL('../public/levels/jumping-campaign.json', import.meta.url), 'utf8'))), byId)
+  const hubNamed = name => builtIns.find(level => isHubLevel(level) && level.name === name)
+  const puzzles = hubNamed('Puzzles')
+  assert.deepEqual(value.wings.filter(wing => wing.optional).map(wing => byId.get(wing.level).name), ['Puzzles'])
+  // An ordinary bulkhead on the concourse leads in.
+  const ways = builtIns.filter(isHubLevel).flatMap(area => area.bulkheads.filter(b => b.to === puzzles.id).map(b => [area.name, b]))
+  assert.deepEqual(ways.map(([area]) => area), ['Concourse'])
+  // Neither entering nor completing Puzzles switches anything outside it, so Assessment and the dispatch door never wait on it.
+  assert.ok(!ways.some(([, bulkhead]) => bulkhead.targets?.length), 'the way into Puzzles switches nothing')
+  const own = new Set([...puzzles.courseDoors, ...puzzles.bulkheads].map(d => d.id))
+  assert.deepEqual([...puzzles.courseDoors, ...puzzles.bulkheads].flatMap(d => d.targets ?? []).filter(id => !own.has(id)), [])
+})

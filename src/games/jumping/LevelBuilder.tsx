@@ -1706,6 +1706,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           options={[{ value: 'course', label: 'Course · reach the exit' }, { value: 'hub', label: 'Facility area · doors and bulkheads' }, ...(isRunLevel(level) ? [] : [{ value: 'playground', label: 'Movement playground' }])]}
           onChange={value => { if (value === 'playground') return; chooseSelection(null); commit(setLevelType(history.present, value === 'hub' ? 'hub' : 'course')) }} />
         {isHubLevel(level) && <p className="builder-hint">Part of the facility, untimed and with no exit. The robot leaves through level doors and bulkheads: Up in an open doorway. Coins, clocks and time pickups stay in courses.</p>}
+        {isHubLevel(level) && <CheckField title="An optional wing's courses are extra challenges: they never count toward the evaluation, the dispatch door or the release certificate."
+          checked={!!level.optional} onCheckedChange={checked => {
+            const next = copyLevel(history.present)
+            if (checked) next.optional = true; else delete next.optional
+            commit(next)
+          }}>Optional wing</CheckField>}
         <BuilderInspectorSection title="World">
           <EnvironmentFields level={level} onChange={commit} selectedWall={selection?.kind === 'back-wall' ? selection.index : null} onSelectWall={editBackWall}
             onCreateWall={() => { chooseSelection(null); setTool('back-wall'); canvasRef.current?.focus() }} />

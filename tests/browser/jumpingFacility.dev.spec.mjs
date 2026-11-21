@@ -161,7 +161,8 @@ test('a returning save opens on the start screen, which shows the evaluation so 
   await start.getByRole('button', { name: 'Progress', exact: true }).click()
   await expect(start.getByRole('heading', { level: 2 })).toHaveText('Progress.')
   const report = start.getByRole('region', { name: 'Evaluation progress', exact: true })
-  const required = campaign.wings.reduce((total, wing) => total + wing.courses.length, 0)
+  // Optional wings (Puzzles) are outside the evaluation.
+  const required = campaign.wings.filter(wing => !wing.optional).reduce((total, wing) => total + wing.courses.length, 0)
   await expect(report.locator('.jumping-start-total')).toHaveText(`Evaluation 1 / ${required}`)
   // The first wing: its first course passed with its A time, each door the wiring opens with its deadline, the rest dark.
   const wing = report.getByRole('region', { name: firstWing.name, exact: true })

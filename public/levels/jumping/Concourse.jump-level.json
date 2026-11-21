@@ -1151,11 +1151,7 @@
       "y": 760,
       "to": "facility-water",
       "power": "switched",
-      "switchLogic": "and",
-      "targets": [
-        "concourse-to-assessment",
-        "dispatch-door"
-      ]
+      "switchLogic": "and"
     },
     {
       "id": "concourse-to-security",

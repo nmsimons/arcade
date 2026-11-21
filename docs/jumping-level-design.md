@@ -633,6 +633,29 @@ components cover lamp patterns, agreement, load counts, grouped selections,
 load handoffs, changing a crossing into an exit configuration, and buoyant levers
 that react to water or grav lifts.
 
+### A puzzle must be reasoned out
+
+A puzzle course earns its place only when the player has to think before
+acting. Four Lamps (16 lamp states, toggles you can stamp on and off for free),
+One or the Other (two toggles, explained by its own graffiti) and Handoff
+("leave something heavy") left the campaign because stepping on everything, or
+reading the wall, solved them. The Waterlines stayed: each plate fills one shaft
+and drains the next, the water moves slowly, and the robot rides it, so a wrong
+move costs time and undoes progress, and the player plans an order instead.
+
+- Make actions cost something: travel, time, a carried object, a water level or
+  a position that is slow to restore. Free, instant, reversible toggles invite
+  brute force; a small state space is solved by exhausting it.
+- Couple the effects: the move that helps one condition should disturb another,
+  so the obvious first move is not the answer.
+- Put the robot's body in the puzzle: where it stands, what it carries, which
+  way gravity pulls, and what it can still reach after acting.
+- Never state the solution on the wall. Graffiti may point at a mechanism or a
+  consequence; it must not tell the player what to do.
+- Hard puzzles belong in the optional Puzzles wing, with no enemies and generous
+  C and D deadlines, so slow reasoning still passes (see
+  [the facility](jumping-facility.md)).
+
 Connections are optional. A switch may serve as a coin meter without activating
 anything, and a gate, platform, or switched lamp may remain unconnected. Give
 these objects a considered role in the layout; saving and playtesting must not

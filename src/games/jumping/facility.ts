@@ -375,7 +375,7 @@ export function resolveCampaign(file: CampaignFile, levels: Levels): Campaign {
   const wings: CampaignWing[] = []
   for (const id of areas) {
     const courses = [...new Set(hubLevel(levels, id)!.courseDoors.flatMap(door => door.course && !door.dispatch ? [door.course] : []))]
-    if (courses.length) wings.push({ level: id, courses })
+    if (courses.length) wings.push({ level: id, courses, ...hubLevel(levels, id)!.optional ? { optional: true as const } : {} })
   }
   const rounds = wiringRounds(file, levels)
   // The first of these doors to open: by its round, never last, then left to right and top to bottom.
@@ -430,23 +430,28 @@ export function savedProgress(campaign: Campaign, levels: Levels, best: (course:
 
 /**
  * The evaluation board: the total, then UNIT RELEASED FOR DISPATCH once the
- * dispatch door opens, then each wing, by its level's name, with its passes,
- * or SEALED while the robot cannot get in.
+ * dispatch door opens, then each required wing, by its level's name, with its passes,
+ * or SEALED while the robot cannot get in. Optional wings follow, marked OPTIONAL,
+ * and stay off the board until they open.
  */
 export function evaluationLines(campaign: Campaign, progress: FacilityProgress, levels: Levels) {
   const heading = [progress.complete ? 'EVALUATION COMPLETE' : `EVALUATION ${progress.passed} / ${progress.required}`, ...progress.released ? ['UNIT RELEASED FOR DISPATCH'] : []]
-  return [...heading, ...progress.wings.map((wing, i) => `${wingName(campaign.wings[i], levels).toUpperCase()} ${wing.open ? `${wing.passed}/${wing.doors.length}` : 'SEALED'}`)]
+  // Rows read `NAME n/m` (boardRows in facilityScreens.ts), so an optional wing carries OPTIONAL in its name.
+  const line = (wing: FacilityProgress['wings'][number], i: number) => `${wingName(campaign.wings[i], levels).toUpperCase()}${wing.optional ? ' OPTIONAL' : ''} ${wing.open ? `${wing.passed}/${wing.doors.length}` : 'SEALED'}`
+  const wings = progress.wings.map((wing, i) => ({ wing, i }))
+  return [...heading, ...wings.filter(({ wing }) => !wing.optional).map(({ wing, i }) => line(wing, i)),
+    ...wings.filter(({ wing }) => wing.optional && wing.open).map(({ wing, i }) => line(wing, i))]
 }
 
 /** A course on the start screen's progress list. A locked course stays dark, as its door's placard does. */
 export type CourseRecord =
   | { state: 'locked' }
   | { state: 'open' | 'passed'; id: string; name: string; best: number | null; grade: Grade | null; deadline: number | null; trials: TrialRecord | null }
-export interface WingRecord { id: string; name: string; open: boolean; passed: number; courses: CourseRecord[] }
+export interface WingRecord { id: string; name: string; open: boolean; passed: number; optional?: true; courses: CourseRecord[] }
 /** The start screen's progress: each wing in campaign order, with its courses' records once it is open. */
 export function progressRecords(campaign: Campaign, progress: FacilityProgress, levels: Levels, best: (course: string) => number | null, trials: Trials = noTrials): WingRecord[] {
   return progress.wings.map((wing, i) => ({
-    id: wing.id, name: wingName(campaign.wings[i], levels), open: wing.open, passed: wing.passed,
+    id: wing.id, name: wingName(campaign.wings[i], levels), open: wing.open, passed: wing.passed, ...wing.optional ? { optional: true as const } : {},
     courses: wing.doors.map((door): CourseRecord => {
       const course = levels.get(door.course)
       if (!wing.open || door.state === 'locked' || !course || !isPuzzleLevel(course)) return { state: 'locked' }

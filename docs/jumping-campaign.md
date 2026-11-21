@@ -276,6 +276,14 @@ Before enabling a certification group, calibrate its grades against completed
 normal-control routes with the current movement rules. Historical timings do
 not establish that an average B requirement is fair after control changes.
 
+The Puzzles wing (November 21, 2026) is the first optional area. It is reached
+from the concourse through an ordinary bulkhead rather than a certification
+door, and how the facility signals that it is optional is still to design.
+Puzzle courses there are deliberately hard: the solution must be reasoned out,
+not found by stepping on every switch, and no wall text gives it away. They have
+no enemies, and their C and D deadlines are generous, so a player who solves a
+puzzle slowly still passes.
+
 ## Opening: Wake
 
 Central idea: a robot restores enough awareness and local access to begin

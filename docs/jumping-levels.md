@@ -900,6 +900,12 @@ bulkhead once both average a B:
 ```
 - `evaluationBoards: [{ id, name?, x, y, w, h }]`: wall displays of the
   evaluation, filled in during play.
+- `"optional": true` makes the area an optional wing: its courses are extra
+  challenges outside the evaluation. They never count toward its total, its
+  completion, the dispatch door or the release certificate, and the evaluation
+  board and start screen list the wing, marked optional, only once it is open.
+  Studio: **Level → Optional wing** on a facility area. Its bulkhead is an
+  ordinary one; leave its `targets` empty so nothing required waits on it.
 
 Doors and bulkheads share the entrance's flat 40-by-80 doorway, with `x` at the
 middle of the sill. Each has its destination's name lettered on the wall above

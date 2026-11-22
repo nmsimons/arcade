@@ -1,0 +1,275 @@
+{
+  "version": 1,
+  "id": "92ed8a0f-d309-4b8f-b9ea-4174b8599b60",
+  "name": "Through the Glass",
+  "width": 1400,
+  "height": 560,
+  "floor": 560,
+  "wallFinish": "plate",
+  "stains": "light",
+  "platforms": [
+    {
+      "x": 0,
+      "y": 540,
+      "w": 572,
+      "h": 20,
+      "material": "stone"
+    },
+    {
+      "x": 180,
+      "y": 360,
+      "w": 220,
+      "h": 60,
+      "material": "stone"
+    },
+    {
+      "x": 0,
+      "y": 320,
+      "w": 180,
+      "h": 100,
+      "material": "stone"
+    },
+    {
+      "x": 572,
+      "y": 400,
+      "w": 648,
+      "h": 160,
+      "frictionless": true,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          140
+        ],
+        [
+          648,
+          0
+        ],
+        [
+          648,
+          160
+        ],
+        [
+          0,
+          160
+        ]
+      ]
+    },
+    {
+      "x": 1220,
+      "y": 500,
+      "w": 120,
+      "h": 60,
+      "material": "steel"
+    },
+    {
+      "x": 720,
+      "y": 330,
+      "w": 20,
+      "h": 50,
+      "material": "steel"
+    },
+    {
+      "x": 708,
+      "y": 284,
+      "w": 20,
+      "h": 8,
+      "material": "steel"
+    },
+    {
+      "x": 740,
+      "y": 360,
+      "w": 480,
+      "h": 20,
+      "frictionless": true,
+      "material": "steel"
+    },
+    {
+      "x": 809,
+      "y": 260,
+      "w": 80,
+      "h": 20,
+      "material": "steel"
+    },
+    {
+      "x": 1340,
+      "y": 120,
+      "w": 60,
+      "h": 440,
+      "material": "steel"
+    },
+    {
+      "x": 572,
+      "y": 0,
+      "w": 828,
+      "h": 120,
+      "material": "steel"
+    }
+  ],
+  "entrance": {
+    "x": 200,
+    "y": 540
+  },
+  "goal": {
+    "id": "exit",
+    "x": 0,
+    "y": 320,
+    "power": "switched",
+    "switchLogic": "and"
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "times": {
+    "a": 7,
+    "b": 10,
+    "c": 40,
+    "d": 120
+  },
+  "props": [
+    {
+      "name": "Parcel",
+      "kind": "box",
+      "x": 839,
+      "y": 260,
+      "size": 60,
+      "branded": true
+    },
+    {
+      "name": "Tractor gun",
+      "kind": "box",
+      "x": 380,
+      "y": 540,
+      "size": 40,
+      "gadget": "tractor"
+    },
+    {
+      "name": "Repulsor rifle",
+      "kind": "box",
+      "x": 440,
+      "y": 540,
+      "size": 40,
+      "gadget": "repulsor"
+    }
+  ],
+  "mechanisms": [
+    {
+      "id": "lift",
+      "name": "Store lift",
+      "kind": "lift",
+      "x": 1220,
+      "y": 480,
+      "w": 120,
+      "h": 20,
+      "travel": 160,
+      "wireTerminal": {
+        "x": 1330,
+        "y": 470
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Lift call",
+      "x": 20,
+      "y": 540,
+      "w": 100,
+      "targets": [
+        "lift"
+      ],
+      "mode": "weight",
+      "showWires": true,
+      "wireHeight": 30
+    },
+    {
+      "name": "Dispatch pad left",
+      "x": 1124,
+      "y": 360,
+      "w": 40,
+      "targets": [
+        "exit"
+      ],
+      "mode": "weight",
+      "showWires": true,
+      "wireHeight": 400
+    },
+    {
+      "name": "Dispatch pad right",
+      "x": 1176,
+      "y": 360,
+      "w": 40,
+      "targets": [
+        "exit"
+      ],
+      "mode": "weight"
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "name": "Clock",
+      "x": 200,
+      "y": 110
+    }
+  ],
+  "pickups": [],
+  "texts": [
+    {
+      "name": "Lift call label",
+      "x": 30,
+      "y": 423,
+      "w": 80,
+      "h": 24,
+      "text": "LIFT",
+      "fontSize": 16,
+      "align": "center"
+    },
+    {
+      "name": "Store sign",
+      "x": 640,
+      "y": 132,
+      "w": 260,
+      "h": 30,
+      "text": "SEALED STORE",
+      "fontSize": 22,
+      "align": "center"
+    },
+    {
+      "name": "Glass hint",
+      "x": 400,
+      "y": 412,
+      "w": 150,
+      "h": 36,
+      "text": "glass stops you.\nnot the beam.",
+      "fontSize": 14,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": -6
+    },
+    {
+      "x": 215,
+      "y": 200,
+      "w": 150,
+      "h": 70,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 24,
+      "align": "center",
+      "style": "lab-stamp",
+      "rotation": -4
+    }
+  ],
+  "forceFields": [
+    {
+      "id": "glass",
+      "name": "Store glass",
+      "x": 560,
+      "y": 120,
+      "w": 12,
+      "h": 420,
+      "orientation": "vertical",
+      "power": "always"
+    }
+  ]
+}

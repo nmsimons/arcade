@@ -2755,6 +2755,109 @@
           }
         }
       ]
+    },
+    {
+      "level": "92ed8a0f-d309-4b8f-b9ea-4174b8599b60",
+      "jumpModel": "tap-hold",
+      "elapsed": 5.475000000000062,
+      "activeTime": 6.333333333333438,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 45,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 155,
+          "input": {}
+        },
+        {
+          "frames": 115,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 6,
+          "input": {}
+        },
+        {
+          "frames": 2,
+          "input": {
+            "interact": true
+          }
+        },
+        {
+          "frames": 33,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 4,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 2,
+          "input": {
+            "move": 1,
+            "climb": true,
+            "use": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {}
+        },
+        {
+          "frames": 10,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 14,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 65,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 147,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        }
+      ]
     }
   ],
   "jumpModel": "recorded-impulses",

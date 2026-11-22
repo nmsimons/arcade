@@ -354,11 +354,11 @@
     },
     {
       "name": "Lift 2 label",
-      "x": 20,
+      "x": 0,
       "y": 545,
-      "w": 80,
+      "w": 160,
       "h": 25,
-      "text": "HOLD 2",
+      "text": "HOLD 2 + WINDOW",
       "fontSize": 14,
       "align": "center"
     },

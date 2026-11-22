@@ -1,0 +1,553 @@
+{
+  "version": 1,
+  "id": "92ed8a0f-d309-4b8f-b9ea-4174b8599b60",
+  "name": "Loopholes",
+  "width": 1600,
+  "height": 1060,
+  "platforms": [
+    {
+      "x": 0,
+      "y": 1000,
+      "w": 570,
+      "h": 60,
+      "material": "stone"
+    },
+    {
+      "x": 0,
+      "y": 475,
+      "w": 200,
+      "h": 20,
+      "material": "stone"
+    },
+    {
+      "x": 0,
+      "y": 675,
+      "w": 300,
+      "h": 20,
+      "material": "stone"
+    },
+    {
+      "x": 300,
+      "y": 840,
+      "w": 120,
+      "h": 20,
+      "material": "stone"
+    },
+    {
+      "x": 300,
+      "y": 535,
+      "w": 270,
+      "h": 20,
+      "material": "steel"
+    },
+    {
+      "x": 570,
+      "y": 945,
+      "w": 20,
+      "h": 115,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          15
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          20,
+          115
+        ],
+        [
+          0,
+          115
+        ]
+      ]
+    },
+    {
+      "x": 570,
+      "y": 930,
+      "w": 20,
+      "h": 30,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          30
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          20,
+          15
+        ]
+      ]
+    },
+    {
+      "x": 590,
+      "y": 670,
+      "w": 950,
+      "h": 390,
+      "material": "steel",
+      "frictionless": true,
+      "polygon": [
+        [
+          0,
+          275
+        ],
+        [
+          390,
+          225
+        ],
+        [
+          390,
+          205
+        ],
+        [
+          450,
+          165
+        ],
+        [
+          870,
+          90
+        ],
+        [
+          950,
+          0
+        ],
+        [
+          950,
+          390
+        ],
+        [
+          0,
+          390
+        ]
+      ]
+    },
+    {
+      "x": 980,
+      "y": 675,
+      "w": 320,
+      "h": 20,
+      "material": "steel",
+      "frictionless": true
+    },
+    {
+      "x": 645,
+      "y": 475,
+      "w": 655,
+      "h": 125,
+      "material": "steel",
+      "frictionless": true,
+      "polygon": [
+        [
+          0,
+          125
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          655,
+          0
+        ],
+        [
+          655,
+          20
+        ],
+        [
+          40,
+          95
+        ]
+      ]
+    },
+    {
+      "x": 790,
+      "y": 380,
+      "w": 160,
+      "h": 40,
+      "material": "steel",
+      "frictionless": true,
+      "polygon": [
+        [
+          0,
+          20
+        ],
+        [
+          140,
+          20
+        ],
+        [
+          140,
+          0
+        ],
+        [
+          160,
+          0
+        ],
+        [
+          160,
+          20
+        ],
+        [
+          160,
+          40
+        ],
+        [
+          0,
+          40
+        ]
+      ]
+    },
+    {
+      "x": 1460,
+      "y": 455,
+      "w": 20,
+      "h": 325,
+      "material": "steel"
+    },
+    {
+      "x": 1540,
+      "y": 120,
+      "w": 60,
+      "h": 940,
+      "material": "steel"
+    },
+    {
+      "x": 570,
+      "y": 0,
+      "w": 1030,
+      "h": 130,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          1030,
+          0
+        ],
+        [
+          1030,
+          120
+        ],
+        [
+          20,
+          120
+        ],
+        [
+          10,
+          130
+        ],
+        [
+          0,
+          120
+        ]
+      ]
+    },
+    {
+      "x": 570,
+      "y": 640,
+      "w": 20,
+      "h": 155,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          20,
+          5
+        ],
+        [
+          20,
+          155
+        ],
+        [
+          0,
+          155
+        ]
+      ]
+    },
+    {
+      "x": 570,
+      "y": 470,
+      "w": 20,
+      "h": 160,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          20
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          20,
+          155
+        ],
+        [
+          10,
+          150
+        ],
+        [
+          0,
+          160
+        ]
+      ]
+    },
+    {
+      "x": 570,
+      "y": 160,
+      "w": 20,
+      "h": 270,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          15
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          20,
+          0
+        ],
+        [
+          20,
+          265
+        ],
+        [
+          10,
+          270
+        ],
+        [
+          0,
+          260
+        ]
+      ]
+    },
+    {
+      "x": 1380,
+      "y": 260,
+      "w": 160,
+      "h": 20,
+      "material": "steel",
+      "frictionless": true
+    },
+    {
+      "x": 570,
+      "y": 810,
+      "w": 20,
+      "h": 85,
+      "material": "steel",
+      "polygon": [
+        [
+          20,
+          5
+        ],
+        [
+          20,
+          85
+        ],
+        [
+          10,
+          80
+        ],
+        [
+          0,
+          70
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "entrance": {
+    "x": 360,
+    "y": 1000
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "wallFinish": "plate",
+  "stains": "light",
+  "floor": 1060,
+  "goal": {
+    "x": 200,
+    "y": 475,
+    "flipX": true,
+    "id": "exit",
+    "power": "switched"
+  },
+  "times": {
+    "a": 26,
+    "b": 40,
+    "c": 70,
+    "d": 150
+  },
+  "props": [
+    {
+      "name": "Parcel",
+      "kind": "box",
+      "x": 615,
+      "y": 945,
+      "size": 50,
+      "branded": true
+    },
+    {
+      "name": "Repulsor rifle",
+      "kind": "box",
+      "x": 470,
+      "y": 1000,
+      "size": 40,
+      "gadget": "repulsor"
+    },
+    {
+      "name": "Tractor gun",
+      "kind": "box",
+      "x": 180,
+      "y": 475,
+      "size": 40,
+      "gadget": "tractor"
+    }
+  ],
+  "mechanisms": [
+    {
+      "name": "Store lift 1",
+      "wireTerminal": {
+        "x": 900,
+        "y": 860
+      },
+      "switchReversed": true,
+      "id": "lift1",
+      "kind": "lift",
+      "x": 820,
+      "y": 875,
+      "w": 160,
+      "h": 20,
+      "travel": 200
+    },
+    {
+      "name": "Store lift 2",
+      "wireTerminal": {
+        "x": 1380,
+        "y": 640
+      },
+      "switchReversed": true,
+      "id": "lift2",
+      "kind": "lift",
+      "x": 1300,
+      "y": 675,
+      "w": 160,
+      "h": 20,
+      "travel": 200
+    },
+    {
+      "name": "Store lift 3",
+      "wireTerminal": {
+        "x": 615,
+        "y": 560
+      },
+      "switchReversed": true,
+      "id": "lift3",
+      "kind": "lift",
+      "x": 590,
+      "y": 600,
+      "w": 55,
+      "h": 20,
+      "travel": 125
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Lift 1 call",
+      "showWires": true,
+      "wireHeight": 260,
+      "x": 150,
+      "y": 1000,
+      "w": 100,
+      "targets": [
+        "lift1"
+      ],
+      "mode": "weight"
+    },
+    {
+      "name": "Lift 2 hold",
+      "showWires": true,
+      "wireHeight": 480,
+      "x": 5,
+      "y": 675,
+      "w": 115,
+      "targets": [
+        "lift2"
+      ],
+      "mode": "weight"
+    },
+    {
+      "name": "Lift 3 call",
+      "showWires": true,
+      "wireHeight": 730,
+      "x": 5,
+      "y": 475,
+      "w": 50,
+      "targets": [
+        "lift3"
+      ],
+      "mode": "weight"
+    },
+    {
+      "name": "Dispatch pad",
+      "showWires": true,
+      "wireHeight": 920,
+      "x": 800,
+      "y": 400,
+      "w": 125,
+      "targets": [
+        "exit"
+      ],
+      "mode": "weight"
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "name": "Clock",
+      "x": 180,
+      "y": 360
+    }
+  ],
+  "pickups": [],
+  "texts": [],
+  "wallDoors": [
+    {
+      "x": 1490,
+      "y": 260,
+      "condition": "caved-in"
+    }
+  ],
+  "forceFields": []
+}

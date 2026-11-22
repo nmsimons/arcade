@@ -2759,8 +2759,8 @@
     {
       "level": "92ed8a0f-d309-4b8f-b9ea-4174b8599b60",
       "jumpModel": "tap-hold",
-      "elapsed": 23.041666666666,
-      "activeTime": 23.899999999999284,
+      "elapsed": 22.583333333332693,
+      "activeTime": 23.441666666665977,
       "coins": 0,
       "trace": [
         {
@@ -2784,10 +2784,14 @@
           "input": {}
         },
         {
-          "frames": 20,
+          "frames": 53,
           "input": {
-            "move": 1
+            "move": 0.3048780487804878
           }
+        },
+        {
+          "frames": 577,
+          "input": {}
         },
         {
           "frames": 2,
@@ -2805,37 +2809,17 @@
           }
         },
         {
-          "frames": 61,
+          "frames": 1,
           "input": {}
         },
         {
-          "frames": 97,
+          "frames": 19,
           "input": {
             "move": -1
           }
         },
         {
-          "frames": 200,
-          "input": {}
-        },
-        {
-          "frames": 78,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 18,
-          "input": {}
-        },
-        {
-          "frames": 10,
-          "input": {
-            "jump": true
-          }
-        },
-        {
-          "frames": 14,
+          "frames": 24,
           "input": {
             "move": -1,
             "jump": true
@@ -2849,23 +2833,13 @@
           }
         },
         {
-          "frames": 12,
+          "frames": 7,
           "input": {
             "move": -1
           }
         },
         {
-          "frames": 18,
-          "input": {}
-        },
-        {
-          "frames": 10,
-          "input": {
-            "jump": true
-          }
-        },
-        {
-          "frames": 14,
+          "frames": 24,
           "input": {
             "move": -1,
             "jump": true
@@ -2879,7 +2853,7 @@
           }
         },
         {
-          "frames": 48,
+          "frames": 57,
           "input": {
             "move": -1
           }
@@ -2891,7 +2865,7 @@
           }
         },
         {
-          "frames": 16,
+          "frames": 211,
           "input": {}
         },
         {
@@ -2902,36 +2876,6 @@
         },
         {
           "frames": 101,
-          "input": {}
-        },
-        {
-          "frames": 33,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 341,
-          "input": {}
-        },
-        {
-          "frames": 25,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 6,
-          "input": {}
-        },
-        {
-          "frames": 2,
-          "input": {
-            "interact": true
-          }
-        },
-        {
-          "frames": 4,
           "input": {}
         },
         {
@@ -2965,13 +2909,33 @@
           }
         },
         {
-          "frames": 7,
+          "frames": 42,
           "input": {
-            "move": -1
+            "move": -0.3048780487804878
           }
         },
         {
-          "frames": 8,
+          "frames": 6,
+          "input": {}
+        },
+        {
+          "frames": 2,
+          "input": {
+            "interact": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 16,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 6,
           "input": {}
         },
         {
@@ -2983,6 +2947,22 @@
         {
           "frames": 4,
           "input": {}
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 6,
+          "input": {}
+        },
+        {
+          "frames": 44,
+          "input": {
+            "move": -0.3048780487804878
+          }
         },
         {
           "frames": 1,
@@ -3005,51 +2985,23 @@
           "input": {}
         },
         {
-          "frames": 50,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 127,
-          "input": {}
-        },
-        {
-          "frames": 69,
+          "frames": 25,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 31,
+          "frames": 129,
           "input": {}
         },
         {
-          "frames": 60,
+          "frames": 29,
           "input": {
             "move": -1
           }
         },
         {
-          "frames": 10,
-          "input": {
-            "drop": true,
-            "descend": true,
-            "crouch": true
-          }
-        },
-        {
-          "frames": 21,
-          "input": {}
-        },
-        {
-          "frames": 19,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 10,
+          "frames": 6,
           "input": {}
         },
         {
@@ -3059,13 +3011,13 @@
           }
         },
         {
-          "frames": 20,
+          "frames": 30,
           "input": {}
         },
         {
-          "frames": 12,
+          "frames": 87,
           "input": {
-            "move": -1
+            "move": 0.3048780487804878
           }
         },
         {
@@ -3083,55 +3035,15 @@
           "input": {}
         },
         {
-          "frames": 58,
+          "frames": 77,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 16,
-          "input": {}
-        },
-        {
-          "frames": 10,
+          "frames": 178,
           "input": {
-            "jump": true
-          }
-        },
-        {
-          "frames": 14,
-          "input": {
-            "move": -1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 52,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 26,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 100,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 6,
-          "input": {}
-        },
-        {
-          "frames": 65,
-          "input": {
-            "move": 1
+            "move": 0.3048780487804878
           }
         },
         {
@@ -3154,7 +3066,7 @@
           "input": {}
         },
         {
-          "frames": 72,
+          "frames": 76,
           "input": {
             "move": -1
           }

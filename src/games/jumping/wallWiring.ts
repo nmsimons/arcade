@@ -18,15 +18,16 @@ import type { WorldPaint } from './worldPaint.ts'
 import { powerOut } from './power.ts'
 import { pressurePlateBounds } from './wallPlates.ts'
 
-/** A gate's shut contact (`gate-shut`) wires from its gate's terminal. */
-export interface WallWire { source: { kind: Selection['kind'] | 'gate-shut'; index: number }; target: string; points: Vec[] }
-const fixture = (item: WallWire['source']): Selection => item.kind === 'gate-shut' ? { kind: 'mechanism', index: item.index } : item as Selection
+/** A gate's shut contact (`gate-shut`) wires from its gate's terminal, and a gauge's marks from the gauge's. */
+export interface WallWire { source: { kind: Selection['kind'] | 'gate-shut' | 'level-gauge-low' | 'level-gauge-high'; index: number }; target: string; points: Vec[] }
+const fixture = (item: WallWire['source']): Selection => item.kind === 'gate-shut' ? { kind: 'mechanism', index: item.index }
+  : item.kind === 'level-gauge-low' || item.kind === 'level-gauge-high' ? { kind: 'level-gauge', index: item.index } : item as Selection
 export const DEFAULT_WIRE_HEIGHT = 160
 export const WALL_WIRE_INACTIVE = '#9aa89c', WALL_WIRE_ENERGIZED = '#a1bf86'
 export interface WallWireState {
   triggers: readonly { active: boolean }[]
   floatSwitches: readonly { active: boolean }[]
-  levelGauges?: readonly { active: boolean }[]
+  levelGauges?: readonly { active: boolean; highActive?: boolean }[]
   /** Gate shut contacts by mechanism index, when the level wires any. */
   gateShut?: readonly { active: boolean }[]
   switchStates: ReadonlyMap<string, boolean>
@@ -130,7 +131,8 @@ export function wallWireEnergized(level: JumpLevel, wire: WallWire, state: WallW
   if (powerOut(state)) return false
   if (wire.source.kind === 'trigger') return !!state.triggers[wire.source.index]?.active
   if (wire.source.kind === 'float-switch') return !!state.floatSwitches[wire.source.index]?.active
-  if (wire.source.kind === 'level-gauge') return !!state.levelGauges?.[wire.source.index]?.active
+  if (wire.source.kind === 'level-gauge' || wire.source.kind === 'level-gauge-low') return !!state.levelGauges?.[wire.source.index]?.active
+  if (wire.source.kind === 'level-gauge-high') return !!state.levelGauges?.[wire.source.index]?.highActive
   if (wire.source.kind === 'gate-shut') return !!state.gateShut?.[wire.source.index]?.active
   const definition = itemDefinition(level, fixture(wire.source)) as { id?: string }
   return !!state.switchStates.get(definition.id ?? '')

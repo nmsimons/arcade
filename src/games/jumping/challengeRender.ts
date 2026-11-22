@@ -247,7 +247,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
     // Depth boards are wall art: the pool's water draws in front of them, meeting the mark.
-    for (const gauge of run.levelGauges ?? []) drawLevelGauge(ctx, gauge.definition, gauge.active, paint)
+    for (const gauge of run.levelGauges ?? []) drawLevelGauge(ctx, gauge.definition, gauge.active, paint, gauge.highActive)
     if (goal) wallPaint(ctx, 0, () => drawGoalDoor(ctx, goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     if (level.entrance.kind !== 'charging-bay' && (editor || !run.started && run.entrance)) wallPaint(ctx, 0, () =>
       drawDoorway(ctx, entranceDoor(level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))

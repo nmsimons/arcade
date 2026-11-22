@@ -19,6 +19,7 @@ import { busEndingFrame } from './busEnding.ts'
 import type { BusEnding } from './busEnding.ts'
 import { goalEase } from './goal.ts'
 import { openAirAt } from './environment.ts'
+import { levelGaugeMarks } from './levelGauge.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo' | 'pump'
 export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'power-warning' | 'emp-shot' | 'repulsor' | 'tractor' | 'shove'
@@ -106,6 +107,7 @@ function snapshot(p: Player, run: Run | null) {
     fields: run?.forceFields.map(field => field.active) ?? [],
     floats: run?.floatSwitches.map(float => float.active) ?? [],
     gauges: run?.levelGauges?.map(gauge => gauge.active) ?? [],
+    gaugeHighs: run?.levelGauges?.map(gauge => !!gauge.highActive) ?? [],
     shut: run?.gateShut?.map(contact => contact.active) ?? [],
   }
 }
@@ -390,7 +392,12 @@ export class JumpingAudioState {
         relays.push([d.orientation === 'vertical' ? d.x + d.w / 2 : d.x, d.orientation === 'vertical' ? d.y : d.y + d.h / 2])
       }
       for (const [i, float] of run.floatSwitches.entries()) if (current.floats[i] !== before.floats[i]) relays.push([float.definition.x, float.definition.y])
-      for (const [i, gauge] of (run.levelGauges ?? []).entries()) if (current.gauges[i] !== before.gauges[i]) relays.push([gauge.definition.x, gauge.definition.y])
+      // A gauge clicks at the mark that changed over.
+      for (const [i, gauge] of (run.levelGauges ?? []).entries()) {
+        const marks = levelGaugeMarks(gauge.definition)
+        if (current.gauges[i] !== before.gauges[i]) relays.push([gauge.definition.x, marks[marks.length - 1]])
+        if (current.gaugeHighs[i] !== before.gaugeHighs[i]) relays.push([gauge.definition.x, marks[0]])
+      }
       for (const [i, gate] of run.mechanisms.entries()) if (before.shut.length && current.shut[i] !== before.shut[i]) relays.push([gate.x + gate.definition.w / 2, gate.y])
       if (relays.length <= 4) for (const [x, y] of relays) cue('relay', x, y)
       else cue('relay', p.x, p.y - 30)

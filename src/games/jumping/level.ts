@@ -54,7 +54,7 @@ import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBoun
 import type { LogicRelay } from './logicRelay.ts'
 import { MAX_FLOAT_SWITCHES, floatSwitchBounds } from './floatSwitch.ts'
 import type { FloatSwitch } from './floatSwitch.ts'
-import { LEVEL_GAUGE_TOLERANCE, MAX_LEVEL_GAUGES, levelGaugeFits, levelGaugePool } from './levelGauge.ts'
+import { LEVEL_GAUGE_TOLERANCE, MAX_LEVEL_GAUGES, MIN_MARK_GAP, isTwoMarkGauge, levelGaugeFits, levelGaugePool, markInPool } from './levelGauge.ts'
 import type { LevelGauge } from './levelGauge.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
@@ -274,13 +274,15 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, gauge] of (level.levelGauges ?? []).entries()) {
     if (!levelGaugeFits(gauge, level.width, levelHeight(level))) issues.push(`Keep ${objectReference(level, 'level-gauge', i)} inside the level rectangle.`)
     else {
-      const pool = levelGaugePool(gauge, level.gravityPlates ?? [])
-      if (!pool) { issues.push(`Put the mark of ${objectReference(level, 'level-gauge', i)} inside a pool.`); continue }
+      const pool = levelGaugePool(gauge, level.gravityPlates ?? []), name = objectReference(level, 'level-gauge', i), two = isTwoMarkGauge(gauge)
+      if (!pool) { issues.push(`Put the ${two ? 'low mark' : 'mark'} of ${name} inside a pool.`); continue }
+      if (two && !markInPool({ x: gauge.x, y: gauge.high.y }, pool)) issues.push(`Put the high mark of ${name} in the same pool as its low mark.`)
       // The pool's lowest waterline is its low mark. A mark below it never sees the water reach it:
       // "below" never switches on and "above" never switches off, so a gate wired to it stays put.
-      const lowest = waterSurfaceY(pool, pool.waterMinLevel ?? 0)
-      if (gauge.y > lowest + LEVEL_GAUGE_TOLERANCE) {
-        const name = objectReference(level, 'level-gauge', i), depth = `${Math.round(lowest * 10) / 10}`
+      const lowest = waterSurfaceY(pool, pool.waterMinLevel ?? 0), depth = `${Math.round(lowest * 10) / 10}`
+      if (two) {
+        if (gauge.low.y > lowest + LEVEL_GAUGE_TOLERANCE) issues.push(`The low mark of ${name} is below the lowest its pool drains to (${depth}), so it never switches on. Move it to the pool's low water mark.`)
+      } else if (gauge.y > lowest + LEVEL_GAUGE_TOLERANCE) {
         issues.push(gauge.activeWhen === 'below'
           ? `The mark of ${name} is below the lowest its pool drains to (${depth}), so it never switches on. Move the mark to the pool's low water mark.`
           : `The mark of ${name} is below the lowest its pool drains to (${depth}), so it never switches off. Move the mark up into the pool's range.`)
@@ -878,9 +880,23 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.levelGauges !== undefined) level.levelGauges = list(v.levelGauges, MAX_LEVEL_GAUGES).map(item => {
     const g = object(item)
     if (typeof g.id !== 'string' || !g.id.trim() || g.id.length > 100 || g.power !== undefined || g.relay !== undefined || g.switchLogic !== undefined || g.switchReversed !== undefined) return fail()
-    if (g.activeWhen !== undefined && g.activeWhen !== 'above' && g.activeWhen !== 'below') return fail()
-    const definition: LevelGauge = { ...objectName(g), ...parseWallWiring(g, fail), id: g.id, x: num(g.x, 0, width), y: num(g.y, 0, levelHeight(level)),
-      targets: parseSwitchSettings(g, fail).targets ?? [], ...(g.activeWhen === undefined ? {} : { activeWhen: g.activeWhen as 'above' | 'below' }) }
+    let definition: LevelGauge
+    if (g.low !== undefined || g.high !== undefined) {
+      // Two marks, each its own contact: the forms are exclusive.
+      if (g.y !== undefined || g.targets !== undefined || g.activeWhen !== undefined) return fail()
+      const mark = (value: unknown) => {
+        const m = object(value)
+        if (Object.keys(m).some(key => key !== 'y' && key !== 'targets')) return fail()
+        return { y: num(m.y, 0, levelHeight(level)), targets: parseSwitchSettings({ targets: m.targets }, fail).targets ?? [] }
+      }
+      const low = mark(g.low), high = mark(g.high)
+      if (high.y > low.y - MIN_MARK_GAP) return fail()
+      definition = { ...objectName(g), ...parseWallWiring(g, fail), id: g.id, x: num(g.x, 0, width), low, high }
+    } else {
+      if (g.activeWhen !== undefined && g.activeWhen !== 'above' && g.activeWhen !== 'below') return fail()
+      definition = { ...objectName(g), ...parseWallWiring(g, fail), id: g.id, x: num(g.x, 0, width), y: num(g.y, 0, levelHeight(level)),
+        targets: parseSwitchSettings(g, fail).targets ?? [], ...(g.activeWhen === undefined ? {} : { activeWhen: g.activeWhen as 'above' | 'below' }) }
+    }
     if (!levelGaugeFits(definition, width, levelHeight(level))) return fail()
     return definition
   })

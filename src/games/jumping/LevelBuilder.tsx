@@ -12,6 +12,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, editLevelGauge, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
+import { isTwoMarkGauge, levelGaugeAnchor } from './levelGauge'
 import { setLoosePanel, setPipe, setWallStripes } from './editor'
 import { PANEL_CONTENTS, PANEL_HANGS, loosePanelRect } from './wallLoosePanels'
 import type { PanelContents, PanelHang } from './wallLoosePanels'
@@ -340,6 +341,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
   const floatSwitch = selection?.kind === 'float-switch' ? level.floatSwitches?.[selection.index] : null
   const levelGauge = selection?.kind === 'level-gauge' ? level.levelGauges?.[selection.index] : null
+  const twoMarkGauge = levelGauge && isTwoMarkGauge(levelGauge) ? levelGauge : null
+  const gaugeAnchor = levelGauge ? levelGaugeAnchor(levelGauge) : null
   const logicRelay = selection?.kind === 'logic-relay' ? level.logicRelays?.[selection.index] : null
   const gradeGate = selection?.kind === 'grade-gate' ? level.gradeGates?.[selection.index] : null
   const switchable = (goal && !goal.kind ? goal : null) ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
@@ -352,10 +355,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const selectedSource = sources.find(item => item.kind === selection?.kind && item.index === selection.index)
   const shutSource = mechanism?.kind === 'gate' ? sources.find(item => item.kind === 'gate-shut' && item.index === selection?.index) : undefined
   // A gate shows its shut contact's wires with its own wall-wiring settings.
-  const wiringSource = selectedSource ?? (shutSource?.definition.targets?.length ? shutSource : undefined)
+  // Each mark of a two-mark gauge is its own source; both show wires with the gauge's settings.
+  const markSources = twoMarkGauge ? sources.filter(item => (item.kind === 'level-gauge-low' || item.kind === 'level-gauge-high') && item.index === selection?.index) : []
+  const wiringSource = selectedSource ?? (shutSource?.definition.targets?.length ? shutSource : undefined) ?? markSources[0]
   const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
   // A level door switches on once its level is passed; other physical items send their state as relays.
   const sourceLabel = (source: typeof sources[number]) => source.kind === 'gate-shut' ? `${selectionLabel({ kind: 'mechanism', index: source.index }, level, doorName)} · Shut`
+    : source.kind === 'level-gauge-low' || source.kind === 'level-gauge-high' ? `${selectionLabel({ kind: 'level-gauge', index: source.index }, level, doorName)} · ${source.kind === 'level-gauge-low' ? 'Low' : 'High'} mark`
     : `${selectionLabel(source, level, doorName)}${source.kind === 'course-door' ? ' · Passed' : source.kind === 'bulkhead' ? ' · Complete'
     : ['trigger', 'float-switch', 'level-gauge', 'logic-relay', 'grade-gate'].includes(source.kind) ? '' : ' · Relay'}`
   const sourceKey = (source: typeof sources[number]) => `${source.kind}:${source.index}`
@@ -924,7 +930,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] }
         : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] }
         : d.selection.kind === 'float-switch' ? { ...rawBounds, ...d.base.floatSwitches![d.selection.index] }
-        : d.selection.kind === 'level-gauge' ? { ...rawBounds, ...d.base.levelGauges![d.selection.index] }
+        : d.selection.kind === 'level-gauge' ? { ...rawBounds, ...levelGaugeAnchor(d.base.levelGauges![d.selection.index]) }
         : d.selection.kind === 'logic-relay' ? { ...rawBounds, ...d.base.logicRelays![d.selection.index] }
         : d.selection.kind === 'grade-gate' ? { ...rawBounds, ...d.base.gradeGates![d.selection.index] } : rawBounds
       if (d.mode === 'wire-terminal' && d.terminal && Math.hypot(dx, dy) * view.zoom >= 3) {
@@ -1043,7 +1049,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     const bounds = selection && itemBounds(base, selection)
     if (!selection || !bounds || !Number.isFinite(value)) return base
     const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : selection.kind === 'wall-light' ? base.wallLights?.[selection.index]
-      : selection.kind === 'float-switch' ? base.floatSwitches?.[selection.index] : selection.kind === 'level-gauge' ? base.levelGauges?.[selection.index]
+      : selection.kind === 'float-switch' ? base.floatSwitches?.[selection.index] : selection.kind === 'level-gauge' && base.levelGauges?.[selection.index] ? levelGaugeAnchor(base.levelGauges[selection.index])
       : selection.kind === 'logic-relay' ? base.logicRelays?.[selection.index]
       : selection.kind === 'grade-gate' ? base.gradeGates?.[selection.index] : null
     return axis === 'x' || axis === 'y' ? moveItem(base, selection, axis === 'x' ? value - (light?.x ?? bounds.x) : 0, axis === 'y' ? levelHeight(base) - value - (light?.y ?? bounds.y) : 0)
@@ -1073,6 +1079,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     if (!selection) return base
     if (selection.kind === 'float-switch') return editFloatSwitch(base, selection.index, { [field]: value })
     if (selection.kind === 'level-gauge' && field === 'activeWhen') return editLevelGauge(base, selection.index, { activeWhen: value === 'below' ? 'below' : 'above' })
+    if (selection.kind === 'level-gauge' && field === 'marks') return editLevelGauge(base, selection.index, { marks: value === 'two' ? 'two' : 'one' })
     if (selection.kind === 'light') return editLight(base, selection.index, { [field]: value })
     if (selection.kind === 'mechanism' && field === 'travel') {
       return setElevatorTravel(base, selection.index, Number(value))
@@ -1348,8 +1355,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <BuilderSelect label="Starts" accessibleLabel="Float starting position" value={floatSwitch.startsRaised ? 'raised' : 'lowered'} options={[{ value: 'lowered', label: 'Lowered' }, { value: 'raised', label: 'Raised' }]} onChange={value => changeObject('startsRaised', value === 'raised')} />
             <InspectorButton onClick={() => changeObject('flipX', !floatSwitch.flipX)}>Flip horizontally</InspectorButton>
           </>}
-          {levelGauge && <BuilderSelect label="Active when" accessibleLabel="Level gauge activation" value={levelGauge.activeWhen ?? 'above'}
+          {levelGauge && <BuilderSelect label="Marks" accessibleLabel="Level gauge marks" value={twoMarkGauge ? 'two' : 'one'}
+            title="One mark, read at or above it or at or below it; or a low mark and a high mark, each its own contact"
+            options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Low and high' }]} onChange={value => changeObject('marks', value)} />}
+          {levelGauge && !twoMarkGauge && <BuilderSelect label="Active when" accessibleLabel="Level gauge activation" value={levelGauge.activeWhen ?? 'above'}
             options={[{ value: 'above', label: 'At or above mark' }, { value: 'below', label: 'At or below mark' }]} onChange={value => changeObject('activeWhen', value)} />}
+          {twoMarkGauge && <div className="builder-dimensions">
+            <Field>High mark Y<NumberField label="High mark Y" step={snap ? gridSize : 1} value={roomHeight - twoMarkGauge.high.y}
+              {...numberEdit((base, value) => editLevelGauge(base, selection.index, { highY: levelHeight(base) - value }))} /></Field>
+            <Field>Low mark Y<NumberField label="Low mark Y" step={snap ? gridSize : 1} value={roomHeight - twoMarkGauge.low.y}
+              {...numberEdit((base, value) => editLevelGauge(base, selection.index, { lowY: levelHeight(base) - value }))} /></Field>
+          </div>}
           {prop && <>
             <BuilderSelect label="Weight" accessibleLabel="Object weight" value={prop.weight === 'heavy' ? 'heavy' : 'normal'}
               options={[{ value: 'normal', label: 'Normal' }, { value: 'heavy', label: 'Heavy' }]}
@@ -1471,6 +1487,19 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               })}
           </>}
         </BuilderInspectorSection>}
+        {markSources.length > 0 && <BuilderInspectorSection title="Mark connections">
+          {markSources.map(source => {
+            const name = source.kind === 'level-gauge-low' ? 'Low mark' : 'High mark'
+            return <fieldset className="builder-connections" key={source.kind}><legend>{name} activates</legend>
+              <BuilderConnectionList key={`${source.kind}:${source.index}`} label={`${name} activates`} empty="No switched items" items={targets.map(item => ({
+                id: item.id, label: switchItemLabel(level, item, doorName), checked: switchTargets(source.definition).includes(item.id), onChange: checked => {
+                  const ids = switchTargets(source.definition)
+                  commit(setSwitchTargets(history.present, source, checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))
+                },
+              }))} />
+            </fieldset>
+          })}
+        </BuilderInspectorSection>}
         {shutSource && <BuilderInspectorSection title="Shut contact">
           <p className="builder-hint">On while the gate sits fully closed and powered. Closing, a safety hold or an obstruction keeps it off; EMP turns it off. It may feed logic that commands this gate.</p>
           <fieldset className="builder-connections"><legend>Shut contact activates</legend>
@@ -1484,15 +1513,15 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         </BuilderInspectorSection>}
         <BuilderInspectorSection title="Transform">
           <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
-            {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
+            {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y' && !twoMarkGauge
               || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['back-wall', 'platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind)
               || axis === 'h' && (verticalCoinSwitch || ['back-wall', 'platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind))).map(axis => {
               const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
               const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
-                : levelGauge ? axis === 'x' ? 'Mark X' : 'Mark Y'
+                : levelGauge ? twoMarkGauge ? 'X' : axis === 'x' ? 'Mark X' : 'Mark Y'
                 : ({ x: light || wallLight || logicRelay || gradeGate || floatSwitch ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay || gradeGate || floatSwitch ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
               return <Field key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? gridSize : 1}
-                value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? gradeGate?.y ?? floatSwitch?.y ?? levelGauge?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? gradeGate?.x ?? floatSwitch?.x ?? levelGauge?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></Field>
+                value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? gradeGate?.y ?? floatSwitch?.y ?? gaugeAnchor?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? gradeGate?.x ?? floatSwitch?.x ?? gaugeAnchor?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></Field>
             })}
           </div>
           {trigger && trigger.mode !== 'coins' && !trigger.facing && <>
@@ -1673,7 +1702,9 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           {selection.kind === 'bulkhead' && <p className="builder-hint">Needs a flat sill and a clear 40 × 80 doorway. Up in the open doorway leads through. The robot steps out of the bulkhead on the far side that leads back here, so give each connected place a matching bulkhead. Always open opens it whenever the robot is here; Switched opens it while its connected switches are on, such as other bulkheads whose areas are complete. The bulkhead is also a switch: Activates turns on once every level door in the area beyond is passed.</p>}
           {gradeGate && <p className="builder-hint">Visible only in the studio. Averages its doors' best grades during play and sends the result to connected items.</p>}
           {selection.kind === 'evaluation-board' && <p className="builder-hint">Shows the evaluation's total, then each wing's passes or SEALED. The text is filled in during play.</p>}
-          {levelGauge && <p className="builder-hint">Reads the waterline of the pool its mark is in, exactly: no lag and no gap between on and off, so a gate wired to gauges on both sides opens only with the water level. Mark X and Y place the red mark. EMP switches it off.</p>}
+          {levelGauge && <p className="builder-hint">{twoMarkGauge
+            ? 'Reads the waterline of the pool its low mark is in, exactly. The low mark is on while the water is at or below it (the foot lamp), the high mark while it is at or above it (the head lamp). Keep both marks in the same pool, at least 20 apart. EMP switches both off.'
+            : 'Reads the waterline of the pool its mark is in, exactly: no lag and no gap between on and off, so a gate wired to gauges on both sides opens only with the water level. Mark X and Y place the red mark. EMP switches it off.'}</p>}
           {floatSwitch && <>
             <p className="builder-hint">Water and gravity lifts raise the ball. Gravity and physical loads lower it. The switch changes near the arm's horizontal position.</p>
           </>}

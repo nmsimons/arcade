@@ -40,6 +40,16 @@
       "y": 720,
       "course": "b2cb32ac-d5fd-4e76-bcc3-d07b2fc6cf6a",
       "power": "switched",
+      "targets": [
+        "door-locks"
+      ]
+    },
+    {
+      "id": "door-locks",
+      "x": 1855,
+      "y": 720,
+      "course": "5dcc2db5-5496-43dc-8d5a-ef487d4f6475",
+      "power": "switched",
       "targets": []
     }
   ],

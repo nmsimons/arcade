@@ -1982,6 +1982,45 @@ omit it when default. `name`, `targets`, and the wall-wiring fields
 (`showWires`, `wireHeight`, `wireTerminal`) are optional. `power`, `relay`,
 `switchLogic` and `switchReversed` are rejected.
 
+**Two marks.** A gauge can instead carry a low mark and a high mark, each its own
+contact with its own outputs:
+
+```json
+"levelGauges": [
+  { "id": "lock-1", "name": "Lock 1", "x": 140,
+    "low": { "y": 676, "targets": ["guard-up"] },
+    "high": { "y": 420, "targets": ["lock-gate", "guard-down"] } }
+]
+```
+
+The forms are exclusive: a gauge with `low` and `high` may not also have `y`,
+`targets` or `activeWhen`, and each mark holds only `y` and optional `targets`.
+The high mark must sit at least 20 units above the low mark (`high.y` at most
+`low.y - 20`). The meaning is fixed: the low contact is on while the pumped
+waterline is at or below the low mark (like At or below), the high contact while
+it is at or above the high mark. Both read the same way as a one-mark gauge: the
+pumped level, the same tolerance and frame order, off under EMP and the F
+power-down. The gauge reads the first water pool containing its low mark; the
+studio reports a high mark outside that pool, and a low mark below the lowest the
+pool drains to, which never switches on.
+
+The board runs from 24 units above the high mark to 24 below the low mark, with
+graduations every 8 units from the high mark and a red mark with pointers at
+each mark. The steel head at the top carries the high mark's lamp, and a matching
+steel foot at the bottom carries the low mark's, so both lights belong to the
+instrument. In the studio, **Marks** chooses **One** or **Low and high**. Turning
+a one-mark gauge into two keeps the mark and its connections as the high mark
+(At or above) or the low mark (At or below) and adds the other mark 150 units
+away on the 5-unit grid, held inside the pool when it has room. Turning it back
+into one keeps the mark that has connections, At or below for the low mark, and
+the high mark when both or neither have them; the other mark's connections are
+dropped (Undo restores them). **High mark Y** and **Low mark Y** place the marks
+and keep them 20 apart, **X** places the gauge, and moving the gauge moves both
+marks. Each mark has its own **Low mark activates** or **High mark activates**
+list, and other items list them as "Level gauge N · Low mark" and "· High mark"
+under Switched by. Both marks' wires leave from the gauge's wall terminal. New
+gauges have one mark, snapped to the 5-unit grid.
+
 ### Force fields
 
 Both file versions support up to 40 `forceFields`. A field is a thin rectangle

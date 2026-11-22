@@ -429,7 +429,11 @@ stop exactly. Every pool in the flight needs the same height, low mark and rate,
 so a lockful raises each chamber by the same amount and the marks either side of
 a gate stay level; the studio reports a gauge marked below the lowest its pool
 drains to. Float switches flip a few units early and suit visible,
-physical buoyancy, not lock gates. A gate closes at 65 units a second, so it also
+physical buoyancy, not lock gates. Give each lock one two-mark gauge: its low mark
+at the lock's low water mark and its high mark at its full height. The gate
+between two locks ANDs the lower lock's high contact and the upper lock's low
+contact, which sit at the same height, and each transfer stops on the source's
+low contact or the destination's high contact. A gate closes at 65 units a second, so it also
 needs the water to wait for it: AND each lock's flows to the shut contacts of the
 gates that border the pools they change, and drop each gate's open command while
 any such flow is requested. The gate closes first, the water moves only once it

@@ -5,6 +5,7 @@ import { objectReference, objectLabel } from './objectLabels.ts'
 import type { DoorName } from './objectLabels.ts'
 import { waterControlId } from './waterLevel.ts'
 import { triggerToggleGroup } from './toggleGroups.ts'
+import type { SingleMarkGauge, TwoMarkGauge } from './levelGauge.ts'
 
 export type PowerMode = 'always' | 'switched'
 export type PlateBehavior = 'pressure' | 'switch' | 'toggle'
@@ -117,11 +118,34 @@ export function gateShutContact(gate: Mechanism): SwitchSettings & { id: string 
     get showWires() { return gate.showWires }, get wireHeight() { return gate.wireHeight }, get wireTerminal() { return gate.wireTerminal },
   }
 }
+/**
+ * A mark of a two-mark level gauge as a switch source: its outputs are the mark's `targets`, and
+ * it shows wires with the gauge's own wall-wiring settings.
+ */
+export function gaugeMarkContact(gauge: TwoMarkGauge, mark: 'low' | 'high'): SwitchSettings & { id: string } {
+  return {
+    get id() { return gauge.id },
+    get targets() { return gauge[mark].targets },
+    set targets(targets: string[] | undefined) { gauge[mark].targets = [...targets ?? []] },
+    get showWires() { return gauge.showWires }, get wireHeight() { return gauge.wireHeight }, get wireTerminal() { return gauge.wireTerminal },
+  }
+}
+type GaugeSource = { kind: 'level-gauge'; index: number; definition: SingleMarkGauge }
+  | { kind: 'level-gauge-low'; index: number; definition: SwitchSettings & { id: string } }
+  | { kind: 'level-gauge-high'; index: number; definition: SwitchSettings & { id: string } }
+/** A one-mark gauge is one source; a two-mark gauge is two, one per mark. */
+function gaugeSources(level: JumpLevel): GaugeSource[] {
+  return (level.levelGauges ?? []).flatMap((definition, index): GaugeSource[] => definition.low === undefined ? [{ kind: 'level-gauge', index, definition }]
+    : [{ kind: 'level-gauge-low', index, definition: gaugeMarkContact(definition, 'low') }, { kind: 'level-gauge-high', index, definition: gaugeMarkContact(definition, 'high') }])
+}
 /** Whether any gate in the level has a wired shut contact. */
 export const hasGateShutContacts = (level: Pick<JumpLevel, 'mechanisms'>) => !!level.mechanisms?.some(m => m.kind === 'gate' && m.shutTargets?.length)
-/** A source's reference in messages: a gate's shut contact is named after its gate. */
+/** A source's reference in messages: a gate's shut contact and a gauge's marks are named after their item. */
 export function switchSourceReference(level: JumpLevel, source: { kind: SwitchSourceKind; index: number }) {
-  return source.kind === 'gate-shut' ? `the shut contact of ${objectReference(level, 'mechanism', source.index)}` : objectReference(level, source.kind, source.index)
+  if (source.kind === 'gate-shut') return `the shut contact of ${objectReference(level, 'mechanism', source.index)}`
+  if (source.kind === 'level-gauge-low' || source.kind === 'level-gauge-high')
+    return `the ${source.kind === 'level-gauge-low' ? 'low' : 'high'} mark of ${objectReference(level, 'level-gauge', source.index)}`
+  return objectReference(level, source.kind, source.index)
 }
 export type SwitchSourceKind = ReturnType<typeof switchSources>[number]['kind']
 
@@ -129,7 +153,7 @@ export type SwitchSourceKind = ReturnType<typeof switchSources>[number]['kind']
 export function switchSources(level: JumpLevel) {
   return [...(level.triggers ?? []).map((definition, index) => ({ kind: 'trigger' as const, index, definition })),
     ...(level.floatSwitches ?? []).map((definition, index) => ({ kind: 'float-switch' as const, index, definition })),
-    ...(level.levelGauges ?? []).map((definition, index) => ({ kind: 'level-gauge' as const, index, definition })),
+    ...gaugeSources(level),
     ...(level.gradeGates ?? []).map((definition, index) => ({ kind: 'grade-gate' as const, index, definition })),
     // A level door switches its targets once its course is passed; a bulkhead, once the area beyond is complete.
     ...(level.courseDoors ?? []).map((definition, index) => ({ kind: 'course-door' as const, index, definition })),
@@ -160,12 +184,13 @@ export function wallWiringItems(level: JumpLevel) {
  * In a facility area, `records` supply the save: a level door is on once its
  * course is passed, a bulkhead once the area beyond is complete, and grade
  * averages read the best grades. Without records, all of them are off.
- * `floats` and `gauges` are the float switch and level gauge contacts, by index; `shut` holds
+ * `floats` and `gauges` are the float switch and level gauge contacts, by index (a two-mark
+ * gauge's low contact is `active`, its high contact `highActive`); `shut` holds
  * gate shut contacts by mechanism index. All are physical sensors read before switches resolve,
  * so a gate's shut contact may feed logic that commands the same gate.
  */
 export function resolveSwitchStates(level: JumpLevel, triggers: readonly { active: boolean }[], floats: readonly { active: boolean }[] = [], records: FacilityRecords = NO_RECORDS,
-  gauges: readonly { active: boolean }[] = [], shut: readonly { active: boolean }[] = []) {
+  gauges: readonly { active: boolean; highActive?: boolean }[] = [], shut: readonly { active: boolean }[] = []) {
   const grade = records.grade
   const items = switchedItems(level), byId = new Map(items.map(item => [item.id, item]))
   const inputs = collectSwitchInputs(level.triggers, triggers)
@@ -177,7 +202,10 @@ export function resolveSwitchStates(level: JumpLevel, triggers: readonly { activ
     }
   }
   for (const [i, source] of (level.floatSwitches ?? []).entries()) feed(source.targets, !!floats[i]?.active)
-  for (const [i, source] of (level.levelGauges ?? []).entries()) feed(source.targets, !!gauges[i]?.active)
+  for (const [i, source] of (level.levelGauges ?? []).entries()) {
+    if (source.low === undefined) feed(source.targets, !!gauges[i]?.active)
+    else { feed(source.low.targets, !!gauges[i]?.active); feed(source.high.targets, !!gauges[i]?.highActive) }
+  }
   for (const [i, gate] of (level.mechanisms ?? []).entries()) if (gate.kind === 'gate' && gate.shutTargets) feed(gate.shutTargets, !!shut[i]?.active)
   for (const door of level.courseDoors ?? []) feed(door.targets ?? [], coursePassed(grade(door.course)))
   for (const bulkhead of level.bulkheads ?? []) feed(bulkhead.targets ?? [], !!bulkhead.to && records.complete(bulkhead.to))
@@ -257,6 +285,7 @@ export function removeSwitchTarget(level: JumpLevel, id: string) {
     if (item.targets) item.targets = item.targets.filter(target => target !== id)
     else if ('target' in item && item.target === id) item.target = ''
   }
+  for (const gauge of level.levelGauges ?? []) if (gauge.low) for (const mark of [gauge.low, gauge.high]) mark.targets = mark.targets.filter(target => target !== id)
   for (const gate of level.mechanisms ?? []) if (gate.shutTargets) {
     gate.shutTargets = gate.shutTargets.filter(target => target !== id)
     if (!gate.shutTargets.length) delete gate.shutTargets

@@ -68,8 +68,9 @@ in development builds only. What exists:
   nothing waits on it: Assessment and the dispatch door no longer need it, and
   its courses never count toward the evaluation or the release certificate
   (`"optional": true`, [level files](jumping-levels.md)). How the facility
-  signals that it is optional is still to design. It holds Waterline I and II;
-  new puzzles are being designed for it. Four Lamps, One or the Other and
+  signals that it is optional is still to design. It holds Waterline I and II
+  and Locks, each door opening once the one before it is passed; more puzzles
+  are being designed for it. Four Lamps, One or the Other and
   Handoff left the campaign: they solved by trial and error or by their own wall
   text. Their files and direct links stay. Slow is Smooth
   and Buoyancy stay in the collection with no door; their direct links stay open.

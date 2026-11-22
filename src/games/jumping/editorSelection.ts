@@ -6,7 +6,7 @@ import { MAX_WALL_DOORS } from './wallDoor.ts'
 import { MAX_WALL_PIPES } from './wallPipes.ts'
 import { MAX_WALL_STRIPES } from './hazardStripes.ts'
 import { MAX_LOOSE_PANELS } from './wallLoosePanels.ts'
-import { MAX_LEVEL_GAUGES } from './levelGauge.ts'
+import { MAX_LEVEL_GAUGES, shiftLevelGauge } from './levelGauge.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
 import { lineBlocked, polygonIntersects, polygonPoints } from './geometry.ts'
@@ -156,6 +156,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
       continue
     }
     if (s.kind === 'pipe') { for (const point of next.pipes![s.index].points) { point[0] += dx; point[1] += dy } continue }
+    if (s.kind === 'level-gauge') { shiftLevelGauge(next.levelGauges![s.index], dx, dy); continue }
     const item = itemDefinition(next, s) as unknown as { x: number; y: number }
     item.x += dx; item.y += dy
     if (s.kind === 'rope') {
@@ -245,6 +246,9 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
   for (const s of pasted) {
     const definition = itemArray(next, s.kind)[s.index]
     if (Array.isArray(definition.targets)) definition.targets = definition.targets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])
+    // Each mark of a two-mark gauge keeps its connections the same way.
+    for (const mark of [definition.low, definition.high] as { targets?: unknown }[]) if (mark && Array.isArray(mark.targets))
+      mark.targets = mark.targets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])
     // A gate's shut contact keeps connections the same way.
     if (Array.isArray(definition.shutTargets)) {
       const shut = definition.shutTargets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])

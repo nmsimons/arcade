@@ -28,8 +28,8 @@ import { fitTiedRope, ropeEnds, ropePath, ropeSegmentCount, tiedRopeSpan } from 
 import { chargingBayBounds, entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_OFFSET, GOAL_DOOR_WIDTH, goalBounds, goalDoor, ROBOT_BAY_WIDTH_SCALE } from './goal.ts'
 import type { Destination } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
-import { waterControlId } from './waterLevel.ts'
-import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
+import { waterControlId, waterSurfaceY } from './waterLevel.ts'
+import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings, SwitchSourceKind } from './switchPower.ts'
 import { attachPressurePlateOnSurface, syncPressurePlateMounts } from './pressurePlateMount.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { fitWallText, wallTextBounds, wallTextLocalPoint, wallTextPoint } from './wallText.ts'
@@ -42,8 +42,7 @@ import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight
 import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBounds } from './logicRelay.ts'
 import { MAX_FLOAT_SWITCHES, floatSwitchBounds, floatBallCenter } from './floatSwitch.ts'
 import type { FloatSwitch } from './floatSwitch.ts'
-import { MAX_LEVEL_GAUGES, levelGaugeBounds } from './levelGauge.ts'
-import type { LevelGauge } from './levelGauge.ts'
+import { MAX_LEVEL_GAUGES, MIN_MARK_GAP, isTwoMarkGauge, levelGaugeAnchor, levelGaugeBounds, levelGaugeMarks, levelGaugePool, shiftLevelGauge } from './levelGauge.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { ROBOT_HALF_WIDTH, robotHulls } from './robotPhysics.ts'
 
@@ -248,12 +247,14 @@ export function setFinish(level: JumpLevel, kind: 'doorway' | 'overlook' | 'walk
 
 /** Carry custom wall points with authored edits, never with runtime mechanism motion. */
 export function carryWallTerminals(before: JumpLevel, next: JumpLevel): JumpLevel {
-  const changed = new Map(wallWiringItems(next).map(item => [`${item.kind}:${item.index}`, item.definition]))
+  // A gauge is placed by its anchor: its x and top mark.
+  const at = (item: ReturnType<typeof wallWiringItems>[number]) => item.kind === 'level-gauge' ? levelGaugeAnchor(item.definition) : item.definition
+  const changed = new Map(wallWiringItems(next).map(item => [`${item.kind}:${item.index}`, item]))
   for (const item of wallWiringItems(before)) {
     const p = item.definition.wireTerminal, target = changed.get(`${item.kind}:${item.index}`)
-    if (p && target) target.wireTerminal = {
-      x: clamp(p.x + target.x - item.definition.x, 4, next.width - 4),
-      y: clamp(p.y + target.y - item.definition.y, 4, levelHeight(next) - 4),
+    if (p && target) target.definition.wireTerminal = {
+      x: clamp(p.x + at(target).x - at(item).x, 4, next.width - 4),
+      y: clamp(p.y + at(target).y - at(item).y, 4, levelHeight(next) - 4),
     }
   }
   return next
@@ -365,9 +366,10 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     for (const cover of next.environment.groundCover ?? []) cover.y += dy
   }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.levelGauges ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
     ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? []), ...(next.stripes ?? []), ...(next.loosePanels ?? [])]) point.y += dy
   for (const pipe of next.pipes ?? []) for (const point of pipe.points) point[1] += dy
+  for (const gauge of next.levelGauges ?? []) shiftLevelGauge(gauge, 0, dy)
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     for (const point of ropeEnds(rope)) point.y += dy
@@ -453,7 +455,7 @@ export function setElevatorTravel(level: JumpLevel, index: number, travel: numbe
 export function setTriggerTargets(level: JumpLevel, index: number, targets: readonly string[]): JumpLevel {
   return setSwitchTargets(level, { kind: 'trigger', index }, targets)
 }
-export function setSwitchTargets(level: JumpLevel, selection: { kind: Selection['kind'] | 'gate-shut'; index: number }, targets: readonly string[]): JumpLevel {
+export function setSwitchTargets(level: JumpLevel, selection: { kind: Selection['kind'] | SwitchSourceKind; index: number }, targets: readonly string[]): JumpLevel {
   const next = copyLevel(level), source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index)
   if (!source) return level
   if (source.kind === 'trigger') delete source.definition.target
@@ -466,7 +468,10 @@ export function setSwitchTargets(level: JumpLevel, selection: { kind: Selection[
 export function setWallWiring(level: JumpLevel, selection: Selection, enabled: boolean, height?: number): JumpLevel {
   const next = copyLevel(level), gate = selection.kind === 'mechanism' && next.mechanisms?.[selection.index]?.kind === 'gate' ? next.mechanisms[selection.index] : undefined
   // A gate's shut contact shows wires with the gate's own settings, relay or not.
+  // A two-mark gauge's marks share the gauge's settings too.
+  const gauge = selection.kind === 'level-gauge' ? next.levelGauges?.[selection.index] : undefined
   const source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index) ?? (gate && { kind: 'mechanism' as const, definition: gate })
+    ?? (gauge && { kind: 'level-gauge' as const, definition: gauge })
   // Level doors, bulkheads and grade averages have no wall terminal.
   if (!source || source.kind === 'course-door' || source.kind === 'bulkhead' || source.kind === 'grade-gate' || height !== undefined && !Number.isFinite(height)) return level
   if (enabled) source.definition.showWires = true
@@ -644,9 +649,46 @@ function editObjectSwitchSettings(level: JumpLevel, selection: Selection, settin
   return next
 }
 /** "above" is the default and is saved by omission. */
-export function editLevelGauge(level: JumpLevel, index: number, patch: Partial<Pick<LevelGauge, 'activeWhen'>>): JumpLevel {
-  if (!level.levelGauges?.[index]) return level
-  const next = copyLevel(level), g = next.levelGauges![index]
+/** Gauge marks sit on the 5-unit grid, like every authored coordinate. */
+const snapMark = (y: number) => Math.round(y / 5) * 5
+/** How far apart a converted gauge's marks start. */
+export const GAUGE_MARK_SPACING = 150
+export interface LevelGaugePatch { activeWhen?: 'above' | 'below'; marks?: 'one' | 'two'; lowY?: number; highY?: number }
+/**
+ * Edit a gauge. "above" is the default and is saved by omission. Marks: two converts the single mark
+ * into the high mark (At or above) or the low mark (At or below), keeping its connections, and adds
+ * the other mark 150 units away, held inside the mark's pool when the pool has room. One keeps the
+ * mark that has connections (the high mark when both or neither do) and drops the other's.
+ * Mark heights keep the high mark at least 20 units above the low mark.
+ */
+export function editLevelGauge(level: JumpLevel, index: number, patch: LevelGaugePatch): JumpLevel {
+  const before = level.levelGauges?.[index]
+  if (!before) return level
+  const next = copyLevel(level), gauges = next.levelGauges!, g = gauges[index], height = levelHeight(next)
+  if (patch.marks === 'two' && !isTwoMarkGauge(g)) {
+    const { y, targets, activeWhen, low: _low, high: _high, ...base } = g
+    const pool = levelGaugePool(g, next.gravityPlates ?? []), lowest = pool ? waterSurfaceY(pool, pool.waterMinLevel ?? 0) : height
+    const headroom = -levelGaugeBounds({ id: '', x: 0, low: { y: GAUGE_MARK_SPACING, targets: [] }, high: { y: 0, targets: [] } }).y
+    let other = activeWhen === 'below' ? snapMark(y - GAUGE_MARK_SPACING) : snapMark(y + GAUGE_MARK_SPACING)
+    const inPool = activeWhen === 'below' ? Math.max(other, Math.ceil((pool?.y ?? 0) / 5) * 5) : Math.min(other, Math.floor(lowest / 5) * 5)
+    if (pool && Math.abs(inPool - y) >= MIN_MARK_GAP) other = inPool
+    other = activeWhen === 'below' ? Math.max(other, Math.ceil(headroom / 5) * 5) : Math.min(other, Math.floor(height / 5) * 5)
+    if (Math.abs(other - y) < MIN_MARK_GAP) other = activeWhen === 'below' ? y - MIN_MARK_GAP : y + MIN_MARK_GAP
+    const mark = { y, targets }, added = { y: other, targets: [] }
+    gauges[index] = activeWhen === 'below' ? { ...base, low: mark, high: added } : { ...base, low: added, high: mark }
+    return carryWallTerminals(level, next)
+  }
+  if (patch.marks === 'one' && isTwoMarkGauge(g)) {
+    const { low, high, y: _y, targets: _targets, activeWhen: _activeWhen, ...base } = g
+    const keepLow = low.targets.length > 0 && !high.targets.length
+    gauges[index] = keepLow ? { ...base, y: low.y, targets: low.targets, activeWhen: 'below' } : { ...base, y: high.y, targets: high.targets }
+    return carryWallTerminals(level, next)
+  }
+  if (isTwoMarkGauge(g)) {
+    if (patch.highY !== undefined && Number.isFinite(patch.highY)) g.high.y = clamp(patch.highY, 0, g.low.y - MIN_MARK_GAP)
+    if (patch.lowY !== undefined && Number.isFinite(patch.lowY)) g.low.y = clamp(patch.lowY, g.high.y + MIN_MARK_GAP, height)
+    return carryWallTerminals(level, next)
+  }
   if (patch.activeWhen === 'below') g.activeWhen = 'below'
   else if (patch.activeWhen === 'above') delete g.activeWhen
   return next
@@ -906,9 +948,9 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     return next
   }
   if (selection.kind === 'level-gauge') {
-    // The mark moves; the lower half of the board may run on behind the floor.
-    const next = copyLevel(level), g = next.levelGauges![selection.index], half = b.w / 2, above = g.y - b.y
-    g.x = clamp(g.x + dx, half, level.width - half); g.y = clamp(g.y + dy, above, levelHeight(level))
+    // The marks move together; below the lowest mark the board may run on behind the floor.
+    const next = copyLevel(level), g = next.levelGauges![selection.index], marks = levelGaugeMarks(g)
+    shiftLevelGauge(g, clamp(dx, -b.x, level.width - b.x - b.w), clamp(dy, -b.y, levelHeight(level) - marks[marks.length - 1]))
     return carryWallTerminals(level, next)
   }
   if (selection.kind === 'loose-panel') {
@@ -1252,8 +1294,10 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   if (tool === 'level-gauge') {
     const trial = asTrial(next), gauges = trial.levelGauges ??= []
     if (gauges.length >= MAX_LEVEL_GAUGES) throw new Error(`This level already has ${MAX_LEVEL_GAUGES} level gauges.`)
-    const b = levelGaugeBounds({ x: 0, y: 0 })
-    gauges.push({ id: newLevelId(), x: clamp(start.x, -b.x, trial.width - b.x - b.w), y: clamp(start.y, -b.y, levelHeight(trial)), targets: [] })
+    // A new gauge has one mark, on the 5-unit grid.
+    const b = levelGaugeBounds({ id: '', x: 0, y: 0, targets: [] })
+    gauges.push({ id: newLevelId(), x: clamp(snapMark(start.x), Math.ceil(-b.x / 5) * 5, Math.floor((trial.width - b.x - b.w) / 5) * 5),
+      y: clamp(snapMark(start.y), Math.ceil(-b.y / 5) * 5, Math.floor(levelHeight(trial) / 5) * 5), targets: [] })
     return { level: trial, selection: { kind: 'level-gauge', index: gauges.length - 1 } }
   }
   if (tool === 'logic-relay') {
@@ -1509,7 +1553,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'gravity-plate') { if (next.gravityPlates!.length >= MAX_GRAVITY_PLATES) return null; index = next.gravityPlates!.push({ ...next.gravityPlates![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'float-switch') { if (next.floatSwitches!.length >= MAX_FLOAT_SWITCHES) return null; index = next.floatSwitches!.push({ ...next.floatSwitches![i], targets: [...next.floatSwitches![i].targets], id: newLevelId() }) - 1 }
-  else if (selection.kind === 'level-gauge') { if (next.levelGauges!.length >= MAX_LEVEL_GAUGES) return null; index = next.levelGauges!.push({ ...next.levelGauges![i], targets: [...next.levelGauges![i].targets], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'level-gauge') { if (next.levelGauges!.length >= MAX_LEVEL_GAUGES) return null; index = next.levelGauges!.push({ ...structuredClone(next.levelGauges![i]), id: newLevelId() }) - 1 }
   else if (selection.kind === 'logic-relay') { if (next.logicRelays!.length >= MAX_LOGIC_RELAYS) return null; index = next.logicRelays!.push({ ...next.logicRelays![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'grade-gate') { if (next.gradeGates!.length >= MAX_GRADE_GATES) return null; index = next.gradeGates!.push({ ...structuredClone(next.gradeGates![i]), id: newLevelId() }) - 1 }
   else if (selection.kind === 'course-door') { if (next.courseDoors!.length >= MAX_COURSE_DOORS) return null; index = next.courseDoors!.push({ ...structuredClone(next.courseDoors![i]), id: newLevelId() }) - 1 }

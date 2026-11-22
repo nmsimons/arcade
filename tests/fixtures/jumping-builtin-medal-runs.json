@@ -2759,8 +2759,8 @@
     {
       "level": "92ed8a0f-d309-4b8f-b9ea-4174b8599b60",
       "jumpModel": "tap-hold",
-      "elapsed": 22.583333333332693,
-      "activeTime": 23.441666666665977,
+      "elapsed": 22.95833333333267,
+      "activeTime": 23.816666666665956,
       "coins": 0,
       "trace": [
         {
@@ -3062,7 +3062,7 @@
           }
         },
         {
-          "frames": 68,
+          "frames": 113,
           "input": {}
         },
         {

@@ -2755,6 +2755,101 @@
           }
         }
       ]
+    },
+    {
+      "level": "bd9210e3-aec1-4df0-a936-faaf5324bd65",
+      "jumpModel": "tap-hold",
+      "elapsed": 10.275000000000057,
+      "activeTime": 11.133333333333342,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 176,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 71,
+          "input": {}
+        },
+        {
+          "frames": 2,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 144,
+          "input": {}
+        },
+        {
+          "frames": 2,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 123,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 10,
+          "input": {}
+        },
+        {
+          "frames": 134,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 12,
+          "input": {}
+        },
+        {
+          "frames": 219,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 42,
+          "input": {}
+        },
+        {
+          "frames": 92,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 166,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
     }
   ],
   "jumpModel": "recorded-impulses",

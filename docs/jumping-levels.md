@@ -1531,8 +1531,9 @@ from the first frame and in the studio's wiring preview. Wire it in the gate
 inspector's **Shut contact** section, whose **Shut contact activates** list offers
 every switched item, pump inputs and relays included; the file stores the list
 as optional `shutTargets: ["id", …]` on the gate, validated like other targets
-and left out when empty. Other items list it as "Gate N · Shut" under Switched
-by. It is a physical input, like a float switch or level gauge, read from where
+and left out when empty. Once a gate's contact activates something, other items
+also list it as "Gate N · Shut" under Switched by; an unused contact stays out of
+those lists. It is a physical input, like a float switch or level gauge, read from where
 the gate is each frame before switches resolve, so it may feed logic that
 commands the same gate: the feedback travels through the gate's motion. It shows
 wires with the gate's own wall-wiring settings, and copies, duplicates and

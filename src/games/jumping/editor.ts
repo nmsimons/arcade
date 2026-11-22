@@ -666,6 +666,8 @@ export function editLevelGauge(level: JumpLevel, index: number, patch: LevelGaug
   if (!before) return level
   const next = copyLevel(level), gauges = next.levelGauges!, g = gauges[index], height = levelHeight(next)
   if (patch.marks === 'two' && !isTwoMarkGauge(g)) {
+    // The rest keeps the gauge's shared fields (id, name, x, wiring) and drops the mark fields.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { y, targets, activeWhen, low: _low, high: _high, ...base } = g
     const pool = levelGaugePool(g, next.gravityPlates ?? []), lowest = pool ? waterSurfaceY(pool, pool.waterMinLevel ?? 0) : height
     const headroom = -levelGaugeBounds({ id: '', x: 0, low: { y: GAUGE_MARK_SPACING, targets: [] }, high: { y: 0, targets: [] } }).y
@@ -679,6 +681,7 @@ export function editLevelGauge(level: JumpLevel, index: number, patch: LevelGaug
     return carryWallTerminals(level, next)
   }
   if (patch.marks === 'one' && isTwoMarkGauge(g)) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { low, high, y: _y, targets: _targets, activeWhen: _activeWhen, ...base } = g
     const keepLow = low.targets.length > 0 && !high.targets.length
     gauges[index] = keepLow ? { ...base, y: low.y, targets: low.targets, activeWhen: 'below' } : { ...base, y: high.y, targets: high.targets }

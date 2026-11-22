@@ -358,7 +358,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   // Each mark of a two-mark gauge is its own source; both show wires with the gauge's settings.
   const markSources = twoMarkGauge ? sources.filter(item => (item.kind === 'level-gauge-low' || item.kind === 'level-gauge-high') && item.index === selection?.index) : []
   const wiringSource = selectedSource ?? (shutSource?.definition.targets?.length ? shutSource : undefined) ?? markSources[0]
-  const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
+  // Every gate has a shut contact, but it joins other items' Switched by lists only once it is in
+  // use, wired from the gate's own Shut contact list; otherwise each gate would clutter every list.
+  const incomingSources = sources.filter(item => (item.kind !== selection?.kind || item.index !== selection.index)
+    && (item.kind !== 'gate-shut' || !!item.definition.targets?.length))
   // A level door switches on once its level is passed; other physical items send their state as relays.
   const sourceLabel = (source: typeof sources[number]) => source.kind === 'gate-shut' ? `${selectionLabel({ kind: 'mechanism', index: source.index }, level, doorName)} · Shut`
     : source.kind === 'level-gauge-low' || source.kind === 'level-gauge-high' ? `${selectionLabel({ kind: 'level-gauge', index: source.index }, level, doorName)} · ${source.kind === 'level-gauge-low' ? 'Low' : 'High'} mark`

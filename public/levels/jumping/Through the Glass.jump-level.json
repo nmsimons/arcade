@@ -11,7 +11,7 @@
     {
       "x": 0,
       "y": 540,
-      "w": 572,
+      "w": 570,
       "h": 20,
       "material": "stone"
     },
@@ -30,9 +30,9 @@
       "material": "stone"
     },
     {
-      "x": 572,
+      "x": 570,
       "y": 400,
-      "w": 648,
+      "w": 650,
       "h": 160,
       "frictionless": true,
       "material": "steel",
@@ -42,11 +42,11 @@
           140
         ],
         [
-          648,
+          650,
           0
         ],
         [
-          648,
+          650,
           160
         ],
         [
@@ -70,10 +70,10 @@
       "material": "steel"
     },
     {
-      "x": 708,
-      "y": 284,
+      "x": 705,
+      "y": 285,
       "w": 20,
-      "h": 8,
+      "h": 10,
       "material": "steel"
     },
     {
@@ -85,7 +85,7 @@
       "material": "steel"
     },
     {
-      "x": 809,
+      "x": 810,
       "y": 260,
       "w": 80,
       "h": 20,
@@ -99,9 +99,9 @@
       "material": "steel"
     },
     {
-      "x": 572,
+      "x": 570,
       "y": 0,
-      "w": 828,
+      "w": 830,
       "h": 120,
       "material": "steel"
     }
@@ -132,7 +132,7 @@
     {
       "name": "Parcel",
       "kind": "box",
-      "x": 839,
+      "x": 840,
       "y": 260,
       "size": 60,
       "branded": true
@@ -185,7 +185,7 @@
     },
     {
       "name": "Dispatch pad left",
-      "x": 1124,
+      "x": 1125,
       "y": 360,
       "w": 40,
       "targets": [
@@ -197,7 +197,7 @@
     },
     {
       "name": "Dispatch pad right",
-      "x": 1176,
+      "x": 1180,
       "y": 360,
       "w": 40,
       "targets": [
@@ -219,9 +219,9 @@
     {
       "name": "Lift call label",
       "x": 30,
-      "y": 423,
+      "y": 425,
       "w": 80,
-      "h": 24,
+      "h": 25,
       "text": "LIFT",
       "fontSize": 16,
       "align": "center"
@@ -229,7 +229,7 @@
     {
       "name": "Store sign",
       "x": 640,
-      "y": 132,
+      "y": 130,
       "w": 260,
       "h": 30,
       "text": "SEALED STORE",
@@ -239,9 +239,9 @@
     {
       "name": "Glass hint",
       "x": 400,
-      "y": 412,
+      "y": 410,
       "w": 150,
-      "h": 36,
+      "h": 35,
       "text": "glass stops you.\nnot the beam.",
       "fontSize": 14,
       "align": "center",

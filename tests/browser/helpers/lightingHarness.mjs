@@ -6,6 +6,8 @@ import { drawPuzzleWorld } from '../../../src/games/jumping/challengeRender.ts'
 import { drawLevelBackdrop } from '../../../src/games/jumping/render.ts'
 import { drawWallWiring } from '../../../src/games/jumping/wallWiring.ts'
 import { drawWallTexts } from '../../../src/games/jumping/wallText.ts'
+import { wallLettering } from '../../../src/games/jumping/wallDoor.ts'
+import { wallWear } from '../../../src/games/jumping/wallWear.ts'
 
 export async function lightingHarness(options) {
   const fixture = await (await fetch('/tests/fixtures/jumping/lighting-prototype.json')).json()
@@ -30,7 +32,8 @@ export async function lightingHarness(options) {
     ctx.save(); ctx.translate(0, 40)
     drawLevelBackdrop(ctx, run.level, { x: 0, y: -40, w: 1280, h: 720 }, 1, false)
     drawWallWiring(ctx, run.level, run, undefined, false)
-    drawWallTexts(ctx, run.level.texts ?? [])
+    // Wall lettering as the game draws it: graffiti drips and wear come from the room's own wear.
+    drawWallTexts(ctx, wallLettering(run.level), false, undefined, wallWear(run.level))
     drawPuzzleWorld(ctx, run, false, undefined, playerInk, lights.map(l => ({ ...l, fade: 1 }))); ctx.restore()
     return { pixels: ctx.getImageData(0, 0, 1280, 720).data }
   }

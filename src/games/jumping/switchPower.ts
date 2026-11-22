@@ -1,4 +1,4 @@
-import type { JumpLevel, Trigger } from './level.ts'
+import type { JumpLevel, Mechanism, Trigger } from './level.ts'
 import { coursePassed, gradeGateActive } from './hub.ts'
 import type { FacilityRecords } from './hub.ts'
 import { objectReference, objectLabel } from './objectLabels.ts'
@@ -105,14 +105,37 @@ export function switchItemLabel(level: JumpLevel, item: ReturnType<typeof switch
 /** Logic nodes always relay; physical items opt in. */
 export const isSwitchRelay = (item: { kind: string; definition: SwitchSettings }) => item.kind === 'logic-relay' || !!item.definition.relay
 
+/**
+ * A gate's shut contact as a switch source. Its outputs are the gate's `shutTargets` (an empty
+ * list is saved by omission); it shows wires with the gate's own wall-wiring settings.
+ */
+export function gateShutContact(gate: Mechanism): SwitchSettings & { id: string } {
+  return {
+    get id() { return gate.id },
+    get targets() { return gate.shutTargets },
+    set targets(targets: string[] | undefined) { if (targets?.length) gate.shutTargets = [...targets]; else delete gate.shutTargets },
+    get showWires() { return gate.showWires }, get wireHeight() { return gate.wireHeight }, get wireTerminal() { return gate.wireTerminal },
+  }
+}
+/** Whether any gate in the level has a wired shut contact. */
+export const hasGateShutContacts = (level: Pick<JumpLevel, 'mechanisms'>) => !!level.mechanisms?.some(m => m.kind === 'gate' && m.shutTargets?.length)
+/** A source's reference in messages: a gate's shut contact is named after its gate. */
+export function switchSourceReference(level: JumpLevel, source: { kind: SwitchSourceKind; index: number }) {
+  return source.kind === 'gate-shut' ? `the shut contact of ${objectReference(level, 'mechanism', source.index)}` : objectReference(level, source.kind, source.index)
+}
+export type SwitchSourceKind = ReturnType<typeof switchSources>[number]['kind']
+
 /** Both wiring directions in the inspector edit these same source definitions. */
 export function switchSources(level: JumpLevel) {
   return [...(level.triggers ?? []).map((definition, index) => ({ kind: 'trigger' as const, index, definition })),
     ...(level.floatSwitches ?? []).map((definition, index) => ({ kind: 'float-switch' as const, index, definition })),
+    ...(level.levelGauges ?? []).map((definition, index) => ({ kind: 'level-gauge' as const, index, definition })),
     ...(level.gradeGates ?? []).map((definition, index) => ({ kind: 'grade-gate' as const, index, definition })),
     // A level door switches its targets once its course is passed; a bulkhead, once the area beyond is complete.
     ...(level.courseDoors ?? []).map((definition, index) => ({ kind: 'course-door' as const, index, definition })),
     ...(level.bulkheads ?? []).map((definition, index) => ({ kind: 'bulkhead' as const, index, definition })),
+    // Every gate has a shut contact, wired or not, so either end of a connection can wire it.
+    ...(level.mechanisms ?? []).flatMap((gate, index) => gate.kind === 'gate' ? [{ kind: 'gate-shut' as const, index, definition: gateShutContact(gate) }] : []),
     ...switchedItems(level).filter(isSwitchRelay)]
 }
 
@@ -121,6 +144,7 @@ export function wallWiringItems(level: JumpLevel) {
   return [
     ...(level.triggers ?? []).map((definition, index) => ({ kind: 'trigger' as const, index, definition })),
     ...(level.floatSwitches ?? []).map((definition, index) => ({ kind: 'float-switch' as const, index, definition })),
+    ...(level.levelGauges ?? []).map((definition, index) => ({ kind: 'level-gauge' as const, index, definition })),
     ...(level.mechanisms ?? []).map((definition, index) => ({ kind: 'mechanism' as const, index, definition })),
     ...(level.lighting?.lights ?? []).map((definition, index) => ({ kind: 'light' as const, index, definition })),
     ...(level.wallLights ?? []).map((definition, index) => ({ kind: 'wall-light' as const, index, definition })),
@@ -136,8 +160,12 @@ export function wallWiringItems(level: JumpLevel) {
  * In a facility area, `records` supply the save: a level door is on once its
  * course is passed, a bulkhead once the area beyond is complete, and grade
  * averages read the best grades. Without records, all of them are off.
+ * `floats` and `gauges` are the float switch and level gauge contacts, by index; `shut` holds
+ * gate shut contacts by mechanism index. All are physical sensors read before switches resolve,
+ * so a gate's shut contact may feed logic that commands the same gate.
  */
-export function resolveSwitchStates(level: JumpLevel, triggers: readonly { active: boolean }[], floats: readonly { active: boolean }[] = [], records: FacilityRecords = NO_RECORDS) {
+export function resolveSwitchStates(level: JumpLevel, triggers: readonly { active: boolean }[], floats: readonly { active: boolean }[] = [], records: FacilityRecords = NO_RECORDS,
+  gauges: readonly { active: boolean }[] = [], shut: readonly { active: boolean }[] = []) {
   const grade = records.grade
   const items = switchedItems(level), byId = new Map(items.map(item => [item.id, item]))
   const inputs = collectSwitchInputs(level.triggers, triggers)
@@ -149,6 +177,8 @@ export function resolveSwitchStates(level: JumpLevel, triggers: readonly { activ
     }
   }
   for (const [i, source] of (level.floatSwitches ?? []).entries()) feed(source.targets, !!floats[i]?.active)
+  for (const [i, source] of (level.levelGauges ?? []).entries()) feed(source.targets, !!gauges[i]?.active)
+  for (const [i, gate] of (level.mechanisms ?? []).entries()) if (gate.kind === 'gate' && gate.shutTargets) feed(gate.shutTargets, !!shut[i]?.active)
   for (const door of level.courseDoors ?? []) feed(door.targets ?? [], coursePassed(grade(door.course)))
   for (const bulkhead of level.bulkheads ?? []) feed(bulkhead.targets ?? [], !!bulkhead.to && records.complete(bulkhead.to))
   for (const gate of level.gradeGates ?? []) feed(gate.targets ?? [], gradeGateActive(gate, level.courseDoors ?? [], grade))
@@ -184,7 +214,7 @@ export function switchWiringProblems(level: JumpLevel, validateTriggers = true):
       issues.push(`Keep the wall terminal for ${objectReference(level, item.kind, item.index)} inside the level.`)
   }
   for (const source of switchSources(level)) if ((validateTriggers || source.kind !== 'trigger') && switchTargets(source.definition).some(id => !byId.has(id))) {
-    issues.push(`Connect ${objectReference(level, source.kind, source.index)} only to existing switched items.`)
+    issues.push(`Connect ${switchSourceReference(level, source)} only to existing switched items.`)
   }
   const doorIds = new Set((level.courseDoors ?? []).map(door => door.id))
   for (const [i, gate] of (level.gradeGates ?? []).entries()) if (gate.doors.some(id => !doorIds.has(id))) issues.push(`Average only level doors in this area with ${objectReference(level, 'grade-gate', i)}.`)
@@ -223,9 +253,13 @@ export function switchWiringProblems(level: JumpLevel, validateTriggers = true):
 
 /** Called only on an editor copy, after deleting an item or changing its power. */
 export function removeSwitchTarget(level: JumpLevel, id: string) {
-  for (const item of [...level.triggers ?? [], ...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...level.gradeGates ?? [], ...(level.goal ? [level.goal] : [])]) {
+  for (const item of [...level.triggers ?? [], ...level.floatSwitches ?? [], ...level.levelGauges ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...level.gradeGates ?? [], ...(level.goal ? [level.goal] : [])]) {
     if (item.targets) item.targets = item.targets.filter(target => target !== id)
     else if ('target' in item && item.target === id) item.target = ''
+  }
+  for (const gate of level.mechanisms ?? []) if (gate.shutTargets) {
+    gate.shutTargets = gate.shutTargets.filter(target => target !== id)
+    if (!gate.shutTargets.length) delete gate.shutTargets
   }
   for (const door of [...level.courseDoors ?? [], ...level.bulkheads ?? []]) if (door.targets) {
     door.targets = door.targets.filter(target => target !== id)

@@ -6,6 +6,7 @@ import { MAX_WALL_DOORS } from './wallDoor.ts'
 import { MAX_WALL_PIPES } from './wallPipes.ts'
 import { MAX_WALL_STRIPES } from './hazardStripes.ts'
 import { MAX_LOOSE_PANELS } from './wallLoosePanels.ts'
+import { MAX_LEVEL_GAUGES } from './levelGauge.ts'
 import type { JumpLevel } from './level.ts'
 import { asTrial } from './puzzleEditor.ts'
 import { lineBlocked, polygonIntersects, polygonPoints } from './geometry.ts'
@@ -86,7 +87,7 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'light') return level.lighting!.lights as unknown as Item[]
   if (kind === 'entrance' || kind === 'goal') throw new Error('Entrance and exit doors are unique.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
-    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields',
+    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'level-gauge': 'levelGauges', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields',
     'course-door': 'courseDoors', bulkhead: 'bulkheads', 'evaluation-board': 'evaluationBoards', 'wall-door': 'wallDoors', 'grade-gate': 'gradeGates', pipe: 'pipes', 'wall-stripes': 'stripes', 'loose-panel': 'loosePanels' } as const
   const record = level as unknown as Record<string, unknown>
   return (record[fields[kind]] ??= []) as Item[]
@@ -112,7 +113,9 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
   let left = -Infinity, right = Infinity, top = -Infinity, bottom = Infinity
   for (const s of items) {
     const raw = itemBounds(level, s)!, b = s.kind === 'goal' ? goalBounds(level.goal!) : s.kind === 'rope' ? { ...raw, h: 0 }
-      : s.kind === 'text' || s.kind === 'course-door' || s.kind === 'bulkhead' || s.kind === 'wall-door' ? itemOutline(level, s)! : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
+      : s.kind === 'text' || s.kind === 'course-door' || s.kind === 'bulkhead' || s.kind === 'wall-door' ? itemOutline(level, s)!
+      // A level gauge's board may run on behind the floor, below its mark.
+      : s.kind === 'level-gauge' ? { ...raw, h: Math.min(raw.h, Math.max(0, levelHeight(level) - raw.y)) } : raw, margin = ['prop', 'robot', 'mechanism', 'trigger'].includes(s.kind) ? 24 : 0
     left = Math.max(left, margin - b.x); right = Math.min(right, level.width - margin - b.x - b.w)
     top = Math.max(top, -b.y); bottom = Math.min(bottom, levelHeight(level) - b.y - b.h)
     if (s.kind === 'platform') for (const ladder of level.climbables.ladders) if (ladder.platform === s.index) {
@@ -212,7 +215,7 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
   return { level: copyLevel(level), selections: validSelections(level, selections).filter(copyableSelection) }
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
-  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'gravity-plate': 16, 'force-field': 40,
+  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'back-wall': 40, 'wall-light': 40, 'logic-relay': 40, 'float-switch': 16, 'level-gauge': MAX_LEVEL_GAUGES, 'gravity-plate': 16, 'force-field': 40,
   'course-door': MAX_COURSE_DOORS, bulkhead: MAX_BULKHEADS, 'evaluation-board': MAX_EVALUATION_BOARDS, 'wall-door': MAX_WALL_DOORS, 'grade-gate': MAX_GRADE_GATES, pipe: MAX_WALL_PIPES, 'wall-stripes': MAX_WALL_STRIPES, 'loose-panel': MAX_LOOSE_PANELS }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
@@ -221,7 +224,7 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
   if (originals.some(s => hubKinds.includes(s.kind)) && !isHubLevel(level)) throw new Error('Level doors, bulkheads and evaluation boards belong in facility areas. Change Type in the Level settings first.')
   let next = copyLevel(level)
   if (originals.some(s => s.kind === 'back-wall')) next = prepareBackWall(next)
-  if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'logic-relay', 'float-switch', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)
+  if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'logic-relay', 'float-switch', 'level-gauge', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)
   if (originals.some(s => s.kind === 'light')) { next.version = 2; next.lighting ??= { nightMode: false, ambient: 0, lights: [] } }
   const indices = new Map<string, number>(), ids = new Map<string, string>(), pasted: Selection[] = []
   const toggleGroups = new Map<string, string>()
@@ -242,6 +245,11 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
   for (const s of pasted) {
     const definition = itemArray(next, s.kind)[s.index]
     if (Array.isArray(definition.targets)) definition.targets = definition.targets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])
+    // A gate's shut contact keeps connections the same way.
+    if (Array.isArray(definition.shutTargets)) {
+      const shut = definition.shutTargets.flatMap(id => typeof id === 'string' && ids.has(id) ? [ids.get(id)!] : external.has(id) ? [id] : [])
+      if (shut.length) definition.shutTargets = shut; else delete definition.shutTargets
+    }
     if (typeof definition.target === 'string') { definition.targets = ids.has(definition.target) ? [ids.get(definition.target)!] : external.has(definition.target) ? [definition.target] : []; delete definition.target }
     if (s.kind === 'course-door' && !next.courseDoors![s.index].targets?.length) delete next.courseDoors![s.index].targets
     if (s.kind === 'grade-gate') {

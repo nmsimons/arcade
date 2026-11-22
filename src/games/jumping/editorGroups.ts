@@ -7,7 +7,7 @@ import { itemDefinition } from './objectLabels.ts'
 export interface EditorGroup { id: string; members: Selection[] }
 const key = (s: Selection) => `${s.kind}:${s.index}`
 const kinds = new Set<Selection['kind']>(['back-wall', 'platform', 'rope', 'ladder', 'entrance', 'checkpoint', 'goal', 'prop', 'robot',
-  'mechanism', 'trigger', 'timer', 'text', 'pickup', 'light', 'wall-light', 'logic-relay', 'float-switch', 'gravity-plate', 'force-field'])
+  'mechanism', 'trigger', 'timer', 'text', 'pickup', 'light', 'wall-light', 'logic-relay', 'float-switch', 'level-gauge', 'gravity-plate', 'force-field'])
 
 export function parseEditorGroups(value: unknown, level: JumpLevel): EditorGroup[] {
   const fail = (): never => { throw new Error('Invalid editor groups. Each group needs at least two existing objects, and an object can belong to only one group.') }

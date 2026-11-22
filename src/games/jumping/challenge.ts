@@ -3,7 +3,7 @@ import { releaseRopeAnchor, ropePath } from './climbables.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, passesThrough, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { isHubLevel, isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
-import { resolveSwitchStates } from './switchPower.ts'
+import { hasGateShutContacts, resolveSwitchStates } from './switchPower.ts'
 import { triggerStartsOn, triggerToggleGroup } from './toggleGroups.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { actorPressesWallPlate, isWallPlate, propPressesWallPlate } from './wallPlates.ts'
@@ -28,7 +28,7 @@ import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { followPropGrip, playerContacts, translatePlayer } from './playerContacts.ts'
 import { advanceFootwork } from './footwork.ts'
 import type { ContactWorld, PlayerCollider, PlayerContacts } from './playerContacts.ts'
-import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism } from './mechanisms.ts'
+import { gateSeated, mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism } from './mechanisms.ts'
 import { canHangFromBox } from './boxSupport.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
 
@@ -57,6 +57,8 @@ import { powerOut } from './power.ts'
 
 import { createFloatSwitch, updateFloatSwitch } from './floatSwitch.ts'
 import type { FloatSwitch, FloatSwitchState } from './floatSwitch.ts'
+import { createLevelGauge, updateLevelGauge } from './levelGauge.ts'
+import type { LevelGaugeState } from './levelGauge.ts'
 
 export interface Prop extends PropDefinition {
   gadgetCooldown?: number
@@ -76,6 +78,10 @@ export interface Run {
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
   forceFields: ForceFieldState[]
   floatSwitches: FloatSwitchState[]
+  /** Present only when the level has level gauges, so other runs keep their recorded shape. */
+  levelGauges?: LevelGaugeState[]
+  /** Gate shut contacts by mechanism index; present only when a gate's shut contact is wired. */
+  gateShut?: { active: boolean }[]
   switchStates: Map<string, boolean>; gravityField: GravityField
   toggleGroupStates: Map<string, boolean>
   waterSurface?: WaterSurfaceState
@@ -137,6 +143,7 @@ function createInitialWorld(level: RunLevel, preview = false): Run {
   if (isHubLevel(level)) run.hub = createHubState()
   run.props.push(...floats.map(f => f.prop))
   for (const pool of run.water.pools) run.waterSpaces.set(pool.region, waterSpace({ ...pool.definition, y: pool.definition.y - 6, h: pool.definition.h + 6 }, run.terrain))
+  if (level.levelGauges?.length) run.levelGauges = level.levelGauges.map(gauge => createLevelGauge(gauge, run.water))
   updateSwitchTargets(run)
   if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
   if (!preview) {
@@ -382,9 +389,12 @@ function releaseRopeAnchors(run: Run, states: ReadonlyMap<string, boolean>) {
 function updateSwitchTargets(run: Run) {
   const powered = !powerOut(run)
   for (const state of run.floatSwitches) updateFloatSwitch(state, powered)
+  for (const state of run.levelGauges ?? []) updateLevelGauge(state, run.water, powered)
+  // Shut contacts read where the gates are now. EMP, the power-down or a bolt on the gate opens them.
+  if (hasGateShutContacts(run.level)) run.gateShut = run.mechanisms.map(m => ({ active: powered && !run.gadgets.disabled.has(m) && gateSeated(m) }))
   // In a facility area, door and bulkhead switches and grade averages read the facility's records.
   const hub = run.hub
-  const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches, hub ? { grade: course => hub.grades.get(course) ?? null, complete: area => hub.complete.has(area) } : undefined)
+  const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches, hub ? { grade: course => hub.grades.get(course) ?? null, complete: area => hub.complete.has(area) } : undefined, run.levelGauges, run.gateShut)
   run.switchStates = states
   // A switched door the facility lets open is open while its wiring is on.
   if (run.hub) for (const id of run.hub.switched) { if (states.get(id)) run.hub.open.add(id); else run.hub.open.delete(id) }
@@ -536,6 +546,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   const toolBefore = heldToolFrame(run.player)
   let world = syncPlatforms(run)
   const poweredDt = !run.failed && dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
+  // Switches resolve, reading level gauges, before this frame's pump input is added.
   stepTriggers(run, poweredDt, powered)
   if (advanceWaterLevels(run.water, run.switchStates, poweredDt)) {
     updateGravityField(run.gravityField, run.water.plates, run.switchStates, powered, run.water.revision, plate => run.gadgets.disabled.has(plate))

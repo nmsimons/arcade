@@ -54,10 +54,12 @@ import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBoun
 import type { LogicRelay } from './logicRelay.ts'
 import { MAX_FLOAT_SWITCHES, floatSwitchBounds } from './floatSwitch.ts'
 import type { FloatSwitch } from './floatSwitch.ts'
+import { LEVEL_GAUGE_TOLERANCE, MAX_LEVEL_GAUGES, levelGaugeFits, levelGaugePool } from './levelGauge.ts'
+import type { LevelGauge } from './levelGauge.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import type { GravityPlate } from './gravity.ts'
-import { waterControlId } from './waterLevel.ts'
+import { waterControlId, waterSurfaceY } from './waterLevel.ts'
 import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
 import type { ForceField } from './forceField.ts'
 import type { PropWeight } from './propWeight.ts'
@@ -71,7 +73,9 @@ import type { LevelEnvironment } from './environment.ts'
 export const LEVEL_GRID_SIZE = 20
 
 export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight; branded?: boolean; gadget?: 'emp' | 'repulsor' | 'tractor' }
-export interface Mechanism extends NamedObject, SwitchSettings { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode }
+export interface Mechanism extends NamedObject, SwitchSettings { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode
+  /** A gate's shut contact: on while the powered gate sits exactly at its closed position (switchPower.ts). */
+  shutTargets?: string[] }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
 export type Trigger = NamedObject & WallWiringSettings & { x: number; y: number; w: number } & TriggerConnection
@@ -103,6 +107,8 @@ export interface JumpLevel {
   wallLights?: WallLight[]
   logicRelays?: LogicRelay[]
   floatSwitches?: FloatSwitch[]
+  /** Exact waterline sensors (levelGauge.ts). */
+  levelGauges?: LevelGauge[]
   gravityPlates?: GravityPlate[]
   forceFields?: ForceField[]
   texts?: WallText[]
@@ -264,6 +270,22 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, f] of (level.floatSwitches ?? []).entries()) {
     const b = floatSwitchBounds(f)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'float-switch', i)} inside the level rectangle.`)
+  }
+  for (const [i, gauge] of (level.levelGauges ?? []).entries()) {
+    if (!levelGaugeFits(gauge, level.width, levelHeight(level))) issues.push(`Keep ${objectReference(level, 'level-gauge', i)} inside the level rectangle.`)
+    else {
+      const pool = levelGaugePool(gauge, level.gravityPlates ?? [])
+      if (!pool) { issues.push(`Put the mark of ${objectReference(level, 'level-gauge', i)} inside a pool.`); continue }
+      // The pool's lowest waterline is its low mark. A mark below it never sees the water reach it:
+      // "below" never switches on and "above" never switches off, so a gate wired to it stays put.
+      const lowest = waterSurfaceY(pool, pool.waterMinLevel ?? 0)
+      if (gauge.y > lowest + LEVEL_GAUGE_TOLERANCE) {
+        const name = objectReference(level, 'level-gauge', i), depth = `${Math.round(lowest * 10) / 10}`
+        issues.push(gauge.activeWhen === 'below'
+          ? `The mark of ${name} is below the lowest its pool drains to (${depth}), so it never switches on. Move the mark to the pool's low water mark.`
+          : `The mark of ${name} is below the lowest its pool drains to (${depth}), so it never switches off. Move the mark up into the pool's range.`)
+      }
+    }
   }
   for (const [i, p] of (level.gravityPlates ?? []).entries()) {
     if (p.x < 0 || p.y < 0 || p.x + p.w > level.width || p.y + p.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'gravity-plate', i)} inside the level rectangle.`)
@@ -591,12 +613,14 @@ export function parseLevel(value: unknown): JumpLevel {
       if (m.orientation !== undefined && m.orientation !== 'horizontal') fail()
       if (m.flipX !== undefined && (m.orientation !== 'horizontal' || typeof m.flipX !== 'boolean')) fail()
       if (m.power !== undefined && (m.kind === 'gate' || m.power !== 'always' && m.power !== 'switched')) fail()
+      if (m.shutTargets !== undefined && m.kind !== 'gate') fail()
+      const shutTargets = m.shutTargets === undefined ? undefined : parseSwitchSettings({ targets: m.shutTargets }, fail).targets
       const w = num(m.w, m.kind === 'gate' ? MECHANISM_THICKNESS : 30, 600), h = num(m.h, 12, 800)
       return prepareMechanism({ ...objectName(m), ...parseSwitchSettings(m, fail), id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 0, width - w), y: num(m.y, -1000, level.floor! - h), w, h,
         travel: num(m.travel, m.kind === 'gate' ? 12 : 60, 1200),
         ...(m.power === undefined ? {} : { power: m.power as PowerMode }),
         ...(m.orientation === 'horizontal' ? { orientation: 'horizontal' as const } : {}),
-        ...(m.flipX === undefined ? {} : { flipX: m.flipX as boolean }) }, level.floor!)
+        ...(m.flipX === undefined ? {} : { flipX: m.flipX as boolean }), ...(shutTargets ? { shutTargets } : {}) }, level.floor!)
     })
     if (new Set(level.mechanisms.map(m => m.id)).size !== level.mechanisms.length) fail()
     level.triggers = list(v.triggers, 40).map(item => {
@@ -737,7 +761,7 @@ export function parseLevel(value: unknown): JumpLevel {
       const hubIds = [...level.courseDoors, ...level.bulkheads, ...level.evaluationBoards, ...level.gradeGates ?? []].map(item => item.id)
       if (new Set(hubIds).size !== hubIds.length) fail()
     }
-  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'floatSwitches', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
+  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'floatSwitches', 'levelGauges', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
@@ -850,6 +874,16 @@ export function parseLevel(value: unknown): JumpLevel {
     if (b.x < 0 || b.y < 0 || b.x + b.w > width || b.y + b.h > levelHeight(level)) return fail()
     return definition
   })
+  // A sensor input like a float switch: it has no power, relay or logic of its own.
+  if (v.levelGauges !== undefined) level.levelGauges = list(v.levelGauges, MAX_LEVEL_GAUGES).map(item => {
+    const g = object(item)
+    if (typeof g.id !== 'string' || !g.id.trim() || g.id.length > 100 || g.power !== undefined || g.relay !== undefined || g.switchLogic !== undefined || g.switchReversed !== undefined) return fail()
+    if (g.activeWhen !== undefined && g.activeWhen !== 'above' && g.activeWhen !== 'below') return fail()
+    const definition: LevelGauge = { ...objectName(g), ...parseWallWiring(g, fail), id: g.id, x: num(g.x, 0, width), y: num(g.y, 0, levelHeight(level)),
+      targets: parseSwitchSettings(g, fail).targets ?? [], ...(g.activeWhen === undefined ? {} : { activeWhen: g.activeWhen as 'above' | 'below' }) }
+    if (!levelGaugeFits(definition, width, levelHeight(level))) return fail()
+    return definition
+  })
   if (v.logicRelays !== undefined) level.logicRelays = list(v.logicRelays, MAX_LOGIC_RELAYS).map(item => {
     const relay = object(item)
     if (typeof relay.id !== 'string' || !relay.id.trim() || relay.id.length > 100 || relay.relay !== undefined || relay.power !== undefined) return fail()
@@ -870,7 +904,7 @@ export function parseLevel(value: unknown): JumpLevel {
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
-  const ids = [...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : []),
+  const ids = [...level.floatSwitches ?? [], ...level.levelGauges ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : []),
     ...level.climbables.ropes.flatMap(rope => rope.release ? [rope.release] : []),
     // Switched doors and bulkheads are wired by their own IDs.
     ...[...level.courseDoors ?? [], ...level.bulkheads ?? []].filter(door => door.power === 'switched')].map(item => item.id)

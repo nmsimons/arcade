@@ -9,6 +9,8 @@ import { goalBounds, goalPoleX, GOAL_LIGHT_HEIGHT } from './goal.ts'
 import { coinSwitchBounds } from './coins.ts'
 import { LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT } from './logicRelay.ts'
 import { WALL_LIGHT_RADIUS } from './wallLight.ts'
+import { levelGaugeBounds, levelGaugeStates } from './levelGauge.ts'
+import type { LevelGauge } from './levelGauge.ts'
 import { LIGHT_RADIUS } from './lightingDefinition.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { paintNormally } from './worldPaint.ts'
@@ -16,12 +18,17 @@ import type { WorldPaint } from './worldPaint.ts'
 import { powerOut } from './power.ts'
 import { pressurePlateBounds } from './wallPlates.ts'
 
-export interface WallWire { source: Selection; target: string; points: Vec[] }
+/** A gate's shut contact (`gate-shut`) wires from its gate's terminal. */
+export interface WallWire { source: { kind: Selection['kind'] | 'gate-shut'; index: number }; target: string; points: Vec[] }
+const fixture = (item: WallWire['source']): Selection => item.kind === 'gate-shut' ? { kind: 'mechanism', index: item.index } : item as Selection
 export const DEFAULT_WIRE_HEIGHT = 160
 export const WALL_WIRE_INACTIVE = '#9aa89c', WALL_WIRE_ENERGIZED = '#a1bf86'
 export interface WallWireState {
   triggers: readonly { active: boolean }[]
   floatSwitches: readonly { active: boolean }[]
+  levelGauges?: readonly { active: boolean }[]
+  /** Gate shut contacts by mechanism index, when the level wires any. */
+  gateShut?: readonly { active: boolean }[]
   switchStates: ReadonlyMap<string, boolean>
   empRemaining: number
   failed?: boolean
@@ -42,6 +49,7 @@ function fixtureBounds(level: JumpLevel, item: Selection) {
   const d = itemDefinition(level, item) as { x: number; y: number; w?: number; h?: number }
   if (item.kind === 'light') return round(d.x, d.y, LIGHT_RADIUS)
   if (item.kind === 'wall-light' || item.kind === 'float-switch') return round(d.x, d.y, WALL_LIGHT_RADIUS)
+  if (item.kind === 'level-gauge') return levelGaugeBounds(d as LevelGauge)
   if (item.kind === 'logic-relay') return { x: d.x, y: d.y, w: LOGIC_RELAY_WIDTH, h: LOGIC_RELAY_HEIGHT }
   return { x: d.x, y: d.y, w: d.w ?? 0, h: d.h ?? 0 }
 }
@@ -75,7 +83,7 @@ export function wallWires(level: JumpLevel): WallWire[] {
   return switchSources(level).flatMap(source => {
     if (source.kind === 'course-door' || source.kind === 'bulkhead' || source.kind === 'grade-gate' || !source.definition.showWires) return []
     const lane = clampY(height - (source.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT))
-    const start = terminal(level, source, lane)
+    const start = terminal(level, fixture(source), lane)
     return switchTargets(source.definition).flatMap(id => {
       const target = targets.get(id)
       if (!target) return [] // Invalid connections remain repairable in the studio.
@@ -99,7 +107,7 @@ export function wallTerminals(level: JumpLevel): WallTerminal[] {
   for (const wire of levelWires(level)) {
     const destination = targets.get(wire.target)
     if (!destination) continue
-    for (const [owner, point] of [[wire.source, wire.points[0]], [destination, wire.points.at(-1)!]] as const)
+    for (const [owner, point] of [[fixture(wire.source), wire.points[0]], [destination, wire.points.at(-1)!]] as const)
       points.set(`${owner.kind}:${owner.index}:${point[0]}:${point[1]}`, { owner: { kind: owner.kind, index: owner.index }, x: point[0], y: point[1] })
   }
   return [...points.values()]
@@ -110,7 +118,9 @@ function initialState(level: JumpLevel): WallWireState {
   if (!state) {
     const triggers = (level.triggers ?? []).map(t => ({ active: triggerStartsOn(level, t) }))
     const floats = (level.floatSwitches ?? []).map(f => ({ active: f.activeWhen === 'lowered' ? !f.startsRaised : !!f.startsRaised }))
-    state = { triggers, floatSwitches: floats, switchStates: resolveSwitchStates(level, triggers, floats), empRemaining: 0 }
+    // Level gauges read the authored water levels; every gate starts shut.
+    const gauges = levelGaugeStates(level), shut = (level.mechanisms ?? []).map(m => ({ active: m.kind === 'gate' }))
+    state = { triggers, floatSwitches: floats, levelGauges: gauges, gateShut: shut, switchStates: resolveSwitchStates(level, triggers, floats, undefined, gauges, shut), empRemaining: 0 }
     initialStates.set(level, state)
   }
   return state
@@ -120,7 +130,9 @@ export function wallWireEnergized(level: JumpLevel, wire: WallWire, state: WallW
   if (powerOut(state)) return false
   if (wire.source.kind === 'trigger') return !!state.triggers[wire.source.index]?.active
   if (wire.source.kind === 'float-switch') return !!state.floatSwitches[wire.source.index]?.active
-  const definition = itemDefinition(level, wire.source) as { id?: string }
+  if (wire.source.kind === 'level-gauge') return !!state.levelGauges?.[wire.source.index]?.active
+  if (wire.source.kind === 'gate-shut') return !!state.gateShut?.[wire.source.index]?.active
+  const definition = itemDefinition(level, fixture(wire.source)) as { id?: string }
   return !!state.switchStates.get(definition.id ?? '')
 }
 export function hasWallWiring(level: JumpLevel) { return levelWires(level).length > 0 }

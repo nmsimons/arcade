@@ -10,7 +10,7 @@ import { drawLevelCenterGuides, levelCenterSnap } from './builderSnap'
 import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, rememberEditorClipboard } from './editorClipboard'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, editLevelGauge, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { setLoosePanel, setPipe, setWallStripes } from './editor'
 import { PANEL_CONTENTS, PANEL_HANGS, loosePanelRect } from './wallLoosePanels'
@@ -165,6 +165,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'vertical-plate', group: 'Mechanisms', label: 'Vertical pressure plate', help: 'Click beside a wall to put a plate on its face. Contact presses it: a body leaning or braced on it, palms pushing it, or a box or ball held against it. Moving it snaps to the nearest face; Flip horizontally moves it to the other side of its wall.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
   { id: 'float-switch', group: 'Mechanisms', label: 'Float switch', help: 'A buoyant ball on a hinged arm. Water or a gravity lift raises it. Choose Raised or Lowered activation and connect its outputs.' },
+  { id: 'level-gauge', group: 'Mechanisms', label: 'Level gauge', help: 'Click inside a pool to mount a depth board with its mark at the cursor. It switches exactly when the waterline reaches the mark. Choose At or above, or At or below, and connect its outputs.' },
   { id: 'logic-relay', group: 'Mechanisms', label: 'Logic relay', help: 'Place a studio-only logic node. Combine switches with OR, AND or XOR, optionally reverse the result, then connect its Activates outputs. Invisible during play, with no physical behavior.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'course-door', group: 'Facility', label: 'Level door', help: 'Click to set a door into the back wall on a flat sill, like the entrance. Choose the level it leads to in the inspector. In the facility, Up in the open doorway enters the level, and finishing it returns the robot here. The placard shows the level, its D deadline, then the best time and grade. The door is also a switch, on once its level is passed.' },
@@ -338,6 +339,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const facingPlate = (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? (trigger?.mode !== 'coins' ? trigger : null)
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
   const floatSwitch = selection?.kind === 'float-switch' ? level.floatSwitches?.[selection.index] : null
+  const levelGauge = selection?.kind === 'level-gauge' ? level.levelGauges?.[selection.index] : null
   const logicRelay = selection?.kind === 'logic-relay' ? level.logicRelays?.[selection.index] : null
   const gradeGate = selection?.kind === 'grade-gate' ? level.gradeGates?.[selection.index] : null
   const switchable = (goal && !goal.kind ? goal : null) ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
@@ -348,10 +350,14 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const objectSwitchReversed = !!switchedObject?.definition.switchReversed
   const sources = switchSources(level)
   const selectedSource = sources.find(item => item.kind === selection?.kind && item.index === selection.index)
+  const shutSource = mechanism?.kind === 'gate' ? sources.find(item => item.kind === 'gate-shut' && item.index === selection?.index) : undefined
+  // A gate shows its shut contact's wires with its own wall-wiring settings.
+  const wiringSource = selectedSource ?? (shutSource?.definition.targets?.length ? shutSource : undefined)
   const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
   // A level door switches on once its level is passed; other physical items send their state as relays.
-  const sourceLabel = (source: typeof sources[number]) => `${selectionLabel(source, level, doorName)}${source.kind === 'course-door' ? ' · Passed' : source.kind === 'bulkhead' ? ' · Complete'
-    : ['trigger', 'float-switch', 'logic-relay', 'grade-gate'].includes(source.kind) ? '' : ' · Relay'}`
+  const sourceLabel = (source: typeof sources[number]) => source.kind === 'gate-shut' ? `${selectionLabel({ kind: 'mechanism', index: source.index }, level, doorName)} · Shut`
+    : `${selectionLabel(source, level, doorName)}${source.kind === 'course-door' ? ' · Passed' : source.kind === 'bulkhead' ? ' · Complete'
+    : ['trigger', 'float-switch', 'level-gauge', 'logic-relay', 'grade-gate'].includes(source.kind) ? '' : ' · Relay'}`
   const sourceKey = (source: typeof sources[number]) => `${source.kind}:${source.index}`
   const outgoingTargets = targets.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
   const terminals = useMemo(() => wallTerminals(level), [level])
@@ -918,6 +924,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
       const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] }
         : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] }
         : d.selection.kind === 'float-switch' ? { ...rawBounds, ...d.base.floatSwitches![d.selection.index] }
+        : d.selection.kind === 'level-gauge' ? { ...rawBounds, ...d.base.levelGauges![d.selection.index] }
         : d.selection.kind === 'logic-relay' ? { ...rawBounds, ...d.base.logicRelays![d.selection.index] }
         : d.selection.kind === 'grade-gate' ? { ...rawBounds, ...d.base.gradeGates![d.selection.index] } : rawBounds
       if (d.mode === 'wire-terminal' && d.terminal && Math.hypot(dx, dy) * view.zoom >= 3) {
@@ -1036,7 +1043,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
     const bounds = selection && itemBounds(base, selection)
     if (!selection || !bounds || !Number.isFinite(value)) return base
     const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : selection.kind === 'wall-light' ? base.wallLights?.[selection.index]
-      : selection.kind === 'float-switch' ? base.floatSwitches?.[selection.index] : selection.kind === 'logic-relay' ? base.logicRelays?.[selection.index]
+      : selection.kind === 'float-switch' ? base.floatSwitches?.[selection.index] : selection.kind === 'level-gauge' ? base.levelGauges?.[selection.index]
+      : selection.kind === 'logic-relay' ? base.logicRelays?.[selection.index]
       : selection.kind === 'grade-gate' ? base.gradeGates?.[selection.index] : null
     return axis === 'x' || axis === 'y' ? moveItem(base, selection, axis === 'x' ? value - (light?.x ?? bounds.x) : 0, axis === 'y' ? levelHeight(base) - value - (light?.y ?? bounds.y) : 0)
       : resizeItem(base, selection, axis === 'w' ? value : bounds.w, axis === 'h' ? value : bounds.h)
@@ -1064,6 +1072,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   function changedObject(base: JumpLevel, field: string, value: number | string | boolean) {
     if (!selection) return base
     if (selection.kind === 'float-switch') return editFloatSwitch(base, selection.index, { [field]: value })
+    if (selection.kind === 'level-gauge' && field === 'activeWhen') return editLevelGauge(base, selection.index, { activeWhen: value === 'below' ? 'below' : 'above' })
     if (selection.kind === 'light') return editLight(base, selection.index, { [field]: value })
     if (selection.kind === 'mechanism' && field === 'travel') {
       return setElevatorTravel(base, selection.index, Number(value))
@@ -1262,7 +1271,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         {hubDoor ? <p className="builder-hint">Named in the facility by where it leads.</p>
           : <Field>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemName(level, selection) ?? ''}
             placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></Field>}
-        {Boolean(editingWall || trigger || floatSwitch || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject || hubDoor || gradeGate || exitDoor) && <BuilderInspectorSection title="Behavior">
+        {Boolean(editingWall || trigger || floatSwitch || levelGauge || prop || forceField || gravityPlate || switchable && objectPower || mechanism?.kind === 'lift' || pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty' || selection.kind === 'entrance' || robot || switchedObject || hubDoor || gradeGate || exitDoor) && <BuilderInspectorSection title="Behavior">
           {hubDoor && <BuilderSelect label="Leads to" accessibleLabel={selection.kind === 'bulkhead' ? 'Bulkhead destination' : 'Level door destination'}
             title={selection.kind === 'bulkhead' ? 'The part of the facility this bulkhead opens onto' : 'The level this door opens onto'}
             value={doorDestination} options={destinationOptions} onChange={value => commit(setHubDoorDestination(history.present, selection, value))} />}
@@ -1339,6 +1348,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <BuilderSelect label="Starts" accessibleLabel="Float starting position" value={floatSwitch.startsRaised ? 'raised' : 'lowered'} options={[{ value: 'lowered', label: 'Lowered' }, { value: 'raised', label: 'Raised' }]} onChange={value => changeObject('startsRaised', value === 'raised')} />
             <InspectorButton onClick={() => changeObject('flipX', !floatSwitch.flipX)}>Flip horizontally</InspectorButton>
           </>}
+          {levelGauge && <BuilderSelect label="Active when" accessibleLabel="Level gauge activation" value={levelGauge.activeWhen ?? 'above'}
+            options={[{ value: 'above', label: 'At or above mark' }, { value: 'below', label: 'At or below mark' }]} onChange={value => changeObject('activeWhen', value)} />}
           {prop && <>
             <BuilderSelect label="Weight" accessibleLabel="Object weight" value={prop.weight === 'heavy' ? 'heavy' : 'normal'}
               options={[{ value: 'normal', label: 'Normal' }, { value: 'heavy', label: 'Heavy' }]}
@@ -1460,6 +1471,17 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               })}
           </>}
         </BuilderInspectorSection>}
+        {shutSource && <BuilderInspectorSection title="Shut contact">
+          <p className="builder-hint">On while the gate sits fully closed and powered. Closing, a safety hold or an obstruction keeps it off; EMP turns it off. It may feed logic that commands this gate.</p>
+          <fieldset className="builder-connections"><legend>Shut contact activates</legend>
+            <BuilderConnectionList key={`gate-shut:${shutSource.index}`} label="Shut contact activates" empty="No switched items" items={targets.map(item => ({
+              id: item.id, label: switchItemLabel(level, item, doorName), checked: switchTargets(shutSource.definition).includes(item.id), onChange: checked => {
+                const ids = switchTargets(shutSource.definition)
+                commit(setSwitchTargets(history.present, shutSource, checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))
+              },
+            }))} />
+          </fieldset>
+        </BuilderInspectorSection>}
         <BuilderInspectorSection title="Transform">
           <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
             {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
@@ -1467,9 +1489,10 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               || axis === 'h' && (verticalCoinSwitch || ['back-wall', 'platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind))).map(axis => {
               const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
               const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
+                : levelGauge ? axis === 'x' ? 'Mark X' : 'Mark Y'
                 : ({ x: light || wallLight || logicRelay || gradeGate || floatSwitch ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay || gradeGate || floatSwitch ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
               return <Field key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? gridSize : 1}
-                value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? gradeGate?.y ?? floatSwitch?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? gradeGate?.x ?? floatSwitch?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></Field>
+                value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? gradeGate?.y ?? floatSwitch?.y ?? levelGauge?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? gradeGate?.x ?? floatSwitch?.x ?? levelGauge?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></Field>
             })}
           </div>
           {trigger && trigger.mode !== 'coins' && !trigger.facing && <>
@@ -1629,11 +1652,11 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           </>}
         </BuilderInspectorSection>}
         {/* A grade average is invisible during play, so it has no wall wiring. */}
-        {Boolean(selectedSource && !['grade-gate', 'course-door', 'bulkhead'].includes(selectedSource.kind) || terminalPosition) && <BuilderInspectorSection title="Wall wiring" open={false} reveal={terminalFocus !== null}>
-          {selectedSource && selectedSource.kind !== 'grade-gate' && selectedSource.kind !== 'course-door' && selectedSource.kind !== 'bulkhead' && <fieldset className="builder-connections"><legend>Back-wall wiring</legend>
-            <CheckField checked={!!selectedSource.definition.showWires} onCheckedChange={checked => commit(setWallWiring(history.present, selection, checked))}>Show wall wiring</CheckField>
-            {selectedSource.definition.showWires && <Field>Wire height<NumberField label="Wire height" min={0} max={levelHeight(level)} step={snap ? gridSize : 1}
-              value={selectedSource.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT} {...numberEdit((base, value) => setWallWiring(base, selection, true, value))} /></Field>}
+        {Boolean(wiringSource && !['grade-gate', 'course-door', 'bulkhead'].includes(wiringSource.kind) || terminalPosition) && <BuilderInspectorSection title="Wall wiring" open={false} reveal={terminalFocus !== null}>
+          {wiringSource && wiringSource.kind !== 'grade-gate' && wiringSource.kind !== 'course-door' && wiringSource.kind !== 'bulkhead' && <fieldset className="builder-connections"><legend>Back-wall wiring</legend>
+            <CheckField checked={!!wiringSource.definition.showWires} onCheckedChange={checked => commit(setWallWiring(history.present, selection, checked))}>Show wall wiring</CheckField>
+            {wiringSource.definition.showWires && <Field>Wire height<NumberField label="Wire height" min={0} max={levelHeight(level)} step={snap ? gridSize : 1}
+              value={wiringSource.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT} {...numberEdit((base, value) => setWallWiring(base, selection, true, value))} /></Field>}
           </fieldset>}
           {terminalPosition && <fieldset className="builder-connections"><legend>Wall terminal</legend>
             <div className="builder-dimensions">
@@ -1645,11 +1668,12 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
             <InspectorButton disabled={!customTerminal} onClick={() => { commit(setWallTerminal(history.present, selection, null)); setTerminalFocus(null) }}>Reset terminal position</InspectorButton>
           </fieldset>}
         </BuilderInspectorSection>}
-        {Boolean(floatSwitch || prop || chosen && selectedNode !== null || forceField || gravityPlate || wallText?.style === 'terminal' || wallText?.style === 'lab-stamp' || trigger || selectedSource || terminalPosition || robot?.kind === 'repulsor' || logicRelay || hubDoor || selection.kind === 'evaluation-board') && <BuilderInspectorSection title="Object help" open={false}>
+        {Boolean(floatSwitch || levelGauge || prop || chosen && selectedNode !== null || forceField || gravityPlate || wallText?.style === 'terminal' || wallText?.style === 'lab-stamp' || trigger || selectedSource || terminalPosition || robot?.kind === 'repulsor' || logicRelay || hubDoor || selection.kind === 'evaluation-board') && <BuilderInspectorSection title="Object help" open={false}>
           {selection.kind === 'course-door' && <p className="builder-hint">Needs a flat sill and a clear 40 × 80 doorway. Always open opens it whenever the robot is here; Switched opens it while its connected switches are on, such as the door before it. The door is also a switch: Activates turns on once its level is passed at D or better. Up in the open doorway enters; finishing the level returns the robot here.</p>}
           {selection.kind === 'bulkhead' && <p className="builder-hint">Needs a flat sill and a clear 40 × 80 doorway. Up in the open doorway leads through. The robot steps out of the bulkhead on the far side that leads back here, so give each connected place a matching bulkhead. Always open opens it whenever the robot is here; Switched opens it while its connected switches are on, such as other bulkheads whose areas are complete. The bulkhead is also a switch: Activates turns on once every level door in the area beyond is passed.</p>}
           {gradeGate && <p className="builder-hint">Visible only in the studio. Averages its doors' best grades during play and sends the result to connected items.</p>}
           {selection.kind === 'evaluation-board' && <p className="builder-hint">Shows the evaluation's total, then each wing's passes or SEALED. The text is filled in during play.</p>}
+          {levelGauge && <p className="builder-hint">Reads the waterline of the pool its mark is in, exactly: no lag and no gap between on and off, so a gate wired to gauges on both sides opens only with the water level. Mark X and Y place the red mark. EMP switches it off.</p>}
           {floatSwitch && <>
             <p className="builder-hint">Water and gravity lifts raise the ball. Gravity and physical loads lower it. The switch changes near the arm's horizontal position.</p>
           </>}
@@ -1696,7 +1720,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           {selectedSource && <>
             {selectedSource.kind === 'course-door' && <p className="builder-hint">Activates turns on once the level behind this door is passed, at D or better.</p>}
             {selectedSource.kind === 'bulkhead' && <p className="builder-hint">Activates turns on once the area beyond is complete: every level door in it passed.</p>}
-            {!['trigger', 'float-switch', 'grade-gate', 'course-door', 'bulkhead'].includes(selectedSource.kind) && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed.{selectedSource.kind !== 'logic-relay' && ' Turning Relay off clears these outputs.'}</p>}
+            {!['trigger', 'float-switch', 'level-gauge', 'grade-gate', 'course-door', 'bulkhead'].includes(selectedSource.kind) && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed.{selectedSource.kind !== 'logic-relay' && ' Turning Relay off clears these outputs.'}</p>}
           </>}
           {robot?.kind === 'repulsor' && <p className="builder-hint">{robot.chargingBay ? 'Wakes in its charging bay when it sees, hears or touches a rival.' : 'Enters through the shown portal. Give its full 40 × 80 opening a flat sill and clear space. Unsupported starts remain static until you fix their placement.'} Hunts across the level once alerted. Large forearms charge and fire from the palms. Sight and cover govern its shots.</p>}
           {logicRelay && <p className="builder-hint">Visible only in the studio. Sends its result to connected items, with no physical behavior during play.</p>}

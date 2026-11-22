@@ -42,6 +42,8 @@ import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight
 import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBounds } from './logicRelay.ts'
 import { MAX_FLOAT_SWITCHES, floatSwitchBounds, floatBallCenter } from './floatSwitch.ts'
 import type { FloatSwitch } from './floatSwitch.ts'
+import { MAX_LEVEL_GAUGES, levelGaugeBounds } from './levelGauge.ts'
+import type { LevelGauge } from './levelGauge.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { ROBOT_HALF_WIDTH, robotHulls } from './robotPhysics.ts'
 
@@ -57,12 +59,12 @@ import { propHeight, propWidth } from './propGeometry.ts'
 import { prepareBackWall } from './environmentEditor.ts'
 import { backWallEdgeAt } from './backWallEditing.ts'
 
-export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'vertical-plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'vertical-gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'tractor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'pipe' | 'wall-stripes' | 'loose-panel' | 'grade-gate'
+export type Tool = 'back-wall' | 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'tied-rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'repulsorbot' | 'plate' | 'vertical-plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'level-gauge' | 'gravity-plate' | 'vertical-gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor' | 'tractor' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'pipe' | 'wall-stripes' | 'loose-panel' | 'grade-gate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate' | 'pipe' | 'wall-stripes' | 'loose-panel'; index: number }
+export type Selection = { kind: 'back-wall' | 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'level-gauge' | 'gravity-plate' | 'force-field' | 'course-door' | 'bulkhead' | 'evaluation-board' | 'wall-door' | 'grade-gate' | 'pipe' | 'wall-stripes' | 'loose-panel'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 const pointBounds = (points: readonly (readonly [number, number])[]) => {
   const xs = points.map(p => p[0]), ys = points.map(p => p[1]), x = Math.min(...xs), y = Math.min(...ys)
@@ -363,7 +365,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     for (const cover of next.environment.groundCover ?? []) cover.y += dy
   }
   for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.levelGauges ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []),
     ...(next.courseDoors ?? []), ...(next.bulkheads ?? []), ...(next.evaluationBoards ?? []), ...(next.wallDoors ?? []), ...(next.gradeGates ?? []), ...(next.stripes ?? []), ...(next.loosePanels ?? [])]) point.y += dy
   for (const pipe of next.pipes ?? []) for (const point of pipe.points) point[1] += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
@@ -380,6 +382,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'light') { const l = level.lighting?.lights[i]; return l ? lightBounds(l) : null }
   if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
   if (selection.kind === 'float-switch') { const f = level.floatSwitches?.[i]; return f ? floatSwitchBounds(f) : null }
+  if (selection.kind === 'level-gauge') { const g = level.levelGauges?.[i]; return g ? levelGaugeBounds(g) : null }
   if (selection.kind === 'logic-relay') { const relay = level.logicRelays?.[i]; return relay ? logicRelayBounds(relay) : null }
   if (selection.kind === 'grade-gate') { const gate = level.gradeGates?.[i]; return gate ? gradeGateBounds(gate) : null }
   if (selection.kind === 'force-field') return level.forceFields?.[i] ?? null
@@ -450,7 +453,7 @@ export function setElevatorTravel(level: JumpLevel, index: number, travel: numbe
 export function setTriggerTargets(level: JumpLevel, index: number, targets: readonly string[]): JumpLevel {
   return setSwitchTargets(level, { kind: 'trigger', index }, targets)
 }
-export function setSwitchTargets(level: JumpLevel, selection: Selection, targets: readonly string[]): JumpLevel {
+export function setSwitchTargets(level: JumpLevel, selection: { kind: Selection['kind'] | 'gate-shut'; index: number }, targets: readonly string[]): JumpLevel {
   const next = copyLevel(level), source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index)
   if (!source) return level
   if (source.kind === 'trigger') delete source.definition.target
@@ -461,7 +464,9 @@ export function setSwitchTargets(level: JumpLevel, selection: Selection, targets
   return next
 }
 export function setWallWiring(level: JumpLevel, selection: Selection, enabled: boolean, height?: number): JumpLevel {
-  const next = copyLevel(level), source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index)
+  const next = copyLevel(level), gate = selection.kind === 'mechanism' && next.mechanisms?.[selection.index]?.kind === 'gate' ? next.mechanisms[selection.index] : undefined
+  // A gate's shut contact shows wires with the gate's own settings, relay or not.
+  const source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index) ?? (gate && { kind: 'mechanism' as const, definition: gate })
   // Level doors, bulkheads and grade averages have no wall terminal.
   if (!source || source.kind === 'course-door' || source.kind === 'bulkhead' || source.kind === 'grade-gate' || height !== undefined && !Number.isFinite(height)) return level
   if (enabled) source.definition.showWires = true
@@ -638,6 +643,14 @@ function editObjectSwitchSettings(level: JumpLevel, selection: Selection, settin
   Object.assign(item.definition, settings)
   return next
 }
+/** "above" is the default and is saved by omission. */
+export function editLevelGauge(level: JumpLevel, index: number, patch: Partial<Pick<LevelGauge, 'activeWhen'>>): JumpLevel {
+  if (!level.levelGauges?.[index]) return level
+  const next = copyLevel(level), g = next.levelGauges![index]
+  if (patch.activeWhen === 'below') g.activeWhen = 'below'
+  else if (patch.activeWhen === 'above') delete g.activeWhen
+  return next
+}
 export function editFloatSwitch(level: JumpLevel, index: number, patch: Partial<Pick<FloatSwitch, 'armLength' | 'size' | 'travelAngle' | 'flipX' | 'startsRaised' | 'activeWhen'>>): JumpLevel {
   if (!level.floatSwitches?.[index]) return level
   const next = copyLevel(level), f = next.floatSwitches![index]
@@ -697,6 +710,10 @@ export function* hitItems(level: JumpLevel, x: number, y: number, tolerance: num
     const f = level.floatSwitches![i], c = floatBallCenter(f), dx = c.x - f.x, dy = c.y - f.y
     const t = clamp(((x - f.x) * dx + (y - f.y) * dy) / f.armLength ** 2, 0, 1)
     if (Math.hypot(x - f.x, y - f.y) <= WALL_LIGHT_RADIUS + tolerance || Math.hypot(x - c.x, y - c.y) <= f.size / 2 + tolerance || Math.hypot(x - f.x - t * dx, y - f.y - t * dy) <= 5 + tolerance) yield { kind: 'float-switch', index: i }
+  }
+  for (let i = (level.levelGauges?.length ?? 0) - 1; i >= 0; i--) {
+    const b = levelGaugeBounds(level.levelGauges![i])
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) yield { kind: 'level-gauge', index: i }
   }
   for (let i = (level.logicRelays?.length ?? 0) - 1; i >= 0; i--) {
     const b = logicRelayBounds(level.logicRelays![i])
@@ -887,6 +904,12 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     for (const point of ropeEnds(moved)) { point.x += mx; point.y += my; delete point.anchor }
     delete moved.rest
     return next
+  }
+  if (selection.kind === 'level-gauge') {
+    // The mark moves; the lower half of the board may run on behind the floor.
+    const next = copyLevel(level), g = next.levelGauges![selection.index], half = b.w / 2, above = g.y - b.y
+    g.x = clamp(g.x + dx, half, level.width - half); g.y = clamp(g.y + dy, above, levelHeight(level))
+    return carryWallTerminals(level, next)
   }
   if (selection.kind === 'loose-panel') {
     // Its point moves, and the loose panel jumps from panel to panel as the point crosses their joints.
@@ -1107,6 +1130,7 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     removeSwitchTarget(next, light.id)
   }
   else if (selection.kind === 'float-switch') next.floatSwitches!.splice(i, 1)
+  else if (selection.kind === 'level-gauge') next.levelGauges!.splice(i, 1)
   else if (selection.kind === 'course-door') {
     // Its switch goes with it, and no wiring or average still names it.
     const [door] = next.courseDoors!.splice(i, 1)
@@ -1224,6 +1248,13 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     definition.y += clamp(b.y, 0, levelHeight(trial) - b.h) - b.y
     floats.push(definition)
     return { level: trial, selection: { kind: 'float-switch', index: floats.length - 1 } }
+  }
+  if (tool === 'level-gauge') {
+    const trial = asTrial(next), gauges = trial.levelGauges ??= []
+    if (gauges.length >= MAX_LEVEL_GAUGES) throw new Error(`This level already has ${MAX_LEVEL_GAUGES} level gauges.`)
+    const b = levelGaugeBounds({ x: 0, y: 0 })
+    gauges.push({ id: newLevelId(), x: clamp(start.x, -b.x, trial.width - b.x - b.w), y: clamp(start.y, -b.y, levelHeight(trial)), targets: [] })
+    return { level: trial, selection: { kind: 'level-gauge', index: gauges.length - 1 } }
   }
   if (tool === 'logic-relay') {
     const trial = asTrial(next), relays = trial.logicRelays ??= []
@@ -1472,12 +1503,13 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'prop') { if (next.props!.length >= 80) return null; index = next.props!.push({ ...next.props![i] }) - 1 }
   else if (selection.kind === 'robot') { if (next.robots!.length >= 30) return null; index = next.robots!.push({ ...next.robots![i] }) - 1 }
   else if (selection.kind === 'trigger') { if (next.triggers!.length >= 40) return null; index = next.triggers!.push({ ...next.triggers![i] }) - 1 }
-  else if (selection.kind === 'mechanism') { if (next.mechanisms!.length >= 40) return null; index = next.mechanisms!.push({ ...next.mechanisms![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'mechanism') { if (next.mechanisms!.length >= 40) return null; index = next.mechanisms!.push({ ...structuredClone(next.mechanisms![i]), id: newLevelId() }) - 1 }
   else if (selection.kind === 'light') { if (next.lighting!.lights.length >= MAX_LIGHTS) return null; index = next.lighting!.lights.push({ ...next.lighting!.lights[i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'force-field') { if (next.forceFields!.length >= MAX_FORCE_FIELDS) return null; index = next.forceFields!.push({ ...next.forceFields![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'gravity-plate') { if (next.gravityPlates!.length >= MAX_GRAVITY_PLATES) return null; index = next.gravityPlates!.push({ ...next.gravityPlates![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'float-switch') { if (next.floatSwitches!.length >= MAX_FLOAT_SWITCHES) return null; index = next.floatSwitches!.push({ ...next.floatSwitches![i], targets: [...next.floatSwitches![i].targets], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'level-gauge') { if (next.levelGauges!.length >= MAX_LEVEL_GAUGES) return null; index = next.levelGauges!.push({ ...next.levelGauges![i], targets: [...next.levelGauges![i].targets], id: newLevelId() }) - 1 }
   else if (selection.kind === 'logic-relay') { if (next.logicRelays!.length >= MAX_LOGIC_RELAYS) return null; index = next.logicRelays!.push({ ...next.logicRelays![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'grade-gate') { if (next.gradeGates!.length >= MAX_GRADE_GATES) return null; index = next.gradeGates!.push({ ...structuredClone(next.gradeGates![i]), id: newLevelId() }) - 1 }
   else if (selection.kind === 'course-door') { if (next.courseDoors!.length >= MAX_COURSE_DOORS) return null; index = next.courseDoors!.push({ ...structuredClone(next.courseDoors![i]), id: newLevelId() }) - 1 }
@@ -1509,6 +1541,7 @@ export function allSelections(level: JumpLevel): Selection[] {
     ...(level.loosePanels ?? []).map((_, index) => ({ kind: 'loose-panel' as const, index })),
     ...(level.environment?.walls ?? []).map((_, index) => ({ kind: 'back-wall' as const, index })),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
+    ...(level.levelGauges ?? []).map((_, index) => ({ kind: 'level-gauge' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
     ...(level.gradeGates ?? []).map((_, index) => ({ kind: 'grade-gate' as const, index })),
     ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),

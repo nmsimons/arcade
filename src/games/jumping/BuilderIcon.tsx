@@ -36,6 +36,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   light: 'M6 4Q12 0 18 4L21 14H3ZM5 17h14M7 21l-1-2M17 21l1-2',
   'wall-light': 'M21 12a9 9 0 1 1-18 0 9 9 0 1 1 18 0ZM18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0Z',
   'float-switch': 'M5 15a2 2 0 1 1-4 0 2 2 0 1 1 4 0ZM5 15l9-6M22 6a4 4 0 1 1-8 0 4 4 0 1 1 8 0Z',
+  'level-gauge': 'M15 4.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 9h5v13h-5ZM9.5 12h2.5M9.5 18h2.5M6 15h12',
   'logic-relay': 'M6 4h12v16H6zM2 8h4M2 16h4M18 12h4M9 8l6 4-6 4',
   coin: 'M17 12a6 9 0 1 1-12 0 6 9 0 1 1 12 0ZM11 3h3a6 9 0 0 1 0 18h-3',
   'coin-switch': 'M2 6h20v12H2zM5 10v4M8 10v4M13 9l-2 6M16 10v4M19 10v4',

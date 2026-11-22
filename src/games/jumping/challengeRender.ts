@@ -33,6 +33,7 @@ import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { drawFloatSwitchArm } from './floatSwitch.ts'
+import { drawLevelGauge } from './levelGauge.ts'
 import { drawWallLight } from './wallLight.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { drawLabLogo, LAB_LOGO_HEIGHT, LAB_LOGO_WIDTH } from '../../branding/lab.ts'
@@ -245,6 +246,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     if (!layerSkipped('gravity')) drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
+    // Depth boards are wall art: the pool's water draws in front of them, meeting the mark.
+    for (const gauge of run.levelGauges ?? []) drawLevelGauge(ctx, gauge.definition, gauge.active, paint)
     if (goal) wallPaint(ctx, 0, () => drawGoalDoor(ctx, goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     if (level.entrance.kind !== 'charging-bay' && (editor || !run.started && run.entrance)) wallPaint(ctx, 0, () =>
       drawDoorway(ctx, entranceDoor(level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))

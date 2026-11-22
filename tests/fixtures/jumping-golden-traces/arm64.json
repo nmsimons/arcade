@@ -7321,6 +7321,74 @@
     "907c763d6bcfefa1",
     "8efbbb084696217b"
    ]
+  },
+  "5dcc2db5-5496-43dc-8d5a-ef487d4f6475|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "e276aec8bfd73538",
+    "5e56ee5be537e6ff",
+    "520a873982274aa4",
+    "14a85395bd4133b7",
+    "450ff55892261c89",
+    "4af5dee7c5c203a4",
+    "00dadfc09b5496cf",
+    "8c2144230a1b2076"
+   ],
+   "state": [
+    "8058a0034a158662",
+    "0e9c92a3b026b003",
+    "963ef12d5f484cc4",
+    "39249501c39bea1b",
+    "d065cccc9745fd0d",
+    "d7f8128e677ba11a",
+    "5803d9cf2d52a115",
+    "2e4b15a610fee6d7"
+   ],
+   "pose": [
+    "e17d360d5a9c16d2",
+    "c0778d548974b3dc",
+    "4b767503b2f69a5c",
+    "db9dfea320fc2825",
+    "a7f066d096bdf54d",
+    "649cb817e6a3f820",
+    "ce77054fe5cb6b39",
+    "72cdf0be8335cc55"
+   ]
+  },
+  "5dcc2db5-5496-43dc-8d5a-ef487d4f6475|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "e6e957a82f559be5",
+    "2ae93e56650b4239",
+    "4823378ed1741448",
+    "e7469748eead42ef",
+    "da98335b64aaa981",
+    "62b89a53e609c516",
+    "0394adc069e6378a",
+    "c4da9181b9048563"
+   ],
+   "state": [
+    "bdd7a2e106f2259f",
+    "9d10504ecebb6fee",
+    "75d87d112a1ca7d5",
+    "45af54a05ac0559a",
+    "8522cb956a7ea77d",
+    "d832689d87fe4fee",
+    "c02f71623e15fcbe",
+    "1f1b8e47813aeb7e"
+   ],
+   "pose": [
+    "42959fa9f8937431",
+    "59d3c89f6b24f9fb",
+    "05359129597acbb2",
+    "a7cc9e40c9033277",
+    "cbe73a5a9438e196",
+    "e8fa78f44d23821e",
+    "cb3e331b8e8a2904",
+    "0207e38f06932a50"
+   ]
   }
  }
 }

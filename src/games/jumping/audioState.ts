@@ -105,6 +105,8 @@ function snapshot(p: Player, run: Run | null) {
     lights: run?.level.wallLights?.map(light => !!run.switchStates.get(light.id)) ?? [],
     fields: run?.forceFields.map(field => field.active) ?? [],
     floats: run?.floatSwitches.map(float => float.active) ?? [],
+    gauges: run?.levelGauges?.map(gauge => gauge.active) ?? [],
+    shut: run?.gateShut?.map(contact => contact.active) ?? [],
   }
 }
 
@@ -380,7 +382,7 @@ export class JumpingAudioState {
         const mix = soundPosition(pump.x, pump.y, p)
         this.loops.push({ id: `pump:${pump.index}`, kind: 'pump', ...mix, volume: mix.volume * .8, pace: clamp(pump.rate / 30), size: 0 })
       }
-      // A light, a force field or a float switch changing over clicks its relay.
+      // A light, a force field, a float switch or a level gauge changing over clicks its relay.
       const relays: [number, number][] = []
       for (const [i, light] of (run.level.wallLights ?? []).entries()) if (current.lights[i] !== before.lights[i]) relays.push([light.x, light.y])
       for (const [i, field] of run.forceFields.entries()) if (current.fields[i] !== before.fields[i]) {
@@ -388,6 +390,8 @@ export class JumpingAudioState {
         relays.push([d.orientation === 'vertical' ? d.x + d.w / 2 : d.x, d.orientation === 'vertical' ? d.y : d.y + d.h / 2])
       }
       for (const [i, float] of run.floatSwitches.entries()) if (current.floats[i] !== before.floats[i]) relays.push([float.definition.x, float.definition.y])
+      for (const [i, gauge] of (run.levelGauges ?? []).entries()) if (current.gauges[i] !== before.gauges[i]) relays.push([gauge.definition.x, gauge.definition.y])
+      for (const [i, gate] of run.mechanisms.entries()) if (before.shut.length && current.shut[i] !== before.shut[i]) relays.push([gate.x + gate.definition.w / 2, gate.y])
       if (relays.length <= 4) for (const [x, y] of relays) cue('relay', x, y)
       else cue('relay', p.x, p.y - 30)
       this.drip(run, p)

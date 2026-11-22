@@ -13,7 +13,7 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
   const collections = {
     platform: level.platforms, 'back-wall': level.environment?.walls, rope: level.climbables.ropes, ladder: level.climbables.ladders,
     checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
-    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'logic-relay': level.logicRelays, 'float-switch': level.floatSwitches, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
+    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'logic-relay': level.logicRelays, 'float-switch': level.floatSwitches, 'level-gauge': level.levelGauges, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
     'course-door': level.courseDoors, bulkhead: level.bulkheads, 'evaluation-board': level.evaluationBoards, 'wall-door': level.wallDoors, 'grade-gate': level.gradeGates, pipe: level.pipes, 'wall-stripes': level.stripes, 'loose-panel': level.loosePanels,
   }
   return collections[selection.kind]?.[selection.index]
@@ -40,6 +40,7 @@ export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'robot' && level.robots?.[s.index].kind === 'repulsor') return `Repulsorbot ${s.index + 1}`
   if (s.kind === 'robot' && level.robots?.[s.index].mode === 'emp') return `EMP shovebot ${s.index + 1}`
   if (s.kind === 'float-switch') return `Float switch ${s.index + 1}`
+  if (s.kind === 'level-gauge') return `Level gauge ${s.index + 1}`
   if (s.kind === 'rope' && level.climbables.ropes[s.index]?.end) return `Tied rope ${s.index + 1}`
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
   if (s.kind === 'grade-gate') return `Grade average ${s.index + 1}`

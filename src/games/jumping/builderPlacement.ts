@@ -20,6 +20,7 @@ import { drawWallTexts } from './wallText.ts'
 import { drawLightFixtures } from './lightFixture.ts'
 import { drawWallLight } from './wallLight.ts'
 import { createFloatSwitch, drawFloatSwitchArm } from './floatSwitch.ts'
+import { drawLevelGauge } from './levelGauge.ts'
 import { drawLogicRelay } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { backWallPath } from './environment.ts'
@@ -81,6 +82,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'gravity-plate': drawGravityRegion(ctx, level.gravityPlates![i], false, true); drawGravityPlate(ctx, level.gravityPlates![i], false); drawWaterRegion(ctx, level.gravityPlates![i]); break
     case 'wall-light': drawWallLight(ctx, level.wallLights![i], false); break
     case 'float-switch': { const f = createFloatSwitch(level.floatSwitches![i]); drawFloatSwitchArm(ctx, f); drawProp(ctx, f.prop); break }
+    case 'level-gauge': drawLevelGauge(ctx, level.levelGauges![i], false); break
     case 'logic-relay': drawLogicRelay(ctx, level.logicRelays![i], false); break
     case 'grade-gate': drawGradeGate(ctx, level.gradeGates![i], false); break
     case 'timer': drawWallTimer(ctx, level.timers![i], 0); break

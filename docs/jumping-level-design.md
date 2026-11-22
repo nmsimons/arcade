@@ -398,6 +398,16 @@ where the route no longer needs it so players can stand and run. Test
 approaches, transitions, and exits using normal movement. Editor snapping uses 5-unit steps independently
 of these wall tiles; use that precision when the route needs finer placement.
 
+Keep every authored coordinate on that 5-unit grid: terrain and polygon points,
+water rectangles, gauge marks, ladders, pipes, wall items, the doors and props.
+An off-grid value looks slightly wrong against the wall tiles, and it breaks the
+first time someone drags a neighbouring object in the studio and it snaps. Choose
+derived quantities so they land on the grid too, rather than placing them by
+arithmetic: for water, pick a reservoir height, low water mark and rate whose
+step and depth are whole multiples of 5 (a 250-tall reservoir with a 40% low mark
+gives a 150 step and 100 depth; rate 24 moves it in 300 whole frames), never a
+height or mark that only works at a fractional or off-grid value.
+
 Give ledge hangs and pull-ups room. Test rope exits where the rope meets a slope.
 Treat a pool as a space with a visible, usable exit. Give its rim an exposed
 grippable edge and room for the player's body and landing, or provide a lower
@@ -409,6 +419,21 @@ Give water physical containment: a visible basin floor and banks that reach its
 waterline. Compose the reservoir and its access together, including ramps or
 steps where the lower route enters and leaves it. An open water rectangle with
 no containing architecture does not read as a pool.
+
+A gate between two pools should open only when both waterlines sit exactly at
+the shared level, so an open gate never shows a step in the water. Wire the gate
+AND to a level gauge on each side, each marked at that level (At or above on the
+side that fills, At or below on the side that drains), and put the shared level
+at a pump bound (a pool's full height or its low water mark), where the pumps
+stop exactly. Every pool in the flight needs the same height, low mark and rate,
+so a lockful raises each chamber by the same amount and the marks either side of
+a gate stay level; the studio reports a gauge marked below the lowest its pool
+drains to. Float switches flip a few units early and suit visible,
+physical buoyancy, not lock gates. A gate closes at 65 units a second, so it also
+needs the water to wait for it: AND each lock's flows to the shut contacts of the
+gates that border the pools they change, and drop each gate's open command while
+any such flow is requested. The gate closes first, the water moves only once it
+is sealed, and a ball left in a gateway simply holds the water.
 
 When a float-delivery puzzle uses a standing firing position, align the float's
 settled center with the tool's actual firing height. Keep the working walkway

@@ -24,6 +24,12 @@ export const mechanismRopeEnd = (m: Mechanism, position: { x: number; y: number 
 
 export const mechanismAnchor = (m: Mechanism) => mechanismRopeEnd(m, mechanismOpenPosition(m))
 
+/**
+ * A gate's shut contact: the gate sits exactly at its authored closed position, with no safety
+ * hold pending. Being commanded closed is not enough; an obstruction keeps it off.
+ */
+export const gateSeated = (m: { definition: Mechanism; x: number; y: number; safetyHold: number | null }) =>
+  m.definition.kind === 'gate' && m.safetyHold == null && m.x === m.definition.x && m.y === m.definition.y
 export const mechanismShape = (m: { definition: Mechanism; x: number; y: number }) => ({ ...m.definition, x: m.x, y: m.y })
 
 export function mechanismSweep(m: Mechanism) {

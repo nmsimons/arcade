@@ -99,14 +99,14 @@ export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting
     const behavior = plate.behavior ?? 'pressure', current = run.triggers[index]
     if (!current.pressed) {
       const active = behavior === 'pressure' ? true : behavior === 'switch' ? !plate.startsOn : !current.active
-      const states = resolveSwitchStates(run.level, withTriggerActive(run.level, run.triggers, index, active), run.floatSwitches)
+      const states = resolveSwitchStates(run.level, withTriggerActive(run.level, run.triggers, index, active), run.floatSwitches, undefined, run.levelGauges, run.gateShut)
       const effect = disruption(run, memory, states), score = effect.score - Math.hypot(x - robot.x, y - robot.y) * .35
       if (score > bestScore && botCanReach(run, robot, { x, y })) { bestScore = score; best = { kind: 'operate', x, y, trigger: index, blocker: effect.blocker } }
     }
     if (behavior !== 'pressure' || !current.active) continue
     const loads = run.props.filter(prop => !prop.gadget && !prop.floatSwitch && propLoadsPlate(prop, position.x, position.y, plate.w))
     if (loads.length !== 1) continue
-    const prop = loads[0], states = resolveSwitchStates(run.level, run.triggers.map((s, i) => i === index ? { active: false } : s), run.floatSwitches)
+    const prop = loads[0], states = resolveSwitchStates(run.level, run.triggers.map((s, i) => i === index ? { active: false } : s), run.floatSwitches, undefined, run.levelGauges, run.gateShut)
     const effect = disruption(run, memory, states), score = effect.score - Math.hypot(prop.x - robot.x, prop.y - robot.y) * .2
     if (score > bestScore && botSeesProp(run, robot, prop)) {
       bestScore = score; best = { kind: 'dislodge', x: robot.x, y: robot.y, prop, trigger: index, blocker: effect.blocker }

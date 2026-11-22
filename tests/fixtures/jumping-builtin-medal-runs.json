@@ -132,6 +132,10 @@
     {
       "level": "10d41832-c77b-455e-97ff-47ec0b463256",
       "reason": "Untitled level is a work in progress from the studio (November 19), with the authored default targets. A fresh-start medal route and timing audit are pending once the layout settles."
+    },
+    {
+      "level": "5dcc2db5-5496-43dc-8d5a-ef487d4f6475",
+      "reason": "Locks is a water-lock puzzle still being designed. Its 82 / 115 / 300 / 600 targets come from headless fresh-start routes (A 65.22 s) recorded while both paddles were toggles; the paddles are now held plates, so the routes and times need re-recording before an audit."
     }
   ],
   "runs": [

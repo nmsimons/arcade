@@ -22,6 +22,20 @@ export function createWaterLevels(plates: readonly GravityPlate[]): WaterLevels 
   return { plates: regions, pools, accumulator: 0, revision: 0 }
 }
 
+type Pool = WaterLevels['pools'][number]
+/**
+ * The level a pool's pumps have reached: its applied level plus the input pending
+ * for the next 30 Hz step, held between the low water mark and 100%. Level gauges
+ * read it, so they switch on the frame the pumped water reaches their mark.
+ */
+export function effectiveWaterLevel(pool: Pick<Pool, 'definition' | 'level' | 'pending'>) {
+  const minimum = pool.definition.waterMinLevel ?? 0
+  const requested = Math.max(minimum, Math.min(100, pool.level + pool.pending))
+  return requested < minimum + 1e-8 ? minimum : requested > 100 - 1e-8 ? 100 : requested
+}
+/** The surface y of a pool's rectangle filled to `level` percent. */
+export const waterSurfaceY = (definition: Pick<GravityPlate, 'y' | 'h'>, level: number) => definition.y + definition.h - definition.h * level / 100
+
 /** A scalar waterline, not a fluid grid. Rebuild field geometry at most 30 Hz;
  * idle reservoirs do no geometric work. Opposing pumps cancel. EMP pauses pumps. */
 export function advanceWaterLevels(water: WaterLevels, switches: ReadonlyMap<string, boolean>, dt: number) {
@@ -37,9 +51,7 @@ export function advanceWaterLevels(water: WaterLevels, switches: ReadonlyMap<str
   water.accumulator = 0
   let changed = false
   for (const pool of water.pools) {
-    const minimum = pool.definition.waterMinLevel ?? 0
-    const requested = Math.max(minimum, Math.min(100, pool.level + pool.pending))
-    const level = requested < minimum + 1e-8 ? minimum : requested > 100 - 1e-8 ? 100 : requested
+    const level = effectiveWaterLevel(pool)
     pool.pending = 0
     if (level === pool.level) continue
     pool.level = level

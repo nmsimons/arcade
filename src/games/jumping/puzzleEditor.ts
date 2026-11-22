@@ -20,7 +20,7 @@ export function copyForEditing(level: JumpLevel): JumpLevel {
   const groups = new Map((next.toggleGroups ?? []).map(g => [g.id, newLevelId()]))
   for (const group of next.toggleGroups ?? []) group.id = groups.get(group.id)!
   for (const plate of next.triggers ?? []) if (plate.mode !== 'coins' && plate.toggleGroup) plate.toggleGroup = groups.get(plate.toggleGroup)!
-  const items = [...(next.floatSwitches ?? []), ...(next.logicRelays ?? []), ...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []), ...(next.goal?.id ? [next.goal] : [])]
+  const items = [...(next.floatSwitches ?? []), ...(next.levelGauges ?? []), ...(next.logicRelays ?? []), ...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []), ...(next.goal?.id ? [next.goal] : [])]
   const ids = new Map<string, string>(items.map(item => [item.id!, newLevelId()]))
   for (const p of next.gravityPlates ?? []) if (p.effect === 'water') for (const action of ['fill', 'drain'] as const)
     ids.set(waterControlId(p.id, action), waterControlId(ids.get(p.id)!, action))

@@ -9,6 +9,8 @@ import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjec
 import { editLight } from '../src/games/jumping/lightingEditor.ts'
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
 import { resolveSwitchStates, switchSources } from '../src/games/jumping/switchPower.ts'
+/** Sources other than gate shut contacts, which every gate has. */
+const relaySources = level => switchSources(level).filter(source => source.kind !== 'gate-shut')
 
 function fixture(logic, reversed) {
   const level = readLevelAsset('switch-modes.json')
@@ -110,7 +112,7 @@ function relayFixture() {
 
 test('enabled relays settle immediately through mixed mechanisms, lights and exits, with fan-in and fan-out', () => {
   const level = parseLevel(relayFixture())
-  assert.equal(switchSources(level).length, 7)
+  assert.equal(relaySources(level).length, 7)
   for (const create of [createRun, createPreviewRun]) {
     const run = create(level)
     assert.deepEqual(run.mechanisms.map(m => m.active), [false, false, true, false])
@@ -131,13 +133,13 @@ test('enabled relays settle immediately through mixed mechanisms, lights and exi
 
 test('Relay is opt-in; disabling it clears outputs, and incoming relay connections edit the same source', () => {
   let level = fixture()
-  assert.equal(switchSources(level).length, 1)
+  assert.equal(relaySources(level).length, 1)
   level = setObjectRelay(level, { kind: 'mechanism', index: 0 }, true)
-  assert.equal(switchSources(level).length, 2)
+  assert.equal(relaySources(level).length, 2)
   level = setSwitchTargets(level, { kind: 'mechanism', index: 0 }, ['exit', 'lamp', 'exit', 'unknown'])
   assert.deepEqual(level.mechanisms[0].targets, ['exit', 'lamp'])
   const off = setObjectRelay(level, { kind: 'mechanism', index: 0 }, false)
-  assert.equal(switchSources(off).length, 1); assert.equal(off.mechanisms[0].targets, undefined)
+  assert.equal(relaySources(off).length, 1); assert.equal(off.mechanisms[0].targets, undefined)
   assert.equal(setSwitchTargets(off, { kind: 'mechanism', index: 0 }, ['exit']), off)
   assert.deepEqual(level.mechanisms[0].targets, ['exit', 'lamp'], 'source remains available for undo')
 })

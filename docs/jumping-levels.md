@@ -1522,6 +1522,23 @@ right; the closed barrier stays in place. Releasing the
 plate closes it. Horizontal gates use `kind: "gate"`, `orientation: "horizontal"`,
 and optional `flipX: true` in level files. Their `travel` always equals their width.
 
+Every gate, vertical or horizontal, has a **shut contact**: a sensor that is on
+while the powered gate sits exactly at its authored closed position. Being
+commanded closed is not enough: a gate still closing, held open by its safety
+override, or stopped by an obstruction leaves it off, and EMP, the F power-down
+or an EMP bolt on the gate turns it off. Gates start closed, so the contact is on
+from the first frame and in the studio's wiring preview. Wire it in the gate
+inspector's **Shut contact** section, whose **Shut contact activates** list offers
+every switched item, pump inputs and relays included; the file stores the list
+as optional `shutTargets: ["id", …]` on the gate, validated like other targets
+and left out when empty. Other items list it as "Gate N · Shut" under Switched
+by. It is a physical input, like a float switch or level gauge, read from where
+the gate is each frame before switches resolve, so it may feed logic that
+commands the same gate: the feedback travels through the gate's motion. It shows
+wires with the gate's own wall-wiring settings, and copies, duplicates and
+templates remap it with the rest of the wiring. Use it to hold a pump or transfer
+until a gate is sealed.
+
 Elevators have a horizontal platform fixed at 20
 units thick and an adjustable width. **Travel height** sets their vertical travel
 from 60 to 1200 units. Dragging the selected elevator's top anchor adjusts the
@@ -1826,7 +1843,16 @@ drains. Restart restores the authored initial level. Pumps stop on pause.
 
 Reservoirs are authored regions with a shared horizontal level within each
 rectangle. They do not spill outside their rectangle, exchange water between
-separate reservoirs, or simulate currents or pressure. Terrain divides their
+separate reservoirs, or simulate currents or pressure. A transfer is authored:
+one switch drains a source and fills a destination. Guard it with level gauges
+(through a logic relay that is on while the source gauge does not read empty and
+the destination gauge does not read full) and it conserves water exactly when
+the pools match in size and rate and the per-frame increment (rate / 120
+percentage points) divides the range from the low water mark to 100%. For
+example, rate 15 with low mark 36 moves 0.125 points a frame across 512 frames,
+and a 250-tall pool with low mark 40 at rate 24 moves 0.2 a frame across 300
+frames, with its 150-unit step and 100-unit depth on the 5-unit grid.
+Otherwise a guarded transfer can stop up to one increment past a mark. Terrain divides their
 visible openings without creating additional fluid solvers.
 
 During play, water is translucent blue in front of objects and the
@@ -1886,6 +1912,75 @@ IDs share the existing device namespace. Arm length is 40–400, ball diameter
 and `travelAngle` are optional; defaults are right-facing, lowered, Raised,
 and 45 degrees respectively. `targets` may be empty or omitted. There is no
 water-region assignment: forces act on the actual ball wherever it moves.
+
+### Level gauges
+
+**Mechanisms → Level gauge** mounts a depth board on the wall of a pool, like the
+boards beside a canal lock, hanging from a steel head with a lamp lens set in it. Its bold red mark is
+the switching height. Unlike a float switch, it reads the pool's waterline
+directly: no buoyancy, lag or hysteresis, so it switches on the step the
+waterline reaches the mark.
+
+The gauge reads the first water pool (a `gravityPlates` entry with
+`effect: "water"`, in file order) whose authored rectangle contains the mark.
+Edges count: a mark on a pool's top edge reads a full pool, and one on its bottom
+edge an empty one. With no such pool the gauge is never on, and the studio
+reports "Put the mark of “Level gauge 1” inside a pool." The file still loads.
+It also reports a mark below the lowest its pool drains to (its low water mark):
+there the water never reaches the mark, so an At or below gauge never switches on
+and an At or above gauge never switches off.
+
+Choose **Active when: At or above mark** (the default) or **At or below mark**.
+"At or above" is on while the pumped waterline (below) is at or above the mark,
+that is surface `y <= mark y + 0.05`; "At or below" while
+`surface y >= mark y - 0.05`. The
+0.05-unit tolerance (`LEVEL_GAUGE_TOLERANCE`) only absorbs rounding.
+
+The gauge reads pumped water as soon as it is pumped. Pumps add their input every
+frame (1/120 s), and the pool's drawn waterline catches up at 30 Hz; the gauge
+reads the pumped level (applied level plus pending input, held between the low
+water mark and 100%), not the drawn one. Each frame, switches resolve before that
+frame's pump input is added, so a pump a gauge guards runs a whole number of
+frames and stops on the frame its water reaches the mark. A pump stops at a mark
+exactly when its per-frame increment (rate / 120 percentage points) divides the
+distance to the mark, and otherwise within one increment past it. Pumps also
+stop exactly at 100% and at the low water mark, so a gauge marked at either bound
+switches once and stays steady while the pump holds the pool there.
+
+Like a float switch, the gauge is a sensor input: it has no power, Relay or
+Logic of its own, and EMP and the F power-down switch its contact off until power
+returns. Its state at the start of a run, in the studio's wiring preview, and for
+a facility area's doors comes from the authored water levels (the saved levels,
+once the robot has left an area), so a gate wired to gauges is right on the first
+frame. Wire **Activates** to any standard switched target: pump inputs
+(`pool:fill`, `pool:drain`), logic relays, gates, lamps, and switched exits.
+
+The board is 12 units wide and 96 tall, centred on the mark, with graduations
+every 8 units; the mark line reaches 5 units past each side. The board hangs from
+an 18-wide steel head whose lens lights while the gauge reads, in the wall light's
+colours, so the lamp reads as part of the instrument rather than a separate light. It is wall art with no collision, drawn behind objects and
+behind the water, so the pool's own translucent water passes in front of the board
+and its surface visibly meets the mark. Position fields (**Mark X**, **Mark Y**)
+refer to the mark. Keep the lamp inside the level; the lower half of the board
+may run on behind the floor, so a mark can sit on a pool's bottom edge.
+
+Choose a level gauge for exact marks: gates between pools, pump cut-offs, and any
+puzzle where an open gate must not show a step in the water. Choose a float
+switch for physical, visible buoyancy, such as a ball the player can hold down
+or a float raised by a gravity lift. Both file versions support up to 16
+optional `levelGauges`:
+
+```json
+"levelGauges": [
+  { "id": "west-lock", "name": "West lock", "x": 560, "y": 520,
+    "activeWhen": "below", "targets": ["lock-gate"] }
+]
+```
+
+IDs share the existing device namespace. `activeWhen` defaults to `"above"`;
+omit it when default. `name`, `targets`, and the wall-wiring fields
+(`showWires`, `wireHeight`, `wireTerminal`) are optional. `power`, `relay`,
+`switchLogic` and `switchReversed` are rejected.
 
 ### Force fields
 

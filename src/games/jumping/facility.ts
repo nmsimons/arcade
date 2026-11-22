@@ -16,6 +16,7 @@ import { areaComplete, coursePassed } from './hub.ts'
 import type { Bulkhead, CourseDoor, CourseGrade, FacilityRecords, HubDoor } from './hub.ts'
 import type { Destination } from './goal.ts'
 import { resolveSwitchStates } from './switchPower.ts'
+import { levelGaugeStates } from './levelGauge.ts'
 import { triggerStartsOn } from './toggleGroups.ts'
 
 /** How the robot enters a hub: at its default entrance, or out of a door or bulkhead. */
@@ -266,13 +267,15 @@ export const hubCompleteAreas = (level: HubLevel, records: FacilityRecords) => n
  * is passed. The wiring reads the save (`records`) and the area's switches as
  * the robot last left them, or as authored.
  */
-export function wiredDoorsOpen(level: HubLevel, records: FacilityRecords, saved?: Pick<AreaState, 'triggers' | 'floats'> | null): Set<string> {
+export function wiredDoorsOpen(level: HubLevel, records: FacilityRecords, saved?: Pick<AreaState, 'triggers' | 'floats'> & Partial<Pick<AreaState, 'water'>> | null): Set<string> {
   const triggers = level.triggers.map((trigger, i) => ({ active: saved?.triggers[i]?.active ?? triggerStartsOn(level, trigger) }))
   const floats = (level.floatSwitches ?? []).map((float, i) => {
     const raised = saved?.floats[i] ?? !!float.startsRaised
     return { active: float.activeWhen === 'lowered' ? !raised : raised }
   })
-  const states = resolveSwitchStates(level, triggers, floats, records)
+  // Level gauges read the pools as the robot left them, or as authored.
+  // Gates are shut as authored: an area is entered with its gates at rest.
+  const states = resolveSwitchStates(level, triggers, floats, records, levelGaugeStates(level, saved?.water), level.mechanisms.map(m => ({ active: m.kind === 'gate' })))
   return new Set([...level.courseDoors, ...level.bulkheads].filter(door => door.power !== 'switched' || states.get(door.id)
     || 'course' in door && coursePassed(records.grade(door.course))).map(door => door.id))
 }

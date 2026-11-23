@@ -4,9 +4,9 @@
  "math": "f218227f60a5a1d1",
  "cpu": "arm64",
  "recorded": {
-  "physics": "319852d with uncommitted changes; Untitled level, EVA and Billiards added at d58674a; Loopholes added at 628ee77",
-  "state": "319852d with uncommitted changes; Untitled level, EVA and Billiards added at d58674a; Loopholes added at 628ee77",
-  "pose": "319852d with uncommitted changes; Untitled level, EVA and Billiards added at d58674a; Loopholes added at 628ee77"
+  "physics": "319852d with uncommitted changes; Untitled level, EVA and Billiards added at d58674a; Loopholes added at 628ee77; Which Way Is Down added at 766af4b",
+  "state": "319852d with uncommitted changes; Untitled level, EVA and Billiards added at d58674a; Loopholes added at 628ee77; Which Way Is Down added at 766af4b",
+  "pose": "319852d with uncommitted changes; Untitled level, EVA and Billiards added at d58674a; Loopholes added at 628ee77; Which Way Is Down added at 766af4b"
  },
  "traces": {
   "d810f5f5-1a01-431f-804b-575b1b731a3d|climber": {
@@ -7538,6 +7538,129 @@
     "db04f1241616c7a7",
     "c6c95dbcb78f32dd",
     "2d9cd55cd7df2d9a"
+   ]
+  },
+  "bd9210e3-aec1-4df0-a936-faaf5324bd65|climber": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "28f50beb5001aa4d",
+    "dcb8c38ded8e37c3",
+    "738622b20af03fc3",
+    "4821e9ad11f7fc12",
+    "28ebd4ccfb1457e7",
+    "78a49ed152b375a5",
+    "231cd96607d0b36a",
+    "ac70034241471287"
+   ],
+   "state": [
+    "d512bb0b78a52651",
+    "8e3be9d16d3e6927",
+    "b1dc6c6bfccc9c83",
+    "a2d4f8c42fa505e1",
+    "4b5bb3de138dc41b",
+    "a01651596a4a637b",
+    "6bcba33a2f141ecc",
+    "8e7a0e8ff47d892c"
+   ],
+   "pose": [
+    "52d5c95c50dc8b40",
+    "067f5841aac26c40",
+    "6686b8f59009f569",
+    "33443a58a7df58ee",
+    "c8ad3345b3acfa0b",
+    "f34579ed524a7a63",
+    "6f1babc79f3181c6",
+    "7d2358cf3616fd26"
+   ]
+  },
+  "bd9210e3-aec1-4df0-a936-faaf5324bd65|medal-route": {
+   "ticks": 1705,
+   "finished": true,
+   "physics": [
+    "228bd3796a7df79a",
+    "45ff132501ad866e",
+    "b587c1bf35d65cf1",
+    "db0ae97c1b28ee89",
+    "c55948a2cfda010a",
+    "6d33dd69f563b789",
+    "0efc5c7637b5fb65",
+    "699c375ca3a4faa6",
+    "d991ddb41e6bff7b",
+    "7eca48a998dd079e",
+    "ea6ff85232185491",
+    "5f630e1b36fe0502",
+    "ebb0ffc6cf3c2163",
+    "9afd6629d4076a43",
+    "2f00e718e5418d1a"
+   ],
+   "state": [
+    "e34bdc089ba55532",
+    "09a524d15aaf9bd3",
+    "35bdbbe60a2aa9f5",
+    "573bf11f179c122c",
+    "ce8adfcc2a6a7f02",
+    "27bb5882b381b2cb",
+    "d156d1ccaf4b866d",
+    "69ed1284e46effd8",
+    "ae66402e5abb776b",
+    "4b1aa38ff9746d77",
+    "1b908fe53bbe9d26",
+    "ce6de5b1d7dc5b1e",
+    "c94657f19e5b5d9c",
+    "c1cc7562266b49d2",
+    "59235185ad176bbf"
+   ],
+   "pose": [
+    "584c3569a2d5239c",
+    "e9840f2d8da57182",
+    "1237921b24ee6af2",
+    "43dca070f7a20ef7",
+    "47e61016f2fb56fc",
+    "fc89c2d9bb4e4dcd",
+    "d22427e9fac9198d",
+    "c80184cba2753fef",
+    "cedc7747697de502",
+    "c6650ced4fad413d",
+    "a0840574017b0029",
+    "c3bc28c9f51c2a75",
+    "e5a27a1b0ea54634",
+    "e7cac06f590f6bc2",
+    "7adace3c1a55634d"
+   ]
+  },
+  "bd9210e3-aec1-4df0-a936-faaf5324bd65|runner": {
+   "ticks": 960,
+   "finished": false,
+   "physics": [
+    "a36a887af8475c3f",
+    "3114e80be1bebcae",
+    "a6a44743460b841c",
+    "9a8a6cc6c98363fc",
+    "1aaee3e6007299e1",
+    "1b537e7161a5365b",
+    "41f3004452ed23fc",
+    "d2820a06c1c8cd07"
+   ],
+   "state": [
+    "79e2c482c5df45b4",
+    "c6e22b538e24b1bc",
+    "2c6ee9a685d16100",
+    "324390f322eaef20",
+    "bd5dbba3ffda2b16",
+    "309b61ac9343e7c6",
+    "ebdf381b864b2292",
+    "9ddcfe8fca67457f"
+   ],
+   "pose": [
+    "a082dc2774498877",
+    "5dba3a7546e9b165",
+    "224123f888a5141a",
+    "1e1d3cdd239ceb4b",
+    "b1f53967772b5485",
+    "f44442392db3cc8c",
+    "304a638f3cf28390",
+    "c8abda92ca4cce91"
    ]
   }
  }

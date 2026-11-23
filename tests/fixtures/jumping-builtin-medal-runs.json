@@ -2757,6 +2757,97 @@
       ]
     },
     {
+      "level": "bd9210e3-aec1-4df0-a936-faaf5324bd65",
+      "jumpModel": "tap-hold",
+      "elapsed": 13.349999999999882,
+      "activeTime": 14.208333333333167,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 50,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 63,
+          "input": {}
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 121,
+          "input": {}
+        },
+        {
+          "frames": 249,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 113,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {}
+        },
+        {
+          "frames": 36,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 138,
+          "input": {}
+        },
+        {
+          "frames": 266,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 290,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 42,
+          "input": {}
+        },
+        {
+          "frames": 95,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 155,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
       "level": "92ed8a0f-d309-4b8f-b9ea-4174b8599b60",
       "jumpModel": "tap-hold",
       "elapsed": 22.95833333333267,

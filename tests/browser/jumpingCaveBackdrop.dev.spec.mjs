@@ -8,7 +8,9 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: sky caves use pale fr
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
     const { LightingRenderer } = await import('/src/games/jumping/lightingRender.ts')
     const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
-    const level = { ...blankTrial(), version: 2, width: 1200, height: 900, floor: 900,
+    // A fixed id: wall stains are seeded by the level id, and blankTrial's random id let a stain edge cross the
+    // sampled strip on about one id in twenty, failing the stripe checks at random.
+    const level = { ...blankTrial(), id: 'cave-backdrop-spec', version: 2, width: 1200, height: 900, floor: 900,
       entrance: { x: 100, y: 900 }, goal: { x: 1100, y: 900 },
       platforms: [{ x: 0, y: 350, w: 300, h: 550 }],
       environment: { kind: 'landscape', horizon: 400, lighting: 'regions', baseLighting: 'day',

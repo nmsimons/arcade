@@ -1293,7 +1293,15 @@
   "props": [],
   "mechanisms": [],
   "triggers": [],
-  "robots": [],
+  "robots": [
+    {
+      "x": 1270,
+      "y": 640,
+      "left": 1210,
+      "right": 1330,
+      "kind": "repulsor"
+    }
+  ],
   "timers": [
     {
       "x": 70,

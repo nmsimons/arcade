@@ -53,12 +53,6 @@
       "x": 1100,
       "y": 700,
       "course": "ef2f843c-b9ee-44e2-befe-3ff609608009"
-    },
-    {
-      "id": "door-round-trip",
-      "x": 1320,
-      "y": 700,
-      "course": "377ebb2f-2f21-4984-9cd0-6d0c81220652"
     }
   ],
   "bulkheads": [

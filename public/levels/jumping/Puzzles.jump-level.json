@@ -16,8 +16,8 @@
     "ropes": []
   },
   "timing": "untimed",
-  "floor": 720,
   "wallFinish": "tile",
+  "floor": 720,
   "kind": "hub",
   "optional": true,
   "props": [],
@@ -27,11 +27,11 @@
   "courseDoors": [
     {
       "id": "door-waterline-i",
-      "x": 1145,
+      "x": 870,
       "y": 720,
       "course": "ecbb07bd-b1dd-476c-b09b-82eb321515e9",
       "targets": [
-        "door-waterline-ii"
+        "882e2de3-b389-4a8e-834d-abafcfd56a32"
       ]
     },
     {
@@ -49,8 +49,17 @@
       "x": 1855,
       "y": 720,
       "course": "5dcc2db5-5496-43dc-8d5a-ef487d4f6475",
+      "power": "switched"
+    },
+    {
+      "id": "882e2de3-b389-4a8e-834d-abafcfd56a32",
+      "x": 1195,
+      "y": 720,
+      "course": "7fdfaebe-18c3-431e-b9f4-3faba6b18cfe",
       "power": "switched",
-      "targets": []
+      "targets": [
+        "door-waterline-ii"
+      ]
     }
   ],
   "bulkheads": [

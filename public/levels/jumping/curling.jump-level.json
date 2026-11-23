@@ -103,9 +103,9 @@
   "mechanisms": [],
   "triggers": [
     {
-      "x": 800,
+      "x": 810,
       "y": 775,
-      "w": 60,
+      "w": 40,
       "targets": [
         "wall-lift"
       ],

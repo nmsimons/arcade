@@ -13,9 +13,11 @@ const files = JSON.parse(readFileSync(new URL('index.json', levels), 'utf8')).le
 const parsed = files.map(file => [file, parseLevel(JSON.parse(readFileSync(new URL(encodeURIComponent(file), levels), 'utf8')))])
 const byId = new Map(parsed.map(([, level]) => [level.id, level]))
 const campaign = resolveCampaign(parseCampaign(JSON.parse(readFileSync(new URL('../jumping-campaign.json', levels), 'utf8'))), byId)
-// Every required course passed: mostly at its A time, some at B and a few at C.
+// Every required course passed: mostly at its A time, some at B and a few at C. Optional wings
+// (facility areas marked optional, as Puzzles is) stay out of the evaluation and the certificate.
+const required = campaign.wings.filter(wing => !wing.optional).flatMap(wing => wing.courses)
 const completed = {}, times = {}
-campaign.wings.flatMap(wing => wing.courses).forEach((id, i) => {
+required.forEach((id, i) => {
   completed[id] = true
   const level = byId.get(id)
   if (level?.times) { const t = gradeTimes(level); times[id] = i % 7 === 3 ? t.c : i % 3 === 1 ? t.b : t.a }
@@ -26,7 +28,7 @@ const nearBus = { ...JSON.parse(readFileSync(new URL(encodeURIComponent(exitFile
 const concourse = parsed.map(([, level]) => level).find(level => level.kind === 'hub' && level.courseDoors.some(door => campaign.release && door.course === campaign.release.course))
   ?? parsed.map(([, level]) => level).find(level => /concourse/i.test(level.name))
 const place = { kind: 'course', level: exitLevel.id, back: { kind: 'hub', level: concourse.id, arrival: { kind: 'entrance' } }, via: 'exit' }
-const expected = releaseCertificate({ passed: campaign.wings.flatMap(wing => wing.courses).length, required: campaign.wings.flatMap(wing => wing.courses).length,
+const expected = releaseCertificate({ passed: required.length, required: required.length,
   wings: [{ id: 'all', name: 'All', open: true, passed: 0, courses: Object.keys(completed).map(id => ({ state: 'passed', id, name: id, best: times[id] ?? null,
     grade: times[id] === undefined ? null : times[id] <= gradeTimes(byId.get(id)).a + 1e-7 ? 'A' : times[id] <= gradeTimes(byId.get(id)).b + 1e-7 ? 'B' : 'C', deadline: null })) }] })
 

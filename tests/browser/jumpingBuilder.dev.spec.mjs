@@ -704,6 +704,8 @@ test('moving platforms edit horizontal stops, flip, save and cycle during play',
 })
 
 test('horizontal gates resize, flip, round-trip and retract one width only while pressed', async ({ page }, info) => {
+  // A long round trip through save and play: it runs close to 30 s on CI runners and timed out there.
+  test.setTimeout(60_000)
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, roundRect = proto.roundRect, arc = proto.arc

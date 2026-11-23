@@ -106,6 +106,8 @@ test('saved spotlight flicker runs during play and returns to the builder', asyn
 })
 
 test('optional shovebot headlights undo, preview in day and night, duplicate and round-trip through save and play', async ({ page }, info) => {
+  // Four saves and a playtest: it runs close to 30 s on CI runners and timed out there at its last save.
+  test.setTimeout(60_000)
   const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.addInitScript(() => {

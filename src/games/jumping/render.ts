@@ -48,12 +48,18 @@ export function drawLadders(ctx: CanvasRenderingContext2D, world: Pick<Climbable
     for (let y = ladder.top; y <= ladder.bottom; y += 14) ctx.fillRect(ladder.x - 8, y, 16, 2)
   }
 }
-/** Ropes hang in the world and drape over the props they touch. */
+/**
+ * Ropes hang in the world and drape over the props they touch. A run's live rope
+ * carries its own definition: once a tied rope lets go of an anchor, it hangs from
+ * the other, so neither the authored anchor nor a line to it is drawn.
+ */
 export function drawRopes(ctx: CanvasRenderingContext2D, p: Player, world: Pick<ClimbableWorld, 'ropes'>) {
-  for (const [i, rope] of world.ropes.entries()) {
+  for (const [i, authored] of world.ropes.entries()) {
+    const state = p.ropes?.[i], rope = state?.definition ?? authored
+    const [start, ...rest] = ropePath(rope, state)
     ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-    ctx.beginPath(); ctx.moveTo(rope.x, rope.y)
-    for (const [x, y] of ropePath(rope, p.ropes?.[i])) ctx.lineTo(x, y)
+    ctx.beginPath(); ctx.moveTo(start[0], start[1])
+    for (const [x, y] of rest) ctx.lineTo(x, y)
     ctx.stroke()
     ctx.fillStyle = '#697d72'
     for (const anchor of ropeEnds(rope)) { ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill() }

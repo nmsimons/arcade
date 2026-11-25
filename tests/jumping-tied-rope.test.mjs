@@ -7,6 +7,7 @@ import { ropeGripLimit } from '../src/games/jumping/climbables.ts'
 import { addItem, deleteItem, duplicateItem, moveItem, moveRopeAnchor, resizeItem, setRopeRelease, setRopeTied } from '../src/games/jumping/editor.ts'
 import { objectLabel } from '../src/games/jumping/objectLabels.ts'
 import { switchedItems } from '../src/games/jumping/switchPower.ts'
+import { drawRopes } from '../src/games/jumping/render.ts'
 
 // Two pillars with a rope tied between their tops, 600 apart, with 80 of slack.
 const pillars = [{ x: 300, y: 500, w: 200, h: 420 }, { x: 1100, y: 500, w: 200, h: 420 }]
@@ -14,6 +15,15 @@ const tied = (extra = {}) => ({ x: 500, y: 500, length: 680, segments: 85, ancho
   end: { x: 1100, y: 500, anchor: { platform: 1, x: 0, y: 0 } }, ...extra })
 const course = (rope = tied(), extra = {}) => prepareLevelRopes(parseLevel({ ...blankTrial(), platforms: pillars, climbables: { ladders: [], ropes: [rope] }, ...extra }))
 const lowest = points => points.reduce((low, p) => p[1] > low[1] ? p : low)
+
+/** The points a rope's stroke passes through and the anchors drawn, as drawRopes paints them. */
+function drawnRope(p, level) {
+  const stroke = [], anchors = []
+  const ctx = { beginPath() {}, stroke() {}, fill() {}, moveTo: (x, y) => stroke.push([x, y]), lineTo: (x, y) => stroke.push([x, y]),
+    arc: (x, y) => anchors.push([x, y]) }
+  drawRopes(ctx, p, level.climbables)
+  return { stroke, anchors }
+}
 
 /** Catch the rope's middle in flight and settle into the hang. */
 function hanging(level) {
@@ -110,6 +120,11 @@ for (const anchor of ['start', 'end']) test(`a switch releases ${anchor === 'sta
   assert.deepEqual([rope.nodes[0].x, rope.nodes[0].y], kept)
   const tail = rope.nodes.at(-1)
   assert.ok(Math.hypot(tail.x - kept[0], tail.y - kept[1]) > 300, 'the released end has fallen away from its anchor')
+  // Only the live rope is drawn: no anchor where it let go, and no taut line back to it.
+  const drawn = drawnRope(p, level)
+  assert.deepEqual(drawn.anchors, [kept], 'one anchor is drawn')
+  assert.deepEqual(drawn.stroke[0], kept, 'the stroke starts at the kept anchor')
+  assert.deepEqual(drawn.stroke, rope.nodes.map(n => [n.x, n.y]), 'the stroke follows the live rope')
 })
 
 test('the studio ties a rope between two anchors and moves each anchor on its own', () => {

@@ -56,7 +56,7 @@
   ],
   "entrance": {
     "name": "Movement entrance",
-    "x": 295,
+    "x": 70,
     "y": 1000
   },
   "checkpoints": [],
@@ -332,7 +332,7 @@
   "courseDoors": [
     {
       "id": "door-hop-skip-jump-i",
-      "x": 630,
+      "x": 295,
       "y": 1000,
       "course": "ff487efc-cbdb-42f0-85c0-8df2b69532b4",
       "targets": [
@@ -341,7 +341,7 @@
     },
     {
       "id": "door-a-bigger-swing",
-      "x": 970,
+      "x": 635,
       "y": 1000,
       "course": "d810f5f5-1a01-431f-804b-575b1b731a3d",
       "power": "switched",
@@ -351,7 +351,7 @@
     },
     {
       "id": "door-leaps-and-bounds-ii",
-      "x": 970,
+      "x": 635,
       "y": 800,
       "course": "e784fe84-2ab2-427c-b5a2-1d1fec663e5c",
       "power": "switched",
@@ -361,7 +361,7 @@
     },
     {
       "id": "door-hop-skip-jump-ii",
-      "x": 630,
+      "x": 295,
       "y": 600,
       "course": "d5e4ea37-a26f-46b9-8c84-d2b36840368b",
       "power": "switched",
@@ -371,7 +371,7 @@
     },
     {
       "id": "130d698f-9e45-4774-9b0f-0c9a170633d4",
-      "x": 630,
+      "x": 295,
       "y": 800,
       "course": "06b6058e-4448-4c6a-81a2-e936a70fda0a",
       "power": "switched",
@@ -381,8 +381,8 @@
     },
     {
       "id": "dd72b75d-be0c-4b5d-b2d1-8025e39c8f97",
-      "x": 295,
-      "y": 800,
+      "x": 970,
+      "y": 1000,
       "course": "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878",
       "power": "switched",
       "targets": [
@@ -391,8 +391,8 @@
     },
     {
       "id": "4edfaa9e-9e83-451d-b77a-fa37b05d66d7",
-      "x": 295,
-      "y": 600,
+      "x": 970,
+      "y": 800,
       "course": "70595ea8-5dec-420a-83bf-cdf1065aab1f",
       "power": "switched",
       "targets": [
@@ -401,7 +401,7 @@
     },
     {
       "id": "490f28e4-44cd-4c65-99ac-2da3b34e5ec9",
-      "x": 970,
+      "x": 635,
       "y": 600,
       "course": "9369b0ce-0963-4681-bbcd-50dc5059d9df",
       "power": "switched",
@@ -409,12 +409,18 @@
         "87aaa7af-1a77-46f6-8c95-bf7db61de5fe",
         "62eae857-4599-411a-b74d-73c4f71a1c51"
       ]
+    },
+    {
+      "id": "54b3454d-48d6-4962-9537-62ee5e05d684",
+      "x": 970,
+      "y": 600,
+      "course": "573f13c3-8419-4e97-95f4-06be7e3ab03f"
     }
   ],
   "bulkheads": [
     {
       "id": "movement-to-concourse",
-      "x": 295,
+      "x": 70,
       "y": 1000,
       "to": "facility-concourse"
     }

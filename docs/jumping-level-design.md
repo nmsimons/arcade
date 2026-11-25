@@ -345,7 +345,11 @@ Attach a rope at a platform end to its top corner, rather than its underside.
 Keep the free end deliberately placed when changing the anchor. A tied rope makes
 a traverse between pillars or a deep U to climb out of; tie one partway up a wall
 to finish a climb with a brace against it, or give it a switched release to turn a
-traverse into a swing. Where a tied rope ends at a lip, keep the top flat beside
+traverse into a swing. A breakaway release (`weight`) does that the moment someone
+catches it: the rider gets under half a second before the anchor goes, so place the
+kept anchor where the resulting swing lands somewhere useful or recoverable. A
+breakaway anchor looks like any other until it strains, so it is a surprise the
+first time: introduce it where the fall is safe before a breakaway rope matters. Where a tied rope ends at a lip, keep the top flat beside
 its anchor: a curved top that rises from the corner leaves the robot hanging
 below it, unable to pull up. Rope travel is hand over hand at a steady rhythm, so a long
 traverse takes real time: time medals on the swinging run, not a careful shimmy,

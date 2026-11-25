@@ -1657,6 +1657,14 @@ export function setRopeRelease(level: JumpLevel, index: number, anchor: 'start' 
   else { removeSwitchTarget(next, r.release!.id); delete r.release }
   return next
 }
+/** Let a released anchor also give way under a rider's weight, or only to its switches. */
+export function setRopeBreakaway(level: JumpLevel, index: number, weight: boolean): JumpLevel {
+  const rope = level.climbables.ropes[index]
+  if (!rope?.release || !!rope.release.weight === weight) return level
+  const next = copyLevel(level), release = next.climbables.ropes[index].release!
+  if (weight) release.weight = true; else delete release.weight
+  return next
+}
 export function polygonPlatform(points: readonly Vec[], material?: TerrainMaterial): Platform {
   if (!validPolygon(points)) throw new Error('Use at least three corners without crossing the edges.')
   const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))

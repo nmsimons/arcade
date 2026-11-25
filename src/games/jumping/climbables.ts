@@ -27,9 +27,12 @@ export interface RopeAnchor { platform: number; x: number; y: number }
 export interface RopeEnd { x: number; y: number; anchor?: RopeAnchor }
 /**
  * A switch can let go of one anchor of a tied rope. For the rest of the run the
- * rope hangs from the other anchor, like any rope.
+ * rope hangs from the other anchor, like any rope. With `weight`, the anchor also
+ * gives way under load: once anyone has hung on the rope for ROPE_BREAK_SECONDS.
  */
-export interface RopeRelease { id: string; anchor: 'start' | 'end'; switchLogic?: SwitchLogic; switchReversed?: boolean }
+export interface RopeRelease { id: string; anchor: 'start' | 'end'; weight?: true; switchLogic?: SwitchLogic; switchReversed?: boolean }
+/** How long a breakaway anchor holds a rider's weight before it lets go: long enough to see it strain. */
+export const ROPE_BREAK_SECONDS = .45
 export interface Rope extends NamedObject {
   x: number; y: number; length: number; segments: number; anchor?: RopeAnchor
   /** Tied at both ends: any length beyond the span between the anchors is slack. */
@@ -50,7 +53,11 @@ export function fitTiedRope(rope: Rope) {
 export interface ClimbableWorld { ladders: readonly Ladder[]; ropes: readonly Rope[] }
 export const NO_CLIMBABLES: ClimbableWorld = { ladders: [], ropes: [] }
 export interface RopeNode { x: number; y: number; oldX: number; oldY: number }
-export interface RopeState { definition: Rope; nodes: RopeNode[]; pumpInput: number; bends: (Point | null)[] }
+/**
+ * `strain` is how long a breakaway anchor has borne weight this run, in seconds; it does not recover when
+ * the rope is let go, so a weakened anchor stays weakened.
+ */
+export interface RopeState { definition: Rope; nodes: RopeNode[]; pumpInput: number; bends: (Point | null)[]; strain?: number }
 export interface Climbing {
   kind: 'ladder' | 'rope'; index: number; distance: number; time: number; direction: number; swing: number; lean: number; hangBlend: number; swingVelocity: number
   ladder: Ladder | null; rope: RopeState | null

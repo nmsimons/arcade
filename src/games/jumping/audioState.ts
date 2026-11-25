@@ -23,7 +23,7 @@ import { levelGaugeMarks } from './levelGauge.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster' | 'shovebot' | 'robot-servo' | 'pump'
 export type CueKind = 'footstep' | 'robot-footstep' | 'landing' | 'robot-landing' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'power-down' | 'power-warning' | 'emp-shot' | 'repulsor' | 'tractor' | 'shove'
-  | 'relay' | 'drip' | 'bubble' | 'bird-whistle' | 'bird-trill' | 'bird-chirp' | 'air-brake'
+  | 'relay' | 'drip' | 'bubble' | 'bird-whistle' | 'bird-trill' | 'bird-chirp' | 'air-brake' | 'rope-snap'
 /** What a step or landing comes down on, which colours its sound (sound.ts). */
 export type Surface = 'stone' | 'earth' | 'grass' | 'metal' | 'wood' | 'rubber'
 /** `pitch` plays a cue faster or slower than written: a bird or a bubble of another size. */
@@ -93,6 +93,7 @@ function snapshot(p: Player, run: Run | null) {
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
     triggerPresses: run?.triggers.map(t => t.pressed) ?? [],
+    ropesTied: run?.player.ropes?.map(rope => !!rope.definition.end) ?? [],
     coins: run?.coinsCollected ?? 0,
     outage: run?.empRemaining ?? 0, failed: run?.failed ?? false, playerOutage: run?.gadgets.disabled.get(p) ?? 0, shots: run?.gadgets.shots ?? 0,
     robotShots: run?.robots.map(robot => robot.shots ?? 0) ?? [],
@@ -359,6 +360,13 @@ export class JumpingAudioState {
         this.cues.unshift({ kind: 'switch', ...soundPosition(run.level.goal.x, run.level.goal.y, p), volume: 1, strength: 1 })
         if (this.cues.length > 8) this.cues.pop()
       }
+      // A tied rope letting go of an anchor, by its switches or under weight, snaps where it let go.
+      run.player.ropes?.forEach((rope, i) => {
+        const authored = run.level.climbables.ropes[i]
+        if (rope.definition.end || !before.ropesTied[i] || !authored?.end || !authored.release) return
+        const at = authored.release.anchor === 'end' ? authored.end : authored
+        cue('rope-snap', at.x, at.y)
+      })
       if (run.coinsCollected > before.coins) cue('coin', p.x, p.y - 30)
       if (run.empRemaining > before.outage + .01) cue('emp', p.x, p.y - 30)
       // Running out of time powers the whole level down: heard everywhere, ahead of nearby impacts.

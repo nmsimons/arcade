@@ -500,9 +500,10 @@ export function parseLevel(value: unknown): JumpLevel {
     }
     if (r.release !== undefined) {
       const release = object(r.release)
-      if (!rope.end || !validSwitchTargetId(release.id) || release.anchor !== 'start' && release.anchor !== 'end') fail()
+      if (!rope.end || !validSwitchTargetId(release.id) || release.anchor !== 'start' && release.anchor !== 'end'
+        || release.weight !== undefined && release.weight !== true) fail()
       const settings = parseSwitchSettings({ switchLogic: release.switchLogic, switchReversed: release.switchReversed }, fail)
-      rope.release = { id: release.id as string, anchor: release.anchor as 'start' | 'end',
+      rope.release = { id: release.id as string, anchor: release.anchor as 'start' | 'end', ...(release.weight ? { weight: true as const } : {}),
         ...(settings.switchLogic ? { switchLogic: settings.switchLogic } : {}), ...(settings.switchReversed !== undefined ? { switchReversed: settings.switchReversed } : {}) }
     }
     if (r.rest !== undefined) {

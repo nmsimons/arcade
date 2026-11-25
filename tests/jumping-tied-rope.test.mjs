@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { blankTrial, levelProblems, parseLevel, prepareLevelRopes } from '../src/games/jumping/level.ts'
-import { ropeGripLimit } from '../src/games/jumping/climbables.ts'
-import { addItem, deleteItem, duplicateItem, moveItem, moveRopeAnchor, resizeItem, setRopeRelease, setRopeTied } from '../src/games/jumping/editor.ts'
+import { ROPE_BREAK_SECONDS, ropeGripLimit } from '../src/games/jumping/climbables.ts'
+import { addItem, deleteItem, duplicateItem, moveItem, moveRopeAnchor, resizeItem, setRopeBreakaway, setRopeRelease, setRopeTied } from '../src/games/jumping/editor.ts'
 import { objectLabel } from '../src/games/jumping/objectLabels.ts'
 import { switchedItems } from '../src/games/jumping/switchPower.ts'
 import { drawRopes } from '../src/games/jumping/render.ts'
+import { STEP } from '../src/games/jumping/model.ts'
 
 // Two pillars with a rope tied between their tops, 600 apart, with 80 of slack.
 const pillars = [{ x: 300, y: 500, w: 200, h: 420 }, { x: 1100, y: 500, w: 200, h: 420 }]
@@ -18,11 +19,11 @@ const lowest = points => points.reduce((low, p) => p[1] > low[1] ? p : low)
 
 /** The points a rope's stroke passes through and the anchors drawn, as drawRopes paints them. */
 function drawnRope(p, level) {
-  const stroke = [], anchors = []
-  const ctx = { beginPath() {}, stroke() {}, fill() {}, moveTo: (x, y) => stroke.push([x, y]), lineTo: (x, y) => stroke.push([x, y]),
+  const stroke = [], anchors = [], colors = []
+  const ctx = { beginPath() {}, stroke() {}, fill() { colors.push(this.fillStyle) }, moveTo: (x, y) => stroke.push([x, y]), lineTo: (x, y) => stroke.push([x, y]),
     arc: (x, y) => anchors.push([x, y]) }
   drawRopes(ctx, p, level.climbables)
-  return { stroke, anchors }
+  return { stroke, anchors, colors }
 }
 
 /** Catch the rope's middle in flight and settle into the hang. */
@@ -52,6 +53,8 @@ test('a tied rope reaches both anchors and sags between them', () => {
     { x: 0, y: 0, length: 2000, segments: 167, end: { x: 1800, y: 920 } },
     { ...tied(), release: { id: 'drop', anchor: 'middle' } },
     { x: 500, y: 500, length: 300, segments: 38, release: { id: 'drop', anchor: 'start' } },
+    { ...tied(), release: { id: 'drop', anchor: 'end', weight: false } },
+    { ...tied(), release: { id: 'drop', anchor: 'end', weight: 'yes' } },
   ]) assert.throws(() => parseLevel({ ...blankTrial(), platforms: pillars, climbables: { ladders: [], ropes: [broken] } }), /not a valid jumping level/)
 })
 
@@ -172,4 +175,80 @@ test('the studio ties a rope between two anchors and moves each anchor on its ow
   // Unsolved, the free end hangs straight down to the floor, beside the pillar's foot.
   const retied = setRopeTied(untied, 0, true).climbables.ropes[0]
   assert.deepEqual([retied.end.x, retied.end.y], [500, 920])
+})
+
+for (const anchor of ['start', 'end']) test(`a breakaway ${anchor === 'start' ? 'first' : 'second'} anchor strains under a rider's weight, then lets go and the rider keeps hold`, () => {
+  const level = course(tied({ release: { id: 'snap', anchor, weight: true } }))
+  assert.deepEqual(levelProblems(level), [])
+  assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))).climbables.ropes[0].release, { id: 'snap', anchor, weight: true }, 'round trips')
+  const run = createRun(level), p = run.player, rope = p.ropes[0]; run.started = true
+  const step = (input = {}) => stepRun(run, { ...NEUTRAL_INPUT, ...input })
+  // Unloaded, it holds indefinitely.
+  for (let i = 0; i < 240; i++) step()
+  assert.ok(rope.definition.end, 'still tied with nobody on it')
+  assert.equal(rope.strain ?? 0, 0)
+  const unloaded = drawnRope(p, level), breaking = anchor === 'start' ? 0 : 1
+  assert.equal(unloaded.colors[breaking], unloaded.colors[1 - breaking], 'at rest the breakaway anchor looks like the other')
+  // Catch the rope's middle.
+  const low = lowest(level.climbables.ropes[0].rest.points)
+  Object.assign(p, { x: low[0] - 10, y: low[1] + 60, grounded: false, facing: 1, vx: 0, vy: 0 })
+  let frames = 0
+  while (!p.climbing && frames < 30) { step({ climb: true }); frames++ }
+  assert.ok(p.climbing?.rope, 'caught the rope')
+  // It holds for a visible moment, shaking as it strains.
+  const holding = Math.floor((ROPE_BREAK_SECONDS - (rope.strain ?? 0)) / STEP) - 1
+  for (let i = 0; i < holding; i++) step()
+  assert.ok(rope.definition.end, `held ${((rope.strain ?? 0)).toFixed(2)} s of weight`)
+  assert.ok(rope.strain > ROPE_BREAK_SECONDS * .8)
+  const strained = drawnRope(p, level), bolt = level.climbables.ropes[0][anchor === 'start' ? 'x' : 'end'], at = anchor === 'start' ? [level.climbables.ropes[0].x, level.climbables.ropes[0].y] : [bolt.x, bolt.y]
+  assert.ok(Math.hypot(strained.anchors[breaking][0] - at[0], strained.anchors[breaking][1] - at[1]) > .1, 'the straining anchor shakes')
+  assert.deepEqual(strained.anchors[1 - breaking], unloaded.anchors[1 - breaking], 'the sound anchor does not')
+  const grip = p.climbing.distance
+  for (let i = 0; i < 3; i++) step()
+  const kept = anchor === 'start' ? [1100, 500] : [500, 500]
+  assert.equal(rope.definition.end, undefined, 'the anchor let go')
+  assert.deepEqual([rope.definition.x, rope.definition.y], kept, 'the rope hangs from the other anchor')
+  assert.ok(p.climbing, 'the rider holds on')
+  assert.ok(Math.abs(p.climbing.distance - (anchor === 'start' ? rope.definition.length - grip : grip)) < 6, 'at the same point on the rope')
+  for (let i = 0; i < 240; i++) step()
+  assert.ok(Math.hypot(rope.nodes.at(-1).x - kept[0], rope.nodes.at(-1).y - kept[1]) > 300, 'the released end has fallen away')
+  assert.deepEqual(drawnRope(p, level).anchors, [kept], 'one anchor is drawn')
+})
+
+test('the strain on a breakaway anchor lasts after a rider lets go, and a switch can still release it', () => {
+  const level = course(tied({ release: { id: 'snap', anchor: 'end', weight: true } }), {
+    triggers: [{ x: 1500, y: 920, w: 80, mode: 'weight', behavior: 'toggle', targets: ['snap'] }] })
+  const run = createRun(level), p = run.player, rope = p.ropes[0]; run.started = true
+  const step = (input = {}) => stepRun(run, { ...NEUTRAL_INPUT, ...input })
+  const low = lowest(level.climbables.ropes[0].rest.points)
+  Object.assign(p, { x: low[0] - 10, y: low[1] + 60, grounded: false, facing: 1, vx: 0, vy: 0 })
+  while (!p.climbing) step({ climb: true })
+  for (let i = 0; i < 6; i++) step()
+  // Drop off before it gives way; the strain stays.
+  step({ detach: true })
+  for (let i = 0; i < 120 && p.climbing; i++) step({ detach: true })
+  assert.equal(p.climbing, null, 'let go')
+  const strain = rope.strain
+  assert.ok(strain > 0 && strain < ROPE_BREAK_SECONDS)
+  for (let i = 0; i < 120; i++) step({ detach: true })
+  assert.equal(rope.strain, strain, 'no strain while unloaded, and none recovered')
+  assert.ok(rope.definition.end)
+  // Its switch can still let it go.
+  run.triggers[0].active = true
+  step()
+  assert.equal(rope.definition.end, undefined)
+})
+
+test('the studio lets a released anchor break under weight', () => {
+  const level = course()
+  assert.equal(setRopeBreakaway(level, 0, true), level, 'needs a release first')
+  const released = setRopeRelease(level, 0, 'end'), breakaway = setRopeBreakaway(released, 0, true)
+  assert.equal(breakaway.climbables.ropes[0].release.weight, true)
+  assert.equal(released.climbables.ropes[0].release.weight, undefined, 'without changing the original')
+  assert.equal(setRopeBreakaway(breakaway, 0, true), breakaway)
+  assert.equal(setRopeBreakaway(breakaway, 0, false).climbables.ropes[0].release.weight, undefined)
+  // Choosing the other anchor keeps it breakaway; removing the release removes it.
+  assert.deepEqual(setRopeRelease(breakaway, 0, 'start').climbables.ropes[0].release.weight, true)
+  assert.equal(setRopeRelease(breakaway, 0, null).climbables.ropes[0].release, undefined)
+  assert.deepEqual(levelProblems(parseLevel(breakaway)), [])
 })

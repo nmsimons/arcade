@@ -10,7 +10,7 @@ import { drawLevelCenterGuides, levelCenterSnap } from './builderSnap'
 import { decodeEditorClipboard, encodeEditorClipboard, readEditorClipboard, rememberEditorClipboard } from './editorClipboard'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, moveRopeAnchor, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, editLevelGauge, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { anchorRope, moveRopeAnchor, setRopeBreakaway, setRopeRelease, setRopeTied, renameItem, addItem, allSelections, clamp, hitItems, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, editLevelGauge, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { isTwoMarkGauge, levelGaugeAnchor } from './levelGauge'
 import { setLoosePanel, setPipe, setWallStripes } from './editor'
@@ -1564,7 +1564,13 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
               value={level.climbables.ropes[selection.index].release?.anchor ?? 'none'}
               options={[{ value: 'none', label: 'Always tied' }, { value: 'start', label: 'Switches release anchor 1' }, { value: 'end', label: 'Switches release anchor 2' }]}
               onChange={value => commit(setRopeRelease(history.present, selection.index, value === 'start' || value === 'end' ? value : null))} />
-            {level.climbables.ropes[selection.index].release && <p className="builder-hint">When its switch rule turns on, the anchor lets go and stays released until restart. The rope then hangs from the other anchor.</p>}
+            {level.climbables.ropes[selection.index].release && <>
+              <InspectorButton title="Also let the anchor give way once someone has hung on the rope for a moment" aria-pressed={!!level.climbables.ropes[selection.index].release!.weight}
+                onClick={() => commit(setRopeBreakaway(history.present, selection.index, !level.climbables.ropes[selection.index].release!.weight))}>Breaks under weight</InspectorButton>
+              <p className="builder-hint">{level.climbables.ropes[selection.index].release!.weight
+                ? 'The anchor strains when anyone hangs on the rope and lets go a moment later, or when its switch rule turns on. It stays released until restart; the rope then hangs from the other anchor.'
+                : 'When its switch rule turns on, the anchor lets go and stays released until restart. The rope then hangs from the other anchor.'}</p>
+            </>}
           </>}
           {canPlaceOnSurface(selection, level) && <div className="builder-surface-placement">
             <InspectorButton disabled={!support || Math.abs(support.delta) < .1} title={facingPlate?.ceiling ? 'Place on the next ceiling surface · End' : 'Place on the next surface below · End'} onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">{facingPlate?.ceiling ? '↑' : '↓'}</span></InspectorButton>

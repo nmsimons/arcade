@@ -1229,12 +1229,28 @@ at most 2000 apart. A tied rope can let go of one anchor during a run:
 accepting the usual `switchLogic` and `switchReversed`. When its switches turn it
 on, that anchor lets go and stays released until the run restarts; the rope then
 hangs and swings from its other anchor, and anyone holding it keeps their grip.
-`release` requires `end`. For example:
+`release` requires `end`. Adding `weight: true` makes the anchor break away under
+load as well: while the player or a robot hangs on the rope, the anchor strains,
+shaking harder as it goes, and after 0.45 seconds of weight
+it lets go exactly as a switched release does. The strain does not recover when the
+rider lets go, so a second catch gets only the time left. A breakaway rope with no
+switches wired to it releases on weight alone. Either way the anchor snaps audibly.
+At rest a breakaway anchor is drawn like any other; only its strain gives it away.
+In the studio, **Breaks under weight** appears once a **Release** anchor is chosen.
+For example:
 
 ```json
 { "x": 800, "y": 500, "length": 680, "segments": 60,
   "end": { "x": 1400, "y": 500, "anchor": { "platform": 2, "x": 0, "y": 0 } },
   "release": { "id": "drop", "anchor": "start" } }
+```
+
+A breakaway traverse that drops its far end when caught:
+
+```json
+{ "x": 800, "y": 500, "length": 680, "segments": 60,
+  "end": { "x": 1400, "y": 500 },
+  "release": { "id": "rotten", "anchor": "end", "weight": true } }
 ```
 
 Terrain uses one friction unless a piece sets `frictionless: true` (studio: select

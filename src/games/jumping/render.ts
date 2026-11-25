@@ -4,8 +4,8 @@ import type { Platform, Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
 import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
 import type { JumpLevel } from './level.ts'
-import { ropeEnds, ropePath } from './climbables.ts'
-import type { ClimbableWorld } from './climbables.ts'
+import { ROPE_BREAK_SECONDS, ropeEnds, ropePath } from './climbables.ts'
+import type { ClimbableWorld, Point } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
 import { terrainFill, terrainMaterial } from './terrainMaterials.ts'
@@ -53,16 +53,31 @@ export function drawLadders(ctx: CanvasRenderingContext2D, world: Pick<Climbable
  * carries its own definition: once a tied rope lets go of an anchor, it hangs from
  * the other, so neither the authored anchor nor a line to it is drawn.
  */
+/** How far a straining breakaway anchor shakes, in units, as its strain runs out. */
+const BREAKAWAY_SHAKE = 1.6
 export function drawRopes(ctx: CanvasRenderingContext2D, p: Player, world: Pick<ClimbableWorld, 'ropes'>) {
   for (const [i, authored] of world.ropes.entries()) {
     const state = p.ropes?.[i], rope = state?.definition ?? authored
-    const [start, ...rest] = ropePath(rope, state)
+    const path = ropePath(rope, state)
+    // A breakaway anchor bearing weight shakes, harder as it nears letting go; the rope's end shakes with it.
+    const breakaway = rope.end && rope.release?.weight ? rope.release.anchor : null, strain = state?.strain ?? 0
+    const shake: Point = breakaway && strain > 0 ? [Math.sin(strain * 97) * BREAKAWAY_SHAKE * Math.min(1, strain / ROPE_BREAK_SECONDS),
+      Math.cos(strain * 131) * BREAKAWAY_SHAKE * .5 * Math.min(1, strain / ROPE_BREAK_SECONDS)] : [0, 0]
+    if (shake[0] || shake[1]) {
+      const at = breakaway === 'start' ? 0 : path.length - 1
+      path[at] = [path[at][0] + shake[0], path[at][1] + shake[1]]
+    }
+    const [start, ...rest] = path
     ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
     ctx.beginPath(); ctx.moveTo(start[0], start[1])
     for (const [x, y] of rest) ctx.lineTo(x, y)
     ctx.stroke()
+    // At rest a breakaway anchor looks like any other: only its strain gives it away.
     ctx.fillStyle = '#697d72'
-    for (const anchor of ropeEnds(rope)) { ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill() }
+    for (const [k, anchor] of ropeEnds(rope).entries()) {
+      const breaks = breakaway === (k ? 'end' : 'start')
+      ctx.beginPath(); ctx.arc(anchor.x + (breaks ? shake[0] : 0), anchor.y + (breaks ? shake[1] : 0), 5, 0, Math.PI * 2); ctx.fill()
+    }
   }
 }
 

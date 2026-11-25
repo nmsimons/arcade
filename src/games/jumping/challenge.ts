@@ -1,5 +1,6 @@
 import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
-import { releaseRopeAnchor, ropePath } from './climbables.ts'
+import { releaseRopeAnchor, ROPE_BREAK_SECONDS, ropePath } from './climbables.ts'
+import type { Climbing, RopeState } from './climbables.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, passesThrough, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { isHubLevel, isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
@@ -383,9 +384,25 @@ function releaseRopeAnchors(run: Run, states: ReadonlyMap<string, boolean>) {
   for (const [index, definition] of run.level.climbables.ropes.entries()) {
     const release = definition.release, rope = run.player.ropes?.[index]
     if (!release || !rope?.definition.end || !states.get(release.id)) continue
-    const riders = [run.player, ...run.robots.flatMap(r => r.actor ? [r.actor] : [])]
-      .flatMap(actor => actor.climbing?.rope === rope ? [actor.climbing] : [])
-    releaseRopeAnchor(rope, release.anchor, riders)
+    releaseRopeAnchor(rope, release.anchor, ropeRiders(run, rope))
+  }
+}
+/** Everyone holding a rope: the player and any robot. */
+function ropeRiders(run: Run, rope: RopeState): Climbing[] {
+  return [run.player, ...run.robots.flatMap(r => r.actor ? [r.actor] : [])].flatMap(actor => actor.climbing?.rope === rope ? [actor.climbing] : [])
+}
+/**
+ * A breakaway anchor strains while anyone hangs on its rope and lets go once it has borne weight for
+ * ROPE_BREAK_SECONDS, as a switched release does: for the rest of the run, with the riders keeping hold.
+ */
+function strainRopes(run: Run, dt: number) {
+  for (const [index, definition] of run.level.climbables.ropes.entries()) {
+    const release = definition.release, rope = run.player.ropes?.[index]
+    if (!release?.weight || !rope?.definition.end) continue
+    const riders = ropeRiders(run, rope)
+    if (!riders.length) continue
+    rope.strain = (rope.strain ?? 0) + dt
+    if (rope.strain >= ROPE_BREAK_SECONDS - 1e-9) releaseRopeAnchor(rope, release.anchor, riders)
   }
 }
 function updateSwitchTargets(run: Run) {
@@ -594,6 +611,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (powered && run.robots.length) faceContactedRobots(run.player, run.player.contacts, run.robots)
   applyContactEmp(run)
   finishGadgetMotion(run, toolBefore)
+  strainRopes(run, dt)
   recordPlayerNoise(run, dt)
   if (run.waterSurface) advanceWaterSurface(run.waterSurface, run.player, run.props, swimStrength, dt)
   // EMP time is gameplay time, independent of every clock collectible. Spend

@@ -481,7 +481,7 @@ test('source markers use resolved positions and isolation does not mutate the sc
     const after = JSON.stringify({ level: h.run.level, mechanisms: h.run.mechanisms, lights })
     const single = h.render(20, [lights[1]])
     // Isolation keeps the other physical fixtures visible. Compare the field
-    // while excluding only their small silhouettes, housing, arm and wall plate,
+    // while excluding only their small silhouettes and housing,
     // from this single-lamp view.
     for (const source of isolated.stats.sources.filter(l => l.id !== lights[1].id)) {
       for (let y = source.y - 20; y <= source.y + 20; y++) for (let x = source.x - 20; x <= source.x + 20; x++) {

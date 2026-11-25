@@ -332,7 +332,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Goal lamp before activation | Ordinary inactive lens. It must not look switched on in darkness. | No. | No. | Unchanged. |
 | Goal lamp after activation | Full existing green lens, visible even at ambient 0. | No. | No; the indicator never lights nearby surfaces. | Stays visibly green. |
 | Open exit doorway | Retains its black opening; wall around it remains ambient-only. | No. | No. | Opens and accepts the player as usual. |
-| Authored lamp housing | Ambient only, with a small, flat fixture on a short arm from a wall plate behind it. | No. | No. | Housing remains in place. |
+| Authored lamp housing | Ambient only, a small, flat fixture with no bracket or wall plate. | No. | No. | Housing remains in place. |
 | Authored lamp lens | Full neutral lens at full power; follows its power fade when switching. | No. | Its defined spotlight cone. | All authored lamps lose power. |
 | Start/checkpoint floor markings in legacy playgrounds | Ordinary. | No. | No navigation beacon. | Unchanged. |
 | Dust, foot/contact effects, and slide marks, including landing dust and crate and ball impact dust (`impactRender.ts`) | Ordinary at their world position. Slide marks use the slide grit's grey; impact dust is soft, faint puffs in a warm pale grey. | No. | No. | Existing effect behavior. |

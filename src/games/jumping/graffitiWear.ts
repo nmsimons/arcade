@@ -15,7 +15,7 @@ const STYLES: Record<StainLevel, GraffitiWearStyle | null> = {
   heavy: { chipped: .065, fades: .06 },
 }
 /** Drips per character of lettering, before spacing and room below thin them out. */
-const DRIPS_PER_CHARACTER = .5
+const DRIPS_PER_CHARACTER = .25
 const MOST_MARKS = 240
 /** Thinned paint keeps these shares of its opacity: at a faded patch's edge, and in its core. */
 export const GRAFFITI_FADED = .78, GRAFFITI_THINNEST = .55
@@ -198,9 +198,9 @@ function hangDrips(grid: InkGrid, random: () => number, fs: number, characters: 
       if (Math.abs(o.u - e.u) < reach && o.v > e.v + .5 && o.v - e.v < rise) return false
     return true
   })
-  // Random order, spaced along the line, at most about one per few characters.
+  // Random order, spaced along the line, about one per four characters.
   for (let i = lowest.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [lowest[i], lowest[j]] = [lowest[j], lowest[i]] }
-  const wanted = Math.max(1, Math.round(characters * DRIPS_PER_CHARACTER)), spacing = fs * .45 * res
+  const wanted = Math.max(1, Math.round(characters * DRIPS_PER_CHARACTER)), spacing = fs * .9 * res
   const chosen: Site[] = []
   for (const site of lowest) {
     if (chosen.length >= wanted) break
@@ -212,8 +212,8 @@ function hangDrips(grid: InkGrid, random: () => number, fs: number, characters: 
   for (const site of chosen) {
     // Into world units, in the area's frame.
     const x = site.x / res, y = site.y / res, room = site.room / res
-    const thin = Math.max(1, fs * (.045 + .035 * random()))
-    const length = Math.min(room - fs * .06, fs * (.16 + .95 * random() ** 1.7))
+    const thin = Math.max(1, fs * (.04 + .025 * random()))
+    const length = Math.min(room - fs * .06, fs * (.14 + .5 * random() ** 2.2))
     if (length < fs * .1) continue
     drip(path, x, y, thin, length, down, fs)
   }

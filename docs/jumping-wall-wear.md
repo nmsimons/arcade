@@ -235,9 +235,11 @@ thinned.
 
 - **Drips are how the paint went on**, so every piece has them, at every stain
   level. They hang from the lowest points of strokes wherever open wall lies
-  below: about one for every two characters, spaced apart, with a neck where
-  the drip leaves the stroke, a run that narrows a little, and a bead where the
-  paint gathered. Most are short and a few run long. A drip stops short of the
+  below: about one for every four characters, spaced well apart, with a neck
+  where the drip leaves the stroke, a run that narrows a little, and a bead
+  where the paint gathered. Keep them restrained: most are short beads, a few
+  run to about half the lettering's height, and none should make a piece look
+  like it is melting. A drip stops short of the
   next stroke below it, so it never runs into another line, and stays inside
   the text area. Drips run down the wall, not down the lettering: a tilted
   piece's drips hang plumb.

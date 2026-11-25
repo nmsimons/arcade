@@ -54,8 +54,13 @@ in development builds only. What exists:
   inputs. Wake, the four tutorial levels and Company stay in the collection but
   leave the campaign; their direct links stay open. Orientation's golden traces await recording on Apple
   Silicon, like the other facility areas.
-- Six required wings: Boot Camp (8 courses), Freight (5), Construction (7),
-  Gravity (6), Security (6) and Assessment (5), for 37 required courses.
+- Six required wings: Boot Camp (10 courses), Freight (5), Construction (7),
+  Gravity (6), Security (6) and Assessment (5), for 39 required courses.
+  Boot Camp gained Range (November 24, 2026), whose door is always open, and
+  Slow is Smooth (November 25, 2026), a hill run and switchback climb under a
+  repulsorbot. Slow is Smooth's door ends Boot Camp's chain: Nine opens it, and
+  passing it switches the wing's two force fields. It stands alone at the far
+  end of the top floor, in a fourth column added for it.
   Gravity's doors are Drain, Ramping Up, Drift, Pinball, EVA and Updraft, and
   Assessment adds Proficiency (November 17, 2026); Round Trip, added with it,
   was removed from the collection on November 23, 2026.
@@ -74,7 +79,6 @@ in development builds only. What exists:
   passed; more puzzles are being designed for it. Four Lamps, One or the Other
   and Handoff left the campaign because they solved by trial and error or by
   their own wall text, and were removed from the collection on November 23, 2026.
-  Slow is Smooth stays in the collection with no door; its direct link stays open.
   Most wings are still flat corridors that make the campaign playable end to
   end, not designed wings.
 - Direct links ([Routes](#engineering-notes)): `/lab/levels/built-in/<file>` plays a

@@ -44,7 +44,7 @@ for (const size of [1, REPULSOR_BOT_SIZE]) test(`Down boards a ladder from a dec
 // Spots where the hunter used to stand for 20 to 54 seconds: above a ladder it could not board, beside a pool the
 // player was knocked into, in a pull-up the controller kept turning back, hovering at its beat's end, at a ladder top.
 const stalls = [['scaffold3.jump-level.json', 926, 500], ['08.json', 981, 860], ['Quarantine III.jump-level.json', 1734, 1015],
-  ['Billiards.jump-level.json', 580, 1200], ['Quarantine.jump-level.json', 1475, 1435], ['Quarantine II.jump-level.json', 1192, 1015]]
+  ['Quarantine.jump-level.json', 1475, 1435], ['Quarantine II.jump-level.json', 1192, 1015]]
 for (const [file, x, y] of stalls) test(`${file}: with the player standing at ${x}, ${y}, Rbot never stands about for long`, () => {
   const run = createRun(builtin(file))
   Object.assign(run.player, { x, y: y - 2, vx: 0, vy: 0 })

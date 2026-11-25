@@ -136,6 +136,10 @@
     {
       "level": "5dcc2db5-5496-43dc-8d5a-ef487d4f6475",
       "reason": "Locks is a water-lock puzzle still being designed. With the paddles as held plates, a headless fresh-start route finishes in 88.06 s, slower than the 82 s A target set when the paddles were toggles; the targets need retiming from runs on the settled design before an audit."
+    },
+    {
+      "level": "ade313c6-a64a-48ea-a77e-85e0565acaf8",
+      "reason": "The November 24, 2026 Rbot hunting revision changed the encounter on the upper slope; a fresh-start route that dodges the hunter's led shot has not yet been recorded against the 12 / 20 / 40 / 70 targets."
     }
   ],
   "runs": [
@@ -728,116 +732,6 @@
         {
           "frames": 104,
           "input": {
-            "climb": true
-          }
-        }
-      ]
-    },
-    {
-      "level": "ade313c6-a64a-48ea-a77e-85e0565acaf8",
-      "elapsed": 11.033333333333347,
-      "activeTime": 11.891666666666632,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 129,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 279,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 45,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 204,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 24,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "jump": true,
-            "jumpStrength": 0.25
-          }
-        },
-        {
-          "frames": 172,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 27,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 86,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 164,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 189,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 104,
-          "input": {
-            "move": -1,
             "climb": true
           }
         }
@@ -6125,6 +6019,118 @@
         }
       ],
       "reason": "Recorded on the layout committed in 1696ef5. Studio revisions on November 17 (a zero-g room and further lifts) and the booster-boot zero-g rework changed the route; this trace no longer reaches the exit."
+    },
+    {
+      "file": "04.json",
+      "level": "ade313c6-a64a-48ea-a77e-85e0565acaf8",
+      "elapsed": 11.033333333333347,
+      "activeTime": 11.891666666666632,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 129,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 279,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true,
+            "jumpStrength": 0.25
+          }
+        },
+        {
+          "frames": 172,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 27,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "jumpStrength": 1
+          }
+        },
+        {
+          "frames": 86,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 164,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 189,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        }
+      ],
+      "reason": "Superseded by the November 24, 2026 Rbot hunting revision (docs/jumping-rbot-hunting.md): the hunter now leads its shot on this route's steady run along the upper slope and hits the recorded player at 7.2 s, so the open-loop trace no longer completes. Retained as earlier completion evidence."
     }
   ],
   "retiredRuns": [

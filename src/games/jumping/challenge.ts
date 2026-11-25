@@ -71,7 +71,9 @@ export interface Prop extends PropDefinition {
 export interface MechanismState { definition: Mechanism; x: number; y: number; direction: number; wait: number; active: boolean; safetyHold: number | null }
 export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean; recoilVx?: number; fallVelocity?: number; deactivated?: boolean; actor?: Player; aim?: number;
   /** Rbot without power slumps to its knees (0 standing, 1 slumped): an EMP, a blackout or deactivation, then getting up. */
-  collapse?: number; shots?: number; rams?: number; entrance?: EntranceAnimation; awakening?: { elapsed: number; triggered: boolean } }
+  collapse?: number; shots?: number;
+  /** Recovering from its own shot, rather than from a hit or a shove: it may walk on. */
+  shotRecovery?: boolean; rams?: number; entrance?: EntranceAnimation; awakening?: { elapsed: number; triggered: boolean } }
 export interface Run {
   gadgets: GadgetState
   level: RunLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]

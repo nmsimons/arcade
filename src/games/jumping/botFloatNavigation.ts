@@ -1,3 +1,4 @@
+import { robotTouchesPlayer } from './robotPhysics.ts'
 // Rbot in lasting weightlessness. Nothing walks there, so the ground graph (botNavigation.ts) has nothing to offer: the
 // robot flies on its booster boots with the player's own controls (Left/Right in proportion, Up and Down on or off),
 // through a coarse grid of the open weightless space, and skates along a surface it stands on by pressing into it.
@@ -225,10 +226,12 @@ export function botFloatMovement(run: Run, robot: RobotState, dt: number, target
   if (state.stuck > 1 && state.path[0]) { state.avoided.set(cellOf(grid, state.path[0]), 3); state.age = Infinity; state.stuck = 0 }
 
   const height = TUNING.height
-  // It does not come to rest on the player: against them, or about to be, it backs off on its boots.
+  // It does not come to rest on the player: against them, or about to be, it backs off on its boots. It knows they
+  // are there only by seeing them or touching them: an unseen player near it is not something it can steer by.
   const player = run.player, body = { x: player.x, y: player.y - (player.inverted ? -1 : 1) * height / 2 }
   const apart = Math.hypot(at.x - body.x, at.y - body.y)
-  if (actor.contacts?.support?.collider.id === 'player' || apart < KEEP_AWAY * k) {
+  const touching = actor.contacts?.support?.collider.id === 'player' || actor.contacts?.push?.collider.id === 'player' || robotTouchesPlayer(robot, player)
+  if (touching || seen && apart < KEEP_AWAY * k) {
     const away = apart > 1 ? { x: (at.x - body.x) / apart, y: (at.y - body.y) / apart } : { x: -actor.facing, y: 0 }
     state.age = Infinity
     return steer(actor, state, { x: body.x + away.x * KEEP_AWAY * k * 1.4, y: body.y + away.y * KEEP_AWAY * k * 1.4 }, HUNT_SPEED, true, { x: player.vx, y: player.vy })
@@ -250,10 +253,13 @@ export function botFloatMovement(run: Run, robot: RobotState, dt: number, target
     // Home from the floor of its beat, it skates; anywhere else it flies there and lands.
     const into = intoSurface(actor)
     const home = into && !actor.wall && !actor.inverted && Math.abs(actor.y - y) < 20 * k
-    if (home && Math.abs(actor.x - end) < 12 * k) {
+    // At the end of its beat it pauses and turns for the other: on its floor, or hovering just off it there (lifted
+    // a little by a side field, say), which otherwise held it at that end for good.
+    const hovering = !home && Math.hypot(at.x - goal.x, at.y - goal.y) < 20 * k
+    if (home && Math.abs(actor.x - end) < 12 * k || hovering) {
       state.pause += dt
       if (state.pause >= PATROL_PAUSE) { state.patrolEnd = 1 - state.patrolEnd; state.pause = 0 }
-      return { ...NEUTRAL_INPUT }
+      if (home) return { ...NEUTRAL_INPUT }
     }
     if (home && flightClear(run, solids, at, goal, k)) { state.path = []; return skate(actor, end, SKATE_SPEED) }
   }

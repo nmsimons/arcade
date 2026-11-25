@@ -119,7 +119,10 @@ export const robotTop = (r: Pick<RobotState, 'phase'> & Partial<Pick<RobotState,
 /** One forward sight line from the eye to the player's body. Facing, range and
  * shape bounds reject irrelevant geometry before any polygon edges are tested. */
 export function robotSensesPlayer(r: RobotState, p: Player, obstacles: Iterable<Platform>) {
-  if ((p.x - r.x) * r.facing <= 0 || Math.abs(p.y - r.y) >= (r.definition.kind === 'repulsor' ? 480 : 240) || Math.abs(p.x - r.x) >= 850
+  // Rbot also sees a body almost straight below or above it (on a ladder over someone at its foot, say); a
+  // shovebot's lamp looks only ahead.
+  const behind = r.definition.kind === 'repulsor' ? -20 : 0
+  if ((p.x - r.x) * r.facing <= behind || Math.abs(p.y - r.y) >= (r.definition.kind === 'repulsor' ? 480 : 240) || Math.abs(p.x - r.x) >= 850
     || r.definition.kind !== 'repulsor' && (p.x < r.definition.left - 200 || p.x > r.definition.right + 200)) return false
   const size = robotSize(r), c = Math.cos(r.angle), s = Math.sin(r.angle), eyeX = 13.5 * r.facing * size, eyeY = robotTop(r) + 21.5 * size
   const eye: Vec = [r.x + eyeX * c - eyeY * s, r.y - 9 * size + eyeX * s + eyeY * c]

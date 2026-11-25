@@ -2,11 +2,14 @@ import type { RobotState, Run } from './challenge.ts'
 import type { Player } from './model.ts'
 import { lineBlocked } from './geometry.ts'
 
-type NoiseKind = 'running' | 'landing' | 'gadget'
+type NoiseKind = 'running' | 'landing' | 'gadget' | 'pickup'
 interface Noise { x: number; y: number; time: number; kind: NoiseKind; range: number; serial: number }
 export interface HeardNoise { x: number; y: number; time: number; kind: NoiseKind; uncertainty: number; serial: number }
+const collectedCount = (run: Run) => run.pickups.reduce((count, pickup) => count + (pickup.collectedAge !== null ? 1 : 0), 0)
 const snapshot = (run: Run) => ({ player: run.player, x: run.player.x, y: run.player.y, vy: run.player.vy,
-  grounded: run.player.grounded, shots: run.gadgets.shots })
+  grounded: run.player.grounded, shots: run.gadgets.shots, collected: collectedCount(run) })
+/** A collected pickup chimes: about as far as running footfalls carry. */
+export const PICKUP_NOISE_RANGE = 450
 /** Ground distance between audible running footfalls: about one foot plant at a run. */
 const FOOTFALL = 40
 interface Acoustics { previous: ReturnType<typeof snapshot>; cooldown: number; serial: number; noises: Noise[]; stride: number }
@@ -39,6 +42,7 @@ export function recordPlayerNoise(run: Run, dt: number) {
     else if (!state.cooldown && running && state.stride >= FOOTFALL) { emit('running', 500); state.cooldown = .2; state.stride = 0 }
   } else state.stride = 0
   if (run.gadgets.shots > before.shots) emit('gadget', 1000)
+  if (collectedCount(run) > before.collected) emit('pickup', PICKUP_NOISE_RANGE)
   state.previous = snapshot(run)
 }
 

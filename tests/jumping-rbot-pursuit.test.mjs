@@ -29,7 +29,9 @@ test('Quarantine II: Rbot drops from its deck onto the floor below, not past it 
 })
 
 test('Quarantine II: knocked into the gap beside the floor, Rbot climbs out by the floor\'s ledge and gets the player', () => {
-  const run = createRun(quarantine()), bot = run.robots[0], spot = { x: 1600, y: 1015 }
+  // The player came in on the floor below the deck's end, so that is where the hunt starts.
+  const level = quarantine(); level.entrance = { ...level.entrance, x: 1600, y: 1015 }
+  const run = createRun(level), bot = run.robots[0], spot = { x: 1600, y: 1015 }
   // From the end of its deck it hears the player hopping below and jumps down toward them.
   bot.actor = createRepulsorActor(1740, 490); bot.x = 1740; bot.y = 490; bot.facing = 1; bot.actor.facing = 1
   run.player = createPlayer(spot)
@@ -42,11 +44,12 @@ test('Quarantine II: knocked into the gap beside the floor, Rbot climbs out by t
     // Carry it past the floor's end into the narrow water beside the wall, as an overshot jump did.
     if (!pushed && jumped && actor.vy > 0) { actor.vx = 900; pushed = true }
     if (actor.waterMotion) wet += STEP
-    climbed ||= wet > 0 && !!(actor.hang || actor.mantle)
+    // Out by the floor's ledge: a catch and pull-up, or, pressed to the face, a clean jump onto the floor.
+    climbed ||= wet > 0 && (!!(actor.hang || actor.mantle) || actor.grounded && Math.abs(bot.y - 1015) < 1)
     hit = t > 3.5 && run.player.grounded && Math.abs(run.player.x - spot.x) > 30
   }
   assert.ok(pushed && wet > 0, 'it fell into the water')
-  assert.ok(climbed, 'it climbed out by a ledge')
+  assert.ok(climbed, 'it got out onto the floor by its ledge')
   assert.ok(hit, `it never got the player; Rbot is at ${bot.x}, ${bot.y}`)
   assert.ok(wet < 8, `it swam for ${wet.toFixed(1)} s before climbing out`)
 })

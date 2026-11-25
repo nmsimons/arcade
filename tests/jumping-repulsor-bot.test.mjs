@@ -134,9 +134,16 @@ for (const kind of ['terrain', 'red field', 'prop']) test(`${kind} stops a locke
   if (kind === 'prop') {
     // Add before creation so the prop has its ordinary Matter body.
     const blocked = level(); blocked.props = [{ kind: 'box', x: 450, y: 920, size: 100 }]
-    const second = createRun(blocked); tick(second, 200)
-    assert.equal(second.robots[0].shots ?? 0, 0, 'solid cover prevents acquisition')
-    assert.equal(second.player.x, 160); return
+    const second = createRun(blocked), hunter = second.robots[0]
+    // The hunter still comes looking (it knows where the player came in), but cannot see or shoot through the box.
+    for (let frame = 0; frame < 200; frame++) {
+      tick(second)
+      const covered = hunter.x > 450 + 50 + 30 && hunter.actor.grounded && Math.abs(hunter.y - 920) < 1
+      if (covered) assert.equal(hunter.seesPlayer, false, 'solid cover prevents acquisition')
+      if (covered) assert.equal(hunter.shots ?? 0, 0, 'no shot through cover')
+      if (covered) assert.equal(second.player.x, 160, 'the covered player is never hit')
+    }
+    return
   }
   tick(run, 70)
   assert.equal(bot.shots, 1)
@@ -473,6 +480,8 @@ for (const mirror of [false, true]) test(`an irregular overlapping ledge approac
   ]
   if (mirror) file.platforms = file.platforms.map(p => ({ ...p, x: 1800 - p.x - p.w, polygon: p.polygon.map(([px, py]) => [p.w - px, py]).reverse() }))
   file.entrance = { x: x(600), y: 600 }; file.robots[0] = { ...file.robots[0], x: x(396), y: 600 }
+  // The exit is up on the irregular ledge: a player who slips out of sight is expected there, so the hunter heads up.
+  file.goal = { ...file.goal, x: x(1150), y: 340 }
   const run = createRun(file), bot = run.robots[0]; bot.facing = mirror ? -1 : 1
   tick(run, 10); assert.ok(botLastSighting(bot))
   run.player = createPlayer({ x: x(850), y: 340 })

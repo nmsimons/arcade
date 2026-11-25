@@ -7,7 +7,9 @@ import { createRope, ropePoint, ropeGripDistance } from '../src/games/jumping/cl
 
 for (const [angle, omega] of [[-.65, .6], [-.35, 1], [-.65, -.6], [-.35, -1]]) {
   test(`Rbot intercepts a swinging rope and completes its climb (${angle}, ${omega})`, () => {
-    const file = blankTrial(); file.entrance.x = 1700; file.goal.x = 100
+    // The player comes in up on the deck, out of sight from the floor at its far end, so the hunter's way to them is
+    // the rope, with no shot to take first.
+    const file = blankTrial(); file.entrance = { ...file.entrance, x: 1040, y: 500 }; file.goal.x = 100
     file.robots = [{ kind: 'repulsor', x: 300, y: 920, left: 26, right: 1774 }]
     // The deck is beyond Rbot's jump and catch from the floor (repulsorBotRig.ts REPULSOR_BOT_SIZE): the rope is the way up.
     file.platforms = [{ x: 620, y: 500, w: 450, h: 20 }, { x: 1500, y: 0, w: 30, h: 920 }]

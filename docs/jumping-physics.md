@@ -306,7 +306,13 @@ on at full speed until overhead and carrying past it; coming down where the play
 stands, it lands beside them on the near side. Where even the smallest hop would
 rise into a low ceiling, the graph holds a walk-off drop: the bot walks off the end
 of its footing at the pace the fall needs, lands on footing it can stand on, and
-walks on. On a rope, a waypoint on that rope is reached by the grip's height,
+walks on; landing a little past the waypoint it was for, on the same footing, counts
+(it walks back), so a deck that ends just inside the floor below is not a trap. Besides footing sampled along each surface, the graph stands footing either
+side of each sharp bend in a ground outline's walkable top, where nothing stands near
+already (not at the foot of a wall or under an overhang): the
+foot of a rise too steep to stand on is where a jump up it is taken, and a sample that
+falls on the rise itself (where the body does not stand clear) left none near enough to
+clear the corner, so a slope below such a rise looked like a pit (Slow is Smooth's start). On a rope, a waypoint on that rope is reached by the grip's height,
 wherever the rope swings, and the last handhold is never let go by holding Down
 unless a planned drop asks for it. A rope waypoint already stands below the grip
 it is caught by, so a jump to it does not count the arms' reach twice. A patrol
@@ -324,17 +330,21 @@ These are covered by `tests/jumping-rbot-pursuit.test.mjs`,
 Exposed-lip climb routes work in both directions: a hunter can lower from a
 platform onto its rope and search back down after the player leaves. Live red
 fields still block that return route; loss of sight alone does not close it.
-An unalerted bot knows the authored entrance and investigates it before a
-general patrol. A closed door still motivates approaching the nearest reachable
-point. This map knowledge creates no player sighting. Empty or inaccessible
-entrances give way to further patrol after that approach.
+The hunt starts with the run: before any sighting or sound, a bot reasons from
+the authored entrance as from a player last seen standing there, and predicts
+where they are going from the level (pickups it believes remain, plates that
+would light the exit, the exit itself). A hunter whose home is weightless keeps
+its beat, and one docked in a charging bay sleeps, until a real clue. This map
+knowledge creates no player sighting. How the hunter predicts, intercepts, finds
+firing positions and breaks stalls is in [How Rbot hunts](jumping-rbot-hunting.md).
 Acquisition requires line of sight. The alerted hunt persists using the last
 confirmed position and velocity through occlusion, then expands its search
 through reachable surface and climb routes. Routes that stop making progress
 give way to other search points. Hidden player movement cannot update this
 memory. Recent sightings can also motivate physical plate presses or repulsor
 shots at plate cargo to disrupt relevant mechanisms through normal wiring.
-Running foot contacts, hard landings and player gadget shots emit short-lived
+Running foot contacts, hard landings, player gadget shots and collected pickups
+(a chime, carrying about as far as footfalls) emit short-lived
 world noises independently of audio playback. Quiet walking/crouching and NPC
 shots do not. Each intervening solid wall or mechanism attenuates the range.
 Hearing records an approximate point and time, without player velocity or a
@@ -373,7 +383,15 @@ route instead of steering back toward a spot beneath the bot. Player collision
 bodies never expose grabbable ledges to NPCs, preventing a midair collision
 from leaving a grip fixed at the player's old position.
 Their charged repulsor locks aim before firing, sweeps the first physical hit,
-and adds a bounded player velocity impulse. Normal walls, props, supports and
+and adds a bounded player velocity impulse. The aim leads a player running or
+falling at a steady pace by the time left to fire (at most 160 units), never a
+climber. Along level ground the pulse meets a player anywhere on its line, so a
+shot is dodged by leaving the line, not by stopping: a jump after the aim locks
+(0.44 s into the windup), a drop, or cover. A windup is cut short by a shove only to answer the player's own shove, and after a shove lands the bot
+waits 1.5 s, or until it has seen the player stand for 0.3 s with nothing of its
+own landing on them in the last second, before shoving again. After its
+own shot the bot stands 0.45 s, then moves on, in the air too, while the arm
+finishes its recovery. Normal walls, props, supports and
 water resolve that motion. EMP and repulsor hits interrupt the weapon; no hit
 directly changes position. See the [authoring contract](jumping-levels.md) and
 `tests/jumping-repulsor-bot.test.mjs` for tuning and traversal coverage.
@@ -708,7 +726,8 @@ or a crouched one into an opening as tall as a crouch.
 
 Ladders are foreground passages through static terrain while attached, shared
 by the player and Rbot. Ordinary walking still treats the crossing floor as
-solid. Up boards from below; Down over the ladder boards directly from a deck,
+solid. Up boards from below; Down over the ladder boards directly from a deck
+(on a deck sloping up to the ladder, from either side of it),
 before ordinary edge lowering. Climbing may cross multiple solid platforms.
 Sideways, jump and drop release require a clear standing body. Feet up to 18
 units into a walkable terrain lip can settle onto its top when releasing, provided

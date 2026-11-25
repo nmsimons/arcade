@@ -982,8 +982,11 @@ export function findClimbable(p: Player, world: ClimbableWorld, terrain: readonl
     if (Math.abs(p.x - center) >= 25 || p.y < ladder.top || p.y > ladder.bottom + 5) continue
     // Joining a foreground passage does not permit a sideways catch through
     // a platform lip. Check the whole body, including head and feet.
-    const safe = moveBody([p.x, p.y], [center, p.y], terrain, p.crouching ? TUNING.crouchHeight : TUNING.height)
-    if (Math.hypot(safe.x - center, safe.y - p.y) < .01) {
+    // Standing on a slope, the feet rise with the deck toward an uphill ladder: check the shift that far above
+    // them, so a deck sloping up to the ladder does not count as a lip in the way.
+    const rise = p.grounded ? Math.abs(center - p.x) * Math.abs(Math.tan(p.groundAngle ?? 0)) + (p.groundAngle ? .5 : 0) : 0
+    const safe = moveBody([p.x, p.y - rise], [center, p.y - rise], terrain, p.crouching ? TUNING.crouchHeight : TUNING.height)
+    if (Math.hypot(safe.x - center, safe.y - p.y + rise) < .01) {
       return { kind: 'ladder', index, distance: ladderDistance(ladder, clamp(p.y, ladder.top, ladder.bottom)),
         time: 0, direction: 0, swing: 0, lean: 0, hangBlend: 0, swingVelocity: 0, ladder, rope: null, caught: caughtPose(p) }
     }

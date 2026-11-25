@@ -67,8 +67,9 @@ test('a real gadget shot draws Rbot toward cover, but hearing cannot authorize a
   assert.equal(noise?.kind, 'gadget'); assert.equal(botLastSighting(bot), undefined)
   assert.equal(bot.seesPlayer, false); assert.equal(bot.phase, 'chase'); assert.equal(bot.shots ?? 0, 0)
   tick(run, {}, 45)
-  assert.equal(botNavigationRoute(run, bot).goal.x, noise.x)
-  assert.equal(botNavigationRoute(run, bot).goal.y, noise.y)
+  // It heads for the heard place. A hunt already under way (from the entrance) need not replan for a goal this close.
+  const goal = botNavigationRoute(run, bot).goal
+  assert.ok(Math.hypot(goal.x - noise.x, goal.y - noise.y) <= noise.uncertainty, `heading for ${goal.x}, ${goal.y}`)
   tick(run, { move: -.2, crouch: true }, 180)
   assert.deepEqual(botLastHeard(bot), noise)
   assert.equal(botLastSighting(bot), undefined); assert.equal(bot.shots ?? 0, 0)
@@ -79,7 +80,9 @@ test('known entrance is investigated without manufacturing a confirmed sighting'
   const run = createRun(file), bot = run.robots[0]
   run.player.x = 1400
   tick(run)
-  assert.deepEqual(botNavigationRoute(run, bot).goal, file.entrance)
+  // The hunt starts from where the player came in: the player may still be there, or have gone on from there.
+  const start = botNavigationRoute(run, bot).goal
+  assert.ok(Math.hypot(start.x - file.entrance.x, start.y - file.entrance.y) < 70, `it heads for ${start.x}, ${start.y}`)
   assert.equal(botLastSighting(bot), undefined); assert.equal(botLastHeard(bot), undefined)
   let checked = false, resumed = false
   for (let frame = 0; frame < 1800 && !resumed; frame++) {

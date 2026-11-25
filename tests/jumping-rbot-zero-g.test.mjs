@@ -49,7 +49,9 @@ test('Rbot hunts a floating player: it holds off at a standoff, fires from a ste
   let firedFloating = 0, closest = Infinity, riding = 0
   seconds(run, 12, actor => {
     const middle = floatCenter(actor)
-    closest = Math.min(closest, Math.hypot(middle.x - player.x, middle.y - (player.y - 31)))
+    // The standoff is a weightless one: a shot can knock the player out of the field onto ordinary floor, where the
+    // hunter closes in to shove like anywhere else.
+    if ((player.weightless ?? 0) > 0) closest = Math.min(closest, Math.hypot(middle.x - player.x, middle.y - (player.y - 31)))
     if (actor.contacts?.support?.collider.id === 'player') riding++
     if (bot.phase === 'recover' && bot.time === 0 && !actor.grounded) firedFloating++
   })

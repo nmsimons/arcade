@@ -13,13 +13,14 @@ import { forceFieldPlatforms } from './forceField.ts'
 import { faceRobotToward, repulseRobot, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer } from './robotPhysics.ts'
 import { botActive, visibleShovebotRival } from './botCombat.ts'
 import { botEscapingWater, botInWater, botMovement } from './botNavigation.ts'
-import { botFloating } from './botFloatNavigation.ts'
+import { botFloating, weightlessPoint } from './botFloatNavigation.ts'
 import { rightArmSupporting } from './armSupport.ts'
 import { createRope } from './climbables.ts'
 import { REPULSOR_BOT_SIZE, REPULSOR_BOT_WIDTH_SCALE, repulsorBotChestY, repulsorBotPoint, repulsorBotPose, repulsorBotTurn, repulsorBotWidthScale } from './repulsorBotRig.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
 export { REPULSOR_BOT_WIDTH_SCALE } from './repulsorBotRig.ts'
-import { botSeesProp, chooseBotTactic } from './botTactics.ts'
+import { rememberStartState } from './botPrediction.ts'
+import { botSeesProp, chooseBotTactic, SHOT_REACH, SHOT_REACH_X, SHOT_REACH_Y, VANTAGE_REACH_X, VANTAGE_REACH_Y } from './botTactics.ts'
 import type { BotSighting, BotTactic } from './botTactics.ts'
 import { hearPlayer } from './botHearing.ts'
 import { BOT_AIR_SPEED_SCALE } from './botMovementTuning.ts'
@@ -43,11 +44,19 @@ export const REPULSOR_BOT_RANGE = 1000
 const FLOAT_FIRING_SPEED = 45, FLOAT_RECOIL = 70
 /** After a floating shot, Rbot lets the recoil carry it this long before it steers again. */
 const FLOAT_RECOVERY_HOLD = .35
+/** After a shot Rbot stands this long, then moves on while its arm recovers. */
+const SHOT_STANDING = .45
+/** The furthest a shot leads a moving player. */
+const SHOT_LEAD = 160
 
 const memories = new WeakMap<RobotState, BotSighting>(), plans = new WeakMap<RobotState, BotTactic>()
 const turnedToNoise = new WeakMap<RobotState, number>()
 const rivalTargets = new WeakMap<RobotState, RobotState>()
+/** When this bot's own pulse last struck the player: the flight that follows is theirs to land, not a direction they chose. */
+const hitTimes = new WeakMap<RobotState, number>()
 export const botLastSighting = (robot: RobotState) => { const memory = memories.get(robot); return memory && { ...memory } }
+/** The hunter's current tactic, for inspection and tests. */
+export const botLastTactic = (robot: RobotState) => { const plan = plans.get(robot); return plan && { ...plan } }
 
 export function createRepulsorActor(x: number, y: number) {
   const actor = createPlayer({ x, y }); actor.facing = -1; actor.size = REPULSOR_BOT_SIZE
@@ -83,7 +92,7 @@ function fire(run: Run, robot: RobotState) {
   const shapes = targets.map(target => target.shape)
   const blockedArm = lineBlocked([robot.x, repulsorBotChestY(robot)], from, shapes.filter((_, i) => !targets[i].player))
   const hit = pulseHit(from, direction, shapes, blockedArm ? 0 : REPULSOR_BOT_RANGE), target = blockedArm ? undefined : targets[hit.index]
-  if (target?.player) repulsePlayer(run.player, direction)
+  if (target?.player) { repulsePlayer(run.player, direction); hitTimes.set(robot, run.activeTime); recordAttack(run, robot) }
   if (target?.prop) repulseProp(run, target.prop, direction)
   if (target?.robot) repulseRobot(target.robot, direction[0], robot.x)
   run.gadgets.pulses.push({ from, to: hit.point, age: 0 })
@@ -105,7 +114,62 @@ function hasFiringLine(run: Run, robot: RobotState, target: Vec, prop?: Run['pro
     && !lineBlocked([robot.x, repulsorBotChestY(robot)], from, solids) && !lineBlocked(from, target, solids) && !lineBlocked(from, path, solids)
 }
 
+/** In range for a shot: the ordinary reach, or farther from a firing position it chose for a player it cannot reach. */
+function inShotReach(robot: RobotState, player: Player, vantage: boolean) {
+  const dx = Math.abs(player.x - robot.x), dy = Math.abs(player.y - robot.y)
+  return dx <= SHOT_REACH_X && dy < SHOT_REACH_Y || vantage && dx <= VANTAGE_REACH_X && dy < VANTAGE_REACH_Y && Math.hypot(dx, dy) <= SHOT_REACH
+}
+
 const stepOffSides = new WeakMap<RobotState, number>()
+/** Since when this bot has been stuck on a wall without weight and without a shot. */
+const wallTimes = new WeakMap<RobotState, number>(), leaveWall = new WeakMap<RobotState, number>()
+/** The loose props this bot has shot out of its way, and when. */
+const propShots = new WeakMap<RobotState, Map<Run['props'][number], number>>()
+const windupProps = new WeakMap<RobotState, Run['props'][number] | undefined>()
+/** Shots at the player that missed, from about the same spot: where, and how many. */
+const misses = new WeakMap<RobotState, { x: number; y: number; count: number }>()
+/** Terrain low over a prop: too little room above it for Rbot to jump onto it and over. */
+function ceilingOver(run: Run, prop: Run['props'][number]) {
+  const top = prop.y - propHeight(prop), half = propHeight(prop) / 2 + 10, room = TUNING.height * REPULSOR_BOT_SIZE + 40
+  return run.terrain.some(t => t.x < prop.x + half && t.x + t.w > prop.x - half && t.y + t.h > top - room && t.y + t.h <= top + 1)
+}
+/** The loose prop this bot has been pressing against, and since when. */
+const blockedBy = new WeakMap<RobotState, { id: string; since: number } | undefined>()
+/** Its last attack that landed on the player (a shot or a shove), and where they were, to see what it did. */
+const attacks = new WeakMap<RobotState, { time: number; x: number; y: number }>()
+/** Attacks in a row that barely moved the player, and a hold-off after them: until when, and which way it backs. */
+const futile = new WeakMap<RobotState, number>()
+const holdOffs = new WeakMap<RobotState, { until: number; stepUntil: number; side: number }>()
+/** An attack on the player it can see: where it saw them as it struck. */
+function recordAttack(run: Run, robot: RobotState) {
+  const seen = memories.get(robot)
+  if (seen && run.activeTime - seen.time < .05) attacks.set(robot, { time: run.activeTime, x: seen.x, y: seen.y })
+}
+/** Half a second after an attack lands, see whether it moved the player; after two that did not, back off. */
+function watchAttack(run: Run, robot: RobotState) {
+  const attack = attacks.get(robot)
+  if (!attack || run.activeTime - attack.time < .5) return false
+  attacks.delete(robot)
+  // Judged only from what it has seen since: an attack whose result it did not see tells it nothing.
+  const seen = memories.get(robot)
+  if (!seen || seen.time < attack.time + .3) return false
+  const moved = Math.hypot(seen.x - attack.x, seen.y - attack.y)
+  const count = moved < 40 ? (futile.get(robot) ?? 0) + 1 : 0
+  futile.set(robot, count)
+  if (count < 2) return false
+  futile.set(robot, 0)
+  holdOffs.set(robot, { until: run.activeTime + 2, stepUntil: run.activeTime + .7, side: Math.sign(robot.x - seen.x) || -robot.facing })
+  return true
+}
+/** When this bot last started a shove at the player. */
+const shoveTimes = new WeakMap<RobotState, number>()
+const playerFooting = new WeakMap<RobotState, number | undefined>()
+/** Since when this bot has seen the player standing: out of its sight, it does not know. */
+function groundedSince(run: Run, robot: RobotState, seen: boolean) {
+  const since = seen && run.player.grounded ? playerFooting.get(robot) ?? run.activeTime : undefined
+  playerFooting.set(robot, since)
+  return since
+}
 const airborneFacings = new WeakMap<Player, number>()
 
 export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: ContactWorld, powered = true) {
@@ -115,6 +179,7 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     ...run.robots.flatMap((other, index) => robotPlatforms(other).map((platform, piece) => ({ id: `robot:${index}:${piece}`, platform, robot: other })))]
   world = { ...world, colliders, platforms: colliders.map(collider => collider.platform) }
   const actor = robot.actor ??= createRepulsorActor(robot.x, robot.y)
+  rememberStartState(run)
   actor.facing = robot.facing
   if (robot.awakening && (robot.recoilVx || actor.stagger || actor.shoveDrift)) robot.awakening.triggered = true
   if (robot.recoilVx) { repulsePlayer(actor, [robot.recoilVx / 1100, 0]); robot.recoilVx = 0 }
@@ -124,12 +189,12 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   // Power back: get up off the knees before anything else.
   if (robot.collapse) {
     robot.collapse = Math.max(0, robot.collapse - dt / REPULSOR_BOT_GET_UP)
-    actor.armAim = { angle: robot.aim ?? 0, aiming: false }; robot.phase = 'recover'; robot.time = 0
+    actor.armAim = { angle: robot.aim ?? 0, aiming: false }; robot.phase = 'recover'; robot.time = 0; robot.shotRecovery = undefined
     if (robot.collapse > 0) { moveRepulsorActor(run, robot, dt, world, { ...NEUTRAL_INPUT, crouch: true }); return }
   }
   if ((actor.stagger ?? 0) > 0) {
     actor.shove = undefined; actor.armAim = { angle: robot.aim ?? 0, aiming: false }
-    robot.phase = 'recover'; robot.time = powered ? REPULSOR_BOT_RECOVERY : 0
+    robot.phase = 'recover'; robot.time = powered ? REPULSOR_BOT_RECOVERY : 0; robot.shotRecovery = undefined
     moveRepulsorActor(run, robot, dt, world, NEUTRAL_INPUT)
     return
   }
@@ -149,13 +214,21 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   robot.seesPlayer = seen
   if (seen) {
     const support = run.player.contacts?.support?.collider.id, index = support?.startsWith('mechanism:') ? Number(support.split(':')[1]) : -1
+    const held = !!(run.player.climbing || run.player.hang || run.player.mantle || run.player.waterMotion)
     memory = { x: run.player.x, y: run.player.y, vx: run.player.vx, vy: run.player.vy, inverted: !!run.player.inverted,
-      time: run.activeTime, support: run.mechanisms[index]?.definition.id }
+      time: run.activeTime, support: run.mechanisms[index]?.definition.id, ...(!run.player.grounded && !held ? { airborne: true } : {}),
+      ...(run.player.wallBrace?.active || run.player.wallJump ? { walled: true } : {}),
+      ...(run.activeTime - (hitTimes.get(robot) ?? -Infinity) < 1.2 && !run.player.grounded ? { thrown: true } : {}) }
     memories.set(robot, memory)
   }
   // Hearing supplies a remembered search point, never a confirmed sighting or
   // hidden velocity. Keep pursuing that clue through cover while making progress.
-  const clue = noise && (!memory || noise.time > memory.time) ? { ...noise, vx: 0, vy: 0, inverted: false } : memory
+  // Before any sighting or sound, the hunter still knows where the player comes in: the entrance, as the run began.
+  // It hunts from there (what the player is likely to go for, and the way there) rather than wait to be found.
+  // A hunter whose home is without weight keeps to its beat until it has a real clue (botFloatNavigation.ts).
+  const floatingHome = weightlessPoint(run, robot.definition.x, robot.definition.y - 40)
+  const entrance = !memory && !noise && !robot.awakening && !floatingHome ? { x: run.level.entrance.x, y: run.level.entrance.y, vx: 0, vy: 0, inverted: false, time: 0 } : undefined
+  const clue = noise && (!memory || noise.time > memory.time) ? { ...noise, vx: 0, vy: 0, inverted: false } : memory ?? entrance
   const hunting = !!clue
   // A nearby rival can demand a fight even before the player has been seen.
   // Keep the player's last real sighting intact while dealing with that threat.
@@ -181,32 +254,75 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     return
   }
   const standingOnPlayer = actor.contacts?.support?.collider.id === 'player'
-  const free = !standingOnPlayer && !rightArmSupporting(actor) && !actor.climbing && !actor.hang && !actor.mantle
+  // Pressing on a crate it means to shoot is no hold on anything: the arm is free for the shot.
+  const push = actor.contacts?.push
+  const pressingProp = !!push?.collider.prop && !actor.climbing && !actor.hang && !actor.mantle
+  const free = !standingOnPlayer && (!rightArmSupporting(actor) || pressingProp) && !actor.climbing && !actor.hang && !actor.mantle
   const touchingRival = rival && Math.abs(rival.y - actor.y) < 30 && robotTouchesPlayer(rival, actor)
   if (touchingRival && !actor.shove) faceRobotToward(robot, rival.x)
-  if (!actor.shove && (!actor.waterMotion || actor.grounded) && canShove(actor) && (seen && shoveReaches(run, actor, run.player, actor.facing, world)
+  // One shove, then a moment for the player to find their feet: shoving them again and again before they land
+  // would juggle them with no way out.
+  // Standing again lifts the wait only once a second has passed since anything of its own landed on them.
+  const lastLanded = Math.max(hitTimes.get(robot) ?? -Infinity, shoveTimes.get(robot) ?? -Infinity)
+  const standing = groundedSince(run, robot, seen)
+  const settled = standing !== undefined && run.activeTime - standing >= .3 && run.activeTime - lastLanded > 1
+  // Attacks that barely move them (pinned in a corner, against a wall) are no use and leave them no way out: after two
+  // of those it steps back a body length and holds off a moment, letting them out of the corner.
+  const pinned = watchAttack(run, robot)
+  if (pinned) { robot.phase = 'chase'; robot.time = 0 }
+  const holdingOff = run.activeTime < (holdOffs.get(robot)?.until ?? -Infinity)
+  const shoveReady = !holdingOff && (run.activeTime - (shoveTimes.get(robot) ?? -Infinity) > 1.5 || settled)
+  // A windup is the tell, and it ends in the shot it promised: a shove does not cut in on it, except to answer the
+  // player's own shove under way.
+  const answering = !!run.player.shove
+  if (!actor.shove && (!actor.waterMotion || actor.grounded) && canShove(actor) && (seen && (shoveReady || answering) && (robot.phase !== 'windup' || answering)
+    && shoveReaches(run, actor, run.player, actor.facing, world)
     || touchingRival)) {
     beginShove(actor, BOT_SHOVE_WINDUP)
-    robot.phase = 'recover'; robot.time = REPULSOR_BOT_RECOVERY - BOT_SHOVE_WINDUP - SHOVE_RECOVERY
+    if (!touchingRival) { shoveTimes.set(robot, run.activeTime); recordAttack(run, robot) }
+    robot.phase = 'recover'; robot.time = REPULSOR_BOT_RECOVERY - BOT_SHOVE_WINDUP - SHOVE_RECOVERY; robot.shotRecovery = undefined
   }
   const playerTarget: Vec | undefined = seen ? [run.player.x, run.player.y - (run.player.inverted ? -1 : 1) * TUNING.height / 2] : undefined
+  // The aim locks part way through the windup. Aim where a player keeping on at this pace will be when the pulse
+  // leaves; a jump after the lock takes them off the line.
+  // A climber is not led: a rope already leaves them exposed, and stopping is their only dodge.
+  const climbingPlayer = !!(run.player.climbing || run.player.hang || run.player.mantle)
+  const lead = climbingPlayer ? 0 : seen && robot.phase === 'windup' ? Math.max(0, REPULSOR_BOT_WINDUP - robot.time) : REPULSOR_BOT_WINDUP * .45
+  const ledTarget: Vec | undefined = playerTarget && [playerTarget[0] + Math.max(-SHOT_LEAD, Math.min(SHOT_LEAD, run.player.vx * lead)),
+    playerTarget[1] + (run.player.grounded ? 0 : Math.max(-SHOT_LEAD / 2, Math.min(SHOT_LEAD / 2, run.player.vy * lead * .5)))]
   // A rope leaves the player exposed: take an available shot before following
   // the climb route or diverting to a control, cargo, or another bot.
   // Weightless, footing is wherever the body has stopped: a hover steady enough to aim from serves as well as a floor.
   const footed = actor.grounded || botFloating(actor) && Math.hypot(actor.vx, actor.vy) < FLOAT_FIRING_SPEED
   const ropeShot = footed && free && run.player.climbing?.kind === 'rope' && !!playerTarget
     && hasFiringLine(run, robot, playerTarget)
-  const plan = robot.phase === 'windup' ? plans.get(robot) : clue ? chooseBotTactic(run, robot, clue, seen, dt) : undefined
+  // Whether a shot from somewhere else would be clear: the same check as here, with the body moved there.
+  const canFire = (at: { x: number; y: number }, target: Vec) => hasFiringLine(run, { ...robot, x: at.x, y: at.y, actor: { ...actor, x: at.x, y: at.y } }, target)
+  const plan = robot.phase === 'windup' ? plans.get(robot) : clue ? chooseBotTactic(run, robot, clue, seen, dt, canFire) : undefined
   if (plan) plans.set(robot, plan)
-  const prop = !ropeShot && !rival && plan?.kind === 'dislodge' && plan.prop && run.props.includes(plan.prop) && botSeesProp(run, robot, plan.prop) ? plan.prop : undefined
+  // A loose prop it has been pressing against for a second, with no way over it (a crate in a low passage), is
+  // shot out of the way.
+  const pressed = actor.grounded && push?.collider.prop && Math.abs(actor.vx) < 5 ? push.collider.id : undefined
+  const blocking = blockedBy.get(robot)
+  if (!pressed || blocking?.id !== pressed) blockedBy.set(robot, pressed ? { id: pressed, since: run.activeTime } : undefined)
+  const stuckIndex = blocking && pressed === blocking.id && run.activeTime - blocking.since > 1 ? Number(pressed.split(':')[1]) : -1
+  // Only a crate it truly cannot get over (a ceiling low above it), and not the same one again soon: shooting it to
+  // and fro on every pass is no better than standing.
+  const candidate = run.props[stuckIndex]
+  const stuckProp = candidate && (propShots.get(robot)?.get(candidate) ?? -Infinity) < run.activeTime - 30 && ceilingOver(run, candidate) ? candidate : undefined
+  const prop = !ropeShot && !rival ? plan?.kind === 'dislodge' && plan.prop && run.props.includes(plan.prop) && botSeesProp(run, robot, plan.prop) ? plan.prop
+    : stuckProp : undefined
   const obstruction = !ropeShot ? rival ?? (plan?.kind === 'clear' && plan.robot && run.robots.includes(plan.robot) ? plan.robot : undefined) : undefined
   const approachingControl = !ropeShot && !rival && plan?.kind === 'operate' && Math.hypot(robot.x - plan.x, robot.y - plan.y) > 40
-  const shotTarget: Vec | undefined = obstruction ? [obstruction.x, obstruction.y - 28] : prop ? [prop.x, prop.y - propHeight(prop) / 2] : playerTarget
+  const aimed = ledTarget && hasFiringLine(run, robot, ledTarget) ? ledTarget : playerTarget
+  const shotTarget: Vec | undefined = obstruction ? [obstruction.x, obstruction.y - 28] : prop ? [prop.x, prop.y - propHeight(prop) / 2] : aimed
   robot.time += dt
   if ((robot.phase === 'patrol' || robot.phase === 'chase') && footed && free && !approachingControl
-    && (ropeShot || obstruction || prop || seen && Math.abs(run.player.x - robot.x) <= 600 && Math.abs(run.player.y - robot.y) < 240)
+    && (ropeShot || obstruction || prop || seen && !holdingOff && inShotReach(robot, run.player, plan?.kind === 'vantage' || plan?.kind === 'ambush'))
     && shotTarget && (ropeShot || hasFiringLine(run, robot, shotTarget, prop, obstruction))) {
     robot.phase = 'windup'; robot.time = 0
+    // The crate it means to clear is remembered now: it stops pressing it while it winds up.
+    windupProps.set(robot, !ropeShot && !obstruction && prop === stuckProp ? stuckProp : undefined)
     if (rival && !ropeShot) rivalTargets.set(robot, rival)
     else rivalTargets.delete(robot)
   }
@@ -221,7 +337,21 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     if (!free || !(actor.grounded || botFloating(actor) && Math.hypot(actor.vx, actor.vy) < FLOAT_FIRING_SPEED * 2)) { robot.phase = 'chase'; robot.time = 0 }
     else if (robot.time >= REPULSOR_BOT_WINDUP) {
       const { direction } = repulsorBotHand(robot)
-      fire(run, robot); robot.phase = 'recover'; robot.time = 0
+      fire(run, robot); robot.phase = 'recover'; robot.time = 0; robot.shotRecovery = true
+      const shotProp = windupProps.get(robot)
+      // A shot at the player that met something else on the way (an edge too close to the arm, a lip between) is a
+      // miss; two from the same spot and it backs off to find another.
+      if (!shotProp && !rivalTargets.get(robot) && hitTimes.get(robot) !== run.activeTime) {
+        const last = misses.get(robot), same = last && Math.hypot(last.x - robot.x, last.y - robot.y) < 60
+        const count = same ? last.count + 1 : 1
+        misses.set(robot, { x: robot.x, y: robot.y, count })
+        const seenAt = memories.get(robot)
+        if (count >= 2 && seenAt) {
+          holdOffs.set(robot, { until: run.activeTime + 2, stepUntil: run.activeTime + .7, side: Math.sign(robot.x - seenAt.x) || -robot.facing })
+          misses.delete(robot)
+        }
+      } else if (hitTimes.get(robot) === run.activeTime) misses.delete(robot)
+      if (shotProp) { const shots = propShots.get(robot) ?? new Map(); shots.set(shotProp, run.activeTime); propShots.set(robot, shots) }
       // Nothing holds a floating body still: the pulse pushes it back.
       if (!actor.grounded && botFloating(actor)) { actor.vx -= direction[0] * FLOAT_RECOIL; actor.vy -= direction[1] * FLOAT_RECOIL }
     }
@@ -229,8 +359,24 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     movement = { ...movement, move: 0, jump: false, climb: false, descend: false, crouch: false }
     // Floating, recovery would leave the recoil to drift on: once the shot has settled, it brakes and holds its ground.
     if (botFloating(actor) && !actor.grounded && robot.time > FLOAT_RECOVERY_HOLD) movement = botMovement(run, robot, dt, plan ?? clue)
-    if (robot.time >= REPULSOR_BOT_RECOVERY) { robot.phase = hunting ? 'chase' : 'patrol'; robot.time = 0 }
+    // After a shot the arm comes back down, but the legs need not wait for it: it is moving again while it recovers.
+    else if (robot.shotRecovery && robot.time > SHOT_STANDING) {
+      movement = botMovement(run, robot, dt, plan ?? clue)
+      // Recovering in sight of the player, it does not turn its back on them for a step or two of route.
+      if (seen && actor.grounded && Math.sign(movement.move) === -robot.facing && (run.player.x - robot.x) * robot.facing > -60) movement = { ...movement, move: 0 }
+    }
+    if (robot.time >= REPULSOR_BOT_RECOVERY) { robot.phase = hunting ? 'chase' : 'patrol'; robot.time = 0; robot.shotRecovery = undefined }
   } else { robot.phase = hunting ? 'chase' : 'patrol'; movement = botMovement(run, robot, dt, plan ?? clue) }
+  // Weightless and standing on a wall, the arm cannot bring the pulse to bear: in view of the player but without a
+  // shot for a second there, it pushes off the wall on its boots and floats free to aim.
+  const walled = (actor.weightless ?? 0) > 0 && !!actor.wall && seen && robot.phase !== 'windup' && !(playerTarget && hasFiringLine(run, robot, playerTarget))
+  if (!walled) wallTimes.delete(robot); else if (!wallTimes.has(robot)) wallTimes.set(robot, run.activeTime)
+  if (walled && run.activeTime - wallTimes.get(robot)! > 1) { leaveWall.set(robot, run.activeTime + .5); wallTimes.delete(robot) }
+  // It presses away from the wall a moment, with Jump, and the boots carry it off.
+  if (run.activeTime < (leaveWall.get(robot) ?? -Infinity))
+    movement = { ...NEUTRAL_INPUT, move: actor.wall === 'left' ? 1 : actor.wall === 'right' ? -1 : 0, jump: !!actor.wall, jumpStrength: 1 }
+  const backing = holdOffs.get(robot)
+  if (backing && run.activeTime < backing.stepUntil && actor.grounded && robot.phase !== 'windup') movement = { ...NEUTRAL_INPUT, move: backing.side * .8 }
   if (standingOnPlayer && !botFloating(actor)) {
     // A person is temporary support, not a firing perch. Step to the clear side
     // through the ordinary motor instead of charging forever on their head.
@@ -243,6 +389,8 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     movement = { ...NEUTRAL_INPUT, move: side * .6 }
   }
   if (!standingOnPlayer) stepOffSides.delete(robot)
+  // Holding an ambush, it watches the player rather than the way it last walked.
+  if (plan?.kind === 'ambush' && seen && robot.phase !== 'windup' && actor.grounded && !movement.move) faceRobotToward(robot, run.player.x)
   const aiming = robot.phase === 'windup' && free
   actor.armAim = { angle: Math.atan2(Math.sin(robot.aim ?? 0), Math.cos(robot.aim ?? 0) / (actor.waterMotion ? 1 : REPULSOR_BOT_WIDTH_SCALE)), aiming }
   moveRepulsorActor(run, robot, dt, world, movement)
@@ -257,7 +405,7 @@ function collapse(run: Run, robot: RobotState, dt: number, world: ContactWorld) 
   const actor = robot.actor!
   robot.collapse = Math.min(1, (robot.collapse ?? 0) + dt / REPULSOR_BOT_COLLAPSE)
   actor.shove = undefined; actor.armAim = { angle: robot.aim ?? 0, aiming: false }
-  robot.phase = 'recover'; robot.time = 0; robot.seesPlayer = false
+  robot.phase = 'recover'; robot.time = 0; robot.seesPlayer = false; robot.shotRecovery = undefined
   const push = run.player.contacts?.push
   // It slides only where there is room: pinned against a wall, the push has nowhere to send it.
   const body = playerContactBody(actor), solids = world.colliders.filter(c => c.robot !== robot && c.id !== 'player').map(c => c.platform)

@@ -134,7 +134,10 @@ added at the foot and top of rises too steep to stand on, so a jump up one is on
 map (without it, a slope below such a rise is a pit to the planner), and a walk-off
 drop may land a little past its waypoint on the same floor (a deck ending just inside
 the floor below is otherwise a trap). A search
-that has looked everywhere starts again from the place looked at longest ago. After its own shot
+that has looked everywhere starts again from the place looked at longest ago. When every
+place it can reach is in view (shut in a cage, say), no place is older than another, so it
+paces to the far end each time instead; going back to the same nearest place had it turning
+back and forth on the spot several times a second. After its own shot
 it stands only briefly, then moves on while the arm recovers, steering in the air
 too.
 

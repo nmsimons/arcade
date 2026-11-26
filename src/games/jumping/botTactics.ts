@@ -282,6 +282,10 @@ export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting
         .filter(visit => Math.hypot(node.x - visit.x, node.y - visit.y) < 100).map(visit => visit.remaining))
       const again = botSearchPlaces(run, robot).filter(n => Math.hypot(n.x - robot.x, n.y - robot.y) > 70)
       again.sort((a, b) => lastLook(a) - lastLook(b) || Math.hypot(a.x - memory.x, a.y - memory.y) - Math.hypot(b.x - memory.x, b.y - memory.y))
+      // With every place it can reach in view (shut in a cage, say), none is looked at longer ago than another, and
+      // the one nearest the clue is the same place each time: it went there, looked back, and went there again, a
+      // few steps each way, turning several times a second. It paces from end to end instead.
+      if (again[0] && visible(again[0])) again.sort((a, b) => Math.hypot(b.x - robot.x, b.y - robot.y) - Math.hypot(a.x - robot.x, a.y - robot.y))
       if (again[0]) return select({ kind: 'search', x: again[0].x, y: again[0].y, round: true })
     }
     const score = (node: typeof nodes[number]) => Math.hypot(node.x - memory.x, node.y - memory.y) + node.cost * .4

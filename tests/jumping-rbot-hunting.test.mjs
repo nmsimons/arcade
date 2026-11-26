@@ -170,6 +170,31 @@ test('an entrance the bot cannot reach is hunted from by the objectives, not wal
   assert.ok(deepest < 2400, `it stays out of the crawlspace corridor (deepest ${Math.round(deepest)})`)
 })
 
+test('shut in a cage with everything in view, the bot paces it rather than turning back and forth on the spot', () => {
+  // Quarantine II's trap boxes a short deck in red fields. With every place it could reach in view, none had been
+  // looked at longer ago than another, so the bot went to the one nearest the player's last sighting, looked back a
+  // step away, and went there again: a few steps each way, turning about three times a second for good.
+  const file = JSON.parse(readFileSync(new URL('../public/levels/jumping/Quarantine II.jump-level.json', import.meta.url), 'utf8'))
+  file.props = []
+  const level = parseLevel(file), run = createRun(level), bot = run.robots[0]
+  for (let t = 0; t < .1; t += STEP) stepRun(run, NEUTRAL_INPUT)
+  Object.assign(bot.actor, { x: 600, y: 375, vx: 0, vy: 0 }); Object.assign(bot, { x: 600, y: 375 })
+  Object.assign(run.player, { x: 800, y: 729, vx: 0, vy: 0 })
+  const trap = level.logicRelays.find(relay => relay.name === 'Trap').id
+  for (const [i, trigger] of level.triggers.entries()) if (trigger.targets.includes(trap)) run.triggers[i].active = true
+  for (let t = 0; t < .2; t += STEP) stepRun(run, NEUTRAL_INPUT)
+  assert.ok(run.forceFields.every(field => field.active), 'the trap is shut')
+  let facing = bot.actor.facing, turns = [], most = 0
+  for (let t = 0; t < 15; t += STEP) {
+    stepRun(run, NEUTRAL_INPUT)
+    if (bot.actor.facing !== facing) { turns.push(t); facing = bot.actor.facing }
+    turns = turns.filter(time => t - time < 1)
+    most = Math.max(most, turns.length)
+  }
+  assert.ok(bot.actor.y < 460 && bot.actor.x > 512 && bot.actor.x < 928, 'still caged')
+  assert.ok(most <= 2, `at most two turns in any second (${most})`)
+})
+
 test('moving a hidden, silent player changes nothing the hunter does until it actually finds them', () => {
   // Two runs alike but for where the player stands, out of sight and quiet: the bot's decisions must not differ
   // while neither player is seen, heard or physically met. Only fair evidence may steer the hunt.

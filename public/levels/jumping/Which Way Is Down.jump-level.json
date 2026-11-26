@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "bd9210e3-aec1-4df0-a936-faaf5324bd65",
   "name": "Which Way Is Down",
   "width": 1560,
@@ -181,7 +181,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:b4b9b314c1a58e4c",
+          "key": "7:3ea0dc5feb3b33d5",
           "points": [
             [
               400,
@@ -765,5 +765,56 @@
       "orientation": "horizontal",
       "power": "always"
     }
-  ]
+  ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "f54f985f-120f-45e7-9588-04077f35ab45",
+        "x": 210,
+        "y": 15,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "cb4b532c-4ec1-4100-9056-35fdc5a7e977",
+        "x": 880,
+        "y": 235,
+        "intensity": 100,
+        "direction": 135,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "83736971-25bf-4c3b-80a8-a0e4bd3aa2e8",
+        "x": 870,
+        "y": 455,
+        "intensity": 100,
+        "direction": 140,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "e8d21cc8-8791-4889-9249-22004fa18702",
+        "x": 1370,
+        "y": 315,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always"
+      },
+      {
+        "id": "35da2fca-d5f9-4b74-ba34-4f70f5c92d4c",
+        "x": 1130,
+        "y": 705,
+        "intensity": 100,
+        "direction": -100,
+        "spread": 40,
+        "power": "always"
+      }
+    ]
+  }
 }

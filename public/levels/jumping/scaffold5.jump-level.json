@@ -12,6 +12,7 @@
       "w": 450,
       "h": 100,
       "material": "earth",
+      "frictionless": true,
       "polygon": [
         [
           0,
@@ -86,6 +87,7 @@
       "w": 350,
       "h": 100.7694101601104,
       "material": "earth",
+      "frictionless": true,
       "polygon": [
         [
           0,
@@ -268,7 +270,7 @@
           "y": 25
         },
         "rest": {
-          "key": "7:ab27846fd5e396af",
+          "key": "7:dd163550e4588584",
           "points": [
             [
               300,
@@ -618,7 +620,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:c9812b34c7f8bdbe",
+          "key": "7:fd260e6bbffab215",
           "points": [
             [
               950,
@@ -1002,7 +1004,7 @@
         "length": 925,
         "segments": 78,
         "rest": {
-          "key": "7:947b6c168e5fd228",
+          "key": "7:cc7f161e759c7428",
           "points": [
             [
               1175,
@@ -1496,7 +1498,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:6666ab4092d3b692",
+          "key": "7:3f345863c4016739",
           "points": [
             [
               1450,
@@ -1975,7 +1977,7 @@
           "y": 75
         },
         "rest": {
-          "key": "7:ee00b59bed078139",
+          "key": "7:82f66c63bfa6a8b9",
           "points": [
             [
               150,
@@ -2454,7 +2456,7 @@
           "y": 0
         },
         "rest": {
-          "key": "7:bb081b7ff932b439",
+          "key": "7:37d19b1cbb3fa452",
           "points": [
             [
               1400,

@@ -8,7 +8,7 @@ import { botLastHeard, hearPlayer, recordPlayerNoise, PICKUP_NOISE_RANGE } from 
 import { botLastSighting, botLastTactic } from '../src/games/jumping/repulsorBot.ts'
 import { predictPlayer, landingOf } from '../src/games/jumping/botPrediction.ts'
 import { REPULSOR_BOT_SIZE } from '../src/games/jumping/repulsorBotRig.ts'
-import { botCanReach } from '../src/games/jumping/botNavigation.ts'
+import { botCanReach, botNavigationGraph } from '../src/games/jumping/botNavigation.ts'
 
 // How Rbot hunts (docs/jumping-rbot-hunting.md): never standing about, predicting from the level, and fair.
 const builtin = file => parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`, import.meta.url), 'utf8')))
@@ -141,6 +141,33 @@ test('a deck whose only way down lands just past the floor below\'s end waypoint
   for (let t = 0; t < .1; t += STEP) stepRun(run, NEUTRAL_INPUT)
   Object.assign(bot.actor, { x: 1000, y: 705, vx: 0, vy: 0 }); Object.assign(bot, { x: 1000, y: 705 })
   assert.ok(botCanReach(run, bot, { x: 778, y: 1085 }), 'a route down from the upper deck')
+})
+
+/** Spelunk III with its Rbot in the scaffold at the top right, wherever the level file has it now. */
+function spelunk() {
+  const file = JSON.parse(readFileSync(new URL('../public/levels/jumping/Spelunk3.jump-level.json', import.meta.url), 'utf8'))
+  file.robots = [{ x: 3971, y: 955, left: 3720, right: 4330, kind: 'repulsor' }]
+  return parseLevel(file)
+}
+
+test('a cave too large for 160 waypoints keeps its ladders and ropes on the map', () => {
+  // Spelunk III's surfaces alone filled the old 160 node budget, so none of its ladders or ropes were planned with.
+  const run = createRun(spelunk())
+  const graph = botNavigationGraph(run, REPULSOR_BOT_SIZE)
+  assert.ok(graph.nodes.some(node => node.climb?.startsWith('ladder:')), 'ladders are on the map')
+  assert.ok(graph.nodes.some(node => node.climb?.startsWith('rope:')), 'ropes are on the map')
+})
+
+test('an entrance the bot cannot reach is hunted from by the objectives, not walked at into a pit', () => {
+  // Spelunk III's start is reached through crawlspaces too low for Rbot. Heading for the nearest point to it, the
+  // bot dropped into a corridor that goes on only as a crawlspace, and shuttled there for the rest of the run.
+  const run = createRun(spelunk()), bot = run.robots[0]
+  for (let t = 0; t < .1; t += STEP) stepRun(run, NEUTRAL_INPUT)
+  const prediction = predictPlayer(run, bot, { x: run.level.entrance.x, y: run.level.entrance.y, vx: 0, vy: 0, time: 0 }, false)
+  assert.ok(prediction, 'it still has somewhere to look')
+  let deepest = 0
+  for (let t = 0; t < 30; t += STEP) { stepRun(run, NEUTRAL_INPUT); deepest = Math.max(deepest, bot.actor.y) }
+  assert.ok(deepest < 2400, `it stays out of the crawlspace corridor (deepest ${Math.round(deepest)})`)
 })
 
 test('moving a hidden, silent player changes nothing the hunter does until it actually finds them', () => {

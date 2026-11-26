@@ -58,6 +58,7 @@ interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: 
   wadingEscape?: boolean;
   flight?: { to: Node; catchX?: number; reach?: number; side: number; water?: boolean };
   transition?: { key: string; x: number; y: number; progress: number; blocked: number; releasing: boolean; reversals: number; backing: boolean } }
+const MAX_BOT_NODES = 400
 const graphs = new WeakMap<Run, Map<number, Graph>>(), navigation = new WeakMap<RobotState, Navigation>()
 const distance = (a: Node, b: Node) => Math.hypot(a.x - b.x, a.y - b.y)
 /*
@@ -200,7 +201,9 @@ export function botNavigationGraph(run: Run, k = 1): Graph {
   const inset = Math.max(18, 13 * k)
   const clear = (x: number, y: number) => bodyClear(solids, x, y - .05, k)
   const lips = solids.flatMap(platformLedges).filter(ledge => ledgeExposed(solids, ledge))
-  const add = (node: Node, limit = 160) => {
+  // A bound on the graph's size (route searches are quadratic in it). It is generous: running out drops whatever
+  // comes last, the ladders and ropes, and a cave as large as Spelunk III's had none on its map at 160.
+  const add = (node: Node, limit = MAX_BOT_NODES) => {
     if (nodes.length < limit && node.x >= 20 && node.x <= run.level.width - 20 && node.y >= TUNING.height * k
       && !nodes.some(n => distance(n, node) < 12 * k && n.climb === node.climb)) nodes.push({ ...node, ...(botWaterPoint(run, node, k) && !node.climb ? { swim: true } : {}) })
   }
@@ -269,7 +272,7 @@ export function botNavigationGraph(run: Run, k = 1): Graph {
   }
   // Keep the original surface/rope/ladder topology and its stable indices.
   // Large maps must not lose their final rope merely because they have a pool.
-  for (const node of botWaterNodes(run, solids, k)) add(node, 160 + MAX_BOT_WATER_NODES)
+  for (const node of botWaterNodes(run, solids, k)) add(node, MAX_BOT_NODES + MAX_BOT_WATER_NODES)
   const edges = nodes.map((): Edge[] => [])
   for (const [i, a] of nodes.entries()) for (const [j, b] of nodes.entries()) {
     if (i === j) continue
@@ -407,7 +410,12 @@ function route(run: Run, graph: Graph, actor: Player, goal: Node, left: number, 
     target = closestNode(graph, actor, left, right)
     if (!Number.isFinite(costs[target])) target = costs.findIndex(Number.isFinite)
     if (target < 0) return []
-    for (const [i, node] of graph.nodes.entries()) if (Number.isFinite(costs[i]) && distance(node, goal) < distance(graph.nodes[target], goal)) target = i
+    // The goal is out of reach: get as near it as it can, but only where it can come back from. A one-way drop
+    // taken just to be nearer a place it cannot reach anyway is a pit for good (on Spelunk III, a corridor that
+    // goes on only as a crawlspace too low for it).
+    const back = returnable(graph, graph.nodes.flatMap((_, index) => Number.isFinite(costs[index]) && previous[index] < 0 ? [index] : []))
+    if (!back.has(target)) target = [...back].find(i => Number.isFinite(costs[i])) ?? target
+    for (const [i, node] of graph.nodes.entries()) if (Number.isFinite(costs[i]) && back.has(i) && distance(node, goal) < distance(graph.nodes[target], goal)) target = i
   }
   const path = [target]
   while (previous[path[0]] >= 0) path.unshift(previous[path[0]])
@@ -426,12 +434,13 @@ export function botSearchPlaces(run: Run, robot: RobotState) {
 }
 
 /**
- * Route costs over the bot's own graph from any standing point, for reasoning about where someone there could
+ * Route costs over the player-size graph from any standing point, for reasoning about where the player there could
  * go: the costs, the tree back to the start, and the graph they index.
  */
 export function botRouteTree(run: Run, robot: RobotState, from: Node) {
-  const actor = robot.actor!, graph = botNavigationGraph(run, bodySize(actor))
-  const standing = { ...actor, x: from.x, y: from.y, climbing: null, hang: null, mantle: null, waterMotion: undefined } as Player
+  // At the player's own size: what is open to them is not what is open to a larger bot.
+  const actor = robot.actor!, graph = botNavigationGraph(run, 1)
+  const standing = { ...actor, size: 1, x: from.x, y: from.y, climbing: null, hang: null, mantle: null, waterMotion: undefined } as Player
   // Someone else's route, the player's: they swim where the bot would not.
   return { graph, ...routeTree(run, graph, standing, 20, run.level.width - 20, new Map(), barriersFor(run), -1, true) }
 }

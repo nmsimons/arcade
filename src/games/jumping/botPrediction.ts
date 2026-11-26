@@ -204,18 +204,20 @@ export function predictPlayer(run: Run, robot: RobotState, sighting: Clue, seen:
     value: (speed < 60 ? 7 : 2.5) * Math.exp(-elapsed / (speed < 60 ? 10 : 2.5)) }
   const objectives = [...playerObjectives(run, robot), ...seen ? [] : [stay]].filter(o => seen || (memo.checked.get(o.key) ?? -Infinity) < run.activeTime)
   if (!objectives.length) return undefined
-  const player = botRouteTree(run, robot, clue), own = botOwnRouteTree(run, robot), nodes = player.graph.nodes
+  // The player's routes are the player's, at their own size: through crawlspaces and gaps too small for the bot.
+  // Where the bot goes, and what it can come back from, is its own graph; the two meet by place.
+  const player = botRouteTree(run, robot, clue), own = botOwnRouteTree(run, robot), nodes = player.graph.nodes, ownNodes = own.graph.nodes
   // Guessing, it goes only where it can come back from: a drop into a pit on a hunch would end the hunt. A player in
   // view is worth following anywhere.
   const back = seen ? undefined : botReturnable(run, robot, own)
-  const k = player.graph.size, dry = (index: number) => !nodes[index].climb && !nodes[index].swim && !botWaterPoint(run, nodes[index], k)
+  const k = own.graph.size, dry = (index: number) => !ownNodes[index].climb && !ownNodes[index].swim && !botWaterPoint(run, ownNodes[index], k)
     && (!back || back.has(index))
-  const nearest = (point: { x: number; y: number }, costs: readonly number[], footing = false) => {
+  const nearest = (point: { x: number; y: number }, costs: readonly number[], footing = false, reach = 160) => {
     let best = -1, bestCost = Infinity
-    for (const [index, node] of nodes.entries()) {
+    for (const [index, node] of (footing ? ownNodes : nodes).entries()) {
       if (node.climb || !Number.isFinite(costs[index]) || footing && !dry(index)) continue
       const gap = Math.hypot(node.x - point.x, node.y - point.y)
-      if (gap > 160) continue
+      if (gap > reach) continue
       const cost = costs[index] + gap * 1.5
       if (cost < bestCost) { best = index; bestCost = cost }
     }
@@ -225,7 +227,11 @@ export function predictPlayer(run: Run, robot: RobotState, sighting: Clue, seen:
   let best: Prediction | undefined, bestValue = 0
   for (const objective of objectives) {
     const end = nearest(objective, player.costs), goal = nearest(objective, own.costs, true)
-    if (end.index < 0 || goal.index < 0) continue
+    // An objective the bot cannot get near (down a crawlspace) can still be cut off on the player's way to it. One the
+    // routes cannot get the player to (they crawl and wall jump where the graph does not go) is still somewhere they
+    // may be going: odds by its value and the bot's own trip, as for an old clue.
+    if (goal.index < 0 && (end.index < 0 || objective.kind === 'last')) continue
+    const unknown = end.index < 0, endCost = unknown ? 750 : end.cost
     // Heading: a player running or climbing one way is going that way. A stale heading says nothing.
     const dx = objective.x - clue.x, dy = objective.y - clue.y
     let heading = 1
@@ -234,27 +240,31 @@ export function predictPlayer(run: Run, robot: RobotState, sighting: Clue, seen:
     // A pickup right where the player was is probably already theirs.
     const taken = (objective.kind === 'coin' || objective.kind === 'pickup') && Math.hypot(dx, dy) < 50 && elapsed > .5 ? .2 : 1
     // A stale clue is odds over the objectives, not a distance along a route to them.
-    const weight = objective.value * heading * taken * Math.exp(-(stale ? Math.min(end.cost, 750) : end.cost) / 750)
+    const weight = objective.value * heading * taken * Math.exp(-(stale || unknown ? Math.min(endCost, 750) : endCost) / 750)
     // A player who has had time to get there is there, not somewhere past it.
-    const progress = Math.min(travelled, end.cost + DWELL * PLAYER_ROUTE_PACE)
+    const progress = Math.min(travelled, endCost + DWELL * PLAYER_ROUTE_PACE)
     let intercept: Prediction | undefined
     // Where they were last is not somewhere they are going, and a stale clue has no route left to cut. Nor does a
     // player seen on a wall: the routes have no wall jumps, so the way they will come out is not on them.
-    if (objective.kind !== 'last' && !stale && !sighting.walled) {
+    if (objective.kind !== 'last' && !stale && !sighting.walled && !unknown) {
       const path = [end.index]
       while (player.previous[path[0]] >= 0) path.unshift(player.previous[path[0]])
       for (const index of path) {
         const ahead = player.costs[index] - progress
-        // The bot waits for them on footing: it does not swim out to meet them.
-        if (ahead < 0 || !dry(index) || !Number.isFinite(own.costs[index])) continue
-        const playerTime = ahead / PLAYER_ROUTE_PACE, botTime = own.costs[index] / BOT_ROUTE_PACE
-        if (botTime <= playerTime + .5) { intercept = { kind: 'intercept', x: nodes[index].x, y: nodes[index].y, objective, playerTime, botTime }; break }
+        if (ahead < 0 || nodes[index].climb || nodes[index].swim) continue
+        // The bot waits for them on its own footing beside their way: it does not swim out to meet them, nor wait
+        // where it cannot stand (a crawlspace the player passes through).
+        const wait = nearest(nodes[index], own.costs, true, 50 * k)
+        if (wait.index < 0) continue
+        const playerTime = ahead / PLAYER_ROUTE_PACE, botTime = own.costs[wait.index] / BOT_ROUTE_PACE
+        if (botTime <= playerTime + .5) { intercept = { kind: 'intercept', x: ownNodes[wait.index].x, y: ownNodes[wait.index].y, objective, playerTime, botTime }; break }
       }
     }
+    if (!intercept && goal.index < 0) continue
     // Where they were last is a standing spot itself: go to it, not the nearest route point.
-    const spot = objective.kind === 'last' ? objective : nodes[goal.index]
+    const spot = objective.kind === 'last' ? objective : ownNodes[goal.index]
     const choice: Prediction = intercept ?? { kind: 'objective', x: spot.x, y: spot.y, objective,
-      playerTime: Math.max(0, end.cost - progress) / PLAYER_ROUTE_PACE, botTime: goal.cost / BOT_ROUTE_PACE }
+      playerTime: Math.max(0, endCost - progress) / PLAYER_ROUTE_PACE, botTime: goal.cost / BOT_ROUTE_PACE }
     // Meeting the player on the way beats arriving after them; a long trip for the bot counts against a place, and
     // the current target is kept unless another is clearly better.
     const value = weight * (intercept ? 1.5 : 1) / (1 + choice.botTime / 4) * (objective.key === keep ? KEEP : 1)

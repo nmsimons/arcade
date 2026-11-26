@@ -51,14 +51,18 @@ the player is going:
   matter), plates and buttons that would light a switched exit, and the exit
   (much more once lit). Each is weighed by its value, by the player's route cost to
   it from the clue, and by the way the player was heading. A player thrown by a hit
-  is heading nowhere.
+  is heading nowhere. The player's routes are planned at the player's size, through
+  gaps too small for Rbot; where Rbot goes is its own graph, matched to them by place.
+  An objective the routes cannot get the player to (they crawl and wall jump where
+  the graph does not go) still counts, as odds by its value and Rbot's own trip.
 - **Still there.** The place they were last seen, likely for a player who was
   standing still, less so for one on the move, and less as time passes. A player
   seen in the air is placed where they will land; one seen braced on a wall or kicking
   off it is placed where they are, since a player working up a shaft is not falling,
   and the routes have no wall jumps to say where they will come out.
 - **Intercept.** Along the player's route to each likely objective, the first
-  dry footing Rbot can reach before the player is the ambush point. Failing that,
+  dry footing Rbot can stand on beside it, and reach before the player, is the ambush
+  point (none beside a crawlspace). Failing that,
   it goes to the objective itself, where the player must spend time. A player who
   has had time to reach an objective is taken to be there, not past it.
 - **Old trails.** A clue more than 6 s old is odds over the objectives, with no
@@ -109,6 +113,11 @@ What the bot knows of the level's switches (plates, the exit lamp, float
 switches, level gauges, gate contacts) starts as the level began and changes
 only where it has a line of sight to them. It notices such fixtures all round,
 not only ahead: they are part of the room, not the player.
+
+A goal it cannot reach at all (an entrance behind a crawlspace, say) is approached
+only as far as places it could come back from: a one-way drop taken just to be nearer
+is a pit for good. The map holds up to 400 waypoints; a large cave whose surfaces
+filled the old 160 had no ladders or ropes on it.
 
 Breaking stalls (`botNavigation.ts`): pressing Up or Down on footing without
 moving counts as stuck; a ledge caught three times in a few seconds, or a pull-up

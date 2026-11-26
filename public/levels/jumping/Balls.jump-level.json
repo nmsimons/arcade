@@ -107,15 +107,6 @@
   "mechanisms": [],
   "triggers": [
     {
-      "x": 10,
-      "y": 920,
-      "w": 100,
-      "targets": [
-        "dc82252b-2082-4bab-8ee8-d127134e6bc4"
-      ],
-      "mode": "touch"
-    },
-    {
       "x": 680,
       "y": 880,
       "w": 40,
@@ -123,6 +114,16 @@
         "dc82252b-2082-4bab-8ee8-d127134e6bc4"
       ],
       "mode": "touch"
+    },
+    {
+      "x": 0,
+      "y": 865,
+      "w": 50,
+      "targets": [
+        "dc82252b-2082-4bab-8ee8-d127134e6bc4"
+      ],
+      "mode": "touch",
+      "facing": "right"
     }
   ],
   "robots": [],

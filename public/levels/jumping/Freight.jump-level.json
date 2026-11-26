@@ -2245,20 +2245,30 @@
     },
     {
       "id": "door-tower-i",
-      "x": 395,
+      "x": 265,
       "y": 820,
       "course": "16f44bef-1ff7-42d7-ad5a-f8966310cd4b",
       "power": "switched",
       "targets": [
-        "door-tower-ii"
+        "c8a046f1-0228-4007-8117-90a7027adc39"
       ]
     },
     {
       "id": "door-tower-ii",
-      "x": 685,
+      "x": 755,
       "y": 820,
       "course": "105e88ac-240d-49b1-b45d-4cc9c225b32e",
       "power": "switched"
+    },
+    {
+      "id": "c8a046f1-0228-4007-8117-90a7027adc39",
+      "x": 505,
+      "y": 820,
+      "course": "5b0f2d64-5c3e-4b8e-9a3e-7d1c2f6a9b11",
+      "power": "switched",
+      "targets": [
+        "door-tower-ii"
+      ]
     }
   ],
   "bulkheads": [

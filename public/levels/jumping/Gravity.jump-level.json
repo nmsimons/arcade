@@ -44,12 +44,12 @@
     },
     {
       "id": "door-drift",
-      "x": 2055,
+      "x": 1680,
       "y": 720,
       "course": "af7c96c7-d0b1-45ba-9f17-6e302e202096",
       "power": "switched",
       "targets": [
-        "door-pinball"
+        "20bddc2a-0038-42fb-9c7c-56713c22f912"
       ]
     },
     {
@@ -73,6 +73,16 @@
       "course": "81521156-49cb-4d68-997b-02d0cff5f0d9",
       "targets": [
         "door-updraft"
+      ]
+    },
+    {
+      "id": "20bddc2a-0038-42fb-9c7c-56713c22f912",
+      "x": 2025,
+      "y": 720,
+      "course": "bd9210e3-aec1-4df0-a936-faaf5324bd65",
+      "power": "switched",
+      "targets": [
+        "door-pinball"
       ]
     }
   ],

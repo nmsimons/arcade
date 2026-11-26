@@ -46,10 +46,13 @@
     },
     {
       "id": "door-locks",
-      "x": 1855,
+      "x": 1795,
       "y": 720,
       "course": "5dcc2db5-5496-43dc-8d5a-ef487d4f6475",
-      "power": "switched"
+      "power": "switched",
+      "targets": [
+        "86a4e6f8-8529-4e33-b8d2-d1be95992f75"
+      ]
     },
     {
       "id": "882e2de3-b389-4a8e-834d-abafcfd56a32",
@@ -60,6 +63,13 @@
       "targets": [
         "door-waterline-ii"
       ]
+    },
+    {
+      "id": "86a4e6f8-8529-4e33-b8d2-d1be95992f75",
+      "x": 2060,
+      "y": 720,
+      "course": "92ed8a0f-d309-4b8f-b9ea-4174b8599b60",
+      "power": "switched"
     }
   ],
   "bulkheads": [

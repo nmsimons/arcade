@@ -703,6 +703,26 @@ test('moving platforms edit horizontal stops, flip, save and cycle during play',
   expect(errors).toEqual([])
 })
 
+test('a vertical pressure plate is sized by its height down the wall, in the inspector and with its handles', async ({ page }) => {
+  // Its length runs down the face, but the inspector offered a Width (the fixed housing, which did nothing) and the
+  // handles sat at its sides.
+  const level = { ...blankTrial(), platforms: [{ x: 600, y: 500, w: 100, h: 420 }] }
+  await open(page, level)
+  await page.getByRole('button', { name: 'Vertical pressure plate', exact: true }).click()
+  await dragWorld(page, { x: 585, y: 650 }, { x: 585, y: 650 })
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveAttribute('data-value', 'trigger:0')
+  await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveCount(0)
+  const height = page.getByRole('spinbutton', { name: 'Object h', exact: true }), top = page.getByRole('spinbutton', { name: 'Object y', exact: true })
+  await expect(height).toHaveValue('100')
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  await expect.poll(() => canvas.evaluate(c => c.builderHandles.length === 2 && Math.abs(c.builderHandles[0].x - c.builderHandles[1].x) < .01
+    && Math.abs(c.builderHandles[0].y - c.builderHandles[1].y) > 90)).toBe(true)
+  const topBefore = await top.inputValue()
+  await height.fill('150'); await height.press('Enter')
+  await expect(height).toHaveValue('150')
+  await expect(top).toHaveValue(topBefore)
+})
+
 test('horizontal gates resize, flip, round-trip and retract one width only while pressed', async ({ page }, info) => {
   // A long round trip through save and play: it runs close to 30 s on CI runners and timed out there.
   test.setTimeout(60_000)

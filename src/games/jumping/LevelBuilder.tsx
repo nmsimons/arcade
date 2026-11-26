@@ -126,7 +126,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     : field ? field.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
     : mechanism ? mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? ['top', 'bottom'] : ['left', 'right']
     : trigger?.mode === 'coins' && trigger.display === 'digital' ? []
-    : trigger ? trigger.mode === 'coins' && trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
+    : trigger ? trigger.mode === 'coins' ? trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right'] : trigger.facing ? ['top', 'bottom'] : ['left', 'right']
     : selection.kind === 'gravity-plate' ? ['top-left', 'top', 'top-right', 'left', 'right', 'bottom-left', 'bottom', 'bottom-right']
     : ['prop', 'text', 'evaluation-board', 'wall-stripes'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
   const handles = corners.map(corner => ({ corner,
@@ -329,6 +329,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const trigger = selection?.kind === 'trigger' ? level.triggers?.[selection.index] : null
   const digitalCoinSwitch = trigger?.mode === 'coins' && trigger.display === 'digital'
   const verticalCoinSwitch = trigger?.mode === 'coins' && trigger.orientation === 'vertical'
+  // A wall plate's length runs down its face: it is sized by height, like a vertical coin switch.
+  const verticalTrigger = verticalCoinSwitch || trigger?.mode !== 'coins' && !!trigger?.facing
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
   const patrolHandles = robot && robot.kind !== 'repulsor' ? (['left', 'right'] as const).map(side => ({ side, x: robot[side], y: robot.y - 65 })) : []
   const patrolHandleAt = (p: Point) => patrolHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
@@ -1517,8 +1519,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
         <BuilderInspectorSection title="Transform">
           <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
             {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y' && !twoMarkGauge
-              || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['back-wall', 'platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind)
-              || axis === 'h' && (verticalCoinSwitch || ['back-wall', 'platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind))).map(axis => {
+              || axis === 'w' && !digitalCoinSwitch && !verticalTrigger && ['back-wall', 'platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind)
+              || axis === 'h' && (verticalTrigger || ['back-wall', 'platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field', 'evaluation-board'].includes(selection.kind))).map(axis => {
               const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
               const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
                 : levelGauge ? twoMarkGauge ? 'X' : axis === 'x' ? 'Mark X' : 'Mark Y'

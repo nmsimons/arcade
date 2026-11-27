@@ -179,7 +179,9 @@ export class LightingState {
   sources(definition: LightingDefinition, run: LightingWorld, dt: number): LightSource[] {
     this.time += dt
     const sources: LightSource[] = []
-    const states = resolveSwitchStates(run.level, run.triggers)
+    // A run's own switch states: plates and float switches, level gauges, gate contacts and, in a facility area,
+    // its doors and bulkheads from the save. Plates alone left a lamp a door switches dark for good.
+    const states = 'switchStates' in run ? run.switchStates : resolveSwitchStates(run.level, run.triggers)
     const lights: (LevelLight & { robot?: number })[] = [...definition.lights]
     const ids = new Set(definition.lights.map(light => light.id))
     for (const [index, robot] of run.robots.entries()) {

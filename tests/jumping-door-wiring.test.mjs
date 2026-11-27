@@ -8,6 +8,7 @@ import { areaComplete, gradeGateActive, gradePoints } from '../src/games/jumping
 import { blankTrial, levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, deleteItem, editGradeGate, setObjectPower, setSwitchTargets } from '../src/games/jumping/editor.ts'
 import { resolveSwitchStates, switchWiringProblems } from '../src/games/jumping/switchPower.ts'
+import { LightingState } from '../src/games/jumping/lightingModel.ts'
 
 const root = new URL('../public/levels/jumping/', import.meta.url)
 const builtIns = new Map(JSON.parse(readFileSync(new URL('index.json', root), 'utf8')).levels
@@ -65,6 +66,21 @@ test('a switched door in a running area opens while its wiring is on, from grade
   assert.deepEqual([...run.hub.open].sort(), ['one', 'three', 'two'])
   run.triggers[0].active = false; settleRun(run)
   assert.deepEqual([...run.hub.open].sort(), ['one', 'two'], 'and shuts again when its plate turns off')
+})
+
+test('a lamp a level door switches lights once that level is passed', () => {
+  // The Gravity area's lamp over the Drain door is switched by the Ramping Up door. Lamps read the plates alone,
+  // so a door's switch never reached it and it stayed dark however the course went.
+  const lamp = { id: 'lamp', x: 700, y: 700, intensity: 100, direction: 90, spread: 70, power: 'switched' }
+  const level = area({ courseDoors: [{ id: 'one', x: 300, y: 920, course: 'c1', targets: ['lamp'] }],
+    version: 2, lighting: { nightMode: true, ambient: 0, lights: [lamp] } })
+  const run = createRun(level), lit = () => new LightingState().sources(level.lighting, run, 0).find(light => light.id === 'lamp').fade
+  settleRun(run)
+  assert.equal(lit(), 0, 'dark before the level is passed')
+  run.hub.grades = new Map([['c1', 'F']]); settleRun(run)
+  assert.equal(lit(), 0, 'and after an F')
+  run.hub.grades = new Map([['c1', 'D']]); settleRun(run)
+  assert.equal(lit(), 1, 'lit once it is passed')
 })
 
 test('an area’s doors open by its wiring, with its switches as last left', () => {

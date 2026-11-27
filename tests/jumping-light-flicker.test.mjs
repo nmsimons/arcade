@@ -5,7 +5,7 @@ import { parseLevel } from '../src/games/jumping/level.ts'
 import { editLight } from '../src/games/jumping/lightingEditor.ts'
 import { duplicateItem } from '../src/games/jumping/editor.ts'
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
-import { createPreviewRun } from '../src/games/jumping/challenge.ts'
+import { createPreviewRun, settleRun } from '../src/games/jumping/challenge.ts'
 import { LightingState } from '../src/games/jumping/lightingModel.ts'
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/jumping/lighting-prototype.json', import.meta.url)))
@@ -71,7 +71,7 @@ test('flicker never bypasses switched power or EMP and does not feed back into t
     return source.fade
   }
   for (let i = 0; i < 1024; i++) assert.equal(check(1 / 64), 0)
-  run.triggers[0].active = true
+  run.triggers[0].active = true; settleRun(run)
   for (let i = 0; i < 1024; i++) {
     const fade = check(1 / 64)
     if (i > 13 && fade === 1) assert.equal(steady.sources(control, run, 0)[0].fade, 1)

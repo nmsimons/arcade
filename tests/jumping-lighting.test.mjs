@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { ambientExposure, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, exposureAt, groupTerrain, lightContribution, lightReachesView, LightingState, shadowQuad, sourceCovered, staticCasters } from '../src/games/jumping/lightingModel.ts'
 import { pointInside, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { robotPlatforms } from '../src/games/jumping/robotPhysics.ts'
-import { createPreviewRun } from '../src/games/jumping/challenge.ts'
+import { createPreviewRun, settleRun } from '../src/games/jumping/challenge.ts'
 import { levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { athleteCasters } from '../src/games/jumping/athleteShadow.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
@@ -198,7 +198,7 @@ test('wall lights ignore legacy mounts and mechanism displacement while switched
   world.mechanisms[0].x += 25; world.mechanisms[0].y -= 60
   let source = state.sources(definition, world, 0)[0]
   assert.equal(source.x, 360); assert.equal(source.y, 570); assert.equal(source.fade, 0)
-  world.triggers[1].active = true
+  world.triggers[1].active = true; settleRun(world)
   source = state.sources(definition, world, .2)[0]; assert.equal(source.fade, 1)
   world.empRemaining = 5
   assert.equal(state.sources(definition, world, .2)[0].fade, 0)

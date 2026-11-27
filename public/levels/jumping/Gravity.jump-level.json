@@ -1,14 +1,314 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "facility-targets",
   "name": "Gravity",
   "width": 3550,
-  "height": 720,
-  "platforms": [],
+  "height": 2200,
+  "platforms": [
+    {
+      "x": 0,
+      "y": 1200,
+      "w": 195,
+      "h": 1000
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "w": 195,
+      "h": 1000
+    },
+    {
+      "x": 880,
+      "y": 800,
+      "w": 300,
+      "h": 300,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          260
+        ],
+        [
+          260,
+          260
+        ],
+        [
+          260,
+          40
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          300,
+          0
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          0,
+          300
+        ]
+      ]
+    },
+    {
+      "x": 1940,
+      "y": 360,
+      "w": 300,
+      "h": 300,
+      "material": "steel",
+      "polygon": [
+        [
+          300,
+          40
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          40,
+          260
+        ],
+        [
+          300,
+          260
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          0,
+          300
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          300,
+          0
+        ]
+      ]
+    },
+    {
+      "x": 2340,
+      "y": 1100,
+      "w": 300,
+      "h": 300,
+      "material": "steel",
+      "polygon": [
+        [
+          40,
+          0
+        ],
+        [
+          40,
+          260
+        ],
+        [
+          260,
+          260
+        ],
+        [
+          260,
+          0
+        ],
+        [
+          300,
+          0
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          0,
+          300
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "x": 620,
+      "y": 300,
+      "w": 300,
+      "h": 300,
+      "material": "steel",
+      "polygon": [
+        [
+          40,
+          0
+        ],
+        [
+          40,
+          260
+        ],
+        [
+          260,
+          260
+        ],
+        [
+          260,
+          0
+        ],
+        [
+          300,
+          0
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          0,
+          300
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "x": 510,
+      "y": 1740,
+      "w": 300,
+      "h": 300,
+      "material": "steel",
+      "polygon": [
+        [
+          40,
+          0
+        ],
+        [
+          40,
+          260
+        ],
+        [
+          260,
+          260
+        ],
+        [
+          260,
+          0
+        ],
+        [
+          300,
+          0
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          0,
+          300
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "x": 2780,
+      "y": 1780,
+      "w": 300,
+      "h": 300,
+      "material": "steel",
+      "polygon": [
+        [
+          300,
+          40
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          40,
+          260
+        ],
+        [
+          300,
+          260
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          0,
+          300
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          300,
+          0
+        ]
+      ]
+    },
+    {
+      "x": 2920,
+      "y": 185,
+      "w": 300,
+      "h": 300,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          260
+        ],
+        [
+          260,
+          260
+        ],
+        [
+          260,
+          40
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          300,
+          0
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          0,
+          300
+        ]
+      ]
+    }
+  ],
   "entrance": {
     "name": "Targets entrance",
-    "x": 200,
-    "y": 720
+    "x": 95,
+    "y": 1200
   },
   "checkpoints": [],
   "climbables": {
@@ -16,84 +316,202 @@
     "ropes": []
   },
   "timing": "untimed",
-  "floor": 720,
+  "wallFinish": "upright",
+  "stains": "light",
+  "floor": 2200,
   "kind": "hub",
-  "props": [],
+  "props": [
+    {
+      "kind": "box",
+      "x": 1560,
+      "y": 890,
+      "size": 80
+    },
+    {
+      "kind": "ball",
+      "x": 1766.5,
+      "y": 1575,
+      "size": 115
+    },
+    {
+      "kind": "ball",
+      "x": 2728,
+      "y": 686,
+      "size": 54
+    },
+    {
+      "kind": "box",
+      "x": 1307.5,
+      "y": 2060,
+      "size": 145
+    }
+  ],
   "mechanisms": [],
   "triggers": [],
   "robots": [],
   "courseDoors": [
     {
       "id": "door-drain",
-      "x": 615,
-      "y": 720,
+      "x": 960,
+      "y": 1060,
       "course": "38681eca-a164-4f9a-9113-c3ba119ed3ed",
       "targets": [
-        "door-ramping-up"
+        "door-ramping-up",
+        "door-drift",
+        "59236e76-a413-4d79-81c1-d1f893c95f38"
       ]
     },
     {
       "id": "door-ramping-up",
-      "x": 1335,
-      "y": 720,
+      "x": 720,
+      "y": 560,
       "course": "f647e38f-d47e-4628-b322-b89e98882202",
       "power": "switched",
       "targets": [
-        "door-drift"
+        "60f08731-935d-4862-82cb-a34208c81617"
       ]
     },
     {
       "id": "door-drift",
-      "x": 1680,
-      "y": 720,
+      "x": 2040,
+      "y": 620,
       "course": "af7c96c7-d0b1-45ba-9f17-6e302e202096",
       "power": "switched",
       "targets": [
-        "20bddc2a-0038-42fb-9c7c-56713c22f912"
+        "20bddc2a-0038-42fb-9c7c-56713c22f912",
+        "7baa9721-bc22-4c5e-ac37-254577455f4a"
       ]
     },
     {
       "id": "door-pinball",
-      "x": 2415,
-      "y": 720,
+      "x": 610,
+      "y": 2000,
       "course": "19f66cc5-2de3-4a7f-9a4d-7df4092a7354",
-      "power": "switched"
+      "power": "switched",
+      "targets": [
+        "286c653c-6bb5-4531-83e5-1c975cd71a3b",
+        "9b11d283-e38f-4972-9132-1523fa15144f"
+      ]
     },
     {
       "id": "door-updraft",
-      "x": 3135,
-      "y": 720,
+      "x": 2440,
+      "y": 1360,
       "course": "aac71758-36c3-43ab-9d28-bb4f2eed7325",
       "power": "switched"
     },
     {
       "id": "286c653c-6bb5-4531-83e5-1c975cd71a3b",
-      "x": 2785,
-      "y": 720,
+      "x": 2880,
+      "y": 2040,
       "course": "81521156-49cb-4d68-997b-02d0cff5f0d9",
+      "power": "switched",
       "targets": [
-        "door-updraft"
+        "door-updraft",
+        "befc934a-6fbe-48a3-bfc9-3a1f35147f7d"
       ]
     },
     {
       "id": "20bddc2a-0038-42fb-9c7c-56713c22f912",
-      "x": 2025,
-      "y": 720,
+      "x": 3000,
+      "y": 445,
       "course": "bd9210e3-aec1-4df0-a936-faaf5324bd65",
       "power": "switched",
       "targets": [
-        "door-pinball"
+        "door-pinball",
+        "0525abea-e8f5-4d18-a54f-04c973634b1d"
       ]
     }
   ],
   "bulkheads": [
     {
       "id": "targets-to-concourse",
-      "x": 200,
-      "y": 720,
+      "x": 95,
+      "y": 1200,
       "to": "facility-concourse"
     }
   ],
   "evaluationBoards": [],
-  "texts": []
+  "texts": [],
+  "gravityPlates": [
+    {
+      "id": "fb845d68-fa07-414c-a208-ace9d31b4a7d",
+      "x": 200,
+      "y": 0,
+      "w": 3350,
+      "h": 2200,
+      "gravity": 0,
+      "power": "always"
+    }
+  ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "8323e6e0-0a2d-4da8-93a3-ef054b22db85",
+        "x": 770,
+        "y": 200,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "60f08731-935d-4862-82cb-a34208c81617",
+        "x": 1025,
+        "y": 865,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "switched",
+        "switchReversed": false
+      },
+      {
+        "id": "59236e76-a413-4d79-81c1-d1f893c95f38",
+        "x": 2100,
+        "y": 420,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "switched"
+      },
+      {
+        "id": "7baa9721-bc22-4c5e-ac37-254577455f4a",
+        "x": 3075,
+        "y": 245,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "switched"
+      },
+      {
+        "id": "befc934a-6fbe-48a3-bfc9-3a1f35147f7d",
+        "x": 2500,
+        "y": 1160,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "switched"
+      },
+      {
+        "id": "0525abea-e8f5-4d18-a54f-04c973634b1d",
+        "x": 670,
+        "y": 1800,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "switched"
+      },
+      {
+        "id": "9b11d283-e38f-4972-9132-1523fa15144f",
+        "x": 2940,
+        "y": 1845,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "switched"
+      }
+    ]
+  }
 }

@@ -887,6 +887,11 @@
             "y": 5
           }
         },
+        "release": {
+          "id": "188f3ea5-e3bc-42dc-ad71-ca1a35f6be3b",
+          "anchor": "start",
+          "weight": true
+        },
         "rest": {
           "key": "7:761450e39ffbbd3d",
           "points": [

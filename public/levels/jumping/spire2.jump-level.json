@@ -66,6 +66,7 @@
       "y": 600,
       "w": 105,
       "h": 615,
+      "frictionless": true,
       "polygon": [
         [
           15,
@@ -111,21 +112,21 @@
     "ladders": [
       {
         "x": 390,
-        "top": 500,
+        "top": 485,
         "bottom": 1300,
         "platform": -1,
         "side": 1
       },
       {
         "x": 1070,
-        "top": 500,
+        "top": 485,
         "bottom": 760,
         "platform": -1,
         "side": 1
       },
       {
         "x": 1070,
-        "top": 1000,
+        "top": 970,
         "bottom": 1300,
         "platform": -1,
         "side": 1

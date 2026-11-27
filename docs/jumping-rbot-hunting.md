@@ -89,7 +89,9 @@ Seeing the player:
 
 It does not change plans in the middle of a jump, nor, on a guess, halfway up a
 climb. Reaching a place it came to look at, standing on it, it turns to look the
-other way before it rules the place out. An objective it turns away from twice
+other way before it rules the place out, stepping back no farther than the footing
+it stands on goes: a step back over the end of a ledge hopped it down and back up
+again at every look. An objective it turns away from twice
 before reaching it is set aside like a checked one.
 
 Attacks:
@@ -98,12 +100,18 @@ Attacks:
   shoves back. After a shove the bot waits 1.5 s before the
   next, or less if the player has been standing for 0.3 s and nothing of its own
   has landed on them for a second.
-- An attack is judged by what the bot sees of its result. Two in a row that
-  barely move the player (pinned against a wall), or two shots at the player from
-  about the same spot that meet something else first, make it back off for 0.7 s and
-  hold its attacks for 2 s.
+- An attack is judged by what the bot sees of its result. Two shots at the player
+  from about the same spot that meet something else first make it back off for
+  0.7 s and hold its attacks for 2 s. Two attacks in a row that barely move the
+  player (pinned against a wall) make it stand off where it is, facing them: no
+  attacks for 1.5 s whatever they do, their chance to get out, and no closer for up
+  to 2 s unless they move from the spot. It does not step back: it cannot without
+  turning its back, and walking a stride away and straight back, again and again,
+  read as a dance. A stand-off in view of the player is watching, like an ambush,
+  not standing about.
 - Recovering from a shot in sight of the player, it does not turn its back on
-  them.
+  them. In the air it does not turn round for a player it notices behind it: it
+  turns on landing.
 - Without weight, stuck on a wall in view of the player without a shot for a
   second, it pushes off.
 - A loose crate it presses on for a second, with too little headroom to jump on
@@ -125,7 +133,12 @@ the controller keeps turning back, is let go; a ladder-top pull-up that cannot
 finish goes back down; a ledge caught just after stepping off it on the way down
 is let go; a water exit leapt for three times or worked at for six seconds without
 getting out gives way to another; and before any long planned jump it backs up
-for a run-up. Pressing Up counts as stuck only within a ladder's boarding window,
+for a run-up. It backs up only over level footing that grips, and turns for the run
+while it can still stop at the mark: turning only on reaching it at a run carried it
+off the end of Ascent I's earth deck, and a mark on a slope or on frictionless ground
+left it unable to get going again. Pressing one way while creeping the other at a
+crawl (the slow slide back down a frictionless crest) counts as stuck, like standing
+still. Pressing Up counts as stuck only within a ladder's boarding window,
 and it walks right up to a ladder rather than easing off short of it. Three
 seconds on one ladder without getting a body length and a half along it (someone
 standing at its foot, say), it climbs back and sets that ladder aside, for longer
@@ -137,7 +150,12 @@ the floor below is otherwise a trap). A search
 that has looked everywhere starts again from the place looked at longest ago. When every
 place it can reach is in view (shut in a cage, say), no place is older than another, so it
 paces to the far end each time instead; going back to the same nearest place had it turning
-back and forth on the spot several times a second. After its own shot
+back and forth on the spot several times a second. A coin the exit cannot open
+without (its switch asks for every coin on the level) is somewhere the player must
+still come, not somewhere to rule out. Once three or fewer such coins are believed
+left and the trail has been cold for 8 s, it keeps watch by the one it can reach
+soonest, walking a beat up to 400 units about it, until it sees or hears the player.
+With a dozen coins still to take, hunting beats waiting by one. After its own shot
 it stands only briefly, then moves on while the arm recovers, steering in the air
 too.
 

@@ -139,7 +139,13 @@ const blockedBy = new WeakMap<RobotState, { id: string; since: number } | undefi
 const attacks = new WeakMap<RobotState, { time: number; x: number; y: number }>()
 /** Attacks in a row that barely moved the player, and a hold-off after them: until when, and which way it backs. */
 const futile = new WeakMap<RobotState, number>()
-const holdOffs = new WeakMap<RobotState, { until: number; stepUntil: number; side: number }>()
+const holdOffs = new WeakMap<RobotState, { until: number; stepUntil: number; side: number
+  /** Pinned: where the player stood. It stands off facing them until they move from there, or until `until`. */
+  pinnedAt?: Vec
+  /** Pinned: until when it holds off attacking whatever they do, their moment to get out. */
+  grace?: number }>()
+/** How long a stand-off over a pinned player lasts at most, and the part of it they may use to get out. */
+const STANDOFF_SECONDS = 2, STANDOFF_GRACE = 1.5
 /** An attack on the player it can see: where it saw them as it struck. */
 function recordAttack(run: Run, robot: RobotState) {
   const seen = memories.get(robot)
@@ -158,8 +164,14 @@ function watchAttack(run: Run, robot: RobotState) {
   futile.set(robot, count)
   if (count < 2) return false
   futile.set(robot, 0)
-  holdOffs.set(robot, { until: run.activeTime + 2, stepUntil: run.activeTime + .7, side: Math.sign(robot.x - seen.x) || -robot.facing })
+  holdOffs.set(robot, { until: run.activeTime + STANDOFF_SECONDS, stepUntil: run.activeTime, side: Math.sign(robot.x - seen.x) || -robot.facing,
+    pinnedAt: [seen.x, seen.y], grace: run.activeTime + STANDOFF_GRACE })
   return true
+}
+/** Standing off a pinned player, facing them: waiting on purpose, as an ambush in view is. */
+export function botStandingOff(run: Run, robot: RobotState) {
+  const standoff = holdOffs.get(robot)
+  return !!standoff?.pinnedAt && run.activeTime < standoff.until
 }
 /** When this bot last started a shove at the player. */
 const shoveTimes = new WeakMap<RobotState, number>()
@@ -207,9 +219,12 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   let seen = robotSensesPlayer(robot, run.player, robotSightObstacles(world, robot))
   // An alerted hunter checks behind itself too, but cover still prevents a new
   // sighting. This avoids losing a visible player merely because a route turns.
+  // In the air it still sees them there, but does not turn round: a jump away from a player behind it flipped it back
+  // to face them and round again within a fifth of a second.
   if (!seen && (memory || noise) && robot.phase !== 'windup'
     && robotSensesPlayer({ ...robot, facing: -robot.facing }, run.player, robotSightObstacles(world, robot))) {
-    seen = true; faceRobotToward(robot, run.player.x)
+    seen = true
+    if (actor.grounded || actor.climbing) faceRobotToward(robot, run.player.x)
   }
   robot.seesPlayer = seen
   if (seen) {
@@ -267,9 +282,14 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
   const standing = groundedSince(run, robot, seen)
   const settled = standing !== undefined && run.activeTime - standing >= .3 && run.activeTime - lastLanded > 1
   // Attacks that barely move them (pinned in a corner, against a wall) are no use and leave them no way out: after two
-  // of those it steps back a body length and holds off a moment, letting them out of the corner.
+  // of those it stands off where it is, facing them, and attacks nothing for a moment whatever they do, their chance
+  // to get out. Coming out of the spot ends the stand-off, though not that moment. (It used to walk away a stride and
+  // straight back, again and again, turning about each time: the bot cannot step back without turning its back.)
   const pinned = watchAttack(run, robot)
   if (pinned) { robot.phase = 'chase'; robot.time = 0 }
+  const standoff = holdOffs.get(robot)
+  if (standoff?.pinnedAt && seen && Math.hypot(run.player.x - standoff.pinnedAt[0], run.player.y - standoff.pinnedAt[1]) > 40)
+    holdOffs.set(robot, { ...standoff, pinnedAt: undefined, until: Math.min(standoff.until, standoff.grace ?? run.activeTime) })
   const holdingOff = run.activeTime < (holdOffs.get(robot)?.until ?? -Infinity)
   const shoveReady = !holdingOff && (run.activeTime - (shoveTimes.get(robot) ?? -Infinity) > 1.5 || settled)
   // A windup is the tell, and it ends in the shot it promised: a shove does not cut in on it, except to answer the
@@ -377,6 +397,9 @@ export function stepRepulsorBot(run: Run, robot: RobotState, dt: number, world: 
     movement = { ...NEUTRAL_INPUT, move: actor.wall === 'left' ? 1 : actor.wall === 'right' ? -1 : 0, jump: !!actor.wall, jumpStrength: 1 }
   const backing = holdOffs.get(robot)
   if (backing && run.activeTime < backing.stepUntil && actor.grounded && robot.phase !== 'windup') movement = { ...NEUTRAL_INPUT, move: backing.side * .8 }
+  else if (backing?.pinnedAt && run.activeTime < backing.until && seen && actor.grounded && robot.phase !== 'windup') {
+    movement = { ...NEUTRAL_INPUT }; faceRobotToward(robot, run.player.x)
+  }
   if (standingOnPlayer && !botFloating(actor)) {
     // A person is temporary support, not a firing perch. Step to the clear side
     // through the ordinary motor instead of charging forever on their head.

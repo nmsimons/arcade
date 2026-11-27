@@ -12,7 +12,7 @@
 // it measures whether the hunter finds a player who does not come to it, and whether it ever stands about. The
 // runner heads for the nearest remaining pickup, then the exit, through the planner's own routes (so it moves like a
 // determined, not a clever, player): it measures pressure on a player going about the level. Idle means the bot is
-// neither moving nor winding up, recovering, slumped or waking (holding an ambush in view of the player counts apart, as
+// neither moving nor winding up, recovering, slumped or waking (holding an ambush in view of the player, or standing off one pinned, counts apart, as
 // watching); a hit is a sudden change in the player's velocity, and shots and shoves are the bot's own counts.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -23,7 +23,7 @@ import { parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { botMovement, botNavigationGraph, botNavigationRoute } from '../src/games/jumping/botNavigation.ts'
 import { botWaterPoint } from '../src/games/jumping/botWaterNavigation.ts'
-import { botLastSighting, botLastTactic } from '../src/games/jumping/repulsorBot.ts'
+import { botLastSighting, botLastTactic, botStandingOff } from '../src/games/jumping/repulsorBot.ts'
 
 const root = new URL('../public/levels/jumping/', import.meta.url)
 const args = process.argv.slice(2)
@@ -42,8 +42,8 @@ function observe(m, run, prevVx, prevVy) {
     if (!a) continue
     if (r.seesPlayer) { m.seen += STEP; m.firstSeen ??= m.time }
     const moving = Math.hypot(a.vx, a.vy) > 8 || (a.climbing && Math.abs(a.climbing.speed ?? 0) > 1)
-    // Holding an ambush in view of the player is waiting on purpose, counted apart as watching.
-    const watching = r.seesPlayer && botLastTactic(r)?.kind === 'ambush'
+    // Holding an ambush in view of the player, or standing off one pinned, is waiting on purpose, counted apart as watching.
+    const watching = r.seesPlayer && (botLastTactic(r)?.kind === 'ambush' || botStandingOff(run, r))
     if (watching) m.watching += STEP
     const busy = r.phase === 'windup' || r.phase === 'recover' || r.collapse || r.awakening && r.awakening.elapsed < 1.5 || a.shove || watching
     if (!moving && !busy) {

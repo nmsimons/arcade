@@ -5,7 +5,7 @@ import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { botLastHeard, hearPlayer, recordPlayerNoise, PICKUP_NOISE_RANGE } from '../src/games/jumping/botHearing.ts'
-import { botLastSighting, botLastTactic } from '../src/games/jumping/repulsorBot.ts'
+import { botLastSighting, botLastTactic, botStandingOff } from '../src/games/jumping/repulsorBot.ts'
 import { predictPlayer, landingOf } from '../src/games/jumping/botPrediction.ts'
 import { REPULSOR_BOT_SIZE } from '../src/games/jumping/repulsorBotRig.ts'
 import { botCanReach, botNavigationGraph } from '../src/games/jumping/botNavigation.ts'
@@ -14,14 +14,15 @@ import { botCanReach, botNavigationGraph } from '../src/games/jumping/botNavigat
 const builtin = file => parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`, import.meta.url), 'utf8')))
 
 /** The bot's longest spell neither moving nor winding up, recovering, slumped or waking, in seconds. Holding an
- * ambush in view of the player is waiting on purpose (docs/jumping-rbot-hunting.md), not standing about. */
+ * ambush in view of the player, or standing off one pinned, is waiting on purpose (docs/jumping-rbot-hunting.md), not
+ * standing about. */
 function longestIdle(run, seconds) {
   const bot = run.robots.find(robot => robot.definition.kind === 'repulsor')
   let longest = 0, streak = 0
   for (let t = 0; t < seconds; t += STEP) {
     stepRun(run, NEUTRAL_INPUT)
     const a = bot.actor, moving = Math.hypot(a.vx, a.vy) > 8, busy = bot.phase === 'windup' || bot.phase === 'recover' || bot.collapse || a.shove
-      || bot.seesPlayer && botLastTactic(bot)?.kind === 'ambush'
+      || bot.seesPlayer && (botLastTactic(bot)?.kind === 'ambush' || botStandingOff(run, bot))
     streak = moving || busy ? 0 : streak + STEP
     longest = Math.max(longest, streak)
   }
@@ -170,6 +171,76 @@ test('an entrance the bot cannot reach is hunted from by the objectives, not wal
   assert.ok(deepest < 2400, `it stays out of the crawlspace corridor (deepest ${Math.round(deepest)})`)
 })
 
+test('on a cold trail the bot keeps watch by a coin the exit cannot open without, walking a beat about it', () => {
+  // Exit I's switch needs all three coins, and the only one Rbot can get to is beside it. Having looked there once
+  // and found nobody, it passed the coin over and roamed the lower caves, where the player had no reason to be: easy
+  // to ignore, though the player had to come to that coin in the end.
+  const run = createRun(builtin('exit1.jump-level.json')), bot = run.robots[0]
+  const coin = run.pickups.find(pickup => pickup.definition.x === 3140).definition
+  let farthest = 0
+  const idle = longestIdle(run, 20)
+  for (let t = 0; t < 40; t += STEP) {
+    stepRun(run, NEUTRAL_INPUT)
+    farthest = Math.max(farthest, Math.hypot(bot.actor.x - coin.x, bot.actor.y - coin.y))
+  }
+  assert.ok(farthest < 450, `it stays by the coin (farthest ${Math.round(farthest)})`)
+  assert.ok(idle < 4 && longestIdle(run, 20) < 4, 'pacing, not standing about')
+})
+
+test('in a narrow V with steep sides, the bot jumps out toward its way on, first time', () => {
+  // Ascent I's floor dips in a V against its bottom ledge. Its route started at footing on the V's far side, too
+  // steep to walk to: it hopped up that side, drifted back, struck the ledge's face and had to jump again.
+  const file = JSON.parse(readFileSync(new URL('../public/levels/jumping/Ascent.jump-level.json', import.meta.url), 'utf8'))
+  file.robots = [{ ...file.robots[0], x: 280, y: 4935, left: 240, right: 320 }]
+  file.entrance = { ...file.entrance, x: 1100, y: 4278 }
+  const run = createRun(parseLevel(file)), bot = run.robots[0]
+  let jumps = 0, grounded = true, up = null
+  for (let t = 0; t < 4 && up === null; t += STEP) {
+    stepRun(run, NEUTRAL_INPUT)
+    if (grounded && !bot.actor.grounded && bot.actor.vy < -100) jumps++
+    grounded = bot.actor.grounded
+    if (grounded && bot.actor.x > 330 && bot.actor.y < 4860) up = t
+  }
+  assert.ok(up !== null, 'it gets up onto the ledge')
+  assert.equal(jumps, 1, 'in one jump')
+})
+
+test('backing up for a run-up, the bot turns in time to stop on its footing', () => {
+  // Ascent I's earth deck: the jump up off its left end needs a run-up, backed toward the deck's right end. Turning
+  // only on reaching the run-up point at full speed carried it a body length on, over the end and 900 units down.
+  const file = JSON.parse(readFileSync(new URL('../public/levels/jumping/Ascent.jump-level.json', import.meta.url), 'utf8'))
+  file.robots = [{ ...file.robots[0], x: 575, y: 3965, left: 535, right: 615 }]
+  file.entrance = { ...file.entrance, x: 780, y: 3328 }
+  const run = createRun(parseLevel(file)), bot = run.robots[0]
+  let farthest = 0, lowest = 0, highest = Infinity
+  for (let t = 0; t < 4; t += STEP) {
+    stepRun(run, NEUTRAL_INPUT)
+    farthest = Math.max(farthest, bot.actor.x); lowest = Math.max(lowest, bot.actor.y); highest = Math.min(highest, bot.actor.y)
+  }
+  assert.ok(farthest < 712, `it backed up to x ${Math.round(farthest)}, the deck ends at 715`)
+  assert.ok(lowest < 3970, `it fell to y ${Math.round(lowest)}`)
+  assert.ok(highest < 3720, 'and it made the jump up')
+})
+
+test('a player pinned in a corner is stood off, facing them, not marched away from and back to', () => {
+  // Ascent I's bottom-left corner: two shoves that cannot move the player there sent the bot a stride away and
+  // straight back, turning about each way, every few seconds for as long as they stayed.
+  const run = createRun(builtin('Ascent.jump-level.json')), bot = run.robots.find(robot => robot.definition.kind === 'repulsor')
+  for (let t = 0; t < .1; t += STEP) stepRun(run, NEUTRAL_INPUT)
+  Object.assign(bot.actor, { x: 300, y: 4905, vx: 0, vy: 0 }); Object.assign(bot, { x: 300, y: 4905 })
+  Object.assign(run.player, { x: 27, y: 4925, vx: 0, vy: 0 })
+  for (let t = 0; t < 3; t += STEP) stepRun(run, NEUTRAL_INPUT)
+  let facing = bot.actor.facing, turns = 0, farthest = 0
+  for (let t = 0; t < 27; t += STEP) {
+    stepRun(run, NEUTRAL_INPUT)
+    if (bot.actor.facing !== facing) { turns++; facing = bot.actor.facing }
+    farthest = Math.max(farthest, bot.actor.x - run.player.x)
+  }
+  assert.ok(turns <= 2, `it turned ${turns} times`)
+  // Cutting off their way out to the coins takes it a body length or so off; the march went a stride and more.
+  assert.ok(farthest < 200, `it stays by them (as far as ${Math.round(farthest)})`)
+})
+
 test('shut in a cage with everything in view, the bot paces it rather than turning back and forth on the spot', () => {
   // Quarantine II's trap boxes a short deck in red fields. With every place it could reach in view, none had been
   // looked at longer ago than another, so the bot went to the one nearest the player's last sighting, looked back a
@@ -261,8 +332,11 @@ test('a shot on level ground is dodged by jumping once the aim has locked, and l
 })
 
 test('a crate it cannot get over is shot out of its way, but not again and again', () => {
-  // Exit I's crate sits in a low passage: Rbot used to press on it for good, then to shoot it back and forth.
-  const run = createRun(builtin('exit1.jump-level.json')), bot = run.robots.find(robot => robot.definition.kind === 'repulsor')
+  // Exit I's crate sits in a low passage: Rbot used to press on it for good, then to shoot it back and forth. With
+  // every coin needed it keeps watch by the third instead of roaming past the crate, so here the exit needs two.
+  const file = JSON.parse(readFileSync(new URL('../public/levels/jumping/exit1.jump-level.json', import.meta.url), 'utf8'))
+  for (const plate of file.triggers) if (plate.mode === 'coins') plate.threshold = 2
+  const run = createRun(parseLevel(file)), bot = run.robots.find(robot => robot.definition.kind === 'repulsor')
   Object.assign(run.player, { x: 590, y: 1114, vx: 0, vy: 0 })
   const crate = run.props.find(prop => prop.kind === 'box'), times = []
   let pulses = 0

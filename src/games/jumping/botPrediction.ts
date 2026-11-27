@@ -17,7 +17,9 @@ import { gravityAtPoint, waterAtPoint } from './gravity.ts'
  * The hunter uses that map knowledge, and only what it has seen or heard of the player, to guess where they are
  * heading and get there first. It never reads the player's hidden position.
  */
-export interface Objective { key: string; kind: 'coin' | 'pickup' | 'switch' | 'exit' | 'last'; x: number; y: number; value: number }
+export interface Objective { key: string; kind: 'coin' | 'pickup' | 'switch' | 'exit' | 'last'; x: number; y: number; value: number
+  /** The exit cannot open without it: every coin, when the exit's coin switch asks for all of them. */
+  required?: boolean }
 export interface Prediction {
   kind: 'intercept' | 'objective'
   /** Where the bot should go. */
@@ -126,12 +128,17 @@ export function playerObjectives(run: Run, robot: RobotState): Objective[] {
     if (sees(run, robot, d, solids) || heard?.kind === 'pickup' && Math.hypot(heard.x - d.x, heard.y - d.y) < 160) memo.known.add(index)
   }
   const coinPlates = run.level.triggers.some(plate => plate.mode === 'coins')
+  // A level's own arithmetic, known to anyone who has read it: an exit switch asking for every coin on the level makes
+  // each one a place the player must come to.
+  const goalId = run.level.goal?.id, coins = run.pickups.filter(pickup => pickup.definition.kind === 'coin').length
+  const everyCoin = !!goalId && coins > 0 && run.level.triggers.some(plate => plate.mode === 'coins' && !!plate.targets?.includes(goalId) && (plate.threshold ?? 0) >= coins)
   const objectives: Objective[] = []
   for (const [index, pickup] of run.pickups.entries()) {
     if (memo.known.has(index) || pickup.lostAge !== undefined) continue
     const d = pickup.definition, coin = d.kind === 'coin'
     if (d.kind === 'time-penalty') continue
-    objectives.push({ key: `pickup:${index}`, kind: coin ? 'coin' : 'pickup', x: d.x, y: d.y + 20, value: coin ? coinPlates ? 4 : 2.5 : 1.5 })
+    objectives.push({ key: `pickup:${index}`, kind: coin ? 'coin' : 'pickup', x: d.x, y: d.y + 20, value: coin ? coinPlates ? 4 : 2.5 : 1.5,
+      ...coin && everyCoin ? { required: true } : {} })
   }
   for (const index of exitSwitches(run, memo)) {
     const plate = run.level.triggers[index], position = pressurePlatePosition(plate, run.mechanisms)

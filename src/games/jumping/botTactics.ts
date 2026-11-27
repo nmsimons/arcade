@@ -1,6 +1,7 @@
 import type { Prop, RobotState, Run } from './challenge.ts'
 import type { Vec } from './geometry.ts'
 import { lineBlocked } from './geometry.ts'
+import { groundAt } from './terrain.ts'
 import { ballShape, boxShape, propHeight, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { withTriggerActive } from './toggleGroups.ts'
@@ -34,7 +35,9 @@ export interface BotTactic { kind: 'pursue' | 'intercept' | 'ambush' | 'search' 
   /** A sweep that has started round again: kept until reached, though it can be seen from here. */
   round?: boolean
   /** A step back the other way at a place reached, to look behind before going on. */
-  look?: boolean }
+  look?: boolean
+  /** A post kept by a place the player must still come to, on a cold trail: the objective's key. */
+  guard?: string }
 interface Thinking { age: number; plan?: BotTactic; lastX: number; lastY: number; blocked: number; progress: number; distance: number; routeProgress: number;
   evidenceTime: number;
   /** Where the bot last moved a body length from, and when: standing at one spot too long is a stall however it looks. */
@@ -83,6 +86,33 @@ export function botSeesProp(run: Run, robot: RobotState, prop: Prop) {
  * mechanism, object transform, or hidden player position is changed here. */
 /** Whether the bot, standing at a point, would have a clear shot at a target. */
 export type FiringCheck = (at: { x: number; y: number }, target: Vec) => boolean
+/** How cold a trail is before the bot keeps watch by a place the player must come to, how far it paces about it, and
+ * how few such places must be left for one to be worth the wait (with a dozen coins still to take, hunting is). */
+const GUARD_AFTER = 8, GUARD_RADIUS = 400, GUARD_MAX_LEFT = 3
+
+/** The next post by the must-visit place the bot can stand beside soonest, or none: from afar, the place itself; there,
+ * the far end of the ground about it, so it walks a beat rather than stand or turn on the spot. */
+function guardPost(run: Run, robot: RobotState, objectives: readonly Objective[], old: BotTactic | undefined, stalled: boolean): BotTactic | undefined {
+  const required = objectives.filter(objective => objective.required)
+  if (!required.length || required.length > GUARD_MAX_LEFT) return undefined
+  const places = botSearchPlaces(run, robot)
+  let target: Objective | undefined, cost = Infinity
+  for (const objective of required) for (const place of places)
+    if (place.cost < cost && Math.hypot(place.x - objective.x, place.y - objective.y) < 160) { target = objective; cost = place.cost }
+  if (!target) return undefined
+  if (old?.guard === target.key && !stalled && Math.hypot(robot.x - old.x, robot.y - old.y) > 45) return old
+  const k = bodySize(robot.actor!), away = (place: { x: number; y: number }) => Math.hypot(place.x - target.x, place.y - target.y)
+  // A post that has stopped getting closer is not walked at again.
+  const usable = places.filter(place => !(stalled && old && Math.hypot(place.x - old.x, place.y - old.y) < 60))
+  if (Math.hypot(robot.x - target.x, robot.y - target.y) > GUARD_RADIUS) {
+    const nearest = usable.filter(place => away(place) < 160).sort((a, b) => away(a) - away(b))[0]
+    return nearest && { kind: 'search', x: nearest.x, y: nearest.y, guard: target.key }
+  }
+  const beat = usable.filter(place => away(place) <= GUARD_RADIUS && Math.hypot(place.x - robot.x, place.y - robot.y) > 90 * k)
+    .sort((a, b) => Math.hypot(b.x - robot.x, b.y - robot.y) - Math.hypot(a.x - robot.x, a.y - robot.y))[0]
+  return beat && { kind: 'search', x: beat.x, y: beat.y, guard: target.key }
+}
+
 export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting, seen: boolean, dt: number, canFire?: FiringCheck): BotTactic {
   let thought = thoughts.get(robot)
   if (!thought) { thought = { age: 1, lastX: robot.x, lastY: robot.y, blocked: 0, progress: 0, distance: Infinity, routeProgress: 0,
@@ -238,9 +268,18 @@ export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting
     // Arrived means standing there: hanging below a deck at the top of its ladder is not having looked across it.
     const arrived = old && remaining <= 60 * bodySize(robot.actor!) && actor.grounded
     // Reaching a place it came to look at, it turns to look the other way too, before it rules the place out.
+    // The step back stays on the footing it stands on: stopped at the end of a ledge, a point a stride behind was over
+    // the drop, and it hopped down and climbed back up, again at every look (Ascent I's bottom ledge).
     if (arrived && old && old.kind === 'search' && !old.look && thought.lookedFor !== old) {
       thought.lookedFor = old
-      return select({ ...old, kind: 'search', x: robot.x - actor.facing * 70 * bodySize(actor), y: robot.y, look: true })
+      const k = bodySize(actor), solids = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, x: m.x, y: m.y }))]
+      let x = robot.x, y = robot.y
+      while (Math.abs(x - robot.x) < 70 * k) {
+        const next = groundAt(solids, x - actor.facing * 4, y, 6 * k)
+        if (!next) break
+        x -= actor.facing * 4; y = next.y
+      }
+      return select({ ...old, kind: 'search', x, y, look: true })
     }
     if (old?.look && !arrived && !stalled && thought.age < 1) return old
     // Getting to an objective with nobody there rules it out; the last-seen spot needs an actual look (below), since
@@ -252,6 +291,12 @@ export function chooseBotTactic(run: Run, robot: RobotState, memory: BotSighting
     if (old && (old.kind === 'vantage' || old.kind === 'ambush') && !stalled && age < 4) return old
     const committed = !!old && (!!old.objective || old.kind === 'vantage') && !arrived && !stalled
     const fresh = !committed && age < 1.2 && Math.hypot(robot.x - memory.x, robot.y - memory.y) > 70 && !visible(memory)
+    // A cold trail, and a place the player must still come to (a coin the exit cannot open without): rather than
+    // sweep places they have no reason to be, it keeps watch there, pacing about it, until it sees or hears them.
+    if (!fresh && age > GUARD_AFTER) {
+      const post = guardPost(run, robot, objectives, old, stalled)
+      if (post) return select(post)
+    }
     // An old trail: each place reached (or given up) hands over between the objectives and a sweep of the rest.
     if (age > 8 && old && (arrived || stalled) && thought.toggledFor !== old) { thought.sweep = !thought.sweep; thought.toggledFor = old }
     if (age <= 8) thought.sweep = false

@@ -3,7 +3,7 @@ import { NEUTRAL_INPUT, TUNING } from './model.ts'
 import type { JumpInput, Player, Platform } from './model.ts'
 import { bodyIntersects, moveBody, platformOutline } from './geometry.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
-import { canGrip } from './friction.ts'
+import { canGrip, surfaceFriction, TERRAIN_FRICTION } from './friction.ts'
 import { ropeGripLimit } from './climbables.ts'
 import { ballShape, boxShape } from './propGeometry.ts'
 import { forceFieldPlatforms } from './forceField.ts'
@@ -29,6 +29,8 @@ interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: 
   waterJumpHold?: number;
   shoreTarget?: { goal: Node; age: number };
   previousY?: number; pinned?: number; backoff?: { side: number; time: number; jump: boolean };
+  // The way it last pressed to move: -1, 0 or 1.
+  pressed?: number;
   entranceChecked: boolean;
   // The ladder it is on, the span of heights it has covered there, and since when.
   ladderStay?: { x: number; top: number; bottom: number; since: number };
@@ -58,6 +60,8 @@ interface Navigation { path: number[]; age: number; jumpCooldown: number; goal: 
   wadingEscape?: boolean;
   flight?: { to: Node; catchX?: number; reach?: number; side: number; water?: boolean };
   transition?: { key: string; x: number; y: number; progress: number; blocked: number; releasing: boolean; reversals: number; backing: boolean } }
+/** The steepest surface a corner's footing goes on, as an angle. */
+const CORNER_FOOTING_SLOPE = 35 * Math.PI / 180
 const MAX_BOT_NODES = 400
 const graphs = new WeakMap<Run, Map<number, Graph>>(), navigation = new WeakMap<RobotState, Navigation>()
 const distance = (a: Node, b: Node) => Math.hypot(a.x - b.x, a.y - b.y)
@@ -263,8 +267,10 @@ export function botNavigationGraph(run: Run, k = 1): Graph {
       if (!(vx - before[0] > 1e-7 && after[0] - vx > 1e-7)) continue
       const turn = Math.abs(Math.atan2(after[1] - vy, after[0] - vx) - Math.atan2(vy - before[1], vx - before[0]))
       if (Math.min(turn, Math.PI * 2 - turn) < .3) continue
+      // Footing it can take off from, too: the sides of a narrow V (Ascent I's notch by its bottom ledge) grip a body
+      // standing still but are too steep to walk to a takeoff on, and a route starting there jumped from the wrong side.
       for (const x of [vx - inset, vx + inset]) for (const surface of platformSurfaces(solid, x)) {
-        if (Math.abs(surface.y - vy) > 60 * k || surface.y > run.level.floor || !canGrip(surface.angle) || !clear(x, surface.y)
+        if (Math.abs(surface.y - vy) > 60 * k || surface.y > run.level.floor || Math.abs(surface.angle) > CORNER_FOOTING_SLOPE || !clear(x, surface.y)
           || nodes.some(n => !n.climb && Math.hypot(n.x - x, n.y - surface.y) < 60 * k)) continue
         add({ x, y: surface.y })
       }
@@ -460,6 +466,7 @@ export function botOwnRouteTree(run: Run, robot: RobotState) {
 
 export function botMovement(run: Run, robot: RobotState, dt: number, target?: Node & { inverted?: boolean; vx?: number; vy?: number }): JumpInput {
   const input = steer(run, robot, dt, target), state = navigation.get(robot), actor = robot.actor!
+  if (state) state.pressed = Math.abs(input.move) > .1 ? Math.sign(input.move) : 0
   // Pressing Up or Down on footing is trying too: a ladder or edge that will not take the body must count as stuck,
   // or the bot stands there pressing it for good.
   // Only within reach of a ladder's boarding (or over an edge to lower from) does pressing count: short of the
@@ -687,7 +694,11 @@ function steer(run: Run, robot: RobotState, dt: number, target?: Node & { invert
     }
     state.backoff = undefined; state.path = []; state.leg = undefined; state.age = 1
   }
-  if (state.trying && Math.abs(actor.x - state.previousX) < .05 && actor.grounded) state.stuck += dt; else state.stuck = 0
+  // Pressing one way and creeping the other, at a crawl, is stuck too: on a frictionless crest the feet cannot
+  // drive, and the slow slide back down never looked still. (Turning round at speed is not: it is quick about it.)
+  const moved = actor.x - state.previousX
+  const slipping = !!state.pressed && moved * state.pressed < .05 && Math.abs(actor.vx) < 20
+  if (state.trying && (Math.abs(moved) < .05 || slipping) && actor.grounded) state.stuck += dt; else state.stuck = 0
   state.previousX = actor.x
   for (const [node, time] of state.avoided) if (time <= dt) state.avoided.delete(node); else state.avoided.set(node, time - dt)
   if (state.stuck > 1.5 && state.path.length) {
@@ -743,16 +754,33 @@ function steer(run: Run, robot: RobotState, dt: number, target?: Node & { invert
     const room = Math.max(0, (lip.x - actor.x) * side - 12 * k)
     const available = Math.sqrt(Math.max(0, actor.vx * side) ** 2 + 2 * TUNING.acceleration * k * room)
     if (Math.abs(actor.y - lip.y) < 3 && required > available) {
+      // The run starts from a stop, so it backs up only over level footing that grips: stopped on a slope, or on
+      // frictionless footing, it could not get going again.
+      const solids = [...graph.solids, ...barriers]
+      const level = (point: Node) => {
+        if (!side) return false
+        for (let x = lip.x; (x - point.x) * side >= 0; x -= side * 4) {
+          const ground = groundAt(solids, x, lip.y, 6 * k)
+          if (!ground || Math.abs(ground.y - lip.y) > 2 || Math.abs(ground.angle) > .1
+            || surfaceFriction(ground.platform).grip < TERRAIN_FRICTION.grip) return false
+        }
+        return true
+      }
       const point = [100, 80, 60].map(back => ({ x: lip.x - side * back, y: lip.y, side }))
-        .find(point => walkClear(actor, point, [...graph.solids, ...barriers], k))
+        .find(point => walkClear(actor, point, solids, k) && level(point))
       if (point) state.runup = point
     }
   }
   if (state.runup) {
-    const point = state.runup
+    const point = state.runup, short = (actor.x - point.x) * point.side, backing = Math.max(0, -actor.vx * point.side)
     if (!actor.grounded || changedGoal) state.runup = undefined
-    else if ((actor.x - point.x) * point.side > 4) return { ...NEUTRAL_INPUT, move: -point.side }
-    else { state.runup = undefined; return { ...NEUTRAL_INPUT, move: point.side } }
+    // It turns for the run while it can still stop by the point: turning only on reaching it at a run carried it a
+    // body length past, off the end of the footing it had checked.
+    else if (short > 4 + backing ** 2 / (2 * TUNING.acceleration * k)) return { ...NEUTRAL_INPUT, move: -point.side }
+    else {
+      if (!backing) state.runup = undefined
+      return { ...NEUTRAL_INPUT, move: point.side }
+    }
   }
   while (state.path.length > 1 && state.flight?.catchX === undefined) {
     const node = graph.nodes[state.path[0]]

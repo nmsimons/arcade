@@ -312,7 +312,9 @@ side of each sharp bend in a ground outline's walkable top, where nothing stands
 already (not at the foot of a wall or under an overhang): the
 foot of a rise too steep to stand on is where a jump up it is taken, and a sample that
 falls on the rise itself (where the body does not stand clear) left none near enough to
-clear the corner, so a slope below such a rise looked like a pit (Slow is Smooth's start). On a rope, a waypoint on that rope is reached by the grip's height,
+clear the corner, so a slope below such a rise looked like a pit (Slow is Smooth's start). That footing goes only on
+surfaces of 35° or less: the sides of a narrow V grip a body standing still but are too steep to walk to a takeoff
+on, and a route starting there jumped from the wrong side (Ascent I's notch by its bottom ledge). On a rope, a waypoint on that rope is reached by the grip's height,
 wherever the rope swings, and the last handhold is never let go by holding Down
 unless a planned drop asks for it. A rope waypoint already stands below the grip
 it is caught by, so a jump to it does not count the arms' reach twice. A patrol

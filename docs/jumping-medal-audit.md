@@ -348,9 +348,17 @@ works from any take-off point between 360 and 390.
 Spire I's revision replaced the rope hanging from the spire top with a breakaway
 rope tied from a new left shelf to the spire top, and put a 9 second time bonus
 on that shelf. The old route began by jumping to the hanging rope's foot. The
-tied rope's lowest point is now about 357 units above the starting floor, and no
-full jump from it reaches the rope, so the old route is kept as superseded
-evidence and the level is pending an audit once the layout settles.
+tied rope's lowest point is now about 357 units above the starting floor, out of
+reach of a plain jump, so the rope is taken by a wall jump: a running jump from
+about x 760 braces on the spire's left face near the top of its rise and kicks
+back out to catch the rope by x 775. Its anchor breaks under the weight and the
+rope swings from the spire top, which the route climbs and crosses. From there
+it follows the old line, without the crawl: the ball goes down against the right
+gate, the spire gate's plate lets the player duck back under, the far-left plate
+sends the ball through onto the plate behind the gate, and the run back passes
+under it to the exit. That finishes with an A at **29.23** clock seconds (30.09
+active) against the unchanged **50 / 60 / 90** targets, without the 9 second
+bonus.
 
 Range, the new weapons-training course, has an explicit pending audit for its
 **30 / 60 / 120 / 240** targets.

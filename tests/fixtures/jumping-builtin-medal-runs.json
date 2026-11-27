@@ -134,10 +134,6 @@
       "reason": "The November 24, 2026 Rbot hunting revision changed the encounter on the upper slope; a fresh-start route that dodges the hunter's led shot has not yet been recorded against the 12 / 20 / 40 / 70 targets."
     },
     {
-      "level": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
-      "reason": "Revised in the studio on November 27, 2026 (a breakaway tied rope and a time bonus on a new shelf). No fresh-start route reaches the rope yet: from the starting floor a full jump falls short of its lowest point, about 357 units up. The 50 / 60 / 90 / 150 targets need a completed route on the settled layout."
-    },
-    {
       "level": "573f13c3-8419-4e97-95f4-06be7e3ab03f",
       "reason": "New gadget training course added to the Boot Camp wing (repulsor, tractor and EMP lessons, a wall plate held by a box). Its 30 / 60 / 120 / 240 targets have not yet been verified by a recorded fresh-start route."
     }
@@ -1401,6 +1397,175 @@
             "reach": false,
             "descend": false,
             "detach": false
+          }
+        }
+      ]
+    },
+    {
+      "level": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
+      "jumpModel": "tap-hold",
+      "elapsed": 29.233333333332315,
+      "activeTime": 30.0916666666656,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 49,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 96,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 24,
+          "input": {
+            "jump": true,
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 549,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 380,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 296,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 98,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 129,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "descend": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 180,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 116,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 136,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 32,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 73,
+          "input": {}
+        },
+        {
+          "frames": 187,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "descend": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 226,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 53,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 146,
+          "input": {}
+        },
+        {
+          "frames": 605,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1,
+            "climb": true
           }
         }
       ]
@@ -5746,154 +5911,6 @@
         }
       ],
       "reason": "Superseded by the November 24, 2026 Rbot hunting revision (docs/jumping-rbot-hunting.md): the hunter now leads its shot on this route's steady run along the upper slope and hits the recorded player at 7.2 s, so the open-loop trace no longer completes. Retained as earlier completion evidence."
-    },
-    {
-      "file": "spire1.jump-level.json",
-      "level": "98dcb3c9-1d7d-4b11-af4b-9c420e0ab15c",
-      "elapsed": 45.72499999999805,
-      "activeTime": 46.58333333333133,
-      "coins": 0,
-      "trace": [
-        {
-          "frames": 45,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "climb": true,
-            "jump": true,
-            "detach": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 55,
-          "input": {
-            "detach": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 615,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 482,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 60,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 320,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 122,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 129,
-          "input": {
-            "move": -1,
-            "crouch": true
-          }
-        },
-        {
-          "frames": 180,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 116,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 2757,
-          "input": {
-            "move": -1,
-            "crouch": true,
-            "detach": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 307,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true,
-            "jumpStrength": 1
-          }
-        },
-        {
-          "frames": 316,
-          "input": {
-            "move": 1,
-            "climb": true,
-            "detach": true
-          }
-        }
-      ],
-      "reason": "Superseded by the November 27, 2026 studio revision, which replaced the rope hanging from the spire top with a breakaway rope tied from a new left shelf to the spire top, and added a 9 s time bonus on that shelf. The old route started by jumping to the hanging rope's foot; the tied rope's lowest point is now about 357 units above the starting floor, so the trace never leaves the ground. Retained as earlier completion evidence."
     }
   ],
   "retiredRuns": [

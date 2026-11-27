@@ -1,5 +1,4 @@
 import test from 'node:test'
-import { readBuiltinLevel } from './helpers/jumping-builtin-levels.mjs'
 import assert from 'node:assert/strict'
 import {createPlayer,NEUTRAL_INPUT,STEP,TUNING} from '../src/games/jumping/model.ts'
 import {anticipatePush,playerContacts,updatePushingPose} from '../src/games/jumping/playerContacts.ts'
@@ -9,7 +8,6 @@ import {blankTrial} from '../src/games/jumping/level.ts'
 import {athletePose,presentedAthletePose} from '../src/games/jumping/athlete.ts'
 import {handGeometry} from '../src/games/jumping/androidHand.ts'
 import {parseLevel} from '../src/games/jumping/level.ts'
-import {readFileSync} from 'node:fs'
 
 test('grounded hand preparation uses closing speed and cannot reach through a nearer solid',()=>{
  for(const direction of [-1,1]){
@@ -142,23 +140,26 @@ test('an unloaded falling reach transfers its whole outgoing rig into a brief ba
 })
 
 test('an early reach toward a distant prop keeps each palm beside its wrist',()=>{
- // Running into a rolling ball starts anticipation about 200 units out. The
- // wrist stops at full reach; the palm used to follow the contact, up to 42
- // units past it on this route, drawn as a stretched rubber arm.
- const medals=JSON.parse(readFileSync(new URL('./fixtures/jumping-builtin-medal-runs.json',import.meta.url),'utf8'))
- const drain='38681eca-a164-4f9a-9113-c3ba119ed3ed',route=medals.runs.find(run=>run.level===drain).trace
- const run=createRun(parseLevel(readBuiltinLevel(drain)))
- let tick=0,frames=0,widest=0
- for(const {frames:count,input} of route)for(let i=0;i<count&&!run.finished;i++){
-  stepRun(run,{...NEUTRAL_INPUT,...input})
-  if(++tick%2||!run.player.pushing)continue
-  frames++
-  const pose=presentedAthletePose(run.player)
-  for(const arm of [pose.frontArm,pose.backArm]){
-   const palm=handGeometry(arm).palm
-   widest=Math.max(widest,Math.hypot(palm[0]-arm.end[0],palm[1]-arm.end[1]))
+ // Running into a rolling ball starts anticipation well out of arm's reach.
+ // The wrist stops at full reach; the palm used to follow the contact past it,
+ // drawn as a stretched rubber arm (42 units on Drain's old medal route, 4 to
+ // 4.3 here). Each case below fails without the carry limit.
+ for(const [kind,size,speed]of [['ball',68,400],['ball',100,200],['box',80,0]]){
+  const run=createRun(parseLevel({...blankTrial(),entrance:{x:200,y:920},props:[{kind,x:900,y:920,size}]}))
+  run.props[0].vx=-speed
+  let frames=0,widest=0
+  for(let tick=0;tick<360;tick++){
+   stepRun(run,{...NEUTRAL_INPUT,move:1})
+   if(tick%2||!run.player.pushing)continue
+   frames++
+   const pose=presentedAthletePose(run.player)
+   for(const arm of [pose.frontArm,pose.backArm]){
+    const palm=handGeometry(arm).palm
+    widest=Math.max(widest,Math.hypot(palm[0]-arm.end[0],palm[1]-arm.end[1]))
+   }
   }
+  const label=`${kind}/${size} closing at ${speed}`
+  assert.ok(frames>20,`${label}: the run pushes or prepares to (${frames} frames)`)
+  assert.ok(widest<3.6,`${label}: a push palm drawn ${widest.toFixed(2)} units from its wrist`)
  }
- assert.ok(frames>20,`the route pushes or prepares to (${frames} frames)`)
- assert.ok(widest<3.6,`a push palm drawn ${widest.toFixed(2)} units from its wrist`)
 })

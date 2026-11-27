@@ -137,17 +137,20 @@ test('goal creation clamps the complete door and indicator footprint in either o
 })
 
 test('edge receivers replace artificial stops and hold real cargo at the wall after release', async () => {
-  for (const [file, y] of [['Balls.jump-level.json', 920], ['Tower.jump-level.json', 2000]]) {
+  // Tower's receiver is a floor plate against the world wall; Balls' is a wall plate on the world wall's face.
+  for (const [file, y, onWall] of [['Balls.jump-level.json', 920, true], ['Tower.jump-level.json', 2000, false]]) {
     const level = parseLevel(JSON.parse(await readFile(new URL(`../public/levels/jumping/${file}`, import.meta.url), 'utf8')))
     assert.ok(!level.platforms.some(p => p.x === 0 && p.y + p.h === y), `${file} has no added boundary stop`)
-    const plate = level.triggers.find(t => t.x <= 15 && t.y === y)
+    const plate = onWall
+      ? level.triggers.find(t => t.facing === 'right' && t.x === 0 && t.y < y - 15 && t.y + t.w > y - 15)
+      : level.triggers.find(t => t.x <= 15 && t.y === y)
     assert.ok(plate, `${file} receiver covers the resting ball center beside the world wall`)
     const trial = blankTrial(); trial.entrance.x = 500; trial.goal.power = 'always'; trial.props = [{ kind: 'ball', x: 160, y: trial.floor, size: 30 }]
-    trial.triggers = [{ ...plate, y: trial.floor, targets: [] }]
+    trial.triggers = [{ ...plate, y: plate.y - y + trial.floor, targets: [] }]
     const run = createRun(parseLevel(trial)); stepRun(run, { ...NEUTRAL_INPUT, move: 1 }); run.props[0].vx = -500
     for (let frame = 0; frame < 10 / STEP; frame++) stepRun(run, NEUTRAL_INPUT)
     assert.ok(Math.abs(run.props[0].x - 15) < .1, `small ball rests at the wall: ${run.props[0].x}`)
-    assert.ok(propLoadsPlate(run.props[0], plate.x, trial.floor, plate.w))
+    if (!onWall) assert.ok(propLoadsPlate(run.props[0], plate.x, trial.floor, plate.w))
     assert.equal(run.triggers[0].active, true)
   }
 })

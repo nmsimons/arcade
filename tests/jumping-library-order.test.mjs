@@ -49,10 +49,11 @@ test('every built-in level appears once, with levels the campaign never reaches 
   assert.equal(listed.length, entries.length)
   assert.equal(new Set(listed).size, entries.length)
   for (const section of sections) for (const entry of section.entries) assert.ok(!isHubLevel(entry.level), `${entry.level.name} is a course`)
-  const outside = sections.at(-1)
-  assert.equal(outside.kind, 'outside')
+  // With every course in the campaign there is no outside section at all.
+  const outside = sections.filter(section => section.kind === 'outside')
+  assert.ok(outside.length <= 1 && (!outside.length || sections.at(-1) === outside[0]), 'any outside section comes last')
   const placed = new Set([...campaign.wings.flatMap(wing => wing.courses), ...Object.keys(campaign.chained), campaign.finalCourse])
-  for (const entry of outside.entries) assert.ok(!placed.has(entry.level.id), `${entry.level.name} is outside the campaign`)
+  for (const entry of outside[0]?.entries ?? []) assert.ok(!placed.has(entry.level.id), `${entry.level.name} is outside the campaign`)
 })
 
 test('without a campaign that fits, the library is one plain list of courses in the order given', () => {

@@ -334,6 +334,30 @@ Uninvited Company was tightened to 4 / 12 / 25; A Bigger Swing's existing
 1 / 5 / 15 remains attainable with its refund. Longer prop and coin routes were
 relaxed where their previous targets were below demonstrated completion times.
 
+## Drain, Spire I and Range (November 27, 2026)
+
+Drain's studio revision moved the gravity-lift toggle onto the wall at the far
+end of the rope shelf, which now runs to that wall, so the old route ran off a
+shelf end that is no longer there. Its new tap-hold route climbs the rope, holds
+the wall toggle for about half a second, walks back off the shelf's left end down
+to the top ramp, takes the ramps' coins as before, and finishes with an A at
+**31.69** clock seconds (42.55 active, all 60 coins) against the unchanged
+**35 / 50 / 75** targets. The jump from the lower slope to the top ramp's lip
+works from any take-off point between 360 and 390.
+
+Spire I's revision replaced the rope hanging from the spire top with a breakaway
+rope tied from a new left shelf to the spire top, and put a 9 second time bonus
+on that shelf. The old route began by jumping to the hanging rope's foot. The
+tied rope's lowest point is now about 357 units above the starting floor, and no
+full jump from it reaches the rope, so the old route is kept as superseded
+evidence and the level is pending an audit once the layout settles.
+
+Range, the new weapons-training course, has an explicit pending audit for its
+**30 / 60 / 120 / 240** targets.
+
+These routes were driven by scripted normal controls in the headless
+simulation; play at normal speed has not been checked.
+
 ## Full Tilt (November 9, 2026)
 
 [Full Tilt](../public/levels/jumping/fulltilt.jump-level.json) is a terrain hall
